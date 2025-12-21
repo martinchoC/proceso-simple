@@ -1,6 +1,4 @@
 <?php
-// Si la variable $ruta_assets no viene definida desde el archivo padre, asumimos raíz
-// (Esto reemplaza tu función asset() para trabajar solo con PHP nativo y rutas relativas)
 $ruta = $ruta_assets ?? ''; 
 
 require_once __DIR__ . '/../../config.php'; 
@@ -12,8 +10,6 @@ require_once __DIR__ . '/../../config.php';
     <title>Developsam | Multigestion</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
     
-    <script src="<?php echo $ruta; ?>assets/js/jquery.min.js"></script>
-
     <link rel="stylesheet" href="<?php echo $ruta; ?>assets/css/bootstrap.min.css" />
     
     <link rel="stylesheet" href="<?php echo $ruta; ?>assets/css/adminlte.min.css" />
@@ -28,6 +24,7 @@ require_once __DIR__ . '/../../config.php';
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
 
+    <script src="<?php echo $ruta; ?>assets/js/jquery.min.js"></script>
     <script src="<?php echo $ruta; ?>assets/js/jquery.dataTables.min.js"></script>
     <script src="<?php echo $ruta; ?>assets/js/dataTables.bootstrap5.min.js"></script>
     <script src="<?php echo $ruta; ?>assets/js/dataTables.buttons.min.js"></script>
@@ -37,6 +34,7 @@ require_once __DIR__ . '/../../config.php';
     <script src="<?php echo $ruta; ?>assets/js/vfs_fonts.js"></script>
 
     <style>
+       /* Ajuste para que el sidebar no corte textos largos */
        .sidebar-wrapper {
            width: auto !important;
            min-width: 250px;
@@ -62,7 +60,7 @@ require_once __DIR__ . '/../../config.php';
               </a>
             </li>
             <?php
-             // TU LÓGICA ORIGINAL DE MENÚ SUPERIOR
+             // MENÚ SUPERIOR
              $current_url_full = $_SERVER['REQUEST_URI'];
              
              if(isset($conexion)){
@@ -73,7 +71,7 @@ require_once __DIR__ . '/../../config.php';
                   $result = mysqli_query($conexion, $sql);
                   
                   while ($row = mysqli_fetch_array($result)) {
-                      // Usamos $ruta para armar el link correctamente desde cualquier nivel
+                      // $ruta para los enlaces del menú
                       $link = $ruta . $row['modulo_url'];
                       ?>
                       <li class="nav-item d-none d-md-block">
@@ -117,7 +115,7 @@ require_once __DIR__ . '/../../config.php';
             <nav class="mt-2">
               <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation" id="navigation">
                   <?php
-                  // TU LÓGICA ORIGINAL DE MENÚ LATERAL
+                  // MENÚ LATERAL
                   if(isset($conexion) && isset($modudo_idx)){
                       $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase FROM conf__paginas 
                       LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
@@ -126,7 +124,7 @@ require_once __DIR__ . '/../../config.php';
                       $res = mysqli_query($conexion, $sql);
                       
                       while ($row = mysqli_fetch_array($res)) {
-                          // Submenús
+                          // Lógica de Submenús
                           $submenu_sql = "SELECT conf__paginas.*, conf__iconos.icono_clase
                           FROM conf__paginas 
                           LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
@@ -137,7 +135,6 @@ require_once __DIR__ . '/../../config.php';
                           
                           $is_active = false;
                           
-                          // Lógica de activo (Misma que tenías)
                           if ($has_submenu) {
                               mysqli_data_seek($submenu_res, 0);
                               while ($submenu_row = mysqli_fetch_array($submenu_res)) {
@@ -153,7 +150,7 @@ require_once __DIR__ . '/../../config.php';
                               $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
                           }
 
-                          // Link principal (Usamos $ruta)
+                          // Link principal usando $ruta
                           $href_principal = $has_submenu ? '#' : $ruta . $row['url'];
                           ?>
                           
