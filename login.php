@@ -1,8 +1,7 @@
 <?php
 require_once 'config/db.php';
-//require_once 'core/plantilla.php';
 
-$error = ''; // Inicializar variable error
+$error = ''; 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario = mysqli_real_escape_string($conn, $_POST['usuario']);
@@ -39,9 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <title>Login - Gestión Multipyme</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <style>
+      body { font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  </style>
+
+  <link rel="stylesheet" href="assets/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/adminlte.min.css">
   
 </head>
 <body class="hold-transition login-page">
@@ -50,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="login-logo">
     <a href="#"><b>Gestión</b>Multipyme</a>
   </div>
+
   <div class="card">
     <div class="card-body login-card-body">
       <p class="login-box-msg">Inicia sesión para comenzar</p>
@@ -79,12 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="alert alert-danger mt-3 text-center"><?= htmlspecialchars($error) ?></div>
       <?php endif; ?>
     </div>
-    </div>
+  </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="assets/js/jquery.min.js"></script>
+<script src="assets/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/adminlte.min.js"></script>
 
 </body>
 </html>
