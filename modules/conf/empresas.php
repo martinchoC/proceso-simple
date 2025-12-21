@@ -4,7 +4,7 @@ $pageTitle = "Gestión de Empresas"; // Corregido título
 $currentPage = 'modulos';
 $modudo_idx = 1;
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
-
+$ruta_assets = "../../";
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
