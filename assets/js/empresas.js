@@ -16,7 +16,7 @@ $(document).ready(function () {
       { data: 'documento_numero' },
       { data: 'email' },
       {
-        data: 'estado_registro_id',
+        data: 'tabla_estado_registro_id',
         render: function(data) {
            return data == 1 ? '<span>Activo</span>' : '<span>Inactivo</span>';
         }
@@ -296,7 +296,7 @@ $(document).ready(function(){
             { data: 'documento_numero' },
             { data: 'domicilio' },            
             { data: 'localidad' },
-            { data: 'estado_registro_id' },
+            { data: 'tabla_estado_registro_id' },
             {
                 data: null,
                 orderable: false,
