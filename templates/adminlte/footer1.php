@@ -2,7 +2,7 @@
       
       <footer class="app-footer">
         <div class="float-end d-none d-sm-inline">Multigestión</div>
-        <strong>Copyright &copy; 2014-<?php echo date("Y");?> <a href="https://developsam.com" class="text-decoration-none">Developsam</a>.</strong>
+        <strong>Copyright &copy; 2014-<?php echo date("Y");?> Developsam.</strong>
         All rights reserved.
       </footer>
     </div>
