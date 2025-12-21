@@ -135,11 +135,23 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>
 
-<script src="assets/js/dataTables.buttons.min.js"></script>
-<script src="assets/js/jszip.min.js"></script>
-<script src="assets/js/pdfmake.min.js"></script>
-<script src="assets/js/vfs_fonts.js"></script>
-<script src="assets/js/buttons.html5.min.js"></script>
+<link rel="stylesheet" href="assets/css/buttons.dataTables.min.css">
+
+<script src="assets/js/jquery.min.js"></script>
+
+<script src="assets/js/bootstrap.bundle.min.js"></script>
+
+<script src="assets/js/datatables.min.js"></script>
+
+<script src="assets/js/dataTables.buttons.min.js"></script> 
+
+<script src="assets/js/jszip.min.js"></script>              
+
+<script src="assets/js/pdfmake.min.js"></script>            
+
+<script src="assets/js/vfs_fonts.js"></script>              
+
+<script src="assets/js/buttons.html5.min.js"></script>      
 
 <script src="assets/js/sweetalert2.all.min.js"></script>
 
