@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <div class="card">
     <div class="card-body login-card-body">
-      <p class="login-box-msg">Inicia sesión para comenzar...</p>
+      <p class="login-box-msg">Inicia sesión para comenzar</p>
 
       <form action="" method="post">
         <div class="input-group mb-3">
