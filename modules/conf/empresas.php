@@ -49,7 +49,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <table id="tablaempresas" class="table table-striped table-bordered">
                                         <thead>
                                             <tr>
-                                                <th>ID</th>
+                                                <th>ID..</th>
                                                 <th>Razon Social</th>
                                                 <th>Tipo Doc.</th>
                                                 <th>Nro.Doc</th>
