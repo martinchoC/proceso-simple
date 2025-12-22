@@ -241,6 +241,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 }
 </style>
 
+<!-- ... resto del archivo HTML igual ... -->
+
 <script>
     
 $(document).ready(function(){
@@ -282,7 +284,6 @@ $(document).ready(function(){
             $('#icono_preview').html('<small>Seleccione un icono para ver la vista previa</small>');
         }
     }
-
 
     // Función para mostrar vista previa del color
     function actualizarVistaPreviaColor() {
@@ -400,25 +401,32 @@ $(document).ready(function(){
             }
             
             console.log('Solicitando estados para tabla:', tabla_id);
-            $.get('paginas_funciones_ajax.php', {accion: 'obtener_estados_por_tabla', tabla_id: tabla_id}, function(res){
-                console.log('Estados recibidos:', res);
-                if(res && res.length > 0) {
-                    estadosOptions[tabla_id] = res;
-                    $('#estado_registro_origen_id, #estado_registro_destino_id').empty().append('<option value="">Seleccionar estado</option>');
-                    $.each(res, function(i, estado) {
-                        $('#estado_registro_origen_id, #estado_registro_destino_id').append($('<option>', {
-                            value: estado.estado_registro_id,
-                            text: estado.estado_registro || 'Estado ' + estado.estado_registro_id
-                        }));
-                    });
-                    resolve(res);
-                } else {
-                    $('#estado_registro_origen_id, #estado_registro_destino_id').empty().append('<option value="">No hay estados para esta tabla</option>');
-                    resolve([]);
+            $.ajax({
+                url: 'paginas_funciones_ajax.php',
+                type: 'GET',
+                data: {accion: 'obtener_estados_por_tabla', tabla_id: tabla_id},
+                dataType: 'json',
+                success: function(res) {
+                    console.log('Estados recibidos:', res);
+                    if(res && res.length > 0) {
+                        estadosOptions[tabla_id] = res;
+                        $('#estado_registro_origen_id, #estado_registro_destino_id').empty().append('<option value="">Seleccionar estado</option>');
+                        $.each(res, function(i, estado) {
+                            $('#estado_registro_origen_id, #estado_registro_destino_id').append($('<option>', {
+                                value: estado.tabla_estado_registro_id,
+                                text: estado.estado_registro || 'Estado ' + estado.tabla_estado_registro_id
+                            }));
+                        });
+                        resolve(res);
+                    } else {
+                        $('#estado_registro_origen_id, #estado_registro_destino_id').empty().append('<option value="">No hay estados para esta tabla</option>');
+                        resolve([]);
+                    }
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('Error al obtener estados:', textStatus, errorThrown);
+                    reject(errorThrown);
                 }
-            }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
-                console.error('Error al obtener estados:', textStatus, errorThrown);
-                reject(errorThrown);
             });
         });
     }
@@ -630,69 +638,94 @@ $(document).ready(function(){
         });
     });
 
-    // EDITAR REGISTRO
-    $('#tablaPaginasFunciones tbody').on('click', '.btnEditar', async function(){
-        var data = tabla.row($(this).parents('tr')).data();
+   // EDITAR REGISTRO
+$('#tablaPaginasFunciones tbody').on('click', '.btnEditar', async function(){
+    var data = tabla.row($(this).parents('tr')).data();
+    
+    try {
+        const response = await $.ajax({
+            url: 'paginas_funciones_ajax.php',
+            type: 'GET',
+            data: {accion: 'obtener', pagina_funcion_id: data.pagina_funcion_id},
+            dataType: 'json'
+        });
         
-        try {
-            const res = await $.get('paginas_funciones_ajax.php', {accion: 'obtener', pagina_funcion_id: data.pagina_funcion_id});
-            
-            if(res) {
-                // Llenar campos básicos
-                $('#pagina_funcion_id').val(res.pagina_funcion_id);
-                $('#pagina_id').val(res.pagina_id);
-                $('#nombre_funcion').val(res.nombre_funcion);
-                $('#accion_js').val(res.accion_js || '');
-                $('#descripcion').val(res.descripcion || '');
-                $('#icono_id').val(res.icono_id || '');
-                $('#color_id').val(res.color_id || '');
-                
-                $('#orden').val(res.orden || 0);
-                
-                // Actualizar vistas previas
-                actualizarVistaPreviaIcono();
-                actualizarVistaPreviaColor();
-                
-                let tabla_id = res.tabla_id;
-                
-                // Si no hay tabla_id, obtenerla de la página
-                if (!tabla_id) {
-                    const tablaRes = await $.get('paginas_funciones_ajax.php', {accion: 'obtener_tabla_por_pagina', pagina_id: res.pagina_id});
-                    tabla_id = tablaRes.tabla_id;
-                }
-                
-                // Establecer tabla_id y cargar estados
-                if (tabla_id) {
-                    $('#tabla_id').val(tabla_id);
-                    await cargarEstadosPorTabla(tabla_id);
-                    
-                    // Establecer valores de estados después de cargarlos
-                    setTimeout(() => {
-                        $('#estado_registro_origen_id').val(res.estado_registro_origen_id);
-                        $('#estado_registro_destino_id').val(res.estado_registro_destino_id);
-                    }, 100);
-                } else {
-                    $('#tabla_id').val('');
-                    $('#estado_registro_origen_id, #estado_registro_destino_id').empty().append('<option value="">Seleccionar estado</option>');
-                }
-                
-                $('#modalLabel').text('Editar Función de Página');
-                var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
-                modal.show();
-            }
-        } catch (error) {
-            console.error('Error al cargar datos:', error);
-            Swal.fire({
-                icon: "error",
-                title: "Error",
-                text: "Error al cargar los datos para editar"
-            });
+        console.log('Datos recibidos para editar:', response);
+        
+        // Verificar si hay error en la respuesta
+        if (response.error) {
+            throw new Error(response.error);
         }
-    });
+        
+        if(response) {
+            // Llenar campos básicos
+            $('#pagina_funcion_id').val(response.pagina_funcion_id);
+            $('#pagina_id').val(response.pagina_id);
+            $('#nombre_funcion').val(response.nombre_funcion);
+            $('#accion_js').val(response.accion_js || '');
+            $('#descripcion').val(response.descripcion || '');
+            $('#icono_id').val(response.icono_id || '');
+            $('#color_id').val(response.color_id || '');
+            
+            $('#orden').val(response.orden || 0);
+            
+            // Actualizar vistas previas
+            actualizarVistaPreviaIcono();
+            actualizarVistaPreviaColor();
+            
+            let tabla_id = response.tabla_id;
+            
+            // Si no hay tabla_id, obtenerla de la página
+            if (!tabla_id) {
+                try {
+                    const tablaRes = await $.ajax({
+                        url: 'paginas_funciones_ajax.php',
+                        type: 'GET',
+                        data: {accion: 'obtener_tabla_por_pagina', pagina_id: response.pagina_id},
+                        dataType: 'json'
+                    });
+                    tabla_id = tablaRes.tabla_id;
+                } catch (error) {
+                    console.log('No se pudo obtener tabla:', error);
+                }
+            }
+            
+            // Establecer tabla_id y cargar estados
+            if (tabla_id) {
+                $('#tabla_id').val(tabla_id);
+                await cargarEstadosPorTabla(tabla_id);
+                
+                // Establecer valores de estados después de cargarlos
+                setTimeout(() => {
+                    console.log('Estableciendo estados:', {
+                        origen: response.tabla_estado_registro_origen_id,
+                        destino: response.tabla_estado_registro_destino_id
+                    });
+                    $('#estado_registro_origen_id').val(response.tabla_estado_registro_origen_id);
+                    $('#estado_registro_destino_id').val(response.tabla_estado_registro_destino_id);
+                }, 300);
+            } else {
+                $('#tabla_id').val('');
+                $('#estado_registro_origen_id, #estado_registro_destino_id').empty().append('<option value="">Seleccionar estado</option>');
+            }
+            
+            $('#modalLabel').text('Editar Función de Página');
+            var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
+            modal.show();
+        }
+    } catch (error) {
+        console.error('Error al cargar datos:', error);
+        Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "Error al cargar los datos para editar: " + error.message
+        });
+    }
+});
 
     $('#btnGuardar').click(function(){
         var form = document.getElementById('formPaginaFuncion');
-        
+    
         if (!form.checkValidity()) {
             form.classList.add('was-validated');
             return false;
@@ -710,11 +743,12 @@ $(document).ready(function(){
             nombre_funcion: $('#nombre_funcion').val(),
             accion_js: $('#accion_js').val() || null,
             descripcion: $('#descripcion').val(),
-            estado_registro_origen_id: $('#estado_registro_origen_id').val(),
-            estado_registro_destino_id: $('#estado_registro_destino_id').val(),
-            
+            tabla_estado_registro_origen_id: $('#estado_registro_origen_id').val(),
+            tabla_estado_registro_destino_id: $('#estado_registro_destino_id').val(),
             orden: $('#orden').val() || 0
         };
+
+        console.log('Enviando datos:', formData); // Para depuración
 
         $.ajax({
             url: 'paginas_funciones_ajax.php',
@@ -722,6 +756,7 @@ $(document).ready(function(){
             data: formData,
             dataType: 'json',
             success: function(res) {
+                console.log('Respuesta recibida:', res); // Para depuración
                 if(res.resultado) {
                     tabla.ajax.reload(null, false);
                     
@@ -746,11 +781,12 @@ $(document).ready(function(){
                     });
                 }
             },
-            error: function() {
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('Error en la solicitud:', textStatus, errorThrown);
                 Swal.fire({
                     icon: "error",
-                    title: "Error",
-                    text: "Error de conexión con el servidor"
+                    title: "Error de conexión",
+                    text: "Error de conexión con el servidor: " + errorThrown
                 });
             }
         });

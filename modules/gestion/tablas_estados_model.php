@@ -7,7 +7,7 @@ function obtenerTablasEstadosRegistros($conexion) {
             LEFT JOIN conf__tablas t ON ter.tabla_id = t.tabla_id
             LEFT JOIN conf__colores c ON ter.color_id = c.color_id
             WHERE t.modulo_id=2
-            ORDER BY t.tabla_nombre, ter.valor_estandar";
+            ORDER BY t.tabla_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -29,7 +29,7 @@ function obtenerTablas($conexion) {
 function obtenerColores($conexion) {
     $sql = "SELECT color_id, nombre_color, color_clase, bg_clase, text_clase, descripcion
             FROM conf__colores 
-            WHERE estado_registro_id = 1 
+            WHERE tabla_estado_registro_id = 1 
             ORDER BY nombre_color";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -84,7 +84,7 @@ function editarTablaEstadoRegistro($conexion, $id, $data) {
     // Verificar si ya existe el estado para esta tabla en otro registro
     $sql_check = "SELECT COUNT(*) as count FROM conf__tablas_estados_registros 
                   WHERE tabla_id = $tabla_id AND estado_registro = '$estado_registro'
-                  AND estado_registro_id != $id";
+                  AND tabla_estado_registro_id != $id";
     $res_check = mysqli_query($conexion, $sql_check);
     $row = mysqli_fetch_assoc($res_check);
     
@@ -99,7 +99,7 @@ function editarTablaEstadoRegistro($conexion, $id, $data) {
             valor_estandar = $valor_estandar,
             color_id = $color_id,
             orden = $orden
-            WHERE estado_registro_id = $id";
+            WHERE tabla_estado_registro_id = $id";
 
     return mysqli_query($conexion, $sql);
 }
@@ -107,13 +107,13 @@ function editarTablaEstadoRegistro($conexion, $id, $data) {
 function eliminarTablaEstadoRegistro($conexion, $id) {
     $id = intval($id);
     
-    $sql = "DELETE FROM conf__tablas_estados_registros WHERE estado_registro_id = $id";
+    $sql = "DELETE FROM conf__tablas_estados_registros WHERE tabla_estado_registro_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
 function obtenerTablaEstadoRegistroPorId($conexion, $id) {
     $id = intval($id);
-    $sql = "SELECT * FROM conf__tablas_estados_registros WHERE estado_registro_id = $id";
+    $sql = "SELECT * FROM conf__tablas_estados_registros WHERE tabla_estado_registro_id = $id";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);
 }

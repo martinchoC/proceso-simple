@@ -18,10 +18,10 @@ function agregarIcono($conexion, $data) {
     
     $icono_nombre = mysqli_real_escape_string($conexion, $data['icono_nombre']);
     $icono_clase = mysqli_real_escape_string($conexion, $data['icono_clase']);
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
-    $sql = "INSERT INTO conf__iconos (icono_nombre, icono_clase, estado_registro_id) 
-            VALUES ('$icono_nombre', '$icono_clase', $estado_registro_id)";
+    $sql = "INSERT INTO conf__iconos (icono_nombre, icono_clase, tabla_estado_registro_id) 
+            VALUES ('$icono_nombre', '$icono_clase', $tabla_estado_registro_id)";
     
     return mysqli_query($conexion, $sql);
 }
@@ -34,12 +34,12 @@ function editarIcono($conexion, $id, $data) {
     $id = intval($id);
     $icono_nombre = mysqli_real_escape_string($conexion, $data['icono_nombre']);
     $icono_clase = mysqli_real_escape_string($conexion, $data['icono_clase']);
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
     $sql = "UPDATE conf__iconos SET
             icono_nombre = '$icono_nombre',
             icono_clase = '$icono_clase',
-            estado_registro_id = $estado_registro_id
+            tabla_estado_registro_id = $tabla_estado_registro_id
             WHERE icono_id = $id";
 
     return mysqli_query($conexion, $sql);
@@ -49,7 +49,7 @@ function cambiarEstadoIcono($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE conf__iconos SET estado_registro_id = $nuevo_estado WHERE icono_id = $id";
+    $sql = "UPDATE conf__iconos SET tabla_estado_registro_id = $nuevo_estado WHERE icono_id = $id";
     return mysqli_query($conexion, $sql);
 }
 

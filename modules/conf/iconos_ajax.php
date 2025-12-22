@@ -17,7 +17,7 @@ switch ($accion) {
         $data = [
             'icono_nombre' => $_GET['icono_nombre'] ?? '',
             'icono_clase' => $_GET['icono_clase'] ?? '',
-            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['icono_nombre']) || empty($data['icono_clase'])) {
@@ -34,7 +34,7 @@ switch ($accion) {
         $data = [
             'icono_nombre' => $_GET['icono_nombre'] ?? '',
             'icono_clase' => $_GET['icono_clase'] ?? '',
-            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['icono_nombre']) || empty($data['icono_clase'])) {

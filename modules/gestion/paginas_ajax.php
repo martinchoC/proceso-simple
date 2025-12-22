@@ -43,7 +43,7 @@ switch ($accion) {
             'icono_id' => $_GET['icono_id'] ?? '',
             'padre_id' => $_GET['padre_id'] ?? null, // Puede ser null
             'modulo_id' => $_GET['modulo_id'] ?? null,
-            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         // Validación solo para campos obligatorios
         if (empty($data['pagina']) || empty($data['modulo_id'])) {
@@ -65,7 +65,7 @@ switch ($accion) {
             'icono_id' => $_GET['icono_id'] ?? 'default',
             'modulo_id' => $_GET['modulo_id'] ?? null,
             'padre_id' => $_GET['padre_id'] ?? null, // Puede ser null
-            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         $resultado = editarpagina($conexion, $id, $data);
         echo json_encode(['resultado' => $resultado]);

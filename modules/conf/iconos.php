@@ -77,8 +77,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
                 <div class="col-md-12">
                     <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="estado_registro_id" name="estado_registro_id" value="1" checked>
-                        <label class="form-check-label" for="estado_registro_id">Icono activo</label>
+                        <input class="form-check-input" type="checkbox" id="tabla_estado_registro_id" name="tabla_estado_registro_id" value="1" checked>
+                        <label class="form-check-label" for="tabla_estado_registro_id">Icono activo</label>
                     </div>
                 </div>
                 <div class="col-md-12">
@@ -160,7 +160,7 @@ $(document).ready(function(){
             { data: 'icono_nombre' },
             { data: 'icono_clase' },
             {
-                data: 'estado_registro_id',
+                data: 'tabla_estado_registro_id',
                 render: function(data) {
                     return data == 1 ? 
                         '<span class="badge bg-success">Activo</span>' : 
@@ -181,7 +181,7 @@ $(document).ready(function(){
                 searchable: false,
                 className: "text-center",
                 render: function(data){
-                    var botonEditar = data.estado_registro_id == 1 ? 
+                    var botonEditar = data.tabla_estado_registro_id == 1 ? 
                         `<button class="btn btn-sm btn-primary btnEditar me-1" title="Editar">
                             <i class="fa fa-pencil-alt"></i>
                          </button>` : 
@@ -189,7 +189,7 @@ $(document).ready(function(){
                             <i class="fa fa-pencil-alt"></i>
                          </button>`;
                     
-                    var botonEstado = data.estado_registro_id == 1 ? 
+                    var botonEstado = data.tabla_estado_registro_id == 1 ? 
                         `<button class="btn btn-sm btn-warning btnToggleEstado" title="Desactivar">
                             <i class="fa fa-times"></i>
                          </button>` : 
@@ -206,7 +206,7 @@ $(document).ready(function(){
     $('#btnNuevo').click(function(){
         $('#formIcono')[0].reset();
         $('#icono_id').val('');
-        $('#estado_registro_id').prop('checked', true);
+        $('#tabla_estado_registro_id').prop('checked', true);
         $('#iconoPreview').removeClass();
         $('#nombrePreview').text('');
         $('#modalLabel').text('Nuevo Icono');
@@ -217,7 +217,7 @@ $(document).ready(function(){
     // Toggle estado
     $('#tablaIconos tbody').on('click', '.btnToggleEstado', function(){
         var data = tabla.row($(this).parents('tr')).data();
-        var nuevoEstado = data.estado_registro_id == 1 ? 0 : 1;
+        var nuevoEstado = data.tabla_estado_registro_id == 1 ? 0 : 1;
         var accionTexto = nuevoEstado == 1 ? 'activar' : 'desactivar';
         
         Swal.fire({
@@ -260,7 +260,7 @@ $(document).ready(function(){
     $('#tablaIconos tbody').on('click', '.btnEditar', function(){
         var data = tabla.row($(this).parents('tr')).data();
         // Solo permitir editar si está activo
-        if (data.estado_registro_id != 1) {
+        if (data.tabla_estado_registro_id != 1) {
             Swal.fire({
                 icon: "warning",
                 title: "Icono inactivo",
@@ -276,7 +276,7 @@ $(document).ready(function(){
                 $('#icono_id').val(res.icono_id);
                 $('#icono_nombre').val(res.icono_nombre);
                 $('#icono_clase').val(res.icono_clase);
-                $('#estado_registro_id').prop('checked', res.estado_registro_id == 1);
+                $('#tabla_estado_registro_id').prop('checked', res.tabla_estado_registro_id == 1);
                 $('#iconoPreview').removeClass().addClass(res.icono_clase);
                 $('#nombrePreview').text(res.icono_clase);
                 
@@ -304,7 +304,7 @@ $(document).ready(function(){
             icono_id: id,
             icono_nombre: $('#icono_nombre').val(),
             icono_clase: $('#icono_clase').val(),
-            estado_registro_id: $('#estado_registro_id').is(':checked') ? 1 : 0
+            tabla_estado_registro_id: $('#tabla_estado_registro_id').is(':checked') ? 1 : 0
         };
 
         $.ajax({

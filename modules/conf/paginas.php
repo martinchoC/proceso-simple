@@ -359,7 +359,7 @@ $(document).ready(function(){
             { data: 'padre_nombre' },
             { data: 'tabla_nombre' },            
             { data: 'orden' },            
-            { data: 'estado_registro_id' },
+            { data: 'tabla_estado_registro_id' },
             {
                 data: null,
                 orderable: false,
@@ -400,7 +400,7 @@ $(document).ready(function(){
                 $('#modulo_id').val(res.modulo_id);                
                 $('#icono_id').val(res.icono_id);                
                 $('#padre_id').val(res.padre_id);                
-                $('#estado_registro_id').val(res.estado_registro_id);
+                $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
 
                 // Cargar selects con valores actuales
                 cargarTablas(res.tabla_id);
@@ -468,7 +468,7 @@ $(document).ready(function(){
         icono_id: $('#icono_id').val(),
         padre_id: $('#padre_id').val() || null, // Envía null si está vacío
         modulo_id: $('#modulo_id').val(),
-        estado_registro_id: $('#estado_registro_id').val() || 1
+        tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1
     };
 
     $.ajax({

@@ -3,14 +3,14 @@ require_once "conexion.php";
 
 function obtenerPaginasFunciones($conexion) {
     $sql = "SELECT pf.*, p.pagina, t.tabla_nombre, 
-                   eo.estado_registro as estado_origen, ed.estado_registro as estado_destino,
+                   eo.tabla_estado_registro as estado_origen, ed.tabla_estado_registro as estado_destino,
                    i.icono_nombre, i.icono_clase,
                    c.nombre_color, c.color_clase, c.bg_clase, c.text_clase
             FROM conf__paginas_funciones pf
             LEFT JOIN conf__paginas p ON pf.pagina_id = p.pagina_id
             LEFT JOIN conf__tablas t ON pf.tabla_id = t.tabla_id
-            LEFT JOIN conf__tablas_estados_registros eo ON pf.estado_registro_origen_id = eo.estado_registro_id
-            LEFT JOIN conf__tablas_estados_registros ed ON pf.estado_registro_destino_id = ed.estado_registro_id
+            LEFT JOIN conf__tablas_estados_registros eo ON pf.tabla_estado_registro_origen_id = eo.tabla_estado_registro_id
+            LEFT JOIN conf__tablas_estados_registros ed ON pf.tabla_estado_registro_destino_id = ed.tabla_estado_registro_id
             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
             LEFT JOIN conf__colores c ON pf.color_id = c.color_id
             WHERE p.modulo_id=2
@@ -33,11 +33,10 @@ function obtenerPaginas($conexion) {
     return $data;
 }
 
-// Función para obtener todos los iconos disponibles
 function obtenerIconos($conexion) {
     $sql = "SELECT icono_id, icono_nombre, icono_clase 
             FROM conf__iconos 
-            WHERE estado_registro_id = 1 
+            WHERE tabla_estado_registro_id = 1 
             ORDER BY icono_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -47,11 +46,10 @@ function obtenerIconos($conexion) {
     return $data;
 }
 
-// Función para obtener todos los colores disponibles
 function obtenerColores($conexion) {
     $sql = "SELECT color_id, nombre_color, color_clase, bg_clase, text_clase 
             FROM conf__colores 
-            WHERE estado_registro_id = 1 
+            WHERE tabla_estado_registro_id = 1 
             ORDER BY nombre_color";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -61,7 +59,6 @@ function obtenerColores($conexion) {
     return $data;
 }
 
-// Añadir esta función para obtener la tabla de una página
 function obtenerTablaPorPagina($conexion, $pagina_id) {
     $pagina_id = intval($pagina_id);
     $sql = "SELECT tabla_id FROM conf__paginas WHERE modulo_id=2 AND pagina_id = $pagina_id";
@@ -82,7 +79,7 @@ function obtenerTablas($conexion) {
 
 function obtenerEstadosPorTabla($conexion, $tabla_id) {
     $tabla_id = intval($tabla_id);
-    $sql = "SELECT er.estado_registro_id, er.estado_registro 
+    $sql = "SELECT er.tabla_estado_registro_id, er.estado_registro 
             FROM conf__tablas_estados_registros er
             WHERE er.tabla_id = $tabla_id
             ORDER BY er.orden, er.estado_registro";
@@ -106,14 +103,16 @@ function agregarPaginaFuncion($conexion, $data) {
     $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
     $accion_js = $data['accion_js'] ? "'" . mysqli_real_escape_string($conexion, $data['accion_js']) . "'" : 'NULL';
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion'] ?? '');
-    $estado_origen_id = intval($data['estado_registro_origen_id']);
-    $estado_destino_id = intval($data['estado_registro_destino_id']);
+    $estado_origen_id = intval($data['tabla_estado_registro_origen_id']);
+    $estado_destino_id = intval($data['tabla_estado_registro_destino_id']);
     
     $orden = intval($data['orden'] ?? 0);
 
     $sql = "INSERT INTO conf__paginas_funciones 
-            (pagina_id, tabla_id, icono_id, color_id, nombre_funcion, accion_js, descripcion, estado_registro_origen_id, estado_registro_destino_id, orden) 
-            VALUES ($pagina_id, $tabla_id, $icono_id, $color_id, '$nombre_funcion', $accion_js, '$descripcion', $estado_origen_id, $estado_destino_id, $orden)";
+            (pagina_id, tabla_id, icono_id, color_id, nombre_funcion, accion_js, descripcion, 
+             tabla_estado_registro_origen_id, tabla_estado_registro_destino_id, orden) 
+            VALUES ($pagina_id, $tabla_id, $icono_id, $color_id, '$nombre_funcion', $accion_js, 
+                    '$descripcion', $estado_origen_id, $estado_destino_id, $orden)";
     
     return mysqli_query($conexion, $sql);
 }
@@ -131,8 +130,8 @@ function editarPaginaFuncion($conexion, $id, $data) {
     $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
     $accion_js = $data['accion_js'] ? "'" . mysqli_real_escape_string($conexion, $data['accion_js']) . "'" : 'NULL';
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion'] ?? '');
-    $estado_origen_id = intval($data['estado_registro_origen_id']);
-    $estado_destino_id = intval($data['estado_registro_destino_id']);
+    $estado_origen_id = intval($data['tabla_estado_registro_origen_id']);
+    $estado_destino_id = intval($data['tabla_estado_registro_destino_id']);
     
     $orden = intval($data['orden'] ?? 0);
 
@@ -144,9 +143,8 @@ function editarPaginaFuncion($conexion, $id, $data) {
             nombre_funcion = '$nombre_funcion',
             accion_js = $accion_js,
             descripcion = '$descripcion',
-            estado_registro_origen_id = $estado_origen_id,
-            estado_registro_destino_id = $estado_destino_id,
-            
+            tabla_estado_registro_origen_id = $estado_origen_id,
+            tabla_estado_registro_destino_id = $estado_destino_id,
             orden = $orden
             WHERE pagina_funcion_id = $id";
 
@@ -164,6 +162,13 @@ function obtenerPaginaFuncionPorId($conexion, $id) {
     $id = intval($id);
     $sql = "SELECT * FROM conf__paginas_funciones WHERE pagina_funcion_id = $id";
     $res = mysqli_query($conexion, $sql);
+    
+    // Verificar si hay error en la consulta
+    if (!$res) {
+        error_log("Error en consulta: " . mysqli_error($conexion));
+        return null;
+    }
+    
     return mysqli_fetch_assoc($res);
 }
 ?>

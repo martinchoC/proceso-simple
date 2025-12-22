@@ -1,7 +1,7 @@
 <?php
-require_once 'config/db.php';
 
-$error = ''; 
+require_once 'config/db.php';
+//require_once 'core/plantilla.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario = mysqli_real_escape_string($conn, $_POST['usuario']);
@@ -29,6 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Usuario no encontrado";
     }
 }
+// Incluir la vista de login usando plantilla
+//cargar_plantilla('app/views/login_view.php');
 ?>
 
 <!DOCTYPE html>
@@ -38,13 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <title>Login - Gestión Multipyme</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <style>
-      body { font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-  </style>
-
-  <link rel="stylesheet" href="assets/css/all.min.css">
-  <link rel="stylesheet" href="assets/css/adminlte.min.css">
+  <!-- CSS AdminLTE -->
   
+  <link rel="stylesheet" href="templates/adminlte4/css/adminlte.min.css" />
 </head>
 <body class="hold-transition login-page">
 
@@ -52,14 +50,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="login-logo">
     <a href="#"><b>Gestión</b>Multipyme</a>
   </div>
+  <!-- /.login-logo -->
 
   <div class="card">
     <div class="card-body login-card-body">
-      <p class="login-box-msg">Inicia sesión para comenzar...</p>
+      <p class="login-box-msg">Inicia sesión para comenzar</p>
 
       <form action="" method="post">
         <div class="input-group mb-3">
-          <input type="text" name="usuario" class="form-control" placeholder="Usuario" value="<?php echo $_POST['usuario'] ?? ''; ?>" required />
+          <input type="text" name="usuario" class="form-control" placeholder="Usuario" value="<?php echo $_POST['usuario'];?>" required />
           <div class="input-group-append">
             <div class="input-group-text"><span class="fas fa-user"></span></div>
           </div>
@@ -78,16 +77,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
       </form>
 
-      <?php if (!empty($error)): ?>
-        <div class="alert alert-danger mt-3 text-center"><?= htmlspecialchars($error) ?></div>
+      <?php if ($error): ?>
+        <div class="alert alert-danger mt-3"><?= htmlspecialchars($error) ?></div>
       <?php endif; ?>
     </div>
+    <!-- /.login-card-body -->
   </div>
 </div>
 
-<script src="assets/js/jquery.min.js"></script>
-<script src="assets/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/adminlte.min.js"></script>
+<!-- JS AdminLTE -->
+<script src="templates/adminlte4/assets/plugins/jquery/jquery.min.js"></script>
+<script src="templates/adminlte4/assets/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="templates/adminlte4/assets/dist/js/adminlte.min.js"></script>
 
 </body>
 </html>

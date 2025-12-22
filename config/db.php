@@ -1,8 +1,8 @@
 <?php
 $host = 'localhost';
-$user = 'u368960646_gestion';
-$pass = 'Coco3948#';
-$dbname = 'u368960646_gestion';
+$user = 'root';
+$pass = '';
+$dbname = 'gestion_multipyme';
 
 $conexion  = mysqli_connect($host, $user, $pass, $dbname);
 
