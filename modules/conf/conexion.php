@@ -1,10 +1,10 @@
 <?php
-$host = 'localhost';
-$user = 'u368960646_gestion';
-$pass = 'Coco3948#';
-$dbname = 'u368960646_gestion';
+$servidor = "localhost";
+$usuario  = "root";
+$clave    = "";
+$base     = "gestion_multipyme";
 
-$conexion  = mysqli_connect($host, $user, $pass, $dbname);
+$conexion = mysqli_connect($servidor, $usuario, $clave, $base);
 if (!$conexion) {
     die("Error de conexión: " . mysqli_connect_error());
 }
