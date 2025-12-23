@@ -78,18 +78,8 @@ function obtenerEstadosPorTipo($conexion, $tipo_id) {
     return $data;
 }
 
-function obtenerEstadosDisponibles($conexion, $tipo_id = 0) {
-    $tipo_id = intval($tipo_id);
-    
-    $sql = "SELECT er.* 
-            FROM conf__estados_registros er
-            WHERE er.estado_registro_id NOT IN (
-                SELECT estado_registro_id 
-                FROM conf__tablas_tipos_estados 
-                WHERE tabla_tipo_id = $tipo_id 
-                AND tabla_estado_registro_id = 1
-            )
-            ORDER BY er.estado_registro ASC";
+function obtenerTodosEstados($conexion) {
+    $sql = "SELECT * FROM conf__estados_registros ORDER BY estado_registro ASC";
     
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -97,6 +87,21 @@ function obtenerEstadosDisponibles($conexion, $tipo_id = 0) {
         $data[] = $fila;
     }
     return $data;
+}
+
+function estadoExisteParaTipo($conexion, $tipo_id, $estado_id) {
+    $tipo_id = intval($tipo_id);
+    $estado_id = intval($estado_id);
+    
+    $sql = "SELECT COUNT(*) as total 
+            FROM conf__tablas_tipos_estados 
+            WHERE tabla_tipo_id = $tipo_id 
+            AND estado_registro_id = $estado_id
+            AND tabla_estado_registro_id = 1";
+    
+    $res = mysqli_query($conexion, $sql);
+    $fila = mysqli_fetch_assoc($res);
+    return $fila['total'] > 0;
 }
 
 function agregarEstadoTipo($conexion, $data) {

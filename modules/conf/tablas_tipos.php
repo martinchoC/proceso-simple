@@ -288,6 +288,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 });
 
+                // Función para cargar todos los estados en el select
+                function cargarTodosEstadosEnSelect(estadoSeleccionado = 0) {
+                    $.get('tablas_tipos_ajax.php', {accion: 'todos_estados'}, function(estados){
+                        var html = '<option value="">Seleccionar estado...</option>';
+                        if(estados && estados.length > 0) {
+                            estados.forEach(function(estado) {
+                                var selected = estado.estado_registro_id == estadoSeleccionado ? 'selected' : '';
+                                html += `<option value="${estado.estado_registro_id}" ${selected}>${estado.estado_registro}</option>`;
+                            });
+                        }
+                        $('#estado_registro_id').html(html);
+                    }, 'json');
+                }
+
                 // Cambiar estado del tipo
                 $(document).on('change', '.toggle-estado-tipo', function(e) {
                     e.preventDefault();
@@ -425,9 +439,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     // Cargar estados existentes
                     cargarEstadosTipo(data.tabla_tipo_id);
                     
-                    // Cargar opciones de estados disponibles
-                    cargarEstadosDisponibles(data.tabla_tipo_id);
-                    
                     var modal = new bootstrap.Modal(document.getElementById('modalEstadosTipo'));
                     modal.show();
                 });
@@ -476,23 +487,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }, 'json');
                 }
 
-                function cargarEstadosDisponibles(tipoId) {
-                    $.get('tablas_tipos_ajax.php', {accion: 'estados_disponibles', tabla_tipo_id: tipoId}, function(res){
-                        var html = '<option value="">Seleccionar estado...</option>';
-                        if(res && res.length > 0) {
-                            res.forEach(function(estado) {
-                                html += `<option value="${estado.estado_registro_id}">${estado.estado_registro}</option>`;
-                            });
-                        }
-                        $('#estado_registro_id').html(html);
-                    }, 'json');
-                }
-
                 // Agregar nuevo estado
                 $('#btnAgregarEstado').click(function(){
                     $('#formEstado')[0].reset();
                     $('#tabla_tipo_estado_id').val('');
                     $('#modalEstadoLabel').text('Agregar Estado');
+                    cargarTodosEstadosEnSelect();
                     var modal = new bootstrap.Modal(document.getElementById('modalEstado'));
                     modal.show();
                 });
@@ -505,10 +505,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         if(res){
                             $('#tabla_tipo_estado_id').val(res.tabla_tipo_estado_id);
                             $('#tabla_tipo_id_estado').val(res.tabla_tipo_id);
-                            $('#estado_registro_id').val(res.estado_registro_id);
                             $('#orden').val(res.orden);
                             $('#es_inicial').prop('checked', res.es_inicial == 1);
                             $('#modalEstadoLabel').text('Editar Estado');
+                            
+                            // Cargar todos los estados y marcar el actual
+                            cargarTodosEstadosEnSelect(res.estado_registro_id);
+                            
                             var modal = new bootstrap.Modal(document.getElementById('modalEstado'));
                             modal.show();
                         }
@@ -537,7 +540,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }, function(res){
                                 if(res.resultado){
                                     cargarEstadosTipo(tablaTipoActual);
-                                    cargarEstadosDisponibles(tablaTipoActual);
                                     Swal.fire({
                                         icon: "success",
                                         title: "¡Éxito!",
@@ -684,9 +686,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 $('#formEstado')[0].reset();
                                 form.classList.remove('was-validated');
                                 
-                                // Recargar ambas tablas
+                                // Recargar la tabla de estados
                                 cargarEstadosTipo(tablaTipoActual);
-                                cargarEstadosDisponibles(tablaTipoActual);
                                 
                                 Swal.fire({
                                     icon: "success",

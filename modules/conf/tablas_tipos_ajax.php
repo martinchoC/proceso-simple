@@ -63,9 +63,8 @@ switch ($accion) {
         echo json_encode($estados);
         break;
 
-    case 'estados_disponibles':
-        $tipo_id = isset($_GET['tabla_tipo_id']) ? intval($_GET['tabla_tipo_id']) : 0;
-        $estados = obtenerEstadosDisponibles($conexion, $tipo_id);
+    case 'todos_estados':
+        $estados = obtenerTodosEstados($conexion);
         echo json_encode($estados);
         break;
 
@@ -76,6 +75,12 @@ switch ($accion) {
             'orden' => intval($_POST['orden']),
             'es_inicial' => intval($_POST['es_inicial'] ?? 0)
         ];
+        
+        // Verificar si el estado ya existe para este tipo
+        if (estadoExisteParaTipo($conexion, $data['tabla_tipo_id'], $data['estado_registro_id'])) {
+            echo json_encode(['resultado' => false, 'error' => 'Este estado ya está asignado a este tipo de tabla']);
+            break;
+        }
         
         $resultado = agregarEstadoTipo($conexion, $data);
         echo json_encode(['resultado' => $resultado]);
@@ -88,6 +93,15 @@ switch ($accion) {
             'orden' => intval($_POST['orden']),
             'es_inicial' => intval($_POST['es_inicial'] ?? 0)
         ];
+        
+        // Verificar si el estado ya existe para este tipo (excluyendo el actual)
+        $estadoActual = obtenerEstadoTipoPorId($conexion, $id);
+        if ($estadoActual && $estadoActual['estado_registro_id'] != $data['estado_registro_id']) {
+            if (estadoExisteParaTipo($conexion, $estadoActual['tabla_tipo_id'], $data['estado_registro_id'])) {
+                echo json_encode(['resultado' => false, 'error' => 'Este estado ya está asignado a este tipo de tabla']);
+                break;
+            }
+        }
         
         $resultado = editarEstadoTipo($conexion, $id, $data);
         echo json_encode(['resultado' => $resultado]);
