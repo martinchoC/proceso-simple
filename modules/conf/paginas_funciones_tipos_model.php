@@ -1,126 +1,141 @@
 <?php
-require_once "conexion.php";
 
-function obtenerPaginasFunciones($conexion) {
-    $sql = "SELECT pf.*, p.pagina, t.tabla_nombre, 
-                   eo.estado_registro as estado_origen, ed.estado_registro as estado_destino
-            FROM conf__paginas_funciones pf
-            LEFT JOIN conf__paginas p ON pf.pagina_id = p.pagina_id
-            LEFT JOIN conf__tablas t ON pf.tabla_id = t.tabla_id
-            LEFT JOIN conf__estados_registros eo ON pf.tabla_estado_registro_origen_id = eo.estado_registro_id
-            LEFT JOIN conf__estados_registros ed ON pf.tabla_estado_registro_destino_id = ed.estado_registro_id
-            ORDER BY p.pagina, pf.orden";
-    $res = mysqli_query($conexion, $sql);
+function listarFunciones(mysqli $c): array
+{
+    $sql = "
+        SELECT 
+            f.pagina_funcion_id,
+            p.pagina,
+            f.nombre_funcion,
+            eo.estado_nombre AS estado_origen,
+            ed.estado_nombre AS estado_destino,
+            f.orden,
+            er.estado_nombre
+        FROM conf__paginas_funciones_tipos f
+        LEFT JOIN conf__paginas p 
+            ON p.pagina_id = f.pagina_id
+        LEFT JOIN conf__estados_registros eo 
+            ON eo.estado_registro_id = f.tabla_estado_registro_origen_id
+        LEFT JOIN conf__estados_registros ed 
+            ON ed.estado_registro_id = f.tabla_estado_registro_destino_id
+        LEFT JOIN conf__estados_registros er 
+            ON er.estado_registro_id = f.tabla_estado_registro_id
+        ORDER BY p.pagina, f.orden
+    ";
+
+    $res = mysqli_query($c, $sql);
+    if (!$res) {
+        return [];
+    }
+
     $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
+    while ($row = mysqli_fetch_assoc($res)) {
+        $data[] = $row;
     }
     return $data;
 }
 
-function obtenerPaginas($conexion) {
-    $sql = "SELECT pagina_id, pagina, tabla_id FROM conf__paginas ORDER BY pagina";
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
+function obtenerFuncion(mysqli $c, int $id): array
+{
+    $res = mysqli_query(
+        $c,
+        "SELECT * FROM conf__paginas_funciones_tipos WHERE pagina_funcion_id = $id"
+    );
+    return mysqli_fetch_assoc($res) ?: [];
+}
+
+function agregarFuncion(mysqli $c, array $d): array
+{
+    if (
+        empty($d['pagina_id']) ||
+        empty($d['nombre_funcion']) ||
+        empty($d['tabla_estado_registro_origen_id']) ||
+        empty($d['tabla_estado_registro_destino_id'])
+    ) {
+        return ['resultado' => false, 'mensaje' => 'Datos incompletos'];
     }
-    return $data;
-}
-// Añadir esta función para obtener la tabla de una página
-function obtenerTablaPorPagina($conexion, $pagina_id) {
-    $pagina_id = intval($pagina_id);
-    $sql = "SELECT tabla_id FROM conf__paginas WHERE pagina_id = $pagina_id";
-    $res = mysqli_query($conexion, $sql);
-    $fila = mysqli_fetch_assoc($res);
-    return $fila ? $fila['tabla_id'] : null;
-}
 
-function obtenerTablas($conexion) {
-    $sql = "SELECT tabla_id, tabla_nombre FROM conf__tablas ORDER BY tabla_nombre";
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
+    $sql = "
+        INSERT INTO conf__paginas_funciones_tipos
+        (
+            pagina_id,
+            nombre_funcion,
+            accion_js,
+            icono_id,
+            color_id,
+            tabla_estado_registro_origen_id,
+            tabla_estado_registro_destino_id,
+            orden,
+            descripcion
+        )
+        VALUES (
+            ".intval($d['pagina_id']).",
+            '".mysqli_real_escape_string($c, $d['nombre_funcion'])."',
+            '".mysqli_real_escape_string($c, $d['accion_js'] ?? '')."',
+            ".intval($d['icono_id'] ?? 0).",
+            ".intval($d['color_id'] ?? 1).",
+            ".intval($d['tabla_estado_registro_origen_id']).",
+            ".intval($d['tabla_estado_registro_destino_id']).",
+            ".intval($d['orden'] ?? 0).",
+            '".mysqli_real_escape_string($c, $d['descripcion'] ?? '')."'
+        )
+    ";
+
+    if (!mysqli_query($c, $sql)) {
+        return ['resultado' => false, 'mensaje' => mysqli_error($c)];
     }
-    return $data;
+
+    return ['resultado' => true, 'mensaje' => 'Función creada correctamente'];
 }
 
-function obtenerEstadosPorTabla($conexion, $tabla_id) {
-    $tabla_id = intval($tabla_id);
-    $sql = "SELECT er.tabla_estado_registro_id, er.estado_registro 
-            FROM conf__tablas_estados te
-            LEFT JOIN conf__estados_registros er ON te.tabla_estado_registro_id = er.tabla_estado_registro_id
-            WHERE te.tabla_id = $tabla_id
-            ORDER BY te.orden, er.estado_registro";
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
+function editarFuncion(mysqli $c, array $d): array
+{
+    $id = intval($d['pagina_funcion_id'] ?? 0);
+    if ($id <= 0) {
+        return ['resultado' => false, 'mensaje' => 'ID inválido'];
     }
-    return $data;
-}
 
-function agregarPaginaFuncion($conexion, $data) {
-    if (empty($data['pagina_id']) || empty($data['nombre_funcion'])) {
-        return false;
+    $sql = "
+        UPDATE conf__paginas_funciones_tipos SET
+            pagina_id = ".intval($d['pagina_id']).",
+            nombre_funcion = '".mysqli_real_escape_string($c, $d['nombre_funcion'])."',
+            accion_js = '".mysqli_real_escape_string($c, $d['accion_js'] ?? '')."',
+            icono_id = ".intval($d['icono_id'] ?? 0).",
+            color_id = ".intval($d['color_id'] ?? 1).",
+            tabla_estado_registro_origen_id = ".intval($d['tabla_estado_registro_origen_id']).",
+            tabla_estado_registro_destino_id = ".intval($d['tabla_estado_registro_destino_id']).",
+            orden = ".intval($d['orden'] ?? 0).",
+            descripcion = '".mysqli_real_escape_string($c, $d['descripcion'] ?? '')."'
+        WHERE pagina_funcion_id = $id
+        LIMIT 1
+    ";
+
+    if (!mysqli_query($c, $sql)) {
+        return ['resultado' => false, 'mensaje' => mysqli_error($c)];
     }
-    
-    $pagina_id = intval($data['pagina_id']);
-    $tabla_id = $data['tabla_id'] ? intval($data['tabla_id']) : 'NULL';
-    $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
-    $descripcion = mysqli_real_escape_string($conexion, $data['descripcion'] ?? '');
-    $estado_origen_id = intval($data['tabla_estado_registro_origen_id']);
-    $estado_destino_id = intval($data['tabla_estado_registro_destino_id']);
-    $es_confirmable = isset($data['es_confirmable']) ? 1 : 0;
-    $orden = intval($data['orden'] ?? 0);
 
-    $sql = "INSERT INTO conf__paginas_funciones 
-            (pagina_id, tabla_id, nombre_funcion, descripcion, tabla_estado_registro_origen_id, tabla_estado_registro_destino_id, es_confirmable, orden) 
-            VALUES ($pagina_id, $tabla_id, '$nombre_funcion', '$descripcion', $estado_origen_id, $estado_destino_id, $es_confirmable, $orden)";
-    
-    return mysqli_query($conexion, $sql);
+    return ['resultado' => true, 'mensaje' => 'Función actualizada'];
 }
 
-function editarPaginaFuncion($conexion, $id, $data) {
-    if (empty($data['pagina_id']) || empty($data['nombre_funcion'])) {
-        return false;
+function obtenerCombos(mysqli $c): array
+{
+    return [
+        'paginas' => combo($c, 'conf__paginas', 'pagina_id', 'pagina'),
+        'iconos'  => combo($c, 'conf__iconos', 'icono_id', 'icono_nombre'),
+        'colores' => combo($c, 'conf__colores', 'color_id', 'nombre_color'),
+        'estados' => combo($c, 'conf__estados_registros', 'estado_registro_id', 'estado_nombre')
+    ];
+}
+
+function combo(mysqli $c, string $tabla, string $id, string $label): string
+{
+    $res = mysqli_query($c, "SELECT $id, $label FROM $tabla ORDER BY $label");
+    $html = '<option value="">Seleccionar</option>';
+
+    if ($res) {
+        while ($r = mysqli_fetch_assoc($res)) {
+            $html .= "<option value='{$r[$id]}'>{$r[$label]}</option>";
+        }
     }
-    
-    $id = intval($id);
-    $pagina_id = intval($data['pagina_id']);
-    $tabla_id = $data['tabla_id'] ? intval($data['tabla_id']) : 'NULL';
-    $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
-    $descripcion = mysqli_real_escape_string($conexion, $data['descripcion'] ?? '');
-    $estado_origen_id = intval($data['tabla_estado_registro_origen_id']);
-    $estado_destino_id = intval($data['tabla_estado_registro_destino_id']);
-    $es_confirmable = isset($data['es_confirmable']) ? 1 : 0;
-    $orden = intval($data['orden'] ?? 0);
-
-    $sql = "UPDATE conf__paginas_funciones SET
-            pagina_id = $pagina_id,
-            tabla_id = $tabla_id,
-            nombre_funcion = '$nombre_funcion',
-            descripcion = '$descripcion',
-            tabla_estado_registro_origen_id = $estado_origen_id,
-            tabla_estado_registro_destino_id = $estado_destino_id,
-            es_confirmable = $es_confirmable,
-            orden = $orden
-            WHERE pagina_funcion_id = $id";
-
-    return mysqli_query($conexion, $sql);
-}
-
-function eliminarPaginaFuncion($conexion, $id) {
-    $id = intval($id);
-    
-    $sql = "DELETE FROM conf__paginas_funciones WHERE pagina_funcion_id = $id";
-    return mysqli_query($conexion, $sql);
-}
-
-function obtenerPaginaFuncionPorId($conexion, $id) {
-    $id = intval($id);
-    $sql = "SELECT * FROM conf__paginas_funciones WHERE pagina_funcion_id = $id";
-    $res = mysqli_query($conexion, $sql);
-    return mysqli_fetch_assoc($res);
+    return $html;
 }
