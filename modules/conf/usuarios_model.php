@@ -63,7 +63,7 @@ function cambiarEstadoUsuario($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE conf__usuarios SET estado_registro_id = $nuevo_estado WHERE usuario_id = $id";
+    $sql = "UPDATE conf__usuarios SET tabla_estado_registro_id = $nuevo_estado WHERE usuario_id = $id";
     return mysqli_query($conexion, $sql);
 }
 

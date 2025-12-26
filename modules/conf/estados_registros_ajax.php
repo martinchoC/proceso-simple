@@ -1,71 +1,80 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 require_once "estados_registros_model.php";
+
+header('Content-Type: application/json');
 
 $accion = $_GET['accion'] ?? '';
 
-header('Content-Type: application/json; charset=utf-8');
-
 switch ($accion) {
+    case 'obtenerColores':
+        $colores = obtenerColores($conexion);
+        echo json_encode($colores);
+        break;
+        
     case 'listar':
         $estados = obtenerEstadosRegistros($conexion);
         echo json_encode($estados);
         break;
-    
-    case 'obtener_tablas_tipos':
-        $tablas_tipos = obtenerTablasTipos($conexion);
-        echo json_encode($tablas_tipos);
-        break;
-    
-    case 'agregar':
-        $data = [
-            'tabla_tipo_id' => $_GET['tabla_tipo_id'] ?? null,
-            'estado_registro' => $_GET['estado_registro'] ?? '',
-            'estado_registro_descripcion' => $_GET['estado_registro_descripcion'] ?? '',
-            'orden' => $_GET['orden'] ?? 0
-        ];
         
-        if (empty($data['estado_registro'])) {
-            echo json_encode(['resultado' => false, 'error' => 'El nombre del estado es obligatorio']);
-            break;
-        }
-        
-        $resultado = agregarEstadoRegistro($conexion, $data);
-        echo json_encode(['resultado' => $resultado]);
-        break;
-
-    case 'editar':
-        $id = intval($_GET['estado_registro_id']);
-        $data = [
-            'tabla_tipo_id' => $_GET['tabla_tipo_id'] ?? null,
-            'estado_registro' => $_GET['estado_registro'] ?? '',
-            'estado_registro_descripcion' => $_GET['estado_registro_descripcion'] ?? '',
-            'orden' => $_GET['orden'] ?? 0
-        ];
-        
-        if (empty($data['estado_registro'])) {
-            echo json_encode(['resultado' => false, 'error' => 'El nombre del estado es obligatorio']);
-            break;
-        }
-        
-        $resultado = editarEstadoRegistro($conexion, $id, $data);
-        echo json_encode(['resultado' => $resultado]);
-        break;
-
-    case 'eliminar':
-        $id = intval($_GET['estado_registro_id']);
-        $resultado = eliminarEstadoRegistro($conexion, $id);
-        echo json_encode(['resultado' => $resultado]);
-        break;
-
     case 'obtener':
-        $id = intval($_GET['estado_registro_id']);
+        $id = $_GET['estado_registro_id'] ?? 0;
         $estado = obtenerEstadoRegistroPorId($conexion, $id);
         echo json_encode($estado);
         break;
-
+        
+    case 'agregar':
+        $data = [
+            'estado_registro' => $_POST['estado_registro'] ?? '',
+            'codigo_estandar' => $_POST['codigo_estandar'] ?? '',
+            'valor_estandar' => $_POST['valor_estandar'] ?? null,
+            'color_id' => $_POST['color_id'] ?? '1',
+            'orden_estandar' => $_POST['orden_estandar'] ?? null
+        ];
+        
+        $resultado = agregarEstadoRegistro($conexion, $data);
+        
+        if ($resultado) {
+            echo json_encode(['resultado' => true]);
+        } else {
+            echo json_encode(['resultado' => false, 'error' => 'Error al agregar el estado']);
+        }
+        break;
+        
+    case 'editar':
+        $id = $_POST['estado_registro_id'] ?? 0;
+        $data = [
+            'estado_registro' => $_POST['estado_registro'] ?? '',
+            'codigo_estandar' => $_POST['codigo_estandar'] ?? '',
+            'valor_estandar' => $_POST['valor_estandar'] ?? null,
+            'color_id' => $_POST['color_id'] ?? '1',
+            'orden_estandar' => $_POST['orden_estandar'] ?? null
+        ];
+        
+        $resultado = editarEstadoRegistro($conexion, $id, $data);
+        
+        if ($resultado) {
+            echo json_encode(['resultado' => true]);
+        } else {
+            echo json_encode(['resultado' => false, 'error' => 'Error al editar el estado']);
+        }
+        break;
+        
+    case 'eliminar':
+        $id = $_GET['estado_registro_id'] ?? 0;
+        $resultado = eliminarEstadoRegistro($conexion, $id);
+        
+        if ($resultado) {
+            echo json_encode(['resultado' => true]);
+        } else {
+            echo json_encode(['resultado' => false, 'error' => 'Error al eliminar el estado']);
+        }
+        break;
+        
     default:
-        echo json_encode(['error' => 'Acción no definida']);
+        echo json_encode(['error' => 'Acción no válida']);
+        break;
 }
+
+// Cerrar conexión
+mysqli_close($conexion);
 ?>

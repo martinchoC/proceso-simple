@@ -1,8 +1,10 @@
 <?php
-$host = 'localhost';
-$user = 'root';
-$pass = '';
-$dbname = 'gestion_multipyme';
+require_once ".env";
+
+$host = IP_HOST;
+$user = DB_USER;
+$pass = DB_PASS;
+$dbname = DB_NAME;
 
 $conexion  = mysqli_connect($host, $user, $pass, $dbname);
 

@@ -18,7 +18,7 @@ switch ($accion) {
             'perfil_nombre' => $_GET['perfil_nombre'] ?? '',
             'empresa_id' => $_GET['empresa_id'] ?? null,
             'modulo_id' => $_GET['modulo_id'] ?? null,
-            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['perfil_nombre'])) {
@@ -36,7 +36,7 @@ switch ($accion) {
             'perfil_nombre' => $_GET['perfil_nombre'] ?? '',
             'empresa_id' => $_GET['empresa_id'] ?? null,
             'modulo_id' => $_GET['modulo_id'] ?? null,
-            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['perfil_nombre'])) {
