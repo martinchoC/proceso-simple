@@ -56,7 +56,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </section>
             </div>
 
-            <!-- Modal -->
+            <!-- Modal para Tabla -->
             <div class="modal fade" id="modalTabla" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
@@ -104,6 +104,55 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="modal-footer">
                             <button id="btnGuardar" class="btn btn-success">Guardar</button>
                             <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal para Estados Patrón -->
+            <div class="modal fade" id="modalEstadosPatron" tabindex="-1" aria-labelledby="modalEstadosLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalEstadosLabel">Estados Patrón para Tipo de Tabla</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Los siguientes estados están configurados como patrón para este tipo de tabla. 
+                                Puedes agregarlos automáticamente a la tabla actual.
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="tablaEstadosPatron">
+                                    <thead>
+                                        <tr>
+                                            <th>Estado</th>
+                                            <th>Orden</th>
+                                            <th>Es Inicial</th>
+                                            <th>Estado Actual</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyEstadosPatron">
+                                        <!-- Los estados se cargarán aquí -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkAgregarTodos" checked>
+                                    <label class="form-check-label" for="chkAgregarTodos">
+                                        Agregar todos los estados patrón a la tabla
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-success" id="btnAgregarEstados">
+                                <i class="fas fa-plus"></i> Agregar Estados
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         </div>
                     </div>
                 </div>
@@ -157,6 +206,178 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 });
             }
+
+            // Función para verificar si una tabla tiene estados patrón disponibles
+            function verificarEstadosPatron(tablaId, tablaTipoId, tablaNombre) {
+                if (!tablaTipoId) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sin tipo de tabla',
+                        text: 'Esta tabla no tiene un tipo asignado, por lo que no hay estados patrón disponibles.'
+                    });
+                    return;
+                }
+                
+                $.ajax({
+                    url: 'tablas_ajax.php',
+                    type: 'GET',
+                    data: {accion: 'obtener_estados_patron', tabla_tipo_id: tablaTipoId},
+                    dataType: 'json',
+                    success: function(res) {
+                        if(res && res.length > 0) {
+                            // Mostrar modal con estados patrón
+                            mostrarEstadosPatron(res, tablaId, tablaNombre);
+                        } else {
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Sin estados patrón',
+                                text: 'No hay estados patrón configurados para este tipo de tabla.'
+                            });
+                        }
+                    },
+                    error: function() {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error al verificar estados patrón'
+                        });
+                    }
+                });
+            }
+
+            // Función para mostrar los estados patrón en el modal
+           function mostrarEstadosPatron(estados, tablaId, tablaNombre) {
+            var tbody = $('#tbodyEstadosPatron');
+            tbody.empty();
+            
+            $.each(estados, function(index, estado) {
+                // Formatear código estándar si está disponible
+                var codigoEstandar = estado.codigo_estandar ? 
+                    `<div><small class="text-muted">Código: ${estado.codigo_estandar}</small></div>` : '';
+                
+                // Formatear valor estándar si está disponible
+                var valorEstandar = estado.valor_estandar ? 
+                    `<div><small class="text-muted">Valor: ${estado.valor_estandar}</small></div>` : '';
+                
+                var fila = `
+                    <tr>
+                        <td>
+                            <div><strong>${estado.estado_registro}</strong></div>
+                            ${codigoEstandar}
+                            ${valorEstandar}
+                        </td>
+                        <td class="text-center">${estado.orden}</td>
+                        <td class="text-center">
+                            ${estado.es_inicial == 1 ? 
+                                '<span class="badge bg-success"><i class="fas fa-check"></i> Sí</span>' : 
+                                '<span class="badge bg-secondary">No</span>'}
+                        </td>
+                        <td class="text-center">
+                            ${estado.tabla_estado_registro_id == 1 ? 
+                                '<span class="badge bg-success">Activo</span>' : 
+                                '<span class="badge bg-danger">Inactivo</span>'}
+                        </td>
+                    </tr>
+                `;
+                tbody.append(fila);
+            });
+    
+    $('#modalEstadosLabel').html(`<i class="fas fa-clone me-2"></i>Estados Patrón para: <strong>${tablaNombre}</strong>`);
+    $('#btnAgregarEstados').data('tabla-id', tablaId);
+    $('#btnAgregarEstados').data('tabla-tipo-id', estados[0].tabla_tipo_id);
+    
+    var modal = new bootstrap.Modal(document.getElementById('modalEstadosPatron'));
+    modal.show();
+}
+
+            // Función para mostrar los estados actuales de una tabla
+           function mostrarEstadosActualesTabla(tablaId, tablaNombre) {
+    $.ajax({
+        url: 'tablas_ajax.php',
+        type: 'GET',
+        data: {accion: 'obtener_estados_tabla', tabla_id: tablaId},
+        dataType: 'json',
+        success: function(res) {
+            if(res && res.length > 0) {
+                var contenido = '<div class="table-responsive mt-3"><table class="table table-sm table-bordered table-hover">';
+                contenido += '<thead><tr>' +
+                    '<th>ID Estado</th>' +
+                    '<th>Estado</th>' +
+                    '<th>Nombre en Tabla</th>' +
+                    '<th>Código Estándar</th>' +
+                    '<th>Valor Estándar</th>' +
+                    '<th>Color</th>' +
+                    '<th>Es Inicial</th>' +
+                    '<th>Orden</th>' +
+                    '</tr></thead><tbody>';
+                
+                $.each(res, function(index, estado) {
+                    var colorBadge = estado.color_clase ? 
+                        `<span class="badge" style="background-color: ${estado.color_clase}; color: ${estado.color_clase.includes('light') ? '#212529' : 'white'}">${estado.nombre_color}</span>` :
+                        `<span class="badge bg-secondary">Sin color</span>`;
+                    
+                    // Formatear código estándar
+                    var codigoEstandar = estado.codigo_estandar ? 
+                        `<code class="bg-light p-1 rounded">${estado.codigo_estandar}</code>` : 
+                        '<span class="text-muted">-</span>';
+                    
+                    // Formatear valor estándar
+                    var valorEstandar = estado.valor_estandar ? 
+                        `<span class="badge bg-info text-dark">${estado.valor_estandar}</span>` : 
+                        '<span class="text-muted">-</span>';
+                    
+                    contenido += `
+                        <tr>
+                            <td class="text-center"><strong>${estado.tabla_estado_registro_id}</strong></td>
+                            <td><strong>${estado.estado_registro}</strong></td>
+                            <td>${estado.tabla_estado_registro}</td>
+                            <td class="text-center">${codigoEstandar}</td>
+                            <td class="text-center">${valorEstandar}</td>
+                            <td class="text-center">${colorBadge}</td>
+                            <td class="text-center">
+                                ${estado.es_inicial == 1 ? 
+                                    '<span class="badge bg-success"><i class="fas fa-check"></i> Sí</span>' : 
+                                    '<span class="badge bg-secondary">No</span>'}
+                            </td>
+                            <td class="text-center"><span class="badge bg-dark">${estado.orden}</span></td>
+                        </tr>
+                    `;
+                });
+                
+                contenido += '</tbody></table></div>';
+                
+                Swal.fire({
+                    title: `<i class="fas fa-sitemap me-2"></i>Estados actuales: ${tablaNombre}`,
+                    html: contenido,
+                    width: 1100,
+                    showCloseButton: true,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Cerrar',
+                    customClass: {
+                        popup: 'swal-wide'
+                    }
+                });
+            } else {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin estados configurados',
+                    text: 'Esta tabla no tiene estados configurados actualmente.',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Aceptar'
+                });
+            }
+        },
+        error: function() {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al obtener los estados de la tabla',
+                showConfirmButton: true,
+                confirmButtonText: 'Aceptar'
+            });
+        }
+    });
+}
 
             $(document).ready(function(){
                 cargarModulos();
@@ -228,10 +449,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             searchable: false,
                             className: "text-center",
                             render: function(data){
-                                var estadoTexto = data.tabla_estado_registro_id == 1 ? 
-                                    '<span class="badge bg-success">Activo</span>' : 
-                                    '<span class="badge bg-secondary">Inactivo</span>';
-                                
                                 var botonEstado = 
                                     `<div class="form-check form-switch d-inline-block">
                                         <input class="form-check-input toggle-estado"
@@ -252,14 +469,38 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             className: "text-center",
                             render: function(data){
                                 var botonEditar = data.tabla_estado_registro_id == 1 ? 
-                                    `<button class="btn btn-sm btn-primary btnEditar" title="Editar">
+                                    `<button class="btn btn-sm btn-primary btnEditar me-1" title="Editar" data-tabla-id="${data.tabla_id}">
                                         <i class="fa fa-edit"></i>
                                      </button>` : 
-                                    `<button class="btn btn-sm btn-secondary" title="Editar no disponible" disabled>
+                                    `<button class="btn btn-sm btn-secondary me-1" title="Editar no disponible" disabled>
                                         <i class="fa fa-edit"></i>
                                      </button>`;
                                 
-                                return `<div class="d-flex align-items-center justify-content-center">${botonEditar}</div>`;
+                                var botonEstados = data.tabla_estado_registro_id == 1 && data.tabla_tipo_id ? 
+                                    `<button class="btn btn-sm btn-info me-1 btnEstadosPatron" 
+                                            title="Gestionar estados patrón"
+                                            data-tabla-id="${data.tabla_id}"
+                                            data-tabla-tipo-id="${data.tabla_tipo_id}"
+                                            data-tabla-nombre="${data.tabla_nombre}">
+                                        <i class="fas fa-sitemap"></i>
+                                    </button>` : 
+                                    `<button class="btn btn-sm btn-secondary me-1" title="No disponible" disabled>
+                                        <i class="fas fa-sitemap"></i>
+                                    </button>`;
+                                
+                                var botonVerEstados = 
+                                    `<button class="btn btn-sm btn-warning btnVerEstados" 
+                                            title="Ver estados actuales"
+                                            data-tabla-id="${data.tabla_id}"
+                                            data-tabla-nombre="${data.tabla_nombre}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>`;
+                                
+                                return `<div class="d-flex align-items-center justify-content-center">
+                                            ${botonEditar} 
+                                            ${botonEstados}
+                                            ${botonVerEstados}
+                                        </div>`;
                             }
                         }
                     ],
@@ -282,6 +523,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     var nuevoEstado = isChecked ? 1 : 0;
                     var accionTexto = nuevoEstado == 1 ? 'activar' : 'desactivar';                    
                    
+                    Swal.fire({
+                        title: `¿${accionTexto.charAt(0).toUpperCase() + accionTexto.slice(1)} tabla?`,
+                        text: `¿Estás seguro de que quieres ${accionTexto} esta tabla?`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: `Sí, ${accionTexto}`,
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
                             $.get('tablas_ajax.php', {
                                 accion: 'cambiar_estado', 
                                 tabla_id: tablaId,
@@ -289,7 +539,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }, function(res){
                                 if(res.resultado){
                                     tabla.ajax.reload();
-                                    
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Éxito',
+                                        text: `Tabla ${accionTexto}ada correctamente`,
+                                        timer: 1500,
+                                        showConfirmButton: false
+                                    });
                                 } else {
                                     // Revertir el cambio visual si hay error
                                     $(this).prop('checked', !isChecked);
@@ -300,8 +556,89 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     });
                                 }
                             }, 'json');
-                       
-                   
+                        } else {
+                            // Revertir si canceló
+                            $(this).prop('checked', !isChecked);
+                        }
+                    });
+                });
+
+                // Evento para botón de estados patrón
+                $(document).on('click', '.btnEstadosPatron', function() {
+                    var tablaId = $(this).data('tabla-id');
+                    var tablaTipoId = $(this).data('tabla-tipo-id');
+                    var tablaNombre = $(this).data('tabla-nombre');
+                    
+                    verificarEstadosPatron(tablaId, tablaTipoId, tablaNombre);
+                });
+
+                // Evento para botón ver estados actuales
+                $(document).on('click', '.btnVerEstados', function() {
+                    var tablaId = $(this).data('tabla-id');
+                    var tablaNombre = $(this).data('tabla-nombre');
+                    
+                    mostrarEstadosActualesTabla(tablaId, tablaNombre);
+                });
+
+                // Evento para agregar estados desde el modal
+                $('#btnAgregarEstados').click(function() {
+                    var tablaId = $(this).data('tabla-id');
+                    var tablaTipoId = $(this).data('tabla-tipo-id');
+                    var agregarTodos = $('#chkAgregarTodos').is(':checked');
+                    
+                    Swal.fire({
+                        title: '¿Agregar estados?',
+                        text: agregarTodos ? 
+                            'Se agregarán todos los estados patrón a la tabla.' :
+                            'Se agregarán solo los estados activos a la tabla.',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, agregar',
+                        cancelButtonText: 'Cancelar',
+                        showLoaderOnConfirm: true,
+                        preConfirm: () => {
+                            return $.ajax({
+                                url: 'tablas_ajax.php',
+                                type: 'GET',
+                                data: {
+                                    accion: 'agregar_estados_tabla',
+                                    tabla_id: tablaId,
+                                    tabla_tipo_id: tablaTipoId,
+                                    agregar_todos: agregarTodos ? 1 : 0
+                                },
+                                dataType: 'json'
+                            }).then(response => {
+                                return response;
+                            }).catch(error => {
+                                Swal.showValidationMessage(`Error: ${error}`);
+                            });
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            if(result.value.resultado) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: '¡Éxito!',
+                                    html: `Se agregaron <strong>${result.value.estados_agregados}</strong> estados a la tabla.<br><br>
+                                           <small>${result.value.mensaje}</small>`,
+                                    showConfirmButton: true,
+                                    confirmButtonText: 'Aceptar'
+                                }).then(() => {
+                                    // Cerrar modal
+                                    var modal = bootstrap.Modal.getInstance(document.getElementById('modalEstadosPatron'));
+                                    if (modal) {
+                                        modal.hide();
+                                    }
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: result.value.error || 'Error al agregar estados'
+                                });
+                            }
+                        }
+                    });
                 });
 
                 $('#btnNuevo').click(function(){
@@ -343,7 +680,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             var modal = new bootstrap.Modal(document.getElementById('modalTabla'));
                             modal.show();
                         } else {
-                            alert('Error al obtener datos');
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Error al obtener los datos de la tabla'
+                            });
                         }
                     }, 'json');
                 });
@@ -378,7 +719,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 tabla.ajax.reload(null, false);
                                 
                                 var modal = bootstrap.Modal.getInstance(document.getElementById('modalTabla'));
-                                modal.hide();
+                                if (modal) {
+                                    modal.hide();
+                                }
                                 
                                 $('#formTabla')[0].reset();
                                 form.classList.remove('was-validated');
@@ -423,10 +766,80 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             .form-check-input.toggle-estado {
                 width: 3em;
                 height: 1.5em;
+                cursor: pointer;
             }
             
             .badge {
                 font-size: 0.75rem;
+            }
+            
+            /* Estilos para botones de acciones */
+            .btn-sm {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.875rem;
+                line-height: 1.5;
+                min-width: 32px;
+            }
+            
+            /* Espacio entre botones */
+            .me-1 {
+                margin-right: 0.25rem !important;
+            }
+            
+            /* Ajustes para el modal de estados */
+            #tablaEstadosPatron th {
+                background-color: #f8f9fa;
+                font-weight: 600;
+            }
+            
+            /* Estilos para la tabla de estados en SweetAlert */
+            .swal2-popup .table-sm {
+                font-size: 0.875rem;
+            }
+            
+            .swal2-popup .table-sm th {
+                background-color: #f8f9fa;
+                font-weight: 600;
+            }
+            .swal-wide {
+                max-width: 1100px !important;
+            }
+
+            .table-hover tbody tr:hover {
+                background-color: rgba(0, 123, 255, 0.05);
+            }
+
+            .table-sm th {
+                font-size: 0.85rem;
+                padding: 0.5rem;
+            }
+
+            .table-sm td {
+                font-size: 0.85rem;
+                padding: 0.5rem;
+                vertical-align: middle;
+            }
+
+            /* Estilos para badges personalizados */
+            .badge-code {
+                font-family: 'Courier New', monospace;
+                background-color: #f8f9fa;
+                color: #495057;
+                border: 1px solid #dee2e6;
+            }
+
+            .badge-value {
+                background-color: #cfe2ff;
+                color: #084298;
+            }
+
+            /* Estilos para la tabla en el modal de estados patrón */
+            #tablaEstadosPatron td {
+                vertical-align: middle;
+            }
+
+            #tablaEstadosPatron .text-muted {
+                font-size: 0.8rem;
             }
             </style>
             <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

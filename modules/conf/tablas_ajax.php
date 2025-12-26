@@ -73,6 +73,40 @@ switch ($accion) {
         echo json_encode($tabla);
         break;
 
+    // NUEVOS CASOS PARA GESTIÓN DE ESTADOS
+    case 'obtener_estados_patron':
+        $tabla_tipo_id = intval($_GET['tabla_tipo_id']);
+        $estados = obtenerEstadosPatronPorTipoTabla($conexion, $tabla_tipo_id);
+        echo json_encode($estados);
+        break;
+
+    case 'verificar_tabla_estados':
+        $tabla_id = intval($_GET['tabla_id']);
+        $tieneEstados = verificarTablaTieneEstados($conexion, $tabla_id);
+        echo json_encode(['tiene_estados' => $tieneEstados]);
+        break;
+
+    case 'obtener_tablas_sin_estados':
+        $tablas = obtenerTablasSinEstadosConfigurados($conexion);
+        echo json_encode($tablas);
+        break;
+    
+    case 'agregar_estados_tabla':
+    $tabla_id = intval($_GET['tabla_id']);
+    $tabla_tipo_id = intval($_GET['tabla_tipo_id']);
+    $agregar_todos = isset($_GET['agregar_todos']) ? intval($_GET['agregar_todos']) : 1;
+    
+    // Usar la nueva función
+    $resultado = agregarEstadosTabla($conexion, $tabla_id, $tabla_tipo_id, $agregar_todos);
+    echo json_encode($resultado);
+    break;
+
+    case 'obtener_estados_tabla':
+    $tabla_id = intval($_GET['tabla_id']);
+    $estados = obtenerEstadosTablaActual($conexion, $tabla_id);
+    echo json_encode($estados);
+    break;
+
     default:
         echo json_encode(['error' => 'Acción no definida']);
 }
