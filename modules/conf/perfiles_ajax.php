@@ -16,7 +16,6 @@ switch ($accion) {
     case 'agregar':
         $data = [
             'perfil_nombre' => $_GET['perfil_nombre'] ?? '',
-            'empresa_id' => $_GET['empresa_id'] ?? null,
             'modulo_id' => $_GET['modulo_id'] ?? null,
             'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
@@ -34,7 +33,6 @@ switch ($accion) {
         $id = intval($_GET['perfil_id']);
         $data = [
             'perfil_nombre' => $_GET['perfil_nombre'] ?? '',
-            'empresa_id' => $_GET['empresa_id'] ?? null,
             'modulo_id' => $_GET['modulo_id'] ?? null,
             'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
@@ -59,11 +57,6 @@ switch ($accion) {
         $id = intval($_GET['perfil_id']);
         $perfil = obtenerPerfilPorId($conexion, $id);
         echo json_encode($perfil);
-        break;
-        
-    case 'obtener_empresas':
-        $empresas = obtenerEmpresas($conexion);
-        echo json_encode($empresas);
         break;
         
     case 'obtener_modulos':

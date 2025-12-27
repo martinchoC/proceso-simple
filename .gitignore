@@ -3,3 +3,4 @@ config/db.php
 modules/gestion/conexion.php
 modules/conf/conexion.php
 .env
+conexion.php
