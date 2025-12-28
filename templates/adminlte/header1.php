@@ -132,15 +132,76 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
              $current_url_path = parse_url($current_url_full, PHP_URL_PATH);
              $current_url_base = basename($current_url_path);
               
-             $sql = "SELECT conf__modulos.*, conf__imagenes.imagen_id FROM conf__modulos 
-              LEFT JOIN conf__imagenes ON conf__modulos.imagen_id = conf__imagenes.imagen_id
-              WHERE conf__modulos.tabla_estado_registro_id=1
-              ORDER BY conf__modulos.modulo";
-              $result = mysqli_query($conexion, $sql);
-              while ($row = mysqli_fetch_array($result)) {?>
-                <li class="nav-item d-none d-md-block"><a href="<?php echo '../'.$row['modulo_url'];?>" class="nav-link"><?php echo $row['modulo'];?></a></li>
-               <?php
-               }
+            $sql = "SELECT 
+            e.empresa_id,
+            e.empresa,
+            m.modulo_id,
+            m.modulo,
+            m.modulo_url,
+            m.base_datos,
+            img.imagen_id
+        FROM conf__empresas e
+        LEFT JOIN conf__empresas_modulos em 
+            ON e.empresa_id = em.empresa_id 
+            AND em.tabla_estado_registro_id = 1
+        LEFT JOIN conf__modulos m 
+            ON em.modulo_id = m.modulo_id 
+            AND m.tabla_estado_registro_id = 1
+        LEFT JOIN conf__imagenes img 
+            ON m.imagen_id = img.imagen_id
+        WHERE e.tabla_estado_registro_id = 1
+        ORDER BY e.empresa, m.modulo";
+
+$result = mysqli_query($conexion, $sql);
+
+// Array para agrupar módulos por empresa
+$empresas_modulos = [];
+
+while ($row = mysqli_fetch_array($result)) {
+    $empresa_id = $row['empresa_id'];
+    
+    // Si no existe la empresa en el array, la inicializamos
+    if (!isset($empresas_modulos[$empresa_id])) {
+        $empresas_modulos[$empresa_id] = [
+            'empresa' => $row['empresa'],
+            'modulos' => []
+        ];
+    }
+    
+    // Si hay un módulo asociado, lo añadimos
+    if (!empty($row['modulo_id'])) {
+        $empresas_modulos[$empresa_id]['modulos'][] = [
+            'modulo' => $row['modulo'],
+            'modulo_url' => $row['modulo_url'],
+            'imagen_id' => $row['imagen_id'],
+            'base_datos' => $row['base_datos']
+        ];
+    }
+}
+
+// Ahora generamos el HTML organizado por empresas
+foreach ($empresas_modulos as $empresa_id => $datos_empresa) {
+    // Mostrar la empresa
+    echo '<div class="empresa-section">';
+    echo '<h4 class="empresa-title">' . htmlspecialchars($datos_empresa['empresa']) . '</h4>';
+    
+    // Mostrar los módulos de esta empresa
+    if (!empty($datos_empresa['modulos'])) {
+        echo '<ul class="nav flex-column">';
+        foreach ($datos_empresa['modulos'] as $modulo) {
+            echo '<li class="nav-item d-none d-md-block">';
+            echo '<a href="' . htmlspecialchars('../' . $modulo['modulo_url']) . '" class="nav-link">';
+            echo htmlspecialchars($modulo['modulo']);
+            echo '</a>';
+            echo '</li>';
+        }
+        echo '</ul>';
+    } else {
+        echo '<p class="text-muted">No tiene módulos asignados</p>';
+    }
+    echo '</div>';
+    echo '<hr>';
+}
             
             
             ?>

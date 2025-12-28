@@ -148,6 +148,56 @@ switch ($accion) {
         $resultado = eliminarAsignacionUsuarioPerfil($conexion, $usuario_perfil_id);
         echo json_encode(['resultado' => $resultado, 'mensaje' => $resultado ? 'Asignación eliminada correctamente' : 'Error al eliminar la asignación']);
         break;
+    // NUEVAS ACCIONES PARA VISTA DETALLADA
+    case 'obtener_vista_detallada_usuario':
+        $usuario_id = isset($_GET['usuario_id']) ? intval($_GET['usuario_id']) : null;
+        if ($usuario_id) {
+            $vista_detallada = obtenerVistaDetalladaPermisosUsuario($conexion, $usuario_id);
+            echo json_encode($vista_detallada);
+        } else {
+            echo json_encode([]);
+        }
+        break;
+        
+    case 'obtener_resumen_permisos_usuario':
+        $usuario_id = isset($_GET['usuario_id']) ? intval($_GET['usuario_id']) : null;
+        if ($usuario_id) {
+            $resumen = obtenerResumenPermisosUsuario($conexion, $usuario_id);
+            echo json_encode($resumen);
+        } else {
+            echo json_encode([]);
+        }
+        break;
+        
+    case 'obtener_paginas_modulo':
+        $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : null;
+        if ($modulo_id) {
+            $paginas = obtenerPaginasPorModulo($conexion, $modulo_id);
+            echo json_encode($paginas);
+        } else {
+            echo json_encode([]);
+        }
+        break;
+        
+    case 'obtener_funciones_pagina':
+        $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : null;
+        if ($pagina_id) {
+            $funciones = obtenerFuncionesPorPagina($conexion, $pagina_id);
+            echo json_encode($funciones);
+        } else {
+            echo json_encode([]);
+        }
+        break;
+        
+    case 'obtener_funciones_asignadas_perfil':
+        $empresa_perfil_id = isset($_GET['empresa_perfil_id']) ? intval($_GET['empresa_perfil_id']) : null;
+        if ($empresa_perfil_id) {
+            $funciones = obtenerFuncionesAsignadasPerfil($conexion, $empresa_perfil_id);
+            echo json_encode($funciones);
+        } else {
+            echo json_encode([]);
+        }
+        break;
 
     default:
         echo json_encode(['error' => 'Acción no definida']);
