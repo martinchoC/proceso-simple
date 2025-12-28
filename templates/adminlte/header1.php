@@ -122,96 +122,96 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
         <!--begin::Container-->
         <div class="container-fluid">
           <!--begin::Start Navbar Links-->
-          <ul class="navbar-nav">
-    <li class="nav-item">
-        <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
-            <i class="bi bi-list"></i>
-        </a>
-    </li>
-    <?php
-    $current_url_full = $_SERVER['REQUEST_URI'];
-    $current_url_path = parse_url($current_url_full, PHP_URL_PATH);
-    $current_url_base = basename($current_url_path);
-    
-    $sql = "SELECT 
-        e.empresa_id,
-        e.empresa,
-        m.modulo_id,
-        m.modulo,
-        m.modulo_url,
-        m.base_datos,
-        img.imagen_id
-    FROM conf__empresas e
-    LEFT JOIN conf__empresas_modulos em 
-        ON e.empresa_id = em.empresa_id 
-        AND em.tabla_estado_registro_id = 1
-    LEFT JOIN conf__modulos m 
-        ON em.modulo_id = m.modulo_id 
-        AND m.tabla_estado_registro_id = 1
-    LEFT JOIN conf__imagenes img 
-        ON m.imagen_id = img.imagen_id
-    WHERE e.tabla_estado_registro_id = 1
-    ORDER BY e.empresa, m.modulo";
+                    <ul class="navbar-nav">
+              <li class="nav-item">
+                  <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
+                      <i class="bi bi-list"></i>
+                  </a>
+              </li>
+              <?php
+              $current_url_full = $_SERVER['REQUEST_URI'];
+              $current_url_path = parse_url($current_url_full, PHP_URL_PATH);
+              $current_url_base = basename($current_url_path);
+              
+              $sql = "SELECT 
+                  e.empresa_id,
+                  e.empresa,
+                  m.modulo_id,
+                  m.modulo,
+                  m.modulo_url,
+                  m.base_datos,
+                  img.imagen_id
+              FROM conf__empresas e
+              LEFT JOIN conf__empresas_modulos em 
+                  ON e.empresa_id = em.empresa_id 
+                  AND em.tabla_estado_registro_id = 1
+              LEFT JOIN conf__modulos m 
+                  ON em.modulo_id = m.modulo_id 
+                  AND m.tabla_estado_registro_id = 1
+              LEFT JOIN conf__imagenes img 
+                  ON m.imagen_id = img.imagen_id
+              WHERE e.tabla_estado_registro_id = 1
+              ORDER BY e.empresa, m.modulo";
 
-    $result = mysqli_query($conexion, $sql);
+              $result = mysqli_query($conexion, $sql);
 
-    // Array para agrupar módulos por empresa
-    $empresas_modulos = [];
+              // Array para agrupar módulos por empresa
+              $empresas_modulos = [];
 
-    while ($row = mysqli_fetch_array($result)) {
-        $empresa_id = $row['empresa_id'];
-        
-        // Si no existe la empresa en el array, la inicializamos
-        if (!isset($empresas_modulos[$empresa_id])) {
-            $empresas_modulos[$empresa_id] = [
-                'empresa' => $row['empresa'],
-                'modulos' => []
-            ];
-        }
-        
-        // Si hay un módulo asociado, lo añadimos
-        if (!empty($row['modulo_id'])) {
-            $empresas_modulos[$empresa_id]['modulos'][] = [
-                'modulo_id' => $row['modulo_id'], // Añadido
-                'modulo' => $row['modulo'],
-                'modulo_url' => $row['modulo_url'],
-                'imagen_id' => $row['imagen_id'],
-                'base_datos' => $row['base_datos']
-            ];
-        }
-    }
+              while ($row = mysqli_fetch_array($result)) {
+                  $empresa_id = $row['empresa_id'];
+                  
+                  // Si no existe la empresa en el array, la inicializamos
+                  if (!isset($empresas_modulos[$empresa_id])) {
+                      $empresas_modulos[$empresa_id] = [
+                          'empresa' => $row['empresa'],
+                          'modulos' => []
+                      ];
+                  }
+                  
+                  // Si hay un módulo asociado, lo añadimos
+                  if (!empty($row['modulo_id'])) {
+                      $empresas_modulos[$empresa_id]['modulos'][] = [
+                          'modulo_id' => $row['modulo_id'], // Añadido
+                          'modulo' => $row['modulo'],
+                          'modulo_url' => $row['modulo_url'],
+                          'imagen_id' => $row['imagen_id'],
+                          'base_datos' => $row['base_datos']
+                      ];
+                  }
+              }
 
-    // Ahora generamos el HTML organizado por empresas
-    foreach ($empresas_modulos as $empresa_id => $datos_empresa) {
-        // Mostrar la empresa
-        echo '<div class="empresa-section">';
-        echo '<h4 class="empresa-title">' . htmlspecialchars($datos_empresa['empresa']) . '</h4>';
-        
-        // Mostrar los módulos de esta empresa
-        if (!empty($datos_empresa['modulos'])) {
-            echo '<ul class="nav flex-column">';
-            foreach ($datos_empresa['modulos'] as $modulo) {
-                echo '<li class="nav-item d-none d-md-block">';
-                
-                // OPCIÓN 1: Usando GET en la URL (más común)
-                $url_con_parametros = htmlspecialchars('../' . $modulo['modulo_url']) . 
-                                     '?empresa_id=' . $empresa_id . 
-                                     '&modulo_id=' . $modulo['modulo_id'];
-                
-                echo '<a href="' . $url_con_parametros . '" class="nav-link">';
-                echo htmlspecialchars($modulo['modulo']);
-                echo '</a>';
-                echo '</li>';
-            }
-            echo '</ul>';
-        } else {
-            echo '<p class="text-muted">No tiene módulos asignados</p>';
-        }
-        echo '</div>';
-        echo '<hr>';
-    }
-    ?>
-</ul>
+              // Ahora generamos el HTML organizado por empresas
+              foreach ($empresas_modulos as $empresa_id => $datos_empresa) {
+                  // Mostrar la empresa
+                  echo '<div class="empresa-section">';
+                  echo '<h4 class="empresa-title">' . htmlspecialchars($datos_empresa['empresa']) . '</h4>';
+                  
+                  // Mostrar los módulos de esta empresa
+                  if (!empty($datos_empresa['modulos'])) {
+                      echo '<ul class="nav flex-column">';
+                      foreach ($datos_empresa['modulos'] as $modulo) {
+                          echo '<li class="nav-item d-none d-md-block">';
+                          
+                          // OPCIÓN 1: Usando GET en la URL (más común)
+                          $url_con_parametros = htmlspecialchars('../' . $modulo['modulo_url']) . 
+                                              '?empresa_id=' . $empresa_id . 
+                                              '&modulo_id=' . $modulo['modulo_id'];
+                          
+                          echo '<a href="' . $url_con_parametros . '" class="nav-link">';
+                          echo htmlspecialchars($modulo['modulo']);
+                          echo '</a>';
+                          echo '</li>';
+                      }
+                      echo '</ul>';
+                  } else {
+                      echo '<p class="text-muted">No tiene módulos asignados</p>';
+                  }
+                  echo '</div>';
+                  echo '<hr>';
+              }
+              ?>
+          </ul>
           <!--end::Start Navbar Links-->
           <!--begin::End Navbar Links-->
           <ul class="navbar-nav ms-auto">
