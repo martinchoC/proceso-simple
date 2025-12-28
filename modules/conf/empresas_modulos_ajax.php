@@ -33,7 +33,19 @@ switch ($accion) {
         }
         
         $resultado = agregarEmpresaModulo($conexion, $data);
-        echo json_encode(['resultado' => $resultado]);
+        
+        // Si se agregó exitosamente, preguntar si copiar perfiles
+        if ($resultado) {
+            echo json_encode([
+                'resultado' => true, 
+                'empresa_modulo_id' => mysqli_insert_id($conexion),
+                'preguntar_copiar_perfiles' => true,
+                'empresa_id' => $data['empresa_id'],
+                'modulo_id' => $data['modulo_id']
+            ]);
+        } else {
+            echo json_encode(['resultado' => false]);
+        }
         break;
 
     case 'editar':
@@ -82,7 +94,22 @@ switch ($accion) {
         $modulos = obtenerModulos($conexion);
         echo json_encode($modulos);
         break;
+        
+    case 'copiar_perfiles':
+        $empresa_id = intval($_GET['empresa_id']);
+        $modulo_id = intval($_GET['modulo_id']);
+        $resultado = copiarPerfilesModulo($conexion, $empresa_id, $modulo_id);
+        echo json_encode($resultado);
+        break;
+        
+    case 'verificar_perfiles':
+        $empresa_id = intval($_GET['empresa_id']);
+        $modulo_id = intval($_GET['modulo_id']);
+        $perfiles = verificarPerfilesExistentes($conexion, $empresa_id, $modulo_id);
+        echo json_encode($perfiles);
+        break;
 
     default:
         echo json_encode(['error' => 'Acción no definida']);
 }
+?>

@@ -181,7 +181,7 @@ $(document).ready(function(){
             }
         },
         columns: [
-                { data: 'empresa_modulo_id' },
+            { data: 'empresa_modulo_id' },
             { 
                 data: 'empresa_id',
                 render: function(data, type, row) {
@@ -243,7 +243,19 @@ $(document).ready(function(){
                             <i class="fa fa-check"></i>
                          </button>`;
                     
-                    return botonEditar + botonEstado;
+                    // Botón para copiar perfiles
+                    var botonCopiarPerfiles = '';
+                    if (data.tabla_estado_registro_id == 1) {
+                        botonCopiarPerfiles = `
+                            <button class="btn btn-sm btn-info btnCopiarPerfiles me-1" 
+                                    title="Copiar perfiles del módulo" 
+                                    data-empresa-id="${data.empresa_id}" 
+                                    data-modulo-id="${data.modulo_id}">
+                                <i class="fa fa-copy"></i>
+                            </button>`;
+                    }
+                    
+                    return botonEditar + botonCopiarPerfiles + botonEstado;
                 }
             }
         ]
@@ -303,6 +315,194 @@ $(document).ready(function(){
             }
         });
     });
+    
+    // Copiar perfiles
+   $('#tablaEmpresasModulos tbody').on('click', '.btnCopiarPerfiles', function(){
+    var empresa_id = $(this).data('empresa-id');
+    var modulo_id = $(this).data('modulo-id');
+    var button = $(this);
+    
+    // Deshabilitar botón temporalmente
+    button.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+    
+    // Verificar perfiles existentes primero
+    $.get('empresas_modulos_ajax.php', {
+        accion: 'verificar_perfiles',
+        empresa_id: empresa_id,
+        modulo_id: modulo_id
+    }, function(res){
+        // Rehabilitar botón
+        button.prop('disabled', false).html('<i class="fa fa-copy"></i>');
+        
+        if (res.perfiles_faltantes_total > 0) {
+            // Crear lista de perfiles faltantes
+            var listaFaltantes = '';
+            res.perfiles_faltantes.forEach(function(perfil, index) {
+                listaFaltantes += `<div class="text-start">
+                    <i class="fa fa-user me-2"></i>
+                    <span class="fw-medium">${perfil.perfil_nombre}</span>
+                </div>`;
+            });
+            
+            // Crear lista de perfiles ya copiados (si hay)
+            var listaCopiados = '';
+            if (res.perfiles_copiados_total > 0) {
+                listaCopiados = `<div class="mt-3">
+                    <small class="text-muted">
+                        <i class="fa fa-info-circle me-1"></i>
+                        Ya existen ${res.perfiles_copiados_total} perfiles copiados anteriormente
+                    </small>
+                </div>`;
+            }
+            
+            Swal.fire({
+                title: '¿Copiar perfiles faltantes?',
+                html: `<div class="text-start">
+                    <p>Se copiarán <b>${res.perfiles_faltantes_total} perfiles</b> de este módulo:</p>
+                    <div class="border rounded p-2 mb-2" style="max-height: 200px; overflow-y: auto;">
+                        ${listaFaltantes}
+                    </div>
+                    ${listaCopiados}
+                </div>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, copiar perfiles',
+                cancelButtonText: 'Cancelar',
+                width: '600px'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    copiarPerfiles(empresa_id, modulo_id, button);
+                }
+            });
+        } else if (res.perfiles_base_total == 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sin perfiles',
+                text: 'Este módulo no tiene perfiles genéricos para copiar.'
+            });
+        } else {
+            // Todos los perfiles ya están copiados
+            var listaPerfilesCopiados = '';
+            res.perfiles_copiados.forEach(function(perfil, index) {
+                listaPerfilesCopiados += `<div class="text-start">
+                    <i class="fa fa-check-circle text-success me-2"></i>
+                    <span>${perfil.empresa_perfil_nombre}</span>
+                </div>`;
+            });
+            
+            Swal.fire({
+                title: 'Perfiles ya copiados',
+                html: `<div class="text-start">
+                    <p>Todos los <b>${res.perfiles_copiados_total} perfiles</b> ya han sido copiados para esta empresa:</p>
+                    <div class="border rounded p-2" style="max-height: 300px; overflow-y: auto;">
+                        ${listaPerfilesCopiados}
+                    </div>
+                </div>`,
+                icon: 'info',
+                confirmButtonText: 'Entendido',
+                width: '600px'
+            });
+        }
+    }, 'json').fail(function() {
+        // Rehabilitar botón en caso de error
+        button.prop('disabled', false).html('<i class="fa fa-copy"></i>');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al verificar perfiles'
+        });
+    });
+});
+
+
+    
+    function copiarPerfiles(empresa_id, modulo_id, button) {
+    // Deshabilitar botón durante la copia
+    if (button) {
+        button.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+    }
+    
+    Swal.fire({
+        title: 'Copiando perfiles...',
+        html: '<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x"></i><br><p class="mt-2">Por favor espera mientras se copian los perfiles.</p></div>',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        width: '400px'
+    });
+    
+    $.get('empresas_modulos_ajax.php', {
+        accion: 'copiar_perfiles',
+        empresa_id: empresa_id,
+        modulo_id: modulo_id
+    }, function(res){
+        // Rehabilitar botón
+        if (button) {
+            button.prop('disabled', false).html('<i class="fa fa-copy"></i>');
+        }
+        
+        Swal.close();
+        
+        if (res.resultado) {
+            var mensaje = `<div class="text-start">
+                <div class="alert alert-success">
+                    <i class="fa fa-check-circle me-2"></i>
+                    <strong>¡Éxito!</strong> Proceso de copia completado
+                </div>
+                <div class="row mt-3">
+                    <div class="col-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h5 class="card-title text-success">${res.perfiles_copiados}</h5>
+                                <p class="card-text mb-0">Perfiles copiados</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h5 class="card-title text-info">${res.funciones_copiadas}</h5>
+                                <p class="card-text mb-0">Funciones asignadas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            
+            if (res.perfiles_omitidos > 0) {
+                mensaje += `<div class="mt-3 alert alert-warning">
+                    <i class="fa fa-exclamation-triangle me-2"></i>
+                    <strong>Nota:</strong> Se omitieron ${res.perfiles_omitidos} perfiles porque ya existían
+                </div>`;
+            }
+            
+            Swal.fire({
+                title: 'Proceso completado',
+                html: mensaje,
+                icon: 'success',
+                confirmButtonText: 'Aceptar',
+                width: '500px'
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: res.error || 'Error al copiar perfiles',
+                confirmButtonText: 'Aceptar'
+            });
+        }
+    }, 'json').fail(function() {
+        // Rehabilitar botón en caso de error
+        if (button) {
+            button.prop('disabled', false).html('<i class="fa fa-copy"></i>');
+        }
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error de conexión con el servidor'
+        });
+    });
+}
 
     $('#tablaEmpresasModulos tbody').on('click', '.btnEditar', function(){
         var data = tabla.row($(this).parents('tr')).data();
@@ -371,13 +571,44 @@ $(document).ready(function(){
                     $('#formEmpresaModulo')[0].reset();
                     form.classList.remove('was-validated');
                     
-                    Swal.fire({
-                        icon: "success",
-                        title: "¡Éxito!",
-                        text: id ? "Asignación actualizada correctamente" : "Asignación creada correctamente",
-                        showConfirmButton: false,
-                        timer: 1500
-                    });
+                    // Si es una nueva asignación y tiene opción de copiar perfiles
+                    if (!id && res.preguntar_copiar_perfiles) {
+                        Swal.fire({
+                            icon: "success",
+                            title: "¡Éxito!",
+                            text: "Asignación creada correctamente",
+                            showConfirmButton: true,
+                            confirmButtonText: "Continuar",
+                            showCancelButton: true,
+                            cancelButtonText: "Copiar perfiles"
+                        }).then((result) => {
+                            if (result.isDismissed) {
+                                // Preguntar si copiar perfiles
+                                Swal.fire({
+                                    title: '¿Copiar perfiles?',
+                                    text: '¿Deseas copiar los perfiles genéricos de este módulo a la empresa?',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#3085d6',
+                                    cancelButtonColor: '#d33',
+                                    confirmButtonText: 'Sí, copiar',
+                                    cancelButtonText: 'No, después'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        copiarPerfiles(res.empresa_id, res.modulo_id);
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: "success",
+                            title: "¡Éxito!",
+                            text: id ? "Asignación actualizada correctamente" : "Asignación creada correctamente",
+                            showConfirmButton: false,
+                            timer: 1500
+                        });
+                    }
                 } else {
                     Swal.fire({
                         icon: "error",
