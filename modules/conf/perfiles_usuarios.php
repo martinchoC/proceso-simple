@@ -6,6 +6,9 @@ $modudo_idx = 1;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
+
+// Obtener el ID de empresa de la sesión (ajusta según tu sistema)
+$empresa_id_sesion = null; // Temporal - reemplaza con tu lógica
 ?>
 <main class="app-main">
     <div class="app-content-header">
@@ -33,9 +36,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <h3 class="card-title">Filtros</h3>
                                     </div>
                                     <div class="card-body">
+                                        <!-- Select de empresa -->
                                         <div class="form-group">
+                                            <label for="selectEmpresa">Empresa:</label>
+                                            <select class="form-control" id="selectEmpresa">
+                                                <option value="">Seleccione una empresa</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-group mt-3">
                                             <label for="selectModulo">Módulo:</label>
-                                            <select class="form-control" id="selectModulo">
+                                            <select class="form-control" id="selectModulo" disabled>
                                                 <option value="">Seleccione un módulo</option>
                                             </select>
                                         </div>
@@ -45,13 +56,28 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <option value="">Seleccione un perfil</option>
                                             </select>
                                         </div>
+                                        
+                                        <!-- NUEVO: Filtro por usuario -->
+                                        <hr>
+                                        <div class="form-group mt-3">
+                                            <label for="selectUsuarioFiltro">Ver por Usuario:</label>
+                                            <select class="form-control" id="selectUsuarioFiltro">
+                                                <option value="">Seleccione un usuario</option>
+                                                <option value="todos">Ver todos los usuarios</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group mt-2">
+                                            <button class="btn btn-sm btn-outline-primary w-100" id="btnFiltrarUsuario">
+                                                <i class="fas fa-filter"></i> Filtrar por Usuario
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-9">
                                 <div class="card">
                                     <div class="card-header">
-                                        <h3 class="card-title">Usuarios Asignados 
+                                        <h3 class="card-title" id="tituloTabla">Usuarios Asignados 
                                             <span id="tituloFiltro" class="text-muted small"></span>
                                         </h3>
                                         <div class="card-tools">
@@ -63,8 +89,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="card-body">
                                         <div id="infoSeleccion" class="alert alert-info d-none">
                                             <i class="fas fa-info-circle"></i> 
-                                            <span id="textoInfo">Seleccione un módulo y perfil para gestionar las asignaciones de usuarios</span>
+                                            <span id="textoInfo">Seleccione una empresa, módulo y perfil para gestionar las asignaciones de usuarios</span>
                                         </div>
+                                        
+                                        <!-- NUEVO: Información de filtro por usuario -->
+                                        <div id="infoUsuarioFiltro" class="alert alert-warning d-none">
+                                            <i class="fas fa-user"></i> 
+                                            <span id="textoUsuarioFiltro">Mostrando todas las asignaciones del usuario seleccionado</span>
+                                            <button type="button" class="btn-close float-end" id="btnLimpiarFiltroUsuario" style="font-size: 0.8rem;"></button>
+                                        </div>
+                                        
                                         <div class="table-responsive">
                                             <table class="table table-bordered table-hover">
                                                 <thead>
@@ -72,6 +106,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <th>Usuario</th>
                                                         <th>Nombre</th>
                                                         <th>Email</th>
+                                                        <th>Empresa</th>
+                                                        <th>Módulo</th>
+                                                        <th>Perfil</th>
                                                         <th>Fecha Inicio</th>
                                                         <th>Fecha Fin</th>
                                                         <th>Estado</th>
@@ -80,7 +117,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </thead>
                                                 <tbody id="tablaAsignaciones">
                                                     <tr>
-                                                        <td colspan="7" class="text-center">Seleccione un perfil para ver las asignaciones</td>
+                                                        <td colspan="10" class="text-center">Seleccione una empresa para ver las asignaciones</td>
                                                     </tr>
                                                 </tbody>
                                             </table>    
@@ -107,10 +144,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="modal-body">
                 <form id="formAsignacionUsuario">
                     <input type="hidden" id="usuario_perfil_id" name="usuario_perfil_id" value="">
-                    <input type="hidden" id="perfil_id" name="perfil_id" value="">
+                    <input type="hidden" id="empresa_perfil_id" name="empresa_perfil_id" value="">
+                    <input type="hidden" id="empresa_id_modal" name="empresa_id" value="">
+                    
                     <div class="mb-3">
                         <label for="selectUsuario" class="form-label">Usuario</label>
-                        <select class="form-control" id="selectUsuario" name="usuario_id" >
+                        <select class="form-control" id="selectUsuario" name="usuario_id" required>
                             <option value="">Seleccione un usuario</option>
                         </select>
                     </div>
@@ -148,66 +187,514 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <script>
 $(document).ready(function() {
-    // Cargar módulos al iniciar
-    cargarModulos();
+    var empresaSeleccionada = <?php echo $empresa_id_sesion ? 'true' : 'false'; ?>;
+    var empresaIdSesion = <?php echo $empresa_id_sesion ?: 'null'; ?>;
+    var usuarioFiltroActivo = false;
+    var usuarioFiltroId = null;
+    var usuarioFiltroNombre = '';
+    
+    // Cargar empresas al iniciar
+    cargarEmpresas();
+    cargarUsuariosParaFiltro();
+    
+    // Si hay empresa de sesión, seleccionarla automáticamente
+    if (empresaIdSesion) {
+        setTimeout(function() {
+            $('#selectEmpresa').val(empresaIdSesion).trigger('change');
+        }, 500);
+    }
+    
+    // Evento cuando cambia la empresa seleccionada
+    $('#selectEmpresa').change(function() {
+        var empresa_id = $(this).val();
+        empresaSeleccionada = empresa_id;
+        
+        $('#selectModulo').prop('disabled', !empresa_id);
+        $('#selectPerfil').prop('disabled', true);
+        $('#selectPerfil').empty().append('<option value="">Seleccione un perfil</option>');
+        
+        if (empresa_id) {
+            // Habilitar módulo y limpiar
+            $('#selectModulo').prop('disabled', false);
+            $('#selectModulo').val('');
+            $('#selectModulo').trigger('change');
+            
+            // Si no hay filtro de usuario activo, cargar asignaciones por empresa
+            if (!usuarioFiltroActivo) {
+                cargarAsignacionesPorEmpresa(empresa_id);
+                actualizarInfoSeleccion();
+            }
+        } else {
+            $('#selectModulo').prop('disabled', true);
+            $('#selectPerfil').prop('disabled', true);
+            if (!usuarioFiltroActivo) {
+                $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Seleccione una empresa para ver las asignaciones</td></tr>');
+            }
+            actualizarInfoSeleccion();
+        }
+    });
     
     // Evento cuando cambia el módulo seleccionado
     $('#selectModulo').change(function() {
         var modulo_id = $(this).val();
-        $('#selectPerfil').prop('disabled', !modulo_id);
+        var empresa_id = $('#selectEmpresa').val();
         
-        if (modulo_id) {
-            cargarPerfilesPorModulo(modulo_id);
-            cargarAsignacionesPorModulo(modulo_id); // ← Nueva función
-            actualizarInfoSeleccion();
+        $('#selectPerfil').prop('disabled', !modulo_id || !empresa_id);
+        
+        if (modulo_id && empresa_id) {
+            cargarPerfilesPorModuloEmpresa(modulo_id, empresa_id);
+            if (!usuarioFiltroActivo) {
+                cargarAsignacionesPorModuloEmpresa(empresa_id, modulo_id);
+                actualizarInfoSeleccion();
+            }
         } else {
             $('#selectPerfil').empty().append('<option value="">Seleccione un perfil</option>');
-            $('#tablaAsignaciones').html('<tr><td colspan="7" class="text-center">Seleccione un módulo para ver las asignaciones</td></tr>');
+            if (!usuarioFiltroActivo) {
+                $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Seleccione una empresa y módulo para ver las asignaciones</td></tr>');
+            }
             actualizarInfoSeleccion();
         }
     });
     
     // Evento cuando cambia el perfil seleccionado
     $('#selectPerfil').change(function() {
-        var perfil_id = $(this).val();
+        var empresa_perfil_id = $(this).val();
+        var empresa_id = $('#selectEmpresa').val();
         var modulo_id = $('#selectModulo').val();
-        $('#perfil_id').val(perfil_id);
+        
+        $('#empresa_perfil_id').val(empresa_perfil_id);
         actualizarInfoSeleccion();
         
-        if (perfil_id) {
-            // Si hay perfil específico, cargar solo ese perfil
-            cargarAsignacionesUsuarioPerfil(perfil_id);
-        } else if (modulo_id) {
-            // Si no hay perfil pero sí módulo, cargar todo el módulo
-            cargarAsignacionesPorModulo(modulo_id);
-        } else {
-            $('#tablaAsignaciones').html('<tr><td colspan="7" class="text-center">Seleccione un módulo para ver las asignaciones</td></tr>');
+        if (!usuarioFiltroActivo) {
+            if (empresa_perfil_id) {
+                // Si hay perfil específico, cargar solo ese perfil
+                cargarAsignacionesUsuarioPerfil(empresa_perfil_id);
+            } else if (empresa_id && modulo_id) {
+                // Si no hay perfil pero sí empresa y módulo, cargar todo el módulo
+                cargarAsignacionesPorModuloEmpresa(empresa_id, modulo_id);
+            } else if (empresa_id) {
+                // Si solo hay empresa, cargar todas las asignaciones de la empresa
+                cargarAsignacionesPorEmpresa(empresa_id);
+            } else {
+                $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Seleccione una empresa para ver las asignaciones</td></tr>');
+            }
         }
+    });
+    
+    // NUEVO: Cargar usuarios para el filtro
+    function cargarUsuariosParaFiltro() {
+        $.get('perfiles_usuarios_ajax.php', {
+            accion: 'obtener_todos_usuarios'
+        }, function(res) {
+            if (res && res.length > 0) {
+                $.each(res, function(i, usuario) {
+                    var texto = usuario.usuario_nombre;
+                    if (usuario.email) {
+                        texto += ' (' + usuario.email + ')';
+                    }
+                    
+                    $('#selectUsuarioFiltro').append($('<option>', {
+                        value: usuario.usuario_id,
+                        text: texto
+                    }));
+                });
+            }
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar usuarios para filtro:', error);
+        });
+    }
+    
+    // NUEVO: Filtrar por usuario
+    $('#btnFiltrarUsuario').click(function() {
+        var usuario_id = $('#selectUsuarioFiltro').val();
+        
+        if (!usuario_id) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Seleccione un usuario',
+                text: 'Debe seleccionar un usuario para filtrar'
+            });
+            return;
+        }
+        
+        if (usuario_id === 'todos') {
+            // Ver todas las asignaciones de todos los usuarios
+            cargarTodasAsignacionesUsuarios();
+            usuarioFiltroActivo = true;
+            usuarioFiltroId = null;
+            usuarioFiltroNombre = 'Todos los usuarios';
+        } else {
+            // Filtrar por usuario específico
+            var usuario_nombre = $('#selectUsuarioFiltro option:selected').text();
+            cargarAsignacionesPorUsuario(usuario_id);
+            usuarioFiltroActivo = true;
+            usuarioFiltroId = usuario_id;
+            usuarioFiltroNombre = usuario_nombre;
+        }
+        
+        actualizarInfoUsuarioFiltro();
+    });
+    
+    // NUEVO: Cargar todas las asignaciones de un usuario específico
+    function cargarAsignacionesPorUsuario(usuario_id) {
+        $.get('perfiles_usuarios_ajax.php', {
+            accion: 'obtener_asignaciones_por_usuario',
+            usuario_id: usuario_id
+        }, function(res) {
+            var tbody = $('#tablaAsignaciones');
+            tbody.empty();
+            
+            if (res && res.length > 0) {
+                // Agrupar por empresa y módulo para mejor visualización
+                var asignacionesAgrupadas = {};
+                
+                $.each(res, function(i, asignacion) {
+                    var key = asignacion.empresa_id + '_' + asignacion.modulo_id;
+                    if (!asignacionesAgrupadas[key]) {
+                        asignacionesAgrupadas[key] = {
+                            empresa: asignacion.empresa,
+                            modulo: asignacion.modulo,
+                            asignaciones: []
+                        };
+                    }
+                    asignacionesAgrupadas[key].asignaciones.push(asignacion);
+                });
+                
+                // Mostrar en la tabla
+                $.each(asignacionesAgrupadas, function(key, grupo) {
+                    // Fila de encabezado de empresa y módulo
+                    tbody.append(`
+                        <tr class="table-info">
+                            <td colspan="10" class="fw-bold">
+                                <i class="fas fa-building"></i> ${grupo.empresa} | 
+                                <i class="fas fa-cube"></i> ${grupo.modulo}
+                            </td>
+                        </tr>
+                    `);
+                    
+                    // Asignaciones de este grupo
+                    $.each(grupo.asignaciones, function(i, asignacion) {
+                        var hoy = new Date();
+                        var fechaFin = new Date(asignacion.fecha_fin_formateada.split('/').reverse().join('-'));
+                        var estado = hoy <= fechaFin ? 
+                            '<span class="badge bg-success">Vigente</span>' : 
+                            '<span class="badge bg-secondary">Expirada</span>';
+                        
+                        var acciones = `
+                            <button class="btn btn-sm btn-warning btn-editar-asignacion" 
+                                    data-id="${asignacion.usuario_perfil_id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger btn-eliminar-asignacion" 
+                                    data-id="${asignacion.usuario_perfil_id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        `;
+                        
+                        tbody.append(`
+                            <tr>                            
+                                <td>${asignacion.usuario}</td>
+                                <td>${asignacion.usuario_nombre}</td>
+                                <td>${asignacion.email}</td>
+                                <td>${asignacion.empresa || ''}</td>
+                                <td>${asignacion.modulo || ''}</td>
+                                <td>${asignacion.empresa_perfil_nombre}</td>
+                                <td>${asignacion.fecha_inicio_formateada}</td>
+                                <td>${asignacion.fecha_fin_formateada}</td>
+                                <td>${estado}</td>
+                                <td>${acciones}</td>
+                            </tr>
+                        `);
+                    });
+                });
+                
+                // Agregar eventos a los botones
+                $(document).off('click', '.btn-editar-asignacion').on('click', '.btn-editar-asignacion', function() {
+                    var id = $(this).data('id');
+                    abrirModalAsignacion(id);
+                });
+                
+                $(document).off('click', '.btn-eliminar-asignacion').on('click', '.btn-eliminar-asignacion', function() {
+                    var id = $(this).data('id');
+                    eliminarAsignacion(id);
+                });
+                
+            } else {
+                tbody.append('<tr><td colspan="10" class="text-center">El usuario no tiene asignaciones de perfiles</td></tr>');
+            }
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar asignaciones por usuario:', error);
+            $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Error al cargar las asignaciones</td></tr>');
+        });
+    }
+    
+    // NUEVO: Cargar todas las asignaciones de todos los usuarios
+    function cargarTodasAsignacionesUsuarios() {
+        $.get('perfiles_usuarios_ajax.php', {
+            accion: 'obtener_todas_asignaciones'
+        }, function(res) {
+            var tbody = $('#tablaAsignaciones');
+            tbody.empty();
+            
+            if (res && res.length > 0) {
+                // Agrupar por usuario para mejor visualización
+                var asignacionesPorUsuario = {};
+                
+                $.each(res, function(i, asignacion) {
+                    if (!asignacionesPorUsuario[asignacion.usuario_id]) {
+                        asignacionesPorUsuario[asignacion.usuario_id] = {
+                            usuario_nombre: asignacion.usuario_nombre,
+                            usuario: asignacion.usuario,
+                            email: asignacion.email,
+                            asignaciones: []
+                        };
+                    }
+                    asignacionesPorUsuario[asignacion.usuario_id].asignaciones.push(asignacion);
+                });
+                
+                // Mostrar en la tabla
+                $.each(asignacionesPorUsuario, function(usuario_id, usuario) {
+                    // Fila de encabezado del usuario
+                    tbody.append(`
+                        <tr class="table-primary">
+                            <td colspan="10" class="fw-bold">
+                                <i class="fas fa-user"></i> ${usuario.usuario_nombre} (${usuario.email})
+                            </td>
+                        </tr>
+                    `);
+                    
+                    // Asignaciones de este usuario
+                    $.each(usuario.asignaciones, function(i, asignacion) {
+                        var hoy = new Date();
+                        var fechaFin = new Date(asignacion.fecha_fin_formateada.split('/').reverse().join('-'));
+                        var estado = hoy <= fechaFin ? 
+                            '<span class="badge bg-success">Vigente</span>' : 
+                            '<span class="badge bg-secondary">Expirada</span>';
+                        
+                        var acciones = `
+                            <button class="btn btn-sm btn-warning btn-editar-asignacion" 
+                                    data-id="${asignacion.usuario_perfil_id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger btn-eliminar-asignacion" 
+                                    data-id="${asignacion.usuario_perfil_id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        `;
+                        
+                        tbody.append(`
+                            <tr>                            
+                                <td>${asignacion.usuario}</td>
+                                <td>${asignacion.usuario_nombre}</td>
+                                <td>${asignacion.email}</td>
+                                <td>${asignacion.empresa || ''}</td>
+                                <td>${asignacion.modulo || ''}</td>
+                                <td>${asignacion.empresa_perfil_nombre}</td>
+                                <td>${asignacion.fecha_inicio_formateada}</td>
+                                <td>${asignacion.fecha_fin_formateada}</td>
+                                <td>${estado}</td>
+                                <td>${acciones}</td>
+                            </tr>
+                        `);
+                    });
+                });
+                
+                // Agregar eventos a los botones
+                $(document).off('click', '.btn-editar-asignacion').on('click', '.btn-editar-asignacion', function() {
+                    var id = $(this).data('id');
+                    abrirModalAsignacion(id);
+                });
+                
+                $(document).off('click', '.btn-eliminar-asignacion').on('click', '.btn-eliminar-asignacion', function() {
+                    var id = $(this).data('id');
+                    eliminarAsignacion(id);
+                });
+                
+            } else {
+                tbody.append('<tr><td colspan="10" class="text-center">No hay asignaciones de perfiles</td></tr>');
+            }
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar todas las asignaciones:', error);
+            $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Error al cargar las asignaciones</td></tr>');
+        });
+    }
+    
+    // NUEVO: Actualizar información del filtro por usuario
+    function actualizarInfoUsuarioFiltro() {
+        if (usuarioFiltroActivo) {
+            var texto = '';
+            if (usuarioFiltroId) {
+                texto = `Mostrando todas las asignaciones del usuario: <strong>${usuarioFiltroNombre}</strong>`;
+            } else {
+                texto = `Mostrando todas las asignaciones de <strong>${usuarioFiltroNombre}</strong>`;
+            }
+            
+            $('#textoUsuarioFiltro').html(texto);
+            $('#infoUsuarioFiltro').removeClass('d-none');
+            $('#infoSeleccion').addClass('d-none');
+            $('#tituloTabla').html('Asignaciones por Usuario');
+            
+            // Deshabilitar otros filtros
+            $('#selectEmpresa, #selectModulo, #selectPerfil').prop('disabled', true);
+        } else {
+            $('#infoUsuarioFiltro').addClass('d-none');
+            $('#selectEmpresa, #selectModulo, #selectPerfil').prop('disabled', false);
+            $('#tituloTabla').html('Usuarios Asignados');
+        }
+    }
+    
+    // NUEVO: Limpiar filtro por usuario
+    $('#btnLimpiarFiltroUsuario').click(function() {
+        usuarioFiltroActivo = false;
+        usuarioFiltroId = null;
+        usuarioFiltroNombre = '';
+        $('#selectUsuarioFiltro').val('');
+        
+        // Limpiar tabla y recargar según empresa seleccionada
+        var empresa_id = $('#selectEmpresa').val();
+        if (empresa_id) {
+            cargarAsignacionesPorEmpresa(empresa_id);
+        } else {
+            $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Seleccione una empresa para ver las asignaciones</td></tr>');
+        }
+        
+        actualizarInfoUsuarioFiltro();
+        actualizarInfoSeleccion();
     });
     
     // Función para actualizar la información de selección
     function actualizarInfoSeleccion() {
-        var modulo = $('#selectModulo option:selected').text();
-        var perfil = $('#selectPerfil option:selected').text();
-        
-        if (modulo && modulo !== "Seleccione un módulo") {
-            var texto = `Módulo: <strong>${modulo}</strong>`;
-            if (perfil && perfil !== "Seleccione un perfil") {
-                texto += ` | Perfil: <strong>${perfil}</strong>`;
+        if (!usuarioFiltroActivo) {
+            var empresa = $('#selectEmpresa option:selected').text();
+            var modulo = $('#selectModulo option:selected').text();
+            var perfil = $('#selectPerfil option:selected').text();
+            
+            if (empresa && empresa !== "Seleccione una empresa") {
+                var texto = `Empresa: <strong>${empresa}</strong>`;
+                
+                if (modulo && modulo !== "Seleccione un módulo") {
+                    texto += ` | Módulo: <strong>${modulo}</strong>`;
+                    
+                    if (perfil && perfil !== "Seleccione un perfil") {
+                        texto += ` | Perfil: <strong>${perfil}</strong>`;
+                    } else {
+                        texto += ` | <em>Mostrando todos los perfiles del módulo</em>`;
+                    }
+                } else {
+                    texto += ` | <em>Mostrando todos los módulos</em>`;
+                }
+                
+                $('#textoInfo').html(texto);
+                $('#infoSeleccion').removeClass('d-none');
             } else {
-                texto += ` | <em>Mostrando todos los perfiles</em>`;
+                $('#infoSeleccion').addClass('d-none');
             }
-            $('#textoInfo').html(texto);
-            $('#infoSeleccion').removeClass('d-none');
-        } else {
-            $('#infoSeleccion').addClass('d-none');
         }
     }
     
-    // Función para cargar asignaciones por módulo (todos los perfiles)
-    function cargarAsignacionesPorModulo(modulo_id) {
+    // (Las funciones restantes se mantienen igual, pero asegúrate de que respeten el filtro de usuario)
+    // Función para cargar asignaciones por empresa (todos los módulos)
+    function cargarAsignacionesPorEmpresa(empresa_id) {
+        if (usuarioFiltroActivo) return;
+        
         $.get('perfiles_usuarios_ajax.php', {
-            accion: 'obtener_asignaciones_por_modulo',
+            accion: 'obtener_asignaciones_por_empresa',
+            empresa_id: empresa_id
+        }, function(res) {
+            var tbody = $('#tablaAsignaciones');
+            tbody.empty();
+            
+            if (res && res.length > 0) {
+                // Agrupar por módulo y perfil para mejor visualización
+                var asignacionesAgrupadas = {};
+                
+                $.each(res, function(i, asignacion) {
+                    var key = asignacion.modulo_id + '_' + asignacion.empresa_perfil_id;
+                    if (!asignacionesAgrupadas[key]) {
+                        asignacionesAgrupadas[key] = {
+                            modulo: asignacion.modulo,
+                            perfil_nombre: asignacion.empresa_perfil_nombre,
+                            asignaciones: []
+                        };
+                    }
+                    asignacionesAgrupadas[key].asignaciones.push(asignacion);
+                });
+                
+                // Mostrar en la tabla
+                $.each(asignacionesAgrupadas, function(key, grupo) {
+                    // Fila de encabezado del módulo y perfil
+                    tbody.append(`
+                        <tr class="table-primary">
+                            <td colspan="10" class="fw-bold">
+                                <i class="fas fa-cube"></i> ${grupo.modulo} | 
+                                <i class="fas fa-users"></i> ${grupo.perfil_nombre}
+                            </td>
+                        </tr>
+                    `);
+                    
+                    // Asignaciones de este grupo
+                    $.each(grupo.asignaciones, function(i, asignacion) {
+                        var hoy = new Date();
+                        var fechaFin = new Date(asignacion.fecha_fin_formateada.split('/').reverse().join('-'));
+                        var estado = hoy <= fechaFin ? 
+                            '<span class="badge bg-success">Vigente</span>' : 
+                            '<span class="badge bg-secondary">Expirada</span>';
+                        
+                        var acciones = `
+                            <button class="btn btn-sm btn-warning btn-editar-asignacion" 
+                                    data-id="${asignacion.usuario_perfil_id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger btn-eliminar-asignacion" 
+                                    data-id="${asignacion.usuario_perfil_id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        `;
+                        
+                        tbody.append(`
+                            <tr>                            
+                                <td>${asignacion.usuario}</td>
+                                <td>${asignacion.usuario_nombre}</td>
+                                <td>${asignacion.email}</td>
+                                <td>${asignacion.empresa || ''}</td>
+                                <td>${asignacion.modulo || ''}</td>
+                                <td>${asignacion.empresa_perfil_nombre}</td>
+                                <td>${asignacion.fecha_inicio_formateada}</td>
+                                <td>${asignacion.fecha_fin_formateada}</td>
+                                <td>${estado}</td>
+                                <td>${acciones}</td>
+                            </tr>
+                        `);
+                    });
+                });
+                
+                // Agregar eventos a los botones
+                $(document).off('click', '.btn-editar-asignacion').on('click', '.btn-editar-asignacion', function() {
+                    var id = $(this).data('id');
+                    abrirModalAsignacion(id);
+                });
+                
+                $(document).off('click', '.btn-eliminar-asignacion').on('click', '.btn-eliminar-asignacion', function() {
+                    var id = $(this).data('id');
+                    eliminarAsignacion(id);
+                });
+                
+            } else {
+                tbody.append('<tr><td colspan="10" class="text-center">No hay asignaciones para esta empresa</td></tr>');
+            }
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar asignaciones por empresa:', error);
+            $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Error al cargar las asignaciones</td></tr>');
+        });
+    }
+    
+    // Función para cargar asignaciones por módulo y empresa
+    function cargarAsignacionesPorModuloEmpresa(empresa_id, modulo_id) {
+        if (usuarioFiltroActivo) return;
+        
+        $.get('perfiles_usuarios_ajax.php', {
+            accion: 'obtener_asignaciones_por_modulo_empresa',
+            empresa_id: empresa_id,
             modulo_id: modulo_id
         }, function(res) {
             var tbody = $('#tablaAsignaciones');
@@ -218,21 +705,21 @@ $(document).ready(function() {
                 var asignacionesPorPerfil = {};
                 
                 $.each(res, function(i, asignacion) {
-                    if (!asignacionesPorPerfil[asignacion.perfil_id]) {
-                        asignacionesPorPerfil[asignacion.perfil_id] = {
-                            perfil_nombre: asignacion.perfil_nombre,
+                    if (!asignacionesPorPerfil[asignacion.empresa_perfil_id]) {
+                        asignacionesPorPerfil[asignacion.empresa_perfil_id] = {
+                            perfil_nombre: asignacion.empresa_perfil_nombre,
                             asignaciones: []
                         };
                     }
-                    asignacionesPorPerfil[asignacion.perfil_id].asignaciones.push(asignacion);
+                    asignacionesPorPerfil[asignacion.empresa_perfil_id].asignaciones.push(asignacion);
                 });
                 
                 // Mostrar en la tabla
-                $.each(asignacionesPorPerfil, function(perfil_id, grupo) {
+                $.each(asignacionesPorPerfil, function(empresa_perfil_id, grupo) {
                     // Fila de encabezado del perfil
                     tbody.append(`
                         <tr class="table-primary">
-                            <td colspan="7" class="fw-bold">
+                            <td colspan="10" class="fw-bold">
                                 <i class="fas fa-users"></i> Perfil: ${grupo.perfil_nombre}
                             </td>
                         </tr>
@@ -262,6 +749,9 @@ $(document).ready(function() {
                                 <td>${asignacion.usuario}</td>
                                 <td>${asignacion.usuario_nombre}</td>
                                 <td>${asignacion.email}</td>
+                                <td>${asignacion.empresa || ''}</td>
+                                <td>${asignacion.modulo || ''}</td>
+                                <td>${asignacion.empresa_perfil_nombre}</td>
                                 <td>${asignacion.fecha_inicio_formateada}</td>
                                 <td>${asignacion.fecha_fin_formateada}</td>
                                 <td>${estado}</td>
@@ -272,27 +762,32 @@ $(document).ready(function() {
                 });
                 
                 // Agregar eventos a los botones
-                $('.btn-editar-asignacion').click(function() {
+                $(document).off('click', '.btn-editar-asignacion').on('click', '.btn-editar-asignacion', function() {
                     var id = $(this).data('id');
                     abrirModalAsignacion(id);
                 });
                 
-                $('.btn-eliminar-asignacion').click(function() {
+                $(document).off('click', '.btn-eliminar-asignacion').on('click', '.btn-eliminar-asignacion', function() {
                     var id = $(this).data('id');
                     eliminarAsignacion(id);
                 });
                 
             } else {
-                tbody.append('<tr><td colspan="7" class="text-center">No hay asignaciones para este módulo</td></tr>');
+                tbody.append('<tr><td colspan="10" class="text-center">No hay asignaciones para este módulo</td></tr>');
             }
-        }, 'json');
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar asignaciones por módulo:', error);
+            $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Error al cargar las asignaciones</td></tr>');
+        });
     }
     
-    // Función para cargar asignaciones por perfil específico (existente)
-    function cargarAsignacionesUsuarioPerfil(perfil_id) {
+    // Función para cargar asignaciones por perfil específico
+    function cargarAsignacionesUsuarioPerfil(empresa_perfil_id) {
+        if (usuarioFiltroActivo) return;
+        
         $.get('perfiles_usuarios_ajax.php', {
             accion: 'obtener_asignaciones_usuario_perfil',
-            perfil_id: perfil_id
+            empresa_perfil_id: empresa_perfil_id
         }, function(res) {
             var tbody = $('#tablaAsignaciones');
             tbody.empty();
@@ -321,6 +816,9 @@ $(document).ready(function() {
                             <td>${asignacion.usuario}</td>
                             <td>${asignacion.usuario_nombre}</td>
                             <td>${asignacion.email}</td>
+                            <td>${asignacion.empresa || ''}</td>
+                            <td>${asignacion.modulo || ''}</td>
+                            <td>${asignacion.empresa_perfil_nombre}</td>
                             <td>${asignacion.fecha_inicio_formateada}</td>
                             <td>${asignacion.fecha_fin_formateada}</td>
                             <td>${estado}</td>
@@ -330,61 +828,45 @@ $(document).ready(function() {
                 });
                 
                 // Agregar eventos a los botones
-                $('.btn-editar-asignacion').click(function() {
+                $(document).off('click', '.btn-editar-asignacion').on('click', '.btn-editar-asignacion', function() {
                     var id = $(this).data('id');
                     abrirModalAsignacion(id);
                 });
                 
-                $('.btn-eliminar-asignacion').click(function() {
+                $(document).off('click', '.btn-eliminar-asignacion').on('click', '.btn-eliminar-asignacion', function() {
                     var id = $(this).data('id');
                     eliminarAsignacion(id);
                 });
                 
             } else {
-                tbody.append('<tr><td colspan="7" class="text-center">No hay asignaciones para este perfil</td></tr>');
+                tbody.append('<tr><td colspan="10" class="text-center">No hay asignaciones para este perfil</td></tr>');
             }
-        }, 'json');
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar asignaciones por perfil:', error);
+            $('#tablaAsignaciones').html('<tr><td colspan="10" class="text-center">Error al cargar las asignaciones</td></tr>');
+        });
     }
     
-    // Evento cuando cambia el módulo seleccionado
-    $('#selectModulo').change(function() {
-        var modulo_id = $(this).val();
-        $('#selectPerfil').prop('disabled', !modulo_id);
-        
-        if (modulo_id) {
-            cargarPerfilesPorModulo(modulo_id);
-            actualizarInfoSeleccion();
-        } else {
-            $('#selectPerfil').empty().append('<option value="">Seleccione un perfil</option>');
-            $('#tablaAsignaciones').html('<tr><td colspan="7" class="text-center">Seleccione un perfil para ver las asignaciones</td></tr>');
-            actualizarInfoSeleccion();
-        }
-    });
-    
-    // Evento cuando cambia el perfil seleccionado
-    $('#selectPerfil').change(function() {
-        var perfil_id = $(this).val();
-        $('#perfil_id').val(perfil_id);
-        actualizarInfoSeleccion();
-        
-        if (perfil_id) {
-            cargarAsignacionesUsuarioPerfil(perfil_id);
-        } else {
-            $('#tablaAsignaciones').html('<tr><td colspan="7" class="text-center">Seleccione un perfil para ver las asignaciones</td></tr>');
-        }
-    });
-    
-    // Función para actualizar la información de selección
-    function actualizarInfoSeleccion() {
-        var modulo = $('#selectModulo option:selected').text();
-        var perfil = $('#selectPerfil option:selected').text();
-        
-        if (modulo && modulo !== "Seleccione un módulo" && perfil && perfil !== "Seleccione un perfil") {
-            $('#textoInfo').html(`Módulo: <strong>${modulo}</strong> | Perfil: <strong>${perfil}</strong>`);
-            $('#infoSeleccion').removeClass('d-none');
-        } else {
-            $('#infoSeleccion').addClass('d-none');
-        }
+    // Función para cargar las empresas
+    function cargarEmpresas() {
+        $.get('perfiles_usuarios_ajax.php', {accion: 'obtener_empresas'}, function(res) {
+            if (res && res.length > 0) {
+                $('#selectEmpresa').empty().append('<option value="">Seleccione una empresa</option>');
+                $.each(res, function(i, empresa) {
+                    $('#selectEmpresa').append($('<option>', {
+                        value: empresa.empresa_id,
+                        text: empresa.empresa
+                    }));
+                });
+                
+                // Si hay empresa de sesión, seleccionarla
+                if (empresaIdSesion) {
+                    $('#selectEmpresa').val(empresaIdSesion);
+                }
+            }
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar empresas:', error);
+        });
     }
     
     // Función para cargar los módulos
@@ -399,64 +881,116 @@ $(document).ready(function() {
                     }));
                 });
             }
-        }, 'json');
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar módulos:', error);
+        });
     }
     
-    // Función para cargar perfiles por módulo
-    function cargarPerfilesPorModulo(modulo_id) {
-        $.get('perfiles_usuarios_ajax.php', {accion: 'obtener_perfiles_por_modulo', modulo_id: modulo_id}, function(res) {
+    // Función para cargar perfiles por módulo y empresa
+    function cargarPerfilesPorModuloEmpresa(modulo_id, empresa_id) {
+        $.get('perfiles_usuarios_ajax.php', {
+            accion: 'obtener_perfiles_por_modulo_empresa', 
+            modulo_id: modulo_id,
+            empresa_id: empresa_id
+        }, function(res) {
             $('#selectPerfil').empty().append('<option value="">Seleccione un perfil</option>');
             
             if (res && res.length > 0) {
                 $.each(res, function(i, perfil) {
+                    var texto = perfil.empresa_perfil_nombre;
+                    if (perfil.perfil_base_nombre) {
+                        texto += ' (' + perfil.perfil_base_nombre + ')';
+                    }
+                    
                     $('#selectPerfil').append($('<option>', {
-                        value: perfil.perfil_id,
-                        text: perfil.perfil_nombre
+                        value: perfil.empresa_perfil_id,
+                        text: texto
                     }));
                 });
             } else {
                 $('#selectPerfil').append('<option value="">No hay perfiles para este módulo</option>');
             }
-        }, 'json');
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar perfiles:', error);
+            $('#selectPerfil').append('<option value="">Error al cargar perfiles</option>');
+        });
     }
     
     // Abrir modal para agregar asignación
     $('#btnAgregarAsignacion').click(function() {
-        var modulo_id = $('#selectModulo').val();
-        if (!modulo_id) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Seleccione un módulo',
-                text: 'Debe seleccionar un módulo primero'
-            });
-            return;
+        // Si hay filtro de usuario activo, usar ese usuario por defecto
+        if (usuarioFiltroActivo && usuarioFiltroId) {
+            // Pre-seleccionar el usuario del filtro
+            abrirModalAsignacionConUsuario(usuarioFiltroId);
+        } else {
+            var empresa_id = $('#selectEmpresa').val();
+            if (!empresa_id) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Seleccione una empresa',
+                    text: 'Debe seleccionar una empresa primero'
+                });
+                return;
+            }
+            
+            var modulo_id = $('#selectModulo').val();
+            if (!modulo_id) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Seleccione un módulo',
+                    text: 'Debe seleccionar un módulo primero'
+                });
+                return;
+            }
+            
+            var empresa_perfil_id = $('#selectPerfil').val();
+            if (!empresa_perfil_id) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Seleccione un perfil',
+                    text: 'Debe seleccionar un perfil para agregar una asignación'
+                });
+                return;
+            }
+            
+            abrirModalAsignacion();
         }
+    });
+    
+    // NUEVA: Abrir modal con usuario pre-seleccionado
+    function abrirModalAsignacionConUsuario(usuario_id) {
+        var empresa_id = $('#selectEmpresa').val();
+        var modulo_id = $('#selectModulo').val();
+        var empresa_perfil_id = $('#selectPerfil').val();
         
-        var perfil_id = $('#selectPerfil').val();
-        if (!perfil_id) {
+        if (!empresa_id || !modulo_id || !empresa_perfil_id) {
             Swal.fire({
                 icon: 'warning',
-                title: 'Seleccione un perfil',
-                text: 'Debe seleccionar un perfil para agregar una asignación'
+                title: 'Complete los filtros',
+                text: 'Debe seleccionar empresa, módulo y perfil antes de agregar una asignación'
             });
             return;
         }
         
         abrirModalAsignacion();
-    });
+        
+        // Una vez abierto el modal, seleccionar el usuario
+        setTimeout(function() {
+            $('#selectUsuario').val(usuario_id);
+        }, 500);
+    }
     
     // Función para abrir el modal de asignación
     function abrirModalAsignacion(usuario_perfil_id = null) {
         $('#modalAsignacionUsuarioTitle').text(usuario_perfil_id ? 'Editar Asignación' : 'Agregar Asignación');
         $('#formAsignacionUsuario')[0].reset();
         $('#usuario_perfil_id').val(usuario_perfil_id || '');
-        $('#perfil_id').val($('#selectPerfil').val());
+        $('#empresa_perfil_id').val($('#selectPerfil').val());
+        $('#empresa_id_modal').val($('#selectEmpresa').val());
         $('#validarSolapamiento').prop('checked', true);
         
-        // Cargar usuarios si no se han cargado aún
-        if ($('#selectUsuario option').length <= 1) {
-            cargarUsuarios();
-        }
+        // Cargar usuarios
+        cargarTodosLosUsuarios();
         
         // Si es edición, cargar los datos
         if (usuario_perfil_id) {
@@ -466,6 +1000,37 @@ $(document).ready(function() {
         }
         
         $('#modalAsignacionUsuario').modal('show');
+    }
+    
+    // Cargar todos los usuarios
+    function cargarTodosLosUsuarios() {
+        $('#selectUsuario').html('<option value="">Cargando usuarios...</option>');
+        
+        $.get('perfiles_usuarios_ajax.php', {
+            accion: 'obtener_todos_usuarios'
+        }, function(res) {
+            if (res && res.length > 0) {
+                $('#selectUsuario').empty().append('<option value="">Seleccione un usuario</option>');
+                $.each(res, function(i, usuario) {
+                    var texto = usuario.usuario_nombre;
+                    if (usuario.email) {
+                        texto += ' (' + usuario.email + ')';
+                    } else if (usuario.usuario) {
+                        texto += ' (' + usuario.usuario + ')';
+                    }
+                    
+                    $('#selectUsuario').append($('<option>', {
+                        value: usuario.usuario_id,
+                        text: texto
+                    }));
+                });
+            } else {
+                $('#selectUsuario').empty().append('<option value="">No hay usuarios registrados</option>');
+            }
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar todos los usuarios:', error);
+            $('#selectUsuario').empty().append('<option value="">Error al cargar usuarios</option>');
+        });
     }
     
     // Cargar datos de asignación para edición
@@ -513,85 +1078,12 @@ $(document).ready(function() {
         });
     }
     
-    // Cargar usuarios para el select
-    function cargarUsuarios() {
-        $.get('perfiles_usuarios_ajax.php', {accion: 'obtener_usuarios'}, function(res) {
-            if (res && res.length > 0) {
-                $('#selectUsuario').empty().append('<option value="">Seleccione un usuario</option>');
-                $.each(res, function(i, usuario) {
-                    $('#selectUsuario').append($('<option>', {
-                        value: usuario.usuario_id,
-                        text: usuario.usuario_nombre + ' (' + usuario.email + ')'
-                    }));
-                });
-            }
-        }, 'json');
-    }
-    
-    // Cargar asignaciones de usuario por perfil
-    function cargarAsignacionesUsuarioPerfil(perfil_id) {
-        $.get('perfiles_usuarios_ajax.php', {
-            accion: 'obtener_asignaciones_usuario_perfil',
-            perfil_id: perfil_id
-        }, function(res) {
-            var tbody = $('#tablaAsignaciones');
-            tbody.empty();
-            
-            if (res && res.length > 0) {
-                $.each(res, function(i, asignacion) {
-                    var hoy = new Date();
-                    var fechaFin = new Date(asignacion.fecha_fin_formateada.split('/').reverse().join('-'));
-                    var estado = hoy <= fechaFin ? 
-                        '<span class="badge bg-success">Vigente</span>' : 
-                        '<span class="badge bg-secondary">Expirada</span>';
-                    
-                    var acciones = `
-                        <button class="btn btn-sm btn-warning btn-editar-asignacion" 
-                                data-id="${asignacion.usuario_perfil_id}">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger btn-eliminar-asignacion" 
-                                data-id="${asignacion.usuario_perfil_id}">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    `;
-                    
-                    tbody.append(`
-                        <tr>                            
-                            <td>${asignacion.usuario}</td>
-                            <td>${asignacion.usuario_nombre}</td>
-                            <td>${asignacion.email}</td>
-                            <td>${asignacion.fecha_inicio_formateada}</td>
-                            <td>${asignacion.fecha_fin_formateada}</td>
-                            <td>${estado}</td>
-                            <td>${acciones}</td>
-                        </tr>
-                    `);
-                });
-                
-                // Agregar eventos a los botones
-                $('.btn-editar-asignacion').click(function() {
-                    var id = $(this).data('id');
-                    abrirModalAsignacion(id);
-                });
-                
-                $('.btn-eliminar-asignacion').click(function() {
-                    var id = $(this).data('id');
-                    eliminarAsignacion(id);
-                });
-                
-            } else {
-                tbody.append('<tr><td colspan="7" class="text-center">No hay asignaciones para este perfil</td></tr>');
-            }
-        }, 'json');
-    } 
-    
     // Guardar asignación
     $('#btnGuardarAsignacion').click(function() {
         // Validar que se haya seleccionado un perfil
-        var perfil_id = $('#perfil_id').val();
-        if (!perfil_id) {
-                Swal.fire({
+        var empresa_perfil_id = $('#empresa_perfil_id').val();
+        if (!empresa_perfil_id) {
+            Swal.fire({
                 icon: 'error',
                 title: 'Error',
                 text: 'No se ha seleccionado un perfil válido'
@@ -599,14 +1091,26 @@ $(document).ready(function() {
             return;
         }
         
+        var empresa_id = $('#empresa_id_modal').val();
+        if (!empresa_id) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se ha seleccionado una empresa válida'
+            });
+            return;
+        }
+        
         var formData = new FormData($('#formAsignacionUsuario')[0]);
-         // SOLUCIÓN: Si el select está deshabilitado (modo edición), agregar manualmente el usuario_id
+        
+        // Si el select está deshabilitado (modo edición), agregar manualmente el usuario_id
         if ($('#selectUsuario').prop('disabled')) {
             var usuario_id = $('#selectUsuario').val();
             if (usuario_id) {
                 formData.append('usuario_id', usuario_id);
             }
         }
+        
         formData.append('validar_solapamiento', $('#validarSolapamiento').is(':checked'));
         formData.append('usuario_creacion', 1);
         formData.append('usuario_actualizacion', 1);
@@ -663,7 +1167,28 @@ $(document).ready(function() {
                         showConfirmButton: false,
                         timer: 1500
                     });
-                    cargarAsignacionesUsuarioPerfil(perfil_id);
+                    
+                    // Recargar según el filtro activo
+                    if (usuarioFiltroActivo) {
+                        if (usuarioFiltroId) {
+                            cargarAsignacionesPorUsuario(usuarioFiltroId);
+                        } else {
+                            cargarTodasAsignacionesUsuarios();
+                        }
+                    } else {
+                        var empresa_perfil_id = $('#selectPerfil').val();
+                        if (empresa_perfil_id) {
+                            cargarAsignacionesUsuarioPerfil(empresa_perfil_id);
+                        } else {
+                            var modulo_id = $('#selectModulo').val();
+                            var empresa_id = $('#selectEmpresa').val();
+                            if (modulo_id && empresa_id) {
+                                cargarAsignacionesPorModuloEmpresa(empresa_id, modulo_id);
+                            } else if (empresa_id) {
+                                cargarAsignacionesPorEmpresa(empresa_id);
+                            }
+                        }
+                    }
                 } else {
                     Swal.fire({
                         icon: 'error',
@@ -719,8 +1244,28 @@ $(document).ready(function() {
                             showConfirmButton: false,
                             timer: 1500
                         });
-                        // Recargar la tabla
-                        cargarAsignacionesUsuarioPerfil($('#selectPerfil').val());
+                        
+                        // Recargar según el filtro activo
+                        if (usuarioFiltroActivo) {
+                            if (usuarioFiltroId) {
+                                cargarAsignacionesPorUsuario(usuarioFiltroId);
+                            } else {
+                                cargarTodasAsignacionesUsuarios();
+                            }
+                        } else {
+                            var empresa_perfil_id = $('#selectPerfil').val();
+                            if (empresa_perfil_id) {
+                                cargarAsignacionesUsuarioPerfil(empresa_perfil_id);
+                            } else {
+                                var modulo_id = $('#selectModulo').val();
+                                var empresa_id = $('#selectEmpresa').val();
+                                if (modulo_id && empresa_id) {
+                                    cargarAsignacionesPorModuloEmpresa(empresa_id, modulo_id);
+                                } else if (empresa_id) {
+                                    cargarAsignacionesPorEmpresa(empresa_id);
+                                }
+                            }
+                        }
                     } else {
                         Swal.fire({
                             icon: 'error',
@@ -739,8 +1284,10 @@ $(document).ready(function() {
             }
         });
     }
+    
+    // Inicializar cargando módulos
+    cargarModulos();
 });
-
 </script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <?php
