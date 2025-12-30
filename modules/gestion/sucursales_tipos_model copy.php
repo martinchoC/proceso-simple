@@ -18,13 +18,13 @@ function agregarLocalTipo($conexion, $data) {
     
     $nombre = mysqli_real_escape_string($conexion, $data['nombre']);
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion']);
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
     $usuario_creacion_id = !empty($data['usuario_creacion_id']) ? intval($data['usuario_creacion_id']) : 'NULL';
 
     $sql = "INSERT INTO gestion__sucursales_tipos 
-            (nombre, descripcion, estado_registro_id, usuario_creacion_id) 
+            (nombre, descripcion, tabla_estado_registro_id, usuario_creacion_id) 
             VALUES 
-            ('$nombre', '$descripcion', $estado_registro_id, $usuario_creacion_id)";
+            ('$nombre', '$descripcion', $tabla_estado_registro_id, $usuario_creacion_id)";
     
     return mysqli_query($conexion, $sql);
 }
@@ -37,13 +37,13 @@ function editarLocalTipo($conexion, $id, $data) {
     $id = intval($id);
     $nombre = mysqli_real_escape_string($conexion, $data['nombre']);
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion']);
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
     $usuario_creacion_id = !empty($data['usuario_creacion_id']) ? intval($data['usuario_creacion_id']) : 'NULL';
 
     $sql = "UPDATE gestion__sucursales_tipos SET
             nombre = '$nombre',
             descripcion = '$descripcion',
-            estado_registro_id = $estado_registro_id,
+            tabla_estado_registro_id = $tabla_estado_registro_id,
             usuario_creacion_id = $usuario_creacion_id
             WHERE sucursal_tipo_id = $id";
 
@@ -54,7 +54,7 @@ function cambiarEstadoLocalTipo($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE gestion__sucursales_tipos SET estado_registro_id = $nuevo_estado WHERE sucursal_tipo_id = $id";
+    $sql = "UPDATE gestion__sucursales_tipos SET tabla_estado_registro_id = $nuevo_estado WHERE sucursal_tipo_id = $id";
     return mysqli_query($conexion, $sql);
 }
 

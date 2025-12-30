@@ -22,10 +22,10 @@ function agregarModulo($conexion, $data) {
     $session_temp = mysqli_real_escape_string($conexion, $data['session_temp']);
     $imagen_id = is_numeric($data['imagen_id']) ? $data['imagen_id'] : 'NULL';
     $depende_id = intval($data['depende_id']);
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
-    $sql = "INSERT INTO conf__modulos (modulo, base_datos, modulo_url, email_envio_modulo, layout_nombre, usuario_temp, session_temp, imagen_id, depende_id, estado_registro_id) 
-    VALUES ('$modulo', '$base_datos', '$modulo_url', '$email_envio_modulo', '$layout_nombre', $usuario_temp, '$session_temp', $imagen_id, $depende_id, $estado_registro_id)";
+    $sql = "INSERT INTO conf__modulos (modulo, base_datos, modulo_url, email_envio_modulo, layout_nombre, usuario_temp, session_temp, imagen_id, depende_id, tabla_estado_registro_id) 
+    VALUES ('$modulo', '$base_datos', '$modulo_url', '$email_envio_modulo', '$layout_nombre', $usuario_temp, '$session_temp', $imagen_id, $depende_id, $tabla_estado_registro_id)";
 
     return mysqli_query($conexion, $sql);
 }
@@ -41,7 +41,7 @@ function editarModulo($conexion, $id, $data) {
     $session_temp = mysqli_real_escape_string($conexion, $data['session_temp']);
     $imagen_id = is_numeric($data['imagen_id']) ? $data['imagen_id'] : 'NULL';
     $depende_id = intval($data['depende_id']);
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
     $sql = "UPDATE conf__modulos SET
         modulo='$modulo',
@@ -53,7 +53,7 @@ function editarModulo($conexion, $id, $data) {
         session_temp='$session_temp',
         imagen_id=$imagen_id,
         depende_id=$depende_id,
-        estado_registro_id=$estado_registro_id
+        tabla_estado_registro_id=$tabla_estado_registro_id
         WHERE modulo_id=$id";
 
     return mysqli_query($conexion, $sql);

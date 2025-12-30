@@ -108,7 +108,7 @@ function agregarPedido() {
         'importe_no_gravado' => $_POST['importe_no_gravado'] ?? 0,
         'total' => $_POST['total'] ?? 0,
         'punto_venta_id' => $_POST['punto_venta_id'] ?? 1,
-        'estado_registro_id' => 3 // Borrador por defecto
+        'tabla_estado_registro_id' => 3 // Borrador por defecto
     ];
     
     // Procesar detalles
@@ -149,7 +149,7 @@ function editarPedido() {
     
     // Verificar que el pedido sea editable (estado borrador)
     $pedido = $model->obtenerPedido($comprobante_id);
-    if (!$pedido || $pedido['estado_registro_id'] != 3) {
+    if (!$pedido || $pedido['tabla_estado_registro_id'] != 3) {
         throw new Exception("El pedido no se puede editar porque no está en estado borrador");
     }
     
@@ -231,10 +231,10 @@ function obtenerInfoEstado() {
     }
     
     // Solo se puede editar si está en estado borrador (3)
-    $editable = ($pedido['estado_registro_id'] == 3);
+    $editable = ($pedido['tabla_estado_registro_id'] == 3);
     
     echo json_encode([
-        'estado_registro_id' => $pedido['estado_registro_id'],
+        'tabla_estado_registro_id' => $pedido['tabla_estado_registro_id'],
         'estado_nombre' => $pedido['estado_nombre'] ?? 'Desconocido',
         'editable' => $editable
     ]);
@@ -268,7 +268,7 @@ function cambiarEstadoPedido($nuevo_estado, $accion) {
     }
     
     // Validar transición de estado
-    $estado_actual = $pedido['estado_registro_id'];
+    $estado_actual = $pedido['tabla_estado_registro_id'];
     $transiciones_validas = [
         3 => [4, 5, 6], // De borrador a pendiente, confirmado o eliminado
         4 => [5, 6],    // De pendiente a confirmado o eliminado

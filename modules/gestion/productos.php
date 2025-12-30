@@ -145,7 +145,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label>Estado</label>
-                                                    <select class="form-control" id="estado_registro_id" name="estado_registro_id">
+                                                    <select class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id">
                                                         <option value="1">Activo</option>
                                                         <option value="0">Inactivo</option>
                                                     </select>
@@ -763,7 +763,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             searchable: false,
                             className: "text-center",
                             render: function(data){
-                                var estadoTexto = data.estado_registro_id == 1 ? 
+                                var estadoTexto = data.tabla_estado_registro_id == 1 ? 
                                     '<span class="badge bg-success">Activo</span>' : 
                                     '<span class="badge bg-secondary">Inactivo</span>';
                                 
@@ -772,7 +772,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <input class="form-check-input toggle-estado"
                                             type="checkbox" 
                                             data-producto-id="${data.producto_id}" 
-                                            ${data.estado_registro_id == 1 ? 'checked' : ''}>
+                                            ${data.tabla_estado_registro_id == 1 ? 'checked' : ''}>
                                     </div>`;
                                 
                                 return `<div class="d-flex flex-column align-items-center">                                            
@@ -786,7 +786,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             searchable: false,
                             className: "text-center",
                             render: function(data){
-                                var botonEditar = data.estado_registro_id == 1 ? 
+                                var botonEditar = data.tabla_estado_registro_id == 1 ? 
                                     `<button class="btn btn-sm btn-primary btnEditar" title="Editar">
                                         <i class="fa fa-edit"></i>
                                     </button>` : 
@@ -794,7 +794,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <i class="fa fa-edit"></i>
                                     </button>`;
                                 
-                                var botonEliminar = data.estado_registro_id == 1 ? 
+                                var botonEliminar = data.tabla_estado_registro_id == 1 ? 
                                     `<button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
                                         <i class="fa fa-trash"></i>
                                     </button>` : 
@@ -807,7 +807,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     createdRow: function(row, data, dataIndex) {
-                        if (data.estado_registro_id != 1) {
+                        if (data.tabla_estado_registro_id != 1) {
                             $(row).addClass('table-secondary');
                             $(row).find('td').css('color', '#6c757d');
                         }
@@ -870,7 +870,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#formProducto')[0].reset();
                     $('#producto_id').val('');
                     $('#modalLabel').text('Nuevo Producto');
-                    $('#estado_registro_id').val('1');
+                    $('#tabla_estado_registro_id').val('1');
                     cargarOpcionesSelect();
                     var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
                     modal.show();
@@ -889,7 +889,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                      
                     var data = tabla.row($(this).parents('tr')).data();
                     // Solo permitir editar si está activo
-                    if (data.estado_registro_id != 1) {
+                    if (data.tabla_estado_registro_id != 1) {
                         Swal.fire({
                             icon: "warning",
                             title: "Producto inactivo",
@@ -914,7 +914,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             $('#dimensiones').val(res.dimensiones);
                             $('#garantia').val(res.garantia);
                             $('#unidad_medida_id').val(res.unidad_medida_id);
-                            $('#estado_registro_id').val(res.estado_registro_id);
+                            $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
                             
                             $('#modalLabel').text('Editar Producto');
                             var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
@@ -1002,7 +1002,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         dimensiones: $('#dimensiones').val(),
                         garantia: $('#garantia').val(),
                         unidad_medida_id: $('#unidad_medida_id').val(),
-                        estado_registro_id: $('#estado_registro_id').val()
+                        tabla_estado_registro_id: $('#tabla_estado_registro_id').val()
                     };
 
                     $.ajax({

@@ -8,7 +8,7 @@ $pagina_idx = 45;
 // ✅ Sistema completo de botones dinámicos
 function obtenerPaginaPorUrl($conexion, $url) {
     $url = mysqli_real_escape_string($conexion, $url);
-    $sql = "SELECT * FROM `conf__paginas` WHERE url = '$url' AND estado_registro_id = 1";
+    $sql = "SELECT * FROM `conf__paginas` WHERE url = '$url' AND tabla_estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);
 }
@@ -89,28 +89,28 @@ function obtenerBotonAgregar($conexion, $pagina_id) {
 }
 
 // ✅ Función para obtener código estándar por estado
-function obtenerCodigoEstandarPorEstado($conexion, $estado_registro_id) {
+function obtenerCodigoEstandarPorEstado($conexion, $tabla_estado_registro_id) {
     global $tabla_idx;
-    $estado_registro_id = intval($estado_registro_id);
+    $tabla_estado_registro_id = intval($tabla_estado_registro_id);
     
-    if ($estado_registro_id == 0) return '0'; // Para botón agregar
+    if ($tabla_estado_registro_id == 0) return '0'; // Para botón agregar
     
     $sql = "SELECT codigo_estandar FROM conf__tablas_estados_registros 
-            WHERE estado_registro_id = $estado_registro_id AND tabla_id = $tabla_idx";
+            WHERE tabla_estado_registro_id = $tabla_estado_registro_id AND tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
     return $fila ? $fila['codigo_estandar'] : null;
 }
 
-// ✅ Función para obtener estado_registro_id por código estándar
+// ✅ Función para obtener tabla_estado_registro_id por código estándar
 function obtenerEstadoPorCodigoEstandar($conexion, $codigo_estandar) {
     global $tabla_idx;
     $codigo_estandar = mysqli_real_escape_string($conexion, $codigo_estandar);
-    $sql = "SELECT estado_registro_id FROM conf__tablas_estados_registros 
+    $sql = "SELECT tabla_estado_registro_id FROM conf__tablas_estados_registros 
             WHERE codigo_estandar = '$codigo_estandar' AND tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
-    return $fila ? $fila['estado_registro_id'] : null;
+    return $fila ? $fila['tabla_estado_registro_id'] : null;
 }
 
 // ✅ Función para ejecutar transición de estado usando códigos estándar
@@ -139,7 +139,7 @@ function ejecutarTransicionEstado($conexion, $comprobante_tipo_id, $funcion_nomb
     
     // Ejecutar la transición actualizando el estado
     $sql = "UPDATE gestion__comprobantes_tipos 
-            SET estado_registro_id = ? 
+            SET tabla_estado_registro_id = ? 
             WHERE comprobante_tipo_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -157,7 +157,7 @@ function obtenerCodigoEstandarComprobanteTipo($conexion, $comprobante_tipo_id) {
     $comprobante_tipo_id = intval($comprobante_tipo_id);
     $sql = "SELECT er.codigo_estandar 
             FROM gestion__comprobantes_tipos ct
-            INNER JOIN conf__tablas_estados_registros er ON ct.estado_registro_id = er.estado_registro_id
+            INNER JOIN conf__tablas_estados_registros er ON ct.tabla_estado_registro_id = er.tabla_estado_registro_id
             WHERE ct.comprobante_tipo_id = $comprobante_tipo_id AND er.tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
@@ -178,7 +178,7 @@ function obtenerComprobantesTipos($conexion, $empresa_id, $pagina_id) {
             FROM `gestion__comprobantes_tipos` ct
             LEFT JOIN `gestion__comprobantes_grupos` cg ON ct.comprobante_grupo_id = cg.comprobante_grupo_id
             LEFT JOIN `gestion__comprobantes_fiscales` cf ON ct.comprobante_fiscal_id = cf.comprobante_fiscal_id
-            INNER JOIN conf__tablas_estados_registros er ON ct.estado_registro_id = er.estado_registro_id
+            INNER JOIN conf__tablas_estados_registros er ON ct.tabla_estado_registro_id = er.tabla_estado_registro_id
             WHERE cg.empresa_id = $empresa_id AND er.tabla_id = $tabla_idx
             ORDER BY cg.comprobante_grupo_id, ct.orden, ct.comprobante_tipo";
     
@@ -196,7 +196,7 @@ function obtenerComprobantesGruposActivos($conexion, $empresa_id) {
     $empresa_id = intval($empresa_id);
     $sql = "SELECT * FROM `gestion__comprobantes_grupos` 
             WHERE empresa_id = $empresa_id 
-            AND estado_registro_id = 1
+            AND tabla_estado_registro_id = 1
             ORDER BY comprobante_grupo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -208,7 +208,7 @@ function obtenerComprobantesGruposActivos($conexion, $empresa_id) {
 
 function obtenerComprobantesFiscalesActivos($conexion) {
     $sql = "SELECT * FROM `gestion__comprobantes_fiscales` 
-            WHERE estado_registro_id = 1
+            WHERE tabla_estado_registro_id = 1
             ORDER BY comprobante_fiscal";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -241,10 +241,10 @@ function agregarComprobanteTipo($conexion, $data) {
     $estado_inicial = obtenerEstadoPorCodigoEstandar($conexion, '20');
     if (!$estado_inicial) {
         // Fallback: buscar cualquier estado activo para esta tabla
-        $sql_estado = "SELECT estado_registro_id FROM conf__tablas_estados_registros WHERE tabla_id = $tabla_idx LIMIT 1";
+        $sql_estado = "SELECT tabla_estado_registro_id FROM conf__tablas_estados_registros WHERE tabla_id = $tabla_idx LIMIT 1";
         $res_estado = mysqli_query($conexion, $sql_estado);
         $fila_estado = mysqli_fetch_assoc($res_estado);
-        $estado_inicial = $fila_estado ? $fila_estado['estado_registro_id'] : 1;
+        $estado_inicial = $fila_estado ? $fila_estado['tabla_estado_registro_id'] : 1;
     }
 
     // Verificar si ya existe el tipo para este grupo
@@ -260,7 +260,7 @@ function agregarComprobanteTipo($conexion, $data) {
 
     $sql = "INSERT INTO `gestion__comprobantes_tipos` 
             (comprobante_grupo_id, comprobante_fiscal_id, orden, impacta_stock, impacta_contabilidad, 
-             impacta_ctacte, comprobante_tipo, codigo, letra, signo, comentario, estado_registro_id) 
+             impacta_ctacte, comprobante_tipo, codigo, letra, signo, comentario, tabla_estado_registro_id) 
             VALUES 
             ($comprobante_grupo_id, $comprobante_fiscal_id, $orden, $impacta_stock, $impacta_contabilidad,
              $impacta_ctacte, '$comprobante_tipo', '$codigo', '$letra', '$signo', '$comentario', $estado_inicial)";
@@ -320,7 +320,7 @@ function cambiarEstadoComprobanteTipo($conexion, $id, $nuevo_estado) {
     $nuevo_estado = intval($nuevo_estado);
     
     $sql = "UPDATE `gestion__comprobantes_tipos` 
-            SET estado_registro_id = $nuevo_estado 
+            SET tabla_estado_registro_id = $nuevo_estado 
             WHERE comprobante_tipo_id = $id";
     return mysqli_query($conexion, $sql);
 }
@@ -348,7 +348,7 @@ function obtenerComprobanteTipoPorId($conexion, $id) {
     $id = intval($id);
     $sql = "SELECT ct.*, er.codigo_estandar 
             FROM `gestion__comprobantes_tipos` ct
-            INNER JOIN conf__tablas_estados_registros er ON ct.estado_registro_id = er.estado_registro_id
+            INNER JOIN conf__tablas_estados_registros er ON ct.tabla_estado_registro_id = er.tabla_estado_registro_id
             WHERE ct.comprobante_tipo_id = $id AND er.tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);

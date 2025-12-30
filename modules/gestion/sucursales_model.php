@@ -17,7 +17,7 @@ function obtenerLocales($conexion) {
 }
 
 function obtenerEmpresas($conexion) {
-    $sql = "SELECT empresa_id, empresa FROM conf__empresas WHERE estado_registro_id = 1 ORDER BY empresa";
+    $sql = "SELECT empresa_id, empresa FROM conf__empresas WHERE tabla_estado_registro_id = 1 ORDER BY empresa";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -27,7 +27,7 @@ function obtenerEmpresas($conexion) {
 }
 
 function obtenerLocalesTipos($conexion) {
-    $sql = "SELECT sucursal_tipo_id, sucursal_tipo FROM gestion__sucursales_tipos WHERE estado_registro_id = 1 ORDER BY sucursal_tipo";
+    $sql = "SELECT sucursal_tipo_id, sucursal_tipo FROM gestion__sucursales_tipos WHERE tabla_estado_registro_id = 1 ORDER BY sucursal_tipo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -38,7 +38,7 @@ function obtenerLocalesTipos($conexion) {
 
 // Nueva función para obtener localidades
 function obtenerLocalidades($conexion) {
-    $sql = "SELECT localidad_id, localidad FROM conf__localidades WHERE estado_registro_id = 1 ORDER BY localidad";
+    $sql = "SELECT localidad_id, localidad FROM conf__localidades WHERE tabla_estado_registro_id = 1 ORDER BY localidad";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -60,13 +60,13 @@ function agregarLocal($conexion, $data) {
     $direccion = mysqli_real_escape_string($conexion, $data['direccion']);
     $telefono = mysqli_real_escape_string($conexion, $data['telefono']);
     $email = mysqli_real_escape_string($conexion, $data['email']);
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
     $usuario_creacion_id = !empty($data['usuario_creacion_id']) ? intval($data['usuario_creacion_id']) : 'NULL';
 
     $sql = "INSERT INTO gestion__sucursales 
-            (empresa_id, sucursal_tipo_id, nombre, descripcion, localidad_id, direccion, telefono, email, estado_registro_id, usuario_creacion_id) 
+            (empresa_id, sucursal_tipo_id, nombre, descripcion, localidad_id, direccion, telefono, email, tabla_estado_registro_id, usuario_creacion_id) 
             VALUES 
-            ($empresa_id, $sucursal_tipo_id, '$nombre', '$descripcion', $localidad_id, '$direccion', '$telefono', '$email', $estado_registro_id, $usuario_creacion_id)";
+            ($empresa_id, $sucursal_tipo_id, '$nombre', '$descripcion', $localidad_id, '$direccion', '$telefono', '$email', $tabla_estado_registro_id, $usuario_creacion_id)";
     
     return mysqli_query($conexion, $sql);
 }
@@ -85,7 +85,7 @@ function editarLocal($conexion, $id, $data) {
     $direccion = mysqli_real_escape_string($conexion, $data['direccion']);
     $telefono = mysqli_real_escape_string($conexion, $data['telefono']);
     $email = mysqli_real_escape_string($conexion, $data['email']);
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
     $usuario_creacion_id = !empty($data['usuario_creacion_id']) ? intval($data['usuario_creacion_id']) : 'NULL';
 
     $sql = "UPDATE gestion__sucursales SET
@@ -97,7 +97,7 @@ function editarLocal($conexion, $id, $data) {
             direccion = '$direccion',
             telefono = '$telefono',
             email = '$email',
-            estado_registro_id = $estado_registro_id,
+            tabla_estado_registro_id = $tabla_estado_registro_id,
             usuario_creacion_id = $usuario_creacion_id
             WHERE sucursal_id = $id";
 
@@ -108,7 +108,7 @@ function cambiarEstadoLocal($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE gestion__sucursales SET estado_registro_id = $nuevo_estado WHERE sucursal_id = $id";
+    $sql = "UPDATE gestion__sucursales SET tabla_estado_registro_id = $nuevo_estado WHERE sucursal_id = $id";
     return mysqli_query($conexion, $sql);
 }
 

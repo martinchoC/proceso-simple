@@ -38,10 +38,10 @@ function agregarempresa($conexion, $data) {
     $email = mysqli_real_escape_string($conexion, $data['email']);
     $base_conf = is_numeric($data['base_conf']) ? $data['base_conf'] : 'NULL';
     
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
-    $sql = "INSERT INTO conf__empresas (empresa, documento_tipo_id, documento_numero, telefono, domicilio, localidad_id, email, base_conf,  estado_registro_id) 
-    VALUES ('$empresa', '$documento_tipo_id', '$documento_numero', '$telefono', '$domicilio', $localidad_id, '$email', $base_conf,  $estado_registro_id)";
+    $sql = "INSERT INTO conf__empresas (empresa, documento_tipo_id, documento_numero, telefono, domicilio, localidad_id, email, base_conf,  tabla_estado_registro_id) 
+    VALUES ('$empresa', '$documento_tipo_id', '$documento_numero', '$telefono', '$domicilio', $localidad_id, '$email', $base_conf,  $tabla_estado_registro_id)";
 
     return mysqli_query($conexion, $sql);
 }
@@ -61,7 +61,7 @@ function editarempresa($conexion, $id, $data) {
     $email = mysqli_real_escape_string($conexion, $data['email']);
     $base_conf = is_numeric($data['base_conf']) ? $data['base_conf'] : 'NULL';
     
-    $estado_registro_id = intval($data['estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
     $sql = "UPDATE conf__empresas SET
         empresa='$empresa',
@@ -73,7 +73,7 @@ function editarempresa($conexion, $id, $data) {
         email='$email',
         base_conf=$base_conf,
         
-        estado_registro_id=$estado_registro_id
+        tabla_estado_registro_id=$tabla_estado_registro_id
         WHERE empresa_id=$id";
 
     return mysqli_query($conexion, $sql);

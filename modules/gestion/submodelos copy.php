@@ -92,7 +92,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
                 <div class="col-md-12">
                     <label>Estado</label>
-                    <select class="form-control" id="estado_registro_id" name="estado_registro_id">
+                    <select class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id">
                         <option value="1">Activo</option>
                         <option value="0">Inactivo</option>
                     </select>
@@ -138,7 +138,7 @@ $(document).ready(function(){
             { data: 'modelo_nombre' },
             { data: 'submodelo_nombre' },
             { 
-                data: 'estado_registro_id',
+                data: 'tabla_estado_registro_id',
                 render: function(data) {
                     return data == 1 ? 'Activo' : 'Inactivo';
                 }
@@ -187,7 +187,7 @@ $(document).ready(function(){
                 }, 'json');
                 
                 $('#submodelo_nombre').val(res.submodelo_nombre);
-                $('#estado_registro_id').val(res.estado_registro_id);
+                $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
                 $('#modalLabel').text('Editar Submodelo');
                 var modal = new bootstrap.Modal(document.getElementById('modalSubmodelo'));
                 modal.show();
@@ -237,7 +237,7 @@ $(document).ready(function(){
             submodelo_id: id,
             modelo_id: $('#modelo_id').val(),
             submodelo_nombre: $('#submodelo_nombre').val(),
-            estado_registro_id: $('#estado_registro_id').val()
+            tabla_estado_registro_id: $('#tabla_estado_registro_id').val()
         };
 
         $.get('submodelos_ajax.php', formData, function(res){

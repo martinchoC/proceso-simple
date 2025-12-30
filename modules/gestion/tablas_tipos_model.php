@@ -12,7 +12,7 @@ function obtenerTablasTipos($conexion) {
             FROM conf__tablas_tipos tt
             LEFT JOIN conf__tablas_tipos_estados tte 
                 ON tt.tabla_tipo_id = tte.tabla_tipo_id 
-                AND tte.tabla_tabla_estado_registro_id = 1
+                AND tte.tabla_tabla_tabla_estado_registro_id = 1
             GROUP BY tt.tabla_tipo_id
             ORDER BY tt.tabla_tipo";
     
@@ -60,10 +60,10 @@ function agregarTablaTipo($conexion, $data) {
     }
     
     $tabla_tipo = mysqli_real_escape_string($conexion, $data['tabla_tipo']);
-    $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id'] ?? 1);
+    $tabla_tabla_tabla_estado_registro_id = intval($data['tabla_tabla_tabla_estado_registro_id'] ?? 1);
 
-    $sql = "INSERT INTO conf__tablas_tipos (tabla_tipo, tabla_tabla_estado_registro_id) 
-            VALUES ('$tabla_tipo', $tabla_tabla_estado_registro_id)";
+    $sql = "INSERT INTO conf__tablas_tipos (tabla_tipo, tabla_tabla_tabla_estado_registro_id) 
+            VALUES ('$tabla_tipo', $tabla_tabla_tabla_estado_registro_id)";
     
     $result = mysqli_query($conexion, $sql);
     
@@ -89,11 +89,11 @@ function editarTablaTipo($conexion, $id, $data) {
     
     $id = intval($id);
     $tabla_tipo = mysqli_real_escape_string($conexion, $data['tabla_tipo']);
-    $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id']);
+    $tabla_tabla_tabla_estado_registro_id = intval($data['tabla_tabla_tabla_estado_registro_id']);
 
     $sql = "UPDATE conf__tablas_tipos SET
             tabla_tipo = '$tabla_tipo',
-            tabla_tabla_estado_registro_id = $tabla_tabla_estado_registro_id
+            tabla_tabla_tabla_estado_registro_id = $tabla_tabla_tabla_estado_registro_id
             WHERE tabla_tipo_id = $id";
 
     $result = mysqli_query($conexion, $sql);
@@ -117,7 +117,7 @@ function cambiarEstadoTablaTipo($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE conf__tablas_tipos SET tabla_tabla_estado_registro_id = $nuevo_estado WHERE tabla_tipo_id = $id";
+    $sql = "UPDATE conf__tablas_tipos SET tabla_tabla_tabla_estado_registro_id = $nuevo_estado WHERE tabla_tipo_id = $id";
     
     $result = mysqli_query($conexion, $sql);
     
@@ -145,16 +145,16 @@ function obtenerEstadosPorTablaTipo($conexion, $tabla_tipo_id) {
     $sql = "SELECT 
                 tte.tabla_tipo_estado_id,
                 tte.tabla_tipo_id,
-                tte.tabla_estado_registro_id,
+                tte.tabla_tabla_estado_registro_id,
                 er.estado_registro as tabla_tipo_estado,
                 '' as tabla_tipo_estado_descripcion,
                 tte.orden as valor,
-                tte.tabla_tabla_estado_registro_id,
+                tte.tabla_tabla_tabla_estado_registro_id,
                 tte.es_inicial
             FROM conf__tablas_tipos_estados tte
-            LEFT JOIN conf__estados_registros er ON tte.tabla_estado_registro_id = er.tabla_estado_registro_id
+            LEFT JOIN conf__estados_registros er ON tte.tabla_tabla_estado_registro_id = er.tabla_tabla_estado_registro_id
             WHERE tte.tabla_tipo_id = $tabla_tipo_id 
-            ORDER BY tte.orden, tte.tabla_estado_registro_id";
+            ORDER BY tte.orden, tte.tabla_tabla_estado_registro_id";
     
     $res = mysqli_query($conexion, $sql);
     
@@ -182,14 +182,14 @@ function obtenerTablaTipoEstadoPorId($conexion, $id) {
     $sql = "SELECT 
                 tte.tabla_tipo_estado_id,
                 tte.tabla_tipo_id,
-                tte.tabla_estado_registro_id,
+                tte.tabla_tabla_estado_registro_id,
                 er.estado_registro as tabla_tipo_estado,
                 '' as tabla_tipo_estado_descripcion,
                 tte.orden as valor,
-                tte.tabla_tabla_estado_registro_id,
+                tte.tabla_tabla_tabla_estado_registro_id,
                 tte.es_inicial
             FROM conf__tablas_tipos_estados tte
-            LEFT JOIN conf__estados_registros er ON tte.tabla_estado_registro_id = er.tabla_estado_registro_id
+            LEFT JOIN conf__estados_registros er ON tte.tabla_tabla_estado_registro_id = er.tabla_tabla_estado_registro_id
             WHERE tte.tabla_tipo_estado_id = $id";
     
     $res = mysqli_query($conexion, $sql);
@@ -214,15 +214,15 @@ function agregarTablaTipoEstado($conexion, $data) {
     }
     
     $tabla_tipo_id = intval($data['tabla_tipo_id']);
-    $tabla_estado_registro_id = intval($data['tabla_tipo_estado']);
+    $tabla_tabla_estado_registro_id = intval($data['tabla_tipo_estado']);
     $valor = intval($data['valor'] ?? 1);
-    $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id'] ?? 1);
+    $tabla_tabla_tabla_estado_registro_id = intval($data['tabla_tabla_tabla_estado_registro_id'] ?? 1);
     $es_inicial = isset($data['es_inicial']) && $data['es_inicial'] == 1 ? 1 : 0;
 
     $sql = "INSERT INTO conf__tablas_tipos_estados 
-            (tabla_tipo_id, tabla_estado_registro_id, orden, es_inicial, tabla_tabla_estado_registro_id) 
+            (tabla_tipo_id, tabla_tabla_estado_registro_id, orden, es_inicial, tabla_tabla_tabla_estado_registro_id) 
             VALUES 
-            ($tabla_tipo_id, $tabla_estado_registro_id, $valor, $es_inicial, $tabla_tabla_estado_registro_id)";
+            ($tabla_tipo_id, $tabla_tabla_estado_registro_id, $valor, $es_inicial, $tabla_tabla_tabla_estado_registro_id)";
     
     $result = mysqli_query($conexion, $sql);
     
@@ -247,16 +247,16 @@ function editarTablaTipoEstado($conexion, $id, $data) {
     }
     
     $id = intval($id);
-    $tabla_estado_registro_id = intval($data['tabla_tipo_estado']);
+    $tabla_tabla_estado_registro_id = intval($data['tabla_tipo_estado']);
     $valor = intval($data['valor'] ?? 1);
-    $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id']);
+    $tabla_tabla_tabla_estado_registro_id = intval($data['tabla_tabla_tabla_estado_registro_id']);
     $es_inicial = isset($data['es_inicial']) && $data['es_inicial'] == 1 ? 1 : 0;
 
     $sql = "UPDATE conf__tablas_tipos_estados SET
-            tabla_estado_registro_id = $tabla_estado_registro_id,
+            tabla_tabla_estado_registro_id = $tabla_tabla_estado_registro_id,
             orden = $valor,
             es_inicial = $es_inicial,
-            tabla_tabla_estado_registro_id = $tabla_tabla_estado_registro_id
+            tabla_tabla_tabla_estado_registro_id = $tabla_tabla_tabla_estado_registro_id
             WHERE tabla_tipo_estado_id = $id";
 
     $result = mysqli_query($conexion, $sql);
@@ -280,7 +280,7 @@ function cambiarEstadoTablaTipoEstado($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE conf__tablas_tipos_estados SET tabla_tabla_estado_registro_id = $nuevo_estado WHERE tabla_tipo_estado_id = $id";
+    $sql = "UPDATE conf__tablas_tipos_estados SET tabla_tabla_tabla_estado_registro_id = $nuevo_estado WHERE tabla_tipo_estado_id = $id";
     
     $result = mysqli_query($conexion, $sql);
     
@@ -298,7 +298,7 @@ function cambiarEstadoTablaTipoEstado($conexion, $id, $nuevo_estado) {
  * @return array Lista de estados registros
  */
 function obtenerEstadosRegistros($conexion) {
-    $sql = "SELECT tabla_estado_registro_id, estado_registro 
+    $sql = "SELECT tabla_tabla_estado_registro_id, estado_registro 
             FROM conf__estados_registros 
             ORDER BY estado_registro";
     

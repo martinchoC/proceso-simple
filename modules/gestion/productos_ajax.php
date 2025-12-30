@@ -26,7 +26,7 @@ switch ($accion) {
             'dimensiones' => $_POST['dimensiones'] ?? '',
             'garantia' => $_POST['garantia'] ?? '',
             'unidad_medida_id' => $_POST['unidad_medida_id'] ?? null,
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['producto_codigo']) || empty($data['producto_nombre']) || empty($data['producto_categoria_id'])) {
@@ -52,7 +52,7 @@ switch ($accion) {
             'dimensiones' => $_POST['dimensiones'] ?? '',
             'garantia' => $_POST['garantia'] ?? '',
             'unidad_medida_id' => $_POST['unidad_medida_id'] ?? null,
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['producto_codigo']) || empty($data['producto_nombre']) || empty($data['producto_categoria_id'])) {

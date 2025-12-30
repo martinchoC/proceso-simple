@@ -29,7 +29,7 @@ switch ($accion) {
             'tabla_descripcion' => $_GET['tabla_descripcion'] ?? '',
             'modulo_id' => $_GET['modulo_id'] ?? null,
             'tabla_tipo_id' => $_GET['tabla_tipo_id'] ?? null,
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'tabla_tabla_estado_registro_id' => $_GET['tabla_tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['tabla_nombre']) || empty($data['modulo_id']) || empty($data['tabla_tipo_id'])) {
@@ -48,7 +48,7 @@ switch ($accion) {
             'tabla_descripcion' => $_GET['tabla_descripcion'] ?? '',
             'modulo_id' => $_GET['modulo_id'] ?? null,
             'tabla_tipo_id' => $_GET['tabla_tipo_id'] ?? null,
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'tabla_tabla_estado_registro_id' => $_GET['tabla_tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['tabla_nombre']) || empty($data['modulo_id']) || empty($data['tabla_tipo_id'])) {

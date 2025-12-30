@@ -12,7 +12,7 @@ function obtenerEntidades($conexion) {
             LEFT JOIN conf__localidades ON gestion__entidades.localidad_id = conf__localidades.localidad_id
             LEFT JOIN gestion__entidades_roles ON gestion__entidades.entidad_id = gestion__entidades_roles.entidad_id AND gestion__entidades_roles.f_baja IS NULL
             LEFT JOIN gestion__roles_entidades ON gestion__entidades_roles.rol_entidad_id = gestion__roles_entidades.rol_entidad_id
-            WHERE gestion__entidades.estado_registro_id = 1
+            WHERE gestion__entidades.tabla_estado_registro_id = 1
             ORDER BY gestion__entidades.nombre_fiscal";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -45,7 +45,7 @@ function agregarEntidad($conexion, $data) {
     
     $entidad_tipo_id = intval($data['entidad_tipo_id'] ?? 0);
     $localidad_id = intval($data['localidad_id'] ?? 0);
-    $estado_registro_id = intval($data['estado_registro_id'] ?? 1);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id'] ?? 1);
 
     // Verificar si ya existe el CUIT
     $sql_check = "SELECT COUNT(*) as existe FROM `gestion__entidades` WHERE cuit = '$cuit'";
@@ -57,9 +57,9 @@ function agregarEntidad($conexion, $data) {
     }
 
     $sql = "INSERT INTO `gestion__entidades` 
-            (empresa_id, nombre_fiscal, nombre_fantasia, entidad_tipo_id, cuit, sitio_web, domicilio_legal, localidad_id, observaciones, estado_registro_id) 
+            (empresa_id, nombre_fiscal, nombre_fantasia, entidad_tipo_id, cuit, sitio_web, domicilio_legal, localidad_id, observaciones, tabla_estado_registro_id) 
             VALUES 
-            (2, '$nombre_fiscal', '$nombre_fantasia', $entidad_tipo_id, '$cuit', '$sitio_web', '$domicilio_legal', $localidad_id, '$observaciones', $estado_registro_id)";
+            (2, '$nombre_fiscal', '$nombre_fantasia', $entidad_tipo_id, '$cuit', '$sitio_web', '$domicilio_legal', $localidad_id, '$observaciones', $tabla_estado_registro_id)";
     
     return mysqli_query($conexion, $sql);
 }
@@ -79,7 +79,7 @@ function editarEntidad($conexion, $id, $data) {
     
     $entidad_tipo_id = intval($data['entidad_tipo_id'] ?? 0);
     $localidad_id = intval($data['localidad_id'] ?? 0);
-    $estado_registro_id = intval($data['estado_registro_id'] ?? 1);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id'] ?? 1);
 
     // Verificar si ya existe el CUIT (excluyendo el actual)
     $sql_check = "SELECT COUNT(*) as existe FROM `gestion__entidades` 
@@ -100,7 +100,7 @@ function editarEntidad($conexion, $id, $data) {
             domicilio_legal = '$domicilio_legal',
             localidad_id = $localidad_id,
             observaciones = '$observaciones',
-            estado_registro_id = $estado_registro_id
+            tabla_estado_registro_id = $tabla_estado_registro_id
             WHERE entidad_id = $id";
 
     return mysqli_query($conexion, $sql);
@@ -111,7 +111,7 @@ function cambiarEstadoEntidad($conexion, $id, $nuevo_estado) {
     $nuevo_estado = intval($nuevo_estado);
     
     $sql = "UPDATE `gestion__entidades` 
-            SET estado_registro_id = $nuevo_estado 
+            SET tabla_estado_registro_id = $nuevo_estado 
             WHERE entidad_id = $id";
     return mysqli_query($conexion, $sql);
 }
@@ -142,7 +142,7 @@ function obtenerSucursalesPorEntidad($conexion, $entidad_id) {
     $sql = "SELECT gestion__entidades_sucursales.*, conf__localidades.localidad 
             FROM gestion__entidades_sucursales
             LEFT JOIN conf__localidades ON gestion__entidades_sucursales.localidad_id = conf__localidades.localidad_id
-            WHERE gestion__entidades_sucursales.entidad_id = $entidad_id AND gestion__entidades_sucursales.estado_registro_id = 1";
+            WHERE gestion__entidades_sucursales.entidad_id = $entidad_id AND gestion__entidades_sucursales.tabla_estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -156,7 +156,7 @@ function obtenerCondicionesFiscalesPorEntidad($conexion, $entidad_id) {
     $sql = "SELECT gestion__entidades_condiciones_fiscales.*, gestion__condiciones_fiscales.condicion_fiscal, gestion__condiciones_fiscales.condicion_fiscal_codigo
             FROM gestion__entidades_condiciones_fiscales
             JOIN gestion__condiciones_fiscales ON gestion__entidades_condiciones_fiscales.condicion_fiscal_id = gestion__condiciones_fiscales.condicion_fiscal_id
-            WHERE gestion__entidades_condiciones_fiscales.entidad_id = $entidad_id AND gestion__entidades_condiciones_fiscales.estado_registro_id = 1
+            WHERE gestion__entidades_condiciones_fiscales.entidad_id = $entidad_id AND gestion__entidades_condiciones_fiscales.tabla_estado_registro_id = 1
             ORDER BY gestion__entidades_condiciones_fiscales.f_desde DESC";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -183,7 +183,7 @@ function obtenerRolesPorEntidad($conexion, $entidad_id) {
 
 // Funciones para obtener datos de tablas maestras
 function obtenerTiposEntidad($conexion) {
-    $sql = "SELECT * FROM gestion__entidades_tipos WHERE estado_registro_id = 1 ORDER BY entidad_tipo";
+    $sql = "SELECT * FROM gestion__entidades_tipos WHERE tabla_estado_registro_id = 1 ORDER BY entidad_tipo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -193,7 +193,7 @@ function obtenerTiposEntidad($conexion) {
 }
 
 function obtenerCondicionesFiscales($conexion) {
-    $sql = "SELECT * FROM gestion__condiciones_fiscales WHERE estado_registro_id = 1 ORDER BY condicion_fiscal";
+    $sql = "SELECT * FROM gestion__condiciones_fiscales WHERE tabla_estado_registro_id = 1 ORDER BY condicion_fiscal";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -213,7 +213,7 @@ function obtenerRolesEntidades($conexion) {
 }
 
 function obtenerLocalidades($conexion) {
-    $sql = "SELECT * FROM conf__localidades WHERE estado_registro_id = 1 ORDER BY localidad";
+    $sql = "SELECT * FROM conf__localidades WHERE tabla_estado_registro_id = 1 ORDER BY localidad";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -233,7 +233,7 @@ function agregarSucursal($conexion, $data) {
     $localidad_id = intval($data['localidad_id'] ?? 0);
     
     $sql = "INSERT INTO gestion__entidades_sucursales 
-            (entidad_id, sucursal_nombre, sucursal_direccion, localidad_id, sucursal_telefono, sucursal_email, sucursal_contacto, estado_registro_id) 
+            (entidad_id, sucursal_nombre, sucursal_direccion, localidad_id, sucursal_telefono, sucursal_email, sucursal_contacto, tabla_estado_registro_id) 
             VALUES 
             ($entidad_id, '$sucursal_nombre', '$sucursal_direccion', $localidad_id, '$sucursal_telefono', '$sucursal_email', '$sucursal_contacto', 1)";
     
@@ -265,7 +265,7 @@ function eliminarSucursal($conexion, $sucursal_id) {
     $sucursal_id = intval($sucursal_id);
     
     $sql = "UPDATE gestion__entidades_sucursales 
-            SET estado_registro_id = 0 
+            SET tabla_estado_registro_id = 0 
             WHERE sucursal_id = $sucursal_id";
     return mysqli_query($conexion, $sql);
 }
@@ -278,7 +278,7 @@ function agregarCondicionFiscal($conexion, $data) {
     $f_hasta = mysqli_real_escape_string($conexion, $data['f_hasta'] ?? null);
     
     $sql = "INSERT INTO gestion__entidades_condiciones_fiscales 
-            (entidad_id, condicion_fiscal_id, f_desde, f_hasta, estado_registro_id) 
+            (entidad_id, condicion_fiscal_id, f_desde, f_hasta, tabla_estado_registro_id) 
             VALUES 
             ($entidad_id, $condicion_fiscal_id, '$f_desde', " . ($f_hasta ? "'$f_hasta'" : "NULL") . ", 1)";
     
@@ -304,7 +304,7 @@ function eliminarCondicionFiscal($conexion, $entidad_condicion_fiscal_id) {
     $entidad_condicion_fiscal_id = intval($entidad_condicion_fiscal_id);
     
     $sql = "UPDATE gestion__entidades_condiciones_fiscales 
-            SET estado_registro_id = 0 
+            SET tabla_estado_registro_id = 0 
             WHERE entidad_condicion_fiscal_id = $entidad_condicion_fiscal_id";
     return mysqli_query($conexion, $sql);
 }

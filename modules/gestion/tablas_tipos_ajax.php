@@ -46,7 +46,7 @@ switch ($accion) {
         // Obtener datos desde GET o POST
         $data = [
             'tabla_tipo' => $_POST['tabla_tipo'] ?? ($_GET['tabla_tipo'] ?? ''),
-            'tabla_tabla_estado_registro_id' => $_POST['tabla_tabla_estado_registro_id'] ?? ($_GET['tabla_tabla_estado_registro_id'] ?? 1)
+            'tabla_tabla_tabla_estado_registro_id' => $_POST['tabla_tabla_tabla_estado_registro_id'] ?? ($_GET['tabla_tabla_tabla_estado_registro_id'] ?? 1)
         ];
         
         // Validar datos obligatorios
@@ -69,7 +69,7 @@ switch ($accion) {
         
         $data = [
             'tabla_tipo' => $_POST['tabla_tipo'] ?? ($_GET['tabla_tipo'] ?? ''),
-            'tabla_tabla_estado_registro_id' => $_POST['tabla_tabla_estado_registro_id'] ?? ($_GET['tabla_tabla_estado_registro_id'] ?? 1)
+            'tabla_tabla_tabla_estado_registro_id' => $_POST['tabla_tabla_tabla_estado_registro_id'] ?? ($_GET['tabla_tabla_tabla_estado_registro_id'] ?? 1)
         ];
         
         // Validar datos obligatorios
@@ -132,7 +132,7 @@ switch ($accion) {
             'tabla_tipo_id' => $_POST['tabla_tipo_id'] ?? ($_GET['tabla_tipo_id'] ?? null),
             'tabla_tipo_estado' => $_POST['tabla_tipo_estado'] ?? ($_GET['tabla_tipo_estado'] ?? ''),
             'valor' => $_POST['valor'] ?? ($_GET['valor'] ?? 1),
-            'tabla_tabla_estado_registro_id' => $_POST['tabla_tabla_estado_registro_id'] ?? ($_GET['tabla_tabla_estado_registro_id'] ?? 1),
+            'tabla_tabla_tabla_estado_registro_id' => $_POST['tabla_tabla_tabla_estado_registro_id'] ?? ($_GET['tabla_tabla_tabla_estado_registro_id'] ?? 1),
             'es_inicial' => $_POST['es_inicial'] ?? ($_GET['es_inicial'] ?? 0)
         ];
         
@@ -162,7 +162,7 @@ switch ($accion) {
         $data = [
             'tabla_tipo_estado' => $_POST['tabla_tipo_estado'] ?? ($_GET['tabla_tipo_estado'] ?? ''),
             'valor' => $_POST['valor'] ?? ($_GET['valor'] ?? 1),
-            'tabla_tabla_estado_registro_id' => $_POST['tabla_tabla_estado_registro_id'] ?? ($_GET['tabla_tabla_estado_registro_id'] ?? 1),
+            'tabla_tabla_tabla_estado_registro_id' => $_POST['tabla_tabla_tabla_estado_registro_id'] ?? ($_GET['tabla_tabla_tabla_estado_registro_id'] ?? 1),
             'es_inicial' => $_POST['es_inicial'] ?? ($_GET['es_inicial'] ?? 0)
         ];
         

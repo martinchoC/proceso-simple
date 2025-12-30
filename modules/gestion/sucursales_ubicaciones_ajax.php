@@ -25,7 +25,7 @@ switch ($accion) {
             'estanteria' => $_POST['estanteria'] ?? '',
             'estante' => $_POST['estante'] ?? '',
             'descripcion' => $_POST['descripcion'] ?? '',
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1,
+            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1,
             'usuario_creacion_id' => $_POST['usuario_creacion_id'] ?? null
         ];
         
@@ -46,7 +46,7 @@ switch ($accion) {
             'estanteria' => $_POST['estanteria'] ?? '',
             'estante' => $_POST['estante'] ?? '',
             'descripcion' => $_POST['descripcion'] ?? '',
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1,
+            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1,
             'usuario_creacion_id' => $_POST['usuario_creacion_id'] ?? null
         ];
         

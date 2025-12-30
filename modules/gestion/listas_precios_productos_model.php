@@ -125,7 +125,7 @@ function obtenerListasPrecios($conexion) {
 function obtenerProductos($conexion) {
     $sql = "SELECT producto_id, producto_codigo, producto_nombre 
             FROM `gestion__productos` 
-            WHERE estado_registro_id = 1
+            WHERE tabla_estado_registro_id = 1
             ORDER BY producto_codigo";
     $res = mysqli_query($conexion, $sql);
     $data = [];

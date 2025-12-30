@@ -205,7 +205,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             searchable: false,
                             className: "text-center",
                             render: function(data){
-                                var estadoTexto = data.estado_registro_id == 1 ? 
+                                var estadoTexto = data.tabla_estado_registro_id == 1 ? 
                                     '<span class="badge bg-success">Activo</span>' : 
                                     '<span class="badge bg-secondary">Inactivo</span>';
                                 
@@ -214,7 +214,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <input class="form-check-input toggle-estado"
                                             type="checkbox" 
                                             data-pedido-id="${data.comprobante_id}" 
-                                            ${data.estado_registro_id == 1 ? 'checked' : ''}>
+                                            ${data.tabla_estado_registro_id == 1 ? 'checked' : ''}>
                                     </div>`;
                                 
                                 return `<div class="d-flex flex-column align-items-center">${botonEstado}</div>`;
@@ -226,7 +226,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             searchable: false,
                             className: "text-center",
                             render: function(data){
-                                var botonEditar = data.estado_registro_id == 1 ? 
+                                var botonEditar = data.tabla_estado_registro_id == 1 ? 
                                     `<button class="btn btn-sm btn-primary btnEditar" title="Editar">
                                         <i class="fa fa-edit"></i>
                                      </button>` : 
@@ -234,7 +234,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <i class="fa fa-edit"></i>
                                      </button>`;
                                 
-                                var botonEliminar = data.estado_registro_id == 1 ? 
+                                var botonEliminar = data.tabla_estado_registro_id == 1 ? 
                                     `<button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
                                         <i class="fa fa-trash"></i>
                                      </button>` : 
@@ -247,7 +247,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     createdRow: function(row, data, dataIndex) {
-                        if (data.estado_registro_id != 1) {
+                        if (data.tabla_estado_registro_id != 1) {
                             $(row).addClass('table-secondary');
                             $(row).find('td').css('color', '#6c757d');
                         }

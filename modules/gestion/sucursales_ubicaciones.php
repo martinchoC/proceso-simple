@@ -103,7 +103,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     <div class="col-md-6">
                                         <label>Estado</label>
-                                        <select class="form-control" id="estado_registro_id" name="estado_registro_id">
+                                        <select class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id">
                                             <option value="1">Activo</option>
                                             <option value="0">Inactivo</option>
                                         </select>
@@ -187,7 +187,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             searchable: false,
                             className: "text-center",
                             render: function(data){
-                                var estadoTexto = data.estado_registro_id == 1 ? 
+                                var estadoTexto = data.tabla_estado_registro_id == 1 ? 
                                     '<span class="badge bg-success">Activo</span>' : 
                                     '<span class="badge bg-secondary">Inactivo</span>';
                                 
@@ -196,7 +196,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <input class="form-check-input toggle-estado"
                                             type="checkbox" 
                                             data-sucursal-ubicacion-id="${data.sucursal_ubicacion_id}" 
-                                            ${data.estado_registro_id == 1 ? 'checked' : ''}>
+                                            ${data.tabla_estado_registro_id == 1 ? 'checked' : ''}>
                                     </div>`;
                                 
                                 return `<div class="d-flex flex-column align-items-center">                                            
@@ -210,7 +210,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             searchable: false,
                             className: "text-center",
                             render: function(data){
-                                var botonEditar = data.estado_registro_id == 1 ? 
+                                var botonEditar = data.tabla_estado_registro_id == 1 ? 
                                     `<button class="btn btn-sm btn-primary btnEditar" title="Editar">
                                         <i class="fa fa-edit"></i>
                                      </button>` : 
@@ -218,7 +218,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <i class="fa fa-edit"></i>
                                      </button>`;
                                 
-                                var botonEliminar = data.estado_registro_id == 1 ? 
+                                var botonEliminar = data.tabla_estado_registro_id == 1 ? 
                                     `<button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
                                         <i class="fa fa-trash"></i>
                                      </button>` : 
@@ -236,7 +236,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     ],
                     createdRow: function(row, data, dataIndex) {
                         // Cambiar color de fondo según el estado
-                        if (data.estado_registro_id != 1) {
+                        if (data.tabla_estado_registro_id != 1) {
                             $(row).addClass('table-secondary');
                             $(row).find('td').css('color', '#6c757d');
                         }
@@ -314,7 +314,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#formUbicacion')[0].reset();
                     $('#sucursal_ubicacion_id').val('');
                     $('#modalLabel').text('Nueva Ubicación');
-                    $('#estado_registro_id').val('1');
+                    $('#tabla_estado_registro_id').val('1');
                     cargarLocales();
                     var modal = new bootstrap.Modal(document.getElementById('modalUbicacion'));
                     modal.show();
@@ -323,7 +323,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#tablaUbicaciones tbody').on('click', '.btnEditar', function(){
                     var data = tabla.row($(this).parents('tr')).data();
                     // Solo permitir editar si está activo
-                    if (data.estado_registro_id != 1) {
+                    if (data.tabla_estado_registro_id != 1) {
                         Swal.fire({
                             icon: "warning",
                             title: "Ubicación inactiva",
@@ -342,7 +342,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             $('#estante').val(res.estante);
                             $('#descripcion').val(res.descripcion);
                             $('#usuario_creacion_id').val(res.usuario_creacion_id);
-                            $('#estado_registro_id').val(res.estado_registro_id);
+                            $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
                             
                             // Cargar sucursales y seleccionar el correcto
                             cargarLocales();
@@ -418,7 +418,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         estante: $('#estante').val(),
                         descripcion: $('#descripcion').val(),
                         usuario_creacion_id: $('#usuario_creacion_id').val(),
-                        estado_registro_id: $('#estado_registro_id').val()
+                        tabla_estado_registro_id: $('#tabla_estado_registro_id').val()
                     };
 
                     $.ajax({

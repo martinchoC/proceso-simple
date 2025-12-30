@@ -36,7 +36,7 @@ switch ($accion) {
         break;
 
     case 'editar':
-        $id = intval($_GET['estado_registro_id']);
+        $id = intval($_GET['tabla_estado_registro_id']);
         $data = [
             'tabla_tipo_id' => $_GET['tabla_tipo_id'] ?? null,
             'estado_registro' => $_GET['estado_registro'] ?? '',
@@ -54,13 +54,13 @@ switch ($accion) {
         break;
 
     case 'eliminar':
-        $id = intval($_GET['estado_registro_id']);
+        $id = intval($_GET['tabla_estado_registro_id']);
         $resultado = eliminarEstadoRegistro($conexion, $id);
         echo json_encode(['resultado' => $resultado]);
         break;
 
     case 'obtener':
-        $id = intval($_GET['estado_registro_id']);
+        $id = intval($_GET['tabla_estado_registro_id']);
         $estado = obtenerEstadoRegistroPorId($conexion, $id);
         echo json_encode($estado);
         break;

@@ -23,7 +23,7 @@ switch ($accion) {
             'domicilio_legal' => $_POST['domicilio_legal'] ?? '',
             'localidad_id' => $_POST['localidad_id'] ?? 0,
             'observaciones' => $_POST['observaciones'] ?? '',
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['nombre_fiscal']) || empty($data['cuit'])) {
@@ -50,7 +50,7 @@ switch ($accion) {
             'domicilio_legal' => $_POST['domicilio_legal'] ?? '',
             'localidad_id' => $_POST['localidad_id'] ?? 0,
             'observaciones' => $_POST['observaciones'] ?? '',
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1
         ];
         
         if (empty($data['nombre_fiscal']) || empty($data['cuit'])) {

@@ -75,8 +75,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     <div class="col-md-12">
                                         <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="tabla_tabla_estado_registro_id_tipo" name="tabla_tabla_estado_registro_id" value="1" checked>
-                                            <label class="form-check-label" for="tabla_tabla_estado_registro_id_tipo">Tipo activo</label>
+                                            <input class="form-check-input" type="checkbox" id="tabla_tabla_tabla_estado_registro_id_tipo" name="tabla_tabla_tabla_estado_registro_id" value="1" checked>
+                                            <label class="form-check-label" for="tabla_tabla_tabla_estado_registro_id_tipo">Tipo activo</label>
                                         </div>
                                     </div>
                                 </div>
@@ -155,8 +155,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     <div class="col-md-12">
                                         <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="tabla_tabla_estado_registro_id_estado" name="tabla_tabla_estado_registro_id" value="1" checked>
-                                            <label class="form-check-label" for="tabla_tabla_estado_registro_id_estado">Estado activo</label>
+                                            <input class="form-check-input" type="checkbox" id="tabla_tabla_tabla_estado_registro_id_estado" name="tabla_tabla_tabla_estado_registro_id" value="1" checked>
+                                            <label class="form-check-label" for="tabla_tabla_tabla_estado_registro_id_estado">Estado activo</label>
                                         </div>
                                     </div>
                                 </div>
@@ -172,7 +172,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <script>
             // Funciones para manejar estados registros
-            function cargarEstadosDisponibles(tabla_estado_registro_id_seleccionado = null) {
+            function cargarEstadosDisponibles(tabla_tabla_estado_registro_id_seleccionado = null) {
                 $.get('tablas_tipos_ajax.php', {
                     accion: 'listar_estados_registros'
                 }, function(res) {
@@ -183,10 +183,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         
                         $.each(res, function(index, estado) {
                             var selected = '';
-                            if (tabla_estado_registro_id_seleccionado && estado.tabla_estado_registro_id == tabla_estado_registro_id_seleccionado) {
+                            if (tabla_tabla_estado_registro_id_seleccionado && estado.tabla_tabla_estado_registro_id == tabla_tabla_estado_registro_id_seleccionado) {
                                 selected = 'selected';
                             }
-                            select.append('<option value="' + estado.tabla_estado_registro_id + '" ' + selected + '>' + 
+                            select.append('<option value="' + estado.tabla_tabla_estado_registro_id + '" ' + selected + '>' + 
                                          estado.estado_registro + '</option>');
                         });
                     } else {
@@ -207,7 +207,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#tabla_tipo_id_estado').val($('#tabla_tipo_id_estados').val());
                     $('#valor').val(1);
                     $('#es_inicial').prop('checked', false);
-                    $('#tabla_tabla_estado_registro_id_estado').prop('checked', true);
+                    $('#tabla_tabla_tabla_estado_registro_id_estado').prop('checked', true);
                     $('#modalLabelEstado').text('Nuevo Estado');
                     
                     // Cargar estados disponibles
@@ -223,11 +223,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             $('#tabla_tipo_id_estado').val(res.tabla_tipo_id);
                             $('#valor').val(res.valor);
                             $('#es_inicial').prop('checked', res.es_inicial == 1);
-                            $('#tabla_tabla_estado_registro_id_estado').prop('checked', res.tabla_tabla_estado_registro_id == 1);
+                            $('#tabla_tabla_tabla_estado_registro_id_estado').prop('checked', res.tabla_tabla_tabla_estado_registro_id == 1);
                             $('#modalLabelEstado').text('Editar Estado');
                             
                             // Cargar estados disponibles con el actual seleccionado
-                            cargarEstadosDisponibles(res.tabla_estado_registro_id);
+                            cargarEstadosDisponibles(res.tabla_tabla_estado_registro_id);
                         } else {
                             Swal.fire({
                                 icon: "error",

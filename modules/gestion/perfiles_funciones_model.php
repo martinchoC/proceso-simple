@@ -2,7 +2,7 @@
 require_once "conexion.php";
 
 function obtenerPerfiles($conexion) {
-    $sql = "SELECT perfil_id, perfil_nombre FROM conf__perfiles WHERE estado_registro_id = 1 ORDER BY perfil_nombre";
+    $sql = "SELECT perfil_id, perfil_nombre FROM conf__perfiles WHERE tabla_estado_registro_id = 1 ORDER BY perfil_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -13,7 +13,7 @@ function obtenerPerfiles($conexion) {
 
 if (!function_exists('obtenerModulos')) {
     function obtenerModulos($conexion) {
-        $sql = "SELECT modulo_id, modulo FROM conf__modulos WHERE estado_registro_id = 1 ORDER BY modulo";
+        $sql = "SELECT modulo_id, modulo FROM conf__modulos WHERE tabla_estado_registro_id = 1 ORDER BY modulo";
         $res = mysqli_query($conexion, $sql);
         $data = [];
         while ($fila = mysqli_fetch_assoc($res)) {
@@ -32,7 +32,7 @@ if (!function_exists('obtenerPerfilesPorModulo')) {
         }
         
         $sql = "SELECT perfil_id, perfil_nombre FROM conf__perfiles 
-                WHERE estado_registro_id = 1 $modulo_condition 
+                WHERE tabla_estado_registro_id = 1 $modulo_condition 
                 ORDER BY perfil_nombre";
         $res = mysqli_query($conexion, $sql);
         $data = [];
@@ -74,7 +74,7 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
                     p.pagina_descripcion
                 FROM conf__paginas p
                 LEFT JOIN conf__iconos i ON p.icono_id = i.icono_id
-                WHERE p.estado_registro_id = 1 $modulo_condition
+                WHERE p.tabla_estado_registro_id = 1 $modulo_condition
                 ORDER BY p.padre_id IS NULL DESC, p.padre_id, p.orden, p.pagina";
         
         $res_paginas = mysqli_query($conexion, $sql_paginas);
@@ -115,7 +115,7 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
                     ON pf.pagina_funcion_id = perfil_func.pagina_funcion_id 
                     AND perfil_func.perfil_id = $perfil_id
                     
-                WHERE p.estado_registro_id = 1 $modulo_condition
+                WHERE p.tabla_estado_registro_id = 1 $modulo_condition
                 ORDER BY p.padre_id IS NULL DESC, p.padre_id, p.orden, p.pagina, pf.orden, pf.nombre_funcion";
         
         $res_funciones = mysqli_query($conexion, $sql_funciones);
@@ -235,7 +235,7 @@ if (!function_exists('obtenerPaginasConFunciones')) {
                     ON pf.pagina_funcion_id = perfil_func.pagina_funcion_id 
                     AND perfil_func.perfil_id = $perfil_id
                     $perfil_condition
-                WHERE p.estado_registro_id = 1 AND pf.pagina_funcion_id IS NOT NULL
+                WHERE p.tabla_estado_registro_id = 1 AND pf.pagina_funcion_id IS NOT NULL
                 $modulo_condition
                 ORDER BY p.pagina, pf.orden, pf.nombre_funcion";
         

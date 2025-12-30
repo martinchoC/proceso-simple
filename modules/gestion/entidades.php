@@ -108,7 +108,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                             <div class="col-md-4">
                                                 <label>Estado</label>
-                                                <select class="form-control" id="estado_registro_id" name="estado_registro_id">
+                                                <select class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id">
                                                     <option value="1">Activo</option>
                                                     <option value="0">Inactivo</option>
                                                 </select>
@@ -399,7 +399,7 @@ $(document).ready(function(){
                 searchable: false,
                 className: "text-center",
                 render: function(data){
-                    var estadoTexto = data.estado_registro_id == 1 ? 
+                    var estadoTexto = data.tabla_estado_registro_id == 1 ? 
                         '<span class="badge bg-success">Activo</span>' : 
                         '<span class="badge bg-secondary">Inactivo</span>';
                     
@@ -408,7 +408,7 @@ $(document).ready(function(){
                             <input class="form-check-input toggle-estado"
                                 type="checkbox" 
                                 data-entidad-id="${data.entidad_id}" 
-                                ${data.estado_registro_id == 1 ? 'checked' : ''}>
+                                ${data.tabla_estado_registro_id == 1 ? 'checked' : ''}>
                         </div>`;
                     
                     return `<div class="d-flex flex-column align-items-center">                                            
@@ -422,7 +422,7 @@ $(document).ready(function(){
                 searchable: false,
                 className: "text-center",
                 render: function(data){
-                    var botonEditar = data.estado_registro_id == 1 ? 
+                    var botonEditar = data.tabla_estado_registro_id == 1 ? 
                         `<button class="btn btn-sm btn-primary btnEditar" title="Editar">
                             <i class="fa fa-edit"></i>
                          </button>` : 
@@ -430,7 +430,7 @@ $(document).ready(function(){
                             <i class="fa fa-edit"></i>
                          </button>`;
                     
-                    var botonEliminar = data.estado_registro_id == 1 ? 
+                    var botonEliminar = data.tabla_estado_registro_id == 1 ? 
                         `<button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
                             <i class="fa fa-trash"></i>
                          </button>` : 
@@ -443,7 +443,7 @@ $(document).ready(function(){
             }
         ],
         createdRow: function(row, data, dataIndex) {
-            if (data.estado_registro_id != 1) {
+            if (data.tabla_estado_registro_id != 1) {
                 $(row).addClass('table-secondary');
                 $(row).find('td').css('color', '#6c757d');
             }
@@ -627,7 +627,7 @@ $(document).ready(function(){
             domicilio_legal: $('#domicilio_legal').val(),
             localidad_id: $('#localidad_id').val(),
             observaciones: $('#observaciones').val(),
-            estado_registro_id: $('#estado_registro_id').val()
+            tabla_estado_registro_id: $('#tabla_estado_registro_id').val()
         };
 
         $.ajax({
@@ -674,7 +674,7 @@ $(document).ready(function(){
     $('#tablaEntidades tbody').on('click', '.btnEditar', function(){
         var data = tabla.row($(this).parents('tr')).data();
         // Solo permitir editar si está activo
-        if (data.estado_registro_id != 1) {
+        if (data.tabla_estado_registro_id != 1) {
             Swal.fire({
                 icon: "warning",
                 title: "Entidad inactiva",
@@ -699,7 +699,7 @@ $(document).ready(function(){
                 $('#domicilio_legal').val(res.domicilio_legal);
                 $('#localidad_id').val(res.localidad_id);
                 $('#observaciones').val(res.observaciones);
-                $('#estado_registro_id').val(res.estado_registro_id);
+                $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
                 
                 $('#modalLabel').text('Editar Entidad Comercial');
                 var modal = new bootstrap.Modal(document.getElementById('modalEntidad'));
@@ -762,7 +762,7 @@ $(document).ready(function(){
         $('#formEntidad')[0].reset();
         $('#entidad_id').val('');
         $('#modalLabel').text('Nueva Entidad Comercial');
-        $('#estado_registro_id').val('1');
+        $('#tabla_estado_registro_id').val('1');
         var modal = new bootstrap.Modal(document.getElementById('modalEntidad'));
         modal.show();
     });

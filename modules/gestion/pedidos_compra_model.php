@@ -31,7 +31,7 @@ function obtenerPedidosCompra($conexion, $empresa_id) {
 function obtenerTiposComprobantePedido($conexion) {
     $sql = "SELECT * FROM `gestion__comprobantes_tipos` 
             WHERE comprobante_tipo LIKE '%pedido%compra%'
-            AND estado_registro_id = 1
+            AND tabla_estado_registro_id = 1
             ORDER BY comprobante_tipo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -47,7 +47,7 @@ function obtenerProveedores($conexion, $empresa_id) {
             FROM `gestion__entidades` 
             WHERE empresa_id = $empresa_id 
             AND es_proveedor = 1
-            AND estado_registro_id = 1
+            AND tabla_estado_registro_id = 1
             ORDER BY razon_social";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -62,7 +62,7 @@ function obtenerSucursales($conexion, $empresa_id) {
     $sql = "SELECT sucursal_id, sucursal 
             FROM `gestion__sucursales` 
             WHERE empresa_id = $empresa_id 
-            AND estado_registro_id = 1
+            AND tabla_estado_registro_id = 1
             ORDER BY sucursal";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -77,7 +77,7 @@ function obtenerProductos($conexion, $empresa_id) {
     $sql = "SELECT producto_id, producto, codigo, precio_compra 
             FROM `gestion__productos` 
             WHERE empresa_id = $empresa_id 
-            AND estado_registro_id = 1
+            AND tabla_estado_registro_id = 1
             ORDER BY producto";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -97,7 +97,7 @@ function agregarPedidoCompra($conexion, $data, $detalles, $usuario_id) {
                 (empresa_id, sucursal_id, punto_venta_id, comprobante_tipo_id, 
                  numero_comprobante, entidad_id, f_emision, f_contabilizacion, f_vto,
                  observaciones, importe_neto, importe_no_gravado, total,
-                 estado_registro_id, creado_por, creado_en) 
+                 tabla_estado_registro_id, creado_por, creado_en) 
                 VALUES 
                 (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
         
@@ -116,7 +116,7 @@ function agregarPedidoCompra($conexion, $data, $detalles, $usuario_id) {
             $data['importe_neto'],
             $data['importe_no_gravado'],
             $data['total'],
-            $data['estado_registro_id'],
+            $data['tabla_estado_registro_id'],
             $usuario_id
         );
         
@@ -174,7 +174,7 @@ function editarPedidoCompra($conexion, $comprobante_id, $data, $detalles, $usuar
                 importe_neto = ?,
                 importe_no_gravado = ?,
                 total = ?,
-                estado_registro_id = ?,
+                tabla_estado_registro_id = ?,
                 actualizado_por = ?,
                 actualizado_en = NOW()
                 WHERE comprobante_id = ?";
@@ -193,7 +193,7 @@ function editarPedidoCompra($conexion, $comprobante_id, $data, $detalles, $usuar
             $data['importe_neto'],
             $data['importe_no_gravado'],
             $data['total'],
-            $data['estado_registro_id'],
+            $data['tabla_estado_registro_id'],
             $usuario_id,
             $comprobante_id
         );
@@ -242,7 +242,7 @@ function editarPedidoCompra($conexion, $comprobante_id, $data, $detalles, $usuar
 
 function cambiarEstadoPedidoCompra($conexion, $comprobante_id, $nuevo_estado, $usuario_id) {
     $sql = "UPDATE `gestion__comprobantes` 
-            SET estado_registro_id = ?, actualizado_por = ?, actualizado_en = NOW()
+            SET tabla_estado_registro_id = ?, actualizado_por = ?, actualizado_en = NOW()
             WHERE comprobante_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql);

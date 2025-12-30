@@ -263,7 +263,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         var badgeClass = '';
                         var estadoTexto = data.estado_display || data.estado_nombre;
                         
-                        switch(data.estado_registro_id) {
+                        switch(data.tabla_estado_registro_id) {
                             case 3: // Borrador
                                 badgeClass = 'bg-warning';
                                 break;
@@ -292,7 +292,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         var botones = '';
                         
                         // Botón Editar - Solo para borradores (estado 3)
-                        if (data.estado_registro_id == 3) {
+                        if (data.tabla_estado_registro_id == 3) {
                             botones += `<button class="btn btn-sm btn-primary btnEditar" title="Editar" data-id="${data.comprobante_id}">
                                             <i class="fa fa-edit"></i>
                                         </button>`;
@@ -303,7 +303,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                         
                         // Botón Confirmar - Solo para borradores (estado 3)
-                        if (data.estado_registro_id == 3) {
+                        if (data.tabla_estado_registro_id == 3) {
                             botones += `<button class="btn btn-sm btn-success btnConfirmar" title="Confirmar" data-id="${data.comprobante_id}">
                                             <i class="fa fa-check"></i>
                                         </button>`;
@@ -314,7 +314,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                         
                         // Botón Pendiente - Solo para borradores (estado 3)
-                        if (data.estado_registro_id == 3) {
+                        if (data.tabla_estado_registro_id == 3) {
                             botones += `<button class="btn btn-sm btn-info btnPendiente" title="Marcar como Pendiente" data-id="${data.comprobante_id}">
                                             <i class="fa fa-clock"></i>
                                         </button>`;
@@ -325,7 +325,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                         
                         // Botón Eliminar - Para todos los estados excepto eliminado (estado 6)
-                        if (data.estado_registro_id != 6) {
+                        if (data.tabla_estado_registro_id != 6) {
                             botones += `<button class="btn btn-sm btn-danger btnEliminar" title="Eliminar" data-id="${data.comprobante_id}">
                                             <i class="fa fa-trash"></i>
                                         </button>`;
@@ -341,13 +341,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             ],
             createdRow: function(row, data, dataIndex) {
                 // Cambiar color de fondo según el estado
-                if (data.estado_registro_id == 6) { // Eliminado
+                if (data.tabla_estado_registro_id == 6) { // Eliminado
                     $(row).addClass('table-secondary');
                     $(row).find('td').css('color', '#6c757d');
-                } else if (data.estado_registro_id == 5) { // Confirmado
+                } else if (data.tabla_estado_registro_id == 5) { // Confirmado
                     $(row).addClass('table-success');
                     $(row).find('td').css('color', '#155724');
-                } else if (data.estado_registro_id == 4) { // Pendiente
+                } else if (data.tabla_estado_registro_id == 4) { // Pendiente
                     $(row).addClass('table-info');
                     $(row).find('td').css('color', '#0c5460');
                 }

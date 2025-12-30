@@ -9,8 +9,8 @@ function obtenerPaginasFunciones($conexion) {
             FROM conf__paginas_funciones pf
             LEFT JOIN conf__paginas p ON pf.pagina_id = p.pagina_id
             LEFT JOIN conf__tablas t ON pf.tabla_id = t.tabla_id
-            LEFT JOIN conf__tablas_estados_registros eo ON pf.tabla_estado_registro_origen_id = eo.tabla_estado_registro_id
-            LEFT JOIN conf__tablas_estados_registros ed ON pf.tabla_estado_registro_destino_id = ed.tabla_estado_registro_id
+            LEFT JOIN conf__tablas_estados_registros eo ON pf.tabla_estado_registro_origen_id = eo.tabla_tabla_estado_registro_id
+            LEFT JOIN conf__tablas_estados_registros ed ON pf.tabla_estado_registro_destino_id = ed.tabla_tabla_estado_registro_id
             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
             LEFT JOIN conf__colores c ON pf.color_id = c.color_id
             WHERE p.modulo_id=2
@@ -36,7 +36,7 @@ function obtenerPaginas($conexion) {
 function obtenerIconos($conexion) {
     $sql = "SELECT icono_id, icono_nombre, icono_clase 
             FROM conf__iconos 
-            WHERE tabla_estado_registro_id = 1 
+            WHERE tabla_tabla_estado_registro_id = 1 
             ORDER BY icono_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -49,7 +49,7 @@ function obtenerIconos($conexion) {
 function obtenerColores($conexion) {
     $sql = "SELECT color_id, nombre_color, color_clase, bg_clase, text_clase 
             FROM conf__colores 
-            WHERE tabla_estado_registro_id = 1 
+            WHERE tabla_tabla_estado_registro_id = 1 
             ORDER BY nombre_color";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -79,7 +79,7 @@ function obtenerTablas($conexion) {
 
 function obtenerEstadosPorTabla($conexion, $tabla_id) {
     $tabla_id = intval($tabla_id);
-    $sql = "SELECT er.tabla_estado_registro_id, er.estado_registro 
+    $sql = "SELECT er.tabla_tabla_estado_registro_id, er.estado_registro 
             FROM conf__tablas_estados_registros er
             WHERE er.tabla_id = $tabla_id
             ORDER BY er.orden, er.estado_registro";

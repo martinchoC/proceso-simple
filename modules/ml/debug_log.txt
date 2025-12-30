@@ -1,0 +1,2096 @@
+==========================================
+2025-08-27 23:23:59 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:24:02 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:24:05 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:24:07 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:26:35 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:26:54 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:32:02 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:32:04 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:32:06 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:32:07 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:32:09 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:32:11 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:33:36 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:34:25 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:34:29 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:34:30 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:34:32 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:35:44 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:35:50 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:36:47 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:36:51 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:36:53 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:36:56 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:36:57 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:37:04 - Nueva solicitud
+Acción: asignar_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [usuario_perfil_id] => 
+    [perfil_id] => 2
+    [usuario_id] => 1
+    [fecha_inicio] => 2025-08-27
+    [fecha_fin] => 2025-08-30
+    [validar_solapamiento] => true
+    [usuario_creacion] => 1
+    [usuario_actualizacion] => 1
+    [accion] => asignar_usuario_perfil
+)
+
+GET data: Array
+(
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:37:04 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:37:09 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 5
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:37:40 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 5
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:37:53 - Nueva solicitud
+Acción: eliminar_asignacion_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [accion] => eliminar_asignacion_usuario_perfil
+    [usuario_perfil_id] => 5
+)
+
+GET data: Array
+(
+)
+
+Raw input: accion=eliminar_asignacion_usuario_perfil&usuario_perfil_id=5
+==========================================
+
+==========================================
+2025-08-27 23:37:53 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:38:04 - Nueva solicitud
+Acción: asignar_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [usuario_perfil_id] => 
+    [perfil_id] => 2
+    [usuario_id] => 1
+    [fecha_inicio] => 2025-08-27
+    [fecha_fin] => 2025-08-30
+    [validar_solapamiento] => true
+    [usuario_creacion] => 1
+    [usuario_actualizacion] => 1
+    [accion] => asignar_usuario_perfil
+)
+
+GET data: Array
+(
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:38:04 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:38:17 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 6
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:39:14 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 6
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:39:31 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:39:33 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:39:35 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:39:36 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:39:37 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:40:10 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:40:12 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:40:14 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:40:15 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:40:16 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:40:16 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:40:27 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 3
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:42:43 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:42:45 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:42:47 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:42:48 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:42:49 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:42:49 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:43:25 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:43:26 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:43:27 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:43:29 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:43:29 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:46:27 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:46:28 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:46:29 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:46:30 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:46:31 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:46:33 - Nueva solicitud
+Acción: actualizar_asignacion_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [usuario_perfil_id] => 4
+    [perfil_id] => 1
+    [fecha_inicio] => 2025-08-27
+    [fecha_fin] => 2025-09-04
+    [usuario_id] => 2
+    [validar_solapamiento] => true
+    [usuario_creacion] => 1
+    [usuario_actualizacion] => 1
+    [accion] => actualizar_asignacion_usuario_perfil
+)
+
+GET data: Array
+(
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:46:33 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:46:49 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 3
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:47:08 - Nueva solicitud
+Acción: actualizar_asignacion_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [usuario_perfil_id] => 3
+    [perfil_id] => 1
+    [fecha_inicio] => 2025-08-27
+    [fecha_fin] => 2025-10-02
+    [usuario_id] => 1
+    [validar_solapamiento] => true
+    [usuario_creacion] => 1
+    [usuario_actualizacion] => 1
+    [accion] => actualizar_asignacion_usuario_perfil
+)
+
+GET data: Array
+(
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:47:08 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:48:15 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:48:48 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:11 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:12 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:14 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:15 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:15 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:21 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 4
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:22 - Nueva solicitud
+Acción: actualizar_asignacion_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [usuario_perfil_id] => 4
+    [perfil_id] => 1
+    [fecha_inicio] => 2025-08-27
+    [fecha_fin] => 2025-09-04
+    [usuario_id] => 2
+    [validar_solapamiento] => true
+    [usuario_creacion] => 1
+    [usuario_actualizacion] => 1
+    [accion] => actualizar_asignacion_usuario_perfil
+)
+
+GET data: Array
+(
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:22 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:25 - Nueva solicitud
+Acción: obtener_asignacion_por_id
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignacion_por_id
+    [usuario_perfil_id] => 3
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:27 - Nueva solicitud
+Acción: actualizar_asignacion_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [usuario_perfil_id] => 3
+    [perfil_id] => 1
+    [fecha_inicio] => 2025-08-27
+    [fecha_fin] => 2025-10-02
+    [usuario_id] => 1
+    [validar_solapamiento] => true
+    [usuario_creacion] => 1
+    [usuario_actualizacion] => 1
+    [accion] => actualizar_asignacion_usuario_perfil
+)
+
+GET data: Array
+(
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:27 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:49:37 - Nueva solicitud
+Acción: eliminar_asignacion_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [accion] => eliminar_asignacion_usuario_perfil
+    [usuario_perfil_id] => 3
+)
+
+GET data: Array
+(
+)
+
+Raw input: accion=eliminar_asignacion_usuario_perfil&usuario_perfil_id=3
+==========================================
+
+==========================================
+2025-08-27 23:49:37 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:09 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:12 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:15 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:17 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:20 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:22 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:35 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:38 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:43 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:49 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:53 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:50:59 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-27 23:51:02 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:02:46 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:02:48 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:02:48 - Nueva solicitud
+Acción: obtener_asignaciones_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:02:48 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:02:59 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:02:59 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:03:00 - Nueva solicitud
+Acción: obtener_usuarios
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_usuarios
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:03:16 - Nueva solicitud
+Acción: asignar_usuario_perfil
+Método: POST
+POST data: Array
+(
+    [usuario_perfil_id] => 
+    [perfil_id] => 2
+    [usuario_id] => 2
+    [fecha_inicio] => 2025-08-27
+    [fecha_fin] => 2025-09-06
+    [validar_solapamiento] => true
+    [usuario_creacion] => 1
+    [usuario_actualizacion] => 1
+    [accion] => asignar_usuario_perfil
+)
+
+GET data: Array
+(
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:03:16 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:03:21 - Nueva solicitud
+Acción: obtener_asignaciones_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:03:35 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:03:35 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:01 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:24 - Nueva solicitud
+Acción: obtener_modulos
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_modulos
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:26 - Nueva solicitud
+Acción: obtener_asignaciones_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:26 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:26 - Nueva solicitud
+Acción: obtener_perfiles_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_perfiles_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:28 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:28 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:30 - Nueva solicitud
+Acción: obtener_asignaciones_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:37 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:37 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:40 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:40 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 2
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:42 - Nueva solicitud
+Acción: obtener_asignaciones_por_modulo
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_por_modulo
+    [modulo_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:55 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+
+==========================================
+2025-08-28 00:05:55 - Nueva solicitud
+Acción: obtener_asignaciones_usuario_perfil
+Método: GET
+POST data: Array
+(
+)
+
+GET data: Array
+(
+    [accion] => obtener_asignaciones_usuario_perfil
+    [perfil_id] => 1
+)
+
+Raw input: 
+==========================================
+

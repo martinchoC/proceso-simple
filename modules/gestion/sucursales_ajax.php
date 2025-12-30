@@ -39,7 +39,7 @@ switch ($accion) {
             'direccion' => $_POST['direccion'] ?? '',
             'telefono' => $_POST['telefono'] ?? '',
             'email' => $_POST['email'] ?? '',
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1,
+            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1,
             'usuario_creacion_id' => $_POST['usuario_creacion_id'] ?? null
         ];
         
@@ -63,7 +63,7 @@ switch ($accion) {
             'direccion' => $_POST['direccion'] ?? '',
             'telefono' => $_POST['telefono'] ?? '',
             'email' => $_POST['email'] ?? '',
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1,
+            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1,
             'usuario_creacion_id' => $_POST['usuario_creacion_id'] ?? null
         ];
         

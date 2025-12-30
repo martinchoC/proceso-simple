@@ -70,12 +70,12 @@ function agregarpagina($conexion, $data) {
     $icono_id = mysqli_real_escape_string($conexion, $data['icono_id']);
     $padre_id = (!empty($data['padre_id']) && is_numeric($data['padre_id'])) ? intval($data['padre_id']) : 'NULL';
     $modulo_id = intval($data['modulo_id']);
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id'] ?? 1);
+    $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id'] ?? 1);
 
     $sql = "INSERT INTO conf__paginas 
-            (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id) 
+            (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_tabla_estado_registro_id, icono_id) 
             VALUES 
-            ('$pagina', '$url', '$pagina_descripcion', '$orden', '$tabla_id', $padre_id, $modulo_id, $tabla_estado_registro_id,'$icono_id')";
+            ('$pagina', '$url', '$pagina_descripcion', '$orden', '$tabla_id', $padre_id, $modulo_id, $tabla_tabla_estado_registro_id,'$icono_id')";
     
     return mysqli_query($conexion, $sql);
 }
@@ -94,7 +94,7 @@ function editarpagina($conexion, $id, $data) {
     $icono_id = mysqli_real_escape_string($conexion, $data['icono_id']);
     $padre_id = (!empty($data['padre_id']) && is_numeric($data['padre_id'])) ? intval($data['padre_id']) : 'NULL';
     $modulo_id = is_numeric($data['modulo_id']) ? $data['modulo_id'] : 'NULL';
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
+    $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id']);
 
     $sql = "UPDATE conf__paginas SET
         pagina='$pagina',
@@ -105,7 +105,7 @@ function editarpagina($conexion, $id, $data) {
         icono_id='$icono_id',
         padre_id=$padre_id,
         modulo_id=$modulo_id,
-        tabla_estado_registro_id=$tabla_estado_registro_id
+        tabla_tabla_estado_registro_id=$tabla_tabla_estado_registro_id
         WHERE pagina_id=$id";
 
     return mysqli_query($conexion, $sql);

@@ -8,7 +8,7 @@ $pagina_idx = 41;
 // ✅ Sistema completo de botones dinámicos
 function obtenerPaginaPorUrl($conexion, $url) {
     $url = mysqli_real_escape_string($conexion, $url);
-    $sql = "SELECT * FROM `conf__paginas` WHERE url = '$url' AND estado_registro_id = 1";
+    $sql = "SELECT * FROM `conf__paginas` WHERE url = '$url' AND tabla_estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);
 }
@@ -89,28 +89,28 @@ function obtenerBotonAgregar($conexion, $pagina_id) {
 }
 
 // ✅ Función para obtener código estándar por estado
-function obtenerCodigoEstandarPorEstado($conexion, $estado_registro_id) {
+function obtenerCodigoEstandarPorEstado($conexion, $tabla_estado_registro_id) {
     global $tabla_idx;
-    $estado_registro_id = intval($estado_registro_id);
+    $tabla_estado_registro_id = intval($tabla_estado_registro_id);
     
-    if ($estado_registro_id == 0) return '0'; // Para botón agregar
+    if ($tabla_estado_registro_id == 0) return '0'; // Para botón agregar
     
     $sql = "SELECT codigo_estandar FROM conf__tablas_estados_registros 
-            WHERE estado_registro_id = $estado_registro_id AND tabla_id = $tabla_idx";
+            WHERE tabla_estado_registro_id = $tabla_estado_registro_id AND tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
     return $fila ? $fila['codigo_estandar'] : null;
 }
 
-// ✅ Función para obtener estado_registro_id por código estándar
+// ✅ Función para obtener tabla_estado_registro_id por código estándar
 function obtenerEstadoPorCodigoEstandar($conexion, $codigo_estandar) {
     global $tabla_idx;
     $codigo_estandar = mysqli_real_escape_string($conexion, $codigo_estandar);
-    $sql = "SELECT estado_registro_id FROM conf__tablas_estados_registros 
+    $sql = "SELECT tabla_estado_registro_id FROM conf__tablas_estados_registros 
             WHERE codigo_estandar = '$codigo_estandar' AND tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
-    return $fila ? $fila['estado_registro_id'] : null;
+    return $fila ? $fila['tabla_estado_registro_id'] : null;
 }
 
 // ✅ Función para ejecutar transición de estado usando códigos estándar
@@ -139,7 +139,7 @@ function ejecutarTransicionEstado($conexion, $modelo_id, $funcion_nombre, $pagin
     
     // Ejecutar la transición actualizando el estado
     $sql = "UPDATE gestion__modelos 
-            SET estado_registro_id = ? 
+            SET tabla_estado_registro_id = ? 
             WHERE modelo_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -157,7 +157,7 @@ function obtenerCodigoEstandarModelo($conexion, $modelo_id) {
     $modelo_id = intval($modelo_id);
     $sql = "SELECT er.codigo_estandar 
             FROM gestion__modelos m
-            INNER JOIN conf__tablas_estados_registros er ON m.estado_registro_id = er.estado_registro_id
+            INNER JOIN conf__tablas_estados_registros er ON m.tabla_estado_registro_id = er.tabla_estado_registro_id
             WHERE m.modelo_id = $modelo_id AND er.tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
@@ -170,7 +170,7 @@ function obtenerModelos($conexion, $pagina_id) {
     $sql = "SELECT m.*, ma.marca_nombre, er.estado_registro, er.codigo_estandar 
             FROM gestion__modelos m
             INNER JOIN gestion__marcas ma ON m.marca_id = ma.marca_id
-            INNER JOIN conf__tablas_estados_registros er ON m.estado_registro_id = er.estado_registro_id
+            INNER JOIN conf__tablas_estados_registros er ON m.tabla_estado_registro_id = er.tabla_estado_registro_id
             WHERE er.tabla_id = $tabla_idx
             ORDER BY m.modelo_id DESC";
     
@@ -206,13 +206,13 @@ function agregarModelo($conexion, $data) {
     $estado_inicial = obtenerEstadoPorCodigoEstandar($conexion, '20');
     if (!$estado_inicial) {
         // Fallback: buscar cualquier estado activo para esta tabla
-        $sql_estado = "SELECT estado_registro_id FROM conf__tablas_estados_registros WHERE tabla_id = $tabla_idx AND codigo_estandar = '20' LIMIT 1";
+        $sql_estado = "SELECT tabla_estado_registro_id FROM conf__tablas_estados_registros WHERE tabla_id = $tabla_idx AND codigo_estandar = '20' LIMIT 1";
         $res_estado = mysqli_query($conexion, $sql_estado);
         $fila_estado = mysqli_fetch_assoc($res_estado);
-        $estado_inicial = $fila_estado ? $fila_estado['estado_registro_id'] : 1;
+        $estado_inicial = $fila_estado ? $fila_estado['tabla_estado_registro_id'] : 1;
     }
 
-    $sql = "INSERT INTO gestion__modelos (modelo_nombre, marca_id, estado_registro_id) 
+    $sql = "INSERT INTO gestion__modelos (modelo_nombre, marca_id, tabla_estado_registro_id) 
             VALUES ('$modelo_nombre', $marca_id, $estado_inicial)";
 
     return mysqli_query($conexion, $sql);
@@ -236,7 +236,7 @@ function obtenerModeloPorId($conexion, $id) {
     $id = intval($id);
     $sql = "SELECT m.*, er.codigo_estandar 
             FROM gestion__modelos m
-            INNER JOIN conf__tablas_estados_registros er ON m.estado_registro_id = er.estado_registro_id
+            INNER JOIN conf__tablas_estados_registros er ON m.tabla_estado_registro_id = er.tabla_estado_registro_id
             WHERE m.modelo_id = $id AND er.tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);
