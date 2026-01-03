@@ -34,14 +34,14 @@ function agregarProducto($conexion, $data) {
     $dimensiones = mysqli_real_escape_string($conexion, $data['dimensiones']);
     $garantia = mysqli_real_escape_string($conexion, $data['garantia']);
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : 'NULL';
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
+    $estado_registro_id = intval($data['estado_registro_id']);
 
     $sql = "INSERT INTO gestion__productos 
             (producto_codigo, producto_nombre, producto_descripcion, producto_categoria_id, 
-             lado, material, color, peso, dimensiones, garantia, unidad_medida_id, tabla_estado_registro_id) 
+             lado, material, color, peso, dimensiones, garantia, unidad_medida_id, estado_registro_id) 
             VALUES 
             ('$producto_codigo', '$producto_nombre', '$producto_descripcion', $producto_categoria_id,
-             '$lado', '$material', '$color', $peso, '$dimensiones', '$garantia', $unidad_medida_id, $tabla_estado_registro_id)";
+             '$lado', '$material', '$color', $peso, '$dimensiones', '$garantia', $unidad_medida_id, $estado_registro_id)";
     
     return mysqli_query($conexion, $sql);
 }
@@ -63,7 +63,7 @@ function editarProducto($conexion, $id, $data) {
     $dimensiones = mysqli_real_escape_string($conexion, $data['dimensiones']);
     $garantia = mysqli_real_escape_string($conexion, $data['garantia']);
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : 'NULL';
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
+    $estado_registro_id = intval($data['estado_registro_id']);
 
     $sql = "UPDATE gestion__productos SET
             producto_codigo = '$producto_codigo',
@@ -77,7 +77,7 @@ function editarProducto($conexion, $id, $data) {
             dimensiones = '$dimensiones',
             garantia = '$garantia',
             unidad_medida_id = $unidad_medida_id,
-            tabla_estado_registro_id = $tabla_estado_registro_id
+            estado_registro_id = $estado_registro_id
             WHERE producto_id = $id";
 
     return mysqli_query($conexion, $sql);
@@ -87,7 +87,7 @@ function cambiarEstadoProducto($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE gestion__productos SET tabla_estado_registro_id = $nuevo_estado WHERE producto_id = $id";
+    $sql = "UPDATE gestion__productos SET estado_registro_id = $nuevo_estado WHERE producto_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
@@ -107,7 +107,7 @@ function obtenerProductoPorId($conexion, $id) {
 function obtenerCategoriasProductos($conexion) {
     $sql = "SELECT producto_categoria_id, producto_categoria_nombre, producto_categoria_padre_id 
             FROM gestion__productos_categorias 
-            WHERE tabla_estado_registro_id = 1 
+            WHERE estado_registro_id = 1 
             ORDER BY COALESCE(producto_categoria_padre_id, producto_categoria_id), 
                      producto_categoria_padre_id IS NULL DESC, 
                      producto_categoria_nombre";
@@ -132,7 +132,7 @@ function obtenerCategoriasProductos($conexion) {
 function obtenerUnidadesMedida($conexion) {
     $sql = "SELECT unidad_medida_id, unidad_nombre, unidad_abreviatura 
             FROM gestion__unidades_medida 
-            WHERE tabla_estado_registro_id = 1 
+            WHERE estado_registro_id = 1 
             ORDER BY unidad_nombre";
     $res = mysqli_query($conexion, $sql);
     $unidades = [];
@@ -152,7 +152,7 @@ function agregarCompatibilidad($conexion, $data) {
     $anio_hasta = !empty($data['anio_hasta']) ? intval($data['anio_hasta']) : 'NULL';
     
     $sql = "INSERT INTO gestion__productos_compatibilidad 
-            (producto_id, marca_id, modelo_id, submodelo_id, anio_desde, anio_hasta, tabla_estado_registro_id) 
+            (producto_id, marca_id, modelo_id, submodelo_id, anio_desde, anio_hasta, estado_registro_id) 
             VALUES 
             ($producto_id, $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta, 1)";
     
@@ -166,7 +166,7 @@ function eliminarCompatibilidad($conexion, $compatibilidad_id) {
 }
 
 function obtenerMarcas($conexion) {
-    $sql = "SELECT marca_id, marca_nombre FROM gestion__marcas WHERE tabla_estado_registro_id = 1 ORDER BY marca_nombre";
+    $sql = "SELECT marca_id, marca_nombre FROM gestion__marcas WHERE estado_registro_id = 1 ORDER BY marca_nombre";
     $res = mysqli_query($conexion, $sql);
     $marcas = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -178,7 +178,7 @@ function obtenerMarcas($conexion) {
 function obtenerModelosPorMarca($conexion, $marca_id) {
     $marca_id = intval($marca_id);
     $sql = "SELECT modelo_id, modelo_nombre FROM gestion__modelos 
-            WHERE marca_id = $marca_id AND tabla_estado_registro_id = 1 
+            WHERE marca_id = $marca_id AND estado_registro_id = 1 
             ORDER BY modelo_nombre";
     $res = mysqli_query($conexion, $sql);
     $modelos = [];
@@ -191,7 +191,7 @@ function obtenerModelosPorMarca($conexion, $marca_id) {
 function obtenerSubmodelosPorModelo($conexion, $modelo_id) {
     $modelo_id = intval($modelo_id);
     $sql = "SELECT submodelo_id, submodelo_nombre FROM gestion__submodelos 
-            WHERE modelo_id = $modelo_id AND tabla_estado_registro_id = 1 
+            WHERE modelo_id = $modelo_id AND estado_registro_id = 1 
             ORDER BY submodelo_nombre";
     $res = mysqli_query($conexion, $sql);
     $submodelos = [];
@@ -203,7 +203,7 @@ function obtenerSubmodelosPorModelo($conexion, $modelo_id) {
 // Agregar estas funciones al final de productos_model.php
 
 function obtenerSucursales($conexion) {
-    $sql = "SELECT sucursal_id, sucursal_nombre FROM gestion__sucursales WHERE tabla_estado_registro_id = 1 ORDER BY sucursal_nombre";
+    $sql = "SELECT sucursal_id, sucursal_nombre FROM gestion__sucursales WHERE estado_registro_id = 1 ORDER BY sucursal_nombre";
     $res = mysqli_query($conexion, $sql);
     $sucursales = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -218,7 +218,7 @@ function obtenerUbicacionesSucursal($conexion, $sucursal_id) {
                    CONCAT(seccion, ' - ', estanteria, ' - ', estante) as ubicacion_nombre,
                    descripcion
             FROM gestion__sucursales_ubicaciones 
-            WHERE sucursal_id = $sucursal_id AND tabla_estado_registro_id = 1 
+            WHERE sucursal_id = $sucursal_id AND estado_registro_id = 1 
             ORDER BY seccion ASC, estanteria ASC, estante ASC";
     $res = mysqli_query($conexion, $sql);
     $ubicaciones = [];
@@ -238,7 +238,7 @@ function obtenerUbicacionesProducto($conexion, $producto_id) {
             FROM gestion__productos_ubicaciones pu
             JOIN gestion__sucursales s ON pu.sucursal_id = s.sucursal_id
             JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
-            WHERE pu.producto_id = $producto_id AND pu.tabla_estado_registro_id = 1
+            WHERE pu.producto_id = $producto_id AND pu.estado_registro_id = 1
             ORDER BY s.sucursal_nombre, su.seccion, su.estanteria, su.estante";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -256,7 +256,7 @@ function agregarUbicacionProducto($conexion, $data) {
     $stock_maximo = !empty($data['stock_maximo']) ? intval($data['stock_maximo']) : 'NULL';
     
     $sql = "INSERT INTO gestion__productos_ubicaciones 
-            (producto_id, sucursal_id, sucursal_ubicacion_id, stock_minimo, stock_maximo, tabla_estado_registro_id) 
+            (producto_id, sucursal_id, sucursal_ubicacion_id, stock_minimo, stock_maximo, estado_registro_id) 
             VALUES 
             ($producto_id, $sucursal_id, $sucursal_ubicacion_id, $stock_minimo, $stock_maximo, 1)";
     
@@ -278,7 +278,7 @@ function obtenerCompatibilidadProducto($conexion, $producto_id) {
             LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
             LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
             LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
-            WHERE pc.producto_id = $producto_id AND pc.tabla_estado_registro_id = 1";
+            WHERE pc.producto_id = $producto_id AND pc.estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {

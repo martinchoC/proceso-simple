@@ -23,7 +23,7 @@ function agregarPedidoCliente($conexion, $data) {
         $sql = "INSERT INTO `gestion__comprobantes` 
                 (empresa_id, sucursal_id, comprobante_tipo_id, numero_comprobante, 
                  entidad_id, f_emision, f_contabilizacion, f_vto, observaciones, 
-                 importe_neto, total, tabla_estado_registro_id, creado_por) 
+                 importe_neto, total, estado_registro_id, creado_por) 
                 VALUES 
                 (1, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)";
         
@@ -145,7 +145,7 @@ function cambiarEstadoPedidoCliente($conexion, $id, $nuevo_estado) {
     $nuevo_estado = intval($nuevo_estado);
     
     $sql = "UPDATE `gestion__comprobantes` 
-            SET tabla_estado_registro_id = ? 
+            SET estado_registro_id = ? 
             WHERE comprobante_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     mysqli_stmt_bind_param($stmt, "ii", $nuevo_estado, $id);
@@ -207,7 +207,7 @@ function obtenerPedidoClientePorId($conexion, $id) {
 }
 
 function obtenerClientes($conexion) {
-    $sql = "SELECT entidad_id, nombre FROM `gestion__entidades` WHERE tipo_entidad_id = 1 AND tabla_estado_registro_id = 1";
+    $sql = "SELECT entidad_id, nombre FROM `gestion__entidades` WHERE tipo_entidad_id = 1 AND estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -217,7 +217,7 @@ function obtenerClientes($conexion) {
 }
 
 function obtenerProductos($conexion) {
-    $sql = "SELECT producto_id, nombre FROM `gestion__productos` WHERE tabla_estado_registro_id = 1";
+    $sql = "SELECT producto_id, nombre FROM `gestion__productos` WHERE estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {

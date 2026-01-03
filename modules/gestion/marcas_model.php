@@ -1,208 +1,370 @@
 <?php
 require_once "conexion.php";
 
-function obtenerMarcas($conexion, $empresa_id = 1) {
-    $empresa_id = intval($empresa_id);
-    
-    $sql = "SELECT * FROM gestion__marcas 
-            WHERE empresa_id = $empresa_id 
-            ORDER BY marca_nombre";
-    
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
-    }
-    
-    return $data;
-}
+/**
+ * Modelo para gestión de marcas - Versión simplificada
+ * Toda la configuración se obtiene de conf__paginas_funciones
+ */
 
-function obtenerEmpresaPorId($conexion, $empresa_id) {
-    $empresa_id = intval($empresa_id);
-    
-    $sql = "SELECT empresa_id, empresa FROM conf__empresas 
-            WHERE empresa_id = $empresa_id AND tabla_estado_registro_id = 1";
-    
-    $res = mysqli_query($conexion, $sql);
-    
-    if ($res && mysqli_num_rows($res) > 0) {
-        return mysqli_fetch_assoc($res);
-    }
-    
-    return null;
-}
-
-// NUEVA FUNCIÓN: Obtener funciones de página según estado
-function obtenerFuncionesPagina($conexion, $pagina_id, $estado_registro_id) {
+// ✅ Obtener funciones configuradas para la página desde conf__paginas_funciones
+function obtenerFuncionesPagina($conexion, $pagina_id) {
     $pagina_id = intval($pagina_id);
-    $estado_registro_id = intval($estado_registro_id);
     
-    $sql = "SELECT pf.*, 
-                   i.nombre_icono,
-                   c.color_nombre,
-                   c.color_hex,
-                   fe.nombre_funcion as funcion_estandar_nombre
+    $sql = "SELECT pf.*, i.icono_clase, c.color_clase, c.bg_clase, c.text_clase
             FROM conf__paginas_funciones pf
             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
             LEFT JOIN conf__colores c ON pf.color_id = c.color_id
-            LEFT JOIN conf__funciones_estandar fe ON pf.funcion_estandar_id = fe.funcion_estandar_id
-            WHERE pf.pagina_id = $pagina_id 
-                        
-            ORDER BY pf.orden ASC";
+            WHERE pf.pagina_id = ? 
+            AND pf.tabla_estado_registro_id = 1 -- Solo funciones activas
+            ORDER BY pf.tabla_estado_registro_origen_id, pf.orden";
     
-    $res = mysqli_query($conexion, $sql);
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $pagina_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
     $funciones = [];
-    
-    while ($fila = mysqli_fetch_assoc($res)) {
+    while ($fila = mysqli_fetch_assoc($result)) {
         $funciones[] = $fila;
     }
     
+    mysqli_stmt_close($stmt);
     return $funciones;
 }
 
-// NUEVA FUNCIÓN: Obtener todos los estados disponibles
-function obtenerEstadosRegistros($conexion) {
-    $sql = "SELECT * FROM conf__estados_registros ORDER BY orden_estandar";
+// ✅ Obtener información de un estado específico
+function obtenerInfoEstado($conexion, $estado_registro_id) {
+    $sql = "SELECT estado_registro, codigo_estandar 
+            FROM conf__estados_registros 
+            WHERE estado_registro_id = ?";
     
-    $res = mysqli_query($conexion, $sql);
-    $estados = [];
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
     
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $estados[$fila['estado_registro_id']] = $fila;
+    mysqli_stmt_bind_param($stmt, "i", $estado_registro_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $info = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $info;
+}
+
+// ✅ Obtener botones disponibles según el estado actual
+function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id) {
+    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $botones = [];
+    
+    foreach ($funciones as $funcion) {
+        if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
+            $botones[] = [
+                'nombre_funcion' => $funcion['nombre_funcion'],
+                'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
+                'icono_clase' => $funcion['icono_clase'],
+                'color_clase' => $funcion['color_clase'] ?? 'btn-outline-primary',
+                'bg_clase' => $funcion['bg_clase'] ?? '',
+                'text_clase' => $funcion['text_clase'] ?? '',
+                'descripcion' => $funcion['descripcion'],
+                'estado_destino_id' => $funcion['tabla_estado_registro_destino_id'],
+                'es_confirmable' => ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0
+            ];
+        }
     }
     
-    return $estados;
+    return $botones;
 }
 
-function existeMarca($conexion, $empresa_id, $marca_nombre) {
-    $empresa_id = intval($empresa_id);
-    $marca_nombre = mysqli_real_escape_string($conexion, trim($marca_nombre));
+// ✅ Obtener botón "Agregar" específico para la página
+function obtenerBotonAgregar($conexion, $pagina_id) {
+    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
     
-    $sql = "SELECT marca_id FROM gestion__marcas 
-            WHERE empresa_id = $empresa_id 
-            AND LOWER(marca_nombre) = LOWER('$marca_nombre')";
-    
-    $res = mysqli_query($conexion, $sql);
-    return mysqli_num_rows($res) > 0;
-}
-
-function existeMarcaEditando($conexion, $empresa_id, $marca_nombre, $excluir_id) {
-    $empresa_id = intval($empresa_id);
-    $marca_nombre = mysqli_real_escape_string($conexion, trim($marca_nombre));
-    $excluir_id = intval($excluir_id);
-    
-    $sql = "SELECT marca_id FROM gestion__marcas 
-            WHERE empresa_id = $empresa_id 
-            AND LOWER(marca_nombre) = LOWER('$marca_nombre')
-            AND marca_id != $excluir_id";
-    
-    $res = mysqli_query($conexion, $sql);
-    return mysqli_num_rows($res) > 0;
-}
-
-function agregarMarca($conexion, $data) {
-    if (empty($data['marca_nombre'])) {
-        return false;
+    foreach ($funciones as $funcion) {
+        if ($funcion['tabla_estado_registro_origen_id'] == 0) {
+            return [
+                'nombre_funcion' => $funcion['nombre_funcion'],
+                'accion_js' => $funcion['accion_js'] ?? 'agregar',
+                'icono_clase' => $funcion['icono_clase'],
+                'color_clase' => $funcion['color_clase'] ?? 'btn-primary',
+                'bg_clase' => $funcion['bg_clase'] ?? '',
+                'text_clase' => $funcion['text_clase'] ?? '',
+                'descripcion' => $funcion['descripcion']
+            ];
+        }
     }
     
-    $empresa_id = intval($data['empresa_id']);
-    $marca_nombre = mysqli_real_escape_string($conexion, trim($data['marca_nombre']));
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
-
-    $sql = "INSERT INTO gestion__marcas (empresa_id, marca_nombre, tabla_estado_registro_id) 
-            VALUES ($empresa_id, '$marca_nombre', $tabla_estado_registro_id)";
-    
-    return mysqli_query($conexion, $sql);
+    return [
+        'nombre_funcion' => 'Agregar Marca',
+        'accion_js' => 'agregar',
+        'icono_clase' => 'fas fa-plus',
+        'color_clase' => 'btn-primary',
+        'bg_clase' => 'btn-primary',
+        'text_clase' => 'text-white'
+    ];
 }
 
-function editarMarca($conexion, $id, $data) {
-    if (empty($data['marca_nombre'])) {
-        return false;
-    }
+// ✅ Obtener estado inicial para nuevas marcas
+function obtenerEstadoInicial($conexion) {
+    $sql = "SELECT estado_registro_id 
+            FROM conf__estados_registros 
+            WHERE valor_estandar IS NOT NULL
+            ORDER BY valor_estandar ASC 
+            LIMIT 1";
     
-    $id = intval($id);
-    $empresa_id = intval($data['empresa_id']);
-    $marca_nombre = mysqli_real_escape_string($conexion, trim($data['marca_nombre']));
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
-
-    $sql = "UPDATE gestion__marcas SET
-            empresa_id = $empresa_id,
-            marca_nombre = '$marca_nombre',
-            tabla_estado_registro_id = $tabla_estado_registro_id
-            WHERE marca_id = $id";
-
-    return mysqli_query($conexion, $sql);
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) return 1;
+    
+    $fila = mysqli_fetch_assoc($result);
+    return $fila ? $fila['estado_registro_id'] : 1;
 }
 
-function cambiarEstadoMarca($conexion, $id, $nuevo_estado) {
-    $id = intval($id);
-    $nuevo_estado = intval($nuevo_estado);
-    
-    $sql = "UPDATE gestion__marcas SET 
-            tabla_estado_registro_id = $nuevo_estado 
-            WHERE marca_id = $id";
-    
-    return mysqli_query($conexion, $sql);
-}
-
-function obtenerMarcaPorId($conexion, $id) {
-    $id = intval($id);
-    
-    $sql = "SELECT * FROM gestion__marcas WHERE marca_id = $id";
-    $res = mysqli_query($conexion, $sql);
-    
-    if ($res && mysqli_num_rows($res) > 0) {
-        return mysqli_fetch_assoc($res);
-    }
-    
-    return null;
-}
-
-// NUEVA FUNCIÓN: Ejecutar acción específica según función estándar
-function ejecutarAccionMarca($conexion, $marca_id, $funcion_estandar_id, $nuevo_estado = null) {
+// ✅ Ejecutar transición de estado basada en conf__paginas_funciones
+function ejecutarTransicionEstado($conexion, $marca_id, $accion_js, $empresa_idx, $pagina_id) {
     $marca_id = intval($marca_id);
-    $funcion_estandar_id = intval($funcion_estandar_id);
+    $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
     
-    // Obtener información de la función estándar
-    $sql_funcion = "SELECT nombre_funcion, accion_sql FROM conf__funciones_estandar 
-                    WHERE funcion_estandar_id = $funcion_estandar_id";
-    $res_funcion = mysqli_query($conexion, $sql_funcion);
+    // Verificar que la marca pertenezca a la empresa
+    $sql_check = "SELECT marca_id, tabla_estado_registro_id 
+                  FROM gestion__marcas 
+                  WHERE marca_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
     
-    if (!$res_funcion || mysqli_num_rows($res_funcion) == 0) {
-        return false;
+    mysqli_stmt_bind_param($stmt, "ii", $marca_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $marca = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if (!$marca) return ['success' => false, 'error' => 'Acceso denegado o registro no encontrado'];
+    
+    $estado_actual_id = $marca['tabla_estado_registro_id'];
+    
+    // Buscar la función correspondiente en conf__paginas_funciones
+    $sql_funcion = "SELECT pf.* 
+                    FROM conf__paginas_funciones pf
+                    WHERE pf.pagina_id = ? 
+                    AND pf.tabla_estado_registro_origen_id = ? 
+                    AND pf.accion_js = ?
+                    LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_funcion);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "iis", $pagina_id, $estado_actual_id, $accion_js);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $funcion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if (!$funcion) return ['success' => false, 'error' => 'Acción no permitida para este estado'];
+    
+    $estado_destino_id = $funcion['tabla_estado_registro_destino_id'];
+    
+    if ($estado_destino_id == $estado_actual_id) {
+        return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
     
-    $funcion = mysqli_fetch_assoc($res_funcion);
+    // Actualizar el estado
+    $sql_update = "UPDATE gestion__marcas 
+                   SET tabla_estado_registro_id = ? 
+                   WHERE marca_id = ? AND empresa_id = ?";
     
-    // Ejecutar acción según el tipo de función
-    switch ($funcion_estandar_id) {
-        case 1: // Editar - no hace cambio de estado
-            return true; // Solo retorna true para permitir la edición
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "iii", $estado_destino_id, $marca_id, $empresa_idx);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true, 'message' => 'Estado actualizado correctamente'];
+    } else {
+        return ['success' => false, 'error' => 'Error al actualizar el estado'];
+    }
+}
+
+// ✅ Obtener todas las marcas (con filtro multiempresa)
+function obtenerMarcas($conexion, $empresa_idx, $pagina_id) {
+    $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
+    
+    $sql = "SELECT m.*, er.estado_registro, er.codigo_estandar,
+                   c.color_clase, c.bg_clase, c.text_clase
+            FROM gestion__marcas m
+            LEFT JOIN conf__estados_registros er ON m.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores c ON er.color_id = c.color_id
+            WHERE m.empresa_id = ?
+            ORDER BY m.marca_nombre";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        // Si no hay color configurado, usar black por defecto
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
         
-        case 2: // Activar/Desactivar (Toggle)
-            if ($nuevo_estado !== null) {
-                return cambiarEstadoMarca($conexion, $marca_id, $nuevo_estado);
-            }
-            break;
-            
-        case 3: // Eliminar (baja lógica)
-            $sql = "UPDATE gestion__marcas SET tabla_estado_registro_id = 0 WHERE marca_id = $marca_id";
-            return mysqli_query($conexion, $sql);
-            
-        case 4: // Restaurar
-            $sql = "UPDATE gestion__marcas SET tabla_estado_registro_id = 1 WHERE marca_id = $marca_id";
-            return mysqli_query($conexion, $sql);
-            
-        default:
-            // Para funciones personalizadas, ejecutar el SQL definido
-            if (!empty($funcion['accion_sql'])) {
-                $sql = str_replace('{marca_id}', $marca_id, $funcion['accion_sql']);
-                return mysqli_query($conexion, $sql);
-            }
-            break;
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
+        $data[] = $fila;
     }
     
-    return false;
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+// ✅ Agregar nueva marca (con estado inicial)
+function agregarMarca($conexion, $data) {
+    $marca_nombre = mysqli_real_escape_string($conexion, trim($data['marca_nombre'] ?? ''));
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
+    
+    if (empty($marca_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre de la marca es obligatorio'];
+    }
+    
+    if (strlen($marca_nombre) > 100) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 100 caracteres'];
+    }
+    
+    $estado_inicial = obtenerEstadoInicial($conexion);
+    
+    // Verificar duplicados
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__marcas 
+                  WHERE empresa_id = ? AND LOWER(marca_nombre) = LOWER(?)";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    $marca_nombre_lower = strtolower($marca_nombre);
+    mysqli_stmt_bind_param($stmt, "is", $empresa_idx, $marca_nombre_lower);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe una marca con este nombre en la empresa'];
+    }
+    
+    // Insertar nueva marca
+    $sql = "INSERT INTO gestion__marcas (marca_nombre, empresa_id, tabla_estado_registro_id) 
+            VALUES (?, ?, ?)";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "sii", $marca_nombre, $empresa_idx, $estado_inicial);
+    $success = mysqli_stmt_execute($stmt);
+    
+    if ($success) {
+        $marca_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'marca_id' => $marca_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al crear la marca'];
+    }
+}
+
+// ✅ Editar marca existente
+function editarMarca($conexion, $id, $data) {
+    $id = intval($id);
+    $marca_nombre = mysqli_real_escape_string($conexion, trim($data['marca_nombre'] ?? ''));
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
+    
+    if (empty($marca_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre de la marca es obligatorio'];
+    }
+    
+    if (strlen($marca_nombre) > 100) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 100 caracteres'];
+    }
+    
+    // Verificar que la marca pertenezca a la empresa
+    $sql_check = "SELECT marca_id FROM gestion__marcas 
+                  WHERE marca_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'Acceso denegado o registro no encontrado'];
+    }
+    
+    // Verificar duplicados
+    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__marcas 
+                      WHERE empresa_id = ? AND LOWER(marca_nombre) = LOWER(?) AND marca_id != ?";
+    $stmt = mysqli_prepare($conexion, $sql_duplicate);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    $marca_nombre_lower = strtolower($marca_nombre);
+    mysqli_stmt_bind_param($stmt, "isi", $empresa_idx, $marca_nombre_lower, $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe otra marca con este nombre en la empresa'];
+    }
+    
+    // Actualizar marca
+    $sql = "UPDATE gestion__marcas 
+            SET marca_nombre = ? 
+            WHERE marca_id = ? AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "sii", $marca_nombre, $id, $empresa_idx);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['resultado' => true];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar la marca'];
+    }
+}
+
+// ✅ Obtener marca específica
+function obtenerMarcaPorId($conexion, $id, $empresa_idx) {
+    $id = intval($id);
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT m.*, er.estado_registro, er.codigo_estandar
+            FROM gestion__marcas m
+            LEFT JOIN conf__estados_registros er ON m.tabla_estado_registro_id = er.estado_registro_id
+            WHERE m.marca_id = ? AND m.empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $marca = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $marca;
 }
 ?>

@@ -23,7 +23,7 @@ switch ($accion) {
         $data = [
             'modelo_id' => $_GET['modelo_id'] ?? '',
             'submodelo_nombre' => $_GET['submodelo_nombre'] ?? '',
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
         ];
         $resultado = agregarSubmodelo($conexion, $data);
         echo json_encode(['resultado' => $resultado]);
@@ -34,7 +34,7 @@ switch ($accion) {
         $data = [
             'modelo_id' => $_GET['modelo_id'] ?? '',
             'submodelo_nombre' => $_GET['submodelo_nombre'] ?? '',
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
         ];
         $resultado = editarSubmodelo($conexion, $id, $data);
         echo json_encode(['resultado' => $resultado]);

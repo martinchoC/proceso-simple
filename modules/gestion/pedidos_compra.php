@@ -175,7 +175,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="row mt-3">
                                     <div class="col-md-4">
                                         <label>Estado</label>
-                                        <select class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id">
+                                        <select class="form-control" id="estado_registro_id" name="estado_registro_id">
                                             <option value="1">Activo</option>
                                             <option value="0">Inactivo</option>
                                         </select>
@@ -309,7 +309,7 @@ $(document).ready(function(){
                 searchable: false,
                 className: "text-center",
                 render: function(data){
-                    var estadoTexto = data.tabla_estado_registro_id == 1 ? 
+                    var estadoTexto = data.estado_registro_id == 1 ? 
                         '<span class="badge bg-success">Activo</span>' : 
                         '<span class="badge bg-secondary">Inactivo</span>';
                     
@@ -318,7 +318,7 @@ $(document).ready(function(){
                             <input class="form-check-input toggle-estado"
                                 type="checkbox" 
                                 data-pedido-id="${data.comprobante_id}" 
-                                ${data.tabla_estado_registro_id == 1 ? 'checked' : ''}>
+                                ${data.estado_registro_id == 1 ? 'checked' : ''}>
                         </div>`;
                     
                     return `<div class="d-flex flex-column align-items-center">                                            
@@ -332,7 +332,7 @@ $(document).ready(function(){
                 searchable: false,
                 className: "text-center",
                 render: function(data){
-                    var botonEditar = data.tabla_estado_registro_id == 1 ? 
+                    var botonEditar = data.estado_registro_id == 1 ? 
                         `<button class="btn btn-sm btn-primary btnEditar" title="Editar">
                             <i class="fa fa-edit"></i>
                          </button>` : 
@@ -340,7 +340,7 @@ $(document).ready(function(){
                             <i class="fa fa-edit"></i>
                          </button>`;
                     
-                    var botonEliminar = data.tabla_estado_registro_id == 1 ? 
+                    var botonEliminar = data.estado_registro_id == 1 ? 
                         `<button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
                             <i class="fa fa-trash"></i>
                          </button>` : 
@@ -353,7 +353,7 @@ $(document).ready(function(){
             }
         ],
         createdRow: function(row, data, dataIndex) {
-            if (data.tabla_estado_registro_id != 1) {
+            if (data.estado_registro_id != 1) {
                 $(row).addClass('table-secondary');
                 $(row).find('td').css('color', '#6c757d');
             }
@@ -475,7 +475,7 @@ $(document).ready(function(){
         $('#formPedidoCompra')[0].reset();
         $('#comprobante_id').val('');
         $('#modalLabel').text('Nuevo Pedido de Compra');
-        $('#tabla_estado_registro_id').val('1');
+        $('#estado_registro_id').val('1');
         $('#cuerpoDetalles').empty();
         contadorDetalles = 0;
         

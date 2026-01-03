@@ -121,7 +121,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     <div class="col-md-3">
                                         <label>Estado</label>
-                                        <select class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id" disabled>
+                                        <select class="form-control" id="estado_registro_id" name="estado_registro_id" disabled>
                                             <option value="1">Activo</option>
                                             <option value="0">Inactivo</option>
                                         </select>

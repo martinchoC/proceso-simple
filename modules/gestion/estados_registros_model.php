@@ -26,7 +26,7 @@ function obtenerTablasTipos($conexion) {
 
 function obtenerEstadoRegistroPorId($conexion, $id) {
     $id = intval($id);
-    $sql = "SELECT * FROM conf__estados_registros WHERE tabla_estado_registro_id = $id";
+    $sql = "SELECT * FROM conf__estados_registros WHERE estado_registro_id = $id";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);
 }
@@ -65,14 +65,14 @@ function editarEstadoRegistro($conexion, $id, $data) {
             estado_registro = '$estado_registro',
             estado_registro_descripcion = '$estado_registro_descripcion',
             orden = $orden
-            WHERE tabla_estado_registro_id = $id";
+            WHERE estado_registro_id = $id";
 
     return mysqli_query($conexion, $sql);
 }
 
 function eliminarEstadoRegistro($conexion, $id) {
     $id = intval($id);
-    $sql = "DELETE FROM conf__estados_registros WHERE tabla_estado_registro_id = $id";
+    $sql = "DELETE FROM conf__estados_registros WHERE estado_registro_id = $id";
     return mysqli_query($conexion, $sql);
 }
 ?>

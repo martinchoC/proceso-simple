@@ -77,7 +77,7 @@ switch ($accion) {
             'importe_neto' => $_POST['importe_neto'] ?? 0,
             'importe_no_gravado' => $_POST['importe_no_gravado'] ?? 0,
             'total' => $_POST['total'] ?? 0,
-            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
         ];
         
         // Validaciones básicas
@@ -129,7 +129,7 @@ switch ($accion) {
             'importe_neto' => $_POST['importe_neto'] ?? 0,
             'importe_no_gravado' => $_POST['importe_no_gravado'] ?? 0,
             'total' => $_POST['total'] ?? 0,
-            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
         ];
         
         // Validaciones básicas

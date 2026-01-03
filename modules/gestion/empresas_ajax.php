@@ -29,7 +29,7 @@ switch ($accion) {
             'email' => $_GET['email'] ?? '',
             'base_conf' => $_GET['base_conf'] ?? null,
             
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
         ];
         // Validación adicional
         if (empty($data['empresa']) || empty($data['documento_numero']) || empty($data['localidad_id'])) {
@@ -52,7 +52,7 @@ switch ($accion) {
             'email' => $_GET['email'] ?? '',
             'base_conf' => $_GET['base_conf'] ?? null,
             
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
         ];
         $resultado = editarempresa($conexion, $id, $data);
         echo json_encode(['resultado' => $resultado]);

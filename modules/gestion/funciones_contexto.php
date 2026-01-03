@@ -1,11 +1,29 @@
 <?php
-// Configuración de la página
+// Configuración de la página CON AUTODETECCIÓN
 require_once "conexion.php";
+require_once "funciones_contexto.php";
 
-$pageTitle = "Gestión de Marcas";
-$currentPage = 'marcas';
-$modudo_idx = 2;
-$pagina_idx = 43;
+// Obtener contexto automáticamente
+$contexto = obtenerContextoActual($conexion);
+
+if (!validarContexto($contexto)) {
+    die('<div class="alert alert-danger">Error: ' . ($contexto['error'] ?? 'Contexto no válido') . '</div>');
+}
+
+// Usar contexto detectado
+$pageTitle = $contexto['pagina_nombre'] ?? "Gestión de Marcas";
+$currentPage = basename($_SERVER['SCRIPT_NAME'], '.php');
+$empresa_idx = $contexto['empresa_idx'];
+$modudo_idx = $contexto['modudo_idx'];
+$pagina_idx = $contexto['pagina_idx'];
+$tabla_id = $contexto['tabla_id'];
+$tabla_nombre = $contexto['tabla_nombre'] ?? 'gestion__marcas';
+
+// Obtener información adicional de la tabla
+$info_tabla = obtenerInfoTabla($conexion, $tabla_id);
+
+// Verificar configuración de la página
+$config_pagina = obtenerConfiguracionPagina($conexion, $pagina_idx);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -17,15 +35,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="row">
                 <div class="col-sm-6">
                     <h3 class="mb-0">
-                        <i class="fas fa-tags me-2"></i>Gestión de Marcas
+                        <i class="fas fa-tags me-2"></i><?php echo htmlspecialchars($pageTitle); ?>
                     </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
+                    <small class="text-muted">Sistema Declarativo Multiempresa - Autodetec</small>
                 </div>
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-end">
                         <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Marcas</li>
+                        <li class="breadcrumb-item"><?php echo htmlspecialchars($contexto['modulo_nombre'] ?? 'Gestión'); ?></li>
+                        <li class="breadcrumb-item active" aria-current="page"><?php echo htmlspecialchars($contexto['pagina_nombre'] ?? 'Marcas'); ?></li>
                     </ol>
                 </div>
             </div>
@@ -34,7 +52,45 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <div class="app-content">
         <div class="container-fluid">
-                       
+            <!-- Panel de contexto AUTODETECTADO -->
+            <div class="card mb-3">
+                <div class="card-body bg-light py-2">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <small class="text-muted"><i class="fas fa-building me-1"></i>Empresa ID:</small>
+                            <strong><?php echo $empresa_idx; ?></strong>
+                            <small class="text-muted d-block"><?php echo $contexto['url_actual']; ?></small>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted"><i class="fas fa-cube me-1"></i>Módulo:</small>
+                            <strong><?php echo htmlspecialchars($contexto['modulo_nombre'] ?? 'N/D'); ?> (ID: <?php echo $modudo_idx; ?>)</strong>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted"><i class="fas fa-file-alt me-1"></i>Página:</small>
+                            <strong><?php echo htmlspecialchars($contexto['pagina_nombre'] ?? 'N/D'); ?> (ID: <?php echo $pagina_idx; ?>)</strong>
+                            <?php if (!$config_pagina['configurada']): ?>
+                                <span class="badge bg-warning float-end">Sin config</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted"><i class="fas fa-database me-1"></i>Tabla:</small>
+                            <strong><?php echo htmlspecialchars($tabla_nombre); ?></strong>
+                            <?php if ($tabla_id): ?>
+                                <small class="text-muted d-block">ID: <?php echo $tabla_id; ?></small>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <?php if (!$config_pagina['configurada']): ?>
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Atención:</strong> Esta página no tiene funciones configuradas en <code>conf__paginas_funciones</code>.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <?php endif; ?>
+            
             <div class="content-wrapper">
                 <section class="content">
                     <div class="container-fluid">                      
@@ -44,7 +100,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="card-header">
                                         <div id="contenedor-boton-agregar" class="d-inline"></div>
                                         <div class="float-end">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar datos">
                                                 <i class="fas fa-sync-alt"></i>
                                             </button>
                                         </div>
@@ -87,6 +143,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <input type="text" class="form-control" id="marca_nombre" name="marca_nombre" 
                                            maxlength="100" required>
                                     <div class="invalid-feedback">El nombre de la marca es obligatorio</div>
+                                    <div class="form-text">Máximo 100 caracteres</div>
                                 </div>
                             </form>
                         </div>
@@ -104,11 +161,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <script>
     $(document).ready(function(){
-        // Variables de contexto MULTIEMPRESA
-        const empresa_idx = 2;
+        // Variables de contexto DETECTADAS AUTOMÁTICAMENTE desde PHP
+        const empresa_idx = <?php echo $empresa_idx; ?>;
+        const modudo_idx = <?php echo $modudo_idx; ?>;
         const pagina_idx = <?php echo $pagina_idx; ?>;
+        const tabla_nombre = '<?php echo addslashes($tabla_nombre); ?>';
         
-        // Configuración de DataTable
+        // Mostrar contexto en consola para debugging
+        console.log('Contexto detectado:', {
+            empresa_idx: empresa_idx,
+            modudo_idx: modudo_idx,
+            pagina_idx: pagina_idx,
+            tabla_nombre: tabla_nombre,
+            url_actual: '<?php echo $contexto['url_actual']; ?>'
+        });
+        
+        // Configuración de DataTable con 50 registros iniciales
         var tabla = $('#tablaMarcas').DataTable({
             ajax: {
                 url: 'marcas_ajax.php',
@@ -116,7 +184,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 data: {
                     accion: 'listar',
                     empresa_idx: empresa_idx,
-                    pagina_idx: pagina_idx
+                    modudo_idx: modudo_idx,
+                    pagina_idx: pagina_idx,
+                    tabla_nombre: tabla_nombre
                 },
                 dataSrc: ''
             },
@@ -139,11 +209,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     className: 'text-center',
                     render: function(data) {
                         if (!data || !data.estado_registro) {
-                            return '<span class="badge bg-secondary">Sin estado</span>';
+                            return '<span class="badge bg-dark text-white">Sin estado</span>';
                         }
                         
-                        var badgeClass = data.bg_clase || 'bg-secondary';
-                        var textClass = data.text_clase || 'text-black';
+                        var badgeClass = data.bg_clase || 'bg-dark';
+                        var textClass = data.text_clase || 'text-white';
                         var estado = data.estado_registro;
                         
                         return `<span class="badge ${badgeClass} ${textClass}">
@@ -171,7 +241,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 } else if (boton.color_clase) {
                                     claseBoton += boton.color_clase;
                                 } else {
-                                    claseBoton += 'btn-outline-primary';
+                                    claseBoton += 'btn-outline-dark';
                                 }
                                 
                                 var titulo = boton.descripcion || boton.nombre_funcion;
@@ -197,7 +267,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             
                             botones = editarBoton + otrosBotones;
                         } else {
-                            botones = '<span class="text-muted small">Sin acciones</span>';
+                            botones = '<span class="text-muted small"><i class="fas fa-ban me-1"></i>Sin acciones</span>';
                         }
                         
                         return `<div class="btn-group" role="group">${botones}</div>`;
@@ -208,7 +278,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
             },
             order: [[1, 'asc']],
-            pageLength: 10,
+            pageLength: 50,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             responsive: true,
             createdRow: function(row, data, dataIndex) {
                 if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
@@ -219,20 +290,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
         });
 
-        // Cargar botón Agregar dinámicamente
+        // Cargar botón Agregar dinámicamente desde BD
         function cargarBotonAgregar() {
             $.get('marcas_ajax.php', {
                 accion: 'obtener_boton_agregar',
+                empresa_idx: empresa_idx,
+                modudo_idx: modudo_idx,
                 pagina_idx: pagina_idx
             }, function(botonAgregar){
                 if (botonAgregar && botonAgregar.nombre_funcion) {
                     var icono = botonAgregar.icono_clase ? `<i class="${botonAgregar.icono_clase} me-1"></i>` : '';
                     
-                    var colorClase = 'btn-primary';
+                    var colorClase = botonAgregar.color_clase || 'btn-dark';
                     if (botonAgregar.bg_clase && botonAgregar.text_clase) {
                         colorClase = botonAgregar.bg_clase + ' ' + botonAgregar.text_clase;
-                    } else if (botonAgregar.color_clase) {
-                        colorClase = botonAgregar.color_clase;
                     }
                     
                     $('#contenedor-boton-agregar').html(
@@ -241,9 +312,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                          </button>`
                     );
                 } else {
+                    // Botón por defecto con contexto detectado
                     $('#contenedor-boton-agregar').html(
-                        '<button type="button" class="btn btn-primary" id="btnNuevo">' +
-                        '<i class="fas fa-plus me-1"></i>Agregar Marca</button>'
+                        `<button type="button" class="btn btn-dark text-white" id="btnNuevo">
+                            <i class="fas fa-plus me-1"></i>Agregar ${tabla_nombre.replace('gestion__', '')}
+                        </button>`
                     );
                 }
             }, 'json');
@@ -297,7 +370,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 marca_id: marcaId,
                 accion_js: accionJs,
                 empresa_idx: empresa_idx,
-                pagina_idx: pagina_idx
+                modudo_idx: modudo_idx,
+                pagina_idx: pagina_idx,
+                tabla_nombre: tabla_nombre
             }, function(res){
                 if (res.success) {
                     tabla.ajax.reload();
@@ -326,7 +401,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             $.get('marcas_ajax.php', {
                 accion: 'obtener', 
                 marca_id: marcaId,
-                empresa_idx: empresa_idx
+                empresa_idx: empresa_idx,
+                modudo_idx: modudo_idx,
+                pagina_idx: pagina_idx
             }, function(res){
                 if(res && res.marca_id){
                     resetModal();
@@ -341,7 +418,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     Swal.fire({
                         icon: "error",
                         title: "Error",
-                        text: "Error al obtener datos de la marca",
+                        text: res.error || "Error al obtener datos de la marca",
                         confirmButtonText: "Entendido"
                     });
                 }
@@ -385,7 +462,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     marca_id: id,
                     marca_nombre: marcaNombre,
                     empresa_idx: empresa_idx,
-                    pagina_idx: pagina_idx
+                    modudo_idx: modudo_idx,
+                    pagina_idx: pagina_idx,
+                    tabla_nombre: tabla_nombre
                 },
                 success: function(res){
                     if(res.resultado){

@@ -24,7 +24,7 @@ switch ($accion) {
             'session_temp' => $_GET['session_temp'] ?? '',
             'imagen_id' => $_GET['imagen_id'] ?? null,
             'depende_id' => $_GET['depende_id'] ?? 0,
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
         ];
         $resultado = agregarModulo($conexion, $data);
         echo json_encode(['resultado' => $resultado]);
@@ -42,7 +42,7 @@ switch ($accion) {
             'session_temp' => $_GET['session_temp'] ?? '',
             'imagen_id' => $_GET['imagen_id'] ?? null,
             'depende_id' => $_GET['depende_id'] ?? 0,
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_GET['estado_registro_id'] ?? 1
         ];
         $resultado = editarModulo($conexion, $id, $data);
         echo json_encode(['resultado' => $resultado]);

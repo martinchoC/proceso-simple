@@ -8,7 +8,7 @@ $pagina_idx = 49;
 // ✅ Sistema completo de botones dinámicos
 function obtenerPaginaPorUrl($conexion, $url) {
     $url = mysqli_real_escape_string($conexion, $url);
-    $sql = "SELECT * FROM `conf__paginas` WHERE url = '$url' AND tabla_estado_registro_id = 1";
+    $sql = "SELECT * FROM `conf__paginas` WHERE url = '$url' AND estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);
 }
@@ -89,28 +89,28 @@ function obtenerBotonAgregar($conexion, $pagina_id) {
 }
 
 // ✅ Función para obtener código estándar por estado
-function obtenerCodigoEstandarPorEstado($conexion, $tabla_estado_registro_id) {
+function obtenerCodigoEstandarPorEstado($conexion, $estado_registro_id) {
     global $tabla_idx;
-    $tabla_estado_registro_id = intval($tabla_estado_registro_id);
+    $estado_registro_id = intval($estado_registro_id);
     
-    if ($tabla_estado_registro_id == 0) return '0'; // Para botón agregar
+    if ($estado_registro_id == 0) return '0'; // Para botón agregar
     
     $sql = "SELECT codigo_estandar FROM conf__tablas_estados_registros 
-            WHERE tabla_estado_registro_id = $tabla_estado_registro_id AND tabla_id = $tabla_idx";
+            WHERE estado_registro_id = $estado_registro_id AND tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
     return $fila ? $fila['codigo_estandar'] : null;
 }
 
-// ✅ Función para obtener tabla_estado_registro_id por código estándar
+// ✅ Función para obtener estado_registro_id por código estándar
 function obtenerEstadoPorCodigoEstandar($conexion, $codigo_estandar) {
     global $tabla_idx;
     $codigo_estandar = mysqli_real_escape_string($conexion, $codigo_estandar);
-    $sql = "SELECT tabla_estado_registro_id FROM conf__tablas_estados_registros 
+    $sql = "SELECT estado_registro_id FROM conf__tablas_estados_registros 
             WHERE codigo_estandar = '$codigo_estandar' AND tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
-    return $fila ? $fila['tabla_estado_registro_id'] : null;
+    return $fila ? $fila['estado_registro_id'] : null;
 }
 
 // ✅ Función para ejecutar transición de estado usando códigos estándar
@@ -139,7 +139,7 @@ function ejecutarTransicionEstado($conexion, $comprobante_fiscal_id, $funcion_no
     
     // Ejecutar la transición actualizando el estado
     $sql = "UPDATE gestion__comprobantes_fiscales 
-            SET tabla_estado_registro_id = ? 
+            SET estado_registro_id = ? 
             WHERE comprobante_fiscal_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -157,7 +157,7 @@ function obtenerCodigoEstandarComprobanteFiscal($conexion, $comprobante_fiscal_i
     $comprobante_fiscal_id = intval($comprobante_fiscal_id);
     $sql = "SELECT er.codigo_estandar 
             FROM gestion__comprobantes_fiscales c
-            INNER JOIN conf__tablas_estados_registros er ON c.tabla_estado_registro_id = er.tabla_estado_registro_id
+            INNER JOIN conf__tablas_estados_registros er ON c.estado_registro_id = er.estado_registro_id
             WHERE c.comprobante_fiscal_id = $comprobante_fiscal_id AND er.tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
@@ -169,7 +169,7 @@ function obtenerComprobantesFiscales($conexion, $pagina_id) {
     global $tabla_idx;
     $sql = "SELECT c.*, er.estado_registro, er.codigo_estandar 
             FROM gestion__comprobantes_fiscales c 
-            LEFT JOIN conf__tablas_estados_registros er ON c.tabla_estado_registro_id = er.tabla_estado_registro_id
+            LEFT JOIN conf__tablas_estados_registros er ON c.estado_registro_id = er.estado_registro_id
             WHERE er.tabla_id = $tabla_idx
             ORDER BY c.codigo";
     
@@ -192,10 +192,10 @@ function agregarComprobanteFiscal($conexion, $data) {
     $estado_inicial = obtenerEstadoPorCodigoEstandar($conexion, '20');
     if (!$estado_inicial) {
         // Fallback: buscar cualquier estado activo para esta tabla
-        $sql_estado = "SELECT tabla_estado_registro_id FROM conf__tablas_estados_registros WHERE tabla_id = $tabla_idx LIMIT 1";
+        $sql_estado = "SELECT estado_registro_id FROM conf__tablas_estados_registros WHERE tabla_id = $tabla_idx LIMIT 1";
         $res_estado = mysqli_query($conexion, $sql_estado);
         $fila_estado = mysqli_fetch_assoc($res_estado);
-        $estado_inicial = $fila_estado ? $fila_estado['tabla_estado_registro_id'] : 1;
+        $estado_inicial = $fila_estado ? $fila_estado['estado_registro_id'] : 1;
     }
 
     // Verificar si ya existe el código
@@ -219,7 +219,7 @@ function agregarComprobanteFiscal($conexion, $data) {
     }
 
     $sql = "INSERT INTO gestion__comprobantes_fiscales 
-            (codigo, comprobante_fiscal, tabla_estado_registro_id) 
+            (codigo, comprobante_fiscal, estado_registro_id) 
             VALUES 
             ($codigo, '$comprobante_fiscal', $estado_inicial)";
     
@@ -265,7 +265,7 @@ function cambiarEstadoComprobanteFiscal($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE gestion__comprobantes_fiscales SET tabla_estado_registro_id = $nuevo_estado WHERE comprobante_fiscal_id = $id";
+    $sql = "UPDATE gestion__comprobantes_fiscales SET estado_registro_id = $nuevo_estado WHERE comprobante_fiscal_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
@@ -281,7 +281,7 @@ function obtenerComprobanteFiscalPorId($conexion, $id) {
     $id = intval($id);
     $sql = "SELECT c.*, er.codigo_estandar 
             FROM gestion__comprobantes_fiscales c
-            INNER JOIN conf__tablas_estados_registros er ON c.tabla_estado_registro_id = er.tabla_estado_registro_id
+            INNER JOIN conf__tablas_estados_registros er ON c.estado_registro_id = er.estado_registro_id
             WHERE c.comprobante_fiscal_id = $id AND er.tabla_id = $tabla_idx";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);

@@ -32,7 +32,7 @@ switch ($accion) {
         $data = [
             'sucursal_id' => $_POST['sucursal_id'] ?? '',
             'comprobante_tipo_id' => $_POST['comprobante_tipo_id'] ?? '',
-            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
         ];
         
         if (empty($data['sucursal_id']) || empty($data['comprobante_tipo_id'])) {
@@ -53,7 +53,7 @@ switch ($accion) {
         $data = [
             'sucursal_id' => $_POST['sucursal_id'] ?? '',
             'comprobante_tipo_id' => $_POST['comprobante_tipo_id'] ?? '',
-            'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1
+            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
         ];
         
         if (empty($data['sucursal_id']) || empty($data['comprobante_tipo_id'])) {

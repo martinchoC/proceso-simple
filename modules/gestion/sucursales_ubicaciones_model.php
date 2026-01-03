@@ -15,7 +15,7 @@ function obtenerUbicaciones($conexion) {
 }
 
 function obtenerLocales($conexion) {
-    $sql = "SELECT sucursal_id, sucursal_nombre FROM gestion__sucursales WHERE tabla_estado_registro_id = 1 ORDER BY sucursal_nombre";
+    $sql = "SELECT sucursal_id, sucursal_nombre FROM gestion__sucursales WHERE estado_registro_id = 1 ORDER BY sucursal_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -34,13 +34,13 @@ function agregarUbicacion($conexion, $data) {
     $estanteria = mysqli_real_escape_string($conexion, $data['estanteria']);
     $estante = mysqli_real_escape_string($conexion, $data['estante']);
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion']);
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
+    $estado_registro_id = intval($data['estado_registro_id']);
     $usuario_creacion_id = !empty($data['usuario_creacion_id']) ? intval($data['usuario_creacion_id']) : 'NULL';
 
     $sql = "INSERT INTO gestion__sucursales_ubicaciones 
-            (sucursal_id, seccion, estanteria, estante, descripcion, tabla_estado_registro_id, usuario_creacion_id) 
+            (sucursal_id, seccion, estanteria, estante, descripcion, estado_registro_id, usuario_creacion_id) 
             VALUES 
-            ($sucursal_id, '$seccion', '$estanteria', '$estante', '$descripcion', $tabla_estado_registro_id, $usuario_creacion_id)";
+            ($sucursal_id, '$seccion', '$estanteria', '$estante', '$descripcion', $estado_registro_id, $usuario_creacion_id)";
     
     return mysqli_query($conexion, $sql);
 }
@@ -56,7 +56,7 @@ function editarUbicacion($conexion, $id, $data) {
     $estanteria = mysqli_real_escape_string($conexion, $data['estanteria']);
     $estante = mysqli_real_escape_string($conexion, $data['estante']);
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion']);
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
+    $estado_registro_id = intval($data['estado_registro_id']);
     $usuario_creacion_id = !empty($data['usuario_creacion_id']) ? intval($data['usuario_creacion_id']) : 'NULL';
 
     $sql = "UPDATE gestion__sucursales_ubicaciones SET
@@ -65,7 +65,7 @@ function editarUbicacion($conexion, $id, $data) {
             estanteria = '$estanteria',
             estante = '$estante',
             descripcion = '$descripcion',
-            tabla_estado_registro_id = $tabla_estado_registro_id,
+            estado_registro_id = $estado_registro_id,
             usuario_creacion_id = $usuario_creacion_id
             WHERE sucursal_ubicacion_id = $id";
 
@@ -76,7 +76,7 @@ function cambiarEstadoUbicacion($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE gestion__sucursales_ubicaciones SET tabla_estado_registro_id = $nuevo_estado WHERE sucursal_ubicacion_id = $id";
+    $sql = "UPDATE gestion__sucursales_ubicaciones SET estado_registro_id = $nuevo_estado WHERE sucursal_ubicacion_id = $id";
     return mysqli_query($conexion, $sql);
 }
 

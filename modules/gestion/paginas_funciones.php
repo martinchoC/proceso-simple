@@ -413,8 +413,8 @@ $(document).ready(function(){
                         $('#estado_registro_origen_id, #estado_registro_destino_id').empty().append('<option value="">Seleccionar estado</option>');
                         $.each(res, function(i, estado) {
                             $('#estado_registro_origen_id, #estado_registro_destino_id').append($('<option>', {
-                                value: estado.tabla_tabla_estado_registro_id,
-                                text: estado.estado_registro || 'Estado ' + estado.tabla_tabla_estado_registro_id
+                                value: estado.tabla_estado_registro_id,
+                                text: estado.estado_registro || 'Estado ' + estado.tabla_estado_registro_id
                             }));
                         });
                         resolve(res);

@@ -12,7 +12,7 @@ function obtenerModulos($conexion) {
 }
 
 function obtenerTiposTabla($conexion) {
-    $sql = "SELECT * FROM conf__tablas_tipos WHERE tabla_tabla_estado_registro_id = 1 ORDER BY tabla_tipo";
+    $sql = "SELECT * FROM conf__tablas_tipos WHERE tabla_estado_registro_id = 1 ORDER BY tabla_tipo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -45,12 +45,12 @@ function agregarTabla($conexion, $data) {
     $tabla_descripcion = mysqli_real_escape_string($conexion, $data['tabla_descripcion']);
     $modulo_id = intval($data['modulo_id']);
     $tabla_tipo_id = intval($data['tabla_tipo_id']);
-    $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id'] ?? 1);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id'] ?? 1);
 
     $sql = "INSERT INTO conf__tablas 
-            (tabla_nombre, tabla_descripcion, modulo_id, tabla_tipo_id, tabla_tabla_estado_registro_id) 
+            (tabla_nombre, tabla_descripcion, modulo_id, tabla_tipo_id, tabla_estado_registro_id) 
             VALUES 
-            ('$tabla_nombre', '$tabla_descripcion', $modulo_id, $tabla_tipo_id, $tabla_tabla_estado_registro_id)";
+            ('$tabla_nombre', '$tabla_descripcion', $modulo_id, $tabla_tipo_id, $tabla_estado_registro_id)";
     
     return mysqli_query($conexion, $sql);
 }
@@ -65,14 +65,14 @@ function editarTabla($conexion, $id, $data) {
     $tabla_descripcion = mysqli_real_escape_string($conexion, $data['tabla_descripcion']);
     $modulo_id = intval($data['modulo_id']);
     $tabla_tipo_id = intval($data['tabla_tipo_id']);
-    $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id']);
+    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
     $sql = "UPDATE conf__tablas SET
             tabla_nombre = '$tabla_nombre',
             tabla_descripcion = '$tabla_descripcion',
             modulo_id = $modulo_id,
             tabla_tipo_id = $tabla_tipo_id,
-            tabla_tabla_estado_registro_id = $tabla_tabla_estado_registro_id
+            tabla_estado_registro_id = $tabla_estado_registro_id
             WHERE tabla_id = $id";
 
     return mysqli_query($conexion, $sql);
@@ -82,7 +82,7 @@ function cambiarEstadoTabla($conexion, $id, $nuevo_estado) {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
     
-    $sql = "UPDATE conf__tablas SET tabla_tabla_estado_registro_id = $nuevo_estado WHERE tabla_id = $id";
+    $sql = "UPDATE conf__tablas SET tabla_estado_registro_id = $nuevo_estado WHERE tabla_id = $id";
     return mysqli_query($conexion, $sql);
 }
 

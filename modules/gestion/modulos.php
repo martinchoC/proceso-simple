@@ -110,7 +110,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
                 <div class="col-md-6">
                     <label>Estado Registro ID</label>
-                    <input type="number" class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id" />
+                    <input type="number" class="form-control" id="estado_registro_id" name="estado_registro_id" />
                 </div>
             </div>
         </form>
@@ -141,7 +141,7 @@ $(document).ready(function(){
             { data: 'layout_nombre' },            
             { data: 'imagen_id' },
             { data: 'depende_id' },
-            { data: 'tabla_estado_registro_id' },
+            { data: 'estado_registro_id' },
             {
                 data: null,
                 orderable: false,
@@ -181,7 +181,7 @@ $(document).ready(function(){
                 $('#layout_nombre').val(res.layout_nombre);
                 $('#imagen_id').val(res.imagen_id);
                 $('#depende_id').val(res.depende_id);
-                $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
+                $('#estado_registro_id').val(res.estado_registro_id);
                 $('#modalLabel').text('Editar Módulo');
                 var modal = new bootstrap.Modal(document.getElementById('modalModulo'));
                 modal.show();
@@ -239,7 +239,7 @@ $(document).ready(function(){
             session_temp: $('#session_temp').val(),
             imagen_id: $('#imagen_id').val(),
             depende_id: $('#depende_id').val(),
-            tabla_estado_registro_id: $('#tabla_estado_registro_id').val()
+            estado_registro_id: $('#estado_registro_id').val()
         };
 
         $.get('modulos_ajax.php', formData, function(res){

@@ -129,7 +129,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                
                 <div class="col-md-6">
                     <label>Estado Registro ID</label>
-                    <input type="number" class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id" />
+                    <input type="number" class="form-control" id="estado_registro_id" name="estado_registro_id" />
                 </div>
             </div>
         </form>
@@ -266,7 +266,7 @@ $(document).ready(function(){
             { data: 'documento_numero' },
             { data: 'domicilio' },            
             { data: 'localidad' },
-            { data: 'tabla_estado_registro_id' },
+            { data: 'estado_registro_id' },
             {
                 data: null,
                 orderable: false,
@@ -306,7 +306,7 @@ $(document).ready(function(){
                 $('#domicilio').val(res.domicilio);
                 $('#localidad_id').val(res.localidad_id);
                 $('#base_conf').val(res.base_conf);
-                $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
+                $('#estado_registro_id').val(res.estado_registro_id);
                 $('#modalLabel').text('Editar Empresa');
                 var modal = new bootstrap.Modal(document.getElementById('modalempresa'));
                 modal.show();
@@ -373,7 +373,7 @@ $(document).ready(function(){
             email: $('#email').val(),
             base_conf: $('#base_conf').val(),
             
-            tabla_estado_registro_id: $('#tabla_estado_registro_id').val()
+            estado_registro_id: $('#estado_registro_id').val()
         };
 
         $.get('empresas_ajax.php', formData, function(res){

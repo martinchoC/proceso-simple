@@ -63,7 +63,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
       </div>
       <div class="modal-body">
         <form id="formTablaEstado">
-            <input type="hidden" id="tabla_tabla_estado_registro_id" name="tabla_tabla_estado_registro_id" />
+            <input type="hidden" id="tabla_estado_registro_id" name="tabla_estado_registro_id" />
              
             <div class="row g-3">
                 <div class="col-md-12">
@@ -336,7 +336,7 @@ $(document).ready(function(){
             }
         },
         columns: [
-            { data: 'tabla_tabla_estado_registro_id' },
+            { data: 'tabla_estado_registro_id' },
             { 
                 data: 'tabla_nombre',
                 render: function(data, type, row) {
@@ -413,7 +413,7 @@ $(document).ready(function(){
 
     $('#btnNuevo').click(function(){
         $('#formTablaEstado')[0].reset();
-        $('#tabla_tabla_estado_registro_id').val('');
+        $('#tabla_estado_registro_id').val('');
         $('#valor_estandar').val('1');
         $('#orden').val('1');
         $('#modalLabel').text('Nuevo Estado de Tabla');
@@ -438,7 +438,7 @@ $(document).ready(function(){
             if (result.isConfirmed) {
                 $.get('tablas_estados_ajax.php', {
                     accion: 'eliminar', 
-                    tabla_tabla_estado_registro_id: data.tabla_tabla_estado_registro_id
+                    tabla_estado_registro_id: data.tabla_estado_registro_id
                 }, function(res){
                     if(res.resultado){
                         tabla.ajax.reload();
@@ -464,9 +464,9 @@ $(document).ready(function(){
     $('#tablaTablasEstados tbody').on('click', '.btnEditar', function(){
         var data = tabla.row($(this).parents('tr')).data();
         
-        $.get('tablas_estados_ajax.php', {accion: 'obtener', tabla_tabla_estado_registro_id: data.tabla_tabla_estado_registro_id}, function(res){
+        $.get('tablas_estados_ajax.php', {accion: 'obtener', tabla_estado_registro_id: data.tabla_estado_registro_id}, function(res){
             if(res){
-                $('#tabla_tabla_estado_registro_id').val(res.tabla_tabla_estado_registro_id);
+                $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
                 $('#tabla_id').val(res.tabla_id);
                 $('#estado_registro').val(res.estado_registro || '');
                 $('#codigo_estandar').val(res.codigo_estandar || '');
@@ -494,11 +494,11 @@ $(document).ready(function(){
             return false;
         }
         
-        var id = $('#tabla_tabla_estado_registro_id').val();
+        var id = $('#tabla_estado_registro_id').val();
         var accion = id ? 'editar' : 'agregar';
         var formData = {
             accion: accion,
-            tabla_tabla_estado_registro_id: id,
+            tabla_estado_registro_id: id,
             tabla_id: $('#tabla_id').val(),
             estado_registro: $('#estado_registro').val(),
             codigo_estandar: $('#codigo_estandar').val(),
