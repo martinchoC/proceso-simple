@@ -526,6 +526,7 @@ function editarSucursal($conexion, $id, $data) {
         return ['resultado' => false, 'error' => 'Error al actualizar la sucursal: ' . mysqli_error($conexion)];
     }
 }
+//text
 
 // ✅ Obtener sucursal específica
 function obtenerSucursalPorId($conexion, $id, $empresa_idx) {
