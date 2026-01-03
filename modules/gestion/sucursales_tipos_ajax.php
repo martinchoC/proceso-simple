@@ -1,90 +1,86 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+
 require_once "conexion.php";
 require_once "sucursales_tipos_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
+// Parámetros del contexto (MULTIEMPRESA)
+$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 43); // Ajustar según tu BD
+
 header('Content-Type: application/json; charset=utf-8');
 
-// ✅ Obtener información de la página
-$pagina_info = obtenerPaginaPorUrl($conexion, 'sucursales_tipos.php');
-$pagina_id = $pagina_info ? $pagina_info['pagina_id'] : 33;
+// Verificar conexión
+if (!$conexion) {
+    echo json_encode(['error' => 'Error de conexión a la base de datos'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 try {
     switch ($accion) {
         case 'listar':
-            $sucursales_tipos = obtenerLocalesTipos($conexion, $pagina_id);
+            $sucursales_tipos = obtenerSucursalesTipos($conexion, $empresa_idx, $pagina_idx);
             echo json_encode($sucursales_tipos, JSON_UNESCAPED_UNICODE);
             break;
-        
+
+        case 'obtener_boton_agregar':
+            $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
+            echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'agregar':
             $data = [
-                'sucursal_tipo' => $_POST['sucursal_tipo'] ?? '',
-                'descripcion' => $_POST['descripcion'] ?? ''
+                'sucursal_tipo' => trim($_POST['sucursal_tipo'] ?? ''),
+                'descripcion' => trim($_POST['descripcion'] ?? ''),
+                'empresa_idx' => $empresa_idx,
+                'pagina_idx' => $pagina_idx
             ];
             
-            if (empty($data['sucursal_tipo'])) {
-                echo json_encode(['resultado' => false, 'error' => 'El nombre es obligatorio']);
-                break;
-            }
-            
-            $resultado = agregarLocalTipo($conexion, $data);
-            echo json_encode(['resultado' => $resultado], JSON_UNESCAPED_UNICODE);
+            $resultado = agregarSucursalTipo($conexion, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'editar':
             $id = intval($_POST['sucursal_tipo_id'] ?? 0);
             $data = [
-                'sucursal_tipo' => $_POST['sucursal_tipo'] ?? '',
-                'descripcion' => $_POST['descripcion'] ?? ''
+                'sucursal_tipo' => trim($_POST['sucursal_tipo'] ?? ''),
+                'descripcion' => trim($_POST['descripcion'] ?? ''),
+                'empresa_idx' => $empresa_idx
             ];
             
-            if (empty($data['sucursal_tipo'])) {
-                echo json_encode(['resultado' => false, 'error' => 'El nombre es obligatorio']);
+            $resultado = editarSucursalTipo($conexion, $id, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'ejecutar_accion':
+            $sucursal_tipo_id = intval($_POST['sucursal_tipo_id'] ?? 0);
+            $accion_js = $_POST['accion_js'] ?? '';
+            
+            if (empty($sucursal_tipo_id) || empty($accion_js)) {
+                echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
             
-            $resultado = editarLocalTipo($conexion, $id, $data);
-            echo json_encode(['resultado' => $resultado], JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'cambiar_estado':
-            $id = intval($_GET['sucursal_tipo_id'] ?? $_POST['sucursal_tipo_id'] ?? 0);
-            $nuevo_estado = intval($_GET['nuevo_estado'] ?? $_POST['nuevo_estado'] ?? 0);
-            $resultado = cambiarEstadoLocalTipo($conexion, $id, $nuevo_estado);
-            echo json_encode(['resultado' => $resultado], JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'eliminar':
-            $id = intval($_GET['sucursal_tipo_id'] ?? $_POST['sucursal_tipo_id'] ?? 0);
-            $resultado = eliminarLocalTipo($conexion, $id);
-            echo json_encode(['resultado' => $resultado], JSON_UNESCAPED_UNICODE);
+            $resultado = ejecutarTransicionEstado($conexion, $sucursal_tipo_id, $accion_js, $empresa_idx, $pagina_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener':
-            $id = intval($_GET['sucursal_tipo_id'] ?? $_POST['sucursal_tipo_id'] ?? 0);
-            $sucursal_tipo = obtenerLocalTipoPorId($conexion, $id);
-            echo json_encode($sucursal_tipo ?: [], JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'obtener_boton_agregar':
-            $boton_agregar = obtenerBotonAgregar($conexion, $pagina_id);
-            echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'ejecutar_funcion':
-            $sucursal_tipo_id = intval($_POST['sucursal_tipo_id'] ?? 0);
-            $funcion_nombre = $_POST['funcion_nombre'] ?? '';
-            
-            if (empty($sucursal_tipo_id) || empty($funcion_nombre)) {
-                echo json_encode(['success' => false, 'error' => 'Datos incompletos']);
+            $id = intval($_POST['sucursal_tipo_id'] ?? $_GET['sucursal_tipo_id'] ?? 0);
+            if (empty($id)) {
+                echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
             
-            $resultado = ejecutarTransicionEstado($conexion, $sucursal_tipo_id, $funcion_nombre, $pagina_id);
-            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            $sucursal_tipo = obtenerSucursalTipoPorId($conexion, $id, $empresa_idx);
+            if ($sucursal_tipo) {
+                echo json_encode($sucursal_tipo, JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['error' => 'Tipo de sucursal no encontrado'], JSON_UNESCAPED_UNICODE);
+            }
             break;
 
         default:
@@ -94,5 +90,7 @@ try {
     echo json_encode(['error' => 'Error del servidor: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
 
-mysqli_close($conexion);
+if (isset($conexion) && $conexion) {
+    mysqli_close($conexion);
+}
 ?>

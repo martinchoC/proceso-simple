@@ -1,20 +1,13 @@
 <?php
 // Configuración de la página
 require_once "conexion.php";
+
 $pageTitle = "Gestión de Grupos de Comprobantes";
 $currentPage = 'comprobantes_grupos';
-$modudo_idx = 2;
-$empresa_idx = 2;
-$pagina_idx = 46;
+$modudo_idx = 2; // Ajustar según tu sistema
+$pagina_idx = 46; // ID de página para grupos de comprobantes
 
-$sql = "SELECT * FROM conf__paginas WHERE pagina_id=$pagina_idx";
-$res = mysqli_query($conexion, $sql);
-$fila = mysqli_fetch_assoc($res);
-
-// Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
-
-// Incluir header
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
@@ -22,10 +15,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <div class="app-content-header">
         <div class="container-fluid">
             <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Grupos de Comprobantes</h3></div>
+                <div class="col-sm-6">
+                    <h3 class="mb-0">
+                        <i class="fas fa-file-invoice me-2"></i>Gestión de Grupos de Comprobantes
+                    </h3>
+                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
+                </div>
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-end">
                         <li class="breadcrumb-item"><a href="#">Home</a></li>
+                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
                         <li class="breadcrumb-item active" aria-current="page">Grupos de Comprobantes</li>
                     </ol>
                 </div>
@@ -35,25 +34,34 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <div class="app-content">
         <div class="container-fluid">
+                       
             <div class="content-wrapper">
                 <section class="content">
                     <div class="container-fluid">                      
                         <div class="row">
                             <div class="col-12">
-                                <div class="card">                                
+                                <div class="card">  
+                                    <div class="card-header">
+                                        <div id="contenedor-boton-agregar" class="d-inline"></div>
+                                        <div class="float-end">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
                                     <div class="card-body">
-                                        <!-- El botón Agregar se cargará dinámicamente -->
-                                        <div id="contenedor-boton-agregar"></div>
-                                        <table id="tablaComprobantesGrupos" class="table table-striped table-bordered">
-                                            <thead>
+                                        <!-- DataTable -->
+                                        <table id="tablaComprobantesGrupos" class="table table-striped table-bordered" style="width:100%">
+                                            <thead class="table-light">
                                                 <tr>
-                                                    <th>ID</th>
+                                                    <th width="80">ID</th>
                                                     <th>Grupo de Comprobante</th>
-                                                    <th>Fecha Creación</th>
-                                                    <th>Estado</th>
-                                                    <th>Acciones</th>
+                                                    <th width="120">Estado</th>
+                                                    <th width="200" class="text-center">Acciones</th>
                                                 </tr>                                            
                                             </thead>
+                                            <tbody></tbody>
                                         </table>
                                     </div>
                                 </div>
@@ -63,395 +71,381 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </section>
             </div>
 
-            <!-- Modal -->
+            <!-- Modal para crear/editar grupo de comprobantes -->
             <div class="modal fade" id="modalComprobanteGrupo" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-                <div class="modal-dialog">
+                <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalLabel">Grupo de Comprobante</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body">
-                            <form id="formComprobanteGrupo">
+                            <form id="formComprobanteGrupo" class="needs-validation" novalidate>
                                 <input type="hidden" id="comprobante_grupo_id" name="comprobante_grupo_id" />
-                                <input type="hidden" id="empresa_id" name="empresa_id" value="<?php echo $empresa_idx; ?>" />
-                                
-                                <div class="row g-3">
-                                    <div class="col-md-12">
-                                        <label>Nombre del Grupo *</label>
-                                        <input type="text" class="form-control" id="comprobante_grupo" name="comprobante_grupo" required maxlength="50"/>
-                                        <div class="invalid-feedback">El nombre del grupo es obligatorio</div>
-                                    </div>
-                                    <div class="col-md-12">
-                                        <div class="alert alert-info">
-                                            <small>
-                                                <strong>Información:</strong> Los grupos de comprobantes definen el comportamiento general de los tipos de comprobantes asociados.
-                                            </small>
-                                        </div>
-                                    </div>
+                                <div class="mb-3">
+                                    <label for="comprobante_grupo" class="form-label">Nombre del Grupo *</label>
+                                    <input type="text" class="form-control" id="comprobante_grupo" name="comprobante_grupo" 
+                                           maxlength="50" required>
+                                    <div class="invalid-feedback">El nombre del grupo es obligatorio</div>
+                                    <small class="text-muted">Máximo 50 caracteres (ej: FACTURA, NOTA DE CRÉDITO, TICKET, etc.)</small>
                                 </div>
                             </form>
                         </div>
                         <div class="modal-footer">
-                            <button id="btnGuardar" class="btn btn-success">Guardar</button>
-                            <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" id="btnGuardar">
+                                <i class="fas fa-save me-1"></i>Guardar
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <script>
-            $(document).ready(function(){
-                // Configuración de DataTable
-                var tabla = $('#tablaComprobantesGrupos').DataTable({
-                    dom: '<"row"<"col-md-6"l><"col-md-6"fB>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
-                    buttons: [
-                        {
-                            extend: 'excelHtml5',
-                            text: '<i class="fas fa-file-excel"></i> Excel',
-                            titleAttr: 'Exportar a Excel',
-                            className: 'btn btn-success btn-sm me-2',
-                            exportOptions: { columns: ':visible' }
-                        },
-                        {
-                            extend: 'pdfHtml5',
-                            text: '<i class="fas fa-file-pdf"></i> PDF',
-                            titleAttr: 'Exportar a PDF',
-                            className: 'btn btn-danger btn-sm',
-                            orientation: 'portrait',
-                            pageSize: 'A4',
-                            exportOptions: { columns: ':visible' }
+    <script>
+    $(document).ready(function(){
+        // Variables de contexto MULTIEMPRESA
+        const empresa_idx = 2;
+        const pagina_idx = <?php echo $pagina_idx; ?>;
+        
+        // Configuración de DataTable
+        var tabla = $('#tablaComprobantesGrupos').DataTable({
+            ajax: {
+                url: 'comprobantes_grupos_ajax.php',
+                type: 'GET',
+                data: {
+                    accion: 'listar',
+                    empresa_idx: empresa_idx,
+                    pagina_idx: pagina_idx
+                },
+                dataSrc: ''
+            },
+            pageLength: 50,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+            columns: [
+                { 
+                    data: 'comprobante_grupo_id',
+                    className: 'text-center fw-bold',
+                    render: function(data) {
+                        return `<span class="fw-medium">${data}</span>`;
+                    }
+                },
+                { 
+                    data: 'comprobante_grupo',
+                    render: function(data, type, row) {
+                        return `<div class="fw-medium">${data}</div>`;
+                    }
+                },
+                { 
+                    data: 'estado_info',
+                    className: 'text-center',
+                    render: function(data) {
+                        if (!data || !data.estado_registro) {
+                            return '<span class="fw-medium">Sin estado</span>';
                         }
-                    ],
-                    ajax: {
-                        url: 'comprobantes_grupos_ajax.php',
-                        type: 'GET',
-                        data: {accion: 'listar', empresa_id: <?php echo $empresa_idx; ?>},
-                        dataSrc: ''
-                    },
-                    language: {
-                        "search": "Buscar:",
-                        "searchPlaceholder": "Buscar grupos...",
-                        "lengthMenu": "Mostrar _MENU_ registros por página",
-                        "zeroRecords": "No se encontraron grupos",
-                        "info": "Mostrando _START_ a _END_ de _TOTAL_ grupos",
-                        "infoEmpty": "Mostrando 0 a 0 de 0 grupos",
-                        "infoFiltered": "(filtrado de _MAX_ grupos totales)",
-                        "paginate": {
-                            "first": "Primero",
-                            "last": "Último",
-                            "next": "Siguiente",
-                            "previous": "Anterior"
-                        }
-                    },
-                    columns: [
-                        { data: 'comprobante_grupo_id' },
-                        { data: 'comprobante_grupo' },
-                        { 
-                            data: 'fecha_creacion',
-                            render: function(data) {
-                                return data ? new Date(data).toLocaleString() : '-';
-                            }
-                        },
-                        { 
-                            data: 'estado_registro',
-                            render: function(data, type, row) {
-                                var clases = {
-                                    '10': 'bg-warning', // Borrador
-                                    '20': 'bg-success', // Confirmado  
-                                    '100': 'bg-danger'  // Eliminado
-                                };
-                                var clase = clases[row.codigo_estandar] || 'bg-secondary';
-                                return '<span class="badge ' + clase + '">' + data + '</span>';
-                            }
-                        },
-                        {
-                            data: 'botones',
-                            orderable: false,
-                            searchable: false,
-                            className: "text-center",
-                            render: function(data, type, row) {
-                                var botones = '';
-                                
-                                if (data && data.length > 0) {
-                                    data.forEach(boton => {
-                                        // Usar bg_clase y text_clase si están disponibles, sino color_clase
-                                        var claseBoton = 'btn-sm me-1 ';
-                                        if (boton.bg_clase && boton.text_clase) {
-                                            claseBoton += boton.bg_clase + ' ' + boton.text_clase;
-                                        } else {
-                                            claseBoton += boton.color_clase || 'btn-outline-primary';
-                                        }
-                                        
-                                        var titulo = boton.descripcion || boton.nombre_funcion;
-                                        var accionJs = boton.accion_js || boton.nombre_funcion.toLowerCase();
-                                        
-                                        var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
-                                        
-                                        botones += `<button class="btn ${claseBoton} btnFuncion" 
-                                                       title="${titulo}" 
-                                                       data-id="${row.comprobante_grupo_id}" 
-                                                       data-accion="${accionJs}"
-                                                       data-confirmable="${boton.es_confirmable || 0}">
-                                                    ${icono}
-                                                </button>`;
-                                    });
+                        
+                        var estado = data.estado_registro;
+                        
+                        return `<span class="fw-medium">
+                                ${estado}
+                                </span>`;
+                    }
+                },
+                {
+                    data: 'botones',
+                    orderable: false,
+                    searchable: false,
+                    className: "text-center",
+                    width: '200px',
+                    render: function(data, type, row) {
+                        var botones = '';
+                        
+                        if (data && data.length > 0) {
+                            var editarBoton = '';
+                            var otrosBotones = '';
+                            
+                            data.forEach(boton => {
+                                var claseBoton = 'btn-sm me-1 ';
+                                if (boton.bg_clase && boton.text_clase) {
+                                    claseBoton += boton.bg_clase + ' ' + boton.text_clase;
+                                } else if (boton.color_clase) {
+                                    claseBoton += boton.color_clase;
                                 } else {
-                                    botones = '<button class="btn btn-sm btn-secondary" disabled><i class="fas fa-ban"></i></button>';
+                                    claseBoton += 'btn-outline-primary';
                                 }
                                 
-                                return `<div class="d-flex align-items-center justify-content-center">${botones}</div>`;
-                            }
+                                var titulo = boton.descripcion || boton.nombre_funcion;
+                                var accionJs = boton.accion_js;
+                                var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
+                                var esConfirmable = boton.es_confirmable || 0;
+                                
+                                var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
+                                       title="${titulo}" 
+                                       data-id="${row.comprobante_grupo_id}" 
+                                       data-accion="${accionJs}"
+                                       data-confirmable="${esConfirmable}"
+                                       data-comprobante-grupo="${row.comprobante_grupo}">
+                                    ${icono}
+                                </button>`;
+                                
+                                if (accionJs === 'editar') {
+                                    editarBoton = botonHtml;
+                                } else {
+                                    otrosBotones += botonHtml;
+                                }
+                            });
+                            
+                            botones = editarBoton + otrosBotones;
+                        } else {
+                            botones = '<span class="text-muted small">Sin acciones</span>';
                         }
-                    ],
-                    createdRow: function(row, data, dataIndex) {
-                        // Cambiar color de fondo según el código estándar
-                        var clasesFila = {
-                            '100': 'table-secondary', // Eliminado
-                            '20': 'table-success',    // Confirmado
-                            '10': 'table-warning'     // Borrador
-                        };
                         
-                        if (clasesFila[data.codigo_estandar]) {
-                            $(row).addClass(clasesFila[data.codigo_estandar]);
-                        }
+                        return `<div class="btn-group" role="group">${botones}</div>`;
+                    }
+                }
+            ],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            },
+            order: [[1, 'asc']],
+            responsive: true,
+            createdRow: function(row, data, dataIndex) {
+                if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
+                    $(row).addClass('table-secondary');
+                } else if (data.estado_info && data.estado_info.codigo_estandar === 'BLOQUEADO') {
+                    $(row).addClass('table-warning');
+                }
+            }
+        });
+
+        // Cargar botón Agregar dinámicamente
+        function cargarBotonAgregar() {
+            $.get('comprobantes_grupos_ajax.php', {
+                accion: 'obtener_boton_agregar',
+                pagina_idx: pagina_idx
+            }, function(botonAgregar){
+                if (botonAgregar && botonAgregar.nombre_funcion) {
+                    var icono = botonAgregar.icono_clase ? `<i class="${botonAgregar.icono_clase} me-1"></i>` : '';
+                    
+                    var colorClase = 'btn-primary';
+                    if (botonAgregar.bg_clase && botonAgregar.text_clase) {
+                        colorClase = botonAgregar.bg_clase + ' ' + botonAgregar.text_clase;
+                    } else if (botonAgregar.color_clase) {
+                        colorClase = botonAgregar.color_clase;
+                    }
+                    
+                    $('#contenedor-boton-agregar').html(
+                        `<button type="button" class="btn ${colorClase}" id="btnNuevo">
+                            ${icono}${botonAgregar.nombre_funcion}
+                         </button>`
+                    );
+                } else {
+                    $('#contenedor-boton-agregar').html(
+                        '<button type="button" class="btn btn-primary" id="btnNuevo">' +
+                        '<i class="fas fa-plus me-1"></i>Agregar Grupo</button>'
+                    );
+                }
+            }, 'json');
+        }
+
+        // Manejador para botón "Agregar"
+        $(document).on('click', '#btnNuevo', function(){
+            resetModal();
+            $('#modalLabel').text('Nuevo Grupo de Comprobante');
+            
+            var modal = new bootstrap.Modal(document.getElementById('modalComprobanteGrupo'));
+            modal.show();
+            $('#comprobante_grupo').focus();
+        });
+
+        // Manejador para botones de acción dinámicos
+        $(document).on('click', '.btn-accion', function(){
+            var grupoId = $(this).data('id');
+            var accionJs = $(this).data('accion');
+            var confirmable = $(this).data('confirmable');
+            var grupoNombre = $(this).data('comprobante-grupo');
+            
+            if (accionJs === 'editar') {
+                cargarGrupoParaEditar(grupoId);
+            } else if (confirmable == 1) {
+                Swal.fire({
+                    title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
+                    html: `¿Está seguro de <strong>${accionJs}</strong> el grupo <strong>"${grupoNombre}"</strong>?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: `Sí, ${accionJs}`,
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true,
+                    allowOutsideClick: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        ejecutarAccion(grupoId, accionJs, grupoNombre);
                     }
                 });
+            } else {
+                ejecutarAccion(grupoId, accionJs, grupoNombre);
+            }
+        });
 
-                // Cargar botón Agregar dinámicamente
-                function cargarBotonAgregar() {
-                    console.log("Cargando botón agregar...");
-                    $.get('comprobantes_grupos_ajax.php', {accion: 'obtener_boton_agregar'}, function(botonAgregar){
-                        console.log("Respuesta botón agregar:", botonAgregar);
-                        if (botonAgregar && botonAgregar.nombre_funcion) {
-                            var icono = botonAgregar.icono_clase ? `<i class="${botonAgregar.icono_clase}"></i> ` : '';
-                            
-                            // Usar bg_clase y text_clase si están disponibles, sino color_clase
-                            var colorClase = 'btn-primary';
-                            if (botonAgregar.bg_clase && botonAgregar.text_clase) {
-                                colorClase = botonAgregar.bg_clase + ' ' + botonAgregar.text_clase;
-                            } else if (botonAgregar.color_clase) {
-                                colorClase = botonAgregar.color_clase;
-                            }
-                            
-                            $('#contenedor-boton-agregar').html(
-                                `<button class="btn ${colorClase} mb-3" id="btnNuevo">${icono}${botonAgregar.nombre_funcion}</button>`
-                            );
-                            console.log("Botón agregar creado correctamente");
-                        } else {
-                            // Botón por defecto si no hay configuración
-                            $('#contenedor-boton-agregar').html('<button class="btn btn-primary mb-3" id="btnNuevo">Nuevo Grupo</button>');
-                            console.log("Usando botón agregar por defecto");
-                        }
-                    }).fail(function(xhr, status, error) {
-                        console.error("Error cargando botón agregar:", error);
-                        $('#contenedor-boton-agregar').html('<button class="btn btn-primary mb-3" id="btnNuevo">Nuevo Grupo</button>');
+        // Función para ejecutar cualquier acción del backend
+        function ejecutarAccion(grupoId, accionJs, grupoNombre) {
+            $.post('comprobantes_grupos_ajax.php', {
+                accion: 'ejecutar_accion',
+                comprobante_grupo_id: grupoId,
+                accion_js: accionJs,
+                empresa_idx: empresa_idx,
+                pagina_idx: pagina_idx
+            }, function(res){
+                if (res.success) {
+                    tabla.ajax.reload();
+                    Swal.fire({
+                        icon: "success",
+                        title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
+                        text: res.message || `Grupo "${grupoNombre}" actualizado correctamente`,
+                        showConfirmButton: false,
+                        timer: 1500,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: res.error || `Error al ${accionJs} el grupo`,
+                        confirmButtonText: "Entendido"
                     });
                 }
+            }, 'json');
+        }
 
-                // Manejador para botón "Agregar"
-                $(document).on('click', '#btnNuevo', function(){
-                    $('#formComprobanteGrupo')[0].reset();
-                    $('#comprobante_grupo_id').val('');
-                    $('#modalLabel').text('Nuevo Grupo de Comprobantes');
+        // Función para cargar grupo en modal de edición
+        function cargarGrupoParaEditar(grupoId) {
+            $.get('comprobantes_grupos_ajax.php', {
+                accion: 'obtener', 
+                comprobante_grupo_id: grupoId,
+                empresa_idx: empresa_idx
+            }, function(res){
+                if(res && res.comprobante_grupo_id){
+                    resetModal();
+                    $('#comprobante_grupo_id').val(res.comprobante_grupo_id);
+                    $('#comprobante_grupo').val(res.comprobante_grupo);
+                    $('#modalLabel').text('Editar Grupo de Comprobante');
                     
                     var modal = new bootstrap.Modal(document.getElementById('modalComprobanteGrupo'));
                     modal.show();
-                });
-
-                // Manejador para botones dinámicos
-                $(document).on('click', '.btnFuncion', function(){
-                    var comprobanteGrupoId = $(this).data('id');
-                    var accion = $(this).data('accion');
-                    var confirmable = $(this).data('confirmable');
                     
-                    console.log("Ejecutando acción:", accion, "Para grupo de comprobante:", comprobanteGrupoId);
-                    
-                    // Ejecutar la acción correspondiente
-                    switch(accion) {
-                        case 'editar':
-                            cargarComprobanteGrupoParaEditar(comprobanteGrupoId);
-                            break;
-                        case 'visualizar':
-                            cargarComprobanteGrupoParaEditar(comprobanteGrupoId, true);
-                            break;
-                        case 'agregar':
-                            // Esto no debería pasar en botones de fila, pero por si acaso
-                            $('#btnNuevo').click();
-                            break;
-                        default:
-                            // Para acciones como habilitar, inhabilitar, etc.
-                            if (confirmable == 1) {
-                                Swal.fire({
-                                    title: `¿${accion.charAt(0).toUpperCase() + accion.slice(1)} grupo de comprobante?`,
-                                    text: "Esta acción cambiará el estado del grupo de comprobante",
-                                    icon: 'question',
-                                    showCancelButton: true,
-                                    confirmButtonColor: '#3085d6',
-                                    cancelButtonColor: '#d33',
-                                    confirmButtonText: `Sí, ${accion}`,
-                                    cancelButtonText: 'Cancelar'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        ejecutarAccion(comprobanteGrupoId, accion);
-                                    }
-                                });
-                            } else {
-                                ejecutarAccion(comprobanteGrupoId, accion);
-                            }
-                    }
-                });
-
-                // Función para ejecutar cualquier acción del backend
-                function ejecutarAccion(comprobanteGrupoId, accion) {
-                    // Convertir acción JS a nombre de función para el backend
-                    var funcionBackend = accion.charAt(0).toUpperCase() + accion.slice(1);
-                    
-                    $.post('comprobantes_grupos_ajax.php', {
-                        accion: 'ejecutar_funcion',
-                        comprobante_grupo_id: comprobanteGrupoId,
-                        funcion_nombre: funcionBackend,
-                        empresa_id: <?php echo $empresa_idx; ?>
-                    }, function(res){
-                        if (res.success) {
-                            tabla.ajax.reload();
-                            Swal.fire({
-                                icon: "success",
-                                title: `¡${funcionBackend}!`,
-                                text: `Grupo de comprobante ${accion.toLowerCase()} correctamente`,
-                                showConfirmButton: false,
-                                timer: 1500
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: "error",
-                                title: "Error",
-                                text: res.error || `Error al ${accion.toLowerCase()} el grupo de comprobante`,
-                                confirmButtonText: "Entendido"
-                            });
-                        }
-                    }, 'json').fail(function(xhr, status, error) {
-                        Swal.fire({
-                            icon: "error",
-                            title: "Error de conexión",
-                            text: "Error al comunicarse con el servidor",
-                            confirmButtonText: "Entendido"
-                        });
+                } else {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: "Error al obtener datos del grupo",
+                        confirmButtonText: "Entendido"
                     });
                 }
+            }, 'json');
+        }
 
-                // Función para cargar grupo de comprobante en modal de edición
-                function cargarComprobanteGrupoParaEditar(comprobanteGrupoId, soloLectura = false) {
-                    $.get('comprobantes_grupos_ajax.php', {
-                        accion: 'obtener', 
-                        comprobante_grupo_id: comprobanteGrupoId,
-                        empresa_id: <?php echo $empresa_idx; ?>
-                    }, function(res){
-                        if(res && res.comprobante_grupo_id){
-                            $('#comprobante_grupo_id').val(res.comprobante_grupo_id);
-                            $('#comprobante_grupo').val(res.comprobante_grupo);
-                            
-                            if (soloLectura) {
-                                $('#modalLabel').text('Visualizar Grupo de Comprobante');
-                                $('#comprobante_grupo').prop('readonly', true);
-                                $('#btnGuardar').hide();
-                            } else {
-                                $('#modalLabel').text('Editar Grupo de Comprobante');
-                                $('#comprobante_grupo').prop('readonly', false);
-                                $('#btnGuardar').show();
-                            }
-                            
-                            var modal = new bootstrap.Modal(document.getElementById('modalComprobanteGrupo'));
-                            modal.show();
-                            
-                        } else {
-                            Swal.fire({
-                                icon: "error",
-                                title: "Error",
-                                text: "Error al obtener datos del grupo de comprobante",
-                                confirmButtonText: "Entendido"
-                            });
-                        }
-                    }, 'json');
-                }
+        // Función para resetear el modal
+        function resetModal() {
+            $('#formComprobanteGrupo')[0].reset();
+            $('#comprobante_grupo_id').val('');
+            $('#formComprobanteGrupo').removeClass('was-validated');
+        }
 
-                $('#btnGuardar').click(function(){
-                    var form = document.getElementById('formComprobanteGrupo');
-                    
-                    if (!form.checkValidity()) {
-                        form.classList.add('was-validated');
-                        return false;
-                    }
-                    
-                    var id = $('#comprobante_grupo_id').val();
-                    var accion = id ? 'editar' : 'agregar';
-                    
-                    var formData = new FormData();
-                    formData.append('accion', accion);
-                    formData.append('comprobante_grupo_id', id);
-                    formData.append('empresa_id', $('#empresa_id').val());
-                    formData.append('comprobante_grupo', $('#comprobante_grupo').val());
-
-                    $.ajax({
-                        url: 'comprobantes_grupos_ajax.php',
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        success: function(res){
-                            if(res.resultado){
-                                tabla.ajax.reload();
-                                var modalEl = document.getElementById('modalComprobanteGrupo');
-                                var modal = bootstrap.Modal.getInstance(modalEl);
-                                
-                                // Remover validación
-                                form.classList.remove('was-validated');
-                                
-                                Swal.fire({                    
-                                    icon: "success",
-                                    title: "Datos guardados!",
-                                    showConfirmButton: false,
-                                    timer: 1000
-                                });                
-                                modal.hide();
-                            } else {
-                                Swal.fire({
-                                    icon: "error",
-                                    title: "Error",
-                                    text: res.error || "Error al guardar los datos",
-                                    confirmButtonText: "Entendido"
-                                });
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            console.error("Error en AJAX:", error);
-                            Swal.fire({
-                                icon: "error",
-                                title: "Error de conexión",
-                                text: "Error al comunicarse con el servidor",
-                                confirmButtonText: "Entendido"
-                            });
-                        }
-                    });
-                });
-
-                // Inicializar
-                cargarBotonAgregar();
-            });
-            </script>
-            <style>
-            .table-secondary td {
-                color: #6c757d !important;
+        // Validación del formulario
+        $('#btnGuardar').click(function(){
+            var form = document.getElementById('formComprobanteGrupo');
+            
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return false;
             }
             
-            .badge {
-                font-size: 0.75rem;
+            var id = $('#comprobante_grupo_id').val();
+            var accionBackend = id ? 'editar' : 'agregar';
+            var grupoNombre = $('#comprobante_grupo').val().trim();
+            
+            if (!grupoNombre) {
+                $('#comprobante_grupo').addClass('is-invalid');
+                return false;
             }
-            </style>
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-            <?php
-            require_once ROOT_PATH . '/templates/adminlte/footer1.php';
-            ?>
-            </body>
-            </html>
+            var btnGuardar = $(this);
+            var originalText = btnGuardar.html();
+            btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+            
+            $.ajax({
+                url: 'comprobantes_grupos_ajax.php',
+                type: 'POST',
+                data: {
+                    accion: accionBackend,
+                    comprobante_grupo_id: id,
+                    comprobante_grupo: grupoNombre,
+                    empresa_idx: empresa_idx,
+                    pagina_idx: pagina_idx
+                },
+                success: function(res){
+                    if(res.resultado){
+                        tabla.ajax.reload();
+                        var modalEl = document.getElementById('modalComprobanteGrupo');
+                        var modal = bootstrap.Modal.getInstance(modalEl);
+                        
+                        btnGuardar.prop('disabled', false).html(originalText);
+                        
+                        Swal.fire({                    
+                            icon: "success",
+                            title: "¡Guardado!",
+                            text: "Grupo de comprobante guardado correctamente",
+                            showConfirmButton: false,
+                            timer: 1500,
+                            toast: true,
+                            position: 'top-end'
+                        });                
+                        modal.hide();
+                    } else {
+                        btnGuardar.prop('disabled', false).html(originalText);
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: res.error || "Error al guardar los datos",
+                            confirmButtonText: "Entendido"
+                        });
+                    }
+                },
+                error: function() {
+                    btnGuardar.prop('disabled', false).html(originalText);
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error de conexión",
+                        text: "Error al comunicarse con el servidor",
+                        confirmButtonText: "Entendido"
+                    });
+                }
+            });
+        });
+
+        // Botón recargar
+        $('#btnRecargar').click(function(){
+            var btn = $(this);
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            tabla.ajax.reload(function(){
+                btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>');
+            });
+        });
+
+        // Inicializar
+        cargarBotonAgregar();
+    });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</main>
+
+<?php
+require_once ROOT_PATH . '/templates/adminlte/footer1.php';
+?>
+</body>
+</html>

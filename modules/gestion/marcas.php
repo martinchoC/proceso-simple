@@ -125,7 +125,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     data: 'marca_id',
                     className: 'text-center fw-bold',
                     render: function(data) {
-                        return `<span class="badge bg-dark">#${data}</span>`;
+                       return `<div class="fw-medium">${data}</div>`;
                     }
                 },
                 { 
@@ -139,14 +139,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     className: 'text-center',
                     render: function(data) {
                         if (!data || !data.estado_registro) {
-                            return '<span class="badge bg-secondary">Sin estado</span>';
-                        }
-                        
-                        var badgeClass = data.bg_clase || 'bg-secondary';
-                        var textClass = data.text_clase || 'text-black';
-                        var estado = data.estado_registro;
-                        
-                        return `<span class="badge ${badgeClass} ${textClass}">
+                            return '<span class="fw-medium">Sin estado</span>';
+                        }                        
+                        var estado = data.estado_registro;                        
+                        return `<span class="fw-medium">
                                 ${estado}
                                 </span>`;
                     }
