@@ -3,7 +3,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Primero incluimos directamente la conexión
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 // Ahora incluimos el modelo que usa la conexión
 require_once "tablas_estados_model.php";

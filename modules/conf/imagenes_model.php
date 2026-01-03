@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 // Configuración para la subida de archivos
 define('IMAGENES_DIR', $_SERVER['DOCUMENT_ROOT'] . '/uploads/imagenes/');

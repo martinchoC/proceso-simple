@@ -1,6 +1,6 @@
 <?php
 // Configuración de la página CON AUTODETECCIÓN
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 require_once "funciones_contexto.php";
 
 // Obtener contexto automáticamente

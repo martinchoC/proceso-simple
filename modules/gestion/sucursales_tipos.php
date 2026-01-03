@@ -1,6 +1,6 @@
 <?php
 // Configuración de la página
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 $pageTitle = "Tipos de Sucursales";
 $currentPage = 'sucursales_tipos';

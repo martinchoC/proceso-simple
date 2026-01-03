@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerEmpresasPerfiles($conexion) {
     $sql = "SELECT ep.*, 

@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerPerfiles($conexion) {
     $sql = "SELECT perfil_id, perfil_nombre FROM conf__perfiles WHERE estado_registro_id = 1 ORDER BY perfil_nombre";

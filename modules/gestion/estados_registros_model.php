@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerEstadosRegistros($conexion) {
     $sql = "SELECT er.*, tt.tabla_tipo 

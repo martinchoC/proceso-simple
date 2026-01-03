@@ -1,7 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 require_once "tablas_estados_model.php";
 
 $accion = $_GET['accion'] ?? '';

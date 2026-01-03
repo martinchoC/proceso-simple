@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 /**
  * Obtiene todos los tipos de tablas con la cantidad de estados activos

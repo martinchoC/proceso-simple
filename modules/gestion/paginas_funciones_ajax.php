@@ -8,7 +8,7 @@ function json_error($message) {
     exit;
 }
 
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 require_once "paginas_funciones_model.php";
 
 $accion = $_GET['accion'] ?? '';

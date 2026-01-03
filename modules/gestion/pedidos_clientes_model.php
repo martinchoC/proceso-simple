@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerPedidosClientes($conexion) {
     $sql = "SELECT c.*, e.nombre as nombre_entidad 

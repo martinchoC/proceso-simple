@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerListasPreciosProductos($conexion, $filtro_lista = '', $filtro_producto = '') {
     $sql = "SELECT lpp.*, 

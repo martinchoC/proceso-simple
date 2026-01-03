@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerUsuarios($conexion) {
     $sql = "SELECT * FROM conf__usuarios ORDER BY usuario_nombre";

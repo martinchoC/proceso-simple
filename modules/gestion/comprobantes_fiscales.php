@@ -1,6 +1,6 @@
 <?php
 // Configuración de la página
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 $pageTitle = "Comprobantes Fiscales";
 $currentPage = 'comprobantes_fiscales';
@@ -144,7 +144,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
     </style>
 
-   <script>
+  <script>
 $(document).ready(function(){
     // Variables de contexto MULTIEMPRESA
     const empresa_idx = 2;
@@ -154,7 +154,7 @@ $(document).ready(function(){
     var tabla;
     var currentPage = 0;
     var currentOrder = [[1, 'asc']];
-    var currentSearch = '';
+    var currentSearch = ''; // Inicializar como string vacío
     
     // Función para inicializar DataTable
     function inicializarDataTable() {
@@ -176,27 +176,66 @@ $(document).ready(function(){
                 },
                 dataSrc: ''
             },
-            stateSave: true, // ✅ IMPORTANTE: Guarda el estado de la tabla
-            stateSaveParams: function(settings, data) {
-                // Guardar página y orden
-                data.page = currentPage;
-                data.order = currentOrder;
-                data.search = currentSearch;
-            },
-            stateLoadParams: function(settings, data) {
-                // Cargar página y orden guardados
-                if (data.page) currentPage = data.page;
-                if (data.order) currentOrder = data.order;
-                if (data.search) currentSearch = data.search;
-            },
-            stateSaveCallback: function(settings, data) {
-                // Guardar en localStorage
-                localStorage.setItem('DataTables_' + settings.sInstance, JSON.stringify(data));
-            },
-            stateLoadCallback: function(settings) {
-                // Cargar desde localStorage
-                return JSON.parse(localStorage.getItem('DataTables_' + settings.sInstance));
-            },
+            stateSave: true,
+stateSaveParams: function(settings, data) {
+    // Guardar página, orden y búsqueda
+    data.page = currentPage;
+    data.order = currentOrder;
+    
+    // CORRECCIÓN: Guardar solo si no es "-1"
+    if (currentSearch !== '-1' && currentSearch !== '') {
+        data.search = { search: currentSearch };
+    } else {
+        data.search = { search: '' };
+    }
+    
+    // Limpiar otros parámetros problemáticos
+    delete data.columns;
+    return data;
+    },
+    stateLoadParams: function(settings, data) {
+        // Cargar página, orden y búsqueda guardados
+        if (data.page !== undefined) currentPage = data.page;
+        if (data.order !== undefined && data.order.length > 0) currentOrder = data.order;
+        
+        // CORRECCIÓN: Manejo seguro del campo de búsqueda
+        if (data.search && data.search.search !== undefined) {
+            var searchValue = data.search.search;
+            if (searchValue === '-1' || searchValue === '-1' || searchValue === '') {
+                currentSearch = '';
+            } else {
+                currentSearch = searchValue;
+            }
+        } else {
+            currentSearch = '';
+        }
+        
+        // Limpiar el campo de búsqueda problemático
+        data.search = { search: currentSearch };
+    },
+    stateLoadCallback: function(settings) {
+        var savedData = localStorage.getItem('DataTables_' + settings.sInstance);
+        if (savedData) {
+            var data = JSON.parse(savedData);
+            
+            // Limpieza profunda del estado
+            if (data.search && (data.search.search === '-1' || data.search.search === '')) {
+                data.search.search = '';
+            }
+            
+            // Limpiar cualquier "-1" en columnas individuales
+            if (data.columns) {
+                $.each(data.columns, function(i, col) {
+                    if (col.search && col.search.search === '-1') {
+                        col.search.search = '';
+                    }
+                });
+            }
+            
+            return data;
+        }
+        return null;
+    },
             dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                  '<"row"<"col-sm-12"tr>>' +
                  '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
@@ -258,7 +297,7 @@ $(document).ready(function(){
                         if (type === 'export') {
                             return String(data).padStart(3, '0');
                         }
-                        return `<span class="badge bg-info">${String(data).padStart(3, '0')}</span>`;
+                        return `<span class="fw-medium">${String(data).padStart(3, '0')}</span>`;
                     }
                 },
                 { 
@@ -278,7 +317,7 @@ $(document).ready(function(){
                             if (type === 'export') {
                                 return 'Sin estado';
                             }
-                            return '<span class="badge bg-secondary">Sin estado</span>';
+                            return '<span class="fw-medium">Sin estado</span>';
                         }
                         
                         var estado = data.estado_registro;
@@ -287,10 +326,7 @@ $(document).ready(function(){
                             return estado;
                         }
                         
-                        var colorClase = data.bg_clase || 'bg-dark';
-                        var textClase = data.text_clase || 'text-white';
-                        
-                        return `<span class="badge ${colorClase} ${textClase} fw-medium">${estado}</span>`;
+                        return `<span class="fw-medium">${estado}</span>`;
                     }
                 },
                 {
@@ -384,10 +420,30 @@ $(document).ready(function(){
                     currentOrder = tabla.order();
                 });
                 
-                // Guardar estado actual al buscar
+                // Guardar estado actual al buscar - CORREGIDO
                 $(tabla.table().container()).on('search.dt', function(e, settings) {
+                    // Solo guardar el string de búsqueda, no el objeto completo
                     currentSearch = tabla.search();
                 });
+                
+                // Limpiar el campo de búsqueda si tiene "-1" (bug conocido de DataTables)
+                setTimeout(function() {
+                    var searchInput = $('.dataTables_filter input');
+                    if (searchInput.val() === '-1' || searchInput.val() === '') {
+                        searchInput.val('');
+                        currentSearch = '';
+                        
+                        // Limpiar también el estado guardado
+                        var savedData = localStorage.getItem('DataTables_' + tabla.settings()[0].sInstance);
+                        if (savedData) {
+                            var data = JSON.parse(savedData);
+                            if (data.search && (data.search.search === '-1' || data.search.search === '')) {
+                                data.search.search = '';
+                                localStorage.setItem('DataTables_' + tabla.settings()[0].sInstance, JSON.stringify(data));
+                            }
+                        }
+                    }
+                }, 100);
             }
         });
         
@@ -406,13 +462,16 @@ $(document).ready(function(){
             var savedState = {
                 page: tabla.page(),
                 order: tabla.order(),
-                search: tabla.search()
+                search: tabla.search() // Solo el string, no el objeto
             };
             
             tabla.ajax.reload(function(json){
                 // Restaurar estado después de recargar
                 if (savedState.page !== undefined) {
                     tabla.page(savedState.page).draw('page');
+                }
+                if (savedState.search && savedState.search !== '') {
+                    tabla.search(savedState.search).draw();
                 }
                 btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>');
             }, false); // El segundo parámetro (false) mantiene la página actual
@@ -496,7 +555,7 @@ $(document).ready(function(){
         var savedState = {
             page: tabla.page(),
             order: tabla.order(),
-            search: tabla.search()
+            search: tabla.search() // Solo el string
         };
         
         $.post('comprobantes_fiscales_ajax.php', {
@@ -512,6 +571,9 @@ $(document).ready(function(){
                     // Restaurar estado después de recargar
                     if (savedState.page !== undefined) {
                         tabla.page(savedState.page).draw('page');
+                    }
+                    if (savedState.search && savedState.search !== '') {
+                        tabla.search(savedState.search).draw();
                     }
                     
                     // Buscar el registro actualizado y resaltarlo
@@ -620,7 +682,7 @@ $(document).ready(function(){
         var savedState = {
             page: tabla.page(),
             order: tabla.order(),
-            search: tabla.search()
+            search: tabla.search() // Solo el string
         };
         
         $.ajax({
@@ -641,6 +703,9 @@ $(document).ready(function(){
                         // Restaurar estado después de recargar
                         if (savedState.page !== undefined) {
                             tabla.page(savedState.page).draw('page');
+                        }
+                        if (savedState.search && savedState.search !== '') {
+                            tabla.search(savedState.search).draw();
                         }
                         
                         // Si es edición, buscar y resaltar el registro editado
@@ -725,10 +790,21 @@ $(document).ready(function(){
         placement: 'top'
     });
     
-    // Limpiar localStorage al cerrar la página (opcional)
-    $(window).on('beforeunload', function() {
-        // Si quieres limpiar el estado al salir, descomenta:
-        // localStorage.removeItem('DataTables_tablaComprobantesFiscales');
+    // Limpiar localStorage si tiene el bug del "-1"
+    $(window).on('load', function() {
+        setTimeout(function() {
+            var savedData = localStorage.getItem('DataTables_tablaComprobantesFiscales');
+            if (savedData) {
+                var data = JSON.parse(savedData);
+                if (data.search) {
+                    // Si tiene "-1" o está vacío, limpiarlo
+                    if (data.search.search === '-1' || data.search.search === '') {
+                        data.search.search = '';
+                        localStorage.setItem('DataTables_tablaComprobantesFiscales', JSON.stringify(data));
+                    }
+                }
+            }
+        }, 500);
     });
 });
 </script>

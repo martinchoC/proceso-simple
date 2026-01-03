@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerUbicaciones($conexion) {
     $sql = "SELECT u.*, l.sucursal_nombre

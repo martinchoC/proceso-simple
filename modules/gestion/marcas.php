@@ -1,6 +1,7 @@
 <?php
 // Configuración de la página
-require_once "conexion.php";
+
+require_once __DIR__ . '/../../conexion.php';
 
 $pageTitle = "Gestión de Marcas";
 $currentPage = 'marcas';

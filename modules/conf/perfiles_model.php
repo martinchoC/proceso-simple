@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerPerfiles($conexion) {
     $sql = "SELECT conf__perfiles.*, conf__modulos.modulo

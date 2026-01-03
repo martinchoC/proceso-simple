@@ -1,6 +1,6 @@
 <?php
 // Configuración de la página
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 $pageTitle = "Gestión de Sucursales";
 $currentPage = 'sucursales';
@@ -268,12 +268,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             return '<span class="badge bg-secondary">Sin estado</span>';
                         }
                         
-                        var estado = data.estado_registro;
-                        var colorClase = data.color_clase || 'badge-dark';
-                        var bgClase = data.bg_clase || 'bg-dark';
-                        var textClase = data.text_clase || 'text-white';
+                        var estado = data.estado_registro;                        
                         
-                        return `<span class="badge ${bgClase} ${textClase}">${estado}</span>`;
+                        return `<span class="fw-medium">${estado}</span>`;
                     }
                 },
                 {

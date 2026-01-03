@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerModulos($conexion) {
     $sql = "SELECT * FROM conf__modulos WHERE modulo_id=2 ORDER BY modulo";

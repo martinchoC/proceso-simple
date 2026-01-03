@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerListasPrecios($conexion) {
     $sql = "SELECT * FROM `gestion__listas_precios` 

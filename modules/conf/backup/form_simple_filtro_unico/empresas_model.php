@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerLocalidades($conexion) {
     $sql = "SELECT localidad_id, localidad FROM conf__localidades ORDER BY localidad";

@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 function obtenerPaginas($conexion) {
     // CORRECCIÓN: Usar 'pagina' en lugar de 'nombre_pagina'

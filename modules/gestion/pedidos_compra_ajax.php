@@ -1,7 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 require_once "pedidos_compra_model.php";
 
 // Simular usuario logueado (debes reemplazar con tu sistema de autenticación)

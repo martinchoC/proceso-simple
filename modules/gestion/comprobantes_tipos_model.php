@@ -1,5 +1,5 @@
 <?php
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 
 // ✅ Configuración de la tabla (para gestion__comprobantes_tipos)
 $tabla_idx = 36; // Tabla ID para gestion__comprobantes_tipos

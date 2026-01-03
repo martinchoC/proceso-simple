@@ -4,7 +4,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Incluir archivos necesarios
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 require_once "tablas_tipos_model.php";
 
 // Obtener la acción solicitada

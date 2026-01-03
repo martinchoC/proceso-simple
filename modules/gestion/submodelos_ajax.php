@@ -2,7 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 require_once "submodelos_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';

@@ -1,6 +1,6 @@
 <?php
 // Configuración de la página
-require_once "conexion.php";
+require_once __DIR__ . '/../../conexion.php';
 $pageTitle = "Gestión de Tipos de Comprobantes";
 $currentPage = 'comprobantes_tipos';
 $modudo_idx = 2;
