@@ -36,7 +36,7 @@ try {
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
             break;
             
-        case 'obtener_grupos_activas':
+        case 'obtener_grupos_activos':
             $grupos = obtenerGruposActivos($conexion, $empresa_idx);
             echo json_encode($grupos, JSON_UNESCAPED_UNICODE);
             break;

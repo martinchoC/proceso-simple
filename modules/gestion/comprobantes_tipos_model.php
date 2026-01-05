@@ -624,7 +624,11 @@ function obtenerComprobanteTipoPorId($conexion, $id, $empresa_idx) {
     $id = intval($id);
     $empresa_idx = intval($empresa_idx);
     
-    $sql = "SELECT ct.*, cg.comprobante_grupo, cf.comprobante_fiscal, er.estado_registro, er.codigo_estandar
+    $sql = "SELECT ct.*, 
+                   cg.comprobante_grupo, cg.comprobante_grupo_id,
+                   cf.comprobante_fiscal, cf.comprobante_fiscal_id,
+                   er.estado_registro, er.estado_registro_id, 
+                   er.codigo_estandar
             FROM gestion__comprobantes_tipos ct
             LEFT JOIN gestion__comprobantes_grupos cg ON ct.comprobante_grupo_id = cg.comprobante_grupo_id
             LEFT JOIN gestion__comprobantes_fiscales cf ON ct.comprobante_fiscal_id = cf.comprobante_fiscal_id

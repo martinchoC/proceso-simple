@@ -1,7 +1,5 @@
 <?php
 // Configuración de la página
-
-
 $pageTitle = "Tipos de Comprobantes";
 $currentPage = 'comprobantes_tipos';
 $modudo_idx = 2;
@@ -34,30 +32,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <div class="app-content">
         <div class="container-fluid">
-                       
             <div class="content-wrapper">
                 <section class="content">
-                    <div class="container-fluid">                      
+                    <div class="container-fluid">
                         <div class="row">
                             <div class="col-12">
-                                <div class="card">  
+                                <div class="card">
+                                    <!-- Card Header con botón agregar -->
                                     <div class="card-header">
-                                        <div id="contenedor-boton-agregar" class="d-inline"></div>
-                                        <div class="float-end">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar tabla">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Exportar datos">
-                                                <i class="fas fa-file-export"></i> Exportar
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><a class="dropdown-item" href="#" id="btnExportarExcel"><i class="fas fa-file-excel text-success"></i> Excel</a></li>
-                                                <li><a class="dropdown-item" href="#" id="btnExportarPDF"><i class="fas fa-file-pdf text-danger"></i> PDF</a></li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item" href="#" id="btnExportarCSV"><i class="fas fa-file-csv text-primary"></i> CSV</a></li>
-                                                <li><a class="dropdown-item" href="#" id="btnExportarPrint"><i class="fas fa-print text-secondary"></i> Imprimir</a></li>
-                                            </ul>
-                                        </div>
+                                        <div id="contenedor-boton-agregar"></div>
                                     </div>
                                     
                                     <div class="card-body">
@@ -96,7 +79,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="80">Orden</th>
                                                     <th width="120">Estado</th>
                                                     <th width="200" class="text-center">Acciones</th>
-                                                </tr>                                            
+                                                </tr>
                                             </thead>
                                             <tbody></tbody>
                                         </table>
@@ -229,27 +212,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         </div>
     </div>
 
-    <!-- Estilos personalizados para botones de exportación -->
     <style>
-        .dt-buttons .btn {
-            margin-right: 5px;
-            margin-bottom: 5px;
-        }
-        .dt-button-collection .dropdown-menu {
-            margin-top: 5px;
-        }
-        .dataTables_wrapper .dt-buttons {
-            float: right;
-            margin-top: 5px;
-        }
-        .dropdown-menu .dropdown-item i {
-            width: 20px;
-            text-align: center;
-            margin-right: 8px;
-        }
         .impacto-badge {
             font-size: 0.7rem;
             padding: 2px 6px;
+            margin: 1px;
+        }
+        .table-success {
+            transition: background-color 0.5s ease;
+        }
+        .btn-accion {
             margin: 1px;
         }
     </style>
@@ -258,7 +230,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     $(document).ready(function(){
         // Variables de contexto MULTIEMPRESA
         const empresa_idx = 2;
-        const pagina_idx = <?php echo $pagina_idx; ?>; // 50
+        const pagina_idx = <?php echo $pagina_idx; ?>;
         
         // Variables para mantener el estado
         let currentFilters = {
@@ -294,7 +266,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     // Para el filtro
                     filterSelect.append(`<option value="${grupo.comprobante_grupo_id}">${optionText}</option>`);
                 });
-            }, 'json');
+            }, 'json').fail(function() {
+                console.error('Error al cargar grupos');
+            });
         }
         
         // Cargar comprobantes fiscales
@@ -347,9 +321,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         
         // Configuración de DataTable
         var tabla;
-        var currentPage = 0;
-        var currentOrder = [[0, 'desc']];
-        var currentSearch = '';
         
         function inicializarDataTable() {
             // Destruir DataTable existente si hay uno
@@ -376,27 +347,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 },
                 stateSave: true,
                 stateSaveParams: function(settings, data) {
-                    data.page = currentPage;
-                    data.order = currentOrder;
-                    data.search = currentSearch;
+                    // Limpiar búsqueda si es -1
+                    if (data.search && data.search.search === '-1') {
+                        data.search.search = '';
+                    }
                 },
                 stateLoadParams: function(settings, data) {
-                    if (data.page !== undefined) currentPage = data.page;
-                    if (data.order !== undefined && data.order.length > 0) currentOrder = data.order;
-                    if (data.search && data.search.search !== undefined) {
-                        currentSearch = data.search.search || '';
-                    } else if (typeof data.search === 'string') {
-                        currentSearch = data.search;
+                    // Limpiar búsqueda si es -1
+                    if (data.search && (data.search.search === '-1' || data.search.search === '')) {
+                        data.search.search = '';
                     }
                 },
                 stateSaveCallback: function(settings, data) {
-                    localStorage.setItem('DataTables_' + settings.sInstance, JSON.stringify(data));
+                    // Evitar guardar -1
+                    if (data.search && data.search.search === '-1') {
+                        data.search.search = '';
+                    }
+                    localStorage.setItem('DataTables_tablaComprobantesTipos', JSON.stringify(data));
                 },
                 stateLoadCallback: function(settings) {
-                    var savedData = localStorage.getItem('DataTables_' + settings.sInstance);
+                    var savedData = localStorage.getItem('DataTables_tablaComprobantesTipos');
                     if (savedData) {
                         var data = JSON.parse(savedData);
-                        if (data.search && data.search.search === '-1') {
+                        // Limpiar -1 al cargar
+                        if (data.search && (data.search.search === '-1' || data.search.search === '')) {
                             data.search.search = '';
                         }
                         return data;
@@ -409,49 +383,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                      '<"clear">',
                 pageLength: 50,
                 lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-                buttons: [
-                    {
-                        extend: 'excelHtml5',
-                        text: '<i class="fas fa-file-excel"></i> Excel',
-                        className: 'btn btn-success btn-sm',
-                        title: 'Tipos de Comprobantes',
-                        exportOptions: {
-                            columns: [0, 1, 2, 3, 4, 5, 6, 8, 9],
-                            orthogonal: 'export'
-                        }
-                    },
-                    {
-                        extend: 'pdfHtml5',
-                        text: '<i class="fas fa-file-pdf"></i> PDF',
-                        className: 'btn btn-danger btn-sm',
-                        title: 'Tipos de Comprobantes',
-                        orientation: 'portrait',
-                        pageSize: 'A4',
-                        exportOptions: {
-                            columns: [0, 1, 2, 3, 4, 5, 6, 8, 9],
-                            orthogonal: 'export'
-                        }
-                    },
-                    {
-                        extend: 'csvHtml5',
-                        text: '<i class="fas fa-file-csv"></i> CSV',
-                        className: 'btn btn-primary btn-sm',
-                        title: 'Tipos_de_Comprobantes',
-                        exportOptions: {
-                            columns: [0, 1, 2, 3, 4, 5, 6, 8, 9]
-                        }
-                    },
-                    {
-                        extend: 'print',
-                        text: '<i class="fas fa-print"></i> Imprimir',
-                        className: 'btn btn-secondary btn-sm',
-                        title: 'Tipos de Comprobantes',
-                        exportOptions: {
-                            columns: [0, 1, 2, 3, 4, 5, 6, 8, 9],
-                            stripHtml: false
-                        }
-                    }
-                ],
                 columns: [
                     { 
                         data: 'comprobante_tipo_id',
@@ -549,7 +480,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         searchable: false,
                         className: "text-center",
                         width: '200px',
-                        render: function(data) {
+                        render: function(data, type, row) {
                             var botones = '';
                             
                             if (data && data.length > 0) {
@@ -573,10 +504,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     
                                     var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
                                            title="${titulo}" 
-                                           data-id="${data.comprobante_tipo_id}" 
+                                           data-id="${row.comprobante_tipo_id}" 
                                            data-accion="${accionJs}"
                                            data-confirmable="${esConfirmable}"
-                                           data-tipo="${data.comprobante_tipo}">
+                                           data-tipo="${row.comprobante_tipo}">
                                         ${icono}
                                     </button>`;
                                     
@@ -597,15 +528,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 ],
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
-                    buttons: {
-                        excel: 'Excel',
-                        pdf: 'PDF',
-                        csv: 'CSV',
-                        print: 'Imprimir'
-                    }
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
                 },
-                order: currentOrder,
+                order: [[0, 'desc']],
                 responsive: true,
                 createdRow: function(row, data) {
                     if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
@@ -615,62 +540,34 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 },
                 initComplete: function() {
-                    // Mover botones de exportación
-                    var buttons = new $.fn.dataTable.Buttons(tabla, {
-                        buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
-                    }).container().appendTo($('#tablaComprobantesTipos_wrapper .col-md-6:eq(1)'));
-                    
-                    // Guardar estado al cambiar página
-                    $(tabla.table().container()).on('page.dt', function(e) {
-                        currentPage = tabla.page();
-                    });
-                    
-                    // Guardar estado al ordenar
-                    $(tabla.table().container()).on('order.dt', function(e, settings, details) {
-                        currentOrder = tabla.order();
-                    });
-                    
-                    // Guardar estado al buscar
-                    $(tabla.table().container()).on('search.dt', function(e, settings) {
-                        currentSearch = tabla.search();
-                    });
-                    
-                    // Limpiar bug del "-1"
+                    // Limpiar bug del "-1" en búsqueda
                     setTimeout(function() {
                         var searchInput = $('.dataTables_filter input');
                         if (searchInput.val() === '-1' || searchInput.val() === '') {
                             searchInput.val('');
-                            currentSearch = '';
                         }
                     }, 100);
                 }
             });
             
-            inicializarEventos();
-        }
+            // Configurar eventos de filtros
+            $('#filterGrupo').change(function() {
+                currentFilters.grupo = $(this).val();
+                tabla.ajax.reload();
+            });
 
-        // Función para inicializar eventos
-        function inicializarEventos() {
-            // Botón recargar
-            $('#btnRecargar').off('click').on('click', function(){
-                var btn = $(this);
-                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            $('#filterEstado').change(function() {
+                currentFilters.estado = $(this).val();
+                tabla.ajax.reload();
+            });
+
+            $('#filterBusqueda').on('keyup', function() {
+                currentFilters.busqueda = $(this).val();
+                clearTimeout($(this).data('timeout'));
                 
-                var savedState = {
-                    page: tabla.page(),
-                    order: tabla.order(),
-                    search: tabla.search()
-                };
-                
-                tabla.ajax.reload(function(json){
-                    if (savedState.page !== undefined) {
-                        tabla.page(savedState.page).draw('page');
-                    }
-                    if (savedState.search && savedState.search !== '') {
-                        tabla.search(savedState.search).draw();
-                    }
-                    btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>');
-                }, false);
+                $(this).data('timeout', setTimeout(function() {
+                    tabla.ajax.reload();
+                }, 500));
             });
         }
 
@@ -696,77 +593,93 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                          </button>`
                     );
                 } else {
+                    // Botón por defecto
                     $('#contenedor-boton-agregar').html(
                         '<button type="button" class="btn btn-primary" id="btnNuevo">' +
                         '<i class="fas fa-plus me-1"></i>Agregar Tipo</button>'
                     );
                 }
-            }, 'json');
+            }, 'json').fail(function() {
+                // Si falla, usar botón por defecto
+                $('#contenedor-boton-agregar').html(
+                    '<button type="button" class="btn btn-primary" id="btnNuevo">' +
+                    '<i class="fas fa-plus me-1"></i>Agregar Tipo</button>'
+                );
+            });
         }
 
-        // Manejador para botón "Agregar"
-        $(document).on('click', '#btnNuevo', function(){
-            resetModal();
-            $('#modalLabel').text('Nuevo Tipo de Comprobante');
-            cargarGrupos();
-            cargarComprobantesFiscales();
-            cargarEstados();
+        // Función para resetear el modal
+        function resetModal() {
+            $('#formComprobanteTipo')[0].reset();
+            $('#comprobante_tipo_id').val('');
+            $('#formComprobanteTipo').removeClass('was-validated');
             
-            var modal = new bootstrap.Modal(document.getElementById('modalComprobanteTipo'));
-            modal.show();
-            $('#codigo').focus();
-        });
-
-        // Manejadores de filtros
-        $('#filterGrupo').change(function() {
-            currentFilters.grupo = $(this).val();
-            tabla.ajax.reload();
-        });
-
-        $('#filterEstado').change(function() {
-            currentFilters.estado = $(this).val();
-            tabla.ajax.reload();
-        });
-
-        $('#filterBusqueda').on('keyup', function() {
-            currentFilters.busqueda = $(this).val();
-            clearTimeout($(this).data('timeout'));
+            // Resetear checkboxes
+            $('#impacta_stock').prop('checked', false);
+            $('#impacta_contabilidad').prop('checked', false);
+            $('#impacta_ctacte').prop('checked', false);
             
-            $(this).data('timeout', setTimeout(function() {
-                tabla.ajax.reload();
-            }, 500));
-        });
-
-        // Manejador para botones de acción dinámicos
-        $(document).on('click', '.btn-accion', function(){
-            var comprobanteTipoId = $(this).data('id');
-            var accionJs = $(this).data('accion');
-            var confirmable = $(this).data('confirmable');
-            var tipo = $(this).data('tipo');
+            // Resetear selects
+            $('#signo').val('+');
+            $('#orden').val('1');
+            $('#estado_registro_id').val('');
             
-            if (accionJs === 'editar') {
-                cargarComprobanteTipoParaEditar(comprobanteTipoId);
-            } else if (confirmable == 1) {
+            // Limpiar selects
+            $('#comprobante_grupo_id').empty().append('<option value="">Seleccionar grupo...</option>');
+            $('#comprobante_fiscal_id').empty().append('<option value="">Seleccionar comprobante fiscal...</option>');
+            $('#estado_registro_id').empty().append('<option value="">Seleccionar estado...</option>');
+        }
+
+        // Función para cargar tipo de comprobante en modal de edición
+        function cargarComprobanteTipoParaEditar(comprobanteTipoId) {
+            $.get('comprobantes_tipos_ajax.php', {
+                accion: 'obtener', 
+                comprobante_tipo_id: comprobanteTipoId,
+                empresa_idx: empresa_idx
+            }, function(res){
+                if(res && res.comprobante_tipo_id){
+                    resetModal();
+                    
+                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                    $('#codigo').val(res.codigo || '');
+                    $('#comprobante_tipo').val(res.comprobante_tipo || '');
+                    $('#letra').val(res.letra || '');
+                    $('#signo').val(res.signo || '+');
+                    $('#orden').val(res.orden || 1);
+                    $('#comentario').val(res.comentario || '');
+                    
+                    // Checkboxes de impactos
+                    $('#impacta_stock').prop('checked', res.impacta_stock == 1);
+                    $('#impacta_contabilidad').prop('checked', res.impacta_contabilidad == 1);
+                    $('#impacta_ctacte').prop('checked', res.impacta_ctacte == 1);
+                    
+                    // Cargar selects con los valores del registro
+                    cargarGrupos(res.comprobante_grupo_id);
+                    cargarComprobantesFiscales(res.comprobante_fiscal_id);
+                    cargarEstados(res.tabla_estado_registro_id);
+                    
+                    $('#modalLabel').text('Editar Tipo de Comprobante');
+                    
+                    var modal = new bootstrap.Modal(document.getElementById('modalComprobanteTipo'));
+                    modal.show();
+                    
+                } else {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: res.error || "Error al obtener datos del tipo de comprobante",
+                        confirmButtonText: "Entendido"
+                    });
+                }
+            }, 'json').fail(function() {
                 Swal.fire({
-                    title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
-                    html: `¿Está seguro de <strong>${accionJs}</strong> el tipo de comprobante <strong>"${tipo}"</strong>?`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: `Sí, ${accionJs}`,
-                    cancelButtonText: 'Cancelar',
-                    reverseButtons: true,
-                    allowOutsideClick: false
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        ejecutarAccion(comprobanteTipoId, accionJs, tipo);
-                    }
+                    icon: "error",
+                    title: "Error de conexión",
+                    text: "No se pudo cargar los datos para editar",
+                    confirmButtonText: "Entendido"
                 });
-            } else {
-                ejecutarAccion(comprobanteTipoId, accionJs, tipo);
-            }
-        });
+            });
+        }
 
         // Función para ejecutar cualquier acción del backend
         function ejecutarAccion(comprobanteTipoId, accionJs, tipo) {
@@ -813,66 +726,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }, 'json');
         }
 
-        // Función para cargar tipo de comprobante en modal de edición
-        function cargarComprobanteTipoParaEditar(comprobanteTipoId) {
-            $.get('comprobantes_tipos_ajax.php', {
-                accion: 'obtener', 
-                comprobante_tipo_id: comprobanteTipoId,
-                empresa_idx: empresa_idx
-            }, function(res){
-                if(res && res.comprobante_tipo_id){
-                    resetModal();
-                    
-                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
-                    $('#codigo').val(res.codigo || '');
-                    $('#comprobante_tipo').val(res.comprobante_tipo || '');
-                    $('#letra').val(res.letra || '');
-                    $('#signo').val(res.signo || '+');
-                    $('#orden').val(res.orden || 1);
-                    $('#comentario').val(res.comentario || '');
-                    
-                    // Checkboxes de impactos
-                    $('#impacta_stock').prop('checked', res.impacta_stock == 1);
-                    $('#impacta_contabilidad').prop('checked', res.impacta_contabilidad == 1);
-                    $('#impacta_ctacte').prop('checked', res.impacta_ctacte == 1);
-                    
-                    cargarGrupos(res.comprobante_grupo_id);
-                    cargarComprobantesFiscales(res.comprobante_fiscal_id);
-                    cargarEstados(res.tabla_estado_registro_id);
-                    
-                    $('#modalLabel').text('Editar Tipo de Comprobante');
-                    
-                    var modal = new bootstrap.Modal(document.getElementById('modalComprobanteTipo'));
-                    modal.show();
-                    
-                } else {
-                    Swal.fire({
-                        icon: "error",
-                        title: "Error",
-                        text: "Error al obtener datos del tipo de comprobante",
-                        confirmButtonText: "Entendido"
-                    });
-                }
-            }, 'json');
-        }
-
-        // Función para resetear el modal
-        function resetModal() {
-            $('#formComprobanteTipo')[0].reset();
-            $('#comprobante_tipo_id').val('');
-            $('#formComprobanteTipo').removeClass('was-validated');
-            
-            // Resetear checkboxes a unchecked
-            $('#impacta_stock').prop('checked', false);
-            $('#impacta_contabilidad').prop('checked', false);
-            $('#impacta_ctacte').prop('checked', false);
-            
-            // Resetear selects a valor por defecto
-            $('#signo').val('+');
-            $('#orden').val('1');
-        }
-
-        // Validación del formulario
+        // Validación del formulario y guardar
         $('#btnGuardar').click(function(){
             var form = document.getElementById('formComprobanteTipo');
             
@@ -891,12 +745,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var signo = $('#signo').val();
             var orden = $('#orden').val() || 1;
             
-            if (!codigo) {
+            // Validaciones
+            if (!codigo || codigo.length > 10) {
                 $('#codigo').addClass('is-invalid');
                 return false;
             }
             
-            if (!comprobanteTipo) {
+            if (!comprobanteTipo || comprobanteTipo.length > 100) {
                 $('#comprobante_tipo').addClass('is-invalid');
                 return false;
             }
@@ -908,16 +763,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             
             if (!comprobanteFiscalId) {
                 $('#comprobante_fiscal_id').addClass('is-invalid');
-                return false;
-            }
-            
-            if (codigo.length > 10) {
-                $('#codigo').addClass('is-invalid');
-                return false;
-            }
-            
-            if (comprobanteTipo.length > 100) {
-                $('#comprobante_tipo').addClass('is-invalid');
                 return false;
             }
             
@@ -967,21 +812,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 tabla.search(savedState.search).draw();
                             }
                             
-                            if (id) {
-                                tabla.rows().every(function(rowIdx, tableLoop, rowLoop) {
-                                    var data = this.data();
-                                    if (data.comprobante_tipo_id == id) {
-                                        $(this.node()).addClass('table-success');
-                                        setTimeout(function() {
-                                            $(this.node()).removeClass('table-success');
-                                        }.bind(this), 2000);
-                                    }
-                                });
-                            }
-                            
                             btnGuardar.prop('disabled', false).html(originalText);
                             
-                            Swal.fire({                    
+                            Swal.fire({
                                 icon: "success",
                                 title: "¡Guardado!",
                                 text: "Tipo de comprobante guardado correctamente",
@@ -1017,25 +850,50 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             });
         });
 
-        // Manejadores para los botones del dropdown de exportación
-        $('#btnExportarExcel').click(function(e) {
-            e.preventDefault();
-            $('.buttons-excel').click();
+        // Manejador para botón "Agregar"
+        $(document).on('click', '#btnNuevo', function(){
+            resetModal();
+            $('#modalLabel').text('Nuevo Tipo de Comprobante');
+            
+            // Cargar selects
+            cargarGrupos();
+            cargarComprobantesFiscales();
+            cargarEstados();
+            
+            var modal = new bootstrap.Modal(document.getElementById('modalComprobanteTipo'));
+            modal.show();
+            $('#codigo').focus();
         });
-        
-        $('#btnExportarPDF').click(function(e) {
-            e.preventDefault();
-            $('.buttons-pdf').click();
-        });
-        
-        $('#btnExportarCSV').click(function(e) {
-            e.preventDefault();
-            $('.buttons-csv').click();
-        });
-        
-        $('#btnExportarPrint').click(function(e) {
-            e.preventDefault();
-            $('.buttons-print').click();
+
+        // Manejador para botones de acción dinámicos
+        $(document).on('click', '.btn-accion', function(){
+            var comprobanteTipoId = $(this).data('id');
+            var accionJs = $(this).data('accion');
+            var confirmable = $(this).data('confirmable');
+            var tipo = $(this).data('tipo');
+            
+            if (accionJs === 'editar') {
+                cargarComprobanteTipoParaEditar(comprobanteTipoId);
+            } else if (confirmable == 1) {
+                Swal.fire({
+                    title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
+                    html: `¿Está seguro de <strong>${accionJs}</strong> el tipo de comprobante <strong>"${tipo}"</strong>?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: `Sí, ${accionJs}`,
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true,
+                    allowOutsideClick: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        ejecutarAccion(comprobanteTipoId, accionJs, tipo);
+                    }
+                });
+            } else {
+                ejecutarAccion(comprobanteTipoId, accionJs, tipo);
+            }
         });
 
         // Inicializar
@@ -1066,15 +924,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     });
     </script>
     
-    <!-- Librerías necesarias para DataTables Buttons -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </main>
 

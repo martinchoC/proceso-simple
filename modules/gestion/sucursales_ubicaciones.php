@@ -51,26 +51,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="card-body">
-                                        <!-- Filtros -->
-                                        <div class="row mb-3">
-                                            <div class="col-md-4">
-                                                <label for="filterSucursal" class="form-label">Filtrar por Sucursal</label>
-                                                <select class="form-select form-select-sm" id="filterSucursal">
-                                                    <option value="">Todas las sucursales</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label for="filterEstado" class="form-label">Filtrar por Estado</label>
-                                                <select class="form-select form-select-sm" id="filterEstado">
-                                                    <option value="">Todos los estados</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label for="filterBusqueda" class="form-label">Búsqueda general</label>
-                                                <input type="text" class="form-control form-control-sm" id="filterBusqueda" placeholder="Buscar...">
-                                            </div>
-                                        </div>
-
                                         <!-- DataTable -->
                                         <table id="tablaSucursalesUbicaciones" class="table table-striped table-bordered" style="width:100%">
                                             <thead class="table-light">
@@ -188,15 +168,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 empresa_idx: empresa_idx
             }, function(sucursales){
                 var select = $('#sucursal_id');
-                var filterSelect = $('#filterSucursal');
                 
                 // Select del formulario
                 select.empty();
                 select.append('<option value="">Seleccionar sucursal...</option>');
-                
-                // Select del filtro
-                filterSelect.empty();
-                filterSelect.append('<option value="">Todas las sucursales</option>');
                 
                 $.each(sucursales, function(index, sucursal){
                     var optionText = sucursal.sucursal_nombre;
@@ -207,9 +182,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     // Para el formulario
                     var selected = (selectedId && sucursal.sucursal_id == selectedId) ? 'selected' : '';
                     select.append(`<option value="${sucursal.sucursal_id}" ${selected}>${optionText}</option>`);
-                    
-                    // Para el filtro
-                    filterSelect.append(`<option value="${sucursal.sucursal_id}">${optionText}</option>`);
                 });
             }, 'json');
         }
@@ -220,23 +192,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 accion: 'obtener_estados_registro'
             }, function(estados){
                 var select = $('#estado_registro_id');
-                var filterSelect = $('#filterEstado');
                 
                 // Select del formulario
                 select.empty();
                 select.append('<option value="">Seleccionar estado...</option>');
                 
-                // Select del filtro
-                filterSelect.empty();
-                filterSelect.append('<option value="">Todos los estados</option>');
-                
                 $.each(estados, function(index, estado){
                     // Para el formulario
                     var selected = (selectedId && estado.estado_registro_id == selectedId) ? 'selected' : '';
                     select.append(`<option value="${estado.estado_registro_id}" ${selected}>${estado.estado_registro}</option>`);
-                    
-                    // Para el filtro
-                    filterSelect.append(`<option value="${estado.estado_registro_id}">${estado.estado_registro}</option>`);
                 });
             }, 'json');
         }
@@ -251,18 +215,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         accion: 'listar',
                         empresa_idx: empresa_idx,
                         pagina_idx: pagina_idx,
-                        filter_sucursal: currentFilters.sucursal,
-                        filter_estado: currentFilters.estado,
-                        filter_busqueda: currentFilters.busqueda
+                        filter_sucursal: currentFilters.sucursal
                     };
                 },
                 dataSrc: ''
             },
             pageLength: 50,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex align-items-center justify-content-end"<"#filterContainer">>>' +
                  '<"row"<"col-sm-12"tr>>' +
                  '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            },
             columns: [
                 { 
                     data: 'sucursal_ubicacion_id',
@@ -376,9 +341,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 }
             ],
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
             // ✅ ORDENAR POR: sucursal, sección, estantería y estante
             order: [[1, 'asc'], [2, 'asc'], [3, 'asc'], [4, 'asc']],
             responsive: true,
@@ -392,15 +354,52 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }
             },
             initComplete: function() {
+                // Crear contenedor para el filtro de sucursal
+                var filterHtml = `
+                    <div class="d-flex align-items-center ms-3">
+                        <label for="filterSucursal" class="form-label mb-0 me-2">Filtrar por Sucursal:</label>
+                        <select class="form-select form-select-sm" id="filterSucursal" style="width: auto;">
+                            <option value="">Todas las sucursales</option>
+                        </select>
+                    </div>
+                `;
+                
+                // Insertar el filtro en el contenedor designado
+                $('#filterContainer').html(filterHtml);
+                
+                // Cargar opciones de sucursales en el filtro
+                cargarSucursalesFiltro();
+                
                 // Aplicar filtros guardados del stateSave
                 this.api().state.loaded(function(state) {
                     if (state && state.search) {
-                        $('#filterBusqueda').val(state.search.search);
-                        currentFilters.busqueda = state.search.search;
+                        // No aplicamos búsqueda general ya que quitamos este filtro
                     }
                 });
             }
         });
+
+        // Cargar sucursales solo para el filtro
+        function cargarSucursalesFiltro() {
+            $.get('sucursales_ubicaciones_ajax.php', {
+                accion: 'obtener_sucursales_activas',
+                empresa_idx: empresa_idx
+            }, function(sucursales){
+                var filterSelect = $('#filterSucursal');
+                
+                filterSelect.empty();
+                filterSelect.append('<option value="">Todas las sucursales</option>');
+                
+                $.each(sucursales, function(index, sucursal){
+                    var optionText = sucursal.sucursal_nombre;
+                    if (sucursal.localidad) {
+                        optionText += ` (${sucursal.localidad})`;
+                    }
+                    
+                    filterSelect.append(`<option value="${sucursal.sucursal_id}">${optionText}</option>`);
+                });
+            }, 'json');
+        }
 
         // Función para exportar datos
         function exportarDatos(formato) {
@@ -492,25 +491,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             });
         }
 
-        // Manejadores de filtros
-        $('#filterSucursal').change(function() {
+        // Manejador del filtro de sucursal
+        $(document).on('change', '#filterSucursal', function() {
             currentFilters.sucursal = $(this).val();
             tabla.ajax.reload();
-        });
-
-        $('#filterEstado').change(function() {
-            currentFilters.estado = $(this).val();
-            tabla.ajax.reload();
-        });
-
-        $('#filterBusqueda').on('keyup', function() {
-            currentFilters.busqueda = $(this).val();
-            clearTimeout($(this).data('timeout'));
-            
-            // Debounce para evitar múltiples llamadas
-            $(this).data('timeout', setTimeout(function() {
-                tabla.ajax.reload();
-            }, 500));
         });
 
         // Manejador para botón "Exportar"
