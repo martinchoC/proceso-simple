@@ -390,7 +390,7 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
                               $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
                               ?>
                               <li class="nav-item">
-                                  <a href="<?= $submenu_row['url'] ?>" class="nav-link <?= $is_submenu_active ? 'active' : '' ?>" style="padding-left: 15px;">
+                                  <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?>" class="nav-link <?= $is_submenu_active ? 'active' : '' ?>" style="padding-left: 15px;">
                                       <i class="nav-icon <?= $submenu_row['icono_clase'] ?>"></i>
                                       <p><?= $submenu_row['pagina'] ?></p>
                                       <?php if ($is_submenu_active): ?>

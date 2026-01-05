@@ -1,57 +1,93 @@
 <?php
 require_once __DIR__ . '/../../conexion.php';
 
-// ✅ Configuración de la tabla (para gestion__comprobantes_tipos)
-$tabla_idx = 36; // Tabla ID para gestion__comprobantes_tipos
-$pagina_idx = 45;
+/**
+ * Modelo para gestión de tipos de comprobantes
+ * Toda la configuración se obtiene de conf__paginas_funciones
+ */
 
-// ✅ Sistema completo de botones dinámicos
-function obtenerPaginaPorUrl($conexion, $url) {
-    $url = mysqli_real_escape_string($conexion, $url);
-    $sql = "SELECT * FROM `conf__paginas` WHERE url = '$url' AND estado_registro_id = 1";
-    $res = mysqli_query($conexion, $sql);
-    return mysqli_fetch_assoc($res);
-}
-
-function obtenerFuncionesPorPagina($conexion, $pagina_id) {
+// ✅ Obtener funciones configuradas para la página desde conf__paginas_funciones
+function obtenerFuncionesPagina($conexion, $pagina_id) {
     $pagina_id = intval($pagina_id);
     
     $sql = "SELECT pf.*, i.icono_clase, c.color_clase, c.bg_clase, c.text_clase
-            FROM `conf__paginas_funciones` pf
-            LEFT JOIN `conf__iconos` i ON pf.icono_id = i.icono_id
-            LEFT JOIN `conf__colores` c ON pf.color_id = c.color_id
-            WHERE pf.pagina_id = $pagina_id 
-            ORDER BY pf.estado_registro_origen_id, pf.orden";
+            FROM conf__paginas_funciones pf
+            LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
+            LEFT JOIN conf__colores c ON pf.color_id = c.color_id
+            WHERE pf.pagina_id = ? 
+            AND pf.tabla_estado_registro_id = 1 -- Solo funciones activas
+            ORDER BY pf.tabla_estado_registro_origen_id, pf.orden";
     
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $pagina_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $funciones = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $funciones[] = $fila;
     }
-    return $data;
+    
+    mysqli_stmt_close($stmt);
+    return $funciones;
 }
 
-function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual) {
-    $funciones = obtenerFuncionesPorPagina($conexion, $pagina_id);
+// ✅ Obtener información de un estado específico
+function obtenerInfoEstado($conexion, $estado_registro_id) {
+    $sql = "SELECT estado_registro, codigo_estandar 
+            FROM conf__estados_registros 
+            WHERE estado_registro_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $estado_registro_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $info = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $info;
+}
+
+// ✅ Obtener todos los estados disponibles
+function obtenerEstadosRegistro($conexion) {
+    $sql = "SELECT estado_registro_id, estado_registro, codigo_estandar 
+            FROM conf__estados_registros 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY estado_registro";
+    
+    $result = mysqli_query($conexion, $sql);
+    $estados = [];
+    
+    if ($result) {
+        while ($fila = mysqli_fetch_assoc($result)) {
+            $estados[] = $fila;
+        }
+    }
+    
+    return $estados;
+}
+
+// ✅ Obtener botones disponibles según el estado actual
+function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id) {
+    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
     $botones = [];
     
     foreach ($funciones as $funcion) {
-        // Obtener el código estándar del estado origen para comparar
-        $codigo_origen = obtenerCodigoEstandarPorEstado($conexion, $funcion['estado_registro_origen_id']);
-        
-        if ($codigo_origen == $estado_actual) {
-            $accion_js = $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']);
-            
+        if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
             $botones[] = [
                 'nombre_funcion' => $funcion['nombre_funcion'],
-                'accion_js' => $accion_js,
+                'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
                 'icono_clase' => $funcion['icono_clase'],
                 'color_clase' => $funcion['color_clase'] ?? 'btn-outline-primary',
                 'bg_clase' => $funcion['bg_clase'] ?? '',
                 'text_clase' => $funcion['text_clase'] ?? '',
-                'estado_destino' => $funcion['estado_registro_destino_id'],
-                'es_confirmable' => $funcion['es_confirmable'] ?? 0,
-                'descripcion' => $funcion['descripcion']
+                'descripcion' => $funcion['descripcion'],
+                'estado_destino_id' => $funcion['tabla_estado_registro_destino_id'],
+                'es_confirmable' => ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0
             ];
         }
     }
@@ -59,12 +95,12 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual) {
     return $botones;
 }
 
+// ✅ Obtener botón "Agregar" específico para la página
 function obtenerBotonAgregar($conexion, $pagina_id) {
-    $funciones = obtenerFuncionesPorPagina($conexion, $pagina_id);
+    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
     
     foreach ($funciones as $funcion) {
-        // Estado origen 0 significa "Agregar nuevo"
-        if ($funcion['estado_registro_origen_id'] == 0 && $funcion['nombre_funcion'] == 'Agregar') {
+        if ($funcion['tabla_estado_registro_origen_id'] == 0) {
             return [
                 'nombre_funcion' => $funcion['nombre_funcion'],
                 'accion_js' => $funcion['accion_js'] ?? 'agregar',
@@ -77,9 +113,9 @@ function obtenerBotonAgregar($conexion, $pagina_id) {
         }
     }
     
-    // Botón por defecto si no hay configuración
+    // Si no hay configuración, usar valores por defecto
     return [
-        'nombre_funcion' => 'Nuevo Tipo',
+        'nombre_funcion' => 'Agregar Tipo',
         'accion_js' => 'agregar',
         'icono_clase' => 'fas fa-plus',
         'color_clase' => 'btn-primary',
@@ -88,269 +124,522 @@ function obtenerBotonAgregar($conexion, $pagina_id) {
     ];
 }
 
-// ✅ Función para obtener código estándar por estado
-function obtenerCodigoEstandarPorEstado($conexion, $estado_registro_id) {
-    global $tabla_idx;
-    $estado_registro_id = intval($estado_registro_id);
+// ✅ Obtener estado inicial para nuevos tipos de comprobantes
+function obtenerEstadoInicial($conexion) {
+    $sql = "SELECT estado_registro_id 
+            FROM conf__estados_registros 
+            WHERE valor_estandar IS NOT NULL
+            ORDER BY valor_estandar ASC 
+            LIMIT 1";
     
-    if ($estado_registro_id == 0) return '0'; // Para botón agregar
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) return 1;
     
-    $sql = "SELECT codigo_estandar FROM conf__tablas_estados_registros 
-            WHERE estado_registro_id = $estado_registro_id AND tabla_id = $tabla_idx";
-    $res = mysqli_query($conexion, $sql);
-    $fila = mysqli_fetch_assoc($res);
-    return $fila ? $fila['codigo_estandar'] : null;
+    $fila = mysqli_fetch_assoc($result);
+    return $fila ? $fila['estado_registro_id'] : 1;
 }
 
-// ✅ Función para obtener estado_registro_id por código estándar
-function obtenerEstadoPorCodigoEstandar($conexion, $codigo_estandar) {
-    global $tabla_idx;
-    $codigo_estandar = mysqli_real_escape_string($conexion, $codigo_estandar);
-    $sql = "SELECT estado_registro_id FROM conf__tablas_estados_registros 
-            WHERE codigo_estandar = '$codigo_estandar' AND tabla_id = $tabla_idx";
-    $res = mysqli_query($conexion, $sql);
-    $fila = mysqli_fetch_assoc($res);
-    return $fila ? $fila['estado_registro_id'] : null;
-}
-
-// ✅ Función para ejecutar transición de estado usando códigos estándar
-function ejecutarTransicionEstado($conexion, $comprobante_tipo_id, $funcion_nombre, $pagina_id) {
+// ✅ Ejecutar transición de estado basada en conf__paginas_funciones
+function ejecutarTransicionEstado($conexion, $comprobante_tipo_id, $accion_js, $empresa_idx, $pagina_id) {
     $comprobante_tipo_id = intval($comprobante_tipo_id);
+    $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
     
-    // Obtener el código estándar actual del tipo de comprobante
-    $codigo_actual = obtenerCodigoEstandarComprobanteTipo($conexion, $comprobante_tipo_id);
+    // Verificar que el tipo pertenezca a la empresa
+    $sql_check = "SELECT ct.comprobante_tipo_id, ct.tabla_estado_registro_id 
+                  FROM gestion__comprobantes_tipos ct
+                  WHERE ct.comprobante_tipo_id = ? AND ct.empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
     
-    // Obtener la función para saber a qué estado transicionar
-    $funciones = obtenerFuncionesPorPagina($conexion, $pagina_id);
-    $estado_destino_id = null;
+    mysqli_stmt_bind_param($stmt, "ii", $comprobante_tipo_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $tipo = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
     
-    foreach ($funciones as $funcion) {
-        $codigo_origen = obtenerCodigoEstandarPorEstado($conexion, $funcion['estado_registro_origen_id']);
-        
-        if ($codigo_origen == $codigo_actual && $funcion['nombre_funcion'] == $funcion_nombre) {
-            $estado_destino_id = $funcion['estado_registro_destino_id'];
-            break;
+    if (!$tipo) return ['success' => false, 'error' => 'Acceso denegado o registro no encontrado'];
+    
+    $estado_actual_id = $tipo['tabla_estado_registro_id'];
+    
+    // Buscar la función correspondiente en conf__paginas_funciones
+    $sql_funcion = "SELECT pf.* 
+                    FROM conf__paginas_funciones pf
+                    WHERE pf.pagina_id = ? 
+                    AND pf.tabla_estado_registro_origen_id = ? 
+                    AND pf.accion_js = ?
+                    LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_funcion);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "iis", $pagina_id, $estado_actual_id, $accion_js);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $funcion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if (!$funcion) return ['success' => false, 'error' => 'Acción no permitida para este estado'];
+    
+    $estado_destino_id = $funcion['tabla_estado_registro_destino_id'];
+    
+    if ($estado_destino_id == $estado_actual_id) {
+        return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
+    }
+    
+    // Actualizar el estado
+    $sql_update = "UPDATE gestion__comprobantes_tipos 
+                   SET tabla_estado_registro_id = ? 
+                   WHERE comprobante_tipo_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $comprobante_tipo_id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true, 'message' => 'Estado actualizado correctamente'];
+    } else {
+        return ['success' => false, 'error' => 'Error al actualizar el estado'];
+    }
+}
+
+// ✅ Obtener grupos de comprobantes activos
+function obtenerGruposActivos($conexion, $empresa_idx) {
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT cg.comprobante_grupo_id, cg.comprobante_grupo
+            FROM gestion__comprobantes_grupos cg
+            WHERE cg.empresa_id = ? 
+            AND cg.tabla_estado_registro_id = 1
+            ORDER BY cg.comprobante_grupo";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $grupos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $grupos[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $grupos;
+}
+
+// ✅ Obtener comprobantes fiscales
+function obtenerComprobantesFiscales($conexion) {
+    $sql = "SELECT cf.comprobante_fiscal_id, cf.codigo, cf.comprobante_fiscal
+            FROM gestion__comprobantes_fiscales cf
+            WHERE cf.tabla_estado_registro_id = 1
+            ORDER BY cf.codigo, cf.comprobante_fiscal";
+    
+    $result = mysqli_query($conexion, $sql);
+    $comprobantes = [];
+    
+    if ($result) {
+        while ($fila = mysqli_fetch_assoc($result)) {
+            $comprobantes[] = $fila;
         }
     }
     
-    if ($estado_destino_id === null) {
-        return ['success' => false, 'error' => 'Transición no permitida'];
+    return $comprobantes;
+}
+
+// ✅ Obtener todos los tipos de comprobantes con filtros
+function obtenerComprobantesTipos($conexion, $empresa_idx, $pagina_id, $filters = []) {
+    $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
+    
+    $sql = "SELECT ct.*, 
+                   cg.comprobante_grupo,
+                   cf.comprobante_fiscal, cf.codigo as fiscal_codigo,
+                   er.estado_registro, er.codigo_estandar,
+                   c.color_clase, c.bg_clase, c.text_clase
+            FROM gestion__comprobantes_tipos ct
+            LEFT JOIN gestion__comprobantes_grupos cg ON ct.comprobante_grupo_id = cg.comprobante_grupo_id
+            LEFT JOIN gestion__comprobantes_fiscales cf ON ct.comprobante_fiscal_id = cf.comprobante_fiscal_id
+            LEFT JOIN conf__estados_registros er ON ct.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores c ON er.color_id = c.color_id
+            WHERE ct.empresa_id = ?";
+    
+    $params = [$empresa_idx];
+    $types = "i";
+    
+    // Aplicar filtros
+    if (!empty($filters['grupo'])) {
+        $sql .= " AND ct.comprobante_grupo_id = ?";
+        $params[] = intval($filters['grupo']);
+        $types .= "i";
     }
     
-    // Ejecutar la transición actualizando el estado
-    $sql = "UPDATE gestion__comprobantes_tipos 
-            SET estado_registro_id = ? 
-            WHERE comprobante_tipo_id = ?";
+    if (!empty($filters['estado'])) {
+        $sql .= " AND ct.tabla_estado_registro_id = ?";
+        $params[] = intval($filters['estado']);
+        $types .= "i";
+    }
+    
+    if (!empty($filters['busqueda'])) {
+        $sql .= " AND (ct.codigo LIKE ? OR ct.comprobante_tipo LIKE ? OR ct.comentario LIKE ?)";
+        $search_term = '%' . $filters['busqueda'] . '%';
+        $params[] = $search_term;
+        $params[] = $search_term;
+        $params[] = $search_term;
+        $types .= "sss";
+    }
+    
+    $sql .= " ORDER BY ct.orden ASC, ct.comprobante_tipo ASC";
     
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $comprobante_tipo_id);
+    if (!$stmt) return [];
     
-    if (mysqli_stmt_execute($stmt)) {
-        return ['success' => true, 'nuevo_estado' => obtenerCodigoEstandarPorEstado($conexion, $estado_destino_id)];
-    } else {
-        return ['success' => false, 'error' => 'Error en la base de datos: ' . mysqli_error($conexion)];
-    }
-}
-
-function obtenerCodigoEstandarComprobanteTipo($conexion, $comprobante_tipo_id) {
-    global $tabla_idx;
-    $comprobante_tipo_id = intval($comprobante_tipo_id);
-    $sql = "SELECT er.codigo_estandar 
-            FROM gestion__comprobantes_tipos ct
-            INNER JOIN conf__tablas_estados_registros er ON ct.estado_registro_id = er.estado_registro_id
-            WHERE ct.comprobante_tipo_id = $comprobante_tipo_id AND er.tabla_id = $tabla_idx";
-    $res = mysqli_query($conexion, $sql);
-    $fila = mysqli_fetch_assoc($res);
-    return $fila ? $fila['codigo_estandar'] : null;
-}
-
-// ✅ Funciones CRUD básicas para tipos de comprobantes
-function obtenerComprobantesTipos($conexion, $empresa_id, $pagina_id) {
-    global $tabla_idx;
-    $empresa_id = intval($empresa_id);
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
     
-    $sql = "SELECT 
-                ct.*,
-                cg.comprobante_grupo,
-                IFNULL(cf.comprobante_fiscal, 'Sin tipo fiscal') as comprobante_fiscal,
-                er.estado_registro,
-                er.codigo_estandar
-            FROM `gestion__comprobantes_tipos` ct
-            LEFT JOIN `gestion__comprobantes_grupos` cg ON ct.comprobante_grupo_id = cg.comprobante_grupo_id
-            LEFT JOIN `gestion__comprobantes_fiscales` cf ON ct.comprobante_fiscal_id = cf.comprobante_fiscal_id
-            INNER JOIN conf__tablas_estados_registros er ON ct.estado_registro_id = er.estado_registro_id
-            WHERE cg.empresa_id = $empresa_id AND er.tabla_id = $tabla_idx
-            ORDER BY cg.comprobante_grupo_id, ct.orden, ct.comprobante_tipo";
-    
-    $res = mysqli_query($conexion, $sql);
     $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        // Agregar botones disponibles para cada tipo según su código estándar
-        $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['codigo_estandar']);
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? '';
+        $bg_clase = $fila['bg_clase'] ?? '';
+        $text_clase = $fila['text_clase'] ?? '';
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        $fila['grupo_info'] = [
+            'comprobante_grupo' => $fila['comprobante_grupo'] ?? 'Sin grupo'
+        ];
+        
+        $fila['comprobante_fiscal_info'] = [
+            'comprobante_fiscal' => $fila['comprobante_fiscal'] ?? 'Sin comprobante',
+            'codigo' => $fila['fiscal_codigo'] ?? null
+        ];
+        
+        $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $data[] = $fila;
     }
+    
+    mysqli_stmt_close($stmt);
     return $data;
 }
 
-function obtenerComprobantesGruposActivos($conexion, $empresa_id) {
-    $empresa_id = intval($empresa_id);
-    $sql = "SELECT * FROM `gestion__comprobantes_grupos` 
-            WHERE empresa_id = $empresa_id 
-            AND estado_registro_id = 1
-            ORDER BY comprobante_grupo";
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
-    }
-    return $data;
-}
-
-function obtenerComprobantesFiscalesActivos($conexion) {
-    $sql = "SELECT * FROM `gestion__comprobantes_fiscales` 
-            WHERE estado_registro_id = 1
-            ORDER BY comprobante_fiscal";
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
-    }
-    return $data;
-}
-
+// ✅ Agregar nuevo tipo de comprobante
 function agregarComprobanteTipo($conexion, $data) {
-    global $tabla_idx;
-    
-    if (empty($data['comprobante_tipo']) || empty($data['codigo']) || empty($data['comprobante_grupo_id'])) {
-        return false;
-    }
-    
-    $comprobante_tipo = mysqli_real_escape_string($conexion, $data['comprobante_tipo']);
-    $codigo = mysqli_real_escape_string($conexion, $data['codigo']);
-    $letra = mysqli_real_escape_string($conexion, $data['letra'] ?? '');
-    $comentario = mysqli_real_escape_string($conexion, $data['comentario'] ?? '');
-    $comprobante_grupo_id = intval($data['comprobante_grupo_id']);
-    $comprobante_fiscal_id = intval($data['comprobante_fiscal_id']);
-    $orden = intval($data['orden'] ?? 0);
+    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
+    $comprobante_tipo = mysqli_real_escape_string($conexion, trim($data['comprobante_tipo'] ?? ''));
+    $comprobante_grupo_id = intval($data['comprobante_grupo_id'] ?? 0);
+    $comprobante_fiscal_id = intval($data['comprobante_fiscal_id'] ?? 0);
+    $letra = mysqli_real_escape_string($conexion, trim($data['letra'] ?? ''));
+    $signo = mysqli_real_escape_string($conexion, trim($data['signo'] ?? '+'));
+    $orden = intval($data['orden'] ?? 1);
     $impacta_stock = intval($data['impacta_stock'] ?? 0);
     $impacta_contabilidad = intval($data['impacta_contabilidad'] ?? 0);
     $impacta_ctacte = intval($data['impacta_ctacte'] ?? 0);
-    $signo = mysqli_real_escape_string($conexion, $data['signo'] ?? '+');
-
-    // Obtener el estado inicial (Confirmado - código 20)
-    $estado_inicial = obtenerEstadoPorCodigoEstandar($conexion, '20');
-    if (!$estado_inicial) {
-        // Fallback: buscar cualquier estado activo para esta tabla
-        $sql_estado = "SELECT estado_registro_id FROM conf__tablas_estados_registros WHERE tabla_id = $tabla_idx LIMIT 1";
-        $res_estado = mysqli_query($conexion, $sql_estado);
-        $fila_estado = mysqli_fetch_assoc($res_estado);
-        $estado_inicial = $fila_estado ? $fila_estado['estado_registro_id'] : 1;
-    }
-
-    // Verificar si ya existe el tipo para este grupo
-    $sql_check = "SELECT COUNT(*) as existe FROM `gestion__comprobantes_tipos` 
-                  WHERE comprobante_tipo = '$comprobante_tipo' 
-                  AND comprobante_grupo_id = $comprobante_grupo_id";
-    $res_check = mysqli_query($conexion, $sql_check);
-    $existe = mysqli_fetch_assoc($res_check)['existe'];
+    $comentario = mysqli_real_escape_string($conexion, trim($data['comentario'] ?? ''));
+    $estado_registro_id = isset($data['estado_registro_id']) ? intval($data['estado_registro_id']) : obtenerEstadoInicial($conexion);
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
     
-    if ($existe > 0) {
-        return false; // Ya existe este tipo para este grupo
+    // Validaciones básicas
+    if (empty($codigo)) {
+        return ['resultado' => false, 'error' => 'El código es obligatorio'];
     }
-
-    $sql = "INSERT INTO `gestion__comprobantes_tipos` 
-            (comprobante_grupo_id, comprobante_fiscal_id, orden, impacta_stock, impacta_contabilidad, 
-             impacta_ctacte, comprobante_tipo, codigo, letra, signo, comentario, estado_registro_id) 
-            VALUES 
-            ($comprobante_grupo_id, $comprobante_fiscal_id, $orden, $impacta_stock, $impacta_contabilidad,
-             $impacta_ctacte, '$comprobante_tipo', '$codigo', '$letra', '$signo', '$comentario', $estado_inicial)";
     
-    return mysqli_query($conexion, $sql);
+    if (empty($comprobante_tipo)) {
+        return ['resultado' => false, 'error' => 'El tipo de comprobante es obligatorio'];
+    }
+    
+    if ($comprobante_grupo_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un grupo válido'];
+    }
+    
+    if ($comprobante_fiscal_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un comprobante fiscal válido'];
+    }
+    
+    if (strlen($codigo) > 10) {
+        return ['resultado' => false, 'error' => 'El código no puede exceder los 10 caracteres'];
+    }
+    
+    if (strlen($comprobante_tipo) > 100) {
+        return ['resultado' => false, 'error' => 'El tipo de comprobante no puede exceder los 100 caracteres'];
+    }
+    
+    if (strlen($letra) > 1) {
+        return ['resultado' => false, 'error' => 'La letra no puede exceder 1 caracter'];
+    }
+    
+    if (!in_array($signo, ['+', '-', '+/-'])) {
+        return ['resultado' => false, 'error' => 'El signo debe ser +, - o +/-'];
+    }
+    
+    if ($orden < 1 || $orden > 999) {
+        return ['resultado' => false, 'error' => 'El orden debe estar entre 1 y 999'];
+    }
+    
+    if (strlen($comentario) > 255) {
+        return ['resultado' => false, 'error' => 'El comentario no puede exceder los 255 caracteres'];
+    }
+    
+    // Verificar que el grupo pertenezca a la empresa
+    $sql_check_grupo = "SELECT comprobante_grupo_id FROM gestion__comprobantes_grupos 
+                       WHERE comprobante_grupo_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check_grupo);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $comprobante_grupo_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'El grupo seleccionado no pertenece a esta empresa'];
+    }
+    
+    // Verificar que el comprobante fiscal exista
+    $sql_check_fiscal = "SELECT comprobante_fiscal_id FROM gestion__comprobantes_fiscales 
+                         WHERE comprobante_fiscal_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check_fiscal);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "i", $comprobante_fiscal_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'El comprobante fiscal seleccionado no existe'];
+    }
+    
+    // Verificar duplicados (misma empresa + mismo código)
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__comprobantes_tipos 
+                  WHERE empresa_id = ? AND codigo = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "is", $empresa_idx, $codigo);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe un tipo de comprobante con este código en la empresa'];
+    }
+    
+    // Insertar nuevo tipo de comprobante
+    $sql = "INSERT INTO gestion__comprobantes_tipos 
+            (empresa_id, comprobante_grupo_id, comprobante_fiscal_id, 
+             impacta_stock, impacta_contabilidad, impacta_ctacte,
+             comprobante_tipo, codigo, letra, signo, comentario, orden, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "iiiiiisssssii", 
+        $empresa_idx, $comprobante_grupo_id, $comprobante_fiscal_id,
+        $impacta_stock, $impacta_contabilidad, $impacta_ctacte,
+        $comprobante_tipo, $codigo, $letra, $signo, $comentario, $orden, $estado_registro_id
+    );
+    
+    $success = mysqli_stmt_execute($stmt);
+    
+    if ($success) {
+        $comprobante_tipo_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'comprobante_tipo_id' => $comprobante_tipo_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al crear el tipo de comprobante: ' . mysqli_error($conexion)];
+    }
 }
 
+// ✅ Editar tipo de comprobante existente
 function editarComprobanteTipo($conexion, $id, $data) {
-    if (empty($data['comprobante_tipo']) || empty($data['codigo']) || empty($data['comprobante_grupo_id'])) {
-        return false;
-    }
-    
     $id = intval($id);
-    $comprobante_tipo = mysqli_real_escape_string($conexion, $data['comprobante_tipo']);
-    $codigo = mysqli_real_escape_string($conexion, $data['codigo']);
-    $letra = mysqli_real_escape_string($conexion, $data['letra'] ?? '');
-    $comentario = mysqli_real_escape_string($conexion, $data['comentario'] ?? '');
-    $comprobante_grupo_id = intval($data['comprobante_grupo_id']);
-    $comprobante_fiscal_id = intval($data['comprobante_fiscal_id']);
-    $orden = intval($data['orden'] ?? 0);
+    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
+    $comprobante_tipo = mysqli_real_escape_string($conexion, trim($data['comprobante_tipo'] ?? ''));
+    $comprobante_grupo_id = intval($data['comprobante_grupo_id'] ?? 0);
+    $comprobante_fiscal_id = intval($data['comprobante_fiscal_id'] ?? 0);
+    $letra = mysqli_real_escape_string($conexion, trim($data['letra'] ?? ''));
+    $signo = mysqli_real_escape_string($conexion, trim($data['signo'] ?? '+'));
+    $orden = intval($data['orden'] ?? 1);
     $impacta_stock = intval($data['impacta_stock'] ?? 0);
     $impacta_contabilidad = intval($data['impacta_contabilidad'] ?? 0);
     $impacta_ctacte = intval($data['impacta_ctacte'] ?? 0);
-    $signo = mysqli_real_escape_string($conexion, $data['signo'] ?? '+');
-
-    // Verificar si ya existe el tipo (excluyendo el registro actual)
-    $sql_check = "SELECT COUNT(*) as existe FROM `gestion__comprobantes_tipos` 
-                  WHERE comprobante_tipo = '$comprobante_tipo' 
-                  AND comprobante_grupo_id = $comprobante_grupo_id
-                  AND comprobante_tipo_id != $id";
-    $res_check = mysqli_query($conexion, $sql_check);
-    $existe = mysqli_fetch_assoc($res_check)['existe'];
+    $comentario = mysqli_real_escape_string($conexion, trim($data['comentario'] ?? ''));
+    $estado_registro_id = isset($data['estado_registro_id']) ? intval($data['estado_registro_id']) : null;
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
     
-    if ($existe > 0) {
-        return false; // Ya existe este tipo para este grupo
+    // Validaciones básicas
+    if (empty($codigo)) {
+        return ['resultado' => false, 'error' => 'El código es obligatorio'];
     }
-
-    $sql = "UPDATE `gestion__comprobantes_tipos` SET
-            comprobante_grupo_id = $comprobante_grupo_id,
-            comprobante_fiscal_id = $comprobante_fiscal_id,
-            orden = $orden,
-            impacta_stock = $impacta_stock,
-            impacta_contabilidad = $impacta_contabilidad,
-            impacta_ctacte = $impacta_ctacte,
-            comprobante_tipo = '$comprobante_tipo',
-            codigo = '$codigo',
-            letra = '$letra',
-            signo = '$signo',
-            comentario = '$comentario'
-            WHERE comprobante_tipo_id = $id";
-
-    return mysqli_query($conexion, $sql);
+    
+    if (empty($comprobante_tipo)) {
+        return ['resultado' => false, 'error' => 'El tipo de comprobante es obligatorio'];
+    }
+    
+    if ($comprobante_grupo_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un grupo válido'];
+    }
+    
+    if ($comprobante_fiscal_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un comprobante fiscal válido'];
+    }
+    
+    if (strlen($codigo) > 10) {
+        return ['resultado' => false, 'error' => 'El código no puede exceder los 10 caracteres'];
+    }
+    
+    if (strlen($comprobante_tipo) > 100) {
+        return ['resultado' => false, 'error' => 'El tipo de comprobante no puede exceder los 100 caracteres'];
+    }
+    
+    if (strlen($letra) > 1) {
+        return ['resultado' => false, 'error' => 'La letra no puede exceder 1 caracter'];
+    }
+    
+    if (!in_array($signo, ['+', '-', '+/-'])) {
+        return ['resultado' => false, 'error' => 'El signo debe ser +, - o +/-'];
+    }
+    
+    if ($orden < 1 || $orden > 999) {
+        return ['resultado' => false, 'error' => 'El orden debe estar entre 1 y 999'];
+    }
+    
+    if (strlen($comentario) > 255) {
+        return ['resultado' => false, 'error' => 'El comentario no puede exceder los 255 caracteres'];
+    }
+    
+    // Verificar que el tipo exista y pertenezca a la empresa
+    $sql_check = "SELECT comprobante_tipo_id FROM gestion__comprobantes_tipos 
+                  WHERE comprobante_tipo_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'Acceso denegado o registro no encontrado'];
+    }
+    
+    // Verificar que el grupo pertenezca a la empresa
+    $sql_check_grupo = "SELECT comprobante_grupo_id FROM gestion__comprobantes_grupos 
+                       WHERE comprobante_grupo_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check_grupo);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $comprobante_grupo_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'El grupo seleccionado no pertenece a esta empresa'];
+    }
+    
+    // Verificar que el comprobante fiscal exista
+    $sql_check_fiscal = "SELECT comprobante_fiscal_id FROM gestion__comprobantes_fiscales 
+                         WHERE comprobante_fiscal_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check_fiscal);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "i", $comprobante_fiscal_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'El comprobante fiscal seleccionado no existe'];
+    }
+    
+    // Verificar duplicados (excluyendo registro actual)
+    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__comprobantes_tipos 
+                      WHERE empresa_id = ? AND codigo = ? AND comprobante_tipo_id != ?";
+    $stmt = mysqli_prepare($conexion, $sql_duplicate);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "isi", $empresa_idx, $codigo, $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe otro tipo de comprobante con este código en la empresa'];
+    }
+    
+    // Construir consulta de actualización
+    $sql = "UPDATE gestion__comprobantes_tipos 
+            SET comprobante_grupo_id = ?, comprobante_fiscal_id = ?, 
+                impacta_stock = ?, impacta_contabilidad = ?, impacta_ctacte = ?,
+                comprobante_tipo = ?, codigo = ?, letra = ?, signo = ?, 
+                comentario = ?, orden = ?";
+    
+    $params = [$comprobante_grupo_id, $comprobante_fiscal_id,
+               $impacta_stock, $impacta_contabilidad, $impacta_ctacte,
+               $comprobante_tipo, $codigo, $letra, $signo, $comentario, $orden];
+    $types = "iiiiiissssi";
+    
+    if ($estado_registro_id) {
+        $sql .= ", tabla_estado_registro_id = ?";
+        $params[] = $estado_registro_id;
+        $types .= "i";
+    }
+    
+    $sql .= " WHERE comprobante_tipo_id = ?";
+    $params[] = $id;
+    $types .= "i";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['resultado' => true];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar el tipo de comprobante: ' . mysqli_error($conexion)];
+    }
 }
 
-function cambiarEstadoComprobanteTipo($conexion, $id, $nuevo_estado) {
+// ✅ Obtener tipo de comprobante específico
+function obtenerComprobanteTipoPorId($conexion, $id, $empresa_idx) {
     $id = intval($id);
-    $nuevo_estado = intval($nuevo_estado);
+    $empresa_idx = intval($empresa_idx);
     
-    $sql = "UPDATE `gestion__comprobantes_tipos` 
-            SET estado_registro_id = $nuevo_estado 
-            WHERE comprobante_tipo_id = $id";
-    return mysqli_query($conexion, $sql);
-}
-
-function eliminarComprobanteTipo($conexion, $id) {
-    $id = intval($id);
+    $sql = "SELECT ct.*, cg.comprobante_grupo, cf.comprobante_fiscal, er.estado_registro, er.codigo_estandar
+            FROM gestion__comprobantes_tipos ct
+            LEFT JOIN gestion__comprobantes_grupos cg ON ct.comprobante_grupo_id = cg.comprobante_grupo_id
+            LEFT JOIN gestion__comprobantes_fiscales cf ON ct.comprobante_fiscal_id = cf.comprobante_fiscal_id
+            LEFT JOIN conf__estados_registros er ON ct.tabla_estado_registro_id = er.estado_registro_id
+            WHERE ct.comprobante_tipo_id = ? AND ct.empresa_id = ?";
     
-    // Verificar si hay comprobantes asociados (dependiendo de tu estructura)
-    // $sql_check = "SELECT COUNT(*) as tiene_comprobantes FROM `gestion__comprobantes` 
-    //               WHERE comprobante_tipo_id = $id";
-    // $res_check = mysqli_query($conexion, $sql_check);
-    // $tiene_comprobantes = mysqli_fetch_assoc($res_check)['tiene_comprobantes'];
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
     
-    // if ($tiene_comprobantes > 0) {
-    //     return false; // No se puede eliminar porque tiene comprobantes asociados
-    // }
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $comprobante_tipo = mysqli_fetch_assoc($result);
     
-    $sql = "DELETE FROM `gestion__comprobantes_tipos` 
-            WHERE comprobante_tipo_id = $id";
-    return mysqli_query($conexion, $sql);
-}
-
-function obtenerComprobanteTipoPorId($conexion, $id) {
-    global $tabla_idx;
-    $id = intval($id);
-    $sql = "SELECT ct.*, er.codigo_estandar 
-            FROM `gestion__comprobantes_tipos` ct
-            INNER JOIN conf__tablas_estados_registros er ON ct.estado_registro_id = er.estado_registro_id
-            WHERE ct.comprobante_tipo_id = $id AND er.tabla_id = $tabla_idx";
-    $res = mysqli_query($conexion, $sql);
-    return mysqli_fetch_assoc($res);
+    mysqli_stmt_close($stmt);
+    return $comprobante_tipo;
 }
 ?>

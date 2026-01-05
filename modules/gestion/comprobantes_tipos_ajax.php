@@ -1,141 +1,126 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-require_once __DIR__ . '/../../conexion.php';
+
 require_once "comprobantes_tipos_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
-$empresa_id = intval($_REQUEST['empresa_id'] ?? $_POST['empresa_id'] ?? 0);
+
+// Parámetros del contexto (MULTIEMPRESA)
+$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 45);
 
 header('Content-Type: application/json; charset=utf-8');
 
-// ✅ Obtener información de la página
-$pagina_info = obtenerPaginaPorUrl($conexion, 'comprobantes_tipos.php');
-$pagina_id = $pagina_info ? $pagina_info['pagina_id'] : 45;
+// Verificar conexión
+if (!$conexion) {
+    echo json_encode(['error' => 'Error de conexión a la base de datos'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 try {
     switch ($accion) {
         case 'listar':
-            if ($empresa_id <= 0) {
-                echo json_encode([]);
-                break;
-            }
-            $comprobantes_tipos = obtenerComprobantesTipos($conexion, $empresa_id, $pagina_id);
-            echo json_encode($comprobantes_tipos, JSON_UNESCAPED_UNICODE);
-            break;
-        
-        case 'listar_grupos':
-            if ($empresa_id <= 0) {
-                echo json_encode([]);
-                break;
-            }
-            $grupos = obtenerComprobantesGruposActivos($conexion, $empresa_id);
-            echo json_encode($grupos, JSON_UNESCAPED_UNICODE);
-            break;
-        
-        case 'listar_fiscales':
-            $fiscales = obtenerComprobantesFiscalesActivos($conexion);
-            echo json_encode($fiscales, JSON_UNESCAPED_UNICODE);
-            break;
-        
-        case 'agregar':
-            $data = [
-                'comprobante_grupo_id' => $_POST['comprobante_grupo_id'] ?? 0,
-                'comprobante_fiscal_id' => $_POST['comprobante_fiscal_id'] ?? 0,
-                'impacta_stock' => $_POST['impacta_stock'] ?? 0,
-                'impacta_contabilidad' => $_POST['impacta_contabilidad'] ?? 0,
-                'impacta_ctacte' => $_POST['impacta_ctacte'] ?? 0,
-                'comprobante_tipo' => $_POST['comprobante_tipo'] ?? '',
-                'orden' => $_POST['orden'] ?? 0,
-                'codigo' => $_POST['codigo'] ?? '',
-                'letra' => $_POST['letra'] ?? '',
-                'signo' => $_POST['signo'] ?? '+',
-                'comentario' => $_POST['comentario'] ?? ''
+            $filters = [
+                'grupo' => $_GET['filter_grupo'] ?? '',
+                'estado' => $_GET['filter_estado'] ?? '',
+                'busqueda' => $_GET['filter_busqueda'] ?? ''
             ];
             
-            if (empty($data['comprobante_tipo']) || empty($data['codigo']) || 
-                $data['comprobante_grupo_id'] <= 0) {
-                echo json_encode(['resultado' => false, 'error' => 'Los campos nombre, código y grupo son obligatorios']);
-                break;
-            }
+            $comprobantes_tipos = obtenerComprobantesTipos($conexion, $empresa_idx, $pagina_idx, $filters);
+            echo json_encode($comprobantes_tipos, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_boton_agregar':
+            $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
+            echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
+            break;
+            
+        case 'obtener_grupos_activas':
+            $grupos = obtenerGruposActivos($conexion, $empresa_idx);
+            echo json_encode($grupos, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_comprobantes_fiscales':
+            $comprobantes = obtenerComprobantesFiscales($conexion);
+            echo json_encode($comprobantes, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_estados_registro':
+            $estados = obtenerEstadosRegistro($conexion);
+            echo json_encode($estados, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'agregar':
+            $data = [
+                'codigo' => trim($_POST['codigo'] ?? ''),
+                'comprobante_tipo' => trim($_POST['comprobante_tipo'] ?? ''),
+                'comprobante_grupo_id' => intval($_POST['comprobante_grupo_id'] ?? 0),
+                'comprobante_fiscal_id' => intval($_POST['comprobante_fiscal_id'] ?? 0),
+                'letra' => trim($_POST['letra'] ?? ''),
+                'signo' => $_POST['signo'] ?? '+',
+                'orden' => intval($_POST['orden'] ?? 1),
+                'impacta_stock' => intval($_POST['impacta_stock'] ?? 0),
+                'impacta_contabilidad' => intval($_POST['impacta_contabilidad'] ?? 0),
+                'impacta_ctacte' => intval($_POST['impacta_ctacte'] ?? 0),
+                'comentario' => trim($_POST['comentario'] ?? ''),
+                'estado_registro_id' => !empty($_POST['estado_registro_id']) ? intval($_POST['estado_registro_id']) : null,
+                'empresa_idx' => $empresa_idx,
+                'pagina_idx' => $pagina_idx
+            ];
             
             $resultado = agregarComprobanteTipo($conexion, $data);
-            if (!$resultado) {
-                echo json_encode(['resultado' => false, 'error' => 'Ya existe un tipo de comprobante con ese nombre en el grupo seleccionado']);
-                break;
-            }
-            echo json_encode(['resultado' => $resultado], JSON_UNESCAPED_UNICODE);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'editar':
             $id = intval($_POST['comprobante_tipo_id'] ?? 0);
             $data = [
-                'comprobante_grupo_id' => $_POST['comprobante_grupo_id'] ?? 0,
-                'comprobante_fiscal_id' => $_POST['comprobante_fiscal_id'] ?? 0,
-                'impacta_stock' => $_POST['impacta_stock'] ?? 0,
-                'impacta_contabilidad' => $_POST['impacta_contabilidad'] ?? 0,
-                'impacta_ctacte' => $_POST['impacta_ctacte'] ?? 0,
-                'orden' => $_POST['orden'] ?? 0,
-                'comprobante_tipo' => $_POST['comprobante_tipo'] ?? '',
-                'codigo' => $_POST['codigo'] ?? '',
-                'letra' => $_POST['letra'] ?? '',
+                'codigo' => trim($_POST['codigo'] ?? ''),
+                'comprobante_tipo' => trim($_POST['comprobante_tipo'] ?? ''),
+                'comprobante_grupo_id' => intval($_POST['comprobante_grupo_id'] ?? 0),
+                'comprobante_fiscal_id' => intval($_POST['comprobante_fiscal_id'] ?? 0),
+                'letra' => trim($_POST['letra'] ?? ''),
                 'signo' => $_POST['signo'] ?? '+',
-                'comentario' => $_POST['comentario'] ?? ''
+                'orden' => intval($_POST['orden'] ?? 1),
+                'impacta_stock' => intval($_POST['impacta_stock'] ?? 0),
+                'impacta_contabilidad' => intval($_POST['impacta_contabilidad'] ?? 0),
+                'impacta_ctacte' => intval($_POST['impacta_ctacte'] ?? 0),
+                'comentario' => trim($_POST['comentario'] ?? ''),
+                'estado_registro_id' => !empty($_POST['estado_registro_id']) ? intval($_POST['estado_registro_id']) : null,
+                'empresa_idx' => $empresa_idx
             ];
             
-            if (empty($data['comprobante_tipo']) || empty($data['codigo']) || 
-                $data['comprobante_grupo_id'] <= 0) {
-                echo json_encode(['resultado' => false, 'error' => 'Los campos nombre, código y grupo son obligatorios']);
+            $resultado = editarComprobanteTipo($conexion, $id, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'ejecutar_accion':
+            $comprobante_tipo_id = intval($_POST['comprobante_tipo_id'] ?? 0);
+            $accion_js = $_POST['accion_js'] ?? '';
+            
+            if (empty($comprobante_tipo_id) || empty($accion_js)) {
+                echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
             
-            $resultado = editarComprobanteTipo($conexion, $id, $data);
-            if (!$resultado) {
-                echo json_encode(['resultado' => false, 'error' => 'Ya existe un tipo de comprobante con ese nombre en el grupo seleccionado']);
-                break;
-            }
-            echo json_encode(['resultado' => $resultado], JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'cambiar_estado':
-            $id = intval($_GET['comprobante_tipo_id'] ?? $_POST['comprobante_tipo_id'] ?? 0);
-            $nuevo_estado = intval($_GET['nuevo_estado'] ?? $_POST['nuevo_estado'] ?? 0);
-            $resultado = cambiarEstadoComprobanteTipo($conexion, $id, $nuevo_estado);
-            echo json_encode(['resultado' => $resultado], JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'eliminar':
-            $id = intval($_GET['comprobante_tipo_id'] ?? $_POST['comprobante_tipo_id'] ?? 0);
-            $resultado = eliminarComprobanteTipo($conexion, $id);
-            if (!$resultado) {
-                echo json_encode(['resultado' => false, 'error' => 'No se puede eliminar el tipo porque tiene comprobantes asociados']);
-                break;
-            }
-            echo json_encode(['resultado' => $resultado], JSON_UNESCAPED_UNICODE);
+            $resultado = ejecutarTransicionEstado($conexion, $comprobante_tipo_id, $accion_js, $empresa_idx, $pagina_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener':
-            $id = intval($_GET['comprobante_tipo_id'] ?? $_POST['comprobante_tipo_id'] ?? 0);
-            $comprobante_tipo = obtenerComprobanteTipoPorId($conexion, $id);
-            echo json_encode($comprobante_tipo ?: [], JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'obtener_boton_agregar':
-            $boton_agregar = obtenerBotonAgregar($conexion, $pagina_id);
-            echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'ejecutar_funcion':
-            $comprobante_tipo_id = intval($_POST['comprobante_tipo_id'] ?? 0);
-            $funcion_nombre = $_POST['funcion_nombre'] ?? '';
-            
-            if (empty($comprobante_tipo_id) || empty($funcion_nombre)) {
-                echo json_encode(['success' => false, 'error' => 'Datos incompletos']);
+            $id = intval($_POST['comprobante_tipo_id'] ?? $_GET['comprobante_tipo_id'] ?? 0);
+            if (empty($id)) {
+                echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
             
-            $resultado = ejecutarTransicionEstado($conexion, $comprobante_tipo_id, $funcion_nombre, $pagina_id);
-            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            $comprobante_tipo = obtenerComprobanteTipoPorId($conexion, $id, $empresa_idx);
+            if ($comprobante_tipo) {
+                echo json_encode($comprobante_tipo, JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['error' => 'Tipo de comprobante no encontrado'], JSON_UNESCAPED_UNICODE);
+            }
             break;
 
         default:
@@ -145,5 +130,7 @@ try {
     echo json_encode(['error' => 'Error del servidor: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
 
-mysqli_close($conexion);
+if (isset($conexion) && $conexion) {
+    mysqli_close($conexion);
+}
 ?>
