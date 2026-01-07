@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerLocalidades($conexion) {
+function obtenerLocalidades($conexion)
+{
     $sql = "SELECT localidad_id, localidad FROM conf__localidades ORDER BY localidad";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -11,7 +13,8 @@ function obtenerLocalidades($conexion) {
     return $data;
 }
 
-function obtenerempresas($conexion) {
+function obtenerempresas($conexion)
+{
     $sql = "SELECT e.*, l.localidad 
             FROM conf__empresas e
             LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
@@ -24,7 +27,8 @@ function obtenerempresas($conexion) {
     return $data;
 }
 
-function agregarempresa($conexion, $data) {
+function agregarempresa($conexion, $data)
+{
     // Validar campos obligatorios
     if (empty($data['empresa']) || empty($data['documento_numero']) || empty($data['localidad_id'])) {
         return false;
@@ -37,7 +41,7 @@ function agregarempresa($conexion, $data) {
     $localidad_id = is_numeric($data['localidad_id']) ? $data['localidad_id'] : 'NULL';
     $email = mysqli_real_escape_string($conexion, $data['email']);
     $base_conf = is_numeric($data['base_conf']) ? $data['base_conf'] : 'NULL';
-    
+
     $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
     $sql = "INSERT INTO conf__empresas (empresa, documento_tipo_id, documento_numero, telefono, domicilio, localidad_id, email, base_conf,  tabla_estado_registro_id) 
@@ -46,8 +50,9 @@ function agregarempresa($conexion, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function editarempresa($conexion, $id, $data) {
-     // Validar campos obligatorios
+function editarempresa($conexion, $id, $data)
+{
+    // Validar campos obligatorios
     if (empty($data['empresa']) || empty($data['documento_numero']) || empty($data['localidad_id'])) {
         return false;
     }
@@ -60,7 +65,7 @@ function editarempresa($conexion, $id, $data) {
     $localidad_id = is_numeric($data['localidad_id']) ? $data['localidad_id'] : 'NULL';
     $email = mysqli_real_escape_string($conexion, $data['email']);
     $base_conf = is_numeric($data['base_conf']) ? $data['base_conf'] : 'NULL';
-    
+
     $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
     $sql = "UPDATE conf__empresas SET
@@ -79,13 +84,15 @@ function editarempresa($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarempresa($conexion, $id) {
+function eliminarempresa($conexion, $id)
+{
     $id = intval($id);
     $sql = "DELETE FROM conf__empresas WHERE empresa_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerempresaPorId($conexion, $id) {
+function obtenerempresaPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__empresas WHERE empresa_id = $id";
     $res = mysqli_query($conexion, $sql);

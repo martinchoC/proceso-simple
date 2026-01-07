@@ -1,8 +1,10 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
 
-function obtenerModulos($conexion) {
+function obtenerModulos($conexion)
+{
     $sql = "SELECT * FROM conf__modulos ORDER BY modulo_id DESC";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -12,7 +14,8 @@ function obtenerModulos($conexion) {
     return $data;
 }
 
-function agregarModulo($conexion, $data) {
+function agregarModulo($conexion, $data)
+{
     $modulo = mysqli_real_escape_string($conexion, $data['modulo']);
     $base_datos = mysqli_real_escape_string($conexion, $data['base_datos']);
     $modulo_url = mysqli_real_escape_string($conexion, $data['modulo_url']);
@@ -30,7 +33,8 @@ function agregarModulo($conexion, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function editarModulo($conexion, $id, $data) {
+function editarModulo($conexion, $id, $data)
+{
     $id = intval($id);
     $modulo = mysqli_real_escape_string($conexion, $data['modulo']);
     $base_datos = mysqli_real_escape_string($conexion, $data['base_datos']);
@@ -59,13 +63,15 @@ function editarModulo($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarModulo($conexion, $id) {
+function eliminarModulo($conexion, $id)
+{
     $id = intval($id);
     $sql = "DELETE FROM conf__modulos WHERE modulo_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerModuloPorId($conexion, $id) {
+function obtenerModuloPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__modulos WHERE modulo_id = $id";
     $res = mysqli_query($conexion, $sql);

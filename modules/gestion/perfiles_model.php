@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerPerfiles($conexion) {
+function obtenerPerfiles($conexion)
+{
     $sql = "SELECT conf__perfiles.*, conf__modulos.modulo, conf__empresas.empresa
     FROM conf__perfiles 
     LEFT JOIN conf__modulos ON conf__perfiles.modulo_id = conf__modulos.modulo_id
@@ -15,7 +17,8 @@ function obtenerPerfiles($conexion) {
     return $data;
 }
 
-function obtenerEmpresas($conexion) {
+function obtenerEmpresas($conexion)
+{
     $sql = "SELECT empresa_id, empresa FROM conf__empresas WHERE estado_registro_id = 1 ORDER BY empresa";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -25,7 +28,8 @@ function obtenerEmpresas($conexion) {
     return $data;
 }
 
-function obtenerModulos($conexion) {
+function obtenerModulos($conexion)
+{
     $sql = "SELECT modulo_id, modulo FROM conf__modulos WHERE estado_registro_id = 1 ORDER BY modulo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -35,11 +39,12 @@ function obtenerModulos($conexion) {
     return $data;
 }
 
-function agregarPerfil($conexion, $data) {
+function agregarPerfil($conexion, $data)
+{
     if (empty($data['perfil_nombre'])) {
         return false;
     }
-    
+
     $perfil_nombre = mysqli_real_escape_string($conexion, $data['perfil_nombre']);
     $empresa_id = $data['empresa_id'] ? intval($data['empresa_id']) : 'NULL';
     $modulo_id = $data['modulo_id'] ? intval($data['modulo_id']) : 'NULL';
@@ -47,15 +52,16 @@ function agregarPerfil($conexion, $data) {
 
     $sql = "INSERT INTO conf__perfiles (empresa_id, modulo_id, perfil_nombre, estado_registro_id) 
             VALUES ($empresa_id, $modulo_id, '$perfil_nombre', $estado_registro_id)";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarPerfil($conexion, $id, $data) {
+function editarPerfil($conexion, $id, $data)
+{
     if (empty($data['perfil_nombre'])) {
         return false;
     }
-    
+
     $id = intval($id);
     $perfil_nombre = mysqli_real_escape_string($conexion, $data['perfil_nombre']);
     $empresa_id = $data['empresa_id'] ? intval($data['empresa_id']) : 'NULL';
@@ -72,15 +78,17 @@ function editarPerfil($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function cambiarEstadoPerfil($conexion, $id, $nuevo_estado) {
+function cambiarEstadoPerfil($conexion, $id, $nuevo_estado)
+{
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
-    
+
     $sql = "UPDATE conf__perfiles SET estado_registro_id = $nuevo_estado WHERE perfil_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerPerfilPorId($conexion, $id) {
+function obtenerPerfilPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__perfiles WHERE perfil_id = $id";
     $res = mysqli_query($conexion, $sql);

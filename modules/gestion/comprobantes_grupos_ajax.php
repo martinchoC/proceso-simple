@@ -2,7 +2,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 require_once "comprobantes_grupos_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
@@ -37,7 +38,7 @@ try {
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
             ];
-            
+
             $resultado = agregarComprobanteGrupo($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -48,7 +49,7 @@ try {
                 'comprobante_grupo' => trim($_POST['comprobante_grupo'] ?? ''),
                 'empresa_idx' => $empresa_idx
             ];
-            
+
             $resultado = editarComprobanteGrupo($conexion, $id, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -56,12 +57,12 @@ try {
         case 'ejecutar_accion':
             $comprobante_grupo_id = intval($_POST['comprobante_grupo_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            
+
             if (empty($comprobante_grupo_id) || empty($accion_js)) {
                 echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $resultado = ejecutarTransicionEstado($conexion, $comprobante_grupo_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -72,7 +73,7 @@ try {
                 echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $grupo = obtenerComprobanteGrupoPorId($conexion, $id, $empresa_idx);
             if ($grupo) {
                 echo json_encode($grupo, JSON_UNESCAPED_UNICODE);

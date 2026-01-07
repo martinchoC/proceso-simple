@@ -2,7 +2,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 require_once "sucursales_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
@@ -30,7 +31,7 @@ try {
             $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
             break;
-            
+
         case 'obtener_tipos_sucursales_activos':
             $tipos = obtenerTiposSucursalesActivos($conexion, $empresa_idx);
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
@@ -53,7 +54,7 @@ try {
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
             ];
-            
+
             $resultado = agregarSucursal($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -70,7 +71,7 @@ try {
                 'email' => trim($_POST['email'] ?? ''),
                 'empresa_idx' => $empresa_idx
             ];
-            
+
             $resultado = editarSucursal($conexion, $id, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -78,12 +79,12 @@ try {
         case 'ejecutar_accion':
             $sucursal_id = intval($_POST['sucursal_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            
+
             if (empty($sucursal_id) || empty($accion_js)) {
                 echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $resultado = ejecutarTransicionEstado($conexion, $sucursal_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -94,7 +95,7 @@ try {
                 echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $sucursal = obtenerSucursalPorId($conexion, $id, $empresa_idx);
             if ($sucursal) {
                 echo json_encode($sucursal, JSON_UNESCAPED_UNICODE);

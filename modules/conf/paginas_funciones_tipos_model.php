@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerTablasTipos($conexion) {
+function obtenerTablasTipos($conexion)
+{
     $sql = "SELECT * FROM conf__tablas_tipos WHERE tabla_estado_registro_id = 1 ORDER BY tabla_tipo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -11,7 +13,8 @@ function obtenerTablasTipos($conexion) {
     return $data;
 }
 
-function obtenerIconos($conexion) {
+function obtenerIconos($conexion)
+{
     $sql = "SELECT * FROM conf__iconos WHERE tabla_estado_registro_id = 1 ORDER BY icono_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -21,7 +24,8 @@ function obtenerIconos($conexion) {
     return $data;
 }
 
-function obtenerColores($conexion) {
+function obtenerColores($conexion)
+{
     $sql = "SELECT * FROM conf__colores WHERE tabla_estado_registro_id = 1 ORDER BY nombre_color";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -31,7 +35,8 @@ function obtenerColores($conexion) {
     return $data;
 }
 
-function obtenerEstadosRegistro($conexion) {
+function obtenerEstadosRegistro($conexion)
+{
     $sql = "SELECT * FROM conf__estados_registros ORDER BY estado_registro";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -41,7 +46,8 @@ function obtenerEstadosRegistro($conexion) {
     return $data;
 }
 
-function obtenerFuncionesTipos($conexion) {
+function obtenerFuncionesTipos($conexion)
+{
     $sql = "SELECT 
                 ft.*,
                 tt.tabla_tipo,
@@ -65,7 +71,7 @@ function obtenerFuncionesTipos($conexion) {
             LEFT JOIN conf__estados_registros eor ON ft.tabla_estado_registro_origen_id = eor.estado_registro_id
             LEFT JOIN conf__estados_registros ede ON ft.tabla_estado_registro_destino_id = ede.estado_registro_id
             ORDER BY tt.tabla_tipo, ft.orden, ft.nombre_funcion";
-    
+
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -74,13 +80,16 @@ function obtenerFuncionesTipos($conexion) {
     return $data;
 }
 
-function agregarFuncionTipo($conexion, $data) {
+function agregarFuncionTipo($conexion, $data)
+{
     // Validar campos obligatorios (solo destino es obligatorio)
-    if (empty($data['nombre_funcion']) || 
-        empty($data['tabla_estado_registro_destino_id'])) {
+    if (
+        empty($data['nombre_funcion']) ||
+        empty($data['tabla_estado_registro_destino_id'])
+    ) {
         return false;
     }
-    
+
     $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
     $accion_js = mysqli_real_escape_string($conexion, $data['accion_js']);
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion']);
@@ -98,17 +107,20 @@ function agregarFuncionTipo($conexion, $data) {
             VALUES 
             ('$nombre_funcion', '$accion_js', '$descripcion', $orden, $tabla_tipo_id, $icono_id, $color_id,
              $estado_origen_id, $estado_destino_id, $estado_registro_id)";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarFuncionTipo($conexion, $id, $data) {
+function editarFuncionTipo($conexion, $id, $data)
+{
     // Validar campos obligatorios (solo destino es obligatorio)
-    if (empty($data['nombre_funcion']) || 
-        empty($data['tabla_estado_registro_destino_id'])) {
+    if (
+        empty($data['nombre_funcion']) ||
+        empty($data['tabla_estado_registro_destino_id'])
+    ) {
         return false;
     }
-    
+
     $id = intval($id);
     $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
     $accion_js = mysqli_real_escape_string($conexion, $data['accion_js']);
@@ -137,13 +149,15 @@ function editarFuncionTipo($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarFuncionTipo($conexion, $id) {
+function eliminarFuncionTipo($conexion, $id)
+{
     $id = intval($id);
     $sql = "DELETE FROM conf__paginas_funciones_tipos WHERE pagina_funcion_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerFuncionTipoPorId($conexion, $id) {
+function obtenerFuncionTipoPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__paginas_funciones_tipos WHERE pagina_funcion_id = $id";
     $res = mysqli_query($conexion, $sql);

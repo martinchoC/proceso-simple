@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerPerfiles($conexion) {
+function obtenerPerfiles($conexion)
+{
     $sql = "SELECT perfil_id, perfil_nombre FROM conf__perfiles WHERE estado_registro_id = 1 ORDER BY perfil_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -12,7 +14,8 @@ function obtenerPerfiles($conexion) {
 }
 
 if (!function_exists('obtenerModulos')) {
-    function obtenerModulos($conexion) {
+    function obtenerModulos($conexion)
+    {
         $sql = "SELECT modulo_id, modulo FROM conf__modulos WHERE estado_registro_id = 1 ORDER BY modulo";
         $res = mysqli_query($conexion, $sql);
         $data = [];
@@ -24,13 +27,14 @@ if (!function_exists('obtenerModulos')) {
 }
 
 if (!function_exists('obtenerPerfilesPorModulo')) {
-    function obtenerPerfilesPorModulo($conexion, $modulo_id) {
+    function obtenerPerfilesPorModulo($conexion, $modulo_id)
+    {
         $modulo_condition = "";
         if ($modulo_id) {
             $modulo_id = intval($modulo_id);
             $modulo_condition = "AND modulo_id = $modulo_id";
         }
-        
+
         $sql = "SELECT perfil_id, perfil_nombre FROM conf__perfiles 
                 WHERE estado_registro_id = 1 $modulo_condition 
                 ORDER BY perfil_nombre";
@@ -44,10 +48,11 @@ if (!function_exists('obtenerPerfilesPorModulo')) {
 }
 
 if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
-    function obtenerEstructuraJerarquicaPaginas($conexion, $modulo_id, $perfil_id = null) {
+    function obtenerEstructuraJerarquicaPaginas($conexion, $modulo_id, $perfil_id = null)
+    {
         $perfil_condition = "";
         $join_condition = "LEFT JOIN";
-        
+
         if ($perfil_id) {
             $perfil_id = intval($perfil_id);
             $perfil_condition = "AND perfil_func.perfil_id = $perfil_id";
@@ -55,13 +60,13 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
         } else {
             $perfil_id = 0; // Para evitar errores en la consulta
         }
-        
+
         $modulo_condition = "";
         if ($modulo_id) {
             $modulo_id = intval($modulo_id);
             $modulo_condition = "AND p.modulo_id = $modulo_id";
         }
-        
+
         // Primero obtenemos todas las páginas con su estructura jerárquica
         $sql_paginas = "SELECT 
                     p.pagina_id, 
@@ -76,14 +81,14 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
                 LEFT JOIN conf__iconos i ON p.icono_id = i.icono_id
                 WHERE p.estado_registro_id = 1 $modulo_condition
                 ORDER BY p.padre_id IS NULL DESC, p.padre_id, p.orden, p.pagina";
-        
+
         $res_paginas = mysqli_query($conexion, $sql_paginas);
-        
+
         if (!$res_paginas) {
             error_log("Error en consulta de páginas: " . mysqli_error($conexion));
             return [];
         }
-        
+
         $paginas = [];
         while ($fila = mysqli_fetch_assoc($res_paginas)) {
             $paginas[$fila['pagina_id']] = [
@@ -99,7 +104,7 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
                 'funciones' => []
             ];
         }
-        
+
         // Ahora obtenemos las funciones para cada página
         $sql_funciones = "SELECT 
                     p.pagina_id,
@@ -117,15 +122,15 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
                     
                 WHERE p.estado_registro_id = 1 $modulo_condition
                 ORDER BY p.padre_id IS NULL DESC, p.padre_id, p.orden, p.pagina, pf.orden, pf.nombre_funcion";
-        
+
         $res_funciones = mysqli_query($conexion, $sql_funciones);
-        
+
         if (!$res_funciones) {
             error_log("Error en consulta de funciones: " . mysqli_error($conexion));
         } else {
             while ($fila = mysqli_fetch_assoc($res_funciones)) {
                 $pagina_id = $fila['pagina_id'];
-                
+
                 if (isset($paginas[$pagina_id])) {
                     // Solo agregar la función si existe pagina_funcion_id
                     if ($fila['pagina_funcion_id']) {
@@ -141,12 +146,13 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
                 }
             }
         }
-        
+
         // Construimos la estructura jerárquica correctamente
         $arbol_paginas = [];
 
         // Función auxiliar recursiva para construir el árbol
-        function construirArbol(&$paginas, $padre_id = null) {
+        function construirArbol(&$paginas, $padre_id = null)
+        {
             $arbol = [];
             foreach ($paginas as $pagina_id => $pagina) {
                 if ($pagina['padre_id'] == $padre_id) {
@@ -162,11 +168,11 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
             }
             return $arbol;
         }
-        
+
         // Hacer una copia de las páginas para no modificar el original
         $paginas_temp = $paginas;
         $arbol_paginas = construirArbol($paginas_temp);
-        
+
         // Si quedan páginas sin padre (posiblemente por referencias incorrectas)
         // las agregamos al final
         if (!empty($paginas_temp)) {
@@ -174,38 +180,40 @@ if (!function_exists('obtenerEstructuraJerarquicaPaginas')) {
                 $arbol_paginas[$pagina_id] = $pagina;
             }
         }
-        
+
         // Ordenamos las funciones por su orden y los hijos por orden de página
-        function ordenarArbol(&$arbol) {
+        function ordenarArbol(&$arbol)
+        {
             foreach ($arbol as &$pagina) {
                 if (!empty($pagina['funciones'])) {
-                    usort($pagina['funciones'], function($a, $b) {
+                    usort($pagina['funciones'], function ($a, $b) {
                         return $a['funcion_orden'] - $b['funcion_orden'];
                     });
                 }
-                
+
                 if (!empty($pagina['hijos'])) {
                     // Ordenar hijos por su orden de página
-                    uasort($pagina['hijos'], function($a, $b) {
+                    uasort($pagina['hijos'], function ($a, $b) {
                         return $a['pagina_orden'] - $b['pagina_orden'];
                     });
-                    
+
                     // Ordenar recursivamente los hijos
                     ordenarArbol($pagina['hijos']);
                 }
             }
         }
-        
+
         ordenarArbol($arbol_paginas);
-        
+
         return $arbol_paginas;
     }
 }
 if (!function_exists('obtenerPaginasConFunciones')) {
-    function obtenerPaginasConFunciones($conexion, $modulo_id, $perfil_id = null) {
+    function obtenerPaginasConFunciones($conexion, $modulo_id, $perfil_id = null)
+    {
         $perfil_condition = "";
         $join_condition = "LEFT JOIN";
-        
+
         if ($perfil_id) {
             $perfil_id = intval($perfil_id);
             $perfil_condition = "AND perfil_func.perfil_id = $perfil_id";
@@ -213,13 +221,13 @@ if (!function_exists('obtenerPaginasConFunciones')) {
         } else {
             $perfil_id = 0; // Para evitar errores en la consulta
         }
-        
+
         $modulo_condition = "";
         if ($modulo_id) {
             $modulo_id = intval($modulo_id);
             $modulo_condition = "AND p.modulo_id = $modulo_id";
         }
-        
+
         $sql = "SELECT 
                     p.pagina_id, 
                     p.pagina,
@@ -238,21 +246,21 @@ if (!function_exists('obtenerPaginasConFunciones')) {
                 WHERE p.estado_registro_id = 1 AND pf.pagina_funcion_id IS NOT NULL
                 $modulo_condition
                 ORDER BY p.pagina, pf.orden, pf.nombre_funcion";
-        
+
         error_log("SQL: " . $sql); // Para debugging
-        
+
         $res = mysqli_query($conexion, $sql);
-        
+
         if (!$res) {
             error_log("Error en consulta: " . mysqli_error($conexion));
             return [];
         }
-        
+
         $paginas = [];
-        
+
         while ($fila = mysqli_fetch_assoc($res)) {
             $pagina_id = $fila['pagina_id'];
-            
+
             if (!isset($paginas[$pagina_id])) {
                 $paginas[$pagina_id] = [
                     'pagina_id' => $pagina_id,
@@ -261,7 +269,7 @@ if (!function_exists('obtenerPaginasConFunciones')) {
                     'funciones' => []
                 ];
             }
-            
+
             if ($fila['pagina_funcion_id']) {
                 $paginas[$pagina_id]['funciones'][] = [
                     'pagina_funcion_id' => $fila['pagina_funcion_id'],
@@ -272,20 +280,21 @@ if (!function_exists('obtenerPaginasConFunciones')) {
                 ];
             }
         }
-        
+
         return array_values($paginas);
     }
 }
 
-function asignarFuncionAPerfil($conexion, $perfil_id, $pagina_funcion_id) {
+function asignarFuncionAPerfil($conexion, $perfil_id, $pagina_funcion_id)
+{
     $perfil_id = intval($perfil_id);
     $pagina_funcion_id = intval($pagina_funcion_id);
-    
+
     // Verificar si ya existe la asignación
     $sql_check = "SELECT perfil_funcion_id FROM conf__perfiles_funciones 
                   WHERE perfil_id = $perfil_id AND pagina_funcion_id = $pagina_funcion_id";
     $res_check = mysqli_query($conexion, $sql_check);
-    
+
     if (mysqli_num_rows($res_check) > 0) {
         // Actualizar existente
         $sql = "UPDATE conf__perfiles_funciones SET asignado = 1 
@@ -295,21 +304,23 @@ function asignarFuncionAPerfil($conexion, $perfil_id, $pagina_funcion_id) {
         $sql = "INSERT INTO conf__perfiles_funciones (perfil_id, pagina_funcion_id, asignado) 
                 VALUES ($perfil_id, $pagina_funcion_id, 1)";
     }
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function desasignarFuncionDePerfil($conexion, $perfil_id, $pagina_funcion_id) {
+function desasignarFuncionDePerfil($conexion, $perfil_id, $pagina_funcion_id)
+{
     $perfil_id = intval($perfil_id);
     $pagina_funcion_id = intval($pagina_funcion_id);
-    
+
     $sql = "UPDATE conf__perfiles_funciones SET asignado = 0 
             WHERE perfil_id = $perfil_id AND pagina_funcion_id = $pagina_funcion_id";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function toggleFuncionPerfil($conexion, $perfil_id, $pagina_funcion_id, $asignado) {
+function toggleFuncionPerfil($conexion, $perfil_id, $pagina_funcion_id, $asignado)
+{
     if ($asignado) {
         return asignarFuncionAPerfil($conexion, $perfil_id, $pagina_funcion_id);
     } else {

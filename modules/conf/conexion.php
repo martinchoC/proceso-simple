@@ -1,8 +1,8 @@
 <?php
 $servidor = "localhost";
-$usuario  = "root";
-$clave    = "";
-$base     = "gestion_multipyme";
+$usuario = "root";
+$clave = "";
+$base = "gestion_multipyme";
 
 $conexion = mysqli_connect($servidor, $usuario, $clave, $base);
 if (!$conexion) {

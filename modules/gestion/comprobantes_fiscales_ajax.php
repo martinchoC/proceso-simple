@@ -2,7 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
 require_once "comprobantes_fiscales_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
@@ -38,7 +38,7 @@ try {
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
             ];
-            
+
             $resultado = agregarComprobanteFiscal($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -50,7 +50,7 @@ try {
                 'comprobante_fiscal' => trim($_POST['comprobante_fiscal'] ?? ''),
                 'empresa_idx' => $empresa_idx
             ];
-            
+
             $resultado = editarComprobanteFiscal($conexion, $id, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -58,12 +58,12 @@ try {
         case 'ejecutar_accion':
             $comprobante_fiscal_id = intval($_POST['comprobante_fiscal_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            
+
             if (empty($comprobante_fiscal_id) || empty($accion_js)) {
                 echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $resultado = ejecutarTransicionEstado($conexion, $comprobante_fiscal_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -74,7 +74,7 @@ try {
                 echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $comprobante = obtenerComprobanteFiscalPorId($conexion, $id, $empresa_idx);
             if ($comprobante) {
                 echo json_encode($comprobante, JSON_UNESCAPED_UNICODE);
