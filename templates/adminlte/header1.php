@@ -158,10 +158,11 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
             }
           }
 
-          $titulo_display = htmlspecialchars($nombre_empresa_actual);
           if (!empty($nombre_modulo_actual)) {
-            $titulo_display .= " - " . htmlspecialchars($nombre_modulo_actual);
+            $titulo_display = htmlspecialchars($nombre_modulo_actual) . " - ";
           }
+          $titulo_display .= htmlspecialchars($nombre_empresa_actual);
+
           ?>
           <li class="nav-item d-none d-md-block">
             <span class="navbar-text fw-bold fs-5 ms-3 text-primary">
@@ -264,6 +265,17 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
             class="brand-image opacity-75 shadow" />
           <span class="brand-text fw-light">Multigestion</span>
         </a>
+      </div>
+      <div class="sidebar-info px-3 py-2 border-bottom border-secondary text-center"
+        style="background: rgba(0,0,0,0.1);">
+        <div class="text-white opacity-75 small fw-bold text-uppercase"
+          style="font-size: 0.75rem; letter-spacing: 0.5px;">
+          <?= htmlspecialchars($nombre_empresa_actual) ?>
+        </div>
+        <div class="text-primary small fw-semibold" style="font-size: 0.85rem;">
+          <!-- <i class="bi bi-box-seam me-1"></i> -->
+          <?= htmlspecialchars($nombre_modulo_actual) ?>
+        </div>
       </div>
       <div class="sidebar-wrapper">
         <nav class="mt-2">
