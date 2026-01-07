@@ -2,7 +2,7 @@
 // Configuración de la página
 $pageTitle = "Gestión de Productos";
 $currentPage = 'productos';
-$modudo_idx = 2;
+$modudo_idx = 2;//hola
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
