@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerListasPrecios($conexion) {
+function obtenerListasPrecios($conexion)
+{
     $sql = "SELECT * FROM `gestion__listas_precios` 
             ORDER BY es_principal DESC, nombre";
     $res = mysqli_query($conexion, $sql);
@@ -12,11 +14,12 @@ function obtenerListasPrecios($conexion) {
     return $data;
 }
 
-function agregarListaPrecios($conexion, $data) {
+function agregarListaPrecios($conexion, $data)
+{
     if (empty($data['nombre'])) {
         return false;
     }
-    
+
     $nombre = mysqli_real_escape_string($conexion, $data['nombre']);
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion']);
     $empresa_id = intval($data['empresa_id']);
@@ -35,7 +38,7 @@ function agregarListaPrecios($conexion, $data) {
                   WHERE nombre = '$nombre' AND empresa_id = $empresa_id";
     $res_check = mysqli_query($conexion, $sql_check);
     $existe_nombre = mysqli_fetch_assoc($res_check)['existe'];
-    
+
     if ($existe_nombre > 0) {
         return false; // Ya existe este nombre
     }
@@ -56,15 +59,16 @@ function agregarListaPrecios($conexion, $data) {
             ('$nombre', '$descripcion', $empresa_id, $es_principal, '$metodo_calculo',
              $margen_ganancia, '$tipo', '$estado', $f_vigencia_desde, $f_vigencia_hasta,
              $usuario_id_alta, '$ip_origen')";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarListaPrecios($conexion, $id, $data) {
+function editarListaPrecios($conexion, $id, $data)
+{
     if (empty($data['nombre'])) {
         return false;
     }
-    
+
     $id = intval($id);
     $nombre = mysqli_real_escape_string($conexion, $data['nombre']);
     $descripcion = mysqli_real_escape_string($conexion, $data['descripcion']);
@@ -92,7 +96,7 @@ function editarListaPrecios($conexion, $id, $data) {
                   AND lista_id != $id";
     $res_check = mysqli_query($conexion, $sql_check);
     $existe_nombre = mysqli_fetch_assoc($res_check)['existe'];
-    
+
     if ($existe_nombre > 0) {
         return false; // Ya existe este nombre
     }
@@ -123,18 +127,20 @@ function editarListaPrecios($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarListaPrecios($conexion, $id) {
+function eliminarListaPrecios($conexion, $id)
+{
     $id = intval($id);
-    
+
     // Verificar si está siendo usado en otras tablas
     // Aquí puedes agregar verificaciones según tu estructura de base de datos
-    
+
     $sql = "DELETE FROM `gestion__listas_precios` 
             WHERE lista_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerListaPreciosPorId($conexion, $id) {
+function obtenerListaPreciosPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM `gestion__listas_precios` 
             WHERE lista_id = $id";

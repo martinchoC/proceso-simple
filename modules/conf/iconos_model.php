@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerIconos($conexion) {
+function obtenerIconos($conexion)
+{
     $sql = "SELECT * FROM conf__iconos ORDER BY icono_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -11,26 +13,28 @@ function obtenerIconos($conexion) {
     return $data;
 }
 
-function agregarIcono($conexion, $data) {
+function agregarIcono($conexion, $data)
+{
     if (empty($data['icono_nombre']) || empty($data['icono_clase'])) {
         return false;
     }
-    
+
     $icono_nombre = mysqli_real_escape_string($conexion, $data['icono_nombre']);
     $icono_clase = mysqli_real_escape_string($conexion, $data['icono_clase']);
     $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
 
     $sql = "INSERT INTO conf__iconos (icono_nombre, icono_clase, tabla_estado_registro_id) 
             VALUES ('$icono_nombre', '$icono_clase', $tabla_estado_registro_id)";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarIcono($conexion, $id, $data) {
+function editarIcono($conexion, $id, $data)
+{
     if (empty($data['icono_nombre']) || empty($data['icono_clase'])) {
         return false;
     }
-    
+
     $id = intval($id);
     $icono_nombre = mysqli_real_escape_string($conexion, $data['icono_nombre']);
     $icono_clase = mysqli_real_escape_string($conexion, $data['icono_clase']);
@@ -45,15 +49,17 @@ function editarIcono($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function cambiarEstadoIcono($conexion, $id, $nuevo_estado) {
+function cambiarEstadoIcono($conexion, $id, $nuevo_estado)
+{
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
-    
+
     $sql = "UPDATE conf__iconos SET tabla_estado_registro_id = $nuevo_estado WHERE icono_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerIconoPorId($conexion, $id) {
+function obtenerIconoPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__iconos WHERE icono_id = $id";
     $res = mysqli_query($conexion, $sql);

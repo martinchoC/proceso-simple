@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerTablasEstadosRegistros($conexion) {
+function obtenerTablasEstadosRegistros($conexion)
+{
     $sql = "SELECT ter.*, t.tabla_nombre, c.nombre_color, c.color_clase, c.bg_clase, c.text_clase
             FROM conf__tablas_estados_registros ter
             LEFT JOIN conf__tablas t ON ter.tabla_id = t.tabla_id
@@ -16,7 +18,8 @@ function obtenerTablasEstadosRegistros($conexion) {
     return $data;
 }
 
-function obtenerTablas($conexion) {
+function obtenerTablas($conexion)
+{
     $sql = "SELECT tabla_id, tabla_nombre FROM conf__tablas ORDER BY tabla_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -26,7 +29,8 @@ function obtenerTablas($conexion) {
     return $data;
 }
 
-function obtenerColores($conexion) {
+function obtenerColores($conexion)
+{
     $sql = "SELECT color_id, nombre_color, color_clase, bg_clase, text_clase, descripcion
             FROM conf__colores 
             WHERE tabla_estado_registro_id = 1 
@@ -39,11 +43,12 @@ function obtenerColores($conexion) {
     return $data;
 }
 
-function agregarTablaEstadoRegistro($conexion, $data) {
+function agregarTablaEstadoRegistro($conexion, $data)
+{
     if (empty($data['tabla_id']) || empty($data['estado_registro'])) {
         return false;
     }
-    
+
     $tabla_id = intval($data['tabla_id']);
     $estado_registro = mysqli_real_escape_string($conexion, $data['estado_registro']);
     $codigo_estandar = mysqli_real_escape_string($conexion, $data['codigo_estandar']);
@@ -56,7 +61,7 @@ function agregarTablaEstadoRegistro($conexion, $data) {
                   WHERE tabla_id = $tabla_id AND estado_registro = '$estado_registro'";
     $res_check = mysqli_query($conexion, $sql_check);
     $row = mysqli_fetch_assoc($res_check);
-    
+
     if ($row['count'] > 0) {
         return false; // Ya existe este estado para esta tabla
     }
@@ -64,15 +69,16 @@ function agregarTablaEstadoRegistro($conexion, $data) {
     $sql = "INSERT INTO conf__tablas_estados_registros 
             (tabla_id, estado_registro, codigo_estandar, valor_estandar, color_id, orden) 
             VALUES ($tabla_id, '$estado_registro', '$codigo_estandar', $valor_estandar, $color_id, $orden)";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarTablaEstadoRegistro($conexion, $id, $data) {
+function editarTablaEstadoRegistro($conexion, $id, $data)
+{
     if (empty($data['tabla_id']) || empty($data['estado_registro'])) {
         return false;
     }
-    
+
     $id = intval($id);
     $tabla_id = intval($data['tabla_id']);
     $estado_registro = mysqli_real_escape_string($conexion, $data['estado_registro']);
@@ -87,7 +93,7 @@ function editarTablaEstadoRegistro($conexion, $id, $data) {
                   AND tabla_estado_registro_id != $id";
     $res_check = mysqli_query($conexion, $sql_check);
     $row = mysqli_fetch_assoc($res_check);
-    
+
     if ($row['count'] > 0) {
         return false; // Ya existe este estado para esta tabla en otro registro
     }
@@ -104,14 +110,16 @@ function editarTablaEstadoRegistro($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarTablaEstadoRegistro($conexion, $id) {
+function eliminarTablaEstadoRegistro($conexion, $id)
+{
     $id = intval($id);
-    
+
     $sql = "DELETE FROM conf__tablas_estados_registros WHERE tabla_estado_registro_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerTablaEstadoRegistroPorId($conexion, $id) {
+function obtenerTablaEstadoRegistroPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__tablas_estados_registros WHERE tabla_estado_registro_id = $id";
     $res = mysqli_query($conexion, $sql);

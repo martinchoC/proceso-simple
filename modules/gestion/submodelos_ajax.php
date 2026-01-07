@@ -2,7 +2,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 require_once "submodelos_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
@@ -30,7 +31,7 @@ try {
             $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
             break;
-            
+
         case 'obtener_modelos_activos':
             $modelos = obtenerModelosActivos($conexion, $empresa_idx);
             echo json_encode($modelos, JSON_UNESCAPED_UNICODE);
@@ -43,7 +44,7 @@ try {
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
             ];
-            
+
             $resultado = agregarSubmodelo($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -55,7 +56,7 @@ try {
                 'modelo_id' => intval($_POST['modelo_id'] ?? 0),
                 'empresa_idx' => $empresa_idx
             ];
-            
+
             $resultado = editarSubmodelo($conexion, $id, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -63,12 +64,12 @@ try {
         case 'ejecutar_accion':
             $submodelo_id = intval($_POST['submodelo_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            
+
             if (empty($submodelo_id) || empty($accion_js)) {
                 echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $resultado = ejecutarTransicionEstado($conexion, $submodelo_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -79,7 +80,7 @@ try {
                 echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $submodelo = obtenerSubmodeloPorId($conexion, $id, $empresa_idx);
             if ($submodelo) {
                 echo json_encode($submodelo, JSON_UNESCAPED_UNICODE);

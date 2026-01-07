@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerListasPreciosProductos($conexion, $filtro_lista = '', $filtro_producto = '') {
+function obtenerListasPreciosProductos($conexion, $filtro_lista = '', $filtro_producto = '')
+{
     $sql = "SELECT lpp.*, 
                    lp.nombre as lista_nombre,
                    p.producto_codigo, 
@@ -10,19 +12,19 @@ function obtenerListasPreciosProductos($conexion, $filtro_lista = '', $filtro_pr
             INNER JOIN `gestion__listas_precios` lp ON lpp.lista_id = lp.lista_id
             INNER JOIN `gestion__productos` p ON lpp.producto_id = p.producto_id
             WHERE 1=1";
-    
+
     if (!empty($filtro_lista)) {
         $filtro_lista = intval($filtro_lista);
         $sql .= " AND lpp.lista_id = $filtro_lista";
     }
-    
+
     if (!empty($filtro_producto)) {
         $filtro_producto = mysqli_real_escape_string($conexion, $filtro_producto);
         $sql .= " AND (p.producto_codigo LIKE '%$filtro_producto%' OR p.producto_nombre LIKE '%$filtro_producto%')";
     }
-    
+
     $sql .= " ORDER BY lp.nombre, p.producto_codigo";
-    
+
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -31,11 +33,12 @@ function obtenerListasPreciosProductos($conexion, $filtro_lista = '', $filtro_pr
     return $data;
 }
 
-function agregarListaPrecioProducto($conexion, $data) {
+function agregarListaPrecioProducto($conexion, $data)
+{
     if (empty($data['lista_id']) || empty($data['producto_id']) || empty($data['precio_unitario'])) {
         return false;
     }
-    
+
     $lista_id = intval($data['lista_id']);
     $producto_id = intval($data['producto_id']);
     $precio_unitario = floatval($data['precio_unitario']);
@@ -46,7 +49,7 @@ function agregarListaPrecioProducto($conexion, $data) {
                   WHERE lista_id = $lista_id AND producto_id = $producto_id";
     $res_check = mysqli_query($conexion, $sql_check);
     $existe = mysqli_fetch_assoc($res_check)['existe'];
-    
+
     if ($existe > 0) {
         return false; // Ya existe este producto en la lista
     }
@@ -55,15 +58,16 @@ function agregarListaPrecioProducto($conexion, $data) {
             (lista_id, producto_id, precio_unitario, ajuste_id) 
             VALUES 
             ($lista_id, $producto_id, $precio_unitario, $ajuste_id)";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarListaPrecioProducto($conexion, $id, $data) {
+function editarListaPrecioProducto($conexion, $id, $data)
+{
     if (empty($data['lista_id']) || empty($data['producto_id']) || empty($data['precio_unitario'])) {
         return false;
     }
-    
+
     $id = intval($id);
     $lista_id = intval($data['lista_id']);
     $producto_id = intval($data['producto_id']);
@@ -77,7 +81,7 @@ function editarListaPrecioProducto($conexion, $id, $data) {
                   AND lista_precio_producto_id != $id";
     $res_check = mysqli_query($conexion, $sql_check);
     $existe = mysqli_fetch_assoc($res_check)['existe'];
-    
+
     if ($existe > 0) {
         return false; // Ya existe este producto en la lista
     }
@@ -93,15 +97,17 @@ function editarListaPrecioProducto($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarListaPrecioProducto($conexion, $id) {
+function eliminarListaPrecioProducto($conexion, $id)
+{
     $id = intval($id);
-    
+
     $sql = "DELETE FROM `gestion__listas_precios_productos` 
             WHERE lista_precio_producto_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerListaPrecioProductoPorId($conexion, $id) {
+function obtenerListaPrecioProductoPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM `gestion__listas_precios_productos` 
             WHERE lista_precio_producto_id = $id";
@@ -109,7 +115,8 @@ function obtenerListaPrecioProductoPorId($conexion, $id) {
     return mysqli_fetch_assoc($res);
 }
 
-function obtenerListasPrecios($conexion) {
+function obtenerListasPrecios($conexion)
+{
     $sql = "SELECT lista_id, nombre 
             FROM `gestion__listas_precios` 
             WHERE estado = 'activa'
@@ -122,7 +129,8 @@ function obtenerListasPrecios($conexion) {
     return $data;
 }
 
-function obtenerProductos($conexion) {
+function obtenerProductos($conexion)
+{
     $sql = "SELECT producto_id, producto_codigo, producto_nombre 
             FROM `gestion__productos` 
             WHERE estado_registro_id = 1

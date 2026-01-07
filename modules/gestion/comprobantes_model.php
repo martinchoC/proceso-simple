@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerComprobantesSucursales($conexion) {
+function obtenerComprobantesSucursales($conexion)
+{
     $sql = "SELECT cs.*, 
                    s.nombre as sucursal_nombre,
                    ct.comprobante_tipo,
@@ -22,7 +24,8 @@ function obtenerComprobantesSucursales($conexion) {
     return $data;
 }
 
-function obtenerSucursales($conexion) {
+function obtenerSucursales($conexion)
+{
     $sql = "SELECT sucursal_id, nombre FROM `gestion__sucursales` WHERE estado_registro_id = 1 ORDER BY nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -32,7 +35,8 @@ function obtenerSucursales($conexion) {
     return $data;
 }
 
-function obtenerComprobantesTipos($conexion) {
+function obtenerComprobantesTipos($conexion)
+{
     $sql = "SELECT ct.*, cg.comprobante_grupo
             FROM `gestion__comprobantes_tipos` ct
             INNER JOIN `gestion__comprobantes_grupos` cg ON ct.comprobante_grupo_id = cg.comprobante_grupo_id
@@ -45,7 +49,8 @@ function obtenerComprobantesTipos($conexion) {
     return $data;
 }
 
-function obtenerComprobantesGrupos($conexion) {
+function obtenerComprobantesGrupos($conexion)
+{
     $sql = "SELECT comprobante_grupo_id, comprobante_grupo FROM `gestion__comprobantes_grupos` ORDER BY comprobante_grupo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -55,11 +60,12 @@ function obtenerComprobantesGrupos($conexion) {
     return $data;
 }
 
-function agregarComprobanteSucursal($conexion, $data) {
+function agregarComprobanteSucursal($conexion, $data)
+{
     if (empty($data['sucursal_id']) || empty($data['comprobante_tipo_id'])) {
         return false;
     }
-    
+
     $sucursal_id = intval($data['sucursal_id']);
     $comprobante_tipo_id = intval($data['comprobante_tipo_id']);
     $estado_registro_id = intval($data['estado_registro_id']);
@@ -69,7 +75,7 @@ function agregarComprobanteSucursal($conexion, $data) {
                   WHERE sucursal_id = $sucursal_id AND comprobante_tipo_id = $comprobante_tipo_id";
     $res_check = mysqli_query($conexion, $sql_check);
     $existe = mysqli_fetch_assoc($res_check)['existe'];
-    
+
     if ($existe > 0) {
         return false; // Ya existe esta combinación
     }
@@ -78,15 +84,16 @@ function agregarComprobanteSucursal($conexion, $data) {
             (sucursal_id, comprobante_tipo_id, estado_registro_id) 
             VALUES 
             ($sucursal_id, $comprobante_tipo_id, $estado_registro_id)";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarComprobanteSucursal($conexion, $id, $data) {
+function editarComprobanteSucursal($conexion, $id, $data)
+{
     if (empty($data['sucursal_id']) || empty($data['comprobante_tipo_id'])) {
         return false;
     }
-    
+
     $id = intval($id);
     $sucursal_id = intval($data['sucursal_id']);
     $comprobante_tipo_id = intval($data['comprobante_tipo_id']);
@@ -98,7 +105,7 @@ function editarComprobanteSucursal($conexion, $id, $data) {
                   AND comprobante_sucursal_id != $id";
     $res_check = mysqli_query($conexion, $sql_check);
     $existe = mysqli_fetch_assoc($res_check)['existe'];
-    
+
     if ($existe > 0) {
         return false; // Ya existe esta combinación
     }
@@ -112,22 +119,25 @@ function editarComprobanteSucursal($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function cambiarEstadoComprobanteSucursal($conexion, $id, $nuevo_estado) {
+function cambiarEstadoComprobanteSucursal($conexion, $id, $nuevo_estado)
+{
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
-    
+
     $sql = "UPDATE `gestion__comprobantes_sucursales` SET estado_registro_id = $nuevo_estado WHERE comprobante_sucursal_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarComprobanteSucursal($conexion, $id) {
+function eliminarComprobanteSucursal($conexion, $id)
+{
     $id = intval($id);
-    
+
     $sql = "DELETE FROM `gestion__comprobantes_sucursales` WHERE comprobante_sucursal_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerComprobanteSucursalPorId($conexion, $id) {
+function obtenerComprobanteSucursalPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM `gestion__comprobantes_sucursales` WHERE comprobante_sucursal_id = $id";
     $res = mysqli_query($conexion, $sql);

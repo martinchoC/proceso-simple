@@ -2,7 +2,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 require_once "modelos_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
@@ -30,7 +31,7 @@ try {
             $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
             break;
-            
+
         case 'obtener_marcas_activas':
             $marcas = obtenerMarcasActivas($conexion, $empresa_idx);
             echo json_encode($marcas, JSON_UNESCAPED_UNICODE);
@@ -43,7 +44,7 @@ try {
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
             ];
-            
+
             $resultado = agregarModelo($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -55,7 +56,7 @@ try {
                 'marca_id' => intval($_POST['marca_id'] ?? 0),
                 'empresa_idx' => $empresa_idx
             ];
-            
+
             $resultado = editarModelo($conexion, $id, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -63,12 +64,12 @@ try {
         case 'ejecutar_accion':
             $modelo_id = intval($_POST['modelo_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            
+
             if (empty($modelo_id) || empty($accion_js)) {
                 echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $resultado = ejecutarTransicionEstado($conexion, $modelo_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -79,7 +80,7 @@ try {
                 echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
+
             $modelo = obtenerModeloPorId($conexion, $id, $empresa_idx);
             if ($modelo) {
                 echo json_encode($modelo, JSON_UNESCAPED_UNICODE);

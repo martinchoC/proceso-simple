@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerTablas($conexion) {
+function obtenerTablas($conexion)
+{
     $sql = "SELECT * FROM conf__tablas WHERE tabla_estado_registro_id = 1 ORDER BY tabla_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -11,7 +13,8 @@ function obtenerTablas($conexion) {
     return $data;
 }
 
-function obtenerEstadosRegistro($conexion) {
+function obtenerEstadosRegistro($conexion)
+{
     $sql = "SELECT * FROM conf__estados_registros ORDER BY estado_registro";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -21,7 +24,8 @@ function obtenerEstadosRegistro($conexion) {
     return $data;
 }
 
-function obtenerColores($conexion) {
+function obtenerColores($conexion)
+{
     $sql = "SELECT * FROM conf__colores WHERE tabla_estado_registro_id = 1 ORDER BY nombre_color";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -31,7 +35,8 @@ function obtenerColores($conexion) {
     return $data;
 }
 
-function obtenerTablasEstados($conexion) {
+function obtenerTablasEstados($conexion)
+{
     $sql = "SELECT 
                 cter.*,
                 ct.tabla_nombre,
@@ -49,7 +54,7 @@ function obtenerTablasEstados($conexion) {
             LEFT JOIN conf__estados_registros cer ON cter.estado_registro_id = cer.estado_registro_id
             LEFT JOIN conf__colores cc ON cter.color_id = cc.color_id
             ORDER BY ct.tabla_nombre, cter.orden, cter.tabla_estado_registro";
-    
+
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -58,38 +63,44 @@ function obtenerTablasEstados($conexion) {
     return $data;
 }
 
-function agregarTablaEstado($conexion, $data) {
+function agregarTablaEstado($conexion, $data)
+{
     // Validar campos obligatorios
-    if (empty($data['tabla_id']) || 
-        empty($data['estado_registro_id']) || 
-        empty($data['tabla_estado_registro'])) {
+    if (
+        empty($data['tabla_id']) ||
+        empty($data['estado_registro_id']) ||
+        empty($data['tabla_estado_registro'])
+    ) {
         return false;
     }
-    
+
     $tabla_id = intval($data['tabla_id']);
     $estado_registro_id = intval($data['estado_registro_id']);
     $tabla_estado_registro = mysqli_real_escape_string($conexion, $data['tabla_estado_registro']);
     $color_id = intval($data['color_id']);
     $es_inicial = isset($data['es_inicial']) && $data['es_inicial'] == 1 ? 1 : 0;
     $orden = intval($data['orden']);
-    
+
     // NOTA: No pasamos tabla_estado_registro_id porque es AUTO_INCREMENT
     $sql = "INSERT INTO conf__tablas_estados_registros 
             (tabla_id, estado_registro_id, tabla_estado_registro, color_id, es_inicial, orden) 
             VALUES 
             ($tabla_id, $estado_registro_id, '$tabla_estado_registro', $color_id, $es_inicial, $orden)";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarTablaEstado($conexion, $id, $data) {
+function editarTablaEstado($conexion, $id, $data)
+{
     // Validar campos obligatorios
-    if (empty($data['tabla_id']) || 
-        empty($data['estado_registro_id']) || 
-        empty($data['tabla_estado_registro'])) {
+    if (
+        empty($data['tabla_id']) ||
+        empty($data['estado_registro_id']) ||
+        empty($data['tabla_estado_registro'])
+    ) {
         return false;
     }
-    
+
     $id = intval($id);
     $tabla_id = intval($data['tabla_id']);
     $estado_registro_id = intval($data['estado_registro_id']);
@@ -106,33 +117,36 @@ function editarTablaEstado($conexion, $id, $data) {
             es_inicial = $es_inicial,
             orden = $orden
             WHERE tabla_estado_registro_id = $id";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarTablaEstado($conexion, $id) {
+function eliminarTablaEstado($conexion, $id)
+{
     $id = intval($id);
     $sql = "DELETE FROM conf__tablas_estados_registros WHERE tabla_estado_registro_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerTablaEstadoPorId($conexion, $id) {
+function obtenerTablaEstadoPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__tablas_estados_registros WHERE tabla_estado_registro_id = $id";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);
 }
 
-function verificarEstadoInicial($conexion, $tabla_id, $excluir_id = 0) {
+function verificarEstadoInicial($conexion, $tabla_id, $excluir_id = 0)
+{
     $tabla_id = intval($tabla_id);
     $excluir_id = intval($excluir_id);
-    
+
     $sql = "SELECT COUNT(*) as total 
             FROM conf__tablas_estados_registros 
             WHERE tabla_id = $tabla_id 
             AND es_inicial = 1 
             AND tabla_estado_registro_id != $excluir_id";
-    
+
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
     return $fila['total'] > 0;

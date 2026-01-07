@@ -3,7 +3,8 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Primero incluimos directamente la conexión
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
 // Ahora incluimos el modelo que usa la conexión
 require_once "tablas_estados_model.php";
@@ -17,7 +18,7 @@ switch ($accion) {
         $estados = obtenerTablasEstados($conexion);
         echo json_encode($estados);
         break;
-    
+
     case 'obtenerTablas':
         $tablas = obtenerTablas($conexion);
         echo json_encode($tablas);
@@ -32,7 +33,7 @@ switch ($accion) {
         $colores = obtenerColores($conexion);
         echo json_encode($colores);
         break;
-    
+
     case 'agregar':
         $data = [
             'tabla_id' => $_GET['tabla_id'] ?? '',
@@ -42,15 +43,17 @@ switch ($accion) {
             'es_inicial' => $_GET['es_inicial'] ?? 0,
             'orden' => $_GET['orden'] ?? 1
         ];
-        
+
         // Validación de campos obligatorios
-        if (empty($data['tabla_id']) || 
-            empty($data['estado_registro_id']) || 
-            empty($data['tabla_estado_registro'])) {
+        if (
+            empty($data['tabla_id']) ||
+            empty($data['estado_registro_id']) ||
+            empty($data['tabla_estado_registro'])
+        ) {
             echo json_encode(['resultado' => false, 'error' => 'Tabla, estado registro y nombre de estado son obligatorios']);
             break;
         }
-        
+
         $resultado = agregarTablaEstado($conexion, $data);
         echo json_encode(['resultado' => $resultado]);
         break;
@@ -65,15 +68,17 @@ switch ($accion) {
             'es_inicial' => $_GET['es_inicial'] ?? 0,
             'orden' => $_GET['orden'] ?? 1
         ];
-        
+
         // Validación de campos obligatorios
-        if (empty($data['tabla_id']) || 
-            empty($data['estado_registro_id']) || 
-            empty($data['tabla_estado_registro'])) {
+        if (
+            empty($data['tabla_id']) ||
+            empty($data['estado_registro_id']) ||
+            empty($data['tabla_estado_registro'])
+        ) {
             echo json_encode(['resultado' => false, 'error' => 'Tabla, estado registro y nombre de estado son obligatorios']);
             break;
         }
-        
+
         $resultado = editarTablaEstado($conexion, $id, $data);
         echo json_encode(['resultado' => $resultado]);
         break;

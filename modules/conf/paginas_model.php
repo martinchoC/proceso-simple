@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerModulos($conexion) {
+function obtenerModulos($conexion)
+{
     $sql = "SELECT * FROM conf__modulos ORDER BY modulo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -11,7 +13,8 @@ function obtenerModulos($conexion) {
     return $data;
 }
 
-function obtenerPadre($conexion) {
+function obtenerPadre($conexion)
+{
     $sql = "SELECT * FROM conf__paginas ORDER BY pagina";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -21,7 +24,8 @@ function obtenerPadre($conexion) {
     return $data;
 }
 
-function obtenerTablas($conexion) {
+function obtenerTablas($conexion)
+{
     $sql = "SELECT * FROM conf__tablas ORDER BY tabla_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -31,7 +35,8 @@ function obtenerTablas($conexion) {
     return $data;
 }
 
-function obtenerIconos($conexion) {
+function obtenerIconos($conexion)
+{
     $sql = "SELECT * FROM conf__iconos ORDER BY icono_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -42,7 +47,8 @@ function obtenerIconos($conexion) {
 }
 
 // Nueva función: Obtener tipos de tabla
-function obtenerTablaTipos($conexion) {
+function obtenerTablaTipos($conexion)
+{
     $sql = "SELECT * FROM conf__tablas_tipos WHERE tabla_estado_registro_id = 1 ORDER BY tabla_tipo_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -53,7 +59,8 @@ function obtenerTablaTipos($conexion) {
 }
 
 // Nueva función: Obtener funciones por tipo de tabla
-function obtenerFuncionesPorTipoTabla($conexion, $tabla_tipo_id) {
+function obtenerFuncionesPorTipoTabla($conexion, $tabla_tipo_id)
+{
     $tabla_tipo_id = intval($tabla_tipo_id);
     $sql = "SELECT f.*, i.icono_clase, c.color_clase 
             FROM conf__paginas_funciones_tipos f
@@ -70,7 +77,8 @@ function obtenerFuncionesPorTipoTabla($conexion, $tabla_tipo_id) {
 }
 
 // Nueva función: Obtener funciones de una página específica
-function obtenerFuncionesPorPagina($conexion, $pagina_id) {
+function obtenerFuncionesPorPagina($conexion, $pagina_id)
+{
     $pagina_id = intval($pagina_id);
     $sql = "SELECT pf.*, i.icono_clase, i.icono_nombre, c.color_clase, c.nombre_color,
                    eor.tabla_estado_registro as origen_nombre, ed.tabla_estado_registro as destino_nombre
@@ -90,13 +98,14 @@ function obtenerFuncionesPorPagina($conexion, $pagina_id) {
 }
 
 // Nueva función: Copiar funciones de tipo a página
-function copiarFuncionesDeTipo($conexion, $pagina_id, $tabla_tipo_id) {
+function copiarFuncionesDeTipo($conexion, $pagina_id, $tabla_tipo_id)
+{
     $pagina_id = intval($pagina_id);
     $tabla_tipo_id = intval($tabla_tipo_id);
-    
+
     // Obtener funciones del tipo
     $funciones_tipo = obtenerFuncionesPorTipoTabla($conexion, $tabla_tipo_id);
-    
+
     $resultados = [];
     foreach ($funciones_tipo as $funcion) {
         $sql = "INSERT INTO conf__paginas_funciones 
@@ -116,16 +125,17 @@ function copiarFuncionesDeTipo($conexion, $pagina_id, $tabla_tipo_id) {
                     " . intval($funcion['orden']) . ",
                     1
                 )";
-        
+
         $resultados[] = mysqli_query($conexion, $sql);
     }
-    
+
     // Retornar true si todas las inserciones fueron exitosas
     return !in_array(false, $resultados, true);
 }
 
 // Nueva función: Obtener tipo de tabla por tabla_id
-function obtenerTablaTipoPorTablaId($conexion, $tabla_id) {
+function obtenerTablaTipoPorTablaId($conexion, $tabla_id)
+{
     $tabla_id = intval($tabla_id);
     $sql = "SELECT tabla_tipo_id FROM conf__tablas WHERE tabla_id = $tabla_id";
     $res = mysqli_query($conexion, $sql);
@@ -134,7 +144,8 @@ function obtenerTablaTipoPorTablaId($conexion, $tabla_id) {
 }
 
 // Nueva función: Verificar si página ya tiene funciones
-function paginaTieneFunciones($conexion, $pagina_id) {
+function paginaTieneFunciones($conexion, $pagina_id)
+{
     $pagina_id = intval($pagina_id);
     $sql = "SELECT COUNT(*) as total FROM conf__paginas_funciones WHERE pagina_id = $pagina_id";
     $res = mysqli_query($conexion, $sql);
@@ -142,7 +153,8 @@ function paginaTieneFunciones($conexion, $pagina_id) {
     return $fila['total'] > 0;
 }
 
-function obtenerpaginas($conexion) {
+function obtenerpaginas($conexion)
+{
     $sql = "SELECT p.*,  m.modulo,  padre.pagina as padre_nombre, 
                    conf__tablas.tabla_nombre, conf__iconos.icono_nombre, 
                    conf__iconos.icono_clase,
@@ -161,12 +173,13 @@ function obtenerpaginas($conexion) {
     return $data;
 }
 
-function agregarpagina($conexion, $data) {
+function agregarpagina($conexion, $data)
+{
     // Validar campos obligatorios (sin incluir padre_id)
     if (empty($data['pagina']) || empty($data['modulo_id'])) {
         return false;
     }
-    
+
     $pagina = mysqli_real_escape_string($conexion, $data['pagina']);
     $url = mysqli_real_escape_string($conexion, $data['url']);
     $pagina_descripcion = mysqli_real_escape_string($conexion, $data['pagina_descripcion']);
@@ -181,11 +194,12 @@ function agregarpagina($conexion, $data) {
             (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id) 
             VALUES 
             ('$pagina', '$url', '$pagina_descripcion', '$orden', '$tabla_id', $padre_id, $modulo_id, $tabla_estado_registro_id,'$icono_id')";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarpagina($conexion, $id, $data) {
+function editarpagina($conexion, $id, $data)
+{
     // Validar campos obligatorios (sin incluir padre_id)
     if (empty($data['pagina']) || empty($data['modulo_id'])) {
         return false;
@@ -216,19 +230,21 @@ function editarpagina($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarpagina($conexion, $id) {
+function eliminarpagina($conexion, $id)
+{
     $id = intval($id);
-    
+
     // Primero eliminar funciones asociadas
     $sql1 = "DELETE FROM conf__paginas_funciones WHERE pagina_id = $id";
     mysqli_query($conexion, $sql1);
-    
+
     // Luego eliminar la página
     $sql2 = "DELETE FROM conf__paginas WHERE pagina_id = $id";
     return mysqli_query($conexion, $sql2);
 }
 
-function obtenerpaginaPorId($conexion, $id) {
+function obtenerpaginaPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT p.*, t.tabla_tipo_id 
             FROM conf__paginas p

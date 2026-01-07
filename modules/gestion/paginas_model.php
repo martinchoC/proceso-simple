@@ -1,7 +1,8 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
-
-function obtenerModulos($conexion) {
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
+function obtenerModulos($conexion)
+{
     $sql = "SELECT * FROM conf__modulos WHERE modulo_id=2 ORDER BY modulo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -10,7 +11,8 @@ function obtenerModulos($conexion) {
     }
     return $data;
 }
-function obtenerPadre($conexion) {
+function obtenerPadre($conexion)
+{
     $sql = "SELECT * FROM conf__paginas ORDER BY pagina";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -19,7 +21,8 @@ function obtenerPadre($conexion) {
     }
     return $data;
 }
-function obtenerTablas($conexion) {
+function obtenerTablas($conexion)
+{
     $sql = "SELECT * FROM conf__tablas ORDER BY tabla_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -28,7 +31,8 @@ function obtenerTablas($conexion) {
     }
     return $data;
 }
-function obtenerIconos($conexion) {
+function obtenerIconos($conexion)
+{
     $sql = "SELECT * FROM conf__iconos ORDER BY icono_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -38,8 +42,9 @@ function obtenerIconos($conexion) {
     return $data;
 }
 
-function obtenerpaginas($conexion) {
-    $modulo_idx=2;
+function obtenerpaginas($conexion)
+{
+    $modulo_idx = 2;
     $sql = "SELECT p.*,  m.modulo,  padre.pagina as padre_nombre, conf__tablas.tabla_nombre, conf__iconos.icono_nombre, conf__iconos.icono_clase
             FROM conf__paginas p
             LEFT JOIN conf__modulos m ON p.modulo_id = m.modulo_id
@@ -56,12 +61,13 @@ function obtenerpaginas($conexion) {
     return $data;
 }
 
-function agregarpagina($conexion, $data) {
+function agregarpagina($conexion, $data)
+{
     // Validar campos obligatorios (sin incluir padre_id)
     if (empty($data['pagina']) || empty($data['modulo_id'])) {
         return false;
     }
-    
+
     $pagina = mysqli_real_escape_string($conexion, $data['pagina']);
     $url = mysqli_real_escape_string($conexion, $data['url']);
     $pagina_descripcion = mysqli_real_escape_string($conexion, $data['pagina_descripcion']);
@@ -76,11 +82,12 @@ function agregarpagina($conexion, $data) {
             (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id) 
             VALUES 
             ('$pagina', '$url', '$pagina_descripcion', '$orden', '$tabla_id', $padre_id, $modulo_id, $tabla_estado_registro_id,'$icono_id')";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarpagina($conexion, $id, $data) {
+function editarpagina($conexion, $id, $data)
+{
     // Validar campos obligatorios (sin incluir padre_id)
     if (empty($data['pagina']) || empty($data['modulo_id'])) {
         return false;
@@ -111,13 +118,15 @@ function editarpagina($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarpagina($conexion, $id) {
+function eliminarpagina($conexion, $id)
+{
     $id = intval($id);
     $sql = "DELETE FROM conf__paginas WHERE pagina_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerpaginaPorId($conexion, $id) {
+function obtenerpaginaPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__paginas WHERE pagina_id = $id";
     $res = mysqli_query($conexion, $sql);

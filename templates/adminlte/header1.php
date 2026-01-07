@@ -6,217 +6,194 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
 ?>
 <!doctype html>
 <html lang="en">
-  <!--begin::Head-->
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Developsam | Multigestion</title>
-    <!--begin::Accessibility Meta Tags-->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
-    <!--end::Accessibility Meta Tags-->
-    <!--begin::Primary Meta Tags-->
-    <meta name="title" content="Developsam | Multigestion" />
-    <meta name="author" content="Developsam" />
-    <meta
-      name="description"
-      content="Developsam"
-    />
-    
-    <!--end::Primary Meta Tags-->
-    <!--begin::Accessibility Features-->
-    <!-- Skip links will be dynamically added by accessibility.js -->
-    <meta name="supported-color-schemes" content="light dark" />
 
-    
-    <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
-     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    
-    <!-- SweetAlert2 Theme -->
-    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css" rel="stylesheet" />
-    
-    <!-- AdminLTE CSS (YA INCLUYE Bootstrap) -->
-    <link rel="stylesheet" href="<?= asset('css/adminlte.css') ?>" />
-    
-    <!-- OverlayScrollbars -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" />
-    
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
-    
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>Developsam | Multigestion</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+  <meta name="title" content="Developsam | Multigestion" />
+  <meta name="author" content="Developsam" />
+  <meta name="description" content="Developsam" />
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    
-    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
-    
-    <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-    
-     
-    
-    <!-- Botones de DataTables -->
-    <script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+  <meta name="supported-color-schemes" content="light dark" />
 
-    <!-- Librerías para exportar -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 
-    
-    <!--end::Accessibility Features-->
-    <!--begin::Fonts-->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
-      integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
-      crossorigin="anonymous"
-      media="print"
-      onload="this.media='all'"
-    />
-    <!--end::Fonts-->
-    <!--begin::Required Plugin(AdminLTE)-->
-    <link rel="stylesheet" href="<?= asset('css/adminlte.css') ?>" />
-    <!--end::Required Plugin(AdminLTE)-->
-    <!-- apexcharts -->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.css"
-      integrity="sha256-4MX+61mt9NVvvuPjUWdUdyfZfxSB1/Rf9WtqRHgG5S0="
-      crossorigin="anonymous"
-    />
-    <!-- jsvectormap -->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/css/jsvectormap.min.css"
-      integrity="sha256-+uGLJmmTKOqBr+2E6KDYs/NRsHxSkONXFHUL0fy2O/4="
-      crossorigin="anonymous"
-    />
-  </head>
+  <link href="<?= asset_local('css/dataTables.bootstrap5.min.css') ?>" rel="stylesheet" />
+  <link rel="stylesheet" href="<?= asset_local('css/all.min.css') ?>" />
+
+  <link href="<?= asset_local('css/sweetalert2-bootstrap-4.min.css') ?>" rel="stylesheet" />
+
+  <link rel="stylesheet" href="<?= asset_local('css/adminlte.min.css') ?>" />
+
+  <link rel="stylesheet" href="<?= asset_local('css/overlayscrollbars.min.css') ?>" />
+
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.0/font/bootstrap-icons.css">
+
+
+  <link href="<?= asset_local('css/bootstrap.min.css') ?>" rel="stylesheet" />
+
+
+  <script src="<?= asset_local('js/jquery.min.js') ?>"></script>
+
+  <script src="<?= asset_local('js/dataTables.min.js') ?>"></script>
+
+  <script src="<?= asset_local('js/dataTables.bootstrap5.min.js') ?>"></script>
+
+
+
+  <script src="<?= asset_local('js/dataTables.buttons.min.js') ?>"></script>
+  <script src="<?= asset_local('js/buttons.html5.min.js') ?>"></script>
+
+  <script src="<?= asset_local('js/jszip.min.js') ?>"></script>
+  <script src="<?= asset_local('js/pdfmake.min.js') ?>"></script>
+  <script src="<?= asset_local('js/vfs_fonts.js') ?>"></script>
+
+
+  <link rel="stylesheet" href="<?= asset_local('css/adminlte.min.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/apexcharts.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/jsvectormap.min.css') ?>" />
+</head>
 <style>
-   /* Permite que el sidebar crezca */
-.sidebar-wrapper {
+  /* Permite que el sidebar crezca */
+  .sidebar-wrapper {
     width: auto !important;
     min-width: 250px;
     white-space: nowrap;
-    overflow-x: visible; /* asegura que no se corte el contenido */
-}
+    overflow-x: visible;
+    /* asegura que no se corte el contenido */
+  }
 
-/* Asegura que los textos ocupen solo lo necesario */
-.sidebar-wrapper .nav-link p {
+  /* Asegura que los textos ocupen solo lo necesario */
+  .sidebar-wrapper .nav-link p {
     display: inline-block;
     width: auto;
-}
-</style>  
-  <!--end::Head-->
-  <!--begin::Body-->
-  <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
-    <!--begin::App Wrapper-->
-    <div class="app-wrapper">
-      <!--begin::Header-->
-      <nav class="app-header navbar navbar-expand bg-body">
-        <!--begin::Container-->
-        <div class="container-fluid">
-          <!--begin::Start Navbar Links-->
-                    <ul class="navbar-nav">
-              <li class="nav-item">
-                  <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
-                      <i class="bi bi-list"></i>
-                  </a>
-              </li>
-              <?php
-              $current_url_full = $_SERVER['REQUEST_URI'];
-              $current_url_path = parse_url($current_url_full, PHP_URL_PATH);
-              $current_url_base = basename($current_url_path);
-              
-              $sql = "SELECT 
+  }
+
+  /* Ocultar skip links de accesibilidad inyectados por adminlte.js */
+  .skip-link {
+    position: absolute !important;
+    top: -100px !important;
+    left: 0 !important;
+    background: #007bff !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    z-index: 9999 !important;
+    transition: top 0.3s !important;
+    text-decoration: none !important;
+    border-radius: 0 0 5px 5px !important;
+    display: inline-block !important;
+  }
+
+  .skip-link:focus {
+    top: 0 !important;
+    outline: none !important;
+  }
+
+  /* Ocultar el contenedor de skip links si es necesario */
+  .skip-links {
+    position: absolute !important;
+    z-index: 10000 !important;
+  }
+</style>
+
+<body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
+  <div class="app-wrapper">
+    <nav class="app-header navbar navbar-expand bg-body">
+      <div class="container-fluid">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
+              <i class="bi bi-list"></i>
+            </a>
+          </li>
+          <?php
+          $current_empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 0;
+          $current_modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 0;
+
+          $sql_modulos = "SELECT 
                   e.empresa_id,
                   e.empresa,
                   m.modulo_id,
                   m.modulo,
-                  m.modulo_url,
-                  m.base_datos,
-                  img.imagen_id
+                  m.modulo_url
               FROM conf__empresas e
-              LEFT JOIN conf__empresas_modulos em 
-                  ON e.empresa_id = em.empresa_id 
-                  AND em.tabla_estado_registro_id = 1
-              LEFT JOIN conf__modulos m 
-                  ON em.modulo_id = m.modulo_id 
-                  AND m.tabla_estado_registro_id = 1
-              LEFT JOIN conf__imagenes img 
-                  ON m.imagen_id = img.imagen_id
+              LEFT JOIN conf__empresas_modulos em ON e.empresa_id = em.empresa_id AND em.tabla_estado_registro_id = 1
+              LEFT JOIN conf__modulos m ON em.modulo_id = m.modulo_id AND m.tabla_estado_registro_id = 1
               WHERE e.tabla_estado_registro_id = 1
               ORDER BY e.empresa, m.modulo";
 
-              $result = mysqli_query($conexion, $sql);
+          $res_modulos = mysqli_query($conexion, $sql_modulos);
+          $empresas_modulos = [];
+          $nombre_empresa_actual = "Multigestion";
+          $nombre_modulo_actual = "";
 
-              // Array para agrupar módulos por empresa
-              $empresas_modulos = [];
+          while ($row = mysqli_fetch_assoc($res_modulos)) {
+            $eid = $row['empresa_id'];
+            $mid = $row['modulo_id'];
 
-              while ($row = mysqli_fetch_array($result)) {
-                  $empresa_id = $row['empresa_id'];
-                  
-                  // Si no existe la empresa en el array, la inicializamos
-                  if (!isset($empresas_modulos[$empresa_id])) {
-                      $empresas_modulos[$empresa_id] = [
-                          'empresa' => $row['empresa'],
-                          'modulos' => []
-                      ];
-                  }
-                  
-                  // Si hay un módulo asociado, lo añadimos
-                  if (!empty($row['modulo_id'])) {
-                      $empresas_modulos[$empresa_id]['modulos'][] = [
-                          'modulo_id' => $row['modulo_id'], // Añadido
-                          'modulo' => $row['modulo'],
-                          'modulo_url' => $row['modulo_url'],
-                          'imagen_id' => $row['imagen_id'],
-                          'base_datos' => $row['base_datos']
-                      ];
-                  }
+            if (!isset($empresas_modulos[$eid])) {
+              $empresas_modulos[$eid] = [
+                'nombre' => $row['empresa'],
+                'modulos' => []
+              ];
+            }
+
+            if ($eid == $current_empresa_id) {
+              $nombre_empresa_actual = $row['empresa'];
+              if ($mid == $current_modulo_id) {
+                $nombre_modulo_actual = $row['modulo'];
               }
+            }
 
-              // Ahora generamos el HTML organizado por empresas
-              foreach ($empresas_modulos as $empresa_id => $datos_empresa) {
-                  // Mostrar la empresa
-                  echo '<div class="empresa-section">';
-                  echo '<h4 class="empresa-title">' . htmlspecialchars($datos_empresa['empresa']) . '</h4>';
-                  
-                  // Mostrar los módulos de esta empresa
-                  if (!empty($datos_empresa['modulos'])) {
-                      echo '<ul class="nav flex-column">';
-                      foreach ($datos_empresa['modulos'] as $modulo) {
-                          echo '<li class="nav-item d-none d-md-block">';
-                          
-                          // OPCIÓN 1: Usando GET en la URL (más común)
-                          $url_con_parametros = htmlspecialchars('../' . $modulo['modulo_url']) . 
-                                              '?empresa_id=' . $empresa_id . 
-                                              '&modulo_id=' . $modulo['modulo_id'];
-                          
-                          echo '<a href="' . $url_con_parametros . '" class="nav-link">';
-                          echo htmlspecialchars($modulo['modulo']);
-                          echo '</a>';
-                          echo '</li>';
-                      }
-                      echo '</ul>';
-                  } else {
-                      echo '<p class="text-muted">No tiene módulos asignados</p>';
-                  }
-                  echo '</div>';
-                  echo '<hr>';
-              }
-              ?>
-          </ul>
-          <!--end::Start Navbar Links-->
-          <!--begin::End Navbar Links-->
+            if (!empty($mid)) {
+              $empresas_modulos[$eid]['modulos'][] = [
+                'id' => $mid,
+                'nombre' => $row['modulo'],
+                'url' => $row['modulo_url']
+              ];
+            }
+          }
+
+          $titulo_display = htmlspecialchars($nombre_empresa_actual);
+          if (!empty($nombre_modulo_actual)) {
+            $titulo_display .= " - " . htmlspecialchars($nombre_modulo_actual);
+          }
+          ?>
+          <li class="nav-item d-none d-md-block">
+            <span class="navbar-text fw-bold fs-5 ms-3 text-primary">
+              <?= $titulo_display ?>
+            </span>
+          </li>
+        </ul>
+
+        <div class="ms-auto d-flex align-items-center">
+          <div class="input-group input-group-sm me-3" style="width: 250px;">
+            <span class="input-group-text bg-primary text-white border-primary">
+              <i class="bi bi-grid-3x3-gap-fill"></i>
+            </span>
+            <select class="form-select border-primary" onchange="if(this.value) window.location.href=this.value;">
+              <option value="">Seleccionar Módulo...</option>
+              <?php foreach ($empresas_modulos as $eid => $data): ?>
+                <optgroup label="<?= htmlspecialchars($data['nombre']) ?>">
+                  <?php foreach ($data['modulos'] as $mod): ?>
+                    <?php
+                    $target_url = "../" . $mod['url'] . "?empresa_id=" . $eid . "&modulo_id=" . $mod['id'];
+                    $selected = ($eid == $current_empresa_id && $mod['id'] == $current_modulo_id) ? 'selected' : '';
+                    ?>
+                    <option value="<?= $target_url ?>" <?= $selected ?>>
+                      <?= htmlspecialchars($mod['nombre']) ?>
+                    </option>
+                  <?php endforeach; ?>
+                </optgroup>
+              <?php endforeach; ?>
+            </select>
+          </div>
           <ul class="navbar-nav ms-auto">
-                      
-            <!--begin::Notifications Dropdown Menu-->
+
             <li class="nav-item dropdown">
               <a class="nav-link" data-bs-toggle="dropdown" href="#">
                 <i class="bi bi-bell-fill"></i>
@@ -243,176 +220,139 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
                 <a href="#" class="dropdown-item dropdown-footer"> See All Notifications </a>
               </div>
             </li>
-            <!--end::Notifications Dropdown Menu-->
-            <!--begin::Fullscreen Toggle-->
             <li class="nav-item">
               <a class="nav-link" href="#" data-lte-toggle="fullscreen">
                 <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
                 <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display: none"></i>
               </a>
             </li>
-            <!--end::Fullscreen Toggle-->
-            <!--begin::User Menu Dropdown-->
             <li class="nav-item dropdown user-menu">
               <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <img
-                  src="./assets/img/user2-160x160.jpg"
-                  class="user-image rounded-circle shadow"
-                  alt="User Image"
-                />
+                <img src="<?= asset('img/user2-160x160.jpg') ?>" class="user-image rounded-circle shadow"
+                  alt="User Image" />
                 <span class="d-none d-md-inline">Alexander Pierce</span>
               </a>
               <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
-                <!--begin::User Image-->
                 <li class="user-header text-bg-primary">
-                  <img
-                    src="./assets/img/user2-160x160.jpg"
-                    class="rounded-circle shadow"
-                    alt="User Image"
-                  />
+                  <img src="<?= asset('img/user2-160x160.jpg') ?>" class="rounded-circle shadow" alt="User Image" />
                   <p>
                     Alexander Pierce - Web Developer
                     <small>Member since Nov. 2023</small>
                   </p>
                 </li>
-                <!--end::User Image-->
-                <!--begin::Menu Body-->
                 <li class="user-body">
-                  <!--begin::Row-->
                   <div class="row">
                     <div class="col-4 text-center"><a href="#">Followers</a></div>
                     <div class="col-4 text-center"><a href="#">Sales</a></div>
                     <div class="col-4 text-center"><a href="#">Friends</a></div>
                   </div>
-                  <!--end::Row-->
                 </li>
-                <!--end::Menu Body-->
-                <!--begin::Menu Footer-->
                 <li class="user-footer">
                   <a href="#" class="btn btn-default btn-flat">Profile</a>
                   <a href="#" class="btn btn-default btn-flat float-end">Sign out</a>
                 </li>
-                <!--end::Menu Footer-->
               </ul>
             </li>
-            <!--end::User Menu Dropdown-->
           </ul>
-          <!--end::End Navbar Links-->
-        </div>
-        <!--end::Container-->
-      </nav>
-      <!--end::Header-->
-      <!--begin::Sidebar-->
-      <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
-        <!--begin::Sidebar Brand-->
-        <div class="sidebar-brand">
-          <!--begin::Brand Link-->
-          <a href="./index.html" class="brand-link">
-            <!--begin::Brand Image-->
-            <img
-              src="<?= asset('img/developsam_logo.png') ?>"
-              alt="AdminLTE Logo"
-              class="brand-image opacity-75 shadow"
-            />
-            <!--end::Brand Image-->
-            <!--begin::Brand Text-->
-            <span class="brand-text fw-light">Multigestion</span>
-            <!--end::Brand Text-->
-          </a>
-          <!--end::Brand Link-->
-        </div>
-        <!--end::Sidebar Brand-->
-        <!--begin::Sidebar Wrapper-->
-        <div class="sidebar-wrapper">
+        </div> <!-- End ms-auto -->
+      </div> <!-- End container-fluid -->
+    </nav>
+    <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+      <div class="sidebar-brand">
+        <a href="./index.html" class="brand-link">
+          <img src="<?= asset('img/developsam_logo.png') ?>" alt="AdminLTE Logo"
+            class="brand-image opacity-75 shadow" />
+          <span class="brand-text fw-light">Multigestion</span>
+        </a>
+      </div>
+      <div class="sidebar-wrapper">
         <nav class="mt-2">
-          <!--begin::Sidebar Menu-->
-          <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation" 
-              aria-label="Main navigation" data-accordion="false" id="navigation">
-              
-              <?php
-              // Obtener la URL actual
-              $current_url_full = $_SERVER['REQUEST_URI'];
-              $current_url_path = parse_url($current_url_full, PHP_URL_PATH);
-              $current_url_base = basename($current_url_path);
-              
-              $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase FROM conf__paginas 
+          <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation"
+            aria-label="Main navigation" data-accordion="false" id="navigation">
+
+            <?php
+            // Obtener la URL actual
+            $current_url_full = $_SERVER['REQUEST_URI'];
+            $current_url_path = parse_url($current_url_full, PHP_URL_PATH);
+            $current_url_base = basename($current_url_path);
+
+            $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase FROM conf__paginas 
               LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
               WHERE conf__paginas.modulo_id=$modudo_idx AND conf__paginas.tabla_estado_registro_id=1 AND conf__paginas.padre_id=0 
               ORDER BY conf__paginas.orden";
-              $res = mysqli_query($conexion, $sql);
-              
-              while ($row = mysqli_fetch_array($res)) {
-                  $submenu_sql = "SELECT conf__paginas.*, conf__iconos.icono_clase
+            $res = mysqli_query($conexion, $sql);
+
+            while ($row = mysqli_fetch_array($res)) {
+              $submenu_sql = "SELECT conf__paginas.*, conf__iconos.icono_clase
                   FROM conf__paginas 
                   LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
                   WHERE conf__paginas.padre_id = " . $row['pagina_id'] . " AND conf__paginas.tabla_estado_registro_id = 1 
                   ORDER BY conf__paginas.orden";
-                  $submenu_res = mysqli_query($conexion, $submenu_sql);
-                  $has_submenu = mysqli_num_rows($submenu_res) > 0;
-                  
-                  $is_active = false;
-                  $submenu_active = false;
-                  
-                  if ($has_submenu) {
-                      mysqli_data_seek($submenu_res, 0);
-                      while ($submenu_row = mysqli_fetch_array($submenu_res)) {
-                          $submenu_url_clean = trim($submenu_row['url'], './');
-                          if (strpos($current_url_full, $submenu_url_clean) !== false) {
-                              $is_active = true;
-                              $submenu_active = true;
-                              break;
-                          }
-                      }
-                      mysqli_data_seek($submenu_res, 0);
-                  } else {
-                      $menu_url_clean = trim($row['url'], './');
-                      $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
+              $submenu_res = mysqli_query($conexion, $submenu_sql);
+              $has_submenu = mysqli_num_rows($submenu_res) > 0;
+
+              $is_active = false;
+              $submenu_active = false;
+
+              if ($has_submenu) {
+                mysqli_data_seek($submenu_res, 0);
+                while ($submenu_row = mysqli_fetch_array($submenu_res)) {
+                  $submenu_url_clean = trim($submenu_row['url'], './');
+                  if (strpos($current_url_full, $submenu_url_clean) !== false) {
+                    $is_active = true;
+                    $submenu_active = true;
+                    break;
                   }
-                  ?>
-                  
-                  <li class="nav-item <?= $is_active ? 'menu-open' : '' ?>">
-                      <a href="<?= $has_submenu ? '#' : $row['url'] ?>" class="nav-link <?= $is_active && !$has_submenu ? 'active' : '' ?>">
-                          <i class="nav-icon <?= $row['icono_clase'] ?>"></i>
-                          <p>
-                              <?= $row['pagina'] ?>
-                              <?php if ($has_submenu): ?>
-                                  <i class="nav-arrow bi bi-chevron-<?= $is_active ? 'down' : 'right' ?>"></i>
-                              <?php endif; ?>
-                          </p>
-                      </a>
-                      
-                      <?php if ($has_submenu): ?>
-                      <!-- Submenú con mayor indentación -->
-                      <ul class="nav nav-treeview" style="display: <?= $is_active ? 'block' : 'none'; ?>; padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
-                          <?php while ($submenu_row = mysqli_fetch_array($submenu_res)): ?>
-                              <?php
-                              $submenu_url_clean = trim($submenu_row['url'], './');
-                              $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
-                              ?>
-                              <li class="nav-item">
-                                  <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?>" class="nav-link <?= $is_submenu_active ? 'active' : '' ?>" style="padding-left: 15px;">
-                                      <i class="nav-icon <?= $submenu_row['icono_clase'] ?>"></i>
-                                      <p><?= $submenu_row['pagina'] ?></p>
-                                      <?php if ($is_submenu_active): ?>
-                                          <span class="sr-only">(current)</span>
-                                      <?php endif; ?>
-                                  </a>
-                              </li>
-                          <?php endwhile; ?>
-                      </ul>
-                      <?php endif; ?>
-                  </li>
-                  
-              <?php } ?>
-              
+                }
+                mysqli_data_seek($submenu_res, 0);
+              } else {
+                $menu_url_clean = trim($row['url'], './');
+                $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
+              }
+              ?>
+
+              <li class="nav-item <?= $is_active ? 'menu-open' : '' ?>">
+                <a href="<?= $has_submenu ? '#' : $row['url'] ?>"
+                  class="nav-link <?= $is_active && !$has_submenu ? 'active' : '' ?>">
+                  <i class="nav-icon <?= $row['icono_clase'] ?>"></i>
+                  <p>
+                    <?= $row['pagina'] ?>
+                    <?php if ($has_submenu): ?>
+                      <i class="nav-arrow bi bi-chevron-<?= $is_active ? 'down' : 'right' ?>"></i>
+                    <?php endif; ?>
+                  </p>
+                </a>
+
+                <?php if ($has_submenu): ?>
+                  <ul class="nav nav-treeview"
+                    style="display: <?= $is_active ? 'block' : 'none'; ?>; padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
+                    <?php while ($submenu_row = mysqli_fetch_array($submenu_res)): ?>
+                      <?php
+                      $submenu_url_clean = trim($submenu_row['url'], './');
+                      $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
+                      ?>
+                      <li class="nav-item">
+                        <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?>"
+                          class="nav-link <?= $is_submenu_active ? 'active' : '' ?>" style="padding-left: 15px;">
+                          <i class="nav-icon <?= $submenu_row['icono_clase'] ?>"></i>
+                          <p><?= $submenu_row['pagina'] ?></p>
+                          <?php if ($is_submenu_active): ?>
+                            <span class="sr-only">(current)</span>
+                          <?php endif; ?>
+                        </a>
+                      </li>
+                    <?php endwhile; ?>
+                  </ul>
+                <?php endif; ?>
+              </li>
+
+            <?php } ?>
+
           </ul>
-      </nav>
-   
-            
-            
-        </div>
-        <!--end::Sidebar Wrapper-->
-      </aside>
-      <!--end::Sidebar-->
-      <!--begin::App Main-->
-      
+        </nav>
+
+
+
+      </div>
+    </aside>
+    <main class="app-main">

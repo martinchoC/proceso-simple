@@ -56,7 +56,7 @@ switch ($accion) {
         $stmt->execute();
         echo json_encode(['estado' => 'ok']);
         break;
-   
+
     default:
         echo json_encode(['error' => 'Acción no válida']);
 }

@@ -73,3 +73,4 @@ switch ($accion) {
     default:
         echo json_encode(['error' => 'Acción no definida']);
 }
+ 

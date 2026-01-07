@@ -1,7 +1,8 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 require_once "pedidos_compra_model.php";
 
 // Simular usuario logueado (debes reemplazar con tu sistema de autenticación)
@@ -22,12 +23,12 @@ switch ($accion) {
         $pedidos = obtenerPedidosCompra($conexion, $empresa_id);
         echo json_encode($pedidos);
         break;
-    
+
     case 'listar_tipos':
         $tipos = obtenerTiposComprobantePedido($conexion);
         echo json_encode($tipos);
         break;
-    
+
     case 'listar_proveedores':
         if ($empresa_id <= 0) {
             echo json_encode([]);
@@ -36,7 +37,7 @@ switch ($accion) {
         $proveedores = obtenerProveedores($conexion, $empresa_id);
         echo json_encode($proveedores);
         break;
-    
+
     case 'listar_sucursales':
         if ($empresa_id <= 0) {
             echo json_encode([]);
@@ -45,7 +46,7 @@ switch ($accion) {
         $sucursales = obtenerSucursales($conexion, $empresa_id);
         echo json_encode($sucursales);
         break;
-    
+
     case 'listar_productos':
         if ($empresa_id <= 0) {
             echo json_encode([]);
@@ -54,14 +55,14 @@ switch ($accion) {
         $productos = obtenerProductos($conexion, $empresa_id);
         echo json_encode($productos);
         break;
-    
+
     case 'obtener_proximo_numero':
         $comprobante_tipo_id = intval($_GET['comprobante_tipo_id']);
         $punto_venta_id = intval($_GET['punto_venta_id']);
         $numero = obtenerProximoNumeroComprobante($conexion, $comprobante_tipo_id, $punto_venta_id);
         echo json_encode(['proximo_numero' => $numero]);
         break;
-    
+
     case 'agregar':
         $data = [
             'empresa_id' => $empresa_id,
@@ -79,13 +80,13 @@ switch ($accion) {
             'total' => $_POST['total'] ?? 0,
             'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
         ];
-        
+
         // Validaciones básicas
         if ($data['comprobante_tipo_id'] <= 0 || $data['entidad_id'] <= 0) {
             echo json_encode(['resultado' => false, 'error' => 'Tipo de comprobante y proveedor son obligatorios']);
             break;
         }
-        
+
         // Procesar detalles
         $detalles = [];
         if (isset($_POST['detalles']) && is_array($_POST['detalles'])) {
@@ -100,12 +101,12 @@ switch ($accion) {
                 }
             }
         }
-        
+
         if (empty($detalles)) {
             echo json_encode(['resultado' => false, 'error' => 'Debe agregar al menos un producto al pedido']);
             break;
         }
-        
+
         $resultado = agregarPedidoCompra($conexion, $data, $detalles, $usuario_id);
         if ($resultado) {
             echo json_encode(['resultado' => true, 'comprobante_id' => $resultado]);
@@ -131,13 +132,13 @@ switch ($accion) {
             'total' => $_POST['total'] ?? 0,
             'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
         ];
-        
+
         // Validaciones básicas
         if ($data['comprobante_tipo_id'] <= 0 || $data['entidad_id'] <= 0) {
             echo json_encode(['resultado' => false, 'error' => 'Tipo de comprobante y proveedor son obligatorios']);
             break;
         }
-        
+
         // Procesar detalles
         $detalles = [];
         if (isset($_POST['detalles']) && is_array($_POST['detalles'])) {
@@ -152,12 +153,12 @@ switch ($accion) {
                 }
             }
         }
-        
+
         if (empty($detalles)) {
             echo json_encode(['resultado' => false, 'error' => 'Debe agregar al menos un producto al pedido']);
             break;
         }
-        
+
         $resultado = editarPedidoCompra($conexion, $comprobante_id, $data, $detalles, $usuario_id);
         echo json_encode(['resultado' => $resultado]);
         break;

@@ -1,12 +1,14 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
 /**
  * Obtiene todos los tipos de tablas con la cantidad de estados activos
  * @param mysqli $conexion Conexión a la base de datos
  * @return array Lista de tipos de tablas
  */
-function obtenerTablasTipos($conexion) {
+function obtenerTablasTipos($conexion)
+{
     $sql = "SELECT tt.*, 
             COALESCE(COUNT(tte.tabla_tipo_estado_id), 0) as cantidad_estados
             FROM conf__tablas_tipos tt
@@ -15,13 +17,13 @@ function obtenerTablasTipos($conexion) {
                 AND tte.tabla_tabla_estado_registro_id = 1
             GROUP BY tt.tabla_tipo_id
             ORDER BY tt.tabla_tipo";
-    
+
     $res = mysqli_query($conexion, $sql);
     if (!$res) {
         error_log("Error en obtenerTablasTipos: " . mysqli_error($conexion));
         return [];
     }
-    
+
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
         $data[] = $fila;
@@ -35,16 +37,17 @@ function obtenerTablasTipos($conexion) {
  * @param int $id ID del tipo de tabla
  * @return array|null Datos del tipo de tabla o null si no existe
  */
-function obtenerTablaTipoPorId($conexion, $id) {
+function obtenerTablaTipoPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__tablas_tipos WHERE tabla_tipo_id = $id";
     $res = mysqli_query($conexion, $sql);
-    
+
     if (!$res) {
         error_log("Error en obtenerTablaTipoPorId: " . mysqli_error($conexion));
         return null;
     }
-    
+
     return mysqli_fetch_assoc($res);
 }
 
@@ -54,24 +57,25 @@ function obtenerTablaTipoPorId($conexion, $id) {
  * @param array $data Datos del tipo de tabla
  * @return bool True si se agregó correctamente
  */
-function agregarTablaTipo($conexion, $data) {
+function agregarTablaTipo($conexion, $data)
+{
     if (empty($data['tabla_tipo'])) {
         return false;
     }
-    
+
     $tabla_tipo = mysqli_real_escape_string($conexion, $data['tabla_tipo']);
     $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id'] ?? 1);
 
     $sql = "INSERT INTO conf__tablas_tipos (tabla_tipo, tabla_tabla_estado_registro_id) 
             VALUES ('$tabla_tipo', $tabla_tabla_estado_registro_id)";
-    
+
     $result = mysqli_query($conexion, $sql);
-    
+
     if (!$result) {
         error_log("Error en agregarTablaTipo: " . mysqli_error($conexion));
         return false;
     }
-    
+
     return mysqli_insert_id($conexion) > 0;
 }
 
@@ -82,11 +86,12 @@ function agregarTablaTipo($conexion, $data) {
  * @param array $data Nuevos datos del tipo de tabla
  * @return bool True si se editó correctamente
  */
-function editarTablaTipo($conexion, $id, $data) {
+function editarTablaTipo($conexion, $id, $data)
+{
     if (empty($data['tabla_tipo'])) {
         return false;
     }
-    
+
     $id = intval($id);
     $tabla_tipo = mysqli_real_escape_string($conexion, $data['tabla_tipo']);
     $tabla_tabla_estado_registro_id = intval($data['tabla_tabla_estado_registro_id']);
@@ -97,12 +102,12 @@ function editarTablaTipo($conexion, $id, $data) {
             WHERE tabla_tipo_id = $id";
 
     $result = mysqli_query($conexion, $sql);
-    
+
     if (!$result) {
         error_log("Error en editarTablaTipo: " . mysqli_error($conexion));
         return false;
     }
-    
+
     return mysqli_affected_rows($conexion) > 0;
 }
 
@@ -113,19 +118,20 @@ function editarTablaTipo($conexion, $id, $data) {
  * @param int $nuevo_estado Nuevo estado (1 = activo, 0 = inactivo)
  * @return bool True si se cambió correctamente
  */
-function cambiarEstadoTablaTipo($conexion, $id, $nuevo_estado) {
+function cambiarEstadoTablaTipo($conexion, $id, $nuevo_estado)
+{
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
-    
+
     $sql = "UPDATE conf__tablas_tipos SET tabla_tabla_estado_registro_id = $nuevo_estado WHERE tabla_tipo_id = $id";
-    
+
     $result = mysqli_query($conexion, $sql);
-    
+
     if (!$result) {
         error_log("Error en cambiarEstadoTablaTipo: " . mysqli_error($conexion));
         return false;
     }
-    
+
     return mysqli_affected_rows($conexion) > 0;
 }
 
@@ -139,9 +145,10 @@ function cambiarEstadoTablaTipo($conexion, $id, $nuevo_estado) {
  * @param int $tabla_tipo_id ID del tipo de tabla
  * @return array Lista de estados
  */
-function obtenerEstadosPorTablaTipo($conexion, $tabla_tipo_id) {
+function obtenerEstadosPorTablaTipo($conexion, $tabla_tipo_id)
+{
     $tabla_tipo_id = intval($tabla_tipo_id);
-    
+
     $sql = "SELECT 
                 tte.tabla_tipo_estado_id,
                 tte.tabla_tipo_id,
@@ -155,14 +162,14 @@ function obtenerEstadosPorTablaTipo($conexion, $tabla_tipo_id) {
             LEFT JOIN conf__estados_registros er ON tte.tabla_estado_registro_id = er.tabla_estado_registro_id
             WHERE tte.tabla_tipo_id = $tabla_tipo_id 
             ORDER BY tte.orden, tte.tabla_estado_registro_id";
-    
+
     $res = mysqli_query($conexion, $sql);
-    
+
     if (!$res) {
         error_log("Error en obtenerEstadosPorTablaTipo: " . mysqli_error($conexion));
         return [];
     }
-    
+
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
         $data[] = $fila;
@@ -176,9 +183,10 @@ function obtenerEstadosPorTablaTipo($conexion, $tabla_tipo_id) {
  * @param int $id ID del estado
  * @return array|null Datos del estado o null si no existe
  */
-function obtenerTablaTipoEstadoPorId($conexion, $id) {
+function obtenerTablaTipoEstadoPorId($conexion, $id)
+{
     $id = intval($id);
-    
+
     $sql = "SELECT 
                 tte.tabla_tipo_estado_id,
                 tte.tabla_tipo_id,
@@ -191,14 +199,14 @@ function obtenerTablaTipoEstadoPorId($conexion, $id) {
             FROM conf__tablas_tipos_estados tte
             LEFT JOIN conf__estados_registros er ON tte.tabla_estado_registro_id = er.tabla_estado_registro_id
             WHERE tte.tabla_tipo_estado_id = $id";
-    
+
     $res = mysqli_query($conexion, $sql);
-    
+
     if (!$res) {
         error_log("Error en obtenerTablaTipoEstadoPorId: " . mysqli_error($conexion));
         return null;
     }
-    
+
     return mysqli_fetch_assoc($res);
 }
 
@@ -208,11 +216,12 @@ function obtenerTablaTipoEstadoPorId($conexion, $id) {
  * @param array $data Datos del estado
  * @return bool True si se agregó correctamente
  */
-function agregarTablaTipoEstado($conexion, $data) {
+function agregarTablaTipoEstado($conexion, $data)
+{
     if (empty($data['tabla_tipo_estado']) || empty($data['tabla_tipo_id'])) {
         return false;
     }
-    
+
     $tabla_tipo_id = intval($data['tabla_tipo_id']);
     $tabla_estado_registro_id = intval($data['tabla_tipo_estado']);
     $valor = intval($data['valor'] ?? 1);
@@ -223,14 +232,14 @@ function agregarTablaTipoEstado($conexion, $data) {
             (tabla_tipo_id, tabla_estado_registro_id, orden, es_inicial, tabla_tabla_estado_registro_id) 
             VALUES 
             ($tabla_tipo_id, $tabla_estado_registro_id, $valor, $es_inicial, $tabla_tabla_estado_registro_id)";
-    
+
     $result = mysqli_query($conexion, $sql);
-    
+
     if (!$result) {
         error_log("Error en agregarTablaTipoEstado: " . mysqli_error($conexion));
         return false;
     }
-    
+
     return mysqli_insert_id($conexion) > 0;
 }
 
@@ -241,11 +250,12 @@ function agregarTablaTipoEstado($conexion, $data) {
  * @param array $data Nuevos datos del estado
  * @return bool True si se editó correctamente
  */
-function editarTablaTipoEstado($conexion, $id, $data) {
+function editarTablaTipoEstado($conexion, $id, $data)
+{
     if (empty($data['tabla_tipo_estado'])) {
         return false;
     }
-    
+
     $id = intval($id);
     $tabla_estado_registro_id = intval($data['tabla_tipo_estado']);
     $valor = intval($data['valor'] ?? 1);
@@ -260,12 +270,12 @@ function editarTablaTipoEstado($conexion, $id, $data) {
             WHERE tabla_tipo_estado_id = $id";
 
     $result = mysqli_query($conexion, $sql);
-    
+
     if (!$result) {
         error_log("Error en editarTablaTipoEstado: " . mysqli_error($conexion));
         return false;
     }
-    
+
     return mysqli_affected_rows($conexion) > 0;
 }
 
@@ -276,19 +286,20 @@ function editarTablaTipoEstado($conexion, $id, $data) {
  * @param int $nuevo_estado Nuevo estado (1 = activo, 0 = inactivo)
  * @return bool True si se cambió correctamente
  */
-function cambiarEstadoTablaTipoEstado($conexion, $id, $nuevo_estado) {
+function cambiarEstadoTablaTipoEstado($conexion, $id, $nuevo_estado)
+{
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
-    
+
     $sql = "UPDATE conf__tablas_tipos_estados SET tabla_tabla_estado_registro_id = $nuevo_estado WHERE tabla_tipo_estado_id = $id";
-    
+
     $result = mysqli_query($conexion, $sql);
-    
+
     if (!$result) {
         error_log("Error en cambiarEstadoTablaTipoEstado: " . mysqli_error($conexion));
         return false;
     }
-    
+
     return mysqli_affected_rows($conexion) > 0;
 }
 
@@ -297,18 +308,19 @@ function cambiarEstadoTablaTipoEstado($conexion, $id, $nuevo_estado) {
  * @param mysqli $conexion Conexión a la base de datos
  * @return array Lista de estados registros
  */
-function obtenerEstadosRegistros($conexion) {
+function obtenerEstadosRegistros($conexion)
+{
     $sql = "SELECT tabla_estado_registro_id, estado_registro 
             FROM conf__estados_registros 
             ORDER BY estado_registro";
-    
+
     $res = mysqli_query($conexion, $sql);
-    
+
     if (!$res) {
         error_log("Error en obtenerEstadosRegistros: " . mysqli_error($conexion));
         return [];
     }
-    
+
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
         $data[] = $fila;

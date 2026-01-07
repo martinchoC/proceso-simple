@@ -1,7 +1,8 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
-
-function obtenerPedidosClientes($conexion) {
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
+function obtenerPedidosClientes($conexion)
+{
     $sql = "SELECT c.*, e.nombre as nombre_entidad 
             FROM `gestion__comprobantes` c
             LEFT JOIN `gestion__entidades` e ON c.entidad_id = e.entidad_id
@@ -15,9 +16,10 @@ function obtenerPedidosClientes($conexion) {
     return $data;
 }
 
-function agregarPedidoCliente($conexion, $data) {
+function agregarPedidoCliente($conexion, $data)
+{
     mysqli_begin_transaction($conexion);
-    
+
     try {
         // Insertar cabecera del comprobante
         $sql = "INSERT INTO `gestion__comprobantes` 
@@ -26,11 +28,13 @@ function agregarPedidoCliente($conexion, $data) {
                  importe_neto, total, estado_registro_id, creado_por) 
                 VALUES 
                 (1, 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)";
-        
+
         $stmt = mysqli_prepare($conexion, $sql);
         $total = calcularTotalDetalles($data['detalles']);
-        
-        mysqli_stmt_bind_param($stmt, "iissssdd", 
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "iissssdd",
             $data['numero_comprobante'],
             $data['entidad_id'],
             $data['f_emision'],
@@ -40,17 +44,19 @@ function agregarPedidoCliente($conexion, $data) {
             $total,
             $total
         );
-        
+
         mysqli_stmt_execute($stmt);
         $comprobante_id = mysqli_insert_id($conexion);
-        
+
         // Insertar detalles
         foreach ($data['detalles'] as $detalle) {
             $sql_detalle = "INSERT INTO `gestion__comprobantes_detalles` 
                            (comprobante_id, producto_id, cantidad, precio_unitario, descuento) 
                            VALUES (?, ?, ?, ?, ?)";
             $stmt_detalle = mysqli_prepare($conexion, $sql_detalle);
-            mysqli_stmt_bind_param($stmt_detalle, "iiddd", 
+            mysqli_stmt_bind_param(
+                $stmt_detalle,
+                "iiddd",
                 $comprobante_id,
                 $detalle['producto_id'],
                 $detalle['cantidad'],
@@ -59,7 +65,7 @@ function agregarPedidoCliente($conexion, $data) {
             );
             mysqli_stmt_execute($stmt_detalle);
         }
-        
+
         mysqli_commit($conexion);
         return true;
     } catch (Exception $e) {
@@ -68,9 +74,10 @@ function agregarPedidoCliente($conexion, $data) {
     }
 }
 
-function editarPedidoCliente($conexion, $id, $data) {
+function editarPedidoCliente($conexion, $id, $data)
+{
     mysqli_begin_transaction($conexion);
-    
+
     try {
         // Actualizar cabecera
         $sql = "UPDATE `gestion__comprobantes` SET
@@ -84,11 +91,13 @@ function editarPedidoCliente($conexion, $id, $data) {
                 actualizado_por = 1,
                 actualizado_en = NOW()
                 WHERE comprobante_id = ?";
-        
+
         $stmt = mysqli_prepare($conexion, $sql);
         $total = calcularTotalDetalles($data['detalles']);
-        
-        mysqli_stmt_bind_param($stmt, "issssddi", 
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "issssddi",
             $data['numero_comprobante'],
             $data['entidad_id'],
             $data['f_emision'],
@@ -98,22 +107,24 @@ function editarPedidoCliente($conexion, $id, $data) {
             $total,
             $id
         );
-        
+
         mysqli_stmt_execute($stmt);
-        
+
         // Eliminar detalles existentes
         $sql_delete = "DELETE FROM `gestion__comprobantes_detalles` WHERE comprobante_id = ?";
         $stmt_delete = mysqli_prepare($conexion, $sql_delete);
         mysqli_stmt_bind_param($stmt_delete, "i", $id);
         mysqli_stmt_execute($stmt_delete);
-        
+
         // Insertar nuevos detalles
         foreach ($data['detalles'] as $detalle) {
             $sql_detalle = "INSERT INTO `gestion__comprobantes_detalles` 
                            (comprobante_id, producto_id, cantidad, precio_unitario, descuento) 
                            VALUES (?, ?, ?, ?, ?)";
             $stmt_detalle = mysqli_prepare($conexion, $sql_detalle);
-            mysqli_stmt_bind_param($stmt_detalle, "iiddd", 
+            mysqli_stmt_bind_param(
+                $stmt_detalle,
+                "iiddd",
                 $id,
                 $detalle['producto_id'],
                 $detalle['cantidad'],
@@ -122,7 +133,7 @@ function editarPedidoCliente($conexion, $id, $data) {
             );
             mysqli_stmt_execute($stmt_detalle);
         }
-        
+
         mysqli_commit($conexion);
         return true;
     } catch (Exception $e) {
@@ -131,7 +142,8 @@ function editarPedidoCliente($conexion, $id, $data) {
     }
 }
 
-function calcularTotalDetalles($detalles) {
+function calcularTotalDetalles($detalles)
+{
     $total = 0;
     foreach ($detalles as $detalle) {
         $subtotal = ($detalle['cantidad'] * $detalle['precio_unitario']) - $detalle['descuento'];
@@ -140,10 +152,11 @@ function calcularTotalDetalles($detalles) {
     return $total;
 }
 
-function cambiarEstadoPedidoCliente($conexion, $id, $nuevo_estado) {
+function cambiarEstadoPedidoCliente($conexion, $id, $nuevo_estado)
+{
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
-    
+
     $sql = "UPDATE `gestion__comprobantes` 
             SET estado_registro_id = ? 
             WHERE comprobante_id = ?";
@@ -152,9 +165,10 @@ function cambiarEstadoPedidoCliente($conexion, $id, $nuevo_estado) {
     return mysqli_stmt_execute($stmt);
 }
 
-function eliminarPedidoCliente($conexion, $id) {
+function eliminarPedidoCliente($conexion, $id)
+{
     $id = intval($id);
-    
+
     mysqli_begin_transaction($conexion);
     try {
         // Eliminar detalles primero
@@ -162,13 +176,13 @@ function eliminarPedidoCliente($conexion, $id) {
         $stmt_detalles = mysqli_prepare($conexion, $sql_detalles);
         mysqli_stmt_bind_param($stmt_detalles, "i", $id);
         mysqli_stmt_execute($stmt_detalles);
-        
+
         // Eliminar cabecera
         $sql = "DELETE FROM `gestion__comprobantes` WHERE comprobante_id = ?";
         $stmt = mysqli_prepare($conexion, $sql);
         mysqli_stmt_bind_param($stmt, "i", $id);
         $result = mysqli_stmt_execute($stmt);
-        
+
         mysqli_commit($conexion);
         return $result;
     } catch (Exception $e) {
@@ -177,9 +191,10 @@ function eliminarPedidoCliente($conexion, $id) {
     }
 }
 
-function obtenerPedidoClientePorId($conexion, $id) {
+function obtenerPedidoClientePorId($conexion, $id)
+{
     $id = intval($id);
-    
+
     // Obtener cabecera
     $sql = "SELECT * FROM `gestion__comprobantes` WHERE comprobante_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
@@ -187,26 +202,27 @@ function obtenerPedidoClientePorId($conexion, $id) {
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $cabecera = mysqli_fetch_assoc($result);
-    
+
     // Obtener detalles
     $sql_detalles = "SELECT * FROM `gestion__comprobantes_detalles` WHERE comprobante_id = ?";
     $stmt_detalles = mysqli_prepare($conexion, $sql_detalles);
     mysqli_stmt_bind_param($stmt_detalles, "i", $id);
     mysqli_stmt_execute($stmt_detalles);
     $result_detalles = mysqli_stmt_get_result($stmt_detalles);
-    
+
     $detalles = [];
     while ($fila = mysqli_fetch_assoc($result_detalles)) {
         $detalles[] = $fila;
     }
-    
+
     return [
         'cabecera' => $cabecera,
         'detalles' => $detalles
     ];
 }
 
-function obtenerClientes($conexion) {
+function obtenerClientes($conexion)
+{
     $sql = "SELECT entidad_id, nombre FROM `gestion__entidades` WHERE tipo_entidad_id = 1 AND estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -216,7 +232,8 @@ function obtenerClientes($conexion) {
     return $data;
 }
 
-function obtenerProductos($conexion) {
+function obtenerProductos($conexion)
+{
     $sql = "SELECT producto_id, nombre FROM `gestion__productos` WHERE estado_registro_id = 1";
     $res = mysqli_query($conexion, $sql);
     $data = [];

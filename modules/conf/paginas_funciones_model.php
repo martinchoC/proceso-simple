@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../conexion.php';
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 
-function obtenerPaginas($conexion) {
+function obtenerPaginas($conexion)
+{
     // CORRECCIÓN: Usar 'pagina' en lugar de 'nombre_pagina'
     $sql = "SELECT * FROM conf__paginas WHERE tabla_estado_registro_id = 1 ORDER BY pagina";
     $res = mysqli_query($conexion, $sql);
@@ -12,7 +14,8 @@ function obtenerPaginas($conexion) {
     return $data;
 }
 
-function obtenerIconos($conexion) {
+function obtenerIconos($conexion)
+{
     $sql = "SELECT * FROM conf__iconos WHERE tabla_estado_registro_id = 1 ORDER BY icono_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -22,7 +25,8 @@ function obtenerIconos($conexion) {
     return $data;
 }
 
-function obtenerColores($conexion) {
+function obtenerColores($conexion)
+{
     $sql = "SELECT * FROM conf__colores WHERE tabla_estado_registro_id = 1 ORDER BY nombre_color";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -32,7 +36,8 @@ function obtenerColores($conexion) {
     return $data;
 }
 
-function obtenerFuncionesEstandar($conexion) {
+function obtenerFuncionesEstandar($conexion)
+{
     $sql = "SELECT * FROM conf__paginas_funciones_tipos WHERE tabla_estado_registro_id = 1 ORDER BY nombre_funcion";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -42,7 +47,8 @@ function obtenerFuncionesEstandar($conexion) {
     return $data;
 }
 
-function obtenerEstadosRegistro($conexion) {
+function obtenerEstadosRegistro($conexion)
+{
     $sql = "SELECT * FROM conf__estados_registros ORDER BY estado_registro";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -52,7 +58,8 @@ function obtenerEstadosRegistro($conexion) {
     return $data;
 }
 
-function obtenerPaginasFunciones($conexion) {
+function obtenerPaginasFunciones($conexion)
+{
     // CORRECCIÓN: Usar 'p.pagina' en lugar de 'p.nombre_pagina'
     // y 'p.url' en lugar de 'p.ruta_pagina'
     $sql = "SELECT 
@@ -82,7 +89,7 @@ function obtenerPaginasFunciones($conexion) {
             LEFT JOIN conf__estados_registros eor ON pf.tabla_estado_registro_origen_id = eor.estado_registro_id
             LEFT JOIN conf__estados_registros ede ON pf.tabla_estado_registro_destino_id = ede.estado_registro_id
             ORDER BY pf.orden, pf.nombre_funcion";
-    
+
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -91,14 +98,17 @@ function obtenerPaginasFunciones($conexion) {
     return $data;
 }
 
-function agregarPaginaFuncion($conexion, $data) {
+function agregarPaginaFuncion($conexion, $data)
+{
     // Validar campos obligatorios
-    if (empty($data['nombre_funcion']) || 
+    if (
+        empty($data['nombre_funcion']) ||
         empty($data['pagina_id']) ||
-        empty($data['tabla_estado_registro_destino_id'])) {
+        empty($data['tabla_estado_registro_destino_id'])
+    ) {
         return false;
     }
-    
+
     $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
     $pagina_id = intval($data['pagina_id']);
     $accion_js = mysqli_real_escape_string($conexion, $data['accion_js']);
@@ -117,18 +127,21 @@ function agregarPaginaFuncion($conexion, $data) {
             VALUES 
             ('$nombre_funcion', $pagina_id, '$accion_js', '$descripcion', $orden, $icono_id, $color_id,
              $funcion_estandar_id, $estado_origen_id, $estado_destino_id, $estado_registro_id)";
-    
+
     return mysqli_query($conexion, $sql);
 }
 
-function editarPaginaFuncion($conexion, $id, $data) {
+function editarPaginaFuncion($conexion, $id, $data)
+{
     // Validar campos obligatorios
-    if (empty($data['nombre_funcion']) || 
+    if (
+        empty($data['nombre_funcion']) ||
         empty($data['pagina_id']) ||
-        empty($data['tabla_estado_registro_destino_id'])) {
+        empty($data['tabla_estado_registro_destino_id'])
+    ) {
         return false;
     }
-    
+
     $id = intval($id);
     $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
     $pagina_id = intval($data['pagina_id']);
@@ -159,13 +172,15 @@ function editarPaginaFuncion($conexion, $id, $data) {
     return mysqli_query($conexion, $sql);
 }
 
-function eliminarPaginaFuncion($conexion, $id) {
+function eliminarPaginaFuncion($conexion, $id)
+{
     $id = intval($id);
     $sql = "DELETE FROM conf__paginas_funciones WHERE pagina_funcion_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
-function obtenerPaginaFuncionPorId($conexion, $id) {
+function obtenerPaginaFuncionPorId($conexion, $id)
+{
     $id = intval($id);
     $sql = "SELECT * FROM conf__paginas_funciones WHERE pagina_funcion_id = $id";
     $res = mysqli_query($conexion, $sql);
