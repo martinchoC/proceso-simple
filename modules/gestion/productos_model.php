@@ -2,307 +2,742 @@
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
-function obtenerProductos($conexion)
+// ✅ Obtener productos con paginación del servidor
+function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params = [])
 {
+    $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
+    
+    // Parámetros de paginación
+    $start = intval($params['start'] ?? 0);
+    $length = intval($params['length'] ?? 50);
+    $search = trim($params['search'] ?? '');
+    $order_column = intval($params['order_column'] ?? 1);
+    $order_dir = strtoupper($params['order_dir'] ?? 'ASC');
+    $filtro_tipo = $params['filtro_tipo'] ?? '';
+    $filtro_estado = $params['filtro_estado'] ?? '';
+    $filtro_codigo = $params['filtro_codigo'] ?? '';
+
+    // Validar dirección de orden
+    $order_dir = ($order_dir === 'ASC' || $order_dir === 'DESC') ? $order_dir : 'ASC';
+
+    // Mapear columnas DataTables a columnas de base de datos
+    $column_mapping = [
+        0 => 'p.producto_id',
+        1 => 'p.producto_codigo',
+        2 => 'p.producto_nombre',
+        3 => 'pt.producto_tipo_codigo',
+        4 => 'p.producto_categoria_id',
+        5 => 'um.unidad_abreviatura',
+        6 => 'er.estado_registro'
+    ];
+
+    $order_by = $column_mapping[$order_column] ?? 'p.producto_codigo';
+
+    // Primero verifiquemos la estructura de la tabla conf__estados_registros
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    // Determinar el nombre correcto de la columna para el estado
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+
+    // Construir WHERE clause
+    $where_conditions = ["p.empresa_id = ?"];
+    $where_params = [$empresa_idx];
+    $where_types = "i";
+
+    // Filtro por tipo de producto
+    if (!empty($filtro_tipo)) {
+        $where_conditions[] = "p.producto_tipo_id = ?";
+        $where_params[] = intval($filtro_tipo);
+        $where_types .= "i";
+    }
+
+    // Filtro por estado
+    if (!empty($filtro_estado)) {
+        $where_conditions[] = "p.tabla_estado_registro_id = ?";
+        $where_params[] = intval($filtro_estado);
+        $where_types .= "i";
+    }
+
+    // Filtro por código
+    if (!empty($filtro_codigo)) {
+        $where_conditions[] = "p.producto_codigo LIKE ?";
+        $where_params[] = '%' . $filtro_codigo . '%';
+        $where_types .= "s";
+    }
+
+    // Filtro de búsqueda global
+    if (!empty($search)) {
+        $search_conditions = [
+            "p.producto_codigo LIKE ?",
+            "p.producto_nombre LIKE ?",
+            "p.codigo_barras LIKE ?",
+            "pt.producto_tipo LIKE ?",
+            "er.$estado_column LIKE ?"
+        ];
+        
+        $where_conditions[] = "(" . implode(" OR ", $search_conditions) . ")";
+        
+        for ($i = 0; $i < 5; $i++) {
+            $where_params[] = '%' . $search . '%';
+            $where_types .= "s";
+        }
+    }
+
+    $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
+
+    // Consulta para contar total de registros
+    $sql_count = "SELECT COUNT(*) as total 
+                  FROM gestion__productos p
+                  LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
+                  LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
+                  $where_clause";
+
+    $stmt_count = mysqli_prepare($conexion, $sql_count);
+    if ($stmt_count) {
+        if (!empty($where_params)) {
+            mysqli_stmt_bind_param($stmt_count, $where_types, ...$where_params);
+        }
+        mysqli_stmt_execute($stmt_count);
+        $result_count = mysqli_stmt_get_result($stmt_count);
+        $total_row = mysqli_fetch_assoc($result_count);
+        $total_records = $total_row['total'];
+        mysqli_stmt_close($stmt_count);
+    } else {
+        $total_records = 0;
+    }
+
+    // Consulta para obtener datos con paginación
     $sql = "SELECT p.*, 
-                   c.producto_categoria_nombre, 
-                   u.unidad_nombre as unidad_medida_nombre,
-                   u.unidad_abreviatura
+                   er.$estado_column as estado_registro, 
+                   er.codigo_estandar,
+                   c.color_clase, c.bg_clase, c.text_clase,
+                   pt.producto_tipo, pt.producto_tipo_codigo,
+                   um.unidad_nombre, um.unidad_abreviatura
             FROM gestion__productos p
-            LEFT JOIN gestion__productos_categorias c ON p.producto_categoria_id = c.producto_categoria_id
-            LEFT JOIN gestion__unidades_medida u ON p.unidad_medida_id = u.unidad_medida_id
-            ORDER BY p.producto_nombre";
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
-    }
-    return $data;
-}
+            LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores c ON er.color_id = c.color_id
+            LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
+            LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
+            $where_clause
+            ORDER BY $order_by $order_dir
+            LIMIT ? OFFSET ?";
 
-function agregarProducto($conexion, $data)
-{
-    if (empty($data['producto_codigo']) || empty($data['producto_nombre']) || empty($data['producto_categoria_id'])) {
-        return false;
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['total' => 0, 'filtered' => 0, 'productos' => []];
     }
 
-    $producto_codigo = mysqli_real_escape_string($conexion, $data['producto_codigo']);
-    $producto_nombre = mysqli_real_escape_string($conexion, $data['producto_nombre']);
-    $producto_descripcion = mysqli_real_escape_string($conexion, $data['producto_descripcion']);
-    $producto_categoria_id = intval($data['producto_categoria_id']);
-    $lado = mysqli_real_escape_string($conexion, $data['lado']);
-    $material = mysqli_real_escape_string($conexion, $data['material']);
-    $color = mysqli_real_escape_string($conexion, $data['color']);
-    $peso = !empty($data['peso']) ? floatval($data['peso']) : 'NULL';
-    $dimensiones = mysqli_real_escape_string($conexion, $data['dimensiones']);
-    $garantia = mysqli_real_escape_string($conexion, $data['garantia']);
-    $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : 'NULL';
-    $estado_registro_id = intval($data['estado_registro_id']);
+    // Agregar parámetros de paginación
+    $where_params[] = $length;
+    $where_params[] = $start;
+    $where_types .= "ii";
 
-    $sql = "INSERT INTO gestion__productos 
-            (producto_codigo, producto_nombre, producto_descripcion, producto_categoria_id, 
-             lado, material, color, peso, dimensiones, garantia, unidad_medida_id, estado_registro_id) 
-            VALUES 
-            ('$producto_codigo', '$producto_nombre', '$producto_descripcion', $producto_categoria_id,
-             '$lado', '$material', '$color', $peso, '$dimensiones', '$garantia', $unidad_medida_id, $estado_registro_id)";
+    mysqli_stmt_bind_param($stmt, $where_types, ...$where_params);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
 
-    return mysqli_query($conexion, $sql);
-}
+    $productos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        // Si no hay color configurado, usar dark por defecto
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
 
-function editarProducto($conexion, $id, $data)
-{
-    if (empty($data['producto_codigo']) || empty($data['producto_nombre']) || empty($data['producto_categoria_id'])) {
-        return false;
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+
+        $fila['producto_tipo_info'] = [
+            'producto_tipo' => $fila['producto_tipo'] ?? '',
+            'producto_tipo_codigo' => $fila['producto_tipo_codigo'] ?? ''
+        ];
+
+        $fila['unidad_medida_info'] = $fila['unidad_medida_id'] ? [
+            'unidad_nombre' => $fila['unidad_nombre'] ?? '',
+            'unidad_abreviatura' => $fila['unidad_abreviatura'] ?? ''
+        ] : null;
+
+        $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
+        $productos[] = $fila;
     }
 
-    $id = intval($id);
-    $producto_codigo = mysqli_real_escape_string($conexion, $data['producto_codigo']);
-    $producto_nombre = mysqli_real_escape_string($conexion, $data['producto_nombre']);
-    $producto_descripcion = mysqli_real_escape_string($conexion, $data['producto_descripcion']);
-    $producto_categoria_id = intval($data['producto_categoria_id']);
-    $lado = mysqli_real_escape_string($conexion, $data['lado']);
-    $material = mysqli_real_escape_string($conexion, $data['material']);
-    $color = mysqli_real_escape_string($conexion, $data['color']);
-    $peso = !empty($data['peso']) ? floatval($data['peso']) : 'NULL';
-    $dimensiones = mysqli_real_escape_string($conexion, $data['dimensiones']);
-    $garantia = mysqli_real_escape_string($conexion, $data['garantia']);
-    $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : 'NULL';
-    $estado_registro_id = intval($data['estado_registro_id']);
+    mysqli_stmt_close($stmt);
 
-    $sql = "UPDATE gestion__productos SET
-            producto_codigo = '$producto_codigo',
-            producto_nombre = '$producto_nombre',
-            producto_descripcion = '$producto_descripcion',
-            producto_categoria_id = $producto_categoria_id,
-            lado = '$lado',
-            material = '$material',
-            color = '$color',
-            peso = $peso,
-            dimensiones = '$dimensiones',
-            garantia = '$garantia',
-            unidad_medida_id = $unidad_medida_id,
-            estado_registro_id = $estado_registro_id
-            WHERE producto_id = $id";
-
-    return mysqli_query($conexion, $sql);
+    return [
+        'total' => $total_records,
+        'filtered' => $total_records, // Mismo que total porque ya aplicamos filtros en la consulta
+        'productos' => $productos
+    ];
 }
 
-function cambiarEstadoProducto($conexion, $id, $nuevo_estado)
+// ✅ Obtener todos los estados disponibles
+function obtenerEstados($conexion)
 {
-    $id = intval($id);
-    $nuevo_estado = intval($nuevo_estado);
+    // Primero verifiquemos la estructura de la tabla conf__estados_registros
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
 
-    $sql = "UPDATE gestion__productos SET estado_registro_id = $nuevo_estado WHERE producto_id = $id";
-    return mysqli_query($conexion, $sql);
-}
+    // Determinar el nombre correcto de la columna para el estado
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
 
-function eliminarProducto($conexion, $id)
-{
-    $id = intval($id);
-    $sql = "DELETE FROM gestion__productos WHERE producto_id = $id";
-    return mysqli_query($conexion, $sql);
-}
+    $sql = "SELECT estado_registro_id, $estado_column as estado_registro, codigo_estandar
+            FROM conf__estados_registros
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY estado_registro_id";
 
-function obtenerProductoPorId($conexion, $id)
-{
-    $id = intval($id);
-    $sql = "SELECT * FROM gestion__productos WHERE producto_id = $id";
-    $res = mysqli_query($conexion, $sql);
-    return mysqli_fetch_assoc($res);
-}
-
-function obtenerCategoriasProductos($conexion)
-{
-    $sql = "SELECT producto_categoria_id, producto_categoria_nombre, producto_categoria_padre_id 
-            FROM gestion__productos_categorias 
-            WHERE estado_registro_id = 1 
-            ORDER BY COALESCE(producto_categoria_padre_id, producto_categoria_id), 
-                     producto_categoria_padre_id IS NULL DESC, 
-                     producto_categoria_nombre";
-
-    $res = mysqli_query($conexion, $sql);
-
-    if (!$res) {
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
         return [];
     }
 
-    $categorias = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $prefijo = $fila['producto_categoria_padre_id'] ? '&nbsp;&nbsp;&nbsp;' : '';
-        $categorias[] = [
-            'id' => $fila['producto_categoria_id'],
-            'nombre' => $prefijo . $fila['producto_categoria_nombre']
+    $estados = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $estados[] = $fila;
+    }
+
+    return $estados;
+}
+
+// ✅ Obtener funciones configuradas para la página desde conf__paginas_funciones
+function obtenerFuncionesPagina($conexion, $pagina_id)
+{
+    $pagina_id = intval($pagina_id);
+
+    $sql = "SELECT pf.*, i.icono_clase, c.color_clase, c.bg_clase, c.text_clase
+            FROM conf__paginas_funciones pf
+            LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
+            LEFT JOIN conf__colores c ON pf.color_id = c.color_id
+            WHERE pf.pagina_id = ? 
+            AND pf.tabla_estado_registro_id = 1 -- Solo funciones activas
+            ORDER BY pf.tabla_estado_registro_origen_id, pf.orden";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $pagina_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $funciones = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $funciones[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $funciones;
+}
+
+// ✅ Obtener información de un estado específico
+function obtenerInfoEstado($conexion, $estado_registro_id)
+{
+    // Primero verifiquemos la estructura real de la tabla
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    // Determinar el nombre correcto de la columna
+    if (in_array('estado_registro', $columns)) {
+        $sql = "SELECT estado_registro, codigo_estandar 
+                FROM conf__estados_registros 
+                WHERE estado_registro_id = ?";
+    } elseif (in_array('nombre_estado', $columns)) {
+        $sql = "SELECT nombre_estado as estado_registro, codigo_estandar 
+                FROM conf__estados_registros 
+                WHERE estado_registro_id = ?";
+    } elseif (in_array('descripcion', $columns)) {
+        $sql = "SELECT descripcion as estado_registro, codigo_estandar 
+                FROM conf__estados_registros 
+                WHERE estado_registro_id = ?";
+    } else {
+        // Si no encontramos una columna adecuada, usar estado_registro_id como fallback
+        return [
+            'estado_registro' => 'Estado ' . $estado_registro_id,
+            'codigo_estandar' => 'ESTADO_' . $estado_registro_id
         ];
     }
 
-    return $categorias;
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return null;
+
+    mysqli_stmt_bind_param($stmt, "i", $estado_registro_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $info = mysqli_fetch_assoc($result);
+
+    mysqli_stmt_close($stmt);
+    return $info;
 }
-function obtenerUnidadesMedida($conexion)
+
+// ✅ Obtener botones disponibles según el estado actual
+function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
-    $sql = "SELECT unidad_medida_id, unidad_nombre, unidad_abreviatura 
-            FROM gestion__unidades_medida 
-            WHERE estado_registro_id = 1 
-            ORDER BY unidad_nombre";
-    $res = mysqli_query($conexion, $sql);
-    $unidades = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $unidades[$fila['unidad_medida_id']] = $fila['unidad_nombre'] . ' (' . $fila['unidad_abreviatura'] . ')';
+    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $botones = [];
+
+    foreach ($funciones as $funcion) {
+        if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
+            $botones[] = [
+                'nombre_funcion' => $funcion['nombre_funcion'],
+                'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
+                'icono_clase' => $funcion['icono_clase'],
+                'color_clase' => $funcion['color_clase'] ?? 'btn-outline-primary',
+                'bg_clase' => $funcion['bg_clase'] ?? '',
+                'text_clase' => $funcion['text_clase'] ?? '',
+                'descripcion' => $funcion['descripcion'],
+                'estado_destino_id' => $funcion['tabla_estado_registro_destino_id'],
+                'es_confirmable' => ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0
+            ];
+        }
     }
+
+    return $botones;
+}
+
+// ✅ Obtener botón "Agregar" específico para la página
+function obtenerBotonAgregar($conexion, $pagina_id)
+{
+    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+
+    foreach ($funciones as $funcion) {
+        if ($funcion['tabla_estado_registro_origen_id'] == 0) {
+            return [
+                'nombre_funcion' => $funcion['nombre_funcion'],
+                'accion_js' => $funcion['accion_js'] ?? 'agregar',
+                'icono_clase' => $funcion['icono_clase'],
+                'color_clase' => $funcion['color_clase'] ?? 'btn-primary',
+                'bg_clase' => $funcion['bg_clase'] ?? '',
+                'text_clase' => $funcion['text_clase'] ?? '',
+                'descripcion' => $funcion['descripcion']
+            ];
+        }
+    }
+
+    return [
+        'nombre_funcion' => 'Agregar Producto',
+        'accion_js' => 'agregar',
+        'icono_clase' => 'fas fa-plus',
+        'color_clase' => 'btn-primary',
+        'bg_clase' => 'btn-primary',
+        'text_clase' => 'text-white'
+    ];
+}
+
+// ✅ Obtener estado inicial para nuevos productos
+function obtenerEstadoInicial($conexion)
+{
+    $sql = "SELECT estado_registro_id 
+            FROM conf__estados_registros 
+            WHERE valor_estandar IS NOT NULL
+            ORDER BY valor_estandar ASC 
+            LIMIT 1";
+
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        // Si hay error, usar estado por defecto
+        return 1;
+    }
+
+    $fila = mysqli_fetch_assoc($result);
+    return $fila ? $fila['estado_registro_id'] : 1;
+}
+
+// ✅ Ejecutar transición de estado basada en conf__paginas_funciones
+function ejecutarTransicionEstado($conexion, $producto_id, $accion_js, $empresa_idx, $pagina_id)
+{
+    $producto_id = intval($producto_id);
+    $pagina_id = intval($pagina_id);
+
+    // Verificar que el producto exista
+    $sql_check = "SELECT producto_id, tabla_estado_registro_id 
+                  FROM gestion__productos 
+                  WHERE producto_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt)
+        return ['success' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $producto_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $producto = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$producto)
+        return ['success' => false, 'error' => 'Registro no encontrado'];
+
+    $estado_actual_id = $producto['tabla_estado_registro_id'];
+
+    // Buscar la función correspondiente en conf__paginas_funciones
+    $sql_funcion = "SELECT pf.* 
+                    FROM conf__paginas_funciones pf
+                    WHERE pf.pagina_id = ? 
+                    AND pf.tabla_estado_registro_origen_id = ? 
+                    AND pf.accion_js = ?
+                    LIMIT 1";
+
+    $stmt = mysqli_prepare($conexion, $sql_funcion);
+    if (!$stmt)
+        return ['success' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "iis", $pagina_id, $estado_actual_id, $accion_js);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $funcion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$funcion)
+        return ['success' => false, 'error' => 'Acción no permitida para este estado'];
+
+    $estado_destino_id = $funcion['tabla_estado_registro_destino_id'];
+
+    if ($estado_destino_id == $estado_actual_id) {
+        return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
+    }
+
+    // Actualizar el estado
+    $sql_update = "UPDATE gestion__productos 
+                   SET tabla_estado_registro_id = ? 
+                   WHERE producto_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt)
+        return ['success' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $producto_id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['success' => true, 'message' => 'Estado actualizado correctamente'];
+    } else {
+        return ['success' => false, 'error' => 'Error al actualizar el estado'];
+    }
+}
+
+// ✅ Obtener tipos de producto
+function obtenerTiposProducto($conexion, $empresa_idx)
+{
+    $sql = "SELECT producto_tipo_id, producto_tipo, producto_tipo_codigo
+            FROM gestion__productos_tipos
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY producto_tipo";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $tipos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $tipos[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $tipos;
+}
+
+// ✅ Obtener unidades de medida
+function obtenerUnidadesMedida($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+
+    $sql = "SELECT unidad_medida_id, unidad_nombre, unidad_abreviatura
+            FROM gestion__unidades_medida
+            WHERE (empresa_id = 0 OR empresa_id = ?)
+            AND tabla_estado_registro_id = 1
+            ORDER BY unidad_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $unidades = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $unidades[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
     return $unidades;
 }
 
-
-function agregarCompatibilidad($conexion, $data)
+// ✅ Agregar nuevo producto (con estado inicial)
+function agregarProducto($conexion, $data)
 {
-    $producto_id = intval($data['producto_id']);
-    $marca_id = intval($data['marca_id']);
-    $modelo_id = intval($data['modelo_id']);
-    $submodelo_id = !empty($data['submodelo_id']) ? intval($data['submodelo_id']) : 'NULL';
-    $anio_desde = intval($data['anio_desde']);
-    $anio_hasta = !empty($data['anio_hasta']) ? intval($data['anio_hasta']) : 'NULL';
+    $producto_codigo = mysqli_real_escape_string($conexion, trim($data['producto_codigo'] ?? ''));
+    $producto_nombre = mysqli_real_escape_string($conexion, trim($data['producto_nombre'] ?? ''));
+    $codigo_barras = mysqli_real_escape_string($conexion, trim($data['codigo_barras'] ?? ''));
+    $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
+    $producto_categoria_id = intval($data['producto_categoria_id'] ?? 0);
+    $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
+    $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
+    $lado = mysqli_real_escape_string($conexion, trim($data['lado'] ?? ''));
+    $material = mysqli_real_escape_string($conexion, trim($data['material'] ?? ''));
+    $color = mysqli_real_escape_string($conexion, trim($data['color'] ?? ''));
+    $peso = !empty($data['peso']) ? floatval($data['peso']) : null;
+    $dimensiones = mysqli_real_escape_string($conexion, trim($data['dimensiones'] ?? ''));
+    $garantia = mysqli_real_escape_string($conexion, trim($data['garantia'] ?? ''));
+    $empresa_id = intval($data['empresa_id'] ?? 0);
 
-    $sql = "INSERT INTO gestion__productos_compatibilidad 
-            (producto_id, marca_id, modelo_id, submodelo_id, anio_desde, anio_hasta, estado_registro_id) 
-            VALUES 
-            ($producto_id, $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta, 1)";
-
-    return mysqli_query($conexion, $sql);
-}
-
-function eliminarCompatibilidad($conexion, $compatibilidad_id)
-{
-    $compatibilidad_id = intval($compatibilidad_id);
-    $sql = "DELETE FROM gestion__productos_compatibilidad WHERE compatibilidad_id = $compatibilidad_id";
-    return mysqli_query($conexion, $sql);
-}
-
-function obtenerMarcas($conexion)
-{
-    $sql = "SELECT marca_id, marca_nombre FROM gestion__marcas WHERE estado_registro_id = 1 ORDER BY marca_nombre";
-    $res = mysqli_query($conexion, $sql);
-    $marcas = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $marcas[$fila['marca_id']] = $fila['marca_nombre'];
+    if (empty($producto_codigo)) {
+        return ['resultado' => false, 'error' => 'El código del producto es obligatorio'];
     }
-    return $marcas;
-}
 
-function obtenerModelosPorMarca($conexion, $marca_id)
-{
-    $marca_id = intval($marca_id);
-    $sql = "SELECT modelo_id, modelo_nombre FROM gestion__modelos 
-            WHERE marca_id = $marca_id AND estado_registro_id = 1 
-            ORDER BY modelo_nombre";
-    $res = mysqli_query($conexion, $sql);
-    $modelos = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $modelos[$fila['modelo_id']] = $fila['modelo_nombre'];
+    if (empty($producto_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre del producto es obligatorio'];
     }
-    return $modelos;
-}
 
-function obtenerSubmodelosPorModelo($conexion, $modelo_id)
-{
-    $modelo_id = intval($modelo_id);
-    $sql = "SELECT submodelo_id, submodelo_nombre FROM gestion__submodelos 
-            WHERE modelo_id = $modelo_id AND estado_registro_id = 1 
-            ORDER BY submodelo_nombre";
-    $res = mysqli_query($conexion, $sql);
-    $submodelos = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $submodelos[$fila['submodelo_id']] = $fila['submodelo_nombre'];
+    if ($producto_tipo_id == 0) {
+        return ['resultado' => false, 'error' => 'El tipo de producto es obligatorio'];
     }
-    return $submodelos;
-}
-// Agregar estas funciones al final de productos_model.php
 
-function obtenerSucursales($conexion)
-{
-    $sql = "SELECT sucursal_id, sucursal_nombre FROM gestion__sucursales WHERE estado_registro_id = 1 ORDER BY sucursal_nombre";
-    $res = mysqli_query($conexion, $sql);
-    $sucursales = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $sucursales[$fila['sucursal_id']] = $fila['sucursal_nombre'];
+    if ($producto_categoria_id == 0) {
+        return ['resultado' => false, 'error' => 'La categoría del producto es obligatoria'];
     }
-    return $sucursales;
-}
 
-function obtenerUbicacionesSucursal($conexion, $sucursal_id)
-{
-    $sucursal_id = intval($sucursal_id);
-    $sql = "SELECT sucursal_ubicacion_id, 
-                   CONCAT(seccion, ' - ', estanteria, ' - ', estante) as ubicacion_nombre,
-                   descripcion
-            FROM gestion__sucursales_ubicaciones 
-            WHERE sucursal_id = $sucursal_id AND estado_registro_id = 1 
-            ORDER BY seccion ASC, estanteria ASC, estante ASC";
-    $res = mysqli_query($conexion, $sql);
-    $ubicaciones = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $ubicaciones[$fila['sucursal_ubicacion_id']] = $fila['ubicacion_nombre'] .
-            ($fila['descripcion'] ? ' (' . $fila['descripcion'] . ')' : '');
+    if (strlen($producto_codigo) > 50) {
+        return ['resultado' => false, 'error' => 'El código no puede exceder los 50 caracteres'];
     }
-    return $ubicaciones;
-}
 
-function obtenerUbicacionesProducto($conexion, $producto_id)
-{
-    $producto_id = intval($producto_id);
-    $sql = "SELECT pu.*, 
-                   s.sucursal_nombre,
-                   CONCAT(su.seccion, ' - ', su.estanteria, ' - ', su.estante) as ubicacion_nombre,
-                   su.descripcion as ubicacion_descripcion
-            FROM gestion__productos_ubicaciones pu
-            JOIN gestion__sucursales s ON pu.sucursal_id = s.sucursal_id
-            JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
-            WHERE pu.producto_id = $producto_id AND pu.estado_registro_id = 1
-            ORDER BY s.sucursal_nombre, su.seccion, su.estanteria, su.estante";
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
+    if (strlen($producto_nombre) > 150) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 150 caracteres'];
     }
-    return $data;
-}
 
-function agregarUbicacionProducto($conexion, $data)
-{
-    $producto_id = intval($data['producto_id']);
-    $sucursal_id = intval($data['sucursal_id']);
-    $sucursal_ubicacion_id = intval($data['sucursal_ubicacion_id']);
-    $stock_minimo = !empty($data['stock_minimo']) ? intval($data['stock_minimo']) : 0;
-    $stock_maximo = !empty($data['stock_maximo']) ? intval($data['stock_maximo']) : 'NULL';
+    $estado_inicial = obtenerEstadoInicial($conexion);
 
-    $sql = "INSERT INTO gestion__productos_ubicaciones 
-            (producto_id, sucursal_id, sucursal_ubicacion_id, stock_minimo, stock_maximo, estado_registro_id) 
-            VALUES 
-            ($producto_id, $sucursal_id, $sucursal_ubicacion_id, $stock_minimo, $stock_maximo, 1)";
+    // Verificar duplicados (mismo código)
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__productos 
+                  WHERE producto_codigo = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    return mysqli_query($conexion, $sql);
-}
+    mysqli_stmt_bind_param($stmt, "si", $producto_codigo, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
 
-function eliminarUbicacionProducto($conexion, $producto_ubicacion_id)
-{
-    $producto_ubicacion_id = intval($producto_ubicacion_id);
-    $sql = "DELETE FROM gestion__productos_ubicaciones WHERE producto_ubicacion_id = $producto_ubicacion_id";
-    return mysqli_query($conexion, $sql);
-}
-function obtenerCompatibilidadProducto($conexion, $producto_id)
-{
-    $producto_id = intval($producto_id);
-    $sql = "SELECT pc.*, 
-                   m.marca_nombre,
-                   mo.modelo_nombre,
-                   s.submodelo_nombre
-            FROM gestion__productos_compatibilidad pc
-            LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
-            LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
-            LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
-            WHERE pc.producto_id = $producto_id AND pc.estado_registro_id = 1";
-    $res = mysqli_query($conexion, $sql);
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe un producto con este código'];
     }
-    return $data;
+
+    // Insertar nuevo producto
+    $sql = "INSERT INTO gestion__productos 
+            (empresa_id, producto_codigo, producto_nombre, codigo_barras, producto_descripcion, 
+             producto_categoria_id, producto_tipo_id, unidad_medida_id, lado, material, color, 
+             peso, dimensiones, garantia, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "issssiiisssdssi", 
+        $empresa_id, $producto_codigo, $producto_nombre, $codigo_barras, $producto_descripcion,
+        $producto_categoria_id, $producto_tipo_id, $unidad_medida_id, $lado, $material, $color,
+        $peso, $dimensiones, $garantia, $estado_inicial);
+    
+    $success = mysqli_stmt_execute($stmt);
+
+    if ($success) {
+        $producto_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'producto_id' => $producto_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al crear el producto: ' . mysqli_error($conexion)];
+    }
 }
+
+// ✅ Editar producto existente
+function editarProducto($conexion, $id, $data)
+{
+    $id = intval($id);
+    $producto_codigo = mysqli_real_escape_string($conexion, trim($data['producto_codigo'] ?? ''));
+    $producto_nombre = mysqli_real_escape_string($conexion, trim($data['producto_nombre'] ?? ''));
+    $codigo_barras = mysqli_real_escape_string($conexion, trim($data['codigo_barras'] ?? ''));
+    $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
+    $producto_categoria_id = intval($data['producto_categoria_id'] ?? 0);
+    $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
+    $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
+    $lado = mysqli_real_escape_string($conexion, trim($data['lado'] ?? ''));
+    $material = mysqli_real_escape_string($conexion, trim($data['material'] ?? ''));
+    $color = mysqli_real_escape_string($conexion, trim($data['color'] ?? ''));
+    $peso = !empty($data['peso']) ? floatval($data['peso']) : null;
+    $dimensiones = mysqli_real_escape_string($conexion, trim($data['dimensiones'] ?? ''));
+    $garantia = mysqli_real_escape_string($conexion, trim($data['garantia'] ?? ''));
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
+
+    if (empty($producto_codigo)) {
+        return ['resultado' => false, 'error' => 'El código del producto es obligatorio'];
+    }
+
+    if (empty($producto_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre del producto es obligatorio'];
+    }
+
+    if ($producto_tipo_id == 0) {
+        return ['resultado' => false, 'error' => 'El tipo de producto es obligatorio'];
+    }
+
+    if ($producto_categoria_id == 0) {
+        return ['resultado' => false, 'error' => 'La categoría del producto es obligatoria'];
+    }
+
+    if (strlen($producto_codigo) > 50) {
+        return ['resultado' => false, 'error' => 'El código no puede exceder los 50 caracteres'];
+    }
+
+    if (strlen($producto_nombre) > 150) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 150 caracteres'];
+    }
+
+    // Verificar que el producto exista
+    $sql_check = "SELECT producto_id, empresa_id FROM gestion__productos 
+                  WHERE producto_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$row) {
+        return ['resultado' => false, 'error' => 'Registro no encontrado'];
+    }
+
+    $empresa_id = $row['empresa_id'];
+
+    // Verificar duplicados (mismo código, excluyendo registro actual)
+    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__productos 
+                      WHERE producto_codigo = ? 
+                      AND empresa_id = ?
+                      AND producto_id != ?";
+    $stmt = mysqli_prepare($conexion, $sql_duplicate);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "sii", $producto_codigo, $empresa_id, $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe otro producto con este código'];
+    }
+
+    // Actualizar producto
+    $sql = "UPDATE gestion__productos 
+            SET producto_codigo = ?, producto_nombre = ?, codigo_barras = ?, 
+                producto_descripcion = ?, producto_categoria_id = ?, producto_tipo_id = ?, 
+                unidad_medida_id = ?, lado = ?, material = ?, color = ?, peso = ?, 
+                dimensiones = ?, garantia = ?
+            WHERE producto_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "ssssiiisssdssi", 
+        $producto_codigo, $producto_nombre, $codigo_barras, $producto_descripcion,
+        $producto_categoria_id, $producto_tipo_id, $unidad_medida_id, $lado, $material, $color,
+        $peso, $dimensiones, $garantia, $id);
+    
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['resultado' => true];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar el producto: ' . mysqli_error($conexion)];
+    }
+}
+
+// ✅ Obtener producto específico
+function obtenerProductoPorId($conexion, $id, $empresa_idx)
+{
+    $id = intval($id);
+    $empresa_idx = intval($empresa_idx);
+
+    // Primero verifiquemos la estructura de la tabla conf__estados_registros
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    // Determinar el nombre correcto de la columna para el estado
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+
+    $sql = "SELECT p.*, er.$estado_column as estado_registro, er.codigo_estandar,
+                   pt.producto_tipo, pt.producto_tipo_codigo,
+                   um.unidad_nombre, um.unidad_abreviatura
+            FROM gestion__productos p
+            LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
+            LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
+            WHERE p.producto_id = ? AND p.empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return null;
+
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $producto = mysqli_fetch_assoc($result);
+
+    mysqli_stmt_close($stmt);
+    return $producto;
+}
+?>
