@@ -20,8 +20,9 @@ $orderDir = $_GET['order'][0]['dir'] ?? $_POST['order'][0]['dir'] ?? 'asc';
 $searchValue = $_GET['search']['value'] ?? $_POST['search']['value'] ?? '';
 
 // Filtros adicionales
-$filtro_tipo = $_GET['filtro_tipo'] ?? $_POST['filtro_tipo'] ?? '';
-$filtro_estado = $_GET['filtro_estado'] ?? $_POST['filtro_estado'] ?? '';
+$filtro_marca = $_GET['filtro_marca'] ?? $_POST['filtro_marca'] ?? '';
+$filtro_modelo = $_GET['filtro_modelo'] ?? $_POST['filtro_modelo'] ?? '';
+$filtro_submodelo = $_GET['filtro_submodelo'] ?? $_POST['filtro_submodelo'] ?? '';
 $filtro_codigo = $_GET['filtro_codigo'] ?? $_POST['filtro_codigo'] ?? '';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -40,8 +41,9 @@ try {
                 'search' => $searchValue,
                 'order_column' => $orderColumn,
                 'order_dir' => $orderDir,
-                'filtro_tipo' => $filtro_tipo,
-                'filtro_estado' => $filtro_estado,
+                'filtro_marca' => $filtro_marca,
+                'filtro_modelo' => $filtro_modelo,
+                'filtro_submodelo' => $filtro_submodelo,
                 'filtro_codigo' => $filtro_codigo
             ]);
             
@@ -147,7 +149,6 @@ try {
             echo json_encode($estados, JSON_UNESCAPED_UNICODE);
             break;
 
-        // Nuevas funciones para compatibilidad
         case 'obtener_marcas':
             $marcas = obtenerMarcas($conexion, $empresa_idx);
             echo json_encode($marcas, JSON_UNESCAPED_UNICODE);

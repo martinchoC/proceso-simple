@@ -52,6 +52,7 @@ try {
                 'seccion' => trim($_POST['seccion'] ?? ''),
                 'estanteria' => trim($_POST['estanteria'] ?? ''),
                 'estante' => trim($_POST['estante'] ?? ''),
+                'posicion' => trim($_POST['posicion'] ?? ''), // AÑADIDO
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'estado_registro_id' => !empty($_POST['estado_registro_id']) ? intval($_POST['estado_registro_id']) : null,
                 'empresa_idx' => $empresa_idx,
@@ -69,6 +70,7 @@ try {
                 'seccion' => trim($_POST['seccion'] ?? ''),
                 'estanteria' => trim($_POST['estanteria'] ?? ''),
                 'estante' => trim($_POST['estante'] ?? ''),
+                'posicion' => trim($_POST['posicion'] ?? ''), // AÑADIDO
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'estado_registro_id' => !empty($_POST['estado_registro_id']) ? intval($_POST['estado_registro_id']) : null,
                 'empresa_idx' => $empresa_idx

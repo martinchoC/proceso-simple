@@ -101,10 +101,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     </div>
                                                 </div>
                                                 <div class="stats-item">
-                                                    <i class="fas fa-cube stats-icon"></i>
+                                                    <i class="fas fa-shelves stats-icon"></i>
                                                     <div class="stats-content">
                                                         <div class="stats-number" id="totalEstantes">0</div>
                                                         <div class="stats-label">Estantes</div>
+                                                    </div>
+                                                </div>
+                                                <div class="stats-item">
+                                                    <i class="fas fa-cube stats-icon"></i>
+                                                    <div class="stats-content">
+                                                        <div class="stats-number" id="totalPosiciones">0</div>
+                                                        <div class="stats-label">Posiciones</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -130,6 +137,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <div class="legend-item">
                                                 <span class="legend-color legend-estante"></span>
                                                 <span class="legend-text">Estante</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-color legend-posicion"></span>
+                                                <span class="legend-text">Posición</span>
                                             </div>
                                         </div>
                                     </div>
@@ -236,7 +247,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <!-- Modal para crear/editar ubicación -->
             <div class="modal fade modal-modern" id="modalSucursalUbicacion" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
                     <div class="modal-content">
                         <div class="modal-header modal-header-modern">
                             <div>
@@ -278,7 +289,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback">Debe seleccionar una sucursal</div>
                                     </div>
                                     
-                                    <div class="col-md-4 mb-3">
+                                    <div class="col-md-3 mb-3">
                                         <label for="seccion" class="form-label">
                                             <i class="fas fa-layer-group me-1"></i>Sección *
                                         </label>
@@ -293,7 +304,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <small class="form-text text-muted">Letra o código</small>
                                     </div>
                                     
-                                    <div class="col-md-4 mb-3">
+                                    <div class="col-md-3 mb-3">
                                         <label for="estanteria" class="form-label">
                                             <i class="fas fa-th-large me-1"></i>Estantería *
                                         </label>
@@ -308,7 +319,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <small class="form-text text-muted">Número</small>
                                     </div>
                                     
-                                    <div class="col-md-4 mb-3">
+                                    <div class="col-md-3 mb-3">
                                         <label for="estante" class="form-label">
                                             <i class="fas fa-shelves me-1"></i>Estante *
                                         </label>
@@ -320,6 +331,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                    maxlength="50" required placeholder="Ej: 01">
                                         </div>
                                         <div class="invalid-feedback">El estante es obligatorio</div>
+                                        <small class="form-text text-muted">Número</small>
+                                    </div>
+                                    
+                                    <div class="col-md-3 mb-3">
+                                        <label for="posicion" class="form-label">
+                                            <i class="fas fa-cube me-1"></i>Posición *
+                                        </label>
+                                        <div class="input-group input-group-modern">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-cube"></i>
+                                            </span>
+                                            <input type="text" class="form-control" id="posicion" name="posicion" 
+                                                   maxlength="50" required placeholder="Ej: 01">
+                                        </div>
+                                        <div class="invalid-feedback">La posición es obligatoria</div>
                                         <small class="form-text text-muted">Número</small>
                                     </div>
                                     
@@ -501,6 +527,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         background: linear-gradient(135deg, #9b59b6 0%, #34495e 100%);
     }
     
+    .legend-posicion {
+        background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
+    }
+    
     .legend-text {
         font-size: 0.9rem;
         color: #495057;
@@ -604,6 +634,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         background: linear-gradient(135deg, #9b59b6 0%, #34495e 100%);
     }
     
+    .tree-node-posicion .tree-node-icon {
+        background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
+    }
+    
     .tree-node-info {
         flex: 1;
         display: flex;
@@ -622,6 +656,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         font-weight: 600;
         color: #212529;
         margin-bottom: 0.125rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .tree-node-subtitle {
+        font-size: 0.75rem;
+        color: #6c757d;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -646,14 +688,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         font-size: 0.7rem;
         margin-right: 0.25rem;
         color: #adb5bd;
-    }
-    
-    .tree-node-subtitle {
-        font-size: 0.75rem;
-        color: #6c757d;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
     
     .tree-node-actions {
@@ -871,7 +905,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             sucursales: 0,
             secciones: 0,
             estanterias: 0,
-            estantes: 0
+            estantes: 0,
+            posiciones: 0
         };
         
         // Variable para recordar el nodo que se está editando
@@ -971,20 +1006,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }, 'json');
         }
         
-        // Procesar datos para el árbol
+        // Procesar datos para el árbol - ACTUALIZADA CON POSICIÓN
         function procesarDatosArbol(ubicaciones) {
             treeData = {};
             estadisticas = {
                 sucursales: 0,
                 secciones: 0,
                 estanterias: 0,
-                estantes: 0
+                estantes: 0,
+                posiciones: 0
             };
             
             ubicaciones.forEach(ubicacion => {
                 const sucursalId = ubicacion.sucursal_id;
                 const sucursalNombre = ubicacion.sucursal_nombre;
                 const localidad = ubicacion.localidad || '';
+                const posicion = ubicacion.posicion || '01'; // Valor por defecto
                 
                 if (!treeData[sucursalId]) {
                     treeData[sucursalId] = {
@@ -1022,9 +1059,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 const estante = ubicacion.estante;
                 if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante]) {
                     treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante] = {
-                        id: ubicacion.sucursal_ubicacion_id,
+                        id: `${sucursalId}_${seccion}_${estanteria}_${estante}`,
                         type: 'estante',
-                        nombre: estante,
+                        nombre: `Estante ${estante}`,
+                        posiciones: {}
+                    };
+                    estadisticas.estantes++;
+                }
+                
+                // AHORA SÍ AGREGAR POSICIONES
+                if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante].posiciones[posicion]) {
+                    treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante].posiciones[posicion] = {
+                        id: ubicacion.sucursal_ubicacion_id,
+                        type: 'posicion',
+                        nombre: `Posición ${posicion}`,
                         descripcion: ubicacion.descripcion,
                         estado: ubicacion.estado_info,
                         botones: ubicacion.botones,
@@ -1032,10 +1080,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         seccion: seccion,
                         estanteria: estanteria,
                         estante: estante,
+                        posicion: posicion,
                         sucursal_nombre: sucursalNombre,
                         localidad: localidad
                     };
-                    estadisticas.estantes++;
+                    estadisticas.posiciones++;
                 }
             });
         }
@@ -1092,11 +1141,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     icon: 'fas fa-shelves',
                     class: 'tree-node-estante',
                     title: 'Estante'
+                },
+                'posicion': {
+                    icon: 'fas fa-cube',
+                    class: 'tree-node-posicion',
+                    title: 'Posición'
                 }
             };
             
             const tipoInfo = tipos[nodo.type];
-            const tieneHijos = nodo.type !== 'estante';
+            const tieneHijos = nodo.type !== 'posicion';
             let html = '';
             
             html += `<li class="tree-node ${tipoInfo.class}" data-id="${nodo.id}" data-type="${nodo.type}">`;
@@ -1126,17 +1180,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 html += `<div class="tree-node-subtitle">
                             <i class="fas fa-map-marker-alt fa-xs me-1"></i>${nodo.localidad}
                          </div>`;
-            } else if (nodo.type === 'estante' && nodo.descripcion) {
+            } else if (nodo.type === 'posicion' && nodo.descripcion) {
                 html += `<div class="tree-node-subtitle">${nodo.descripcion}</div>`;
             }
             
             html += `</div>`;
             
-            // Detalles al costado (sección, estantería, estante)
+            // Detalles al costado (sección, estantería, estante, posición)
             html += `<div class="tree-node-details">`;
             
-            if (nodo.type === 'estante') {
-                // Para estantes, mostrar los detalles jerárquicos
+            if (nodo.type === 'posicion') {
+                // Para posiciones, mostrar todos los detalles jerárquicos
                 html += `<div class="tree-node-detail">
                             <i class="fas fa-layer-group"></i>
                             <span>${nodo.seccion || ''}</span>
@@ -1149,11 +1203,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <i class="fas fa-shelves"></i>
                             <span>${nodo.estante || ''}</span>
                          </div>`;
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-cube"></i>
+                            <span>${nodo.posicion || ''}</span>
+                         </div>`;
                 
                 // Estado
                 const estado = nodo.estado?.estado_registro || 'Sin estado';
                 const estadoColor = getEstadoColor(nodo.estado);
                 html += `<span class="badge badge-compact bg-${estadoColor}">${estado}</span>`;
+            } else if (nodo.type === 'estante') {
+                // Para estantes, mostrar sección y estantería
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-layer-group"></i>
+                            <span>Sección</span>
+                         </div>`;
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-th-large"></i>
+                            <span>Estantería</span>
+                         </div>`;
             } else if (nodo.type === 'estanteria') {
                 // Para estanterías, mostrar solo la sección
                 html += `<div class="tree-node-detail">
@@ -1169,8 +1237,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Acciones
             html += `<div class="tree-node-actions">`;
             
-            if (nodo.type === 'estante') {
-                // Solo botón de editar para estantes
+            if (nodo.type === 'posicion') {
+                // Solo botón de editar para posiciones
                 nodo.botones?.forEach(boton => {
                     if (boton.accion_js === 'editar') {
                         html += `<button class="tree-node-action btn-editar" 
@@ -1216,7 +1284,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             const hierarchy = {
                 'sucursal': 'seccion',
                 'seccion': 'estanteria',
-                'estanteria': 'estante'
+                'estanteria': 'estante',
+                'estante': 'posicion'
             };
             return hierarchy[parentType] || null;
         }
@@ -1227,6 +1296,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 case 'seccion': return nodo.secciones || {};
                 case 'estanteria': return nodo.estanterias || {};
                 case 'estante': return nodo.estantes || {};
+                case 'posicion': return nodo.posiciones || {};
                 default: return {};
             }
         }
@@ -1282,6 +1352,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             $('#totalSecciones').text(estadisticas.secciones);
             $('#totalEstanterias').text(estadisticas.estanterias);
             $('#totalEstantes').text(estadisticas.estantes);
+            $('#totalPosiciones').text(estadisticas.posiciones);
         }
         
         // Actualizar última actualización
@@ -1359,7 +1430,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 const type = $node.data('type');
                 const id = $node.data('id');
                 
-                if (type === 'estante') {
+                if (type === 'posicion') {
                     cargarUbicacionParaEditar(id);
                 }
             }
@@ -1375,7 +1446,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             $('#parent_type').val(parentType);
             $('#parent_id').val(parentId);
             
-            // Determinar qué campos pre-llenar
+            // Determinar qué campos pre-llenar según el tipo de padre
             if (parentType === 'sucursal') {
                 $('#sucursal_id').val(parentId);
                 $('#seccion').focus();
@@ -1393,6 +1464,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#seccion').val(ubicacion.seccion);
                     $('#estanteria').val(ubicacion.estanteria);
                     $('#estante').focus();
+                }
+            } else if (parentType === 'estante') {
+                const ubicacion = encontrarUbicacionPorEstante(parentId);
+                if (ubicacion) {
+                    $('#sucursal_id').val(ubicacion.sucursalId);
+                    $('#seccion').val(ubicacion.seccion);
+                    $('#estanteria').val(ubicacion.estanteria);
+                    $('#estante').val(ubicacion.estante);
+                    $('#posicion').focus();
                 }
             }
             
@@ -1450,12 +1530,32 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             return null;
         }
         
+        // Buscar ubicación por estante
+        function encontrarUbicacionPorEstante(estanteId) {
+            for (const sucursalId in treeData) {
+                for (const seccionId in treeData[sucursalId].secciones) {
+                    for (const estanteriaId in treeData[sucursalId].secciones[seccionId].estanterias) {
+                        if (treeData[sucursalId].secciones[seccionId].estanterias[estanteriaId].estantes[estanteId]) {
+                            return {
+                                sucursalId: sucursalId,
+                                seccion: seccionId,
+                                estanteria: estanteriaId,
+                                estante: estanteId.replace('Estante ', '')
+                            };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        
         // Actualizar ruta completa en el modal
         function actualizarRutaCompleta() {
             const sucursalId = $('#sucursal_id').val();
             const seccion = $('#seccion').val();
             const estanteria = $('#estanteria').val();
             const estante = $('#estante').val();
+            const posicion = $('#posicion').val();
             
             let ruta = '';
             
@@ -1481,11 +1581,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 ruta += ` &nbsp;&nbsp;<i class="fas fa-arrow-right text-muted"></i>&nbsp;&nbsp; <strong>Estante ${estante}</strong>`;
             }
             
+            if (posicion) {
+                ruta += ` &nbsp;&nbsp;<i class="fas fa-arrow-right text-muted"></i>&nbsp;&nbsp; <strong>Posición ${posicion}</strong>`;
+            }
+            
             $('#fullPath').html(ruta || '<span class="text-muted">Seleccione los datos para ver la ruta completa</span>');
         }
         
         // Escuchar cambios en los campos
-        $('#sucursal_id, #seccion, #estanteria, #estante').on('change input', function() {
+        $('#sucursal_id, #seccion, #estanteria, #estante, #posicion').on('change input', function() {
             actualizarRutaCompleta();
         });
         
@@ -1510,6 +1614,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#seccion').val(res.seccion || '');
                         $('#estanteria').val(res.estanteria || '');
                         $('#estante').val(res.estante || '');
+                        $('#posicion').val(res.posicion || '');
                         $('#descripcion').val(res.descripcion || '');
                         
                         cargarEstados(res.tabla_estado_registro_id);
@@ -1649,6 +1754,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var seccion = $('#seccion').val().trim();
             var estanteria = $('#estanteria').val().trim();
             var estante = $('#estante').val().trim();
+            var posicion = $('#posicion').val().trim();
             
             if (!sucursalId) {
                 $('#sucursal_id').addClass('is-invalid');
@@ -1669,6 +1775,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#estante').addClass('is-invalid');
                 return false;
             }
+            
+            if (!posicion) {
+                $('#posicion').addClass('is-invalid');
+                return false;
+            }
 
             var btnGuardar = $(this);
             var originalText = btnGuardar.html();
@@ -1684,6 +1795,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     seccion: seccion,
                     estanteria: estanteria,
                     estante: estante,
+                    posicion: posicion,
                     descripcion: $('#descripcion').val().trim(),
                     estado_registro_id: $('#estado_registro_id').val() || 1,
                     empresa_idx: empresa_idx,

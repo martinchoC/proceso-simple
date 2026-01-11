@@ -79,27 +79,38 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="row mb-3">
                                             <div class="col-md-3">
                                                 <div class="input-group input-group-sm">
-                                                    <span class="input-group-text">Tipo</span>
-                                                    <select class="form-select" id="filtroTipo">
-                                                        <option value="">Todos los tipos</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <div class="input-group input-group-sm">
-                                                    <span class="input-group-text">Estado</span>
-                                                    <select class="form-select" id="filtroEstado">
-                                                        <option value="">Todos los estados</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <div class="input-group input-group-sm">
                                                     <span class="input-group-text">Código</span>
-                                                    <input type="text" class="form-control" id="filtroCodigo" placeholder="Buscar por código">
+                                                    <input type="text" class="form-control" id="filtroCodigo" placeholder="Buscar código">
                                                 </div>
                                             </div>
                                             <div class="col-md-3">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">Marca</span>
+                                                    <select class="form-select" id="filtroMarca">
+                                                        <option value="">Todas las marcas</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">Modelo</span>
+                                                    <select class="form-select" id="filtroModelo" disabled>
+                                                        <option value="">Todos los modelos</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">Submodelo</span>
+                                                    <select class="form-select" id="filtroSubmodelo" disabled>
+                                                        <option value="">Todos los submodelos</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-12">
                                                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnAplicarFiltros">
                                                     <i class="fas fa-filter me-1"></i>Filtrar
                                                 </button>
@@ -117,11 +128,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="80">ID</th>
                                                     <th width="100">Código</th>
                                                     <th width="200">Nombre</th>
-                                                    <th width="100">Tipo</th>
-                                                    <th width="120">Categoría</th>
-                                                    <th width="100">Unidad</th>
-                                                    <th width="120">Estado</th>
-                                                    <th width="250" class="text-center">Acciones</th>
+                                                    <th width="150">Marcas</th>
+                                                    <th width="150">Modelos</th>
+                                                    <th width="150">Submodelos</th>
+                                                    <th width="80">Unidad</th>
+                                                    <th width="100">Estado</th>
+                                                    <th width="120" class="text-center">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -134,10 +146,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </section>
             </div>
 
-            <!-- Modal para crear/editar producto - MÁS ANCHO CON SOLAPAS -->
+            <!-- Modal para crear/editar producto - MÁS COMPACTO -->
             <div class="modal fade" id="modalProducto" tabindex="-1" aria-labelledby="modalLabel"
                 aria-hidden="true" data-bs-backdrop="static">
-                <div class="modal-dialog modal-xxl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content border-0 shadow-lg">
                         <div class="modal-header bg-gradient-primary text-white border-0">
                             <h5 class="modal-title" id="modalLabel">
@@ -163,7 +175,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </div>
                             </nav>
 
-                            <div class="tab-content p-4" id="nav-tabContent">
+                            <div class="tab-content p-3" id="nav-tabContent">
                                 <!-- Pestaña de Información -->
                                 <div class="tab-pane fade show active" id="nav-info" role="tabpanel" 
                                      aria-labelledby="nav-info-tab">
@@ -171,104 +183,87 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <input type="hidden" id="producto_id" name="producto_id" />
                                         <input type="hidden" id="empresa_id" name="empresa_id" value="2" />
                                         
-                                        <div class="row">
-                                            <div class="col-md-4 mb-3">
-                                                <label for="producto_codigo" class="form-label">Código *</label>
-                                                <input type="text" class="form-control" id="producto_codigo"
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <label for="producto_codigo" class="form-label form-label-sm">Código *</label>
+                                                <input type="text" class="form-control form-control-sm" id="producto_codigo"
                                                     name="producto_codigo" maxlength="50" required>
                                                 <div class="invalid-feedback">El código es obligatorio</div>
-                                                <div class="form-text">Máximo 50 caracteres</div>
                                             </div>
-                                            <div class="col-md-4 mb-3">
-                                                <label for="codigo_barras" class="form-label">Código de Barras</label>
-                                                <input type="text" class="form-control" id="codigo_barras"
+                                            <div class="col-md-4">
+                                                <label for="codigo_barras" class="form-label form-label-sm">Código de Barras</label>
+                                                <input type="text" class="form-control form-control-sm" id="codigo_barras"
                                                     name="codigo_barras" maxlength="150">
-                                                <div class="form-text">Máximo 150 caracteres</div>
                                             </div>
-                                            <div class="col-md-4 mb-3">
-                                                <label for="producto_tipo_id" class="form-label">Tipo de Producto *</label>
-                                                <select class="form-select" id="producto_tipo_id" name="producto_tipo_id" required>
-                                                    <option value="">Seleccionar tipo...</option>
+                                            <div class="col-md-4">
+                                                <label for="producto_tipo_id" class="form-label form-label-sm">Tipo *</label>
+                                                <select class="form-select form-select-sm" id="producto_tipo_id" name="producto_tipo_id" required>
+                                                    <option value="">Seleccionar...</option>
                                                 </select>
-                                                <div class="invalid-feedback">Seleccione un tipo de producto</div>
+                                                <div class="invalid-feedback">Seleccione un tipo</div>
                                             </div>
                                         </div>
                                         
-                                        <div class="row">
-                                            <div class="col-md-12 mb-3">
-                                                <label for="producto_nombre" class="form-label">Nombre *</label>
-                                                <input type="text" class="form-control" id="producto_nombre"
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-12">
+                                                <label for="producto_nombre" class="form-label form-label-sm">Nombre *</label>
+                                                <input type="text" class="form-control form-control-sm" id="producto_nombre"
                                                     name="producto_nombre" maxlength="150" required>
                                                 <div class="invalid-feedback">El nombre es obligatorio</div>
-                                                <div class="form-text">Máximo 150 caracteres</div>
                                             </div>
                                         </div>
                                         
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label for="producto_categoria_id" class="form-label">Categoría *</label>
-                                                <input type="number" class="form-control" id="producto_categoria_id"
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-6">
+                                                <label for="producto_categoria_id" class="form-label form-label-sm">Categoría *</label>
+                                                <input type="number" class="form-control form-control-sm" id="producto_categoria_id"
                                                     name="producto_categoria_id" min="1" required>
                                                 <div class="invalid-feedback">La categoría es obligatoria</div>
                                             </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label for="unidad_medida_id" class="form-label">Unidad de Medida</label>
-                                                <select class="form-select" id="unidad_medida_id" name="unidad_medida_id">
-                                                    <option value="">Seleccionar unidad...</option>
+                                            <div class="col-md-6">
+                                                <label for="unidad_medida_id" class="form-label form-label-sm">Unidad de Medida</label>
+                                                <select class="form-select form-select-sm" id="unidad_medida_id" name="unidad_medida_id">
+                                                    <option value="">Seleccionar...</option>
                                                 </select>
                                             </div>
                                         </div>
                                         
-                                        <div class="row">
-                                            <div class="col-md-4 mb-3">
-                                                <label for="lado" class="form-label">Lado</label>
-                                                <input type="text" class="form-control" id="lado"
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-4">
+                                                <label for="lado" class="form-label form-label-sm">Lado</label>
+                                                <input type="text" class="form-control form-control-sm" id="lado"
                                                     name="lado" maxlength="10">
-                                                <div class="form-text">Máximo 10 caracteres</div>
                                             </div>
-                                            <div class="col-md-4 mb-3">
-                                                <label for="material" class="form-label">Material</label>
-                                                <input type="text" class="form-control" id="material"
+                                            <div class="col-md-4">
+                                                <label for="material" class="form-label form-label-sm">Material</label>
+                                                <input type="text" class="form-control form-control-sm" id="material"
                                                     name="material" maxlength="50">
-                                                <div class="form-text">Máximo 50 caracteres</div>
                                             </div>
-                                            <div class="col-md-4 mb-3">
-                                                <label for="color" class="form-label">Color</label>
-                                                <input type="text" class="form-control" id="color"
+                                            <div class="col-md-4">
+                                                <label for="color" class="form-label form-label-sm">Color</label>
+                                                <input type="text" class="form-control form-control-sm" id="color"
                                                     name="color" maxlength="50">
-                                                <div class="form-text">Máximo 50 caracteres</div>
                                             </div>
                                         </div>
                                         
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label for="peso" class="form-label">Peso (kg)</label>
-                                                <input type="number" class="form-control" id="peso"
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-6">
+                                                <label for="peso" class="form-label form-label-sm">Peso (kg)</label>
+                                                <input type="number" class="form-control form-control-sm" id="peso"
                                                     name="peso" min="0" step="0.01">
-                                                <div class="form-text">Peso en kilogramos</div>
                                             </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label for="dimensiones" class="form-label">Dimensiones</label>
-                                                <input type="text" class="form-control" id="dimensiones"
-                                                    name="dimensiones" maxlength="50">
-                                                <div class="form-text">Ej: 10x20x30 cm</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="row">
-                                            <div class="col-md-12 mb-3">
-                                                <label for="producto_descripcion" class="form-label">Descripción</label>
-                                                <textarea class="form-control" id="producto_descripcion"
-                                                    name="producto_descripcion" rows="3"></textarea>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="row">
-                                            <div class="col-md-12 mb-3">
-                                                <label for="garantia" class="form-label">Garantía</label>
-                                                <input type="text" class="form-control" id="garantia"
+                                            <div class="col-md-6">
+                                                <label for="garantia" class="form-label form-label-sm">Garantía</label>
+                                                <input type="text" class="form-control form-control-sm" id="garantia"
                                                     name="garantia" maxlength="50">
-                                                <div class="form-text">Ej: 1 año, 6 meses, etc.</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-12">
+                                                <label for="producto_descripcion" class="form-label form-label-sm">Descripción</label>
+                                                <textarea class="form-control form-control-sm" id="producto_descripcion"
+                                                    name="producto_descripcion" rows="2"></textarea>
                                             </div>
                                         </div>
                                     </form>
@@ -277,48 +272,39 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <!-- Pestaña de Compatibilidad -->
                                 <div class="tab-pane fade" id="nav-compatibilidad" role="tabpanel" 
                                      aria-labelledby="nav-compatibilidad-tab">
-                                    <div class="d-flex justify-content-between align-items-center mb-4">
-                                        <h5 class="mb-0">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0">
                                             <i class="fas fa-cogs me-2 text-primary"></i>Compatibilidad del Producto
-                                        </h5>
+                                        </h6>
                                         <button type="button" class="btn btn-primary btn-sm" id="btnAgregarCompatibilidad">
-                                            <i class="fas fa-plus me-1"></i>Agregar Compatibilidad
+                                            <i class="fas fa-plus me-1"></i>Agregar
                                         </button>
                                     </div>
 
-                                    <!-- Tabla de compatibilidad -->
-                                    <div class="table-responsive">
-                                        <table id="tablaCompatibilidad" class="table table-hover table-sm" style="width:100%">
+                                    <!-- Tabla de compatibilidad más compacta -->
+                                    <div class="table-responsive" style="max-height: 300px;">
+                                        <table id="tablaCompatibilidad" class="table table-sm table-hover mb-0">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="100">Marca</th>
-                                                    <th width="120">Modelo</th>
-                                                    <th width="120">Submodelo</th>
-                                                    <th width="100">Año Desde</th>
-                                                    <th width="100">Año Hasta</th>
-                                                    <th width="80">Estado</th>
-                                                    <th width="120" class="text-center">Acciones</th>
+                                                    <th width="25%" class="py-1">Marca</th>
+                                                    <th width="25%" class="py-1">Modelo</th>
+                                                    <th width="25%" class="py-1">Submodelo</th>
+                                                    <th width="15%" class="py-1 text-center">Años</th>
+                                                    <th width="10%" class="py-1 text-center">Acciones</th>
                                                 </tr>
                                             </thead>
-                                            <tbody>
-                                                <!-- Los datos se cargarán dinámicamente -->
-                                            </tbody>
+                                            <tbody></tbody>
                                         </table>
-                                    </div>
-
-                                    <div class="alert alert-info mt-3">
-                                        <i class="fas fa-info-circle me-2"></i>
-                                        Esta sección permite definir con qué vehículos es compatible este producto.
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="modal-footer bg-light border-top">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <div class="modal-footer bg-light border-top py-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
                                 <i class="fas fa-times me-1"></i>Cancelar
                             </button>
-                            <button type="button" class="btn btn-primary px-4" id="btnGuardar">
-                                <i class="fas fa-save me-1"></i>Guardar Producto
+                            <button type="button" class="btn btn-sm btn-primary px-3" id="btnGuardar">
+                                <i class="fas fa-save me-1"></i>Guardar
                             </button>
                         </div>
                     </div>
@@ -344,15 +330,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="marca_id" class="form-label">Marca *</label>
-                                        <select class="form-select" id="marca_id" name="marca_id" required>
+                                        <label for="marca_id" class="form-label form-label-sm">Marca *</label>
+                                        <select class="form-select form-select-sm" id="marca_id" name="marca_id" required>
                                             <option value="">Seleccionar marca...</option>
                                         </select>
                                         <div class="invalid-feedback">Seleccione una marca</div>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="modelo_id" class="form-label">Modelo *</label>
-                                        <select class="form-select" id="modelo_id" name="modelo_id" required disabled>
+                                        <label for="modelo_id" class="form-label form-label-sm">Modelo *</label>
+                                        <select class="form-select form-select-sm" id="modelo_id" name="modelo_id" required disabled>
                                             <option value="">Seleccionar modelo...</option>
                                         </select>
                                         <div class="invalid-feedback">Seleccione un modelo</div>
@@ -361,23 +347,23 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="submodelo_id" class="form-label">Submodelo</label>
-                                        <select class="form-select" id="submodelo_id" name="submodelo_id" disabled>
+                                        <label for="submodelo_id" class="form-label form-label-sm">Submodelo</label>
+                                        <select class="form-select form-select-sm" id="submodelo_id" name="submodelo_id" disabled>
                                             <option value="">Seleccionar submodelo...</option>
                                             <option value="0">Sin submodelo</option>
                                         </select>
                                         <div class="form-text">Opcional</div>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label for="anio_desde" class="form-label">Año Desde *</label>
-                                        <select class="form-select" id="anio_desde" name="anio_desde" required>
+                                        <label for="anio_desde" class="form-label form-label-sm">Año Desde *</label>
+                                        <select class="form-select form-select-sm" id="anio_desde" name="anio_desde" required>
                                             <option value="">Año...</option>
                                         </select>
                                         <div class="invalid-feedback">Seleccione el año inicial</div>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label for="anio_hasta" class="form-label">Año Hasta</label>
-                                        <select class="form-select" id="anio_hasta" name="anio_hasta">
+                                        <label for="anio_hasta" class="form-label form-label-sm">Año Hasta</label>
+                                        <select class="form-select form-select-sm" id="anio_hasta" name="anio_hasta">
                                             <option value="">Año...</option>
                                             <option value="0">Actual</option>
                                         </select>
@@ -387,10 +373,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </form>
                         </div>
                         <div class="modal-footer bg-light border-top">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
                                 <i class="fas fa-times me-1"></i>Cancelar
                             </button>
-                            <button type="button" class="btn btn-info px-4" id="btnGuardarCompatibilidad">
+                            <button type="button" class="btn btn-sm btn-info px-3" id="btnGuardarCompatibilidad">
                                 <i class="fas fa-save me-1"></i>Guardar
                             </button>
                         </div>
@@ -441,9 +427,41 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <!-- Estilos personalizados -->
     <style>
-        /* Modal más ancho */
-        .modal-xxl {
-            max-width: 1400px;
+        /* Reducir tamaño del modal */
+        .modal-xl {
+            max-width: 1100px;
+        }
+
+        /* Hacer más compacto el contenido del modal */
+        .modal-body .form-label-sm {
+            font-size: 0.85rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .modal-body .form-control-sm,
+        .modal-body .form-select-sm {
+            font-size: 0.85rem;
+            padding: 0.25rem 0.5rem;
+            height: calc(1.5em + 0.5rem + 2px);
+        }
+
+        .modal-footer {
+            padding: 0.5rem 1rem;
+        }
+
+        /* Hacer la tabla más compacta */
+        #tablaCompatibilidad {
+            font-size: 0.8rem;
+        }
+
+        #tablaCompatibilidad th,
+        #tablaCompatibilidad td {
+            padding: 0.25rem 0.5rem;
+        }
+
+        /* Asegurar que ambas pestañas tengan el mismo tamaño */
+        .tab-content {
+            min-height: 350px;
         }
 
         /* Estilos para pestañas */
@@ -474,16 +492,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         /* Contenido de pestañas */
         .tab-content {
             background-color: white;
-            min-height: 400px;
-        }
-
-        /* Tabla de compatibilidad */
-        #tablaCompatibilidad {
-            font-size: 0.9rem;
-        }
-
-        #tablaCompatibilidad th {
-            font-weight: 600;
         }
 
         /* Botones de acción */
@@ -539,6 +547,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .bg-gradient-info {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
+        
+        /* Badges para compatibilidad en la tabla */
+        .badge-compatibilidad {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+        }
     </style>
 
     <script>
@@ -565,15 +584,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     empresa_idx: empresa_idx
                 }, function (tipos) {
                     var select = $('#producto_tipo_id');
-                    var filtroSelect = $('#filtroTipo');
                     
                     select.empty().append('<option value="">Seleccionar tipo...</option>');
-                    filtroSelect.empty().append('<option value="">Todos los tipos</option>');
                     
                     if (tipos && tipos.length > 0) {
                         tipos.forEach(function(tipo) {
                             select.append(`<option value="${tipo.producto_tipo_id}">${tipo.producto_tipo} (${tipo.producto_tipo_codigo})</option>`);
-                            filtroSelect.append(`<option value="${tipo.producto_tipo_id}">${tipo.producto_tipo}</option>`);
                         });
                     }
                 }, 'json');
@@ -596,48 +612,35 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            // Cargar opciones de estados
-            function cargarEstados() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_estados',
-                    empresa_idx: empresa_idx
-                }, function (estados) {
-                    var filtroSelect = $('#filtroEstado');
-                    filtroSelect.empty().append('<option value="">Todos los estados</option>');
-                    
-                    if (estados && estados.length > 0) {
-                        estados.forEach(function(estado) {
-                            filtroSelect.append(`<option value="${estado.estado_registro_id}">${estado.estado_registro}</option>`);
-                        });
-                    }
-                }, 'json');
-            }
-
-            // Cargar marcas
-            function cargarMarcas() {
+            // Función para cargar marcas en los filtros y modal
+            function cargarMarcasFiltro() {
                 $.get('productos_ajax.php', {
                     accion: 'obtener_marcas',
                     empresa_idx: empresa_idx
                 }, function (marcas) {
-                    var select = $('#marca_id');
-                    select.empty().append('<option value="">Seleccionar marca...</option>');
+                    var selectFiltro = $('#filtroMarca');
+                    var selectModal = $('#marca_id');
+                    
+                    selectFiltro.empty().append('<option value="">Todas las marcas</option>');
+                    selectModal.empty().append('<option value="">Seleccionar marca...</option>');
                     
                     if (marcas && marcas.length > 0) {
                         marcas.forEach(function(marca) {
-                            select.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
+                            selectFiltro.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
+                            selectModal.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
                         });
                     }
                 }, 'json');
             }
 
             // Cargar modelos por marca
-            function cargarModelos(marcaId) {
+            function cargarModelos(marcaId, targetId = '#modelo_id') {
                 $.get('productos_ajax.php', {
                     accion: 'obtener_modelos',
                     empresa_idx: empresa_idx,
                     marca_id: marcaId
                 }, function (modelos) {
-                    var select = $('#modelo_id');
+                    var select = $(targetId);
                     select.empty().append('<option value="">Seleccionar modelo...</option>');
                     
                     if (modelos && modelos.length > 0) {
@@ -652,13 +655,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             // Cargar submodelos por modelo
-            function cargarSubmodelos(modeloId) {
+            function cargarSubmodelos(modeloId, targetId = '#submodelo_id') {
                 $.get('productos_ajax.php', {
                     accion: 'obtener_submodelos',
                     empresa_idx: empresa_idx,
                     modelo_id: modeloId
                 }, function (submodelos) {
-                    var select = $('#submodelo_id');
+                    var select = $(targetId);
                     select.empty().append('<option value="">Seleccionar submodelo...</option>')
                             .append('<option value="0">Sin submodelo</option>');
                     
@@ -712,9 +715,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             d.accion = 'listar';
                             d.empresa_idx = empresa_idx;
                             d.pagina_idx = pagina_idx;
-                            d.filtro_tipo = $('#filtroTipo').val();
-                            d.filtro_estado = $('#filtroEstado').val();
                             d.filtro_codigo = $('#filtroCodigo').val();
+                            d.filtro_marca = $('#filtroMarca').val();
+                            d.filtro_modelo = $('#filtroModelo').val();
+                            d.filtro_submodelo = $('#filtroSubmodelo').val();
                         }
                     },
                     stateSave: true,
@@ -751,47 +755,69 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     pageLength: 50,
                     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
                     columns: [
-                        { data: 'producto_id', className: 'text-center fw-bold' },
+                        { 
+                            data: 'producto_id', 
+                            className: 'text-center fw-bold',
+                            width: '80px'
+                        },
                         { 
                             data: 'producto_codigo', 
                             className: 'text-center fw-medium',
+                            width: '100px',
                             render: function (data, type, row) {
                                 return type === 'export' ? data : `<div class="fw-bold">${data}</div>`;
                             }
                         },
                         { 
                             data: 'producto_nombre',
+                            width: '200px',
                             render: function (data, type, row) {
                                 if (type === 'export') return data;
                                 var desc = row.producto_descripcion ? 
-                                    `<small class="text-muted d-block">${row.producto_descripcion.substring(0, 50)}${row.producto_descripcion.length > 50 ? '...' : ''}</small>` : '';
+                                    `<small class="text-muted d-block">${row.producto_descripcion.substring(0, 40)}${row.producto_descripcion.length > 40 ? '...' : ''}</small>` : '';
                                 return `<div class="fw-medium">${data}</div>${desc}`;
                             }
                         },
                         { 
-                            data: 'producto_tipo_info',
+                            data: 'marcas_compatibles',
+                            width: '150px',
                             render: function (data, type, row) {
-                                return type === 'export' ? (data ? data.producto_tipo_codigo : '') : 
-                                       (data ? `<span class="badge bg-info">${data.producto_tipo_codigo}</span>` : '');
+                                if (type === 'export') return data || '';
+                                if (!data || data === '') return '<span class="text-muted">-</span>';
+                                return `<span class="badge badge-compatibilidad bg-info text-white" title="${data}">${data}</span>`;
                             }
                         },
                         { 
-                            data: 'producto_categoria_id', 
-                            className: 'text-center',
+                            data: 'modelos_compatibles',
+                            width: '150px',
                             render: function (data, type, row) {
-                                return type === 'export' ? data : `<span class="badge bg-secondary">${data}</span>`;
+                                if (type === 'export') return data || '';
+                                if (!data || data === '') return '<span class="text-muted">-</span>';
+                                return `<span class="badge badge-compatibilidad bg-success text-white" title="${data}">${data}</span>`;
+                            }
+                        },
+                        { 
+                            data: 'submodelos_compatibles',
+                            width: '150px',
+                            render: function (data, type, row) {
+                                if (type === 'export') return data || '';
+                                if (!data || data === '') return '<span class="text-muted">-</span>';
+                                return `<span class="badge badge-compatibilidad bg-warning text-dark" title="${data}">${data}</span>`;
                             }
                         },
                         { 
                             data: 'unidad_medida_info',
+                            width: '80px',
+                            className: 'text-center',
                             render: function (data, type, row) {
                                 return type === 'export' ? (data ? data.unidad_abreviatura : '') : 
-                                       (data ? data.unidad_abreviatura : '-');
+                                       (data ? `<span class="badge bg-secondary">${data.unidad_abreviatura}</span>` : '-');
                             }
                         },
                         { 
                             data: 'estado_info', 
                             className: 'text-center',
+                            width: '100px',
                             render: function (data, type, row) {
                                 if (!data || !data.estado_registro) {
                                     return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
@@ -815,63 +841,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             orderable: false, 
                             searchable: false,
                             className: "text-center",
-                            width: '250px',
+                            width: '120px',
                             render: function (data, type, row) {
                                 if (type === 'export') return '';
-
+                                
                                 var botones = '';
                                 if (data && data.length > 0) {
-                                    var editarBoton = '';
-                                    var botonAlta = '';
-                                    var otrosBotones = '';
-
                                     data.forEach(boton => {
-                                        var claseBoton = 'btn-sm me-1 ';
+                                        var claseBoton = 'btn-xs me-1 ';
                                         var nombreAccion = boton.accion_js || boton.nombre_funcion.toLowerCase();
                                         
-                                        if (nombreAccion === 'alta' || nombreAccion === 'activar') {
-                                            claseBoton += 'btn-accion-alta';
-                                        } else if (nombreAccion === 'baja' || nombreAccion === 'eliminar') {
-                                            claseBoton += 'btn-accion-baja';
-                                        } else if (nombreAccion === 'suspender' || nombreAccion === 'bloquear') {
-                                            claseBoton += 'btn-accion-suspender';
-                                        } else if (boton.bg_clase && boton.text_clase) {
-                                            claseBoton += boton.bg_clase + ' ' + boton.text_clase;
-                                        } else if (boton.color_clase) {
-                                            claseBoton += boton.color_clase;
-                                        } else {
+                                        if (nombreAccion === 'editar') {
                                             claseBoton += 'btn-outline-primary';
-                                        }
-
-                                        var titulo = boton.descripcion || boton.nombre_funcion;
-                                        var accionJs = boton.accion_js;
-                                        var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
-                                        var esConfirmable = boton.es_confirmable || 0;
-
-                                        var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
-                                           title="${titulo}" 
-                                           data-id="${row.producto_id}" 
-                                           data-accion="${accionJs}"
-                                           data-confirmable="${esConfirmable}"
-                                           data-producto="${row.producto_nombre}">
-                                        ${icono}
-                                    </button>`;
-
-                                        if (accionJs === 'editar') {
-                                            editarBoton = botonHtml;
-                                        } else if (accionJs === 'alta' || accionJs === 'activar') {
-                                            botonAlta = botonHtml;
-                                        } else {
-                                            otrosBotones += botonHtml;
+                                            botones += `<button type="button" class="btn ${claseBoton} btn-accion" 
+                                                   title="${boton.descripcion || 'Editar'}" 
+                                                   data-id="${row.producto_id}" 
+                                                   data-accion="${boton.accion_js}"
+                                                   data-confirmable="${boton.es_confirmable || 0}"
+                                                   data-producto="${row.producto_nombre}">
+                                                <i class="${boton.icono_clase || 'fas fa-edit'}"></i>
+                                            </button>`;
                                         }
                                     });
-
-                                    botones = editarBoton + botonAlta + otrosBotones;
-                                } else {
-                                    botones = '<span class="text-muted small">Sin acciones</span>';
                                 }
-
-                                return `<div class="btn-group" role="group">${botones}</div>`;
+                                
+                                return botones || '<span class="text-muted small">-</span>';
                             }
                         }
                     ],
@@ -935,27 +929,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         },
                         { 
-                            data: 'anio_desde',
-                            className: 'text-center'
-                        },
-                        { 
-                            data: 'anio_hasta',
+                            data: null,
                             className: 'text-center',
                             render: function(data) {
-                                return data == '0' ? 'Actual' : data;
-                            }
-                        },
-                        { 
-                            data: 'estado_info',
-                            className: 'text-center',
-                            render: function(data) {
-                                if (!data || !data.estado_registro) {
-                                    return '<span class="badge badge-estado-inactivo">Sin estado</span>';
+                                var anioDesde = data.anio_desde || '';
+                                var anioHasta = data.anio_hasta == '0' ? 'Actual' : (data.anio_hasta || '');
+                                if (anioHasta && anioHasta !== 'Actual') {
+                                    return `${anioDesde} - ${anioHasta}`;
                                 }
-                                var estado = data.estado_registro;
-                                var codigo = data.codigo_estandar || 'DESCONOCIDO';
-                                var claseBadge = codigo === 'ACTIVO' ? 'badge-estado-activo' : 'badge-estado-inactivo';
-                                return `<span class="badge ${claseBadge}">${estado}</span>`;
+                                return anioDesde || '-';
                             }
                         },
                         { 
@@ -983,7 +965,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
                     },
                     responsive: true,
-                    pageLength: 10
+                    pageLength: 10,
+                    searching: false,
+                    paging: false,
+                    info: false
                 });
             }
 
@@ -992,47 +977,47 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 resetModalCompatibilidad();
                 $('#compatibilidad_producto_id').val(productoId);
                 
+                // Cargar marcas primero
+                cargarMarcasFiltro();
+                cargarAnios();
+                
                 if (compatibilidadId) {
                     // Modo edición
                     $('#modalCompatibilidadLabel').html('<i class="fas fa-edit me-2"></i>Editar Compatibilidad');
                     $('#compatibilidad_id').val(compatibilidadId);
                     
-                    // Cargar datos de la compatibilidad
-                    $.get('productos_ajax.php', {
-                        accion: 'obtener_compatibilidad_por_id',
-                        compatibilidad_id: compatibilidadId,
-                        empresa_idx: empresa_idx
-                    }, function(res) {
-                        if (res && res.compatibilidad_id) {
-                            // Cargar marcas primero
-                            cargarMarcas();
-                            
-                            setTimeout(function() {
-                                $('#marca_id').val(res.marca_id);
-                                // Cargar modelos de esta marca
-                                cargarModelos(res.marca_id);
-                                
+                    // Cargar datos de la compatibilidad después de que carguen las marcas
+                    setTimeout(function() {
+                        $.get('productos_ajax.php', {
+                            accion: 'obtener_compatibilidad_por_id',
+                            compatibilidad_id: compatibilidadId,
+                            empresa_idx: empresa_idx
+                        }, function(res) {
+                            if (res && res.compatibilidad_id) {
                                 setTimeout(function() {
-                                    $('#modelo_id').val(res.modelo_id);
-                                    // Cargar submodelos de este modelo
-                                    cargarSubmodelos(res.modelo_id);
+                                    $('#marca_id').val(res.marca_id);
+                                    // Cargar modelos de esta marca
+                                    cargarModelos(res.marca_id);
                                     
                                     setTimeout(function() {
-                                        $('#submodelo_id').val(res.submodelo_id || '');
-                                        $('#anio_desde').val(res.anio_desde);
-                                        $('#anio_hasta').val(res.anio_hasta || '');
+                                        $('#modelo_id').val(res.modelo_id);
+                                        // Cargar submodelos de este modelo
+                                        cargarSubmodelos(res.modelo_id);
+                                        
+                                        setTimeout(function() {
+                                            $('#submodelo_id').val(res.submodelo_id || '');
+                                            $('#anio_desde').val(res.anio_desde);
+                                            $('#anio_hasta').val(res.anio_hasta || '');
+                                        }, 300);
                                     }, 300);
                                 }, 300);
-                            }, 300);
-                        }
-                    }, 'json');
+                            }
+                        }, 'json');
+                    }, 500);
                 } else {
                     // Modo creación
                     $('#modalCompatibilidadLabel').html('<i class="fas fa-plus me-2"></i>Agregar Compatibilidad');
-                    cargarMarcas();
                 }
-                
-                cargarAnios();
                 
                 var modal = new bootstrap.Modal(document.getElementById('modalCompatibilidad'));
                 modal.show();
@@ -1067,10 +1052,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 $('#btnLimpiarFiltros').click(function () {
-                    $('#filtroTipo').val('');
-                    $('#filtroEstado').val('');
                     $('#filtroCodigo').val('');
+                    $('#filtroMarca').val('');
+                    $('#filtroModelo').val('').prop('disabled', true);
+                    $('#filtroSubmodelo').val('').prop('disabled', true);
                     tabla.ajax.reload();
+                });
+
+                // Eventos para los filtros dependientes
+                $('#filtroMarca').change(function() {
+                    var marcaId = $(this).val();
+                    if (marcaId) {
+                        cargarModelos(marcaId, '#filtroModelo');
+                    } else {
+                        $('#filtroModelo').empty().append('<option value="">Todos los modelos</option>').prop('disabled', true);
+                        $('#filtroSubmodelo').empty().append('<option value="">Todos los submodelos</option>').prop('disabled', true);
+                    }
+                });
+
+                $('#filtroModelo').change(function() {
+                    var modeloId = $(this).val();
+                    if (modeloId) {
+                        cargarSubmodelos(modeloId, '#filtroSubmodelo');
+                    } else {
+                        $('#filtroSubmodelo').empty().append('<option value="">Todos los submodelos</option>').prop('disabled', true);
+                    }
                 });
 
                 // Eventos de compatibilidad
@@ -1119,22 +1125,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     });
                 });
 
-                // Cambio de marca -> cargar modelos
+                // Cambio de marca -> cargar modelos (para modal de compatibilidad)
                 $(document).on('change', '#marca_id', function() {
                     var marcaId = $(this).val();
                     if (marcaId) {
-                        cargarModelos(marcaId);
+                        cargarModelos(marcaId, '#modelo_id');
                     } else {
                         $('#modelo_id').empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
                         $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
                     }
                 });
 
-                // Cambio de modelo -> cargar submodelos
+                // Cambio de modelo -> cargar submodelos (para modal de compatibilidad)
                 $(document).on('change', '#modelo_id', function() {
                     var modeloId = $(this).val();
                     if (modeloId) {
-                        cargarSubmodelos(modeloId);
+                        cargarSubmodelos(modeloId, '#submodelo_id');
                     } else {
                         $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
                     }
@@ -1329,7 +1335,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#color').val(res.color || '');
                         $('#peso').val(res.peso || '');
                         $('#dimensiones').val(res.dimensiones || '');
-                        $('#garantia').val(res.garantia || '');
+                        $('#garantia').val(res.guarantia || '');
                         
                         cargarTiposProducto();
                         cargarUnidadesMedida();
@@ -1496,6 +1502,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
             });
 
+            // Evento para mantener tamaño del modal al cambiar pestañas
+            $(document).on('shown.bs.tab', function (e) {
+                // Reajustar el modal si está visible
+                var modal = $('#modalProducto');
+                if (modal.hasClass('show')) {
+                    // Forzar un redimensionamiento
+                    modal.find('.modal-dialog').css('margin-top', '1.75rem');
+                }
+            });
+
             // ========== INICIALIZACIÓN ==========
 
             // Inicializar
@@ -1503,7 +1519,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarBotonAgregar();
             cargarTiposProducto();
             cargarUnidadesMedida();
-            cargarEstados();
+            cargarMarcasFiltro();
 
             // Agregar tooltips
             $('[title]').tooltip({

@@ -14,8 +14,9 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     $search = trim($params['search'] ?? '');
     $order_column = intval($params['order_column'] ?? 1);
     $order_dir = strtoupper($params['order_dir'] ?? 'ASC');
-    $filtro_tipo = $params['filtro_tipo'] ?? '';
-    $filtro_estado = $params['filtro_estado'] ?? '';
+    $filtro_marca = $params['filtro_marca'] ?? '';
+    $filtro_modelo = $params['filtro_modelo'] ?? '';
+    $filtro_submodelo = $params['filtro_submodelo'] ?? '';
     $filtro_codigo = $params['filtro_codigo'] ?? '';
 
     // Validar dirección de orden
@@ -26,10 +27,11 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         0 => 'p.producto_id',
         1 => 'p.producto_codigo',
         2 => 'p.producto_nombre',
-        3 => 'pt.producto_tipo_codigo',
-        4 => 'p.producto_categoria_id',
-        5 => 'um.unidad_abreviatura',
-        6 => 'er.estado_registro'
+        3 => 'marcas_compatibles',
+        4 => 'modelos_compatibles',
+        5 => 'submodelos_compatibles',
+        6 => 'um.unidad_abreviatura',
+        7 => 'er.estado_registro'
     ];
 
     $order_by = $column_mapping[$order_column] ?? 'p.producto_codigo';
@@ -57,25 +59,42 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     $where_params = [$empresa_idx];
     $where_types = "i";
 
-    // Filtro por tipo de producto
-    if (!empty($filtro_tipo)) {
-        $where_conditions[] = "p.producto_tipo_id = ?";
-        $where_params[] = intval($filtro_tipo);
-        $where_types .= "i";
-    }
-
-    // Filtro por estado
-    if (!empty($filtro_estado)) {
-        $where_conditions[] = "p.tabla_estado_registro_id = ?";
-        $where_params[] = intval($filtro_estado);
-        $where_types .= "i";
-    }
-
     // Filtro por código
     if (!empty($filtro_codigo)) {
         $where_conditions[] = "p.producto_codigo LIKE ?";
         $where_params[] = '%' . $filtro_codigo . '%';
         $where_types .= "s";
+    }
+
+    // Filtros de compatibilidad
+    if (!empty($filtro_marca)) {
+        $where_conditions[] = "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
+                WHERE pc.producto_id = p.producto_id 
+                AND pc.empresa_id = p.empresa_id
+                AND pc.tabla_estado_registro_id = 1
+                AND pc.marca_id = ?)";
+        $where_params[] = intval($filtro_marca);
+        $where_types .= "i";
+    }
+
+    if (!empty($filtro_modelo)) {
+        $where_conditions[] = "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
+                WHERE pc.producto_id = p.producto_id 
+                AND pc.empresa_id = p.empresa_id
+                AND pc.tabla_estado_registro_id = 1
+                AND pc.modelo_id = ?)";
+        $where_params[] = intval($filtro_modelo);
+        $where_types .= "i";
+    }
+
+    if (!empty($filtro_submodelo)) {
+        $where_conditions[] = "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
+                WHERE pc.producto_id = p.producto_id 
+                AND pc.empresa_id = p.empresa_id
+                AND pc.tabla_estado_registro_id = 1
+                AND pc.submodelo_id = ?)";
+        $where_params[] = intval($filtro_submodelo);
+        $where_types .= "i";
     }
 
     // Filtro de búsqueda global
@@ -84,13 +103,31 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             "p.producto_codigo LIKE ?",
             "p.producto_nombre LIKE ?",
             "p.codigo_barras LIKE ?",
-            "pt.producto_tipo LIKE ?",
-            "er.$estado_column LIKE ?"
+            "er.$estado_column LIKE ?",
+            "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
+                    LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
+                    WHERE pc.producto_id = p.producto_id 
+                    AND pc.empresa_id = p.empresa_id
+                    AND pc.tabla_estado_registro_id = 1
+                    AND m.marca_nombre LIKE ?)",
+            "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
+                    LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
+                    WHERE pc.producto_id = p.producto_id 
+                    AND pc.empresa_id = p.empresa_id
+                    AND pc.tabla_estado_registro_id = 1
+                    AND mo.modelo_nombre LIKE ?)",
+            "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
+                    LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
+                    WHERE pc.producto_id = p.producto_id 
+                    AND pc.empresa_id = p.empresa_id
+                    AND pc.tabla_estado_registro_id = 1
+                    AND s.submodelo_nombre LIKE ?)"
         ];
         
         $where_conditions[] = "(" . implode(" OR ", $search_conditions) . ")";
         
-        for ($i = 0; $i < 5; $i++) {
+        // Agregar parámetros para todas las condiciones de búsqueda
+        for ($i = 0; $i < 7; $i++) {
             $where_params[] = '%' . $search . '%';
             $where_types .= "s";
         }
@@ -99,10 +136,9 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
     // Consulta para contar total de registros
-    $sql_count = "SELECT COUNT(*) as total 
+    $sql_count = "SELECT COUNT(DISTINCT p.producto_id) as total 
                   FROM gestion__productos p
                   LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
-                  LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
                   $where_clause";
 
     $stmt_count = mysqli_prepare($conexion, $sql_count);
@@ -119,19 +155,28 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         $total_records = 0;
     }
 
-    // Consulta para obtener datos con paginación
-    $sql = "SELECT p.*, 
-                   er.$estado_column as estado_registro, 
-                   er.codigo_estandar,
-                   c.color_clase, c.bg_clase, c.text_clase,
-                   pt.producto_tipo, pt.producto_tipo_codigo,
-                   um.unidad_nombre, um.unidad_abreviatura
+    // Consulta principal con información de compatibilidad
+    $sql = "SELECT 
+                p.*,
+                er.$estado_column as estado_registro,
+                er.codigo_estandar,
+                c.color_clase, c.bg_clase, c.text_clase,
+                um.unidad_nombre, um.unidad_abreviatura,
+                GROUP_CONCAT(DISTINCT m.marca_nombre ORDER BY m.marca_nombre SEPARATOR ', ') as marcas_compatibles,
+                GROUP_CONCAT(DISTINCT mo.modelo_nombre ORDER BY mo.modelo_nombre SEPARATOR ', ') as modelos_compatibles,
+                GROUP_CONCAT(DISTINCT s.submodelo_nombre ORDER BY s.submodelo_nombre SEPARATOR ', ') as submodelos_compatibles
             FROM gestion__productos p
             LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
             LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
+            LEFT JOIN gestion__productos_compatibilidad pc ON p.producto_id = pc.producto_id 
+                AND p.empresa_id = pc.empresa_id 
+                AND pc.tabla_estado_registro_id = 1
+            LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
+            LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
+            LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
             $where_clause
+            GROUP BY p.producto_id
             ORDER BY $order_by $order_dir
             LIMIT ? OFFSET ?";
 
@@ -164,15 +209,15 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             'text_clase' => $text_clase
         ];
 
-        $fila['producto_tipo_info'] = [
-            'producto_tipo' => $fila['producto_tipo'] ?? '',
-            'producto_tipo_codigo' => $fila['producto_tipo_codigo'] ?? ''
-        ];
-
         $fila['unidad_medida_info'] = $fila['unidad_medida_id'] ? [
             'unidad_nombre' => $fila['unidad_nombre'] ?? '',
             'unidad_abreviatura' => $fila['unidad_abreviatura'] ?? ''
         ] : null;
+
+        // Limitar texto largo para columnas de compatibilidad
+        $fila['marcas_compatibles'] = limitarTexto($fila['marcas_compatibles'] ?? '', 30);
+        $fila['modelos_compatibles'] = limitarTexto($fila['modelos_compatibles'] ?? '', 30);
+        $fila['submodelos_compatibles'] = limitarTexto($fila['submodelos_compatibles'] ?? '', 30);
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $productos[] = $fila;
@@ -182,9 +227,17 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
 
     return [
         'total' => $total_records,
-        'filtered' => $total_records, // Mismo que total porque ya aplicamos filtros en la consulta
+        'filtered' => $total_records,
         'productos' => $productos
     ];
+}
+
+// ✅ Función para limitar texto largo
+function limitarTexto($texto, $limite = 30) {
+    if (strlen($texto) <= $limite) {
+        return $texto;
+    }
+    return substr($texto, 0, $limite) . '...';
 }
 
 // ✅ Obtener todos los estados disponibles
@@ -739,5 +792,312 @@ function obtenerProductoPorId($conexion, $id, $empresa_idx)
 
     mysqli_stmt_close($stmt);
     return $producto;
+}
+
+// ✅ Obtener marcas para compatibilidad
+function obtenerMarcas($conexion, $empresa_idx)
+{
+    $sql = "SELECT marca_id, marca_nombre
+            FROM gestion__marcas
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY marca_nombre";
+
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+
+    $marcas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $marcas[] = $fila;
+    }
+
+    return $marcas;
+}
+
+// ✅ Obtener modelos por marca
+function obtenerModelos($conexion, $empresa_idx, $marca_id)
+{
+    $marca_id = intval($marca_id);
+    
+    $sql = "SELECT modelo_id, modelo_nombre
+            FROM gestion__modelos
+            WHERE marca_id = ?
+            AND tabla_estado_registro_id = 1
+            ORDER BY modelo_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "i", $marca_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $modelos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $modelos[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $modelos;
+}
+
+// ✅ Obtener submodelos por modelo
+function obtenerSubmodelos($conexion, $empresa_idx, $modelo_id)
+{
+    $modelo_id = intval($modelo_id);
+    
+    $sql = "SELECT submodelo_id, submodelo_nombre
+            FROM gestion__submodelos
+            WHERE modelo_id = ?
+            AND tabla_estado_registro_id = 1
+            ORDER BY submodelo_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "i", $modelo_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $submodelos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $submodelos[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $submodelos;
+}
+
+// ✅ Obtener compatibilidad de un producto
+function obtenerCompatibilidad($conexion, $producto_id, $empresa_idx)
+{
+    $producto_id = intval($producto_id);
+    
+    $sql = "SELECT 
+                c.compatibilidad_id,
+                m.marca_nombre,
+                mo.modelo_nombre,
+                s.submodelo_nombre,
+                c.anio_desde,
+                c.anio_hasta,
+                c.tabla_estado_registro_id
+            FROM gestion__productos_compatibilidad c
+            LEFT JOIN gestion__marcas m ON c.marca_id = m.marca_id
+            LEFT JOIN gestion__modelos mo ON c.modelo_id = mo.modelo_id
+            LEFT JOIN gestion__submodelos s ON c.submodelo_id = s.submodelo_id
+            WHERE c.producto_id = ?
+            AND c.tabla_estado_registro_id = 1
+            ORDER BY m.marca_nombre, mo.modelo_nombre, s.submodelo_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "i", $producto_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $compatibilidad = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        // Obtener información del estado
+        $info_estado = obtenerInfoEstado($conexion, $fila['tabla_estado_registro_id']);
+        $fila['estado_info'] = $info_estado;
+        $compatibilidad[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $compatibilidad;
+}
+
+// ✅ Obtener compatibilidad por ID
+function obtenerCompatibilidadPorId($conexion, $compatibilidad_id, $empresa_idx)
+{
+    $compatibilidad_id = intval($compatibilidad_id);
+    
+    $sql = "SELECT 
+                c.*,
+                m.marca_nombre,
+                mo.modelo_nombre,
+                s.submodelo_nombre
+            FROM gestion__productos_compatibilidad c
+            LEFT JOIN gestion__marcas m ON c.marca_id = m.marca_id
+            LEFT JOIN gestion__modelos mo ON c.modelo_id = mo.modelo_id
+            LEFT JOIN gestion__submodelos s ON c.submodelo_id = s.submodelo_id
+            WHERE c.compatibilidad_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return null;
+    }
+
+    mysqli_stmt_bind_param($stmt, "i", $compatibilidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $compatibilidad = mysqli_fetch_assoc($result);
+
+    mysqli_stmt_close($stmt);
+    return $compatibilidad;
+}
+
+// ✅ Agregar compatibilidad
+function agregarCompatibilidad($conexion, $data)
+{
+    $producto_id = intval($data['producto_id'] ?? 0);
+    $marca_id = intval($data['marca_id'] ?? 0);
+    $modelo_id = intval($data['modelo_id'] ?? 0);
+    $submodelo_id = !empty($data['submodelo_id']) ? intval($data['submodelo_id']) : null;
+    $anio_desde = intval($data['anio_desde'] ?? 2000);
+    $anio_hasta = !empty($data['anio_hasta']) ? intval($data['anio_hasta']) : null;
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+
+    if ($producto_id == 0) {
+        return ['resultado' => false, 'error' => 'Producto no válido'];
+    }
+
+    if ($marca_id == 0) {
+        return ['resultado' => false, 'error' => 'Marca no válida'];
+    }
+
+    if ($modelo_id == 0) {
+        return ['resultado' => false, 'error' => 'Modelo no válido'];
+    }
+
+    // Verificar si ya existe esta compatibilidad
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__productos_compatibilidad 
+                  WHERE producto_id = ? 
+                  AND marca_id = ? 
+                  AND modelo_id = ? 
+                  AND (submodelo_id = ? OR (submodelo_id IS NULL AND ? IS NULL))
+                  AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "iiiiii", $producto_id, $marca_id, $modelo_id, $submodelo_id, $submodelo_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Esta compatibilidad ya existe'];
+    }
+
+    // Insertar nueva compatibilidad
+    $sql = "INSERT INTO gestion__productos_compatibilidad 
+            (empresa_id, producto_id, marca_id, modelo_id, submodelo_id, anio_desde, anio_hasta, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "iiiiiii", 
+        $empresa_id, $producto_id, $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta);
+    
+    $success = mysqli_stmt_execute($stmt);
+
+    if ($success) {
+        $compatibilidad_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'compatibilidad_id' => $compatibilidad_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al crear la compatibilidad: ' . mysqli_error($conexion)];
+    }
+}
+
+// ✅ Editar compatibilidad
+function editarCompatibilidad($conexion, $compatibilidad_id, $data, $empresa_idx)
+{
+    $compatibilidad_id = intval($compatibilidad_id);
+    $marca_id = intval($data['marca_id'] ?? 0);
+    $modelo_id = intval($data['modelo_id'] ?? 0);
+    $submodelo_id = !empty($data['submodelo_id']) ? intval($data['submodelo_id']) : null;
+    $anio_desde = intval($data['anio_desde'] ?? 2000);
+    $anio_hasta = !empty($data['anio_hasta']) ? intval($data['anio_hasta']) : null;
+
+    if ($marca_id == 0) {
+        return ['resultado' => false, 'error' => 'Marca no válida'];
+    }
+
+    if ($modelo_id == 0) {
+        return ['resultado' => false, 'error' => 'Modelo no válido'];
+    }
+
+    // Verificar que la compatibilidad exista y pertenezca a la empresa
+    $sql_check = "SELECT compatibilidad_id FROM gestion__productos_compatibilidad 
+                  WHERE compatibilidad_id = ? AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $compatibilidad_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $compatibilidad = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$compatibilidad) {
+        return ['resultado' => false, 'error' => 'Compatibilidad no encontrada'];
+    }
+
+    // Actualizar compatibilidad
+    $sql = "UPDATE gestion__productos_compatibilidad 
+            SET marca_id = ?, modelo_id = ?, submodelo_id = ?, anio_desde = ?, anio_hasta = ?
+            WHERE compatibilidad_id = ? AND empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "iiiiiii", 
+        $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta, $compatibilidad_id, $empresa_idx);
+    
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['resultado' => true];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar la compatibilidad: ' . mysqli_error($conexion)];
+    }
+}
+
+// ✅ Eliminar compatibilidad (cambiar estado a inactivo)
+function eliminarCompatibilidad($conexion, $compatibilidad_id, $empresa_idx)
+{
+    $compatibilidad_id = intval($compatibilidad_id);
+    
+    $sql = "UPDATE gestion__productos_compatibilidad 
+            SET tabla_estado_registro_id = 2 -- Cambiar a estado inactivo
+            WHERE compatibilidad_id = ? AND empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $compatibilidad_id, $empresa_idx);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['success' => true];
+    } else {
+        return ['success' => false, 'error' => 'Error al eliminar la compatibilidad'];
+    }
 }
 ?>

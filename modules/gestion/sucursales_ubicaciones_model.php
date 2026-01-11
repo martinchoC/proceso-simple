@@ -289,17 +289,18 @@ function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filt
     }
 
     if (!empty($filters['busqueda'])) {
-        $sql .= " AND (gu.seccion LIKE ? OR gu.estanteria LIKE ? OR gu.estante LIKE ? OR gu.descripcion LIKE ?)";
+        $sql .= " AND (gu.seccion LIKE ? OR gu.estanteria LIKE ? OR gu.estante LIKE ? OR gu.posicion LIKE ? OR gu.descripcion LIKE ?)";
         $search_term = '%' . $filters['busqueda'] . '%';
         $params[] = $search_term;
         $params[] = $search_term;
         $params[] = $search_term;
         $params[] = $search_term;
-        $types .= "ssss";
+        $params[] = $search_term;
+        $types .= "sssss";
     }
 
-    // ✅ ORDENAR POR: sucursal, sección, estantería y estante
-    $sql .= " ORDER BY gs.sucursal_nombre ASC, gu.seccion ASC, gu.estanteria ASC, gu.estante ASC";
+    // ✅ ORDENAR POR: sucursal, sección, estantería, estante y posición
+    $sql .= " ORDER BY gs.sucursal_nombre ASC, gu.seccion ASC, gu.estanteria ASC, gu.estante ASC, gu.posicion ASC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -336,13 +337,15 @@ function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filt
     mysqli_stmt_close($stmt);
     return $data;
 }
-// ✅ Agregar nueva ubicación (con estado inicial)
+
+// ✅ Agregar nueva ubicación (con estado inicial) - ACTUALIZADA CON POSICIÓN
 function agregarSucursalUbicacion($conexion, $data)
 {
     $sucursal_id = intval($data['sucursal_id'] ?? 0);
     $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
     $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
     $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
+    $posicion = mysqli_real_escape_string($conexion, trim($data['posicion'] ?? ''));
     $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
     $estado_registro_id = isset($data['estado_registro_id']) ? intval($data['estado_registro_id']) : obtenerEstadoInicial($conexion);
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
@@ -364,16 +367,22 @@ function agregarSucursalUbicacion($conexion, $data)
         return ['resultado' => false, 'error' => 'El estante es obligatorio'];
     }
 
-    if (strlen($seccion) > 50) {
-        return ['resultado' => false, 'error' => 'La sección no puede exceder los 50 caracteres'];
+    if (empty($posicion)) {
+        return ['resultado' => false, 'error' => 'La posición es obligatoria'];
     }
 
-    if (strlen($estanteria) > 50) {
-        return ['resultado' => false, 'error' => 'La estantería no puede exceder los 50 caracteres'];
-    }
+    // Validar longitudes
+    $campos = [
+        'seccion' => ['value' => $seccion, 'max' => 50, 'label' => 'La sección'],
+        'estanteria' => ['value' => $estanteria, 'max' => 50, 'label' => 'La estantería'],
+        'estante' => ['value' => $estante, 'max' => 50, 'label' => 'El estante'],
+        'posicion' => ['value' => $posicion, 'max' => 50, 'label' => 'La posición']
+    ];
 
-    if (strlen($estante) > 50) {
-        return ['resultado' => false, 'error' => 'El estante no puede exceder los 50 caracteres'];
+    foreach ($campos as $campo) {
+        if (strlen($campo['value']) > $campo['max']) {
+            return ['resultado' => false, 'error' => $campo['label'] . ' no puede exceder los ' . $campo['max'] . ' caracteres'];
+        }
     }
 
     if (strlen($descripcion) > 255) {
@@ -396,27 +405,27 @@ function agregarSucursalUbicacion($conexion, $data)
         return ['resultado' => false, 'error' => 'La sucursal seleccionada no pertenece a esta empresa'];
     }
 
-    // Verificar duplicados (misma sucursal + misma sección + misma estantería + mismo estante)
+    // Verificar duplicados (misma sucursal + misma sección + misma estantería + mismo estante + misma posición)
     $sql_check = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
-                  WHERE sucursal_id = ? AND seccion = ? AND estanteria = ? AND estante = ?";
+                  WHERE sucursal_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "isss", $sucursal_id, $seccion, $estanteria, $estante);
+    mysqli_stmt_bind_param($stmt, "issss", $sucursal_id, $seccion, $estanteria, $estante, $posicion);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
     if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe una ubicación con esta combinación en la sucursal seleccionada'];
+        return ['resultado' => false, 'error' => 'Ya existe una ubicación con esta combinación completa en la sucursal seleccionada'];
     }
 
     // Insertar nueva ubicación
     $sql = "INSERT INTO gestion__sucursales_ubicaciones 
-            (empresa_id, sucursal_id, seccion, estanteria, estante, descripcion, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)";
+            (empresa_id, sucursal_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -424,12 +433,13 @@ function agregarSucursalUbicacion($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "iissssi",
+        "iisssssi",
         $empresa_idx,
         $sucursal_id,
         $seccion,
         $estanteria,
         $estante,
+        $posicion,
         $descripcion,
         $estado_registro_id
     );
@@ -445,7 +455,7 @@ function agregarSucursalUbicacion($conexion, $data)
     }
 }
 
-// ✅ Editar ubicación existente
+// ✅ Editar ubicación existente - ACTUALIZADA CON POSICIÓN
 function editarSucursalUbicacion($conexion, $id, $data)
 {
     $id = intval($id);
@@ -453,6 +463,7 @@ function editarSucursalUbicacion($conexion, $id, $data)
     $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
     $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
     $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
+    $posicion = mysqli_real_escape_string($conexion, trim($data['posicion'] ?? ''));
     $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
     $estado_registro_id = isset($data['estado_registro_id']) ? intval($data['estado_registro_id']) : null;
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
@@ -474,16 +485,22 @@ function editarSucursalUbicacion($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'El estante es obligatorio'];
     }
 
-    if (strlen($seccion) > 50) {
-        return ['resultado' => false, 'error' => 'La sección no puede exceder los 50 caracteres'];
+    if (empty($posicion)) {
+        return ['resultado' => false, 'error' => 'La posición es obligatoria'];
     }
 
-    if (strlen($estanteria) > 50) {
-        return ['resultado' => false, 'error' => 'La estantería no puede exceder los 50 caracteres'];
-    }
+    // Validar longitudes
+    $campos = [
+        'seccion' => ['value' => $seccion, 'max' => 50, 'label' => 'La sección'],
+        'estanteria' => ['value' => $estanteria, 'max' => 50, 'label' => 'La estantería'],
+        'estante' => ['value' => $estante, 'max' => 50, 'label' => 'El estante'],
+        'posicion' => ['value' => $posicion, 'max' => 50, 'label' => 'La posición']
+    ];
 
-    if (strlen($estante) > 50) {
-        return ['resultado' => false, 'error' => 'El estante no puede exceder los 50 caracteres'];
+    foreach ($campos as $campo) {
+        if (strlen($campo['value']) > $campo['max']) {
+            return ['resultado' => false, 'error' => $campo['label'] . ' no puede exceder los ' . $campo['max'] . ' caracteres'];
+        }
     }
 
     if (strlen($descripcion) > 255) {
@@ -524,30 +541,30 @@ function editarSucursalUbicacion($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'La sucursal seleccionada no pertenece a esta empresa'];
     }
 
-    // Verificar duplicados (excluyendo registro actual)
+    // Verificar duplicados (excluyendo registro actual) - AHORA CON POSICIÓN
     $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
-                      WHERE sucursal_id = ? AND seccion = ? AND estanteria = ? AND estante = ?
+                      WHERE sucursal_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?
                       AND sucursal_ubicacion_id != ?";
     $stmt = mysqli_prepare($conexion, $sql_duplicate);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "isssi", $sucursal_id, $seccion, $estanteria, $estante, $id);
+    mysqli_stmt_bind_param($stmt, "issssi", $sucursal_id, $seccion, $estanteria, $estante, $posicion, $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
     if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe otra ubicación con esta combinación en la sucursal seleccionada'];
+        return ['resultado' => false, 'error' => 'Ya existe otra ubicación con esta combinación completa en la sucursal seleccionada'];
     }
 
-    // Construir consulta de actualización
+    // Construir consulta de actualización - AHORA CON POSICIÓN
     $sql = "UPDATE gestion__sucursales_ubicaciones 
-            SET sucursal_id = ?, seccion = ?, estanteria = ?, estante = ?, descripcion = ?";
+            SET sucursal_id = ?, seccion = ?, estanteria = ?, estante = ?, posicion = ?, descripcion = ?";
 
-    $params = [$sucursal_id, $seccion, $estanteria, $estante, $descripcion];
-    $types = "issss";
+    $params = [$sucursal_id, $seccion, $estanteria, $estante, $posicion, $descripcion];
+    $types = "isssss";
 
     if ($estado_registro_id) {
         $sql .= ", tabla_estado_registro_id = ?";
