@@ -1,251 +1,195 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+
+require_once __DIR__ . '/../../db.php';
 require_once "entidades_model.php";
 
-$accion = $_REQUEST['accion'] ?? '';
+$accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
+
+// Parámetros del contexto (MULTIEMPRESA)
+$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 50);
+$pagina_idx_sucursales = intval($_GET['pagina_idx_sucursales'] ?? $_POST['pagina_idx_sucursales'] ?? 51);
 
 header('Content-Type: application/json; charset=utf-8');
 
-switch ($accion) {
-    case 'listar':
-        $entidades = obtenerEntidades($conexion);
-        echo json_encode($entidades);
-        break;
-    
-    case 'agregar':
-        $data = [
-            'nombre_fiscal' => $_POST['nombre_fiscal'] ?? '',
-            'nombre_fantasia' => $_POST['nombre_fantasia'] ?? '',
-            'entidad_tipo_id' => $_POST['entidad_tipo_id'] ?? 0,
-            'cuit' => $_POST['cuit'] ?? '',
-            'sitio_web' => $_POST['sitio_web'] ?? '',
-            'domicilio_legal' => $_POST['domicilio_legal'] ?? '',
-            'localidad_id' => $_POST['localidad_id'] ?? 0,
-            'observaciones' => $_POST['observaciones'] ?? '',
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
-        ];
-        
-        if (empty($data['nombre_fiscal']) || empty($data['cuit'])) {
-            echo json_encode(['resultado' => false, 'error' => 'Nombre fiscal y CUIT son obligatorios']);
+// Verificar conexión
+if (!$conexion) {
+    echo json_encode(['error' => 'Error de conexión a la base de datos'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+try {
+    switch ($accion) {
+        case 'listar_entidades':
+            $entidades = obtenerEntidades($conexion, $empresa_idx, $pagina_idx);
+            echo json_encode($entidades, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $resultado = agregarEntidad($conexion, $data);
-        if (!$resultado) {
-            echo json_encode(['resultado' => false, 'error' => 'Ya existe una entidad con ese CUIT']);
+
+        case 'listar_sucursales':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            
+            $sucursales = obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_idx_sucursales);
+            echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'editar':
-        $id = intval($_POST['entidad_id']);
-        $data = [
-            'nombre_fiscal' => $_POST['nombre_fiscal'] ?? '',
-            'nombre_fantasia' => $_POST['nombre_fantasia'] ?? '',
-            'entidad_tipo_id' => $_POST['entidad_tipo_id'] ?? 0,
-            'cuit' => $_POST['cuit'] ?? '',
-            'sitio_web' => $_POST['sitio_web'] ?? '',
-            'domicilio_legal' => $_POST['domicilio_legal'] ?? '',
-            'localidad_id' => $_POST['localidad_id'] ?? 0,
-            'observaciones' => $_POST['observaciones'] ?? '',
-            'estado_registro_id' => $_POST['estado_registro_id'] ?? 1
-        ];
-        
-        if (empty($data['nombre_fiscal']) || empty($data['cuit'])) {
-            echo json_encode(['resultado' => false, 'error' => 'Nombre fiscal y CUIT son obligatorios']);
+        case 'obtener_boton_agregar':
+            $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
+            echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $resultado = editarEntidad($conexion, $id, $data);
-        if (!$resultado) {
-            echo json_encode(['resultado' => false, 'error' => 'Ya existe una entidad con ese CUIT']);
+
+        case 'obtener_tipos_entidad':
+            $tipos = obtenerTiposEntidad($conexion);
+            echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'cambiar_estado':
-        $id = intval($_GET['entidad_id']);
-        $nuevo_estado = intval($_GET['nuevo_estado']);
-        $resultado = cambiarEstadoEntidad($conexion, $id, $nuevo_estado);
-        echo json_encode(['resultado' => $resultado]);
-        break;
-
-    case 'eliminar':
-        $id = intval($_GET['entidad_id']);
-        $resultado = eliminarEntidad($conexion, $id);
-        if (!$resultado) {
-            echo json_encode(['resultado' => false, 'error' => 'No se puede eliminar la entidad porque tiene sucursales, condiciones fiscales o roles asociados']);
+        case 'obtener_localidades':
+            $localidades = obtenerLocalidades($conexion);
+            echo json_encode($localidades, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'obtener':
-        $id = intval($_GET['entidad_id']);
-        $entidad = obtenerEntidadPorId($conexion, $id);
-        echo json_encode($entidad);
-        break;
+        case 'agregar_entidad':
+            $data = [
+                'empresa_id' => $empresa_idx,
+                'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
+                'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
+                'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
+                'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
+                'sitio_web' => trim($_POST['sitio_web'] ?? ''),
+                'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
+                'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
+                'es_proveedor' => isset($_POST['es_proveedor']) ? 1 : 0,
+                'es_cliente' => isset($_POST['es_cliente']) ? 1 : 0,
+                'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'pagina_idx' => $pagina_idx
+            ];
 
-    case 'obtener_datos_auxiliares':
-        $id = intval($_GET['entidad_id']);
-        $sucursales = obtenerSucursalesPorEntidad($conexion, $id);
-        $condiciones = obtenerCondicionesFiscalesPorEntidad($conexion, $id);
-        $roles = obtenerRolesPorEntidad($conexion, $id);
-        
-        echo json_encode([
-            'sucursales' => $sucursales,
-            'condiciones_fiscales' => $condiciones,
-            'roles' => $roles
-        ]);
-        break;
-
-    case 'obtener_maestras':
-        $tipos = obtenerTiposEntidad($conexion);
-        $condiciones = obtenerCondicionesFiscales($conexion);
-        $roles = obtenerRolesEntidades($conexion);
-        $localidades = obtenerLocalidades($conexion);
-        
-        echo json_encode([
-            'tipos_entidad' => $tipos,
-            'condiciones_fiscales' => $condiciones,
-            'roles_entidades' => $roles,
-            'localidades' => $localidades
-        ]);
-        break;
-
-    // Nuevas acciones para gestionar sucursales
-    case 'agregar_sucursal':
-        $data = [
-            'entidad_id' => $_POST['entidad_id'] ?? 0,
-            'sucursal_nombre' => $_POST['sucursal_nombre'] ?? '',
-            'sucursal_direccion' => $_POST['sucursal_direccion'] ?? '',
-            'sucursal_telefono' => $_POST['sucursal_telefono'] ?? '',
-            'sucursal_email' => $_POST['sucursal_email'] ?? '',
-            'sucursal_contacto' => $_POST['sucursal_contacto'] ?? '',
-            'localidad_id' => $_POST['localidad_id'] ?? 0
-        ];
-        
-        if (empty($data['sucursal_nombre']) || empty($data['entidad_id'])) {
-            echo json_encode(['resultado' => false, 'error' => 'Nombre de sucursal y entidad son obligatorios']);
+            $resultado = agregarEntidad($conexion, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $resultado = agregarSucursal($conexion, $data);
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'editar_sucursal':
-        $sucursal_id = intval($_POST['sucursal_id']);
-        $data = [
-            'sucursal_nombre' => $_POST['sucursal_nombre'] ?? '',
-            'sucursal_direccion' => $_POST['sucursal_direccion'] ?? '',
-            'sucursal_telefono' => $_POST['sucursal_telefono'] ?? '',
-            'sucursal_email' => $_POST['sucursal_email'] ?? '',
-            'sucursal_contacto' => $_POST['sucursal_contacto'] ?? '',
-            'localidad_id' => $_POST['localidad_id'] ?? 0
-        ];
-        
-        if (empty($data['sucursal_nombre'])) {
-            echo json_encode(['resultado' => false, 'error' => 'Nombre de sucursal es obligatorio']);
+        case 'editar_entidad':
+            $id = intval($_POST['entidad_id'] ?? 0);
+            $data = [
+                'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
+                'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
+                'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
+                'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
+                'sitio_web' => trim($_POST['sitio_web'] ?? ''),
+                'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
+                'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
+                'es_proveedor' => isset($_POST['es_proveedor']) ? 1 : 0,
+                'es_cliente' => isset($_POST['es_cliente']) ? 1 : 0,
+                'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'empresa_idx' => $empresa_idx
+            ];
+
+            $resultado = editarEntidad($conexion, $id, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $resultado = editarSucursal($conexion, $sucursal_id, $data);
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'eliminar_sucursal':
-        $sucursal_id = intval($_GET['sucursal_id']);
-        $resultado = eliminarSucursal($conexion, $sucursal_id);
-        echo json_encode(['resultado' => $resultado]);
-        break;
+        case 'agregar_sucursal':
+            $data = [
+                'empresa_id' => $empresa_idx,
+                'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+                'sucursal_nombre' => trim($_POST['sucursal_nombre'] ?? ''),
+                'sucursal_direccion' => trim($_POST['sucursal_direccion'] ?? ''),
+                'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
+                'sucursal_telefono' => trim($_POST['sucursal_telefono'] ?? ''),
+                'sucursal_email' => trim($_POST['sucursal_email'] ?? ''),
+                'sucursal_contacto' => trim($_POST['sucursal_contacto'] ?? ''),
+                'pagina_idx' => $pagina_idx_sucursales
+            ];
 
-    // Nuevas acciones para gestionar condiciones fiscales
-    case 'agregar_condicion':
-        $data = [
-            'entidad_id' => $_POST['entidad_id'] ?? 0,
-            'condicion_fiscal_id' => $_POST['condicion_fiscal_id'] ?? 0,
-            'f_desde' => $_POST['f_desde'] ?? '',
-            'f_hasta' => $_POST['f_hasta'] ?? null
-        ];
-        
-        if (empty($data['condicion_fiscal_id']) || empty($data['f_desde']) || empty($data['entidad_id'])) {
-            echo json_encode(['resultado' => false, 'error' => 'Condición fiscal, fecha desde y entidad son obligatorios']);
+            $resultado = agregarSucursal($conexion, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $resultado = agregarCondicionFiscal($conexion, $data);
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'editar_condicion':
-        $entidad_condicion_fiscal_id = intval($_POST['entidad_condicion_fiscal_id']);
-        $data = [
-            'condicion_fiscal_id' => $_POST['condicion_fiscal_id'] ?? 0,
-            'f_desde' => $_POST['f_desde'] ?? '',
-            'f_hasta' => $_POST['f_hasta'] ?? null
-        ];
-        
-        if (empty($data['condicion_fiscal_id']) || empty($data['f_desde'])) {
-            echo json_encode(['resultado' => false, 'error' => 'Condición fiscal y fecha desde son obligatorios']);
+        case 'editar_sucursal':
+            $id = intval($_POST['sucursal_id'] ?? 0);
+            $data = [
+                'sucursal_nombre' => trim($_POST['sucursal_nombre'] ?? ''),
+                'sucursal_direccion' => trim($_POST['sucursal_direccion'] ?? ''),
+                'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
+                'sucursal_telefono' => trim($_POST['sucursal_telefono'] ?? ''),
+                'sucursal_email' => trim($_POST['sucursal_email'] ?? ''),
+                'sucursal_contacto' => trim($_POST['sucursal_contacto'] ?? ''),
+                'empresa_idx' => $empresa_idx
+            ];
+
+            $resultado = editarSucursal($conexion, $id, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $resultado = editarCondicionFiscal($conexion, $entidad_condicion_fiscal_id, $data);
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'eliminar_condicion':
-        $entidad_condicion_fiscal_id = intval($_GET['entidad_condicion_fiscal_id']);
-        $resultado = eliminarCondicionFiscal($conexion, $entidad_condicion_fiscal_id);
-        echo json_encode(['resultado' => $resultado]);
-        break;
+        case 'ejecutar_accion_entidad':
+            $entidad_id = intval($_POST['entidad_id'] ?? 0);
+            $accion_js = $_POST['accion_js'] ?? '';
 
-    // Nuevas acciones para gestionar roles
-    case 'agregar_rol':
-        $data = [
-            'entidad_id' => $_POST['entidad_id'] ?? 0,
-            'rol_entidad_id' => $_POST['rol_entidad_id'] ?? 0,
-            'f_alta' => $_POST['f_alta'] ?? '',
-            'f_baja' => $_POST['f_baja'] ?? null
-        ];
-        
-        if (empty($data['rol_entidad_id']) || empty($data['f_alta']) || empty($data['entidad_id'])) {
-            echo json_encode(['resultado' => false, 'error' => 'Rol, fecha alta y entidad son obligatorios']);
+            if (empty($entidad_id) || empty($accion_js)) {
+                echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+
+            $resultado = ejecutarTransicionEstadoEntidad($conexion, $entidad_id, $accion_js, $empresa_idx, $pagina_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $resultado = agregarRol($conexion, $data);
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'editar_rol':
-        $entidad_rol_id = intval($_POST['entidad_rol_id']);
-        $data = [
-            'rol_entidad_id' => $_POST['rol_entidad_id'] ?? 0,
-            'f_alta' => $_POST['f_alta'] ?? '',
-            'f_baja' => $_POST['f_baja'] ?? null
-        ];
-        
-        if (empty($data['rol_entidad_id']) || empty($data['f_alta'])) {
-            echo json_encode(['resultado' => false, 'error' => 'Rol y fecha alta son obligatorios']);
+        case 'ejecutar_accion_sucursal':
+            $sucursal_id = intval($_POST['sucursal_id'] ?? 0);
+            $accion_js = $_POST['accion_js'] ?? '';
+
+            if (empty($sucursal_id) || empty($accion_js)) {
+                echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+
+            $resultado = ejecutarTransicionEstadoSucursal($conexion, $sucursal_id, $accion_js, $empresa_idx, $pagina_idx_sucursales);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $resultado = editarRol($conexion, $entidad_rol_id, $data);
-        echo json_encode(['resultado' => $resultado]);
-        break;
 
-    case 'eliminar_rol':
-        $entidad_rol_id = intval($_GET['entidad_rol_id']);
-        $resultado = eliminarRol($conexion, $entidad_rol_id);
-        echo json_encode(['resultado' => $resultado]);
-        break;
+        case 'obtener_entidad':
+            $id = intval($_POST['entidad_id'] ?? $_GET['entidad_id'] ?? 0);
+            if (empty($id)) {
+                echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
 
-    default:
-        echo json_encode(['error' => 'Acción no definida']);
+            $entidad = obtenerEntidadPorId($conexion, $id, $empresa_idx);
+            if ($entidad) {
+                echo json_encode($entidad, JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['error' => 'Entidad no encontrada'], JSON_UNESCAPED_UNICODE);
+            }
+            break;
+
+        case 'obtener_sucursal':
+            $id = intval($_POST['sucursal_id'] ?? $_GET['sucursal_id'] ?? 0);
+            if (empty($id)) {
+                echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+
+            $sucursal = obtenerSucursalPorId($conexion, $id, $empresa_idx);
+            if ($sucursal) {
+                echo json_encode($sucursal, JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['error' => 'Sucursal no encontrada'], JSON_UNESCAPED_UNICODE);
+            }
+            break;
+
+        default:
+            echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
+    }
+} catch (Exception $e) {
+    echo json_encode(['error' => 'Error del servidor: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+}
+
+if (isset($conexion) && $conexion) {
+    mysqli_close($conexion);
 }
 ?>

@@ -231,12 +231,207 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
-        default:
-            echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
+        // Nuevas funciones para imágenes
+        case 'obtener_imagenes_producto':
+            $producto_id = intval($_GET['producto_id'] ?? 0);
+            if (empty($producto_id)) {
+                echo json_encode([], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $imagenes = obtenerImagenesProducto($conexion, $producto_id, $empresa_idx);
+            echo json_encode($imagenes, JSON_UNESCAPED_UNICODE);
+            break;
+        case 'obtener_categorias':
+            $categorias = obtenerCategoriasProducto($conexion, $empresa_idx);
+            echo json_encode($categorias, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_imagen_por_id':
+            $producto_imagen_id = intval($_GET['producto_imagen_id'] ?? 0);
+            if (empty($producto_imagen_id)) {
+                echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $imagen = obtenerImagenPorId($conexion, $producto_imagen_id, $empresa_idx);
+            if ($imagen) {
+                echo json_encode($imagen, JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['error' => 'Imagen no encontrada'], JSON_UNESCAPED_UNICODE);
+            }
+            break;
+
+        // Buscar la sección del caso 'subir_imagen_producto' y reemplazar desde:
+    // Buscar y reemplazar el caso 'subir_imagen_producto' completo:
+   case 'subir_imagen_producto':
+    // Verificar que se haya subido un archivo
+    if (!isset($_FILES['imagen']) || $_FILES['imagen']['error'] !== UPLOAD_ERR_OK) {
+        echo json_encode(['resultado' => false, 'error' => 'No se ha subido ninguna imagen o hay un error en el archivo'], JSON_UNESCAPED_UNICODE);
+        break;
     }
-} catch (Exception $e) {
-    echo json_encode(['error' => 'Error del servidor: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
-}
+
+    $archivo = $_FILES['imagen'];
+    $producto_id = intval($_POST['producto_id'] ?? 0);
+    $descripcion = trim($_POST['descripcion'] ?? '');
+    $es_principal = intval($_POST['es_principal'] ?? 0);
+    $orden = intval($_POST['orden'] ?? 0);
+
+    // Validaciones
+    if ($producto_id == 0) {
+        echo json_encode(['resultado' => false, 'error' => 'Producto no válido'], JSON_UNESCAPED_UNICODE);
+        break;
+    }
+
+    // Validar tipo de archivo
+    $tipos_permitidos = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($archivo['type'], $tipos_permitidos)) {
+        echo json_encode(['resultado' => false, 'error' => 'Tipo de archivo no permitido. Solo se permiten JPG, PNG, GIF y WebP'], JSON_UNESCAPED_UNICODE);
+        break;
+    }
+
+    // Validar tamaño máximo (5MB)
+    $tamanio_maximo = 5 * 1024 * 1024; // 5MB
+    if ($archivo['size'] > $tamanio_maximo) {
+        echo json_encode(['resultado' => false, 'error' => 'El archivo es demasiado grande. Tamaño máximo: 5MB'], JSON_UNESCAPED_UNICODE);
+        break;
+    }
+
+    // ========== RUTAS RELATIVAS CORREGIDAS ==========
+    
+    // Estamos en: modules/gestion/productos_ajax.php
+    // Queremos llegar a: modules/conf/uploads/imagenes/
+    
+    // Opción 1: Retroceder un nivel desde "gestion" para llegar a "modules"
+    $directorio_actual = dirname(__FILE__); // modules/gestion/
+    $directorio_modules = dirname($directorio_actual); // modules/
+    
+    // Opción 2: Usar directamente la ruta relativa
+    // $directorio_modules = __DIR__ . '/../../'; // También funciona
+    
+    $directorio_base = $directorio_modules . '/conf/uploads/';
+    $directorio_imagenes = $directorio_modules . '/conf/uploads/imagenes/';
+    
+    // Para debugging
+    error_log("========= SUBIDA DE IMAGEN =========");
+    error_log("Directorio actual (__FILE__): " . __FILE__);
+    error_log("Directorio actual (dirname): " . $directorio_actual);
+    error_log("Directorio modules: " . $directorio_modules);
+    error_log("Directorio base: " . $directorio_base);
+    error_log("Directorio imágenes: " . $directorio_imagenes);
+    error_log("Existe directorio base: " . (file_exists($directorio_base) ? 'SÍ' : 'NO'));
+    error_log("Existe directorio imágenes: " . (file_exists($directorio_imagenes) ? 'SÍ' : 'NO'));
+    
+    // Crear directorio base si no existe
+    if (!file_exists($directorio_base)) {
+        error_log("Intentando crear directorio base: " . $directorio_base);
+        if (!mkdir($directorio_base, 0755, true)) {
+            echo json_encode(['resultado' => false, 'error' => 'No se pudo crear el directorio base: ' . $directorio_base], JSON_UNESCAPED_UNICODE);
+            break;
+        } else {
+            error_log("✓ Directorio base creado");
+        }
+    }
+    
+    // Crear directorio de imágenes si no existe
+    if (!file_exists($directorio_imagenes)) {
+        error_log("Intentando crear directorio imágenes: " . $directorio_imagenes);
+        if (!mkdir($directorio_imagenes, 0755, true)) {
+            echo json_encode(['resultado' => false, 'error' => 'No se pudo crear el directorio de imágenes: ' . $directorio_imagenes], JSON_UNESCAPED_UNICODE);
+            break;
+        } else {
+            error_log("✓ Directorio imágenes creado");
+        }
+    }
+    
+    // Verificar permisos de escritura
+    if (!is_writable($directorio_imagenes)) {
+        error_log("Directorio no tiene permisos de escritura. Intentando cambiar permisos...");
+        if (!chmod($directorio_imagenes, 0755)) {
+            echo json_encode(['resultado' => false, 'error' => 'El directorio de imágenes no tiene permisos de escritura: ' . $directorio_imagenes], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+    }
+
+    // Generar nombre único para el archivo
+    $extension = pathinfo($archivo['name'], PATHINFO_EXTENSION);
+    $nombre_archivo = 'producto_' . $producto_id . '_' . time() . '_' . uniqid() . '.' . strtolower($extension);
+    $ruta_completa = $directorio_imagenes . $nombre_archivo;
+
+    // Para debugging
+    error_log("Nombre archivo: " . $nombre_archivo);
+    error_log("Ruta completa destino: " . $ruta_completa);
+    error_log("Ruta temporal archivo: " . $archivo['tmp_name']);
+    error_log("Tamaño archivo: " . $archivo['size']);
+
+    // Mover el archivo
+    if (move_uploaded_file($archivo['tmp_name'], $ruta_completa)) {
+        error_log("✓ Archivo movido exitosamente a: " . $ruta_completa);
+        
+        // Preparar datos para la base de datos
+        // RUTA RELATIVA desde la raíz del sitio web
+        // La ruta debe ser: modules/conf/uploads/imagenes/nombre_archivo.jpg
+        $ruta_relativa_bd = 'modules/conf/uploads/imagenes/' . $nombre_archivo;
+        
+        error_log("Ruta para BD: " . $ruta_relativa_bd);
+        
+        $data = [
+            'producto_id' => $producto_id,
+            'empresa_id' => $empresa_idx,
+            'descripcion' => $descripcion,
+            'es_principal' => $es_principal,
+            'orden' => $orden,
+            'imagen_nombre' => $nombre_archivo,
+            'imagen_ruta' => $ruta_relativa_bd, // modules/conf/uploads/imagenes/nombre.jpg
+            'imagen_tipo' => $archivo['type'],
+            'imagen_tamanio' => $archivo['size']
+        ];
+
+        $resultado = subirImagenProducto($conexion, $data);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+    } else {
+        // Más información de error
+        $error_info = error_get_last();
+        error_log("✗ ERROR al mover archivo:");
+        error_log(print_r($error_info, true));
+        error_log("Archivo tmp: " . $archivo['tmp_name']);
+        error_log("Destino: " . $ruta_completa);
+        error_log("Error upload: " . $archivo['error']);
+        
+        echo json_encode([
+            'resultado' => false, 
+            'error' => 'Error al mover el archivo subido',
+            'debug_info' => [
+                'error_message' => $error_info['message'] ?? 'Sin mensaje',
+                'source' => $archivo['tmp_name'],
+                'destination' => $ruta_completa,
+                'upload_error' => $archivo['error']
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    break;
+
+            case 'actualizar_imagen_producto':
+                $producto_imagen_id = intval($_POST['producto_imagen_id'] ?? 0);
+                $data = [
+                    'descripcion' => trim($_POST['descripcion'] ?? ''),
+                    'es_principal' => intval($_POST['es_principal'] ?? 0),
+                    'orden' => intval($_POST['orden'] ?? 0)
+                ];
+                $resultado = actualizarImagenProducto($conexion, $producto_imagen_id, $data, $empresa_idx);
+                echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+                break;
+
+            case 'eliminar_imagen_producto':
+                $producto_imagen_id = intval($_POST['producto_imagen_id'] ?? 0);
+                $resultado = eliminarImagenProducto($conexion, $producto_imagen_id, $empresa_idx);
+                echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+                break;
+
+            default:
+                echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Error del servidor: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    }
 
 if (isset($conexion) && $conexion) {
     mysqli_close($conexion);

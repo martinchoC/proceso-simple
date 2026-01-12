@@ -93,6 +93,19 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_valores_por_defecto':
+            $parent_type = $_GET['parent_type'] ?? '';
+            $parent_id = $_GET['parent_id'] ?? '';
+            
+            if (empty($parent_type) || empty($parent_id)) {
+                echo json_encode(['error' => 'Tipo o ID de padre no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            
+            $valores = obtenerValoresPorDefecto($conexion, $parent_type, $parent_id, $empresa_idx);
+            echo json_encode($valores, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'obtener':
             $id = intval($_POST['sucursal_ubicacion_id'] ?? $_GET['sucursal_ubicacion_id'] ?? 0);
             if (empty($id)) {

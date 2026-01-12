@@ -146,7 +146,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </section>
             </div>
 
-            <!-- Modal para crear/editar producto - MÁS COMPACTO -->
+            <!-- Modal para crear/editar producto - CON PESTAÑA DE IMÁGENES -->
             <div class="modal fade" id="modalProducto" tabindex="-1" aria-labelledby="modalLabel"
                 aria-hidden="true" data-bs-backdrop="static">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -171,6 +171,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             data-bs-target="#nav-compatibilidad" type="button" role="tab" 
                                             aria-controls="nav-compatibilidad" aria-selected="false">
                                         <i class="fas fa-car me-2"></i>Compatibilidad
+                                    </button>
+                                    <button class="nav-link" id="nav-imagenes-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#nav-imagenes" type="button" role="tab" 
+                                            aria-controls="nav-imagenes" aria-selected="false">
+                                        <i class="fas fa-images me-2"></i>Imágenes
                                     </button>
                                 </div>
                             </nav>
@@ -216,9 +221,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="row g-2 mt-1">
                                             <div class="col-md-6">
                                                 <label for="producto_categoria_id" class="form-label form-label-sm">Categoría *</label>
-                                                <input type="number" class="form-control form-control-sm" id="producto_categoria_id"
-                                                    name="producto_categoria_id" min="1" required>
-                                                <div class="invalid-feedback">La categoría es obligatoria</div>
+                                                <select class="form-select form-select-sm" id="producto_categoria_id" 
+                                                        name="producto_categoria_id" required>
+                                                    <option value="">Seleccionar categoría...</option>
+                                                </select>
+                                                <div class="invalid-feedback">Seleccione una categoría</div>
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="unidad_medida_id" class="form-label form-label-sm">Unidad de Medida</label>
@@ -295,6 +302,33 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </thead>
                                             <tbody></tbody>
                                         </table>
+                                    </div>
+                                </div>
+
+                                <!-- Pestaña de Imágenes -->
+                                <div class="tab-pane fade" id="nav-imagenes" role="tabpanel" 
+                                     aria-labelledby="nav-imagenes-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-images me-2 text-success"></i>Imágenes del Producto
+                                        </h6>
+                                        <button type="button" class="btn btn-success btn-sm" id="btnAgregarImagen">
+                                            <i class="fas fa-plus me-1"></i>Agregar Imagen
+                                        </button>
+                                    </div>
+
+                                    <!-- Contenedor de imágenes -->
+                                    <div id="galeriaImagenes" class="row g-2">
+                                        <!-- Las imágenes se cargarán dinámicamente aquí -->
+                                        <div class="col-12 text-center py-5" id="sinImagenes">
+                                            <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                                            <p class="text-muted">No hay imágenes para este producto</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-info mt-3">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Puedes arrastrar y soltar imágenes para cambiar su orden. La primera imagen será la principal.
                                     </div>
                                 </div>
                             </div>
@@ -384,6 +418,82 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
 
+            <!-- Modal para subir/editar imagen -->
+            <div class="modal fade" id="modalImagen" tabindex="-1" aria-labelledby="modalImagenLabel"
+                aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header bg-gradient-success text-white border-0">
+                            <h5 class="modal-title" id="modalImagenLabel">
+                                <i class="fas fa-image me-2"></i>Imagen del Producto
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <form id="formImagen" class="needs-validation" novalidate enctype="multipart/form-data">
+                                <input type="hidden" id="imagen_producto_id" name="producto_id" />
+                                <input type="hidden" id="producto_imagen_id" name="producto_imagen_id" />
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <label for="imagen_archivo" class="form-label form-label-sm">Imagen *</label>
+                                        <input type="file" class="form-control form-control-sm" id="imagen_archivo" 
+                                               name="imagen" accept="image/*" required>
+                                        <div class="invalid-feedback">Seleccione una imagen</div>
+                                        <div class="form-text">Formatos permitidos: JPG, PNG, GIF, WebP. Tamaño máximo: 5MB</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <label for="descripcion_imagen" class="form-label form-label-sm">Descripción</label>
+                                        <input type="text" class="form-control form-control-sm" id="descripcion_imagen"
+                                            name="descripcion" maxlength="255" placeholder="Descripción de la imagen">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="es_principal_imagen" class="form-label form-label-sm">¿Es principal?</label>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" role="switch" 
+                                                   id="es_principal_imagen" name="es_principal" value="1">
+                                            <label class="form-check-label" for="es_principal_imagen">Marcar como imagen principal</label>
+                                        </div>
+                                        <div class="form-text">La imagen principal se mostrará como destacada</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="orden_imagen" class="form-label form-label-sm">Orden</label>
+                                        <input type="number" class="form-control form-control-sm" id="orden_imagen"
+                                            name="orden" min="0" value="0">
+                                        <div class="form-text">Orden de visualización (menor = primero)</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Vista previa de imagen -->
+                                <div class="row mt-3" id="vistaPreviaContainer" style="display: none;">
+                                    <div class="col-md-12">
+                                        <label class="form-label form-label-sm">Vista previa:</label>
+                                        <div class="border rounded p-2 text-center">
+                                            <img id="vistaPreviaImagen" src="" alt="Vista previa" class="img-fluid rounded" style="max-height: 200px;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer bg-light border-top">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success px-3" id="btnGuardarImagen">
+                                <i class="fas fa-save me-1"></i>Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Modal para dar de alta un producto -->
             <div class="modal fade" id="modalAltaProducto" tabindex="-1" aria-labelledby="modalAltaLabel"
                 aria-hidden="true" data-bs-backdrop="static">
@@ -459,7 +569,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             padding: 0.25rem 0.5rem;
         }
 
-        /* Asegurar que ambas pestañas tengan el mismo tamaño */
+        /* Asegurar que todas las pestañas tengan el mismo tamaño */
         .tab-content {
             min-height: 350px;
         }
@@ -558,6 +668,43 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             white-space: nowrap;
             display: inline-block;
         }
+        
+        /* Estilos para galería de imágenes */
+        .card-imagen {
+            transition: transform 0.2s;
+            cursor: move;
+        }
+        
+        .card-imagen:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .card-imagen-principal {
+            border: 2px solid #28a745;
+        }
+        
+        .imagen-miniatura {
+            height: 120px;
+            object-fit: cover;
+            background-color: #f8f9fa;
+        }
+        
+        .badge-imagen-principal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1;
+        }
+        
+        /* Ordenamiento por arrastre */
+        .sortable-ghost {
+            opacity: 0.4;
+        }
+        
+        .sortable-chosen {
+            background-color: #f8f9fa;
+        }
     </style>
 
     <script>
@@ -574,6 +721,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var currentSearch = '';
             var productoActualId = null;
             var productoActualCompatibilidad = null;
+            var productoActualImagenes = null;
 
             // ========== FUNCIONES DE CARGA DE DATOS ==========
 
@@ -1034,6 +1182,198 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
             }
 
+            // ========== FUNCIONES DE IMÁGENES ==========
+
+           // Cargar imágenes de un producto
+           // En la función cargarImagenesProducto (aproximadamente línea 900)
+           // Buscar esta función (aproximadamente línea 898)
+           function cargarImagenesProducto(productoId) {
+                productoActualImagenes = productoId;
+                
+                $.get('productos_ajax.php', {
+                    accion: 'obtener_imagenes_producto',
+                    producto_id: productoId,
+                    empresa_idx: empresa_idx
+                }, function(imagenes) {
+                    var galeria = $('#galeriaImagenes');
+                    var sinImagenes = $('#sinImagenes');
+                    
+                    galeria.empty();
+                    
+                    if (imagenes && imagenes.length > 0) {
+                        sinImagenes.hide();
+                        
+                        imagenes.forEach(function(imagen, index) {
+                            // ========== CORRECCIÓN IMPORTANTE ==========
+                            // La ruta en BD es: modules/conf/uploads/imagenes/nombre.jpg
+                            // Para mostrar en web necesita: /modules/conf/uploads/imagenes/nombre.jpg
+                            
+                            var rutaImagen = '/' + imagen.imagen_ruta; // ← AGREGAR BARRA INICIAL
+                            
+                            var esPrincipal = imagen.es_principal == 1;
+                            var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
+                            
+                            var cardHtml = `
+                                <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
+                                    <div class="card card-imagen ${clasePrincipal} h-100">
+                                        <div class="position-relative">
+                                            <img src="${rutaImagen}" class="card-img-top imagen-miniatura" 
+                                                alt="${imagen.descripcion || 'Imagen del producto'}"
+                                                data-bs-toggle="modal" data-bs-target="#modalVerImagen"
+                                                onclick="mostrarImagenGrande('${rutaImagen}', '${imagen.descripcion || ''}')">
+                                            ${esPrincipal ? '<span class="badge bg-success badge-imagen-principal">Principal</span>' : ''}
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <h6 class="card-title mb-1 text-truncate" title="${imagen.descripcion || 'Sin descripción'}">
+                                                ${imagen.descripcion || 'Sin descripción'}
+                                            </h6>
+                                            <p class="card-text small text-muted mb-1">
+                                                <i class="fas fa-sort-numeric-up me-1"></i>Orden: ${imagen.orden || 0}
+                                            </p>
+                                            <p class="card-text small text-muted mb-2">
+                                                <i class="fas fa-weight-hanging me-1"></i>${formatBytes(imagen.imagen_tamanio)}
+                                            </p>
+                                            <div class="btn-group btn-group-sm w-100" role="group">
+                                                <button type="button" class="btn btn-outline-primary btn-editar-imagen" 
+                                                        data-id="${imagen.producto_imagen_id}" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-success btn-imagen-principal" 
+                                                        data-id="${imagen.producto_imagen_id}" title="${esPrincipal ? 'Ya es principal' : 'Marcar como principal'}" 
+                                                        ${esPrincipal ? 'disabled' : ''}>
+                                                    <i class="fas fa-star"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-eliminar-imagen" 
+                                                        data-id="${imagen.producto_imagen_id}" title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            galeria.append(cardHtml);
+                        });
+                        
+                        // Inicializar ordenamiento por arrastre
+                        inicializarSortable();
+                    } else {
+                        sinImagenes.show();
+                    }
+                }, 'json');
+            }
+            // Función para formatear bytes a formato legible
+            function formatBytes(bytes, decimals = 2) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            }
+
+           // Buscar esta función (aproximadamente línea 960)
+            function mostrarImagenGrande(ruta, descripcion) {
+                // Asegurar que la ruta tenga / al inicio
+                var rutaCompleta = ruta.startsWith('/') ? ruta : '/' + ruta;
+                $('#imagenGrande').attr('src', rutaCompleta);
+                $('#descripcionImagenGrande').text(descripcion || 'Sin descripción');
+                
+                // Mostrar el modal
+                var modal = new bootstrap.Modal(document.getElementById('modalVerImagen'));
+                modal.show();
+            }
+            // Inicializar ordenamiento por arrastre
+            function inicializarSortable() {
+                if (typeof Sortable !== 'undefined') {
+                    var galeria = document.getElementById('galeriaImagenes');
+                    new Sortable(galeria, {
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        chosenClass: 'sortable-chosen',
+                        onEnd: function(evt) {
+                            // Actualizar orden en base de datos
+                            actualizarOrdenImagenes();
+                        }
+                    });
+                }
+            }
+
+            // Actualizar orden de imágenes después de arrastrar
+            function actualizarOrdenImagenes() {
+                var ordenes = [];
+                $('#galeriaImagenes .col-md-3').each(function(index) {
+                    var id = $(this).data('id');
+                    ordenes.push({
+                        producto_imagen_id: id,
+                        orden: index
+                    });
+                });
+                
+                // Actualizar cada imagen con su nuevo orden
+                ordenes.forEach(function(item) {
+                    $.post('productos_ajax.php', {
+                        accion: 'actualizar_imagen_producto',
+                        producto_imagen_id: item.producto_imagen_id,
+                        orden: item.orden,
+                        empresa_idx: empresa_idx
+                    }, function(res) {
+                        if (!res.resultado) {
+                            console.error('Error al actualizar orden:', res.error);
+                        }
+                    }, 'json');
+                });
+            }
+
+            // Mostrar modal para subir/editar imagen
+            function mostrarModalImagen(productoId, productoImagenId = null) {
+                resetModalImagen();
+                $('#imagen_producto_id').val(productoId);
+                
+                if (productoImagenId) {
+                    // Modo edición
+                    $('#modalImagenLabel').html('<i class="fas fa-edit me-2"></i>Editar Imagen');
+                    $('#producto_imagen_id').val(productoImagenId);
+                    
+                    // Cargar datos de la imagen
+                    $.get('productos_ajax.php', {
+                        accion: 'obtener_imagen_por_id',
+                        producto_imagen_id: productoImagenId,
+                        empresa_idx: empresa_idx
+                    }, function(res) {
+                        if (res && res.producto_imagen_id) {
+                            $('#descripcion_imagen').val(res.descripcion || '');
+                            $('#es_principal_imagen').prop('checked', res.es_principal == 1);
+                            $('#orden_imagen').val(res.orden || 0);
+                            
+                            // Mostrar vista previa
+                            $('#vistaPreviaContainer').show();
+                            $('#vistaPreviaImagen').attr('src', '/' + res.imagen_ruta);
+                            
+                            // No requerir archivo en modo edición
+                            $('#imagen_archivo').removeAttr('required');
+                        }
+                    }, 'json');
+                } else {
+                    // Modo creación
+                    $('#modalImagenLabel').html('<i class="fas fa-plus me-2"></i>Agregar Imagen');
+                    $('#imagen_archivo').attr('required', 'required');
+                }
+                
+                var modal = new bootstrap.Modal(document.getElementById('modalImagen'));
+                modal.show();
+            }
+
+            // Resetear modal de imagen
+            function resetModalImagen() {
+                $('#formImagen')[0].reset();
+                $('#producto_imagen_id').val('');
+                $('#formImagen').removeClass('was-validated');
+                $('#vistaPreviaContainer').hide();
+                $('#vistaPreviaImagen').attr('src', '');
+            }
+
             // ========== EVENTOS ==========
 
             function inicializarEventos() {
@@ -1186,10 +1526,194 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     }, 'json');
                 });
+
+                // Eventos de imágenes
+                $('#btnAgregarImagen').click(function() {
+                    if (productoActualImagenes) {
+                        mostrarModalImagen(productoActualImagenes);
+                    }
+                });
+
+                $(document).on('click', '.btn-editar-imagen', function() {
+                    var productoImagenId = $(this).data('id');
+                    if (productoActualImagenes) {
+                        mostrarModalImagen(productoActualImagenes, productoImagenId);
+                    }
+                });
+
+                $(document).on('click', '.btn-imagen-principal', function() {
+                    var productoImagenId = $(this).data('id');
+                    
+                    Swal.fire({
+                        title: '¿Marcar como principal?',
+                        text: 'Esta imagen será mostrada como la principal del producto',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#28a745',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, marcar como principal',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            $.post('productos_ajax.php', {
+                                accion: 'actualizar_imagen_producto',
+                                producto_imagen_id: productoImagenId,
+                                es_principal: 1,
+                                empresa_idx: empresa_idx
+                            }, function(res) {
+                                if (res.resultado) {
+                                    Swal.fire('¡Actualizado!', 'Imagen marcada como principal', 'success');
+                                    cargarImagenesProducto(productoActualImagenes);
+                                } else {
+                                    Swal.fire('Error', res.error || 'Error al actualizar', 'error');
+                                }
+                            }, 'json');
+                        }
+                    });
+                });
+
+                $(document).on('click', '.btn-eliminar-imagen', function() {
+                    var productoImagenId = $(this).data('id');
+                    
+                    Swal.fire({
+                        title: '¿Eliminar Imagen?',
+                        text: 'Esta acción no se puede deshacer',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#dc3545',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            $.post('productos_ajax.php', {
+                                accion: 'eliminar_imagen_producto',
+                                producto_imagen_id: productoImagenId,
+                                empresa_idx: empresa_idx
+                            }, function(res) {
+                                if (res.success) {
+                                    Swal.fire('¡Eliminado!', 'Imagen eliminada correctamente', 'success');
+                                    cargarImagenesProducto(productoActualImagenes);
+                                } else {
+                                    Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                                }
+                            }, 'json');
+                        }
+                    });
+                });
+
+                // Vista previa de imagen al seleccionar archivo
+                $('#imagen_archivo').change(function() {
+                    var archivo = this.files[0];
+                    if (archivo) {
+                        var reader = new FileReader();
+                        reader.onload = function(e) {
+                            $('#vistaPreviaContainer').show();
+                            $('#vistaPreviaImagen').attr('src', e.target.result);
+                        };
+                        reader.readAsDataURL(archivo);
+                    } else {
+                        $('#vistaPreviaContainer').hide();
+                    }
+                });
+
+                // Guardar imagen
+                $('#btnGuardarImagen').click(function() {
+                    var form = document.getElementById('formImagen');
+                    var productoImagenId = $('#producto_imagen_id').val();
+                    
+                    // En modo creación, validar que se haya seleccionado archivo
+                    if (!productoImagenId) {
+                        var archivo = $('#imagen_archivo')[0].files[0];
+                        if (!archivo) {
+                            form.classList.add('was-validated');
+                            return false;
+                        }
+                    }
+
+                    if (!form.checkValidity()) {
+                        form.classList.add('was-validated');
+                        return false;
+                    }
+
+                    var btn = $(this);
+                    var originalText = btn.html();
+                    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+                    var formData = new FormData(form);
+                    formData.append('accion', productoImagenId ? 'actualizar_imagen_producto' : 'subir_imagen_producto');
+                    formData.append('producto_id', $('#imagen_producto_id').val());
+                    if (productoImagenId) {
+                        formData.append('producto_imagen_id', productoImagenId);
+                    }
+                    formData.append('empresa_idx', empresa_idx);
+
+                    $.ajax({
+                        url: 'productos_ajax.php',
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(res) {
+                            btn.prop('disabled', false).html(originalText);
+                            
+                            if (res.resultado) {
+                                Swal.fire('¡Guardado!', 'Imagen guardada correctamente', 'success');
+                                var modal = bootstrap.Modal.getInstance(document.getElementById('modalImagen'));
+                                modal.hide();
+                                
+                                cargarImagenesProducto(productoActualImagenes);
+                            } else {
+                                Swal.fire('Error', res.error || 'Error al guardar', 'error');
+                            }
+                        },
+                        error: function() {
+                            btn.prop('disabled', false).html(originalText);
+                            Swal.fire('Error', 'Error de conexión al servidor', 'error');
+                        }
+                    });
+                });
             }
 
             // ========== FUNCIONES PRINCIPALES ==========
+            // ✅ Cargar categorías de productos
+            function cargarCategoriasProducto() {
+                $.get('productos_ajax.php', {
+                    accion: 'obtener_categorias',
+                    empresa_idx: empresa_idx
+                }, function (categorias) {
+                    var select = $('#producto_categoria_id');
+                    
+                    select.empty().append('<option value="">Seleccionar categoría...</option>');
+                    
+                    if (categorias && categorias.length > 0) {
+                        categorias.forEach(function(categoria) {
+                            select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
+                        });
+                    }
+                }, 'json');
+            }
 
+            // ✅ Cargar categorías en árbol (con jerarquía)
+            function cargarCategoriasArbol() {
+                $.get('productos_ajax.php', {
+                    accion: 'obtener_categorias',
+                    empresa_idx: empresa_idx
+                }, function (categorias) {
+                    var select = $('#producto_categoria_id');
+                    
+                    select.empty().append('<option value="">Seleccionar categoría...</option>');
+                    
+                    if (categorias && categorias.length > 0) {
+                        // Si quieres mostrar con jerarquía (indentado)
+                        categorias.forEach(function(categoria) {
+                            var esHijo = categoria.producto_categoria_padre_id !== null;
+                            var prefijo = esHijo ? '&nbsp;&nbsp;&nbsp;↳ ' : '';
+                            select.append(`<option value="${categoria.producto_categoria_id}">${prefijo}${categoria.producto_categoria_nombre}</option>`);
+                        });
+                    }
+                }, 'json');
+            }
             // Cargar botón Agregar dinámicamente
             function cargarBotonAgregar() {
                 $.get('productos_ajax.php', {
@@ -1217,11 +1741,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             // Manejador para botón "Agregar"
-            $(document).on('click', '#btnNuevo', function () {
+           $(document).on('click', '#btnNuevo', function () {
                 resetModal();
                 $('#modalLabel').text('Nuevo Producto');
+                
+                // Cargar todos los selects necesarios
                 cargarTiposProducto();
                 cargarUnidadesMedida();
+                cargarCategoriasProducto();
                 
                 var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
                 modal.show();
@@ -1329,7 +1856,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#producto_nombre').val(res.producto_nombre);
                         $('#codigo_barras').val(res.codigo_barras);
                         $('#producto_descripcion').val(res.producto_descripcion || '');
-                        $('#producto_categoria_id').val(res.producto_categoria_id);
                         $('#lado').val(res.lado || '');
                         $('#material').val(res.material || '');
                         $('#color').val(res.color || '');
@@ -1337,18 +1863,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#dimensiones').val(res.dimensiones || '');
                         $('#garantia').val(res.guarantia || '');
                         
+                        // Cargar selects
                         cargarTiposProducto();
                         cargarUnidadesMedida();
+                        cargarCategoriasProducto();
                         
                         setTimeout(function() {
+                            // Establecer valores seleccionados
                             $('#producto_tipo_id').val(res.producto_tipo_id);
                             $('#unidad_medida_id').val(res.unidad_medida_id || '');
-                        }, 300);
+                            $('#producto_categoria_id').val(res.producto_categoria_id);
+                        }, 500);
                         
                         $('#modalLabel').text('Editar Producto');
                         
                         // Cargar compatibilidad
                         cargarCompatibilidad(productoId);
+                        
+                        // Cargar imágenes
+                        cargarImagenesProducto(productoId);
                         
                         var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
                         modal.show();
@@ -1371,12 +1904,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 
                 $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
                 $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
+                $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
                 
                 // Limpiar tabla de compatibilidad
                 if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
                     $('#tablaCompatibilidad').DataTable().destroy();
                     $('#tablaCompatibilidad tbody').empty();
                 }
+                
+                // Limpiar galería de imágenes
+                $('#galeriaImagenes').empty();
+                $('#sinImagenes').show();
             }
 
             // Validación del formulario de producto
@@ -1519,6 +2057,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarBotonAgregar();
             cargarTiposProducto();
             cargarUnidadesMedida();
+            cargarCategoriasProducto(); // ← Agregar esta línea
             cargarMarcasFiltro();
 
             // Agregar tooltips
@@ -1539,7 +2078,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Sortable.js para arrastrar imágenes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
 </main>
+
+<!-- Modal para ver imagen en grande -->
+<div class="modal fade" id="modalVerImagen" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="descripcionImagenGrande"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="imagenGrande" src="" alt="Imagen del producto" class="img-fluid rounded">
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

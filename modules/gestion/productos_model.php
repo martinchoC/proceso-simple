@@ -1100,4 +1100,313 @@ function eliminarCompatibilidad($conexion, $compatibilidad_id, $empresa_idx)
         return ['success' => false, 'error' => 'Error al eliminar la compatibilidad'];
     }
 }
+
+// ✅ Obtener imágenes de un producto
+function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
+{
+    $producto_id = intval($producto_id);
+    
+    $sql = "SELECT 
+                pi.*,
+                ci.imagen_nombre,
+                ci.imagen_ruta,
+                ci.imagen_tipo,
+                ci.imagen_tamanio
+            FROM gestion__productos_imagenes pi
+            INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
+            WHERE pi.producto_id = ?
+            AND pi.empresa_id = ?
+            AND pi.tabla_estado_registro_id = 1
+            ORDER BY pi.es_principal DESC, pi.orden ASC, pi.fecha_creacion DESC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $producto_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $imagenes = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $imagenes[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $imagenes;
+}
+
+// ✅ Obtener imagen por ID
+function obtenerImagenPorId($conexion, $imagen_id, $empresa_idx)
+{
+    $imagen_id = intval($imagen_id);
+    
+    $sql = "SELECT 
+                pi.*,
+                ci.imagen_nombre,
+                ci.imagen_ruta,
+                ci.imagen_tipo,
+                ci.imagen_tamanio
+            FROM gestion__productos_imagenes pi
+            INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
+            WHERE pi.producto_imagen_id = ?
+            AND pi.empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return null;
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $imagen_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $imagen = mysqli_fetch_assoc($result);
+
+    mysqli_stmt_close($stmt);
+    return $imagen;
+}
+
+// ✅ Subir imagen y crear registro
+// ✅ Subir imagen y crear registro
+function subirImagenProducto($conexion, $data)
+{
+    $producto_id = intval($data['producto_id'] ?? 0);
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
+    $es_principal = intval($data['es_principal'] ?? 0);
+    $orden = intval($data['orden'] ?? 0);
+    
+    // Información del archivo
+    $imagen_nombre = mysqli_real_escape_string($conexion, trim($data['imagen_nombre'] ?? ''));
+    $imagen_ruta = mysqli_real_escape_string($conexion, trim($data['imagen_ruta'] ?? ''));
+    $imagen_tipo = mysqli_real_escape_string($conexion, trim($data['imagen_tipo'] ?? ''));
+    $imagen_tamanio = intval($data['imagen_tamanio'] ?? 0);
+
+    if ($producto_id == 0) {
+        return ['resultado' => false, 'error' => 'Producto no válido'];
+    }
+
+    if (empty($imagen_nombre) || empty($imagen_ruta)) {
+        return ['resultado' => false, 'error' => 'Información de imagen incompleta'];
+    }
+
+    // Si esta imagen será principal, quitar principalidad de otras
+    if ($es_principal) {
+        $sql_quitar_principal = "UPDATE gestion__productos_imagenes 
+                                 SET es_principal = 0 
+                                 WHERE producto_id = ? AND empresa_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_quitar_principal);
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "ii", $producto_id, $empresa_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+        }
+    }
+
+    // Insertar en conf__imagenes
+    $sql_imagen = "INSERT INTO conf__imagenes 
+                   (imagen_nombre, imagen_ruta, imagen_tipo, imagen_tamanio, tabla_estado_registro_id) 
+                   VALUES (?, ?, ?, ?, 1)";
+
+    $stmt = mysqli_prepare($conexion, $sql_imagen);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error al insertar imagen'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "sssi", $imagen_nombre, $imagen_ruta, $imagen_tipo, $imagen_tamanio);
+    $success = mysqli_stmt_execute($stmt);
+    
+    if (!$success) {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al guardar imagen: ' . mysqli_error($conexion)];
+    }
+
+    $nueva_imagen_id = mysqli_insert_id($conexion);
+    mysqli_stmt_close($stmt);
+
+    // Insertar en gestion__productos_imagenes
+    $sql_producto_imagen = "INSERT INTO gestion__productos_imagenes 
+                           (producto_id, empresa_id, imagen_id, descripcion, es_principal, orden, tabla_estado_registro_id) 
+                           VALUES (?, ?, ?, ?, ?, ?, 1)";
+
+    $stmt = mysqli_prepare($conexion, $sql_producto_imagen);
+    if (!$stmt) {
+        // Revertir la inserción en conf__imagenes si falla
+        $sql_revertir = "DELETE FROM conf__imagenes WHERE imagen_id = ?";
+        $stmt_revertir = mysqli_prepare($conexion, $sql_revertir);
+        if ($stmt_revertir) {
+            mysqli_stmt_bind_param($stmt_revertir, "i", $nueva_imagen_id);
+            mysqli_stmt_execute($stmt_revertir);
+            mysqli_stmt_close($stmt_revertir);
+        }
+        return ['resultado' => false, 'error' => 'Error al vincular imagen al producto'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "iiisii", $producto_id, $empresa_id, $nueva_imagen_id, $descripcion, $es_principal, $orden);
+    $success = mysqli_stmt_execute($stmt);
+    
+    if ($success) {
+        $producto_imagen_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'producto_imagen_id' => $producto_imagen_id, 'imagen_id' => $nueva_imagen_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        // Revertir la inserción en conf__imagenes
+        $sql_revertir = "DELETE FROM conf__imagenes WHERE imagen_id = ?";
+        $stmt_revertir = mysqli_prepare($conexion, $sql_revertir);
+        if ($stmt_revertir) {
+            mysqli_stmt_bind_param($stmt_revertir, "i", $nueva_imagen_id);
+            mysqli_stmt_execute($stmt_revertir);
+            mysqli_stmt_close($stmt_revertir);
+        }
+        return ['resultado' => false, 'error' => 'Error al vincular imagen: ' . mysqli_error($conexion)];
+    }
+}
+
+// ✅ Actualizar información de imagen
+function actualizarImagenProducto($conexion, $producto_imagen_id, $data, $empresa_idx)
+{
+    $producto_imagen_id = intval($producto_imagen_id);
+    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
+    $es_principal = intval($data['es_principal'] ?? 0);
+    $orden = intval($data['orden'] ?? 0);
+
+    // Verificar que la imagen exista y pertenezca a la empresa
+    $sql_check = "SELECT producto_imagen_id, producto_id FROM gestion__productos_imagenes 
+                  WHERE producto_imagen_id = ? AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $imagen = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$imagen) {
+        return ['resultado' => false, 'error' => 'Imagen no encontrada'];
+    }
+
+    $producto_id = $imagen['producto_id'];
+
+    // Si esta imagen será principal, quitar principalidad de otras
+    if ($es_principal) {
+        $sql_quitar_principal = "UPDATE gestion__productos_imagenes 
+                                 SET es_principal = 0 
+                                 WHERE producto_id = ? AND empresa_id = ? AND producto_imagen_id != ?";
+        $stmt = mysqli_prepare($conexion, $sql_quitar_principal);
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "iii", $producto_id, $empresa_idx, $producto_imagen_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+        }
+    }
+
+    // Actualizar información de la imagen
+    $sql = "UPDATE gestion__productos_imagenes 
+            SET descripcion = ?, es_principal = ?, orden = ?
+            WHERE producto_imagen_id = ? AND empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "siiii", $descripcion, $es_principal, $orden, $producto_imagen_id, $empresa_idx);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['resultado' => true];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar la imagen: ' . mysqli_error($conexion)];
+    }
+}
+
+// ✅ Eliminar imagen (cambiar estado a inactivo)
+function eliminarImagenProducto($conexion, $producto_imagen_id, $empresa_idx)
+{
+    $producto_imagen_id = intval($producto_imagen_id);
+    
+    $sql = "UPDATE gestion__productos_imagenes 
+            SET tabla_estado_registro_id = 2 -- Cambiar a estado inactivo
+            WHERE producto_imagen_id = ? AND empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['success' => true];
+    } else {
+        return ['success' => false, 'error' => 'Error al eliminar la imagen'];
+    }
+}
+// ✅ Obtener categorías de productos
+function obtenerCategoriasProducto($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT producto_categoria_id, producto_categoria_nombre, producto_categoria_padre_id
+            FROM gestion__productos_categorias
+            WHERE (empresa_id = 0 OR empresa_id = ?)
+            AND tabla_estado_registro_id = 1
+            ORDER BY producto_categoria_nombre";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $categorias = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $categorias[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $categorias;
+}
+
+// ✅ Obtener categorías anidadas (árbol)
+function obtenerCategoriasArbol($conexion, $empresa_idx)
+{
+    $categorias = obtenerCategoriasProducto($conexion, $empresa_idx);
+    
+    // Organizar en estructura jerárquica
+    $arbol = [];
+    $referencias = [];
+    
+    foreach ($categorias as $categoria) {
+        $referencias[$categoria['producto_categoria_id']] = &$arbol[$categoria['producto_categoria_id']];
+        $referencias[$categoria['producto_categoria_id']] = [
+            'producto_categoria_id' => $categoria['producto_categoria_id'],
+            'producto_categoria_nombre' => $categoria['producto_categoria_nombre'],
+            'hijos' => []
+        ];
+    }
+    
+    foreach ($categorias as $categoria) {
+        $padre_id = $categoria['producto_categoria_padre_id'];
+        if ($padre_id && isset($referencias[$padre_id])) {
+            $referencias[$padre_id]['hijos'][] = &$referencias[$categoria['producto_categoria_id']];
+        } elseif ($padre_id === null) {
+            // Es categoría raíz
+            $arbol[$categoria['producto_categoria_id']] = $referencias[$categoria['producto_categoria_id']];
+        }
+    }
+    
+    return array_values($arbol);
+}
 ?>

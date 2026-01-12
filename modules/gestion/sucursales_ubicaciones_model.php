@@ -615,4 +615,115 @@ function obtenerSucursalUbicacionPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_close($stmt);
     return $sucursal_ubicacion;
 }
+// ✅ Obtener valores por defecto según tipo de padre - REVISADO
+function obtenerValoresPorDefecto($conexion, $parent_type, $parent_id, $empresa_idx)
+{
+    $parent_type = mysqli_real_escape_string($conexion, trim($parent_type));
+    $parent_id = mysqli_real_escape_string($conexion, trim($parent_id));
+    $empresa_idx = intval($empresa_idx);
+    
+    $valores = [
+        'sucursal_id' => 0,
+        'seccion' => '',
+        'estanteria' => '',
+        'estante' => '',
+        'posicion' => '1A' // Valor por defecto para posición (primera posición)
+    ];
+    
+    switch ($parent_type) {
+        case 'sucursal':
+            // El parent_id ES el ID de la sucursal
+            $valores['sucursal_id'] = intval($parent_id);
+            break;
+            
+        case 'seccion':
+            // El parent_id tiene formato: sucursalId_seccion
+            // Ejemplo: "2_A" (sucursal 2, sección A)
+            $partes = explode('_', $parent_id);
+            if (count($partes) >= 2) {
+                $valores['sucursal_id'] = intval($partes[0]);
+                $valores['seccion'] = $partes[1];
+            }
+            break;
+            
+        case 'estanteria':
+            // El parent_id tiene formato: sucursalId_seccion_estanteria
+            // Ejemplo: "2_A_01" (sucursal 2, sección A, estantería 01)
+            $partes = explode('_', $parent_id);
+            if (count($partes) >= 3) {
+                $valores['sucursal_id'] = intval($partes[0]);
+                $valores['seccion'] = $partes[1];
+                $valores['estanteria'] = $partes[2];
+            }
+            break;
+            
+        case 'estante':
+            // El parent_id tiene formato: sucursalId_seccion_estanteria_estante
+            // Ejemplo: "2_A_01_01"
+            $partes = explode('_', $parent_id);
+            if (count($partes) >= 4) {
+                $valores['sucursal_id'] = intval($partes[0]);
+                $valores['seccion'] = $partes[1];
+                $valores['estanteria'] = $partes[2];
+                $valores['estante'] = $partes[3];
+                
+                // Buscar la próxima posición disponible en este estante
+                $sql = "SELECT MAX(posicion) as max_posicion 
+                        FROM gestion__sucursales_ubicaciones 
+                        WHERE sucursal_id = ? 
+                        AND seccion = ? 
+                        AND estanteria = ? 
+                        AND estante = ?";
+                
+                $stmt = mysqli_prepare($conexion, $sql);
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "isss", 
+                        $valores['sucursal_id'], 
+                        $valores['seccion'], 
+                        $valores['estanteria'], 
+                        $valores['estante']
+                    );
+                    mysqli_stmt_execute($stmt);
+                    $result = mysqli_stmt_get_result($stmt);
+                    if ($fila = mysqli_fetch_assoc($result) && $fila['max_posicion']) {
+                        // Determinar próxima posición
+                        $valores['posicion'] = obtenerProximaPosicion($fila['max_posicion']);
+                    }
+                    mysqli_stmt_close($stmt);
+                }
+            }
+            break;
+    }
+    
+    return $valores;
+}
+// ✅ Función auxiliar para obtener próxima posición
+function obtenerProximaPosicion($posicion_actual)
+{
+    // Ejemplo: Si posición actual es "1D", siguiente sería "2A"
+    // Si posición actual es "4C", siguiente sería "4D"
+    // Si posición actual es "4D", siguiente sería "5A"
+    
+    if (empty($posicion_actual)) return '1A';
+    
+    // Extraer número y letra
+    preg_match('/(\d+)([A-D])/i', $posicion_actual, $matches);
+    if (count($matches) < 3) return '1A';
+    
+    $numero = intval($matches[1]);
+    $letra = strtoupper($matches[2]);
+    
+    // Determinar siguiente letra
+    $letras = ['A', 'B', 'C', 'D'];
+    $indice_letra = array_search($letra, $letras);
+    
+    if ($indice_letra < 3) {
+        // Misma fila, siguiente columna
+        $nueva_letra = $letras[$indice_letra + 1];
+        return $numero . $nueva_letra;
+    } else {
+        // Siguiente fila, primera columna
+        return ($numero + 1) . 'A';
+    }
+}
 ?>
