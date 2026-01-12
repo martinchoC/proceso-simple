@@ -615,6 +615,7 @@ function obtenerSucursalUbicacionPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_close($stmt);
     return $sucursal_ubicacion;
 }
+
 // ✅ Obtener valores por defecto según tipo de padre - REVISADO
 function obtenerValoresPorDefecto($conexion, $parent_type, $parent_id, $empresa_idx)
 {
@@ -697,6 +698,7 @@ function obtenerValoresPorDefecto($conexion, $parent_type, $parent_id, $empresa_
     
     return $valores;
 }
+
 // ✅ Función auxiliar para obtener próxima posición
 function obtenerProximaPosicion($posicion_actual)
 {

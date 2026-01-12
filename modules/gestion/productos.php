@@ -743,6 +743,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
+            // Cargar opciones de categorías de producto
+            function cargarCategoriasProducto() {
+                $.get('productos_ajax.php', {
+                    accion: 'obtener_categorias',
+                    empresa_idx: empresa_idx
+                }, function (categorias) {
+                    var select = $('#producto_categoria_id');
+                    
+                    select.empty().append('<option value="">Seleccionar categoría...</option>');
+                    
+                    if (categorias && categorias.length > 0) {
+                        categorias.forEach(function(categoria) {
+                            select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
+                        });
+                    }
+                }, 'json');
+            }
+
             // Cargar opciones de unidades de medida
             function cargarUnidadesMedida() {
                 $.get('productos_ajax.php', {
@@ -1184,10 +1202,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             // ========== FUNCIONES DE IMÁGENES ==========
 
-           // Cargar imágenes de un producto
-           // En la función cargarImagenesProducto (aproximadamente línea 900)
-           // Buscar esta función (aproximadamente línea 898)
-           function cargarImagenesProducto(productoId) {
+            // Cargar imágenes de un producto
+            function cargarImagenesProducto(productoId) {
                 productoActualImagenes = productoId;
                 
                 $.get('productos_ajax.php', {
@@ -1204,11 +1220,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         sinImagenes.hide();
                         
                         imagenes.forEach(function(imagen, index) {
-                            // ========== CORRECCIÓN IMPORTANTE ==========
-                            // La ruta en BD es: modules/conf/uploads/imagenes/nombre.jpg
-                            // Para mostrar en web necesita: /modules/conf/uploads/imagenes/nombre.jpg
+                            // ========== NUEVA RUTA ==========
+                            // La imagen está en: modules/gestion/imagenes/productos/nombre.jpg
+                            // Ruta web: /modules/gestion/imagenes/productos/nombre.jpg
                             
-                            var rutaImagen = '/' + imagen.imagen_ruta; // ← AGREGAR BARRA INICIAL
+                            var rutaImagen = '/' + imagen.imagen_ruta; // ← Ya incluye el path completo
                             
                             var esPrincipal = imagen.es_principal == 1;
                             var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
@@ -1232,6 +1248,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </p>
                                             <p class="card-text small text-muted mb-2">
                                                 <i class="fas fa-weight-hanging me-1"></i>${formatBytes(imagen.imagen_tamanio)}
+                                            </p>
+                                            <p class="card-text small text-muted mb-2">
+                                                <i class="fas fa-folder me-1"></i>${imagen.imagen_nombre}
                                             </p>
                                             <div class="btn-group btn-group-sm w-100" role="group">
                                                 <button type="button" class="btn btn-outline-primary btn-editar-imagen" 
@@ -1263,6 +1282,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 }, 'json');
             }
+
             // Función para formatear bytes a formato legible
             function formatBytes(bytes, decimals = 2) {
                 if (bytes === 0) return '0 Bytes';
@@ -1273,7 +1293,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
             }
 
-           // Buscar esta función (aproximadamente línea 960)
+            // Función global para mostrar imagen en grande
             function mostrarImagenGrande(ruta, descripcion) {
                 // Asegurar que la ruta tenga / al inicio
                 var rutaCompleta = ruta.startsWith('/') ? ruta : '/' + ruta;
@@ -1284,6 +1304,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 var modal = new bootstrap.Modal(document.getElementById('modalVerImagen'));
                 modal.show();
             }
+
             // Inicializar ordenamiento por arrastre
             function inicializarSortable() {
                 if (typeof Sortable !== 'undefined') {
@@ -1676,44 +1697,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             // ========== FUNCIONES PRINCIPALES ==========
-            // ✅ Cargar categorías de productos
-            function cargarCategoriasProducto() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_categorias',
-                    empresa_idx: empresa_idx
-                }, function (categorias) {
-                    var select = $('#producto_categoria_id');
-                    
-                    select.empty().append('<option value="">Seleccionar categoría...</option>');
-                    
-                    if (categorias && categorias.length > 0) {
-                        categorias.forEach(function(categoria) {
-                            select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
-                        });
-                    }
-                }, 'json');
-            }
 
-            // ✅ Cargar categorías en árbol (con jerarquía)
-            function cargarCategoriasArbol() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_categorias',
-                    empresa_idx: empresa_idx
-                }, function (categorias) {
-                    var select = $('#producto_categoria_id');
-                    
-                    select.empty().append('<option value="">Seleccionar categoría...</option>');
-                    
-                    if (categorias && categorias.length > 0) {
-                        // Si quieres mostrar con jerarquía (indentado)
-                        categorias.forEach(function(categoria) {
-                            var esHijo = categoria.producto_categoria_padre_id !== null;
-                            var prefijo = esHijo ? '&nbsp;&nbsp;&nbsp;↳ ' : '';
-                            select.append(`<option value="${categoria.producto_categoria_id}">${prefijo}${categoria.producto_categoria_nombre}</option>`);
-                        });
-                    }
-                }, 'json');
-            }
             // Cargar botón Agregar dinámicamente
             function cargarBotonAgregar() {
                 $.get('productos_ajax.php', {
@@ -1741,14 +1725,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             // Manejador para botón "Agregar"
-           $(document).on('click', '#btnNuevo', function () {
+            $(document).on('click', '#btnNuevo', function () {
                 resetModal();
                 $('#modalLabel').text('Nuevo Producto');
-                
-                // Cargar todos los selects necesarios
                 cargarTiposProducto();
-                cargarUnidadesMedida();
                 cargarCategoriasProducto();
+                cargarUnidadesMedida();
                 
                 var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
                 modal.show();
@@ -1865,14 +1847,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         
                         // Cargar selects
                         cargarTiposProducto();
-                        cargarUnidadesMedida();
                         cargarCategoriasProducto();
+                        cargarUnidadesMedida();
                         
                         setTimeout(function() {
                             // Establecer valores seleccionados
                             $('#producto_tipo_id').val(res.producto_tipo_id);
-                            $('#unidad_medida_id').val(res.unidad_medida_id || '');
                             $('#producto_categoria_id').val(res.producto_categoria_id);
+                            $('#unidad_medida_id').val(res.unidad_medida_id || '');
                         }, 500);
                         
                         $('#modalLabel').text('Editar Producto');
@@ -1903,8 +1885,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#formProducto').removeClass('was-validated');
                 
                 $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
-                $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
                 $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
+                $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
                 
                 // Limpiar tabla de compatibilidad
                 if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
@@ -2056,8 +2038,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             inicializarDataTable();
             cargarBotonAgregar();
             cargarTiposProducto();
+            cargarCategoriasProducto();
             cargarUnidadesMedida();
-            cargarCategoriasProducto(); // ← Agregar esta línea
             cargarMarcasFiltro();
 
             // Agregar tooltips

@@ -346,10 +346,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <i class="fas fa-cube"></i>
                                             </span>
                                             <input type="text" class="form-control" id="posicion" name="posicion" 
-                                                   maxlength="50" required placeholder="Ej: 01">
+                                                   maxlength="50" required placeholder="Ej: 1A">
                                         </div>
                                         <div class="invalid-feedback">La posición es obligatoria</div>
-                                        <small class="form-text text-muted">Número</small>
+                                        <small class="form-text text-muted">Formato: 1A, 2B, 3C, 4D, etc.</small>
                                     </div>
                                     
                                     <div class="col-md-12 mb-3">
@@ -894,407 +894,362 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             opacity: 1; /* Mostrar acciones siempre en móvil */
         }
     }
+    
     /* ========== ESTILOS PARA CUADRÍCULA DE ESTANTERÍAS ========== */
     .estanterias-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap: 1.5rem;
-    margin-top: 1rem;
-}
-
-.estanteria-card {
-    min-height: 350px;
-    margin-bottom: 1.5rem;
-}
-
-.estantes-grid {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 1.5rem;
-    padding: 0.5rem 0;
-    scrollbar-width: thin;
-}
-
-.estantes-grid::-webkit-scrollbar {
-    height: 6px;
-}
-
-.estantes-grid::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.estantes-grid::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-.estante-card {
-    flex: 0 0 auto;
-    width: 320px;
-    background: white;
-    border-radius: 8px;
-    padding: 1rem;
-    border: 1px solid #dee2e6;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
-}
-
-.estante-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.estante-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 2px solid #e9ecef;
-}
-
-.estante-header h6 {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #2c3e50;
-    margin: 0;
-}
-
-/* ========== CUADRÍCULA DE POSICIONES (COLUMNAS) - MEJORADO ========== */
-.posiciones-cuadricula {
-    width: 100%;
-    overflow-x: auto;
-}
-
-.posiciones-cabecera {
-    display: grid;
-    grid-template-columns: 50px repeat(4, 1fr);
-    gap: 4px;
-    margin-bottom: 4px;
-    min-width: 300px;
-}
-
-.celda-vacia {
-    /* Celda vacía para alinear con los números de fila */
-}
-
-.columna-cabecera {
-    text-align: center;
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: #2c3e50;
-    padding: 6px 2px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-    min-width: 40px;
-}
-
-.posiciones-fila {
-    display: grid;
-    grid-template-columns: 50px repeat(4, 1fr);
-    gap: 4px;
-    margin-bottom: 4px;
-    min-width: 300px;
-}
-
-.fila-cabecera {
-    text-align: center;
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: #2c3e50;
-    padding: 6px 2px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 40px;
-}
-
-.posicion-celda {
-    aspect-ratio: 1;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    position: relative;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    overflow: hidden;
-    min-width: 40px;
-    min-height: 40px;
-}
-
-.posicion-contenido {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-}
-
-.posicion-vacia {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    color: #6c757d;
-}
-
-.posicion-vacia:hover {
-    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
-    border-color: #3498db;
-    transform: scale(1.05);
-    box-shadow: 0 3px 6px rgba(52, 152, 219, 0.2);
-}
-
-.posicion-ocupada {
-    background: white;
-    color: #212529;
-    border: 2px solid transparent;
-    position: relative;
-}
-
-.posicion-ocupada:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    z-index: 1;
-    border-color: #3498db;
-}
-
-.posicion-numero {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: inherit;
-    text-align: center;
-    line-height: 1;
-    margin-bottom: 3px;
-}
-
-.posicion-estado {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-top: 2px;
-}
-
-.posicion-vacia-icono {
-    font-size: 0.8rem;
-    opacity: 0.6;
-    margin-top: 2px;
-    transition: all 0.3s ease;
-}
-
-.posicion-vacia:hover .posicion-vacia-icono {
-    opacity: 1;
-    transform: scale(1.2);
-    color: #3498db;
-}
-
-.posicion-acciones {
-    position: absolute;
-    top: 3px;
-    right: 3px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.posicion-celda:hover .posicion-acciones {
-    opacity: 1;
-}
-
-.btn-editar-posicion {
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    background: rgba(255,255,255,0.95);
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    font-size: 0.6rem;
-}
-
-.btn-editar-posicion:hover {
-    background: #3498db;
-    border-color: #3498db;
-    color: white;
-    transform: scale(1.1);
-}
-
-.estante-footer {
-    padding-top: 0.5rem;
-    border-top: 1px solid #e9ecef;
-    font-size: 0.75rem;
-}
-
-/* Colores para estados */
-.bg-success {
-    background-color: #28a745 !important;
-}
-
-.bg-warning {
-    background-color: #ffc107 !important;
-}
-
-.bg-secondary {
-    background-color: #6c757d !important;
-}
-
-.bg-danger {
-    background-color: #dc3545 !important;
-}
-
-.bg-info {
-    background-color: #17a2b8 !important;
-}
-
-/* Tooltip mejorado */
-.posicion-celda[title] {
-    position: relative;
-}
-
-.posicion-celda[title]:hover::after {
-    content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    white-space: pre-line;
-    z-index: 1000;
-    min-width: 250px;
-    text-align: left;
-    margin-bottom: 5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    line-height: 1.4;
-}
-
-.posicion-celda[title]:hover::before {
-    content: '';
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 5px solid transparent;
-    border-top-color: rgba(0, 0, 0, 0.9);
-    margin-bottom: -5px;
-    z-index: 1000;
-}
-/* ========== ESTADO DE POSICIONES ========== */
-.bg-success {
-    background-color: #28a745 !important;
-}
-
-.bg-warning {
-    background-color: #ffc107 !important;
-}
-
-.bg-secondary {
-    background-color: #6c757d !important;
-}
-
-/* ========== RESPONSIVE ========== */
-@media (max-width: 768px) {
-    .estanterias-grid {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1rem;
     }
-    
+
+    .estanteria-card {
+        min-height: 350px;
+        margin-bottom: 1.5rem;
+    }
+
+    .estantes-grid {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 1.5rem;
+        padding: 0.5rem 0;
+        scrollbar-width: thin;
+    }
+
+    .estantes-grid::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .estantes-grid::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .estantes-grid::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
     .estante-card {
+        flex: 0 0 auto;
+        width: 320px;
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+
+    .estante-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .estante-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .estante-header h6 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+
+    /* ========== CUADRÍCULA DE POSICIONES (COLUMNAS) - MEJORADO ========== */
+    .posiciones-cuadricula {
         width: 100%;
-        max-width: 350px;
-        margin: 0 auto;
+        overflow-x: auto;
     }
-    
+
     .posiciones-cabecera {
-        grid-template-columns: 35px repeat(4, 1fr);
-        gap: 3px;
+        display: grid;
+        grid-template-columns: 50px repeat(4, 1fr);
+        gap: 4px;
+        margin-bottom: 4px;
+        min-width: 300px;
     }
-    
+
+    .celda-vacia {
+        /* Celda vacía para alinear con los números de fila */
+    }
+
+    .columna-cabecera {
+        text-align: center;
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: #2c3e50;
+        padding: 6px 2px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        min-width: 40px;
+    }
+
     .posiciones-fila {
-        grid-template-columns: 35px repeat(4, 1fr);
-        gap: 3px;
+        display: grid;
+        grid-template-columns: 50px repeat(4, 1fr);
+        gap: 4px;
+        margin-bottom: 4px;
+        min-width: 300px;
     }
-    
-    .columna-cabecera,
+
     .fila-cabecera {
-        font-size: 0.75rem;
-        padding: 5px 1px;
+        text-align: center;
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: #2c3e50;
+        padding: 6px 2px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 40px;
     }
-    
-    .posicion-numero {
-        font-size: 0.7rem;
-    }
-}
 
-/* ========== ANIMACIONES ========== */
-@keyframes highlightPosition {
-    0% { 
-        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7);
-        transform: scale(1);
+    .posicion-celda {
+        aspect-ratio: 1;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        position: relative;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        overflow: hidden;
+        min-width: 60px;
+        min-height: 60px;
     }
-    50% { 
-        box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
+
+    .posicion-contenido {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+    }
+
+    .posicion-vacia {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        color: #6c757d;
+    }
+
+    .posicion-vacia:hover {
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        border-color: #3498db;
         transform: scale(1.05);
+        box-shadow: 0 3px 6px rgba(52, 152, 219, 0.2);
     }
-    100% { 
-        box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
-        transform: scale(1);
+
+    .posicion-ocupada {
+        background: white;
+        color: #212529;
+        border: 2px solid transparent;
+        position: relative;
     }
-}
 
-.posicion-nueva {
-    animation: highlightPosition 1.5s ease-in-out;
-}
+    .posicion-ocupada:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        z-index: 1;
+        border-color: #3498db;
+    }
 
-.tree-node-editing {
-    background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(41, 128, 185, 0.1) 100%);
-    border-color: #3498db;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
+    .posicion-numero {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: inherit;
+        text-align: center;
+        line-height: 1;
+        margin-bottom: 3px;
+    }
 
-/* ========== TOOLTIP MEJORADO ========== */
-.posicion-celda[title] {
-    position: relative;
-}
+    .posicion-estado {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-top: 2px;
+    }
 
-.posicion-celda[title]:hover::after {
-    content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    white-space: pre-line;
-    z-index: 1000;
-    min-width: 200px;
-    text-align: left;
-    margin-bottom: 5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
+    .posicion-vacia-icono {
+        font-size: 0.8rem;
+        opacity: 0.6;
+        margin-top: 2px;
+        transition: all 0.3s ease;
+    }
 
-.posicion-celda[title]:hover::before {
-    content: '';
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 5px solid transparent;
-    border-top-color: rgba(0, 0, 0, 0.8);
-    margin-bottom: -5px;
-    z-index: 1000;
-}
+    .posicion-vacia:hover .posicion-vacia-icono {
+        opacity: 1;
+        transform: scale(1.2);
+        color: #3498db;
+    }
+
+    .posicion-acciones {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .posicion-celda:hover .posicion-acciones {
+        opacity: 1;
+    }
+
+    .btn-editar-posicion {
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        background: rgba(255,255,255,0.95);
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        font-size: 0.6rem;
+    }
+
+    .btn-editar-posicion:hover {
+        background: #3498db;
+        border-color: #3498db;
+        color: white;
+        transform: scale(1.1);
+    }
+
+    .estante-footer {
+        padding-top: 0.5rem;
+        border-top: 1px solid #e9ecef;
+        font-size: 0.75rem;
+    }
+
+    /* Colores para estados */
+    .bg-success {
+        background-color: #28a745 !important;
+    }
+
+    .bg-warning {
+        background-color: #ffc107 !important;
+    }
+
+    .bg-secondary {
+        background-color: #6c757d !important;
+    }
+
+    .bg-danger {
+        background-color: #dc3545 !important;
+    }
+
+    .bg-info {
+        background-color: #17a2b8 !important;
+    }
+
+    /* ========== ESTILOS MEJORADOS PARA POSICIONES CON DESCRIPCIÓN ========== */
+    .posicion-descripcion {
+        font-size: 0.6rem;
+        color: #666;
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    .posicion-descripcion-vacia {
+        font-size: 0.6rem;
+        color: #999;
+        font-style: italic;
+        margin-top: 2px;
+    }
+
+    /* Barra de progreso para ocupación */
+    .progress {
+        background-color: #f0f0f0;
+        height: 4px;
+    }
+
+    .progress-bar {
+        height: 100%;
+    }
+
+    /* Responsive para pantallas más pequeñas */
+    @media (max-width: 768px) {
+        .estanterias-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .estante-card {
+            width: 100%;
+            max-width: 350px;
+            margin: 0 auto;
+        }
+        
+        .posiciones-cabecera {
+            grid-template-columns: 35px repeat(4, 1fr);
+            gap: 3px;
+        }
+        
+        .posiciones-fila {
+            grid-template-columns: 35px repeat(4, 1fr);
+            gap: 3px;
+        }
+        
+        .columna-cabecera,
+        .fila-cabecera {
+            font-size: 0.75rem;
+            padding: 5px 1px;
+        }
+        
+        .posicion-numero {
+            font-size: 0.7rem;
+        }
+        
+        .posicion-descripcion {
+            font-size: 0.55rem;
+        }
+        
+        .posicion-celda {
+            min-height: 50px;
+            min-width: 50px;
+        }
+    }
+
+    /* ========== ANIMACIONES ========== */
+    @keyframes highlightPosition {
+        0% { 
+            box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7);
+            transform: scale(1);
+        }
+        50% { 
+            box-shadow: 0 0 0 10px rgba(52, 152, 219, 0);
+            transform: scale(1.05);
+        }
+        100% { 
+            box-shadow: 0 0 0 0 rgba(52, 152, 219, 0);
+            transform: scale(1);
+        }
+    }
+
+    .posicion-nueva {
+        animation: highlightPosition 1.5s ease-in-out;
+    }
+
+    .tree-node-editing {
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(41, 128, 185, 0.1) 100%);
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
 
     /* ========== ESTILOS PARA EL ÁRBOL ========== */
     .tree-node-expander {
@@ -1305,40 +1260,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         transform: rotate(90deg) !important;
     }
 
-    /* ========== RESPONSIVE ========== */
-    @media (max-width: 768px) {
-        .estanterias-grid {
-            grid-template-columns: 1fr;
-        }
-        
-        .estante-card {
-            width: 280px;
-        }
-        
-        .posiciones-grid {
-            font-size: 0.6rem;
-        }
-        
-        .posicion-numero {
-            font-size: 0.6rem;
-        }
+    /* ========== TOOLTIP MEJORADO ========== */
+    .tooltip-inner {
+        max-width: 300px;
+        text-align: left;
+        background-color: rgba(0, 0, 0, 0.9);
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        line-height: 1.4;
     }
 
-    /* ========== ANIMACIONES ========== */
-    @keyframes highlightCell {
-        0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
-    }
-
-    .posicion-nueva {
-        animation: highlightCell 2s ease-in-out;
-    }
-
-    .tree-node-editing {
-        background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(41, 128, 185, 0.1) 100%);
-        border-color: #3498db;
-        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    .posicion-celda[data-toggle="tooltip"] {
+        cursor: help;
     }
     </style>
 
@@ -1454,98 +1388,115 @@ $(document).ready(function(){
             // Inicializar estado del árbol
             setTimeout(function() {
                 inicializarEstadoArbol();
+                // Inicializar tooltips
+                $('[data-toggle="tooltip"]').tooltip({
+                    html: true,
+                    placement: 'top',
+                    trigger: 'hover'
+                });
             }, 100);
         }, 'json');
     }
     
     // Procesar datos para el árbol
     function procesarDatosArbol(ubicaciones) {
-    treeData = {};
-    estadisticas = {
-        sucursales: 0,
-        secciones: 0,
-        estanterias: 0,
-        estantes: 0,
-        posiciones: 0
-    };
-    
-    ubicaciones.forEach(ubicacion => {
-        const sucursalId = ubicacion.sucursal_id;
-        const sucursalNombre = ubicacion.sucursal_nombre;
-        const localidad = ubicacion.localidad || '';
-        const seccion = ubicacion.seccion;
-        const estanteria = ubicacion.estanteria;
-        const estante = ubicacion.estante;
-        const posicion = ubicacion.posicion || '01';
+        treeData = {};
+        estadisticas = {
+            sucursales: 0,
+            secciones: 0,
+            estanterias: 0,
+            estantes: 0,
+            posiciones: 0
+        };
         
-        if (!treeData[sucursalId]) {
-            treeData[sucursalId] = {
-                id: sucursalId,
-                type: 'sucursal',
-                nombre: sucursalNombre,
-                localidad: localidad,
-                secciones: {}
-            };
-            estadisticas.sucursales++;
-        }
-        
-        if (!treeData[sucursalId].secciones[seccion]) {
-            treeData[sucursalId].secciones[seccion] = {
-                id: seccion,
-                type: 'seccion',
-                nombre: `Sección ${seccion}`,
-                parentSucursalId: sucursalId,
-                estanterias: {}
-            };
-            estadisticas.secciones++;
-        }
-        
-        if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria]) {
-            treeData[sucursalId].secciones[seccion].estanterias[estanteria] = {
-                id: estanteria,
-                type: 'estanteria',
-                nombre: `Estantería ${estanteria}`,
-                parentSucursalId: sucursalId,
-                parentSeccion: seccion,
-                estantes: {}
-            };
-            estadisticas.estanterias++;
-        }
-        
-        if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante]) {
-            treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante] = {
-                id: estante,
-                type: 'estante',
-                nombre: `Estante ${estante}`,
-                parentSucursalId: sucursalId,
-                parentSeccion: seccion,
-                parentEstanteria: estanteria,
-                posiciones: {}
-            };
-            estadisticas.estantes++;
-        }
-        
-        // AGREGAR POSICIONES
-        if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante].posiciones[posicion]) {
-            treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante].posiciones[posicion] = {
-                id: ubicacion.sucursal_ubicacion_id,
-                type: 'posicion',
-                nombre: `Posición ${posicion}`,
-                descripcion: ubicacion.descripcion,
-                estado: ubicacion.estado_info,
-                botones: ubicacion.botones,
-                sucursal_id: sucursalId,
-                seccion: seccion,
-                estanteria: estanteria,
-                estante: estante,
-                posicion: posicion,
-                sucursal_nombre: sucursalNombre,
-                localidad: localidad
-            };
-            estadisticas.posiciones++;
-        }
-    });
-}
+        ubicaciones.forEach(ubicacion => {
+            const sucursalId = ubicacion.sucursal_id;
+            const sucursalNombre = ubicacion.sucursal_nombre;
+            const localidad = ubicacion.localidad || '';
+            const seccion = ubicacion.seccion;
+            const estanteria = ubicacion.estanteria;
+            const estante = ubicacion.estante;
+            const posicion = ubicacion.posicion || '1A';
+            
+            if (!treeData[sucursalId]) {
+                treeData[sucursalId] = {
+                    id: sucursalId,
+                    type: 'sucursal',
+                    nombre: sucursalNombre,
+                    localidad: localidad,
+                    secciones: {}
+                };
+                estadisticas.sucursales++;
+            }
+            
+            if (!treeData[sucursalId].secciones[seccion]) {
+                treeData[sucursalId].secciones[seccion] = {
+                    id: seccion,
+                    type: 'seccion',
+                    nombre: `Sección ${seccion}`,
+                    parentSucursalId: sucursalId,
+                    estanterias: {}
+                };
+                estadisticas.secciones++;
+            }
+            
+            if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria]) {
+                treeData[sucursalId].secciones[seccion].estanterias[estanteria] = {
+                    id: estanteria,
+                    type: 'estanteria',
+                    nombre: `Estantería ${estanteria}`,
+                    parentSucursalId: sucursalId,
+                    parentSeccion: seccion,
+                    estantes: {}
+                };
+                estadisticas.estanterias++;
+            }
+            
+            if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante]) {
+                treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante] = {
+                    id: estante,
+                    type: 'estante',
+                    nombre: `Estante ${estante}`,
+                    parentSucursalId: sucursalId,
+                    parentSeccion: seccion,
+                    parentEstanteria: estanteria,
+                    posiciones: {},
+                    posicionesPorFila: {} // Para organizar por filas
+                };
+                estadisticas.estantes++;
+            }
+            
+            // AGREGAR POSICIONES - Organizar por filas
+            const estanteObj = treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante];
+            
+            if (!estanteObj.posiciones[posicion]) {
+                estanteObj.posiciones[posicion] = {
+                    id: ubicacion.sucursal_ubicacion_id,
+                    type: 'posicion',
+                    nombre: `Posición ${posicion}`,
+                    descripcion: ubicacion.descripcion,
+                    estado: ubicacion.estado_info,
+                    botones: ubicacion.botones,
+                    sucursal_id: sucursalId,
+                    seccion: seccion,
+                    estanteria: estanteria,
+                    estante: estante,
+                    posicion: posicion,
+                    sucursal_nombre: sucursalNombre,
+                    localidad: localidad
+                };
+                estadisticas.posiciones++;
+                
+                // Organizar por filas para la vista en columnas
+                // Extraer número de fila de la posición (ej: "1A" -> fila 1, "2B" -> fila 2)
+                const numeroFila = parseInt(posicion.match(/\d+/)?.[0]) || 1;
+                if (!estanteObj.posicionesPorFila[numeroFila]) {
+                    estanteObj.posicionesPorFila[numeroFila] = {};
+                }
+                estanteObj.posicionesPorFila[numeroFila][posicion] = estanteObj.posiciones[posicion];
+            }
+        });
+    }
     
     // Renderizar árbol
     function renderizarArbol() {
@@ -1571,180 +1522,180 @@ $(document).ready(function(){
     }
     
     // Renderizar un nodo del árbol
-   function renderizarNodo(nodo, nivel = 0, expandirInicial = false) {
-    const tipos = {
-        'sucursal': {
-            icon: 'fas fa-store',
-            class: 'tree-node-sucursal',
-            title: 'Sucursal'
-        },
-        'seccion': {
-            icon: 'fas fa-layer-group',
-            class: 'tree-node-seccion',
-            title: 'Sección'
-        },
-        'estanteria': {
-            icon: 'fas fa-th-large',
-            class: 'tree-node-estanteria',
-            title: 'Estantería'
-        },
-        'estante': {
-            icon: 'fas fa-shelves',
-            class: 'tree-node-estante',
-            title: 'Estante'
-        },
-        'posicion': {
-            icon: 'fas fa-cube',
-            class: 'tree-node-posicion',
-            title: 'Posición'
-        }
-    };
-    
-    const tipoInfo = tipos[nodo.type];
-    const tieneHijos = nodo.type !== 'posicion';
-    let html = '';
-    
-    // Determinar el ID según el tipo
-    let nodoId = nodo.id;
-    if (nodo.type === 'seccion' && nodo.parentSucursalId) {
-        // Para secciones: sucursalId_seccion
-        nodoId = `${nodo.parentSucursalId}_${nodo.id}`;
-    } else if (nodo.type === 'estanteria' && nodo.parentSucursalId && nodo.parentSeccion) {
-        // Para estanterías: sucursalId_seccion_estanteria
-        nodoId = `${nodo.parentSucursalId}_${nodo.parentSeccion}_${nodo.id}`;
-    } else if (nodo.type === 'estante' && nodo.parentSucursalId && nodo.parentSeccion && nodo.parentEstanteria) {
-        // Para estantes: sucursalId_seccion_estanteria_estante
-        nodoId = `${nodo.parentSucursalId}_${nodo.parentSeccion}_${nodo.parentEstanteria}_${nodo.id}`;
-    }
-    
-    html += `<li class="tree-node ${tipoInfo.class}" data-id="${nodoId}" data-type="${nodo.type}">`;
-        html += `<div class="tree-node-content">`;
-        
-        // Expander (SOLO si tiene hijos)
-        if (tieneHijos) {
-            html += `<div class="tree-node-expander">
-                        <i class="fas fa-chevron-right"></i>
-                     </div>`;
-        } else {
-            html += `<div class="tree-node-expander" style="visibility: hidden;"></div>`;
-        }
-        
-        // Icono
-        html += `<div class="tree-node-icon">
-                    <i class="${tipoInfo.icon}"></i>
-                 </div>`;
-        
-        // Información
-        html += `<div class="tree-node-info">`;
-        html += `<div class="tree-node-main">`;
-        html += `<div class="tree-node-title">${nodo.nombre}</div>`;
-        
-        // Subtítulo según el tipo de nodo
-       if (nodo.type === 'sucursal' && nodo.localidad) {
-            html += `<div class="tree-node-subtitle">
-                        <i class="fas fa-map-marker-alt fa-xs me-1"></i>${nodo.localidad}
-                    </div>`;
-        } else if (nodo.type === 'seccion') {
-            html += `<div class="tree-node-subtitle">
-                        <i class="fas fa-layer-group fa-xs me-1"></i>Sección
-                    </div>`;
-        } else if (nodo.type === 'estanteria') {
-            html += `<div class="tree-node-subtitle">
-                        <i class="fas fa-th-large fa-xs me-1"></i>Estantería
-                    </div>`;
-        } else if (nodo.type === 'posicion' && nodo.descripcion) {
-            html += `<div class="tree-node-subtitle">${nodo.descripcion}</div>`;
-        }
-        html += `</div>`;
-        
-        // Detalles al costado
-        html += `<div class="tree-node-details">`;
-        
-        if (nodo.type === 'posicion') {
-            html += `<div class="tree-node-detail">
-                        <i class="fas fa-layer-group"></i>
-                        <span>${nodo.seccion || ''}</span>
-                     </div>`;
-            html += `<div class="tree-node-detail">
-                        <i class="fas fa-th-large"></i>
-                        <span>${nodo.estanteria || ''}</span>
-                     </div>`;
-            html += `<div class="tree-node-detail">
-                        <i class="fas fa-shelves"></i>
-                        <span>${nodo.estante || ''}</span>
-                     </div>`;
-            html += `<div class="tree-node-detail">
-                        <i class="fas fa-cube"></i>
-                        <span>${nodo.posicion || ''}</span>
-                     </div>`;
-            
-            const estado = nodo.estado?.estado_registro || 'Sin estado';
-            const estadoColor = getEstadoColor(nodo.estado);
-            html += `<span class="badge badge-compact bg-${estadoColor}">${estado}</span>`;
-        } else if (nodo.type === 'estante') {
-            html += `<div class="tree-node-detail">
-                        <i class="fas fa-layer-group"></i>
-                        <span>Sección</span>
-                     </div>`;
-            html += `<div class="tree-node-detail">
-                        <i class="fas fa-th-large"></i>
-                        <span>Estantería</span>
-                     </div>`;
-        } else if (nodo.type === 'estanteria') {
-            html += `<div class="tree-node-detail">
-                        <i class="fas fa-layer-group"></i>
-                        <span>Sección</span>
-                     </div>`;
-        }
-        
-        html += `</div>`;
-        html += `</div>`; // Cierre de tree-node-info
-        
-        // Acciones
-        html += `<div class="tree-node-actions">`;
-        
-        if (nodo.type === 'posicion') {
-            nodo.botones?.forEach(boton => {
-                if (boton.accion_js === 'editar') {
-                    html += `<button class="tree-node-action btn-editar" 
-                              data-id="${nodo.id}"
-                              title="${boton.descripcion}">
-                              <i class="fas fa-edit"></i>
-                            </button>`;
-                }
-            });
-        } else {
-            html += `<button class="tree-node-action btn-agregar-hijo" 
-                      data-id="${nodo.id}"
-                      data-type="${nodo.type}"
-                      title="Agregar ${getChildType(nodo.type)}">
-                      <i class="fas fa-plus"></i>
-                    </button>`;
-        }
-        
-        html += `</div>`;
-        html += `</div>`; // Cierre de tree-node-content
-        
-        // Hijos
-        if (tieneHijos) {
-            const childType = getChildType(nodo.type);
-            const children = getChildren(nodo, childType);
-            
-            if (Object.keys(children).length > 0) {
-                // Si es sucursal y estamos expandiendo inicialmente, mostrar hijos
-                const mostrarHijos = (nodo.type === 'sucursal' && expandirInicial) ? '' : ' style="display: none;"';
-                html += `<ul class="tree-children" ${mostrarHijos}>`;
-                Object.values(children).forEach(child => {
-                    // Solo expandir sucursales por defecto
-                    const expandirHijo = (nodo.type === 'sucursal' && expandirInicial);
-                    html += renderizarNodo(child, nivel + 1, expandirHijo);
-                });
-                html += `</ul>`;
+    function renderizarNodo(nodo, nivel = 0, expandirInicial = false) {
+        const tipos = {
+            'sucursal': {
+                icon: 'fas fa-store',
+                class: 'tree-node-sucursal',
+                title: 'Sucursal'
+            },
+            'seccion': {
+                icon: 'fas fa-layer-group',
+                class: 'tree-node-seccion',
+                title: 'Sección'
+            },
+            'estanteria': {
+                icon: 'fas fa-th-large',
+                class: 'tree-node-estanteria',
+                title: 'Estantería'
+            },
+            'estante': {
+                icon: 'fas fa-shelves',
+                class: 'tree-node-estante',
+                title: 'Estante'
+            },
+            'posicion': {
+                icon: 'fas fa-cube',
+                class: 'tree-node-posicion',
+                title: 'Posición'
             }
+        };
+        
+        const tipoInfo = tipos[nodo.type];
+        const tieneHijos = nodo.type !== 'posicion';
+        let html = '';
+        
+        // Determinar el ID según el tipo
+        let nodoId = nodo.id;
+        if (nodo.type === 'seccion' && nodo.parentSucursalId) {
+            // Para secciones: sucursalId_seccion
+            nodoId = `${nodo.parentSucursalId}_${nodo.id}`;
+        } else if (nodo.type === 'estanteria' && nodo.parentSucursalId && nodo.parentSeccion) {
+            // Para estanterías: sucursalId_seccion_estanteria
+            nodoId = `${nodo.parentSucursalId}_${nodo.parentSeccion}_${nodo.id}`;
+        } else if (nodo.type === 'estante' && nodo.parentSucursalId && nodo.parentSeccion && nodo.parentEstanteria) {
+            // Para estantes: sucursalId_seccion_estanteria_estante
+            nodoId = `${nodo.parentSucursalId}_${nodo.parentSeccion}_${nodo.parentEstanteria}_${nodo.id}`;
         }
         
-        html += `</li>`;
-        return html;
+        html += `<li class="tree-node ${tipoInfo.class}" data-id="${nodoId}" data-type="${nodo.type}">`;
+            html += `<div class="tree-node-content">`;
+            
+            // Expander (SOLO si tiene hijos)
+            if (tieneHijos) {
+                html += `<div class="tree-node-expander">
+                            <i class="fas fa-chevron-right"></i>
+                         </div>`;
+            } else {
+                html += `<div class="tree-node-expander" style="visibility: hidden;"></div>`;
+            }
+            
+            // Icono
+            html += `<div class="tree-node-icon">
+                        <i class="${tipoInfo.icon}"></i>
+                     </div>`;
+            
+            // Información
+            html += `<div class="tree-node-info">`;
+            html += `<div class="tree-node-main">`;
+            html += `<div class="tree-node-title">${nodo.nombre}</div>`;
+            
+            // Subtítulo según el tipo de nodo
+            if (nodo.type === 'sucursal' && nodo.localidad) {
+                html += `<div class="tree-node-subtitle">
+                            <i class="fas fa-map-marker-alt fa-xs me-1"></i>${nodo.localidad}
+                        </div>`;
+            } else if (nodo.type === 'seccion') {
+                html += `<div class="tree-node-subtitle">
+                            <i class="fas fa-layer-group fa-xs me-1"></i>Sección
+                        </div>`;
+            } else if (nodo.type === 'estanteria') {
+                html += `<div class="tree-node-subtitle">
+                            <i class="fas fa-th-large fa-xs me-1"></i>Estantería
+                        </div>`;
+            } else if (nodo.type === 'posicion' && nodo.descripcion) {
+                html += `<div class="tree-node-subtitle">${nodo.descripcion}</div>`;
+            }
+            html += `</div>`;
+            
+            // Detalles al costado
+            html += `<div class="tree-node-details">`;
+            
+            if (nodo.type === 'posicion') {
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-layer-group"></i>
+                            <span>${nodo.seccion || ''}</span>
+                         </div>`;
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-th-large"></i>
+                            <span>${nodo.estanteria || ''}</span>
+                         </div>`;
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-shelves"></i>
+                            <span>${nodo.estante || ''}</span>
+                         </div>`;
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-cube"></i>
+                            <span>${nodo.posicion || ''}</span>
+                         </div>`;
+                
+                const estado = nodo.estado?.estado_registro || 'Sin estado';
+                const estadoColor = getEstadoColor(nodo.estado);
+                html += `<span class="badge badge-compact bg-${estadoColor}">${estado}</span>`;
+            } else if (nodo.type === 'estante') {
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-layer-group"></i>
+                            <span>Sección</span>
+                         </div>`;
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-th-large"></i>
+                            <span>Estantería</span>
+                         </div>`;
+            } else if (nodo.type === 'estanteria') {
+                html += `<div class="tree-node-detail">
+                            <i class="fas fa-layer-group"></i>
+                            <span>Sección</span>
+                         </div>`;
+            }
+            
+            html += `</div>`;
+            html += `</div>`; // Cierre de tree-node-info
+            
+            // Acciones
+            html += `<div class="tree-node-actions">`;
+            
+            if (nodo.type === 'posicion') {
+                nodo.botones?.forEach(boton => {
+                    if (boton.accion_js === 'editar') {
+                        html += `<button class="tree-node-action btn-editar" 
+                                  data-id="${nodo.id}"
+                                  title="${boton.descripcion}">
+                                  <i class="fas fa-edit"></i>
+                                </button>`;
+                    }
+                });
+            } else {
+                html += `<button class="tree-node-action btn-agregar-hijo" 
+                          data-id="${nodo.id}"
+                          data-type="${nodo.type}"
+                          title="Agregar ${getChildType(nodo.type)}">
+                          <i class="fas fa-plus"></i>
+                        </button>`;
+            }
+            
+            html += `</div>`;
+            html += `</div>`; // Cierre de tree-node-content
+            
+            // Hijos
+            if (tieneHijos) {
+                const childType = getChildType(nodo.type);
+                const children = getChildren(nodo, childType);
+                
+                if (Object.keys(children).length > 0) {
+                    // Si es sucursal y estamos expandiendo inicialmente, mostrar hijos
+                    const mostrarHijos = (nodo.type === 'sucursal' && expandirInicial) ? '' : ' style="display: none;"';
+                    html += `<ul class="tree-children" ${mostrarHijos}>`;
+                    Object.values(children).forEach(child => {
+                        // Solo expandir sucursales por defecto
+                        const expandirHijo = (nodo.type === 'sucursal' && expandirInicial);
+                        html += renderizarNodo(child, nivel + 1, expandirHijo);
+                    });
+                    html += `</ul>`;
+                }
+            }
+            
+            html += `</li>`;
+            return html;
     }
     
     // ==================== EXPANSION DE NODOS DEL ARBOL ====================
@@ -1897,134 +1848,151 @@ $(document).ready(function(){
         return html;
     }
     
-    // Renderizar un estante en cuadrícula (POSICIONES COMO COLUMNAS)
-    // Renderizar un estante en cuadrícula (POSICIONES COMO COLUMNAS) - CORREGIDO
-        function renderizarEstanteCuadricula(estante, estanteria, seccion, sucursal) {
-            const estanteNumero = estante.id.split('_').pop().replace('Estante ', '');
-            const estanteId = estante.id;
+    // Renderizar un estante en cuadrícula (POSICIONES EN COLUMNAS CON DESCRIPCIÓN)
+    function renderizarEstanteCuadricula(estante, estanteria, seccion, sucursal) {
+        const estanteNumero = estante.id.split('_').pop().replace('Estante ', '');
+        const estanteId = estante.id;
+        
+        // Determinar número máximo de filas basado en posiciones existentes
+        const filas = Object.keys(estante.posicionesPorFila).length;
+        const maxFilas = Math.max(4, filas); // Mínimo 4 filas
+        const columnas = 4; // Columnas A, B, C, D
+        const letras = ['A', 'B', 'C', 'D'];
+        
+        let html = `
+            <div class="estante-card">
+                <div class="estante-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-shelves me-1"></i>Estante ${estanteNumero}
+                    </h6>
+                    <button class="btn btn-sm btn-modern-outline btn-agregar-posicion-estante"
+                            data-parent-id="${estanteId}"
+                            data-parent-type="estante"
+                            title="Agregar nueva posición">
+                        <i class="fas fa-plus"></i> Posición
+                    </button>
+                </div>
+                <div class="posiciones-cuadricula">
+                    <div class="posiciones-cabecera">
+                        <div class="celda-vacia"></div>
+        `;
+        
+        // Encabezados de columnas (A, B, C, D)
+        for (let col = 0; col < columnas; col++) {
+            html += `<div class="columna-cabecera">${letras[col]}</div>`;
+        }
+        
+        html += `</div>`;
+        
+        // Filas con posiciones
+        for (let fila = 1; fila <= maxFilas; fila++) {
+            html += `<div class="posiciones-fila">`;
+            html += `<div class="fila-cabecera">${fila}</div>`; // Número de fila
             
-            // Determinar número máximo de filas basado en posiciones existentes
-            let maxFila = 0;
-            Object.keys(estante.posiciones).forEach(pos => {
-                // Extraer número de la posición (ej: "1A" -> 1, "2B" -> 2)
-                const numero = parseInt(pos.match(/\d+/)[0]);
-                if (numero > maxFila) maxFila = numero;
-            });
-            
-            // Mínimo 4 filas, máximo según posiciones existentes
-            const filas = Math.max(4, maxFila);
-            const columnas = 4; // Columnas A, B, C, D
-            const letras = ['A', 'B', 'C', 'D'];
-            
-            let html = `
-                <div class="estante-card">
-                    <div class="estante-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-shelves me-1"></i>Estante ${estanteNumero}
-                        </h6>
-                        <button class="btn btn-sm btn-modern-outline btn-agregar-posicion-estante"
-                                data-parent-id="${estanteId}"
-                                data-parent-type="estante"
-                                title="Agregar nueva posición">
-                            <i class="fas fa-plus"></i> Posición
-                        </button>
-                    </div>
-                    <div class="posiciones-cuadricula">
-                        <div class="posiciones-cabecera">
-                            <div class="celda-vacia"></div>
-            `;
-            
-            // Encabezados de columnas (A, B, C, D)
             for (let col = 0; col < columnas; col++) {
-                html += `<div class="columna-cabecera">${letras[col]}</div>`;
+                const posicionId = `${fila}${letras[col]}`; // Combinación: 1A, 1B, etc.
+                const posicion = estante.posiciones[posicionId];
+                
+                if (posicion) {
+                    // Posición ocupada
+                    const estadoColor = getEstadoColor(posicion.estado);
+                    const descripcion = posicion.descripcion ? posicion.descripcion : 'Sin descripción';
+                    const sucursalNombre = posicion.sucursal_nombre || sucursal.nombre;
+                    const localidad = posicion.localidad || '';
+                    
+                    // Tooltip con toda la información
+                    const tooltipText = `
+                        <strong>Posición:</strong> ${posicionId}<br>
+                        <strong>Sucursal:</strong> ${sucursalNombre}${localidad ? ' (' + localidad + ')' : ''}<br>
+                        <strong>Sección:</strong> ${posicion.seccion}<br>
+                        <strong>Estantería:</strong> ${posicion.estanteria}<br>
+                        <strong>Estante:</strong> ${posicion.estante}<br>
+                        <strong>Estado:</strong> ${posicion.estado?.estado_registro || 'Sin estado'}<br>
+                        <strong>Descripción:</strong> ${descripcion}
+                    `;
+                    
+                    html += `
+                        <div class="posicion-celda posicion-ocupada" 
+                            data-id="${posicion.id}"
+                            data-toggle="tooltip"
+                            data-html="true"
+                            title="${tooltipText.replace(/\n/g, '<br>')}">
+                            <div class="posicion-contenido">
+                                <div class="posicion-numero">${posicionId}</div>
+                                <div class="posicion-estado bg-${estadoColor}"></div>
+                                <div class="posicion-descripcion">
+                                    ${descripcion.substring(0, 15)}${descripcion.length > 15 ? '...' : ''}
+                                </div>
+                                <div class="posicion-acciones">
+                                    <button class="btn btn-sm btn-editar-posicion" 
+                                            data-id="${posicion.id}"
+                                            title="Editar posición ${posicionId}">
+                                        <i class="fas fa-edit fa-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Posición vacía
+                    html += `
+                        <div class="posicion-celda posicion-vacia btn-crear-posicion"
+                            data-sucursal="${sucursal.id}"
+                            data-seccion="${seccion.id}"
+                            data-estanteria="${estanteria.id}"
+                            data-estante="${estanteNumero}"
+                            data-posicion="${posicionId}"
+                            title="Crear posición ${posicionId}">
+                            <div class="posicion-contenido">
+                                <div class="posicion-numero">${posicionId}</div>
+                                <div class="posicion-vacia-icono">
+                                    <i class="fas fa-plus-circle"></i>
+                                </div>
+                                <div class="posicion-descripcion-vacia">
+                                    Vacía
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
             }
             
             html += `</div>`;
-            
-            // Filas con posiciones
-           for (let fila = 1; fila <= filas; fila++) {
-                html += `<div class="posiciones-fila">`;
-                html += `<div class="fila-cabecera">${fila}</div>`; // Número de fila
-                
-                for (let col = 0; col < columnas; col++) {
-                    const posicionId = `${fila}${letras[col]}`; // Combinación: 1A, 1B, etc.
-                    const posicion = estante.posiciones[posicionId];
-                    
-                    if (posicion) {
-                        // Posición ocupada
-                        const estadoColor = getEstadoColor(posicion.estado);
-                        const descripcion = posicion.descripcion ? posicion.descripcion : 'Sin descripción';
-                        const sucursalNombre = posicion.sucursal_nombre || sucursal.nombre;
-                        const localidad = posicion.localidad || '';
-                        
-                        html += `
-                            <div class="posicion-celda posicion-ocupada" 
-                                data-id="${posicion.id}"
-                                title="Posición: ${posicionId}
-        Sucursal: ${sucursalNombre}${localidad ? ' (' + localidad + ')' : ''}
-        Sección: ${posicion.seccion}
-        Estantería: ${posicion.estanteria}
-        Estante: ${posicion.estante}
-        Estado: ${posicion.estado?.estado_registro || 'Sin estado'}
-        ${descripcion}">
-                                <div class="posicion-contenido">
-                                    <div class="posicion-numero">${posicionId}</div>
-                                    <div class="posicion-estado bg-${estadoColor}"></div>
-                                    <div class="posicion-acciones">
-                                        <button class="btn btn-sm btn-editar-posicion" 
-                                                data-id="${posicion.id}"
-                                                title="Editar posición ${posicionId}">
-                                            <i class="fas fa-edit fa-xs"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        // Posición vacía - AÑADIR DATOS PARA CREAR NUEVA POSICIÓN
-                        html += `
-                            <div class="posicion-celda posicion-vacia btn-crear-posicion"
-                                data-sucursal="${sucursal.id}"
-                                data-seccion="${seccion.id}"
-                                data-estanteria="${estanteria.id}"
-                                data-estante="${estanteNumero}"
-                                data-posicion="${posicionId}"
-                                title="Crear posición ${posicionId} en:
-        Sucursal: ${sucursal.nombre}${sucursal.localidad ? ' (' + sucursal.localidad + ')' : ''}
-        Sección: ${seccion.id}
-        Estantería: ${estanteria.id}
-        Estante: ${estanteNumero}">
-                                <div class="posicion-contenido">
-                                    <div class="posicion-numero">${posicionId}</div>
-                                    <div class="posicion-vacia-icono">
-                                        <i class="fas fa-plus-circle"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-                
-                html += `</div>`;
-            }
-            
-            // Agregar contador de posiciones ocupadas/vacías
-            const posicionesOcupadas = Object.keys(estante.posiciones).length;
-            const totalPosiciones = filas * columnas;
-            
-            html += `
+        }
+        
+        // Resumen del estante
+        const posicionesOcupadas = Object.keys(estante.posiciones).length;
+        const totalPosiciones = maxFilas * columnas;
+        const porcentaje = totalPosiciones > 0 ? Math.round((posicionesOcupadas / totalPosiciones) * 100) : 0;
+        
+        html += `
+            </div>
+            <div class="estante-footer mt-3">
+                <div class="row">
+                    <div class="col-6">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            ${posicionesOcupadas}/${totalPosiciones} posiciones
+                        </small>
+                    </div>
+                    <div class="col-6 text-end">
+                        <small class="${porcentaje > 80 ? 'text-success' : porcentaje > 50 ? 'text-warning' : 'text-muted'}">
+                            ${porcentaje}% ocupado
+                        </small>
+                    </div>
                 </div>
-                <div class="estante-footer mt-3">
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle me-1"></i>
-                        ${posicionesOcupadas}/${totalPosiciones} posiciones ocupadas
-                    </small>
+                <div class="progress mt-1">
+                    <div class="progress-bar ${porcentaje > 80 ? 'bg-success' : porcentaje > 50 ? 'bg-warning' : 'bg-info'}" 
+                         role="progressbar" 
+                         style="width: ${porcentaje}%">
+                    </div>
                 </div>
             </div>
-            `;
-            
-            return html;
-        }
+        </div>
+        `;
+        
+        return html;
+    }
     
     // Obtener el tipo de hijo
     function getChildType(parentType) {
@@ -2215,7 +2183,7 @@ $(document).ready(function(){
         const seccion = $(this).data('seccion');
         const estanteria = $(this).data('estanteria');
         const estante = $(this).data('estante');
-        const posicion = $(this).data('posicion') || '01';
+        const posicion = $(this).data('posicion') || '1A';
         
         resetModal();
         
@@ -2270,6 +2238,7 @@ $(document).ready(function(){
             filtrarCuadricula(searchTerm);
         }
     });
+    
     // Función para filtrar la cuadrícula
     function filtrarCuadricula(searchTerm) {
         if (searchTerm.length > 0) {
@@ -2315,6 +2284,7 @@ $(document).ready(function(){
             $('.alert').remove();
         }
     }
+    
     // Función para filtrar el árbol
     function filtrarArbol(searchTerm) {
         $('.tree-node').removeClass('tree-node-highlight').show();

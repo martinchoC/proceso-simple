@@ -10,7 +10,6 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 50);
-$pagina_idx_sucursales = intval($_GET['pagina_idx_sucursales'] ?? $_POST['pagina_idx_sucursales'] ?? 51);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -34,7 +33,7 @@ try {
                 break;
             }
             
-            $sucursales = obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_idx_sucursales);
+            $sucursales = obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_idx);
             echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -54,44 +53,46 @@ try {
             break;
 
         case 'agregar_entidad':
-            $data = [
-                'empresa_id' => $empresa_idx,
-                'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
-                'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
-                'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
-                'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
-                'sitio_web' => trim($_POST['sitio_web'] ?? ''),
-                'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
-                'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
-                'es_proveedor' => isset($_POST['es_proveedor']) ? 1 : 0,
-                'es_cliente' => isset($_POST['es_cliente']) ? 1 : 0,
-                'observaciones' => trim($_POST['observaciones'] ?? ''),
-                'pagina_idx' => $pagina_idx
-            ];
+    $data = [
+        'empresa_id' => $empresa_idx,
+        'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
+        'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
+        'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
+        'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
+        'sitio_web' => trim($_POST['sitio_web'] ?? ''),
+        'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
+        'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
+        // CORRECCIÓN: Convertir a entero explícitamente
+        'es_proveedor' => isset($_POST['es_proveedor']) ? intval($_POST['es_proveedor']) : 0,
+        'es_cliente' => isset($_POST['es_cliente']) ? intval($_POST['es_cliente']) : 0,
+        'observaciones' => trim($_POST['observaciones'] ?? ''),
+        'pagina_idx' => $pagina_idx
+    ];
 
-            $resultado = agregarEntidad($conexion, $data);
-            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-            break;
+    $resultado = agregarEntidad($conexion, $data);
+    echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+    break;
 
         case 'editar_entidad':
-            $id = intval($_POST['entidad_id'] ?? 0);
-            $data = [
-                'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
-                'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
-                'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
-                'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
-                'sitio_web' => trim($_POST['sitio_web'] ?? ''),
-                'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
-                'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
-                'es_proveedor' => isset($_POST['es_proveedor']) ? 1 : 0,
-                'es_cliente' => isset($_POST['es_cliente']) ? 1 : 0,
-                'observaciones' => trim($_POST['observaciones'] ?? ''),
-                'empresa_idx' => $empresa_idx
-            ];
+    $id = intval($_POST['entidad_id'] ?? 0);
+    $data = [
+        'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
+        'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
+        'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
+        'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
+        'sitio_web' => trim($_POST['sitio_web'] ?? ''),
+        'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
+        'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
+        // CORRECCIÓN: Convertir a entero explícitamente
+        'es_proveedor' => isset($_POST['es_proveedor']) ? intval($_POST['es_proveedor']) : 0,
+        'es_cliente' => isset($_POST['es_cliente']) ? intval($_POST['es_cliente']) : 0,
+        'observaciones' => trim($_POST['observaciones'] ?? ''),
+        'empresa_idx' => $empresa_idx
+    ];
 
-            $resultado = editarEntidad($conexion, $id, $data);
-            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-            break;
+    $resultado = editarEntidad($conexion, $id, $data);
+    echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+    break;
 
         case 'agregar_sucursal':
             $data = [
@@ -103,7 +104,7 @@ try {
                 'sucursal_telefono' => trim($_POST['sucursal_telefono'] ?? ''),
                 'sucursal_email' => trim($_POST['sucursal_email'] ?? ''),
                 'sucursal_contacto' => trim($_POST['sucursal_contacto'] ?? ''),
-                'pagina_idx' => $pagina_idx_sucursales
+                'pagina_idx' => $pagina_idx
             ];
 
             $resultado = agregarSucursal($conexion, $data);
@@ -135,7 +136,7 @@ try {
                 break;
             }
 
-            $resultado = ejecutarTransicionEstadoEntidad($conexion, $entidad_id, $accion_js, $empresa_idx, $pagina_idx);
+            $resultado = ejecutarTransicionEstado($conexion, $entidad_id, $accion_js, $empresa_idx, $pagina_idx, 'entidad');
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -148,7 +149,7 @@ try {
                 break;
             }
 
-            $resultado = ejecutarTransicionEstadoSucursal($conexion, $sucursal_id, $accion_js, $empresa_idx, $pagina_idx_sucursales);
+            $resultado = ejecutarTransicionEstado($conexion, $sucursal_id, $accion_js, $empresa_idx, $pagina_idx, 'sucursal');
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

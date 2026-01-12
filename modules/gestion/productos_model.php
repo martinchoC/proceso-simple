@@ -523,6 +523,34 @@ function obtenerTiposProducto($conexion, $empresa_idx)
     return $tipos;
 }
 
+// ✅ Obtener categorías de productos
+function obtenerCategoriasProducto($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT producto_categoria_id, producto_categoria_nombre, producto_categoria_padre_id
+            FROM gestion__productos_categorias
+            WHERE (empresa_id = 0 OR empresa_id = ?)
+            AND tabla_estado_registro_id = 1
+            ORDER BY producto_categoria_nombre";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $categorias = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $categorias[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $categorias;
+}
+
 // ✅ Obtener unidades de medida
 function obtenerUnidadesMedida($conexion, $empresa_idx)
 {
@@ -774,11 +802,13 @@ function obtenerProductoPorId($conexion, $id, $empresa_idx)
 
     $sql = "SELECT p.*, er.$estado_column as estado_registro, er.codigo_estandar,
                    pt.producto_tipo, pt.producto_tipo_codigo,
-                   um.unidad_nombre, um.unidad_abreviatura
+                   um.unidad_nombre, um.unidad_abreviatura,
+                   pc.producto_categoria_nombre
             FROM gestion__productos p
             LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
             LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
+            LEFT JOIN gestion__productos_categorias pc ON p.producto_categoria_id = pc.producto_categoria_id
             WHERE p.producto_id = ? AND p.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -1168,7 +1198,6 @@ function obtenerImagenPorId($conexion, $imagen_id, $empresa_idx)
 }
 
 // ✅ Subir imagen y crear registro
-// ✅ Subir imagen y crear registro
 function subirImagenProducto($conexion, $data)
 {
     $producto_id = intval($data['producto_id'] ?? 0);
@@ -1327,86 +1356,55 @@ function actualizarImagenProducto($conexion, $producto_imagen_id, $data, $empres
     }
 }
 
-// ✅ Eliminar imagen (cambiar estado a inactivo)
+// ✅ Eliminar imagen (cambiar estado a inactivo y eliminar archivo físico)
 function eliminarImagenProducto($conexion, $producto_imagen_id, $empresa_idx)
 {
     $producto_imagen_id = intval($producto_imagen_id);
     
-    $sql = "UPDATE gestion__productos_imagenes 
-            SET tabla_estado_registro_id = 2 -- Cambiar a estado inactivo
-            WHERE producto_imagen_id = ? AND empresa_id = ?";
-
-    $stmt = mysqli_prepare($conexion, $sql);
+    // Primero obtener información de la imagen para eliminar el archivo físico
+    $sql_select = "SELECT ci.imagen_ruta 
+                   FROM gestion__productos_imagenes pi
+                   INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
+                   WHERE pi.producto_imagen_id = ? AND pi.empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_select);
     if (!$stmt) {
         return ['success' => false, 'error' => 'Error en la consulta'];
     }
-
+    
+    mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $imagen = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    // Eliminar archivo físico si existe
+    if ($imagen && !empty($imagen['imagen_ruta'])) {
+        $ruta_archivo = dirname(__FILE__) . '/../' . $imagen['imagen_ruta'];
+        if (file_exists($ruta_archivo)) {
+            unlink($ruta_archivo);
+            error_log("✓ Archivo físico eliminado: " . $ruta_archivo);
+        }
+    }
+    
+    // Actualizar estado en base de datos
+    $sql_update = "UPDATE gestion__productos_imagenes 
+                   SET tabla_estado_registro_id = 2 -- Cambiar a estado inactivo
+                   WHERE producto_imagen_id = ? AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta'];
+    }
+    
     mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
-
+    
     if ($success) {
         return ['success' => true];
     } else {
         return ['success' => false, 'error' => 'Error al eliminar la imagen'];
     }
-}
-// ✅ Obtener categorías de productos
-function obtenerCategoriasProducto($conexion, $empresa_idx)
-{
-    $empresa_idx = intval($empresa_idx);
-    
-    $sql = "SELECT producto_categoria_id, producto_categoria_nombre, producto_categoria_padre_id
-            FROM gestion__productos_categorias
-            WHERE (empresa_id = 0 OR empresa_id = ?)
-            AND tabla_estado_registro_id = 1
-            ORDER BY producto_categoria_nombre";
-    
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return [];
-    
-    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    
-    $categorias = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        $categorias[] = $fila;
-    }
-    
-    mysqli_stmt_close($stmt);
-    return $categorias;
-}
-
-// ✅ Obtener categorías anidadas (árbol)
-function obtenerCategoriasArbol($conexion, $empresa_idx)
-{
-    $categorias = obtenerCategoriasProducto($conexion, $empresa_idx);
-    
-    // Organizar en estructura jerárquica
-    $arbol = [];
-    $referencias = [];
-    
-    foreach ($categorias as $categoria) {
-        $referencias[$categoria['producto_categoria_id']] = &$arbol[$categoria['producto_categoria_id']];
-        $referencias[$categoria['producto_categoria_id']] = [
-            'producto_categoria_id' => $categoria['producto_categoria_id'],
-            'producto_categoria_nombre' => $categoria['producto_categoria_nombre'],
-            'hijos' => []
-        ];
-    }
-    
-    foreach ($categorias as $categoria) {
-        $padre_id = $categoria['producto_categoria_padre_id'];
-        if ($padre_id && isset($referencias[$padre_id])) {
-            $referencias[$padre_id]['hijos'][] = &$referencias[$categoria['producto_categoria_id']];
-        } elseif ($padre_id === null) {
-            // Es categoría raíz
-            $arbol[$categoria['producto_categoria_id']] = $referencias[$categoria['producto_categoria_id']];
-        }
-    }
-    
-    return array_values($arbol);
 }
 ?>

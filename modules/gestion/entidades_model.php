@@ -4,6 +4,7 @@ $conexion = $conn;
 
 /**
  * Modelo para gestión de entidades y sucursales
+ * Las sucursales usan las mismas acciones que las entidades
  */
 
 // ✅ Obtener funciones configuradas para la página desde conf__paginas_funciones
@@ -150,29 +151,33 @@ function obtenerEstadoInicial($conexion)
     return $fila ? $fila['estado_registro_id'] : 1;
 }
 
-// ✅ Ejecutar transición de estado basada en conf__paginas_funciones (ENTIDADES)
-function ejecutarTransicionEstadoEntidad($conexion, $entidad_id, $accion_js, $empresa_idx, $pagina_id)
+// ✅ Ejecutar transición de estado basada en conf__paginas_funciones (para entidades y sucursales)
+function ejecutarTransicionEstado($conexion, $registro_id, $accion_js, $empresa_idx, $pagina_id, $tipo = 'entidad')
 {
-    $entidad_id = intval($entidad_id);
+    $registro_id = intval($registro_id);
     $pagina_id = intval($pagina_id);
 
-    $sql_check = "SELECT entidad_id, tabla_estado_registro_id 
-                  FROM gestion__entidades 
-                  WHERE entidad_id = ?";
+    // Determinar la tabla según el tipo
+    $tabla = ($tipo === 'sucursal') ? 'gestion__entidades_sucursales' : 'gestion__entidades';
+    $id_field = ($tipo === 'sucursal') ? 'sucursal_id' : 'entidad_id';
+    
+    $sql_check = "SELECT $id_field, tabla_estado_registro_id 
+                  FROM $tabla 
+                  WHERE $id_field = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_bind_param($stmt, "i", $registro_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $entidad = mysqli_fetch_assoc($result);
+    $registro = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    if (!$entidad)
+    if (!$registro)
         return ['success' => false, 'error' => 'Registro no encontrado'];
 
-    $estado_actual_id = $entidad['tabla_estado_registro_id'];
+    $estado_actual_id = $registro['tabla_estado_registro_id'];
 
     $sql_funcion = "SELECT pf.* 
                     FROM conf__paginas_funciones pf
@@ -200,84 +205,15 @@ function ejecutarTransicionEstadoEntidad($conexion, $entidad_id, $accion_js, $em
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
 
-    $sql_update = "UPDATE gestion__entidades 
+    $sql_update = "UPDATE $tabla 
                    SET tabla_estado_registro_id = ? 
-                   WHERE entidad_id = ?";
+                   WHERE $id_field = ?";
 
     $stmt = mysqli_prepare($conexion, $sql_update);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $entidad_id);
-    $success = mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
-
-    if ($success) {
-        return ['success' => true, 'message' => 'Estado actualizado correctamente'];
-    } else {
-        return ['success' => false, 'error' => 'Error al actualizar el estado'];
-    }
-}
-
-// ✅ Ejecutar transición de estado basada en conf__paginas_funciones (SUCURSALES)
-function ejecutarTransicionEstadoSucursal($conexion, $sucursal_id, $accion_js, $empresa_idx, $pagina_id)
-{
-    $sucursal_id = intval($sucursal_id);
-    $pagina_id = intval($pagina_id);
-
-    $sql_check = "SELECT sucursal_id, tabla_estado_registro_id 
-                  FROM gestion__entidades_sucursales 
-                  WHERE sucursal_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['success' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "i", $sucursal_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $sucursal = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-
-    if (!$sucursal)
-        return ['success' => false, 'error' => 'Registro no encontrado'];
-
-    $estado_actual_id = $sucursal['tabla_estado_registro_id'];
-
-    $sql_funcion = "SELECT pf.* 
-                    FROM conf__paginas_funciones pf
-                    WHERE pf.pagina_id = ? 
-                    AND pf.tabla_estado_registro_origen_id = ? 
-                    AND pf.accion_js = ?
-                    LIMIT 1";
-
-    $stmt = mysqli_prepare($conexion, $sql_funcion);
-    if (!$stmt)
-        return ['success' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "iis", $pagina_id, $estado_actual_id, $accion_js);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $funcion = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-
-    if (!$funcion)
-        return ['success' => false, 'error' => 'Acción no permitida para este estado'];
-
-    $estado_destino_id = $funcion['tabla_estado_registro_destino_id'];
-
-    if ($estado_destino_id == $estado_actual_id) {
-        return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
-    }
-
-    $sql_update = "UPDATE gestion__entidades_sucursales 
-                   SET tabla_estado_registro_id = ? 
-                   WHERE sucursal_id = ?";
-
-    $stmt = mysqli_prepare($conexion, $sql_update);
-    if (!$stmt)
-        return ['success' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $sucursal_id);
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $registro_id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -471,6 +407,7 @@ function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_
             'localidad_id' => $fila['localidad_id'] ?? null
         ];
 
+        // Las sucursales usan las mismas acciones que las entidades
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $data[] = $fila;
     }
@@ -480,6 +417,7 @@ function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_
 }
 
 // ✅ Agregar nueva entidad (con estado inicial)
+// ✅ Agregar nueva entidad (con estado inicial) - VERSIÓN CORREGIDA
 function agregarEntidad($conexion, $data)
 {
     $empresa_id = intval($data['empresa_id'] ?? 0);
@@ -490,8 +428,11 @@ function agregarEntidad($conexion, $data)
     $sitio_web = mysqli_real_escape_string($conexion, trim($data['sitio_web'] ?? ''));
     $domicilio_legal = mysqli_real_escape_string($conexion, trim($data['domicilio_legal'] ?? ''));
     $localidad_id = $data['localidad_id'] ? intval($data['localidad_id']) : null;
-    $es_proveedor = intval($data['es_proveedor'] ?? 0);
-    $es_cliente = intval($data['es_cliente'] ?? 0);
+    
+    // CORRECCIÓN: Manejar correctamente los checkboxes
+    $es_proveedor = isset($data['es_proveedor']) && $data['es_proveedor'] ? 1 : 0;
+    $es_cliente = isset($data['es_cliente']) && $data['es_cliente'] ? 1 : 0;
+    
     $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
 
     if (empty($entidad_nombre)) {
@@ -536,7 +477,7 @@ function agregarEntidad($conexion, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issiissiiiis", 
+    mysqli_stmt_bind_param($stmt, "issiissiiisi", 
         $empresa_id, 
         $entidad_nombre, 
         $entidad_fantasia, 
@@ -564,6 +505,7 @@ function agregarEntidad($conexion, $data)
 }
 
 // ✅ Editar entidad existente
+// ✅ Editar entidad existente (VERSIÓN CORREGIDA)
 function editarEntidad($conexion, $id, $data)
 {
     $id = intval($id);
@@ -575,8 +517,12 @@ function editarEntidad($conexion, $id, $data)
     $sitio_web = mysqli_real_escape_string($conexion, trim($data['sitio_web'] ?? ''));
     $domicilio_legal = mysqli_real_escape_string($conexion, trim($data['domicilio_legal'] ?? ''));
     $localidad_id = $data['localidad_id'] ? intval($data['localidad_id']) : null;
+    
+    // CORRECCIÓN CRÍTICA: Manejar correctamente los checkboxes desde $_POST
+    // Los valores vienen como strings '1' cuando están marcados, o no vienen cuando no lo están
     $es_proveedor = intval($data['es_proveedor'] ?? 0);
-    $es_cliente = intval($data['es_cliente'] ?? 0);
+    $es_cliente   = intval($data['es_cliente'] ?? 0);
+    
     $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
 
     if (empty($entidad_nombre)) {
@@ -626,7 +572,7 @@ function editarEntidad($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Ya existe otra entidad con este nombre'];
     }
 
-    // Actualizar entidad
+    // Actualizar entidad - TODOS LOS CAMPOS INCLUIDOS
     $sql = "UPDATE gestion__entidades 
             SET entidad_nombre = ?, 
                 entidad_fantasia = ?, 
@@ -644,7 +590,7 @@ function editarEntidad($conexion, $id, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssiissiiiis", 
+    mysqli_stmt_bind_param($stmt, "ssiissiiisi", 
         $entidad_nombre, 
         $entidad_fantasia, 
         $entidad_tipo_id,
@@ -652,8 +598,8 @@ function editarEntidad($conexion, $id, $data)
         $sitio_web,
         $domicilio_legal,
         $localidad_id,
-        $es_proveedor,
-        $es_cliente,
+        $es_proveedor,    // Valor corregido (0 o 1)
+        $es_cliente,      // Valor corregido (0 o 1)
         $observaciones,
         $id
     );
@@ -667,7 +613,6 @@ function editarEntidad($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Error al actualizar la entidad'];
     }
 }
-
 // ✅ Agregar nueva sucursal (con estado inicial)
 function agregarSucursal($conexion, $data)
 {

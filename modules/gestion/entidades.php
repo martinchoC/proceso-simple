@@ -6,7 +6,6 @@ $pageTitle = "Gestión de Entidades";
 $currentPage = 'entidades';
 $modudo_idx = 2;
 $pagina_idx = 50; // ID de página para entidades
-$pagina_idx_sucursales = 51; // ID de página para sucursales
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -388,7 +387,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Variables de contexto MULTIEMPRESA
             const empresa_idx = 2;
             const pagina_idx = <?php echo $pagina_idx; ?>;
-            const pagina_idx_sucursales = <?php echo $pagina_idx_sucursales; ?>;
 
             // Variables para mantener el estado
             var tablaEntidades;
@@ -809,8 +807,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         data: {
                             accion: 'listar_sucursales',
                             empresa_idx: empresa_idx,
-                            entidad_id: entidadId,
-                            pagina_idx: pagina_idx_sucursales
+                            entidad_id: entidadId
                         },
                         dataSrc: ''
                     },
@@ -1172,7 +1169,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     sucursal_id: sucursalId,
                     accion_js: accionJs,
                     empresa_idx: empresa_idx,
-                    pagina_idx: pagina_idx_sucursales
+                    pagina_idx: pagina_idx
                 }, function (res) {
                     if (res.success) {
                         tablaSucursales.ajax.reload(function (json) {
@@ -1238,9 +1235,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }, 100);
                         }
                         
-                        // Set checkboxes
-                        $('#es_proveedor').prop('checked', res.es_proveedor == 1);
-                        $('#es_cliente').prop('checked', res.es_cliente == 1);
+                        // Set checkboxes CORRECTAMENTE - usando == para comparación de enteros
+                        $('#es_proveedor').prop('checked', parseInt(res.es_proveedor) === 1);
+                        $('#es_cliente').prop('checked', parseInt(res.es_cliente) === 1);
                         
                         $('#modalLabel').text('Editar Entidad');
                         entidadActualId = res.entidad_id;
@@ -1322,7 +1319,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             // Validación del formulario de entidad
-            $('#btnGuardar').click(function () {
+           $('#btnGuardar').click(function () {
                 var form = document.getElementById('formEntidad');
 
                 if (!form.checkValidity()) {
@@ -1335,6 +1332,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 var entidadNombre = $('#entidad_nombre').val().trim();
                 var cuit = $('#cuit').val();
                 var sitioWeb = $('#sitio_web').val();
+                
+                // OBTENER VALORES DE CHECKBOXES CORRECTAMENTE
+                var esProveedor = $('#es_proveedor').is(':checked') ? 1 : 0;
+                var esCliente = $('#es_cliente').is(':checked') ? 1 : 0;
                 
                 // Validar CUIT si está ingresado
                 if (cuit && (cuit < 0 || cuit > 99999999999)) {
@@ -1385,8 +1386,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         sitio_web: sitioWeb,
                         domicilio_legal: $('#domicilio_legal').val().trim(),
                         localidad_id: $('#localidad_id').val(),
-                        es_proveedor: $('#es_proveedor').is(':checked') ? 1 : 0,
-                        es_cliente: $('#es_cliente').is(':checked') ? 1 : 0,
+                        es_proveedor: esProveedor,  // Usar la variable calculada
+                        es_cliente: esCliente,      // Usar la variable calculada
                         observaciones: $('#observaciones').val().trim(),
                         empresa_idx: empresa_idx,
                         pagina_idx: pagina_idx
@@ -1502,8 +1503,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         sucursal_telefono: $('#sucursal_telefono').val().trim(),
                         sucursal_email: sucursalEmail,
                         sucursal_contacto: $('#sucursal_contacto').val().trim(),
-                        empresa_idx: empresa_idx,
-                        pagina_idx: pagina_idx_sucursales
+                        empresa_idx: empresa_idx
                     },
                     success: function (res) {
                         if (res.resultado) {
