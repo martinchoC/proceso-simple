@@ -157,28 +157,43 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
 
     // Consulta principal con información de compatibilidad
     $sql = "SELECT 
-                p.*,
-                er.$estado_column as estado_registro,
-                er.codigo_estandar,
-                c.color_clase, c.bg_clase, c.text_clase,
-                um.unidad_nombre, um.unidad_abreviatura,
-                GROUP_CONCAT(DISTINCT m.marca_nombre ORDER BY m.marca_nombre SEPARATOR ', ') as marcas_compatibles,
-                GROUP_CONCAT(DISTINCT mo.modelo_nombre ORDER BY mo.modelo_nombre SEPARATOR ', ') as modelos_compatibles,
-                GROUP_CONCAT(DISTINCT s.submodelo_nombre ORDER BY s.submodelo_nombre SEPARATOR ', ') as submodelos_compatibles
-            FROM gestion__productos p
-            LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
-            LEFT JOIN gestion__productos_compatibilidad pc ON p.producto_id = pc.producto_id 
-                AND p.empresa_id = pc.empresa_id 
-                AND pc.tabla_estado_registro_id = 1
-            LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
-            LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
-            LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
-            $where_clause
-            GROUP BY p.producto_id
-            ORDER BY $order_by $order_dir
-            LIMIT ? OFFSET ?";
+            p.*,
+            er.$estado_column as estado_registro,
+            er.codigo_estandar,
+            c.color_clase, c.bg_clase, c.text_clase,
+            um.unidad_nombre, um.unidad_abreviatura,
+            GROUP_CONCAT(DISTINCT m.marca_nombre ORDER BY m.marca_nombre SEPARATOR ', ') as marcas_compatibles,
+            GROUP_CONCAT(DISTINCT mo.modelo_nombre ORDER BY mo.modelo_nombre SEPARATOR ', ') as modelos_compatibles,
+            GROUP_CONCAT(DISTINCT s.submodelo_nombre ORDER BY s.submodelo_nombre SEPARATOR ', ') as submodelos_compatibles,
+            GROUP_CONCAT(DISTINCT CONCAT(su.sucursal_nombre, ': ', s_ubic.seccion, ' ', s_ubic.estanteria, '-', s_ubic.estante, s_ubic.posicion) 
+               ORDER BY su.sucursal_nombre, s_ubic.seccion, s_ubic.estanteria, s_ubic.estante, s_ubic.posicion SEPARATOR '; ') as ubicaciones_info,
+            (SELECT ci.imagen_ruta 
+             FROM gestion__productos_imagenes pi
+             INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
+             WHERE pi.producto_id = p.producto_id 
+             AND pi.empresa_id = p.empresa_id
+             AND pi.es_principal = 1
+             AND pi.tabla_estado_registro_id = 1
+             LIMIT 1) as imagen_principal
+        FROM gestion__productos p
+        LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
+        LEFT JOIN conf__colores c ON er.color_id = c.color_id
+        LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
+        LEFT JOIN gestion__productos_compatibilidad pc ON p.producto_id = pc.producto_id 
+            AND p.empresa_id = pc.empresa_id 
+            AND pc.tabla_estado_registro_id = 1
+        LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
+        LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
+        LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
+        LEFT JOIN gestion__productos_ubicaciones pu ON p.producto_id = pu.producto_id 
+             
+            AND pu.tabla_estado_registro_id = 1
+        LEFT JOIN gestion__sucursales_ubicaciones s_ubic ON pu.sucursal_ubicacion_id = s_ubic.sucursal_ubicacion_id
+        LEFT JOIN gestion__sucursales su ON s_ubic.sucursal_id = su.sucursal_id
+        $where_clause
+        GROUP BY p.producto_id
+        ORDER BY $order_by $order_dir
+        LIMIT ? OFFSET ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -1405,6 +1420,309 @@ function eliminarImagenProducto($conexion, $producto_imagen_id, $empresa_idx)
         return ['success' => true];
     } else {
         return ['success' => false, 'error' => 'Error al eliminar la imagen'];
+    }
+}
+
+// ✅ Obtener ubicaciones de sucursales
+function obtenerUbicacionesSucursales($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT 
+                su.sucursal_ubicacion_id,
+                su.sucursal_id,
+                su.seccion,
+                su.estanteria,
+                su.estante,
+                su.posicion,
+                su.descripcion,
+                s.sucursal_nombre
+            FROM gestion__sucursales_ubicaciones su
+            LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
+            WHERE (su.empresa_id = 0 OR su.empresa_id = ?)
+            AND su.tabla_estado_registro_id = 1
+            ORDER BY s.sucursal_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $ubicaciones = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $ubicaciones[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $ubicaciones;
+}
+
+// ✅ Obtener sucursales disponibles
+function obtenerSucursales($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT sucursal_id, sucursal_nombre
+            FROM gestion__sucursales
+            WHERE empresa_id = ?
+            AND tabla_estado_registro_id = 1
+            ORDER BY sucursal_nombre";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $sucursales = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $sucursales[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $sucursales;
+}
+
+// ✅ Obtener ubicaciones de un producto
+function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
+{
+    $producto_id = intval($producto_id);
+    
+    $sql = "SELECT 
+                pu.producto_ubicacion_id,
+                pu.sucursal_ubicacion_id,
+                su.sucursal_id,
+                su.seccion,
+                su.estanteria,
+                su.estante,
+                su.posicion,
+                su.descripcion,
+                s.sucursal_nombre
+            FROM gestion__productos_ubicaciones pu
+            INNER JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
+            LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
+            WHERE pu.producto_id = ?
+            AND pu.tabla_estado_registro_id = 1
+            ORDER BY s.sucursal_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $producto_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $ubicaciones = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $ubicaciones[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $ubicaciones;
+}
+
+// ✅ Obtener ubicación por ID
+function obtenerUbicacionPorId($conexion, $producto_ubicacion_id)
+{
+    $producto_ubicacion_id = intval($producto_ubicacion_id);
+    
+    $sql = "SELECT 
+                pu.*,
+                su.sucursal_id,
+                su.seccion,
+                su.estanteria,
+                su.estante,
+                su.posicion,
+                su.descripcion as ubicacion_descripcion,
+                s.sucursal_nombre
+            FROM gestion__productos_ubicaciones pu
+            INNER JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
+            LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
+            WHERE pu.producto_ubicacion_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return null;
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $producto_ubicacion_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $ubicacion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $ubicacion;
+}
+
+// ✅ Agregar ubicación a producto
+function agregarUbicacionProducto($conexion, $data)
+{
+    $producto_id = intval($data['producto_id'] ?? 0);
+    $sucursal_ubicacion_id = intval($data['sucursal_ubicacion_id'] ?? 0);
+    
+    if ($producto_id == 0) {
+        return ['resultado' => false, 'error' => 'Producto no válido'];
+    }
+    
+    if ($sucursal_ubicacion_id == 0) {
+        return ['resultado' => false, 'error' => 'Ubicación no válida'];
+    }
+    
+    // Verificar si ya existe esta ubicación para el producto
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__productos_ubicaciones 
+                  WHERE producto_id = ? 
+                  AND sucursal_ubicacion_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $producto_id, $sucursal_ubicacion_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Esta ubicación ya está asignada al producto'];
+    }
+    
+    // Insertar nueva ubicación
+    $sql = "INSERT INTO gestion__productos_ubicaciones 
+            (producto_id, sucursal_ubicacion_id, tabla_estado_registro_id) 
+            VALUES (?, ?, 1)";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $producto_id, $sucursal_ubicacion_id);
+    $success = mysqli_stmt_execute($stmt);
+    
+    if ($success) {
+        $producto_ubicacion_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'producto_ubicacion_id' => $producto_ubicacion_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al asignar ubicación: ' . mysqli_error($conexion)];
+    }
+}
+
+// ✅ Eliminar ubicación de producto
+function eliminarUbicacionProducto($conexion, $producto_ubicacion_id)
+{
+    $producto_ubicacion_id = intval($producto_ubicacion_id);
+    
+    // Cambiar estado a inactivo en lugar de eliminar físicamente
+    $sql = "UPDATE gestion__productos_ubicaciones 
+            SET tabla_estado_registro_id = 2 
+            WHERE producto_ubicacion_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $producto_ubicacion_id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true];
+    } else {
+        return ['success' => false, 'error' => 'Error al eliminar la ubicación'];
+    }
+}
+
+// ✅ Crear nueva ubicación de sucursal
+function crearUbicacionSucursal($conexion, $data)
+{
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $sucursal_id = intval($data['sucursal_id'] ?? 0);
+    $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
+    $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
+    $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
+    $posicion = mysqli_real_escape_string($conexion, trim($data['posicion'] ?? ''));
+    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
+    
+    // Validaciones
+    if ($sucursal_id == 0) {
+        return ['resultado' => false, 'error' => 'Seleccione una sucursal'];
+    }
+    
+    if (empty($seccion)) {
+        return ['resultado' => false, 'error' => 'La sección es obligatoria'];
+    }
+    
+    if (empty($estanteria)) {
+        return ['resultado' => false, 'error' => 'La estantería es obligatoria'];
+    }
+    
+    if (empty($estante)) {
+        return ['resultado' => false, 'error' => 'El estante es obligatorio'];
+    }
+    
+    if (empty($posicion)) {
+        return ['resultado' => false, 'error' => 'La posición es obligatoria'];
+    }
+    
+    // Verificar si ya existe esta ubicación
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
+                  WHERE sucursal_id = ? 
+                  AND seccion = ? 
+                  AND estanteria = ? 
+                  AND estante = ? 
+                  AND posicion = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "issss", $sucursal_id, $seccion, $estanteria, $estante, $posicion);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Esta ubicación ya existe en la sucursal'];
+    }
+    
+    // Insertar nueva ubicación
+    $sql = "INSERT INTO gestion__sucursales_ubicaciones 
+            (empresa_id, sucursal_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "iisssss", 
+        $empresa_id, $sucursal_id, $seccion, $estanteria, $estante, $posicion, $descripcion);
+    
+    $success = mysqli_stmt_execute($stmt);
+    
+    if ($success) {
+        $sucursal_ubicacion_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'sucursal_ubicacion_id' => $sucursal_ubicacion_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al crear la ubicación: ' . mysqli_error($conexion)];
     }
 }
 ?>

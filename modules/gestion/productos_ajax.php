@@ -407,6 +407,55 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_ubicaciones_producto':
+            $producto_id = intval($_GET['producto_id'] ?? 0);
+            if (empty($producto_id)) {
+                echo json_encode([], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $ubicaciones = obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx);
+            echo json_encode($ubicaciones, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_sucursales':
+            $sucursales = obtenerSucursales($conexion, $empresa_idx);
+            echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_ubicaciones_sucursales':
+            $ubicaciones = obtenerUbicacionesSucursales($conexion, $empresa_idx);
+            echo json_encode($ubicaciones, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'agregar_ubicacion_producto':
+            $data = [
+                'producto_id' => intval($_POST['producto_id'] ?? 0),
+                'sucursal_ubicacion_id' => intval($_POST['sucursal_ubicacion_id'] ?? 0)
+            ];
+            $resultado = agregarUbicacionProducto($conexion, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'eliminar_ubicacion_producto':
+            $producto_ubicacion_id = intval($_POST['producto_ubicacion_id'] ?? 0);
+            $resultado = eliminarUbicacionProducto($conexion, $producto_ubicacion_id);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'crear_ubicacion_sucursal':
+            $data = [
+                'empresa_id' => $empresa_idx,
+                'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
+                'seccion' => trim($_POST['seccion'] ?? ''),
+                'estanteria' => trim($_POST['estanteria'] ?? ''),
+                'estante' => trim($_POST['estante'] ?? ''),
+                'posicion' => trim($_POST['posicion'] ?? ''),
+                'descripcion' => trim($_POST['descripcion'] ?? '')
+            ];
+            $resultado = crearUbicacionSucursal($conexion, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }

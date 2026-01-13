@@ -131,7 +131,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="150">Marcas</th>
                                                     <th width="150">Modelos</th>
                                                     <th width="150">Submodelos</th>
-                                                    <th width="80">Unidad</th>
+                                                    <th width="200">Ubicaciones</th>
+                                                    <th width="80">Imagen</th>
                                                     <th width="100">Estado</th>
                                                     <th width="120" class="text-center">Acciones</th>
                                                 </tr>
@@ -176,6 +177,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             data-bs-target="#nav-imagenes" type="button" role="tab" 
                                             aria-controls="nav-imagenes" aria-selected="false">
                                         <i class="fas fa-images me-2"></i>Imágenes
+                                    </button>
+                                    <button class="nav-link" id="nav-ubicaciones-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#nav-ubicaciones" type="button" role="tab" 
+                                            aria-controls="nav-ubicaciones" aria-selected="false">
+                                        <i class="fas fa-map-marker-alt me-2"></i>Ubicaciones
                                     </button>
                                 </div>
                             </nav>
@@ -329,6 +335,44 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="alert alert-info mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         Puedes arrastrar y soltar imágenes para cambiar su orden. La primera imagen será la principal.
+                                    </div>
+                                </div>
+                                <!-- Pestaña de Ubicaciones -->
+                                <div class="tab-pane fade" id="nav-ubicaciones" role="tabpanel" 
+                                    aria-labelledby="nav-ubicaciones-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-map-marker-alt me-2 text-warning"></i>Ubicaciones del Producto
+                                        </h6>
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-warning btn-sm" id="btnAgregarUbicacion">
+                                                <i class="fas fa-plus me-1"></i>Agregar Ubicación
+                                            </button>
+                                            <button type="button" class="btn btn-outline-warning btn-sm" id="btnNuevaUbicacion">
+                                                <i class="fas fa-plus-circle me-1"></i>Nueva Ubicación
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Tabla de ubicaciones -->
+                                    <div class="table-responsive" style="max-height: 300px;">
+                                        <table id="tablaUbicaciones" class="table table-sm table-hover mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th width="25%" class="py-1">Sucursal</th>
+                                                    <th width="20%" class="py-1">Sección</th>
+                                                    <th width="20%" class="py-1">Estantería</th>
+                                                    <th width="20%" class="py-1">Estante/Posición</th>
+                                                    <th width="15%" class="py-1 text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div class="alert alert-warning mt-3">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Un producto puede tener múltiples ubicaciones en diferentes sucursales.
                                     </div>
                                 </div>
                             </div>
@@ -493,7 +537,120 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
+            <!-- Modal para agregar ubicación existente -->
+            <div class="modal fade" id="modalUbicacion" tabindex="-1" aria-labelledby="modalUbicacionLabel"
+                aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header bg-gradient-warning text-white border-0">
+                            <h5 class="modal-title" id="modalUbicacionLabel">
+                                <i class="fas fa-map-marker-alt me-2"></i>Agregar Ubicación
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <form id="formUbicacion" class="needs-validation" novalidate>
+                                <input type="hidden" id="ubicacion_producto_id" name="producto_id" />
+                                
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="sucursal_ubicacion_id" class="form-label form-label-sm">Ubicación *</label>
+                                        <select class="form-select form-select-sm" id="sucursal_ubicacion_id" 
+                                                name="sucursal_ubicacion_id" required>
+                                            <option value="">Seleccionar ubicación...</option>
+                                        </select>
+                                        <div class="invalid-feedback">Seleccione una ubicación</div>
+                                        <div class="form-text">Seleccione una ubicación existente para asignarla al producto</div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer bg-light border-top">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-warning px-3" id="btnGuardarUbicacion">
+                                <i class="fas fa-save me-1"></i>Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
+            <!-- Modal para crear nueva ubicación -->
+            <div class="modal fade" id="modalNuevaUbicacion" tabindex="-1" aria-labelledby="modalNuevaUbicacionLabel"
+                aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header bg-gradient-warning text-white border-0">
+                            <h5 class="modal-title" id="modalNuevaUbicacionLabel">
+                                <i class="fas fa-plus-circle me-2"></i>Crear Nueva Ubicación
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <form id="formNuevaUbicacion" class="needs-validation" novalidate>
+                                <input type="hidden" id="nueva_ubicacion_producto_id" name="producto_id" />
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="sucursal_id" class="form-label form-label-sm">Sucursal *</label>
+                                        <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
+                                            <option value="">Seleccionar sucursal...</option>
+                                        </select>
+                                        <div class="invalid-feedback">Seleccione una sucursal</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="seccion" class="form-label form-label-sm">Sección *</label>
+                                        <input type="text" class="form-control form-control-sm" id="seccion"
+                                            name="seccion" maxlength="50" required placeholder="Ej: Almacén, Sala de ventas">
+                                        <div class="invalid-feedback">La sección es obligatoria</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="estanteria" class="form-label form-label-sm">Estantería *</label>
+                                        <input type="text" class="form-control form-control-sm" id="estanteria"
+                                            name="estanteria" maxlength="50" required placeholder="Ej: A, B, C">
+                                        <div class="invalid-feedback">La estantería es obligatoria</div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="estante" class="form-label form-label-sm">Estante *</label>
+                                        <input type="text" class="form-control form-control-sm" id="estante"
+                                            name="estante" maxlength="50" required placeholder="Ej: 1, 2, 3">
+                                        <div class="invalid-feedback">El estante es obligatorio</div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="posicion" class="form-label form-label-sm">Posición *</label>
+                                        <input type="text" class="form-control form-control-sm" id="posicion"
+                                            name="posicion" maxlength="50" required placeholder="Ej: 1, 2, 3, A, B">
+                                        <div class="invalid-feedback">La posición es obligatoria</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label for="descripcion_ubicacion" class="form-label form-label-sm">Descripción</label>
+                                        <textarea class="form-control form-control-sm" id="descripcion_ubicacion"
+                                            name="descripcion" rows="2" maxlength="255" placeholder="Descripción opcional de la ubicación"></textarea>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer bg-light border-top">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-warning px-3" id="btnGuardarNuevaUbicacion">
+                                <i class="fas fa-save me-1"></i>Crear Ubicación
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <!-- Modal para dar de alta un producto -->
             <div class="modal fade" id="modalAltaProducto" tabindex="-1" aria-labelledby="modalAltaLabel"
                 aria-hidden="true" data-bs-backdrop="static">
@@ -705,6 +862,43 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .sortable-chosen {
             background-color: #f8f9fa;
         }
+        /* Agrega estos estilos al final de la sección de estilos: */
+.img-thumbnail {
+    transition: transform 0.2s;
+    border: 2px solid #dee2e6;
+}
+
+.img-thumbnail:hover {
+    transform: scale(1.1);
+    border-color: #0d6efd;
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+}
+
+/* Ajustar tamaño de los badges de ubicaciones */
+.badge-compatibilidad {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+/* Para ubicaciones múltiples */
+.badge-ubicacion {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+    margin-bottom: 0.1rem;
+    display: block;
+    text-align: left;
+    border-radius: 0.25rem;
+}
+
+/* Asegurar que la imagen en miniatura sea circular */
+.rounded-circle {
+    border-radius: 50% !important;
+}
     </style>
 
     <script>
@@ -724,7 +918,38 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var productoActualImagenes = null;
 
             // ========== FUNCIONES DE CARGA DE DATOS ==========
-
+            // Agrega esta función al inicio del script, después de las variables globales:
+            // Función global para mostrar imagen en grande desde la tabla
+            window.mostrarImagenGrande = function(ruta, titulo) {
+                // Asegurar que la ruta tenga / al inicio
+                var rutaCompleta = ruta.startsWith('/') ? ruta : '/' + ruta;
+                
+                // Crear modal dinámico si no existe
+                if ($('#modalImagenTabla').length === 0) {
+                    $('body').append(`
+                        <div class="modal fade" id="modalImagenTabla" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="tituloImagenTabla">${titulo || 'Imagen del producto'}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                    </div>
+                                    <div class="modal-body text-center">
+                                        <img id="imagenGrandeTabla" src="" alt="Imagen del producto" class="img-fluid rounded">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                }
+                
+                $('#imagenGrandeTabla').attr('src', rutaCompleta);
+                $('#tituloImagenTabla').text(titulo || 'Imagen del producto');
+                
+                // Mostrar el modal
+                var modal = new bootstrap.Modal(document.getElementById('modalImagenTabla'));
+                modal.show();
+            };
             // Cargar opciones de tipos de producto
             function cargarTiposProducto() {
                 $.get('productos_ajax.php', {
@@ -798,7 +1023,322 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 }, 'json');
             }
+            // ========== FUNCIONES DE UBICACIONES ==========
 
+            // Variable global para ubicaciones
+            var productoActualUbicaciones = null;
+            var tablaUbicaciones = null;
+
+            // Cargar ubicaciones de un producto
+            function cargarUbicacionesProducto(productoId) {
+                productoActualUbicaciones = productoId;
+                
+                if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
+                    $('#tablaUbicaciones').DataTable().destroy();
+                    $('#tablaUbicaciones tbody').empty();
+                }
+
+                tablaUbicaciones = $('#tablaUbicaciones').DataTable({
+                    ajax: {
+                        url: 'productos_ajax.php',
+                        type: 'GET',
+                        data: {
+                            accion: 'obtener_ubicaciones_producto',
+                            producto_id: productoId,
+                            empresa_idx: empresa_idx
+                        },
+                        dataSrc: ''
+                    },
+                    columns: [
+                        { 
+                            data: 'sucursal_nombre',
+                            render: function(data) {
+                                return data || '-';
+                            }
+                        },
+                        { 
+                            data: 'seccion',
+                            render: function(data) {
+                                return data || '-';
+                            }
+                        },
+                        { 
+                            data: 'estanteria',
+                            render: function(data) {
+                                return data || '-';
+                            }
+                        },
+                        { 
+                            data: null,
+                            render: function(data) {
+                                var estante = data.estante || '';
+                                var posicion = data.posicion || '';
+                                return `${estante} - ${posicion}`;
+                            }
+                        },
+                        { 
+                            data: 'producto_ubicacion_id',
+                            orderable: false,
+                            searchable: false,
+                            className: "text-center",
+                            render: function(data, type, row) {
+                                return `
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-danger btn-eliminar-ubicacion" 
+                                                data-id="${data}" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        }
+                    ],
+                    language: {
+                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    },
+                    responsive: true,
+                    pageLength: 10,
+                    searching: false,
+                    paging: false,
+                    info: false
+                });
+            }
+
+            // Cargar sucursales
+            function cargarSucursales() {
+                $.get('productos_ajax.php', {
+                    accion: 'obtener_sucursales',
+                    empresa_idx: empresa_idx
+                }, function (sucursales) {
+                    var select = $('#sucursal_id');
+                    select.empty().append('<option value="">Seleccionar sucursal...</option>');
+                    
+                    if (sucursales && sucursales.length > 0) {
+                        sucursales.forEach(function(sucursal) {
+                            select.append(`<option value="${sucursal.sucursal_id}">${sucursal.sucursal_nombre}</option>`);
+                        });
+                    }
+                }, 'json');
+            }
+
+            // Cargar ubicaciones de sucursales
+            function cargarUbicacionesSucursales() {
+                $.get('productos_ajax.php', {
+                    accion: 'obtener_ubicaciones_sucursales',
+                    empresa_idx: empresa_idx
+                }, function (ubicaciones) {
+                    var select = $('#sucursal_ubicacion_id');
+                    select.empty().append('<option value="">Seleccionar ubicación...</option>');
+                    
+                    if (ubicaciones && ubicaciones.length > 0) {
+                        var sucursalActual = '';
+                        ubicaciones.forEach(function(ubicacion) {
+                            // Agrupar por sucursal
+                            if (ubicacion.sucursal_nombre !== sucursalActual) {
+                                if (sucursalActual !== '') {
+                                    select.append('</optgroup>');
+                                }
+                                sucursalActual = ubicacion.sucursal_nombre;
+                                select.append(`<optgroup label="${sucursalActual}">`);
+                            }
+                            
+                            var descripcionUbicacion = `${ubicacion.seccion} - ${ubicacion.estanteria} - Est. ${ubicacion.estante} Pos. ${ubicacion.posicion}`;
+                            if (ubicacion.descripcion) {
+                                descripcionUbicacion += ` (${ubicacion.descripcion})`;
+                            }
+                            
+                            select.append(`<option value="${ubicacion.sucursal_ubicacion_id}">${descripcionUbicacion}</option>`);
+                        });
+                        
+                        if (sucursalActual !== '') {
+                            select.append('</optgroup>');
+                        }
+                    }
+                }, 'json');
+            }
+
+            // Mostrar modal para agregar ubicación existente
+            function mostrarModalUbicacion(productoId) {
+                resetModalUbicacion();
+                $('#ubicacion_producto_id').val(productoId);
+                cargarUbicacionesSucursales();
+                
+                var modal = new bootstrap.Modal(document.getElementById('modalUbicacion'));
+                modal.show();
+            }
+
+            // Mostrar modal para crear nueva ubicación
+            function mostrarModalNuevaUbicacion(productoId) {
+                resetModalNuevaUbicacion();
+                $('#nueva_ubicacion_producto_id').val(productoId);
+                cargarSucursales();
+                
+                var modal = new bootstrap.Modal(document.getElementById('modalNuevaUbicacion'));
+                modal.show();
+            }
+
+            // Resetear modal de ubicación existente
+            function resetModalUbicacion() {
+                $('#formUbicacion')[0].reset();
+                $('#formUbicacion').removeClass('was-validated');
+                $('#sucursal_ubicacion_id').empty().append('<option value="">Seleccionar ubicación...</option>');
+            }
+
+            // Resetear modal de nueva ubicación
+            function resetModalNuevaUbicacion() {
+                $('#formNuevaUbicacion')[0].reset();
+                $('#formNuevaUbicacion').removeClass('was-validated');
+                $('#sucursal_id').empty().append('<option value="">Seleccionar sucursal...</option>');
+            }
+
+            // Agregar estos eventos en la función inicializarEventos():
+
+            // Eventos de ubicaciones
+            $('#btnAgregarUbicacion').click(function() {
+                if (productoActualUbicaciones) {
+                    mostrarModalUbicacion(productoActualUbicaciones);
+                }
+            });
+
+            $('#btnNuevaUbicacion').click(function() {
+                if (productoActualUbicaciones) {
+                    mostrarModalNuevaUbicacion(productoActualUbicaciones);
+                }
+            });
+
+            $(document).on('click', '.btn-eliminar-ubicacion', function() {
+                var productoUbicacionId = $(this).data('id');
+                
+                Swal.fire({
+                    title: '¿Eliminar Ubicación?',
+                    text: 'Esta acción no se puede deshacer',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post('productos_ajax.php', {
+                            accion: 'eliminar_ubicacion_producto',
+                            producto_ubicacion_id: productoUbicacionId,
+                            empresa_idx: empresa_idx
+                        }, function(res) {
+                            if (res.success) {
+                                Swal.fire('¡Eliminado!', 'Ubicación eliminada correctamente', 'success');
+                                if (tablaUbicaciones) {
+                                    tablaUbicaciones.ajax.reload();
+                                }
+                            } else {
+                                Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                            }
+                        }, 'json');
+                    }
+                });
+            });
+
+            // Guardar ubicación existente
+            $('#btnGuardarUbicacion').click(function() {
+                var form = document.getElementById('formUbicacion');
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return false;
+                }
+
+                var btn = $(this);
+                var originalText = btn.html();
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+                var datos = {
+                    accion: 'agregar_ubicacion_producto',
+                    producto_id: $('#ubicacion_producto_id').val(),
+                    sucursal_ubicacion_id: $('#sucursal_ubicacion_id').val(),
+                    empresa_idx: empresa_idx
+                };
+
+                $.post('productos_ajax.php', datos, function(res) {
+                    btn.prop('disabled', false).html(originalText);
+                    
+                    if (res.resultado) {
+                        Swal.fire('¡Guardado!', 'Ubicación asignada correctamente', 'success');
+                        var modal = bootstrap.Modal.getInstance(document.getElementById('modalUbicacion'));
+                        modal.hide();
+                        
+                        if (tablaUbicaciones) {
+                            tablaUbicaciones.ajax.reload();
+                        }
+                    } else {
+                        Swal.fire('Error', res.error || 'Error al guardar', 'error');
+                    }
+                }, 'json');
+            });
+
+            // Guardar nueva ubicación
+            $('#btnGuardarNuevaUbicacion').click(function() {
+                var form = document.getElementById('formNuevaUbicacion');
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return false;
+                }
+
+                var btn = $(this);
+                var originalText = btn.html();
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Creando...');
+
+                var datos = {
+                    accion: 'crear_ubicacion_sucursal',
+                    empresa_id: empresa_idx,
+                    sucursal_id: $('#sucursal_id').val(),
+                    seccion: $('#seccion').val(),
+                    estanteria: $('#estanteria').val(),
+                    estante: $('#estante').val(),
+                    posicion: $('#posicion').val(),
+                    descripcion: $('#descripcion_ubicacion').val()
+                };
+
+                $.post('productos_ajax.php', datos, function(res) {
+                    btn.prop('disabled', false).html(originalText);
+                    
+                    if (res.resultado) {
+                        Swal.fire({
+                            title: '¡Creada!',
+                            html: 'Ubicación creada correctamente. ¿Desea asignarla a este producto?',
+                            icon: 'success',
+                            showCancelButton: true,
+                            confirmButtonColor: '#28a745',
+                            cancelButtonColor: '#6c757d',
+                            confirmButtonText: 'Sí, asignar',
+                            cancelButtonText: 'No, solo crear'
+                        }).then((result) => {
+                            // Cerrar modal de creación
+                            var modalCreacion = bootstrap.Modal.getInstance(document.getElementById('modalNuevaUbicacion'));
+                            modalCreacion.hide();
+                            
+                            if (result.isConfirmed) {
+                                // Asignar la nueva ubicación al producto
+                                $.post('productos_ajax.php', {
+                                    accion: 'agregar_ubicacion_producto',
+                                    producto_id: $('#nueva_ubicacion_producto_id').val(),
+                                    sucursal_ubicacion_id: res.sucursal_ubicacion_id,
+                                    empresa_idx: empresa_idx
+                                }, function(res2) {
+                                    if (res2.resultado) {
+                                        Swal.fire('¡Asignada!', 'Ubicación creada y asignada correctamente', 'success');
+                                        if (tablaUbicaciones) {
+                                            tablaUbicaciones.ajax.reload();
+                                        }
+                                    } else {
+                                        Swal.fire('¡Creada!', 'Ubicación creada correctamente', 'success');
+                                    }
+                                }, 'json');
+                            }
+                        });
+                    } else {
+                        Swal.fire('Error', res.error || 'Error al crear la ubicación', 'error');
+                    }
+                }, 'json');
+            });     
             // Cargar modelos por marca
             function cargarModelos(marcaId, targetId = '#modelo_id') {
                 $.get('productos_ajax.php', {
@@ -921,120 +1461,158 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     pageLength: 50,
                     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
                     columns: [
-                        { 
-                            data: 'producto_id', 
-                            className: 'text-center fw-bold',
-                            width: '80px'
-                        },
-                        { 
-                            data: 'producto_codigo', 
-                            className: 'text-center fw-medium',
-                            width: '100px',
-                            render: function (data, type, row) {
-                                return type === 'export' ? data : `<div class="fw-bold">${data}</div>`;
+                    { 
+                        data: 'producto_id', 
+                        className: 'text-center fw-bold',
+                        width: '80px'
+                    },
+                    { 
+                        data: 'producto_codigo', 
+                        className: 'text-center fw-medium',
+                        width: '100px',
+                        render: function (data, type, row) {
+                            return type === 'export' ? data : `<div class="fw-bold">${data}</div>`;
+                        }
+                    },
+                    { 
+                        data: 'producto_nombre',
+                        width: '200px',
+                        render: function (data, type, row) {
+                            if (type === 'export') return data;
+                            var desc = row.producto_descripcion ? 
+                                `<small class="text-muted d-block">${row.producto_descripcion.substring(0, 40)}${row.producto_descripcion.length > 40 ? '...' : ''}</small>` : '';
+                            return `<div class="fw-medium">${data}</div>${desc}`;
+                        }
+                    },
+                    { 
+                        data: 'marcas_compatibles',
+                        width: '150px',
+                        render: function (data, type, row) {
+                            if (type === 'export') return data || '';
+                            if (!data || data === '') return '<span class="text-muted">-</span>';
+                            return `<span class="badge badge-compatibilidad bg-info text-white" title="${data}">${data}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'modelos_compatibles',
+                        width: '150px',
+                        render: function (data, type, row) {
+                            if (type === 'export') return data || '';
+                            if (!data || data === '') return '<span class="text-muted">-</span>';
+                            return `<span class="badge badge-compatibilidad bg-success text-white" title="${data}">${data}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'submodelos_compatibles',
+                        width: '150px',
+                        render: function (data, type, row) {
+                            if (type === 'export') return data || '';
+                            if (!data || data === '') return '<span class="text-muted">-</span>';
+                            return `<span class="badge badge-compatibilidad bg-warning text-dark" title="${data}">${data}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'ubicaciones_info',  // Nueva columna de ubicaciones
+                        width: '200px',
+                        render: function (data, type, row) {
+                            if (type === 'export') return data || '';
+                            if (!data || data === '') return '<span class="text-muted">-</span>';
+                            
+                            // Limitar a 3 ubicaciones para no hacer muy larga la celda
+                            var ubicaciones = data.split('; ');
+                            var mostrar = ubicaciones.slice(0, 3);
+                            var html = '';
+                            
+                            mostrar.forEach(function(ubicacion) {
+                                html += `<span class="badge bg-secondary mb-1 d-block text-start" style="font-size: 0.7rem;">${ubicacion}</span>`;
+                            });
+                            
+                            if (ubicaciones.length > 3) {
+                                html += `<span class="badge bg-light text-dark d-block" style="font-size: 0.7rem;">+${ubicaciones.length - 3} más</span>`;
                             }
-                        },
-                        { 
-                            data: 'producto_nombre',
-                            width: '200px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data;
-                                var desc = row.producto_descripcion ? 
-                                    `<small class="text-muted d-block">${row.producto_descripcion.substring(0, 40)}${row.producto_descripcion.length > 40 ? '...' : ''}</small>` : '';
-                                return `<div class="fw-medium">${data}</div>${desc}`;
-                            }
-                        },
-                        { 
-                            data: 'marcas_compatibles',
-                            width: '150px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data || '';
-                                if (!data || data === '') return '<span class="text-muted">-</span>';
-                                return `<span class="badge badge-compatibilidad bg-info text-white" title="${data}">${data}</span>`;
-                            }
-                        },
-                        { 
-                            data: 'modelos_compatibles',
-                            width: '150px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data || '';
-                                if (!data || data === '') return '<span class="text-muted">-</span>';
-                                return `<span class="badge badge-compatibilidad bg-success text-white" title="${data}">${data}</span>`;
-                            }
-                        },
-                        { 
-                            data: 'submodelos_compatibles',
-                            width: '150px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data || '';
-                                if (!data || data === '') return '<span class="text-muted">-</span>';
-                                return `<span class="badge badge-compatibilidad bg-warning text-dark" title="${data}">${data}</span>`;
-                            }
-                        },
-                        { 
-                            data: 'unidad_medida_info',
-                            width: '80px',
-                            className: 'text-center',
-                            render: function (data, type, row) {
-                                return type === 'export' ? (data ? data.unidad_abreviatura : '') : 
-                                       (data ? `<span class="badge bg-secondary">${data.unidad_abreviatura}</span>` : '-');
-                            }
-                        },
-                        { 
-                            data: 'estado_info', 
-                            className: 'text-center',
-                            width: '100px',
-                            render: function (data, type, row) {
-                                if (!data || !data.estado_registro) {
-                                    return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
-                                }
-
-                                var estado = data.estado_registro;
-                                var codigo = data.codigo_estandar || 'DESCONOCIDO';
-
-                                if (type === 'export') return estado;
-
-                                var claseBadge = 'badge-estado-inactivo';
-                                if (codigo === 'ACTIVO') claseBadge = 'badge-estado-activo';
-                                else if (codigo === 'SUSPENDIDO') claseBadge = 'badge-estado-suspendido';
-                                else if (codigo === 'BLOQUEADO') claseBadge = 'badge-estado-bloqueado';
-
-                                return `<span class="badge ${claseBadge}">${estado}</span>`;
-                            }
-                        },
-                        { 
-                            data: 'botones', 
-                            orderable: false, 
-                            searchable: false,
-                            className: "text-center",
-                            width: '120px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return '';
-                                
-                                var botones = '';
-                                if (data && data.length > 0) {
-                                    data.forEach(boton => {
-                                        var claseBoton = 'btn-xs me-1 ';
-                                        var nombreAccion = boton.accion_js || boton.nombre_funcion.toLowerCase();
-                                        
-                                        if (nombreAccion === 'editar') {
-                                            claseBoton += 'btn-outline-primary';
-                                            botones += `<button type="button" class="btn ${claseBoton} btn-accion" 
-                                                   title="${boton.descripcion || 'Editar'}" 
-                                                   data-id="${row.producto_id}" 
-                                                   data-accion="${boton.accion_js}"
-                                                   data-confirmable="${boton.es_confirmable || 0}"
-                                                   data-producto="${row.producto_nombre}">
-                                                <i class="${boton.icono_clase || 'fas fa-edit'}"></i>
-                                            </button>`;
-                                        }
-                                    });
-                                }
-                                
-                                return botones || '<span class="text-muted small">-</span>';
+                            
+                            return html;
+                        }
+                    },
+                    { 
+                        data: 'imagen_principal',  // Nueva columna de imagen
+                        width: '80px',
+                        className: 'text-center',
+                        orderable: false,
+                        searchable: false,
+                        render: function (data, type, row) {
+                            if (type === 'export') return data ? 'Sí' : 'No';
+                            
+                            if (data) {
+                                var rutaImagen = '/' + data;
+                                return `<img src="${rutaImagen}" alt="Imagen principal" 
+                                        class="img-thumbnail rounded-circle" 
+                                        style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
+                                        onclick="mostrarImagenGrande('${rutaImagen}', '${row.producto_nombre}')"
+                                        title="Click para ver imagen">`;
+                            } else {
+                                return `<div class="text-center text-muted">
+                                        <i class="fas fa-image fa-lg"></i>
+                                        <div class="small">Sin imagen</div>
+                                        </div>`;
                             }
                         }
-                    ],
+                    },
+                    { 
+                        data: 'estado_info', 
+                        className: 'text-center',
+                        width: '100px',
+                        render: function (data, type, row) {
+                            if (!data || !data.estado_registro) {
+                                return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
+                            }
+
+                            var estado = data.estado_registro;
+                            var codigo = data.codigo_estandar || 'DESCONOCIDO';
+
+                            if (type === 'export') return estado;
+
+                            var claseBadge = 'badge-estado-inactivo';
+                            if (codigo === 'ACTIVO') claseBadge = 'badge-estado-activo';
+                            else if (codigo === 'SUSPENDIDO') claseBadge = 'badge-estado-suspendido';
+                            else if (codigo === 'BLOQUEADO') claseBadge = 'badge-estado-bloqueado';
+
+                            return `<span class="badge ${claseBadge}">${estado}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'botones', 
+                        orderable: false, 
+                        searchable: false,
+                        className: "text-center",
+                        width: '120px',
+                        render: function (data, type, row) {
+                            if (type === 'export') return '';
+                            
+                            var botones = '';
+                            if (data && data.length > 0) {
+                                data.forEach(boton => {
+                                    var claseBoton = 'btn-xs me-1 ';
+                                    var nombreAccion = boton.accion_js || boton.nombre_funcion.toLowerCase();
+                                    
+                                    if (nombreAccion === 'editar') {
+                                        claseBoton += 'btn-outline-primary';
+                                        botones += `<button type="button" class="btn ${claseBoton} btn-accion" 
+                                            title="${boton.descripcion || 'Editar'}" 
+                                            data-id="${row.producto_id}" 
+                                            data-accion="${boton.accion_js}"
+                                            data-confirmable="${boton.es_confirmable || 0}"
+                                            data-producto="${row.producto_nombre}">
+                                            <i class="${boton.icono_clase || 'fas fa-edit'}"></i>
+                                        </button>`;
+                                    }
+                                });
+                            }
+                            
+                            return botones || '<span class="text-muted small">-</span>';
+                        }
+                    }
+                ],
                     language: {
                         url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
                     },
@@ -1864,6 +2442,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         
                         // Cargar imágenes
                         cargarImagenesProducto(productoId);
+                        // Cargar ubicaciones
+                        cargarUbicacionesProducto(productoId);
                         
                         var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
                         modal.show();
@@ -1897,6 +2477,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 // Limpiar galería de imágenes
                 $('#galeriaImagenes').empty();
                 $('#sinImagenes').show();
+                // Limpiar tabla de ubicaciones
+                if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
+                    $('#tablaUbicaciones').DataTable().destroy();
+                    $('#tablaUbicaciones tbody').empty();
+                }
             }
 
             // Validación del formulario de producto
@@ -2041,6 +2626,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarCategoriasProducto();
             cargarUnidadesMedida();
             cargarMarcasFiltro();
+            cargarSucursales(); // ← Agrega esta línea
 
             // Agregar tooltips
             $('[title]').tooltip({
