@@ -1071,8 +1071,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         { 
                             data: null,
                             render: function(data) {
-                                var estante = data.estante || '';
-                                var posicion = data.posicion || '';
+                                var estante = data.estante || ' - ';
+                                var posicion = data.posicion || ' - ';
                                 return `${estante} - ${posicion}`;
                             }
                         },
