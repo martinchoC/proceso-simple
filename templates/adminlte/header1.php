@@ -58,22 +58,18 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
   <link rel="stylesheet" href="<?= asset_local('css/jsvectormap.min.css') ?>" />
 </head>
 <style>
-  /* Permite que el sidebar crezca */
   .sidebar-wrapper {
     width: auto !important;
     min-width: 250px;
     white-space: nowrap;
     overflow-x: visible;
-    /* asegura que no se corte el contenido */
   }
 
-  /* Asegura que los textos ocupen solo lo necesario */
   .sidebar-wrapper .nav-link p {
     display: inline-block;
     width: auto;
   }
 
-  /* Ocultar skip links de accesibilidad inyectados por adminlte.js */
   .skip-link {
     position: absolute !important;
     top: -100px !important;
@@ -93,7 +89,6 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
     outline: none !important;
   }
 
-  /* Ocultar el contenedor de skip links si es necesario */
   .skip-links {
     position: absolute !important;
     z-index: 10000 !important;
@@ -128,7 +123,7 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
 
           $res_modulos = mysqli_query($conexion, $sql_modulos);
           $empresas_modulos = [];
-          $nombre_empresa_actual = "Multigestion";
+          $nombre_empresa_actual = "Seleccionar Empresa";
           $nombre_modulo_actual = "";
 
           while ($row = mysqli_fetch_assoc($res_modulos)) {
@@ -157,44 +152,41 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
               ];
             }
           }
-
-          if (!empty($nombre_modulo_actual)) {
-            $titulo_display = htmlspecialchars($nombre_modulo_actual) . " - ";
-          }
-          $titulo_display .= htmlspecialchars($nombre_empresa_actual);
-
           ?>
+
           <li class="nav-item d-none d-md-block">
             <span class="navbar-text fw-bold fs-5 ms-3 text-primary">
-              <?= $titulo_display ?>
+              <?= htmlspecialchars($nombre_empresa_actual) ?>
             </span>
           </li>
         </ul>
 
         <div class="ms-auto d-flex align-items-center">
+
           <div class="input-group input-group-sm me-3" style="width: 250px;">
             <span class="input-group-text bg-primary text-white border-primary">
-              <i class="bi bi-grid-3x3-gap-fill"></i>
+              <i class="bi bi-building"></i>
             </span>
             <select class="form-select border-primary" onchange="if(this.value) window.location.href=this.value;">
-              <option value="">Seleccionar Módulo...</option>
+              <option value="">Cambiar Empresa...</option>
               <?php foreach ($empresas_modulos as $eid => $data): ?>
-                <optgroup label="<?= htmlspecialchars($data['nombre']) ?>">
-                  <?php foreach ($data['modulos'] as $mod): ?>
-                    <?php
-                    $target_url = "../" . $mod['url'] . "?empresa_id=" . $eid . "&modulo_id=" . $mod['id'];
-                    $selected = ($eid == $current_empresa_id && $mod['id'] == $current_modulo_id) ? 'selected' : '';
-                    ?>
-                    <option value="<?= $target_url ?>" <?= $selected ?>>
-                      <?= htmlspecialchars($mod['nombre']) ?>
-                    </option>
-                  <?php endforeach; ?>
-                </optgroup>
+                <?php
+                if (empty($data['modulos']))
+                  continue;
+
+                $primer_modulo = $data['modulos'][0];
+                $url_destino = "../" . $primer_modulo['url'] . "?empresa_id=" . $eid . "&modulo_id=" . $primer_modulo['id'];
+
+                $selected = ($eid == $current_empresa_id) ? 'selected' : '';
+                ?>
+                <option value="<?= $url_destino ?>" <?= $selected ?>>
+                  <?= htmlspecialchars($data['nombre']) ?>
+                </option>
               <?php endforeach; ?>
             </select>
           </div>
-          <ul class="navbar-nav ms-auto">
 
+          <ul class="navbar-nav ms-auto">
             <li class="nav-item dropdown">
               <a class="nav-link" data-bs-toggle="dropdown" href="#">
                 <i class="bi bi-bell-fill"></i>
@@ -202,21 +194,6 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
               </a>
               <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
                 <span class="dropdown-item dropdown-header">15 Notifications</span>
-                <div class="dropdown-divider"></div>
-                <a href="#" class="dropdown-item">
-                  <i class="bi bi-envelope me-2"></i> 4 new messages
-                  <span class="float-end text-secondary fs-7">3 mins</span>
-                </a>
-                <div class="dropdown-divider"></div>
-                <a href="#" class="dropdown-item">
-                  <i class="bi bi-people-fill me-2"></i> 8 friend requests
-                  <span class="float-end text-secondary fs-7">12 hours</span>
-                </a>
-                <div class="dropdown-divider"></div>
-                <a href="#" class="dropdown-item">
-                  <i class="bi bi-file-earmark-fill me-2"></i> 3 new reports
-                  <span class="float-end text-secondary fs-7">2 days</span>
-                </a>
                 <div class="dropdown-divider"></div>
                 <a href="#" class="dropdown-item dropdown-footer"> See All Notifications </a>
               </div>
@@ -227,144 +204,147 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
                 <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display: none"></i>
               </a>
             </li>
+
             <li class="nav-item dropdown user-menu">
               <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
                 <img src="<?= asset('img/user2-160x160.jpg') ?>" class="user-image rounded-circle shadow"
                   alt="User Image" />
-                <span class="d-none d-md-inline">Alexander Pierce</span>
+                <span class="d-none d-md-inline">Usuario</span>
               </a>
               <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
                 <li class="user-header text-bg-primary">
                   <img src="<?= asset('img/user2-160x160.jpg') ?>" class="rounded-circle shadow" alt="User Image" />
-                  <p>
-                    Alexander Pierce - Web Developer
-                    <small>Member since Nov. 2023</small>
-                  </p>
-                </li>
-                <li class="user-body">
-                  <div class="row">
-                    <div class="col-4 text-center"><a href="#">Followers</a></div>
-                    <div class="col-4 text-center"><a href="#">Sales</a></div>
-                    <div class="col-4 text-center"><a href="#">Friends</a></div>
-                  </div>
+                  <p>Usuario Sistema</p>
                 </li>
                 <li class="user-footer">
-                  <a href="#" class="btn btn-default btn-flat">Profile</a>
-                  <a href="#" class="btn btn-default btn-flat float-end">Sign out</a>
+                  <a href="#" class="btn btn-default btn-flat">Perfil</a>
+                  <a href="#" class="btn btn-default btn-flat float-end">Salir</a>
                 </li>
               </ul>
             </li>
           </ul>
-        </div> <!-- End ms-auto -->
-      </div> <!-- End container-fluid -->
+        </div>
+      </div>
     </nav>
+
     <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
       <div class="sidebar-brand">
-        <a href="./index.html" class="brand-link">
-          <img src="<?= asset('img/developsam_logo.png') ?>" alt="AdminLTE Logo"
-            class="brand-image opacity-75 shadow" />
+        <a href="#" class="brand-link">
+          <img src="<?= asset('img/developsam_logo.png') ?>" alt="Logo" class="brand-image opacity-75 shadow" />
           <span class="brand-text fw-light">Multigestion</span>
         </a>
       </div>
+
       <div class="sidebar-info px-3 py-2 border-bottom border-secondary text-center"
         style="background: rgba(0,0,0,0.1);">
-        <div class="text-white opacity-75 small fw-bold text-uppercase"
+
+        <div class="text-white opacity-75 small fw-bold text-uppercase mb-2"
           style="font-size: 0.75rem; letter-spacing: 0.5px;">
           <?= htmlspecialchars($nombre_empresa_actual) ?>
         </div>
-        <div class="text-primary small fw-semibold" style="font-size: 0.85rem;">
-          <!-- <i class="bi bi-box-seam me-1"></i> -->
-          <?= htmlspecialchars($nombre_modulo_actual) ?>
+
+        <div class="text-primary small fw-semibold">
+          <select class="form-select form-select-sm bg-dark text-light border-secondary" style="font-size: 0.8rem;"
+            onchange="if(this.value) window.location.href=this.value;">
+            <?php
+            if (isset($empresas_modulos[$current_empresa_id]) && !empty($empresas_modulos[$current_empresa_id]['modulos'])):
+              foreach ($empresas_modulos[$current_empresa_id]['modulos'] as $mod):
+                $url_mod = "../" . $mod['url'] . "?empresa_id=" . $current_empresa_id . "&modulo_id=" . $mod['id'];
+                $selected = ($mod['id'] == $current_modulo_id) ? 'selected' : '';
+                ?>
+                <option value="<?= $url_mod ?>" <?= $selected ?>>
+                  <?= htmlspecialchars($mod['nombre']) ?>
+                </option>
+                <?php
+              endforeach;
+            else:
+              ?>
+              <option value="">Sin módulos</option>
+            <?php endif; ?>
+          </select>
         </div>
       </div>
+
       <div class="sidebar-wrapper">
         <nav class="mt-2">
           <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation"
             aria-label="Main navigation" data-accordion="false" id="navigation">
 
             <?php
-            // Obtener la URL actual
             $current_url_full = $_SERVER['REQUEST_URI'];
-            $current_url_path = parse_url($current_url_full, PHP_URL_PATH);
-            $current_url_base = basename($current_url_path);
 
-            $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase FROM conf__paginas 
-              LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
-              WHERE conf__paginas.modulo_id=$modudo_idx AND conf__paginas.tabla_estado_registro_id=1 AND conf__paginas.padre_id=0 
-              ORDER BY conf__paginas.orden";
-            $res = mysqli_query($conexion, $sql);
-
-            while ($row = mysqli_fetch_array($res)) {
-              $submenu_sql = "SELECT conf__paginas.*, conf__iconos.icono_clase
-                  FROM conf__paginas 
+            if ($modudo_idx) {
+              $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase FROM conf__paginas 
                   LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
-                  WHERE conf__paginas.padre_id = " . $row['pagina_id'] . " AND conf__paginas.tabla_estado_registro_id = 1 
+                  WHERE conf__paginas.modulo_id=$modudo_idx AND conf__paginas.tabla_estado_registro_id=1 AND conf__paginas.padre_id=0 
                   ORDER BY conf__paginas.orden";
-              $submenu_res = mysqli_query($conexion, $submenu_sql);
-              $has_submenu = mysqli_num_rows($submenu_res) > 0;
+              $res = mysqli_query($conexion, $sql);
 
-              $is_active = false;
-              $submenu_active = false;
+              while ($row = mysqli_fetch_array($res)) {
+                $submenu_sql = "SELECT conf__paginas.*, conf__iconos.icono_clase
+                      FROM conf__paginas 
+                      LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
+                      WHERE conf__paginas.padre_id = " . $row['pagina_id'] . " AND conf__paginas.tabla_estado_registro_id = 1 
+                      ORDER BY conf__paginas.orden";
+                $submenu_res = mysqli_query($conexion, $submenu_sql);
+                $has_submenu = mysqli_num_rows($submenu_res) > 0;
 
-              if ($has_submenu) {
-                mysqli_data_seek($submenu_res, 0);
-                while ($submenu_row = mysqli_fetch_array($submenu_res)) {
-                  $submenu_url_clean = trim($submenu_row['url'], './');
-                  if (strpos($current_url_full, $submenu_url_clean) !== false) {
-                    $is_active = true;
-                    $submenu_active = true;
-                    break;
+                $is_active = false;
+                if ($has_submenu) {
+                  mysqli_data_seek($submenu_res, 0);
+                  while ($submenu_row = mysqli_fetch_array($submenu_res)) {
+                    $submenu_url_clean = trim($submenu_row['url'], './');
+                    if (strpos($current_url_full, $submenu_url_clean) !== false) {
+                      $is_active = true;
+                      break;
+                    }
                   }
+                  mysqli_data_seek($submenu_res, 0);
+                } else {
+                  $menu_url_clean = trim($row['url'], './');
+                  $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
                 }
-                mysqli_data_seek($submenu_res, 0);
-              } else {
-                $menu_url_clean = trim($row['url'], './');
-                $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
-              }
-              ?>
+                ?>
 
-              <li class="nav-item <?= $is_active ? 'menu-open' : '' ?>">
-                <a href="<?= $has_submenu ? '#' : $row['url'] ?>"
-                  class="nav-link <?= $is_active && !$has_submenu ? 'active' : '' ?>">
-                  <i class="nav-icon <?= $row['icono_clase'] ?>"></i>
-                  <p>
-                    <?= $row['pagina'] ?>
-                    <?php if ($has_submenu): ?>
-                      <i class="nav-arrow bi bi-chevron-<?= $is_active ? 'down' : 'right' ?>"></i>
-                    <?php endif; ?>
-                  </p>
-                </a>
+                <li class="nav-item <?= $is_active ? 'menu-open' : '' ?>">
+                  <a href="<?= $has_submenu ? '#' : $row['url'] ?>"
+                    class="nav-link <?= $is_active && !$has_submenu ? 'active' : '' ?>">
+                    <i class="nav-icon <?= $row['icono_clase'] ?>"></i>
+                    <p>
+                      <?= $row['pagina'] ?>
+                      <?php if ($has_submenu): ?>
+                        <i class="nav-arrow bi bi-chevron-right"></i>
+                      <?php endif; ?>
+                    </p>
+                  </a>
 
-                <?php if ($has_submenu): ?>
-                  <ul class="nav nav-treeview"
-                    style="display: <?= $is_active ? 'block' : 'none'; ?>; padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
-                    <?php while ($submenu_row = mysqli_fetch_array($submenu_res)): ?>
-                      <?php
-                      $submenu_url_clean = trim($submenu_row['url'], './');
-                      $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
-                      ?>
-                      <li class="nav-item">
-                        <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?>"
-                          class="nav-link <?= $is_submenu_active ? 'active' : '' ?>" style="padding-left: 15px;">
-                          <i class="nav-icon <?= $submenu_row['icono_clase'] ?>"></i>
-                          <p><?= $submenu_row['pagina'] ?></p>
-                          <?php if ($is_submenu_active): ?>
-                            <span class="sr-only">(current)</span>
-                          <?php endif; ?>
-                        </a>
-                      </li>
-                    <?php endwhile; ?>
-                  </ul>
-                <?php endif; ?>
-              </li>
-
-            <?php } ?>
-
+                  <?php if ($has_submenu): ?>
+                    <ul class="nav nav-treeview"
+                      style="display: <?= $is_active ? 'block' : 'none'; ?>; padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
+                      <?php while ($submenu_row = mysqli_fetch_array($submenu_res)): ?>
+                        <?php
+                        $submenu_url_clean = trim($submenu_row['url'], './');
+                        $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
+                        ?>
+                        <li class="nav-item">
+                          <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?>"
+                            class="nav-link <?= $is_submenu_active ? 'active' : '' ?>" style="padding-left: 15px;">
+                            <i class="nav-icon <?= $submenu_row['icono_clase'] ?>"></i>
+                            <p><?= $submenu_row['pagina'] ?></p>
+                            <?php if ($is_submenu_active): ?>
+                              <span class="sr-only">(current)</span>
+                            <?php endif; ?>
+                          </a>
+                        </li>
+                      <?php endwhile; ?>
+                    </ul>
+                  <?php endif; ?>
+                </li>
+              <?php }
+            }
+            ?>
           </ul>
         </nav>
-
-
-
       </div>
     </aside>
     <main class="app-main">
