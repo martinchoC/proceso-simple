@@ -167,14 +167,14 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             GROUP_CONCAT(DISTINCT s.submodelo_nombre ORDER BY s.submodelo_nombre SEPARATOR ', ') as submodelos_compatibles,
             GROUP_CONCAT(DISTINCT CONCAT(su.sucursal_nombre, ': ', s_ubic.seccion, ' ', s_ubic.estanteria, '-', s_ubic.estante, s_ubic.posicion) 
                ORDER BY su.sucursal_nombre, s_ubic.seccion, s_ubic.estanteria, s_ubic.estante, s_ubic.posicion SEPARATOR '; ') as ubicaciones_info,
-            (SELECT ci.imagen_ruta 
+            (SELECT ci.imagen_id  -- CAMBIO IMPORTANTE: obtener imagen_id en lugar de ruta
              FROM gestion__productos_imagenes pi
              INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
              WHERE pi.producto_id = p.producto_id 
              AND pi.empresa_id = p.empresa_id
              AND pi.es_principal = 1
              AND pi.tabla_estado_registro_id = 1
-             LIMIT 1) as imagen_principal
+             LIMIT 1) as imagen_id_principal  -- CAMBIO IMPORTANTE: cambiar nombre del campo
         FROM gestion__productos p
         LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
         LEFT JOIN conf__colores c ON er.color_id = c.color_id
@@ -186,7 +186,6 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
         LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
         LEFT JOIN gestion__productos_ubicaciones pu ON p.producto_id = pu.producto_id 
-             
             AND pu.tabla_estado_registro_id = 1
         LEFT JOIN gestion__sucursales_ubicaciones s_ubic ON pu.sucursal_ubicacion_id = s_ubic.sucursal_ubicacion_id
         LEFT JOIN gestion__sucursales su ON s_ubic.sucursal_id = su.sucursal_id
@@ -233,6 +232,11 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         $fila['marcas_compatibles'] = limitarTexto($fila['marcas_compatibles'] ?? '', 30);
         $fila['modelos_compatibles'] = limitarTexto($fila['modelos_compatibles'] ?? '', 30);
         $fila['submodelos_compatibles'] = limitarTexto($fila['submodelos_compatibles'] ?? '', 30);
+
+        // Agregar URL para la imagen principal si existe
+        if (!empty($fila['imagen_id_principal'])) {
+            $fila['imagen_url_principal'] = 'get_imagen.php?id=' . $fila['imagen_id_principal'];
+        }
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $productos[] = $fila;
@@ -369,7 +373,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
     return $info;
 }
 
-// ✅ Obtener botones disponibles según el estado actual
+// ✅ Obtener botones disponibles según el estado actual (CORREGIDA)
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
     $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
@@ -377,6 +381,14 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
+            // Asegurar que la función esté activa
+            if ($funcion['tabla_estado_registro_id'] != 1) {
+                continue;
+            }
+            
+            // Determinar si es confirmable (solo si cambia el estado)
+            $es_confirmable = ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0;
+            
             $botones[] = [
                 'nombre_funcion' => $funcion['nombre_funcion'],
                 'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
@@ -386,7 +398,7 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
                 'text_clase' => $funcion['text_clase'] ?? '',
                 'descripcion' => $funcion['descripcion'],
                 'estado_destino_id' => $funcion['tabla_estado_registro_destino_id'],
-                'es_confirmable' => ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0
+                'es_confirmable' => $es_confirmable
             ];
         }
     }
@@ -1146,17 +1158,19 @@ function eliminarCompatibilidad($conexion, $compatibilidad_id, $empresa_idx)
     }
 }
 
-// ✅ Obtener imágenes de un producto
+// ✅ Obtener imágenes de un producto (modificada para manejar BLOB)
 function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
 {
     $producto_id = intval($producto_id);
     
     $sql = "SELECT 
                 pi.*,
+                ci.imagen_id,
                 ci.imagen_nombre,
                 ci.imagen_ruta,
                 ci.imagen_tipo,
-                ci.imagen_tamanio
+                ci.imagen_tamanio,
+                ci.imagen_data
             FROM gestion__productos_imagenes pi
             INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
             WHERE pi.producto_id = ?
@@ -1175,6 +1189,8 @@ function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
 
     $imagenes = [];
     while ($fila = mysqli_fetch_assoc($result)) {
+        // Agregar URL para obtener la imagen
+        $fila['imagen_url'] = 'get_imagen.php?id=' . $fila['imagen_id'];
         $imagenes[] = $fila;
     }
 
@@ -1182,17 +1198,19 @@ function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
     return $imagenes;
 }
 
-// ✅ Obtener imagen por ID
+// ✅ Obtener imagen por ID (modificada para BLOB)
 function obtenerImagenPorId($conexion, $imagen_id, $empresa_idx)
 {
     $imagen_id = intval($imagen_id);
     
     $sql = "SELECT 
                 pi.*,
+                ci.imagen_id,
                 ci.imagen_nombre,
                 ci.imagen_ruta,
                 ci.imagen_tipo,
-                ci.imagen_tamanio
+                ci.imagen_tamanio,
+                ci.imagen_data
             FROM gestion__productos_imagenes pi
             INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
             WHERE pi.producto_imagen_id = ?
@@ -1208,11 +1226,42 @@ function obtenerImagenPorId($conexion, $imagen_id, $empresa_idx)
     $result = mysqli_stmt_get_result($stmt);
     $imagen = mysqli_fetch_assoc($result);
 
+    if ($imagen && !empty($imagen['imagen_id'])) {
+        // Agregar URL para obtener la imagen
+        $imagen['imagen_url'] = 'get_imagen.php?id=' . $imagen['imagen_id'];
+    }
+
     mysqli_stmt_close($stmt);
     return $imagen;
 }
 
-// ✅ Subir imagen y crear registro
+// ✅ Eliminar imagen (simplificada ya que no hay archivo físico)
+function eliminarImagenProducto($conexion, $producto_imagen_id, $empresa_idx)
+{
+    $producto_imagen_id = intval($producto_imagen_id);
+    
+    // Cambiar estado a inactivo
+    $sql_update = "UPDATE gestion__productos_imagenes 
+                   SET tabla_estado_registro_id = 2 
+                   WHERE producto_imagen_id = ? AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true];
+    } else {
+        return ['success' => false, 'error' => 'Error al eliminar la imagen'];
+    }
+}
+
+// ✅ Subir imagen y crear registro (con BLOB) - MODIFICADA
 function subirImagenProducto($conexion, $data)
 {
     $producto_id = intval($data['producto_id'] ?? 0);
@@ -1223,15 +1272,15 @@ function subirImagenProducto($conexion, $data)
     
     // Información del archivo
     $imagen_nombre = mysqli_real_escape_string($conexion, trim($data['imagen_nombre'] ?? ''));
-    $imagen_ruta = mysqli_real_escape_string($conexion, trim($data['imagen_ruta'] ?? ''));
     $imagen_tipo = mysqli_real_escape_string($conexion, trim($data['imagen_tipo'] ?? ''));
     $imagen_tamanio = intval($data['imagen_tamanio'] ?? 0);
+    $imagen_data = $data['imagen_data'] ?? null;
 
     if ($producto_id == 0) {
         return ['resultado' => false, 'error' => 'Producto no válido'];
     }
 
-    if (empty($imagen_nombre) || empty($imagen_ruta)) {
+    if (empty($imagen_nombre) || empty($imagen_data)) {
         return ['resultado' => false, 'error' => 'Información de imagen incompleta'];
     }
 
@@ -1248,17 +1297,28 @@ function subirImagenProducto($conexion, $data)
         }
     }
 
-    // Insertar en conf__imagenes
+    // Insertar en conf__imagenes con BLOB
     $sql_imagen = "INSERT INTO conf__imagenes 
-                   (imagen_nombre, imagen_ruta, imagen_tipo, imagen_tamanio, tabla_estado_registro_id) 
-                   VALUES (?, ?, ?, ?, 1)";
+                   (imagen_nombre, imagen_ruta, imagen_tipo, imagen_tamanio, imagen_data, tabla_estado_registro_id) 
+                   VALUES (?, ?, ?, ?, ?, 1)";
 
     $stmt = mysqli_prepare($conexion, $sql_imagen);
     if (!$stmt) {
         return ['resultado' => false, 'error' => 'Error al insertar imagen'];
     }
 
-    mysqli_stmt_bind_param($stmt, "sssi", $imagen_nombre, $imagen_ruta, $imagen_tipo, $imagen_tamanio);
+    // Generar una ruta lógica para referencia
+    $ruta_logica = 'productos/' . $producto_id . '/' . time() . '_' . $imagen_nombre;
+    
+    // Usar bind_param para BLOB
+    mysqli_stmt_bind_param($stmt, "sssib", 
+        $imagen_nombre, 
+        $ruta_logica, 
+        $imagen_tipo, 
+        $imagen_tamanio, 
+        $imagen_data
+    );
+    
     $success = mysqli_stmt_execute($stmt);
     
     if (!$success) {
@@ -1287,13 +1347,20 @@ function subirImagenProducto($conexion, $data)
         return ['resultado' => false, 'error' => 'Error al vincular imagen al producto'];
     }
 
-    mysqli_stmt_bind_param($stmt, "iiisii", $producto_id, $empresa_id, $nueva_imagen_id, $descripcion, $es_principal, $orden);
+    mysqli_stmt_bind_param($stmt, "iiisii", 
+        $producto_id, $empresa_id, $nueva_imagen_id, $descripcion, $es_principal, $orden
+    );
     $success = mysqli_stmt_execute($stmt);
     
     if ($success) {
         $producto_imagen_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
-        return ['resultado' => true, 'producto_imagen_id' => $producto_imagen_id, 'imagen_id' => $nueva_imagen_id];
+        return [
+            'resultado' => true, 
+            'producto_imagen_id' => $producto_imagen_id, 
+            'imagen_id' => $nueva_imagen_id,
+            'imagen_url' => 'get_imagen.php?id=' . $nueva_imagen_id
+        ];
     } else {
         mysqli_stmt_close($stmt);
         // Revertir la inserción en conf__imagenes
@@ -1368,58 +1435,6 @@ function actualizarImagenProducto($conexion, $producto_imagen_id, $data, $empres
         return ['resultado' => true];
     } else {
         return ['resultado' => false, 'error' => 'Error al actualizar la imagen: ' . mysqli_error($conexion)];
-    }
-}
-
-// ✅ Eliminar imagen (cambiar estado a inactivo y eliminar archivo físico)
-function eliminarImagenProducto($conexion, $producto_imagen_id, $empresa_idx)
-{
-    $producto_imagen_id = intval($producto_imagen_id);
-    
-    // Primero obtener información de la imagen para eliminar el archivo físico
-    $sql_select = "SELECT ci.imagen_ruta 
-                   FROM gestion__productos_imagenes pi
-                   INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
-                   WHERE pi.producto_imagen_id = ? AND pi.empresa_id = ?";
-    
-    $stmt = mysqli_prepare($conexion, $sql_select);
-    if (!$stmt) {
-        return ['success' => false, 'error' => 'Error en la consulta'];
-    }
-    
-    mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $imagen = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    
-    // Eliminar archivo físico si existe
-    if ($imagen && !empty($imagen['imagen_ruta'])) {
-        $ruta_archivo = dirname(__FILE__) . '/../' . $imagen['imagen_ruta'];
-        if (file_exists($ruta_archivo)) {
-            unlink($ruta_archivo);
-            error_log("✓ Archivo físico eliminado: " . $ruta_archivo);
-        }
-    }
-    
-    // Actualizar estado en base de datos
-    $sql_update = "UPDATE gestion__productos_imagenes 
-                   SET tabla_estado_registro_id = 2 -- Cambiar a estado inactivo
-                   WHERE producto_imagen_id = ? AND empresa_id = ?";
-    
-    $stmt = mysqli_prepare($conexion, $sql_update);
-    if (!$stmt) {
-        return ['success' => false, 'error' => 'Error en la consulta'];
-    }
-    
-    mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
-    $success = mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
-    
-    if ($success) {
-        return ['success' => true];
-    } else {
-        return ['success' => false, 'error' => 'Error al eliminar la imagen'];
     }
 }
 

@@ -920,36 +920,36 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // ========== FUNCIONES DE CARGA DE DATOS ==========
             // Agrega esta función al inicio del script, después de las variables globales:
             // Función global para mostrar imagen en grande desde la tabla
-            window.mostrarImagenGrande = function(ruta, titulo) {
-                // Asegurar que la ruta tenga / al inicio
-                var rutaCompleta = ruta.startsWith('/') ? ruta : '/' + ruta;
-                
-                // Crear modal dinámico si no existe
-                if ($('#modalImagenTabla').length === 0) {
-                    $('body').append(`
-                        <div class="modal fade" id="modalImagenTabla" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered modal-lg">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="tituloImagenTabla">${titulo || 'Imagen del producto'}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                                    </div>
-                                    <div class="modal-body text-center">
-                                        <img id="imagenGrandeTabla" src="" alt="Imagen del producto" class="img-fluid rounded">
-                                    </div>
+            window.mostrarImagenGrande = function(url, titulo) {
+            // Asegurar que la URL sea absoluta
+            var rutaCompleta = url;
+            
+            // Crear modal dinámico si no existe
+            if ($('#modalImagenTabla').length === 0) {
+                $('body').append(`
+                    <div class="modal fade" id="modalImagenTabla" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="tituloImagenTabla">${titulo || 'Imagen del producto'}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                </div>
+                                <div class="modal-body text-center">
+                                    <img id="imagenGrandeTabla" src="" alt="Imagen del producto" class="img-fluid rounded">
                                 </div>
                             </div>
                         </div>
-                    `);
-                }
-                
-                $('#imagenGrandeTabla').attr('src', rutaCompleta);
-                $('#tituloImagenTabla').text(titulo || 'Imagen del producto');
-                
-                // Mostrar el modal
-                var modal = new bootstrap.Modal(document.getElementById('modalImagenTabla'));
-                modal.show();
-            };
+                    </div>
+                `);
+            }
+            
+            $('#imagenGrandeTabla').attr('src', rutaCompleta);
+            $('#tituloImagenTabla').text(titulo || 'Imagen del producto');
+            
+            // Mostrar el modal
+            var modal = new bootstrap.Modal(document.getElementById('modalImagenTabla'));
+            modal.show();
+        };
             // Cargar opciones de tipos de producto
             function cargarTiposProducto() {
                 $.get('productos_ajax.php', {
@@ -1535,7 +1535,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     },
                     { 
-                        data: 'imagen_principal',  // Nueva columna de imagen
+
+                        data: 'imagen_id_principal',
                         width: '80px',
                         className: 'text-center',
                         orderable: false,
@@ -1544,12 +1545,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             if (type === 'export') return data ? 'Sí' : 'No';
                             
                             if (data) {
-                                var rutaImagen = '/' + data;
+                                var rutaImagen = 'get_imagen.php?id=' + data;
                                 return `<img src="${rutaImagen}" alt="Imagen principal" 
                                         class="img-thumbnail rounded-circle" 
                                         style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
-                                        onclick="mostrarImagenGrande('${rutaImagen}', '${row.producto_nombre}')"
-                                        title="Click para ver imagen">`;
+                                        onclick="window.mostrarImagenGrande('${rutaImagen}', '${row.producto_nombre}')"
+                                        title="Click para ver imagen"
+                                        onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"50\" height=\"50\"><circle cx=\"25\" cy=\"25\" r=\"25\" fill=\"#f8f9fa\"/><text x=\"25\" y=\"28\" text-anchor=\"middle\" fill=\"#6c757d\" font-family=\"Arial\" font-size=\"10\">?</text></svg>';">
+                                        `;
                             } else {
                                 return `<div class="text-center text-muted">
                                         <i class="fas fa-image fa-lg"></i>
@@ -1557,6 +1560,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>`;
                             }
                         }
+                    
                     },
                     { 
                         data: 'estado_info', 
@@ -1594,18 +1598,29 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 data.forEach(boton => {
                                     var claseBoton = 'btn-xs me-1 ';
                                     var nombreAccion = boton.accion_js || boton.nombre_funcion.toLowerCase();
+                                    var icono = boton.icono_clase || 'fas fa-cog';
                                     
+                                    // Determinar clase de botón basado en la acción
                                     if (nombreAccion === 'editar') {
                                         claseBoton += 'btn-outline-primary';
-                                        botones += `<button type="button" class="btn ${claseBoton} btn-accion" 
-                                            title="${boton.descripcion || 'Editar'}" 
-                                            data-id="${row.producto_id}" 
-                                            data-accion="${boton.accion_js}"
-                                            data-confirmable="${boton.es_confirmable || 0}"
-                                            data-producto="${row.producto_nombre}">
-                                            <i class="${boton.icono_clase || 'fas fa-edit'}"></i>
-                                        </button>`;
+                                    } else if (nombreAccion === 'eliminar' || nombreAccion === 'baja') {
+                                        claseBoton += 'btn-outline-danger';
+                                    } else if (nombreAccion === 'alta' || nombreAccion === 'activar') {
+                                        claseBoton += 'btn-outline-success';
+                                    } else if (nombreAccion === 'suspender' || nombreAccion === 'bloquear') {
+                                        claseBoton += 'btn-outline-warning';
+                                    } else {
+                                        claseBoton += 'btn-outline-secondary';
                                     }
+                                    
+                                    botones += `<button type="button" class="btn ${claseBoton} btn-accion" 
+                                        title="${boton.descripcion || boton.nombre_funcion}" 
+                                        data-id="${row.producto_id}" 
+                                        data-accion="${boton.accion_js}"
+                                        data-confirmable="${boton.es_confirmable || 0}"
+                                        data-producto="${row.producto_nombre}">
+                                        <i class="${icono}"></i>
+                                    </button>`;
                                 });
                             }
                             
@@ -1779,7 +1794,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             // ========== FUNCIONES DE IMÁGENES ==========
-
             // Cargar imágenes de un producto
             function cargarImagenesProducto(productoId) {
                 productoActualImagenes = productoId;
@@ -1798,11 +1812,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         sinImagenes.hide();
                         
                         imagenes.forEach(function(imagen, index) {
-                            // ========== NUEVA RUTA ==========
-                            // La imagen está en: modules/gestion/imagenes/productos/nombre.jpg
-                            // Ruta web: /modules/gestion/imagenes/productos/nombre.jpg
-                            
-                            var rutaImagen = '/' + imagen.imagen_ruta; // ← Ya incluye el path completo
+                            // Usar imagen_url desde el servidor
+                            var srcImagen = imagen.imagen_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150"><rect width="150" height="150" fill="#f8f9fa"/><text x="75" y="75" text-anchor="middle" fill="#6c757d" font-family="Arial" font-size="12">Imagen</text></svg>';
                             
                             var esPrincipal = imagen.es_principal == 1;
                             var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
@@ -1811,10 +1822,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
                                     <div class="card card-imagen ${clasePrincipal} h-100">
                                         <div class="position-relative">
-                                            <img src="${rutaImagen}" class="card-img-top imagen-miniatura" 
+                                            <img src="${srcImagen}" class="card-img-top imagen-miniatura" 
                                                 alt="${imagen.descripcion || 'Imagen del producto'}"
-                                                data-bs-toggle="modal" data-bs-target="#modalVerImagen"
-                                                onclick="mostrarImagenGrande('${rutaImagen}', '${imagen.descripcion || ''}')">
+                                                onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"150\" height=\"150\"><rect width=\"150\" height=\"150\" fill=\"#f8f9fa\"/><text x=\"75\" y=\"75\" text-anchor=\"middle\" fill=\"#6c757d\" font-family=\"Arial\" font-size=\"12\">Error</text></svg>';"
+                                                onclick="mostrarImagenGrande('${srcImagen}', '${imagen.descripcion || ''}')">
                                             ${esPrincipal ? '<span class="badge bg-success badge-imagen-principal">Principal</span>' : ''}
                                         </div>
                                         <div class="card-body p-2">
@@ -1860,7 +1871,39 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 }, 'json');
             }
-
+            
+            // Función para mostrar imagen en grande desde la tabla principal
+            window.mostrarImagenGrande = function(url, titulo) {
+                // Asegurar que la URL sea correcta
+                var rutaCompleta = url;
+                
+                // Crear modal dinámico si no existe
+                if ($('#modalImagenTabla').length === 0) {
+                    $('body').append(`
+                        <div class="modal fade" id="modalImagenTabla" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="tituloImagenTabla">${titulo || 'Imagen del producto'}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                    </div>
+                                    <div class="modal-body text-center">
+                                        <img id="imagenGrandeTabla" src="" alt="Imagen del producto" class="img-fluid rounded">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                }
+                
+                $('#imagenGrandeTabla').attr('src', rutaCompleta);
+                $('#tituloImagenTabla').text(titulo || 'Imagen del producto');
+                
+                // Mostrar el modal
+                var modal = new bootstrap.Modal(document.getElementById('modalImagenTabla'));
+                modal.show();
+            };
+            
             // Función para formatear bytes a formato legible
             function formatBytes(bytes, decimals = 2) {
                 if (bytes === 0) return '0 Bytes';
@@ -2315,7 +2358,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#producto_codigo').focus();
             });
 
-            // Manejador para botones de acción dinámicos
             $(document).on('click', '.btn-accion', function () {
                 var productoId = $(this).data('id');
                 var accionJs = $(this).data('accion');
@@ -2324,25 +2366,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                 if (accionJs === 'editar') {
                     cargarProductoParaEditar(productoId);
-                } else if (accionJs === 'alta' || accionJs === 'activar') {
-                    mostrarModalAlta(productoId, producto);
-                } else if (confirmable == 1) {
-                    Swal.fire({
-                        title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
-                        html: `¿Está seguro de <strong>${accionJs}</strong> el producto <strong>"${producto}"</strong>?`,
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: `Sí, ${accionJs}`,
-                        cancelButtonText: 'Cancelar'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            ejecutarAccion(productoId, accionJs, producto);
-                        }
-                    });
                 } else {
-                    ejecutarAccion(productoId, accionJs, producto);
+                    ejecutarAccion(productoId, accionJs, producto, confirmable);
                 }
             });
 
@@ -2362,8 +2387,37 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#motivo_alta').focus();
             }
 
-            // Función para ejecutar cualquier acción del backend
-            function ejecutarAccion(productoId, accionJs, producto) {
+            // Función para ejecutar cualquier acción del backend (MEJORADA)
+            function ejecutarAccion(productoId, accionJs, producto, esConfirmable = 0) {
+                // Si requiere confirmación y no se ha mostrado el modal de alta
+                if (esConfirmable == 1 && (accionJs === 'alta' || accionJs === 'activar')) {
+                    mostrarModalAlta(productoId, producto);
+                    return;
+                }
+                
+                // Para otras acciones confirmables
+                if (esConfirmable == 1) {
+                    Swal.fire({
+                        title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
+                        html: `¿Está seguro de <strong>${accionJs}</strong> el producto <strong>"${producto}"</strong>?`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: `Sí, ${accionJs}`,
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            enviarAccionBackend(productoId, accionJs, producto);
+                        }
+                    });
+                } else {
+                    enviarAccionBackend(productoId, accionJs, producto);
+                }
+            }
+
+            // Función auxiliar para enviar la acción al backend
+            function enviarAccionBackend(productoId, accionJs, producto) {
                 $.post('productos_ajax.php', {
                     accion: 'ejecutar_accion',
                     producto_id: productoId,

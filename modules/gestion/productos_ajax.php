@@ -286,108 +286,94 @@ try {
                 break;
             }
 
-            // Validar tamaño máximo (5MB)
-            $tamanio_maximo = 5 * 1024 * 1024; // 5MB
+            // REDUCIR TAMAÑO MÁXIMO - De 5MB a 1MB
+            $tamanio_maximo = 1 * 1024 * 1024; // 1MB
             if ($archivo['size'] > $tamanio_maximo) {
-                echo json_encode(['resultado' => false, 'error' => 'El archivo es demasiado grande. Tamaño máximo: 5MB'], JSON_UNESCAPED_UNICODE);
+                echo json_encode(['resultado' => false, 'error' => 'El archivo es demasiado grande. Tamaño máximo: 1MB'], JSON_UNESCAPED_UNICODE);
                 break;
             }
 
-            // ========== NUEVA ESTRUCTURA DE DIRECTORIOS ==========
-            // Directorio: modules/gestion/imagenes/productos/
+            // OPTIMIZAR Y REDUCIR IMAGEN ANTES DE GUARDAR
+            $imagen_data = null;
+            $imagen_tipo = $archivo['type'];
+            $imagen_tamanio = $archivo['size'];
             
-            $directorio_actual = dirname(__FILE__); // modules/gestion/
-            $directorio_imagenes = $directorio_actual . '/imagenes/';
-            $directorio_productos = $directorio_actual . '/imagenes/productos/';
-            
-            // Para debugging
-            error_log("========= SUBIDA DE IMAGEN =========");
-            error_log("Directorio actual: " . $directorio_actual);
-            error_log("Directorio imágenes: " . $directorio_imagenes);
-            error_log("Directorio productos: " . $directorio_productos);
-            
-            // Crear directorios si no existen
-            if (!file_exists($directorio_imagenes)) {
-                if (!mkdir($directorio_imagenes, 0755, true)) {
-                    echo json_encode(['resultado' => false, 'error' => 'No se pudo crear el directorio de imágenes: ' . $directorio_imagenes], JSON_UNESCAPED_UNICODE);
-                    break;
-                } else {
-                    error_log("✓ Directorio imágenes creado: " . $directorio_imagenes);
+            // Reducir calidad si es JPEG
+            if (in_array($archivo['type'], ['image/jpeg', 'image/jpg'])) {
+                $imagen = imagecreatefromjpeg($archivo['tmp_name']);
+                if ($imagen !== false) {
+                    // Reducir calidad al 80%
+                    ob_start();
+                    imagejpeg($imagen, null, 80); // 80% de calidad
+                    $imagen_data = ob_get_clean();
+                    $imagen_tamanio = strlen($imagen_data);
+                    imagedestroy($imagen);
+                    
+                    // Si aún es mayor a 500KB, reducir más
+                    if ($imagen_tamanio > 500 * 1024) {
+                        // Redimensionar imagen manteniendo aspecto
+                        list($ancho_orig, $alto_orig) = getimagesize($archivo['tmp_name']);
+                        $nuevo_ancho = 800; // Ancho máximo
+                        $nuevo_alto = intval($alto_orig * ($nuevo_ancho / $ancho_orig));
+                        
+                        $imagen_nueva = imagecreatetruecolor($nuevo_ancho, $nuevo_alto);
+                        $imagen_orig = imagecreatefromjpeg($archivo['tmp_name']);
+                        imagecopyresampled($imagen_nueva, $imagen_orig, 0, 0, 0, 0, $nuevo_ancho, $nuevo_alto, $ancho_orig, $alto_orig);
+                        
+                        ob_start();
+                        imagejpeg($imagen_nueva, null, 70); // 70% de calidad
+                        $imagen_data = ob_get_clean();
+                        $imagen_tamanio = strlen($imagen_data);
+                        
+                        imagedestroy($imagen_orig);
+                        imagedestroy($imagen_nueva);
+                    }
                 }
             }
             
-            if (!file_exists($directorio_productos)) {
-                if (!mkdir($directorio_productos, 0755, true)) {
-                    echo json_encode(['resultado' => false, 'error' => 'No se pudo crear el directorio de productos: ' . $directorio_productos], JSON_UNESCAPED_UNICODE);
+            // Para otros tipos de imagen
+            if ($imagen_data === null && in_array($archivo['type'], ['image/png', 'image/gif', 'image/webp'])) {
+                // Leer el archivo sin optimizar
+                $imagen_data = file_get_contents($archivo['tmp_name']);
+                if ($imagen_data === false) {
+                    echo json_encode(['resultado' => false, 'error' => 'Error al leer el archivo'], JSON_UNESCAPED_UNICODE);
                     break;
-                } else {
-                    error_log("✓ Directorio productos creado: " . $directorio_productos);
                 }
+                $imagen_tamanio = strlen($imagen_data);
             }
             
-            // Verificar permisos de escritura
-            if (!is_writable($directorio_productos)) {
-                error_log("Directorio no tiene permisos de escritura. Intentando cambiar permisos...");
-                if (!chmod($directorio_productos, 0755)) {
-                    echo json_encode(['resultado' => false, 'error' => 'El directorio no tiene permisos de escritura: ' . $directorio_productos], JSON_UNESCAPED_UNICODE);
+            // Si no es una imagen compatible, leer como está
+            if ($imagen_data === null) {
+                $imagen_data = file_get_contents($archivo['tmp_name']);
+                if ($imagen_data === false) {
+                    echo json_encode(['resultado' => false, 'error' => 'Error al leer el archivo'], JSON_UNESCAPED_UNICODE);
                     break;
                 }
+                $imagen_tamanio = strlen($imagen_data);
             }
 
-            // Generar nombre único para el archivo
-            $extension = pathinfo($archivo['name'], PATHINFO_EXTENSION);
-            $nombre_archivo = 'prod_' . $producto_id . '_' . time() . '_' . uniqid() . '.' . strtolower($extension);
-            $ruta_completa = $directorio_productos . $nombre_archivo;
+            // Preparar datos para la base de datos
+            $data = [
+                'producto_id' => $producto_id,
+                'empresa_id' => $empresa_idx,
+                'descripcion' => $descripcion,
+                'es_principal' => $es_principal,
+                'orden' => $orden,
+                'imagen_nombre' => basename($archivo['name']),
+                'imagen_tipo' => $imagen_tipo,
+                'imagen_tamanio' => $imagen_tamanio,
+                'imagen_data' => $imagen_data
+            ];
 
-            // Para debugging
-            error_log("Nombre archivo: " . $nombre_archivo);
-            error_log("Ruta completa destino: " . $ruta_completa);
-            error_log("Ruta temporal archivo: " . $archivo['tmp_name']);
-
-            // Mover el archivo
-            if (move_uploaded_file($archivo['tmp_name'], $ruta_completa)) {
-                error_log("✓ Archivo movido exitosamente a: " . $ruta_completa);
-                error_log("✓ Archivo existe: " . (file_exists($ruta_completa) ? 'SÍ' : 'NO'));
-                error_log("✓ Tamaño: " . filesize($ruta_completa) . " bytes");
-                
-                // Preparar datos para la base de datos
-                // RUTA RELATIVA desde la raíz del sitio
-                $ruta_relativa_bd = 'modules/gestion/imagenes/productos/' . $nombre_archivo;
-                
-                error_log("Ruta para BD: " . $ruta_relativa_bd);
-                
-                $data = [
-                    'producto_id' => $producto_id,
-                    'empresa_id' => $empresa_idx,
-                    'descripcion' => $descripcion,
-                    'es_principal' => $es_principal,
-                    'orden' => $orden,
-                    'imagen_nombre' => $nombre_archivo,
-                    'imagen_ruta' => $ruta_relativa_bd,
-                    'imagen_tipo' => $archivo['type'],
-                    'imagen_tamanio' => $archivo['size']
-                ];
-
-                $resultado = subirImagenProducto($conexion, $data);
-                echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-            } else {
-                $error_info = error_get_last();
-                error_log("✗ ERROR al mover archivo:");
-                error_log(print_r($error_info, true));
-                
-                echo json_encode([
-                    'resultado' => false, 
-                    'error' => 'Error al mover el archivo subido',
-                    'debug_info' => [
-                        'error_message' => $error_info['message'] ?? 'Sin mensaje',
-                        'source' => $archivo['tmp_name'],
-                        'destination' => $ruta_completa,
-                        'upload_error' => $archivo['error'],
-                        'php_upload_max' => ini_get('upload_max_filesize'),
-                        'php_post_max' => ini_get('post_max_size')
-                    ]
-                ], JSON_UNESCAPED_UNICODE);
+            // Llamar a la función del modelo
+            $resultado = subirImagenProducto($conexion, $data);
+            
+            // Si se subió correctamente, agregar la URL de la imagen
+            if ($resultado['resultado'] && isset($resultado['imagen_id'])) {
+                $resultado['imagen_url'] = 'get_imagen.php?id=' . $resultado['imagen_id'];
             }
+            
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'actualizar_imagen_producto':
