@@ -7,7 +7,7 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
 {
     $empresa_idx = intval($empresa_idx);
     $pagina_id = intval($pagina_id);
-    
+
     // Parámetros de paginación
     $start = intval($params['start'] ?? 0);
     $length = intval($params['length'] ?? 50);
@@ -123,9 +123,9 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
                     AND pc.tabla_estado_registro_id = 1
                     AND s.submodelo_nombre LIKE ?)"
         ];
-        
+
         $where_conditions[] = "(" . implode(" OR ", $search_conditions) . ")";
-        
+
         // Agregar parámetros para todas las condiciones de búsqueda
         for ($i = 0; $i < 7; $i++) {
             $where_params[] = '%' . $search . '%';
@@ -252,7 +252,8 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
 }
 
 // ✅ Función para limitar texto largo
-function limitarTexto($texto, $limite = 30) {
+function limitarTexto($texto, $limite = 30)
+{
     if (strlen($texto) <= $limite) {
         return $texto;
     }
@@ -385,10 +386,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
             if ($funcion['tabla_estado_registro_id'] != 1) {
                 continue;
             }
-            
+
             // Determinar si es confirmable (solo si cambia el estado)
             $es_confirmable = ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0;
-            
+
             $botones[] = [
                 'nombre_funcion' => $funcion['nombre_funcion'],
                 'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
@@ -554,26 +555,26 @@ function obtenerTiposProducto($conexion, $empresa_idx)
 function obtenerCategoriasProducto($conexion, $empresa_idx)
 {
     $empresa_idx = intval($empresa_idx);
-    
+
     $sql = "SELECT producto_categoria_id, producto_categoria_nombre, producto_categoria_padre_id
             FROM gestion__productos_categorias
             WHERE (empresa_id = 0 OR empresa_id = ?)
             AND tabla_estado_registro_id = 1
             ORDER BY producto_categoria_nombre";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return [];
-    
+
     mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    
+
     $categorias = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         $categorias[] = $fila;
     }
-    
+
     mysqli_stmt_close($stmt);
     return $categorias;
 }
@@ -678,11 +679,26 @@ function agregarProducto($conexion, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issssiiisssdssi", 
-        $empresa_id, $producto_codigo, $producto_nombre, $codigo_barras, $producto_descripcion,
-        $producto_categoria_id, $producto_tipo_id, $unidad_medida_id, $lado, $material, $color,
-        $peso, $dimensiones, $garantia, $estado_inicial);
-    
+    mysqli_stmt_bind_param(
+        $stmt,
+        "issssiiisssdssi",
+        $empresa_id,
+        $producto_codigo,
+        $producto_nombre,
+        $codigo_barras,
+        $producto_descripcion,
+        $producto_categoria_id,
+        $producto_tipo_id,
+        $unidad_medida_id,
+        $lado,
+        $material,
+        $color,
+        $peso,
+        $dimensiones,
+        $garantia,
+        $estado_inicial
+    );
+
     $success = mysqli_stmt_execute($stmt);
 
     if ($success) {
@@ -788,11 +804,25 @@ function editarProducto($conexion, $id, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssssiiisssdssi", 
-        $producto_codigo, $producto_nombre, $codigo_barras, $producto_descripcion,
-        $producto_categoria_id, $producto_tipo_id, $unidad_medida_id, $lado, $material, $color,
-        $peso, $dimensiones, $garantia, $id);
-    
+    mysqli_stmt_bind_param(
+        $stmt,
+        "ssssiiisssdssi",
+        $producto_codigo,
+        $producto_nombre,
+        $codigo_barras,
+        $producto_descripcion,
+        $producto_categoria_id,
+        $producto_tipo_id,
+        $unidad_medida_id,
+        $lado,
+        $material,
+        $color,
+        $peso,
+        $dimensiones,
+        $garantia,
+        $id
+    );
+
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -876,7 +906,7 @@ function obtenerMarcas($conexion, $empresa_idx)
 function obtenerModelos($conexion, $empresa_idx, $marca_id)
 {
     $marca_id = intval($marca_id);
-    
+
     $sql = "SELECT modelo_id, modelo_nombre
             FROM gestion__modelos
             WHERE marca_id = ?
@@ -905,7 +935,7 @@ function obtenerModelos($conexion, $empresa_idx, $marca_id)
 function obtenerSubmodelos($conexion, $empresa_idx, $modelo_id)
 {
     $modelo_id = intval($modelo_id);
-    
+
     $sql = "SELECT submodelo_id, submodelo_nombre
             FROM gestion__submodelos
             WHERE modelo_id = ?
@@ -934,7 +964,7 @@ function obtenerSubmodelos($conexion, $empresa_idx, $modelo_id)
 function obtenerCompatibilidad($conexion, $producto_id, $empresa_idx)
 {
     $producto_id = intval($producto_id);
-    
+
     $sql = "SELECT 
                 c.compatibilidad_id,
                 m.marca_nombre,
@@ -976,7 +1006,7 @@ function obtenerCompatibilidad($conexion, $producto_id, $empresa_idx)
 function obtenerCompatibilidadPorId($conexion, $compatibilidad_id, $empresa_idx)
 {
     $compatibilidad_id = intval($compatibilidad_id);
-    
+
     $sql = "SELECT 
                 c.*,
                 m.marca_nombre,
@@ -1032,7 +1062,7 @@ function agregarCompatibilidad($conexion, $data)
                   AND modelo_id = ? 
                   AND (submodelo_id = ? OR (submodelo_id IS NULL AND ? IS NULL))
                   AND empresa_id = ?";
-    
+
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {
         return ['resultado' => false, 'error' => 'Error en la consulta'];
@@ -1058,9 +1088,18 @@ function agregarCompatibilidad($conexion, $data)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
 
-    mysqli_stmt_bind_param($stmt, "iiiiiii", 
-        $empresa_id, $producto_id, $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta);
-    
+    mysqli_stmt_bind_param(
+        $stmt,
+        "iiiiiii",
+        $empresa_id,
+        $producto_id,
+        $marca_id,
+        $modelo_id,
+        $submodelo_id,
+        $anio_desde,
+        $anio_hasta
+    );
+
     $success = mysqli_stmt_execute($stmt);
 
     if ($success) {
@@ -1094,7 +1133,7 @@ function editarCompatibilidad($conexion, $compatibilidad_id, $data, $empresa_idx
     // Verificar que la compatibilidad exista y pertenezca a la empresa
     $sql_check = "SELECT compatibilidad_id FROM gestion__productos_compatibilidad 
                   WHERE compatibilidad_id = ? AND empresa_id = ?";
-    
+
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {
         return ['resultado' => false, 'error' => 'Error en la consulta'];
@@ -1120,9 +1159,18 @@ function editarCompatibilidad($conexion, $compatibilidad_id, $data, $empresa_idx
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
 
-    mysqli_stmt_bind_param($stmt, "iiiiiii", 
-        $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta, $compatibilidad_id, $empresa_idx);
-    
+    mysqli_stmt_bind_param(
+        $stmt,
+        "iiiiiii",
+        $marca_id,
+        $modelo_id,
+        $submodelo_id,
+        $anio_desde,
+        $anio_hasta,
+        $compatibilidad_id,
+        $empresa_idx
+    );
+
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -1137,7 +1185,7 @@ function editarCompatibilidad($conexion, $compatibilidad_id, $data, $empresa_idx
 function eliminarCompatibilidad($conexion, $compatibilidad_id, $empresa_idx)
 {
     $compatibilidad_id = intval($compatibilidad_id);
-    
+
     $sql = "UPDATE gestion__productos_compatibilidad 
             SET tabla_estado_registro_id = 2 -- Cambiar a estado inactivo
             WHERE compatibilidad_id = ? AND empresa_id = ?";
@@ -1162,7 +1210,7 @@ function eliminarCompatibilidad($conexion, $compatibilidad_id, $empresa_idx)
 function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
 {
     $producto_id = intval($producto_id);
-    
+
     $sql = "SELECT 
                 pi.*,
                 ci.imagen_id,
@@ -1202,7 +1250,7 @@ function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
 function obtenerImagenPorId($conexion, $imagen_id, $empresa_idx)
 {
     $imagen_id = intval($imagen_id);
-    
+
     $sql = "SELECT 
                 pi.*,
                 ci.imagen_id,
@@ -1239,21 +1287,21 @@ function obtenerImagenPorId($conexion, $imagen_id, $empresa_idx)
 function eliminarImagenProducto($conexion, $producto_imagen_id, $empresa_idx)
 {
     $producto_imagen_id = intval($producto_imagen_id);
-    
+
     // Cambiar estado a inactivo
     $sql_update = "UPDATE gestion__productos_imagenes 
                    SET tabla_estado_registro_id = 2 
                    WHERE producto_imagen_id = ? AND empresa_id = ?";
-    
+
     $stmt = mysqli_prepare($conexion, $sql_update);
     if (!$stmt) {
         return ['success' => false, 'error' => 'Error en la consulta'];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
-    
+
     if ($success) {
         return ['success' => true];
     } else {
@@ -1269,7 +1317,7 @@ function subirImagenProducto($conexion, $data)
     $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
     $es_principal = intval($data['es_principal'] ?? 0);
     $orden = intval($data['orden'] ?? 0);
-    
+
     // Información del archivo
     $imagen_nombre = mysqli_real_escape_string($conexion, trim($data['imagen_nombre'] ?? ''));
     $imagen_tipo = mysqli_real_escape_string($conexion, trim($data['imagen_tipo'] ?? ''));
@@ -1309,18 +1357,20 @@ function subirImagenProducto($conexion, $data)
 
     // Generar una ruta lógica para referencia
     $ruta_logica = 'productos/' . $producto_id . '/' . time() . '_' . $imagen_nombre;
-    
+
     // Usar bind_param para BLOB
-    mysqli_stmt_bind_param($stmt, "sssib", 
-        $imagen_nombre, 
-        $ruta_logica, 
-        $imagen_tipo, 
-        $imagen_tamanio, 
+    mysqli_stmt_bind_param(
+        $stmt,
+        "sssis",
+        $imagen_nombre,
+        $ruta_logica,
+        $imagen_tipo,
+        $imagen_tamanio,
         $imagen_data
     );
-    
+
     $success = mysqli_stmt_execute($stmt);
-    
+
     if (!$success) {
         mysqli_stmt_close($stmt);
         return ['resultado' => false, 'error' => 'Error al guardar imagen: ' . mysqli_error($conexion)];
@@ -1347,17 +1397,24 @@ function subirImagenProducto($conexion, $data)
         return ['resultado' => false, 'error' => 'Error al vincular imagen al producto'];
     }
 
-    mysqli_stmt_bind_param($stmt, "iiisii", 
-        $producto_id, $empresa_id, $nueva_imagen_id, $descripcion, $es_principal, $orden
+    mysqli_stmt_bind_param(
+        $stmt,
+        "iiisii",
+        $producto_id,
+        $empresa_id,
+        $nueva_imagen_id,
+        $descripcion,
+        $es_principal,
+        $orden
     );
     $success = mysqli_stmt_execute($stmt);
-    
+
     if ($success) {
         $producto_imagen_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
         return [
-            'resultado' => true, 
-            'producto_imagen_id' => $producto_imagen_id, 
+            'resultado' => true,
+            'producto_imagen_id' => $producto_imagen_id,
             'imagen_id' => $nueva_imagen_id,
             'imagen_url' => 'get_imagen.php?id=' . $nueva_imagen_id
         ];
@@ -1386,7 +1443,7 @@ function actualizarImagenProducto($conexion, $producto_imagen_id, $data, $empres
     // Verificar que la imagen exista y pertenezca a la empresa
     $sql_check = "SELECT producto_imagen_id, producto_id FROM gestion__productos_imagenes 
                   WHERE producto_imagen_id = ? AND empresa_id = ?";
-    
+
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {
         return ['resultado' => false, 'error' => 'Error en la consulta'];
@@ -1442,7 +1499,7 @@ function actualizarImagenProducto($conexion, $producto_imagen_id, $data, $empres
 function obtenerUbicacionesSucursales($conexion, $empresa_idx)
 {
     $empresa_idx = intval($empresa_idx);
-    
+
     $sql = "SELECT 
                 su.sucursal_ubicacion_id,
                 su.sucursal_id,
@@ -1457,21 +1514,21 @@ function obtenerUbicacionesSucursales($conexion, $empresa_idx)
             WHERE (su.empresa_id = 0 OR su.empresa_id = ?)
             AND su.tabla_estado_registro_id = 1
             ORDER BY s.sucursal_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return [];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    
+
     $ubicaciones = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         $ubicaciones[] = $fila;
     }
-    
+
     mysqli_stmt_close($stmt);
     return $ubicaciones;
 }
@@ -1480,27 +1537,27 @@ function obtenerUbicacionesSucursales($conexion, $empresa_idx)
 function obtenerSucursales($conexion, $empresa_idx)
 {
     $empresa_idx = intval($empresa_idx);
-    
+
     $sql = "SELECT sucursal_id, sucursal_nombre
             FROM gestion__sucursales
             WHERE empresa_id = ?
             AND tabla_estado_registro_id = 1
             ORDER BY sucursal_nombre";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return [];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    
+
     $sucursales = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         $sucursales[] = $fila;
     }
-    
+
     mysqli_stmt_close($stmt);
     return $sucursales;
 }
@@ -1509,7 +1566,7 @@ function obtenerSucursales($conexion, $empresa_idx)
 function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
 {
     $producto_id = intval($producto_id);
-    
+
     $sql = "SELECT 
                 pu.producto_ubicacion_id,
                 pu.sucursal_ubicacion_id,
@@ -1526,21 +1583,21 @@ function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
             WHERE pu.producto_id = ?
             AND pu.tabla_estado_registro_id = 1
             ORDER BY s.sucursal_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return [];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "i", $producto_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    
+
     $ubicaciones = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         $ubicaciones[] = $fila;
     }
-    
+
     mysqli_stmt_close($stmt);
     return $ubicaciones;
 }
@@ -1549,7 +1606,7 @@ function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
 function obtenerUbicacionPorId($conexion, $producto_ubicacion_id)
 {
     $producto_ubicacion_id = intval($producto_ubicacion_id);
-    
+
     $sql = "SELECT 
                 pu.*,
                 su.sucursal_id,
@@ -1563,17 +1620,17 @@ function obtenerUbicacionPorId($conexion, $producto_ubicacion_id)
             INNER JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
             WHERE pu.producto_ubicacion_id = ?";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return null;
     }
-    
+
     mysqli_stmt_bind_param($stmt, "i", $producto_ubicacion_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $ubicacion = mysqli_fetch_assoc($result);
-    
+
     mysqli_stmt_close($stmt);
     return $ubicacion;
 }
@@ -1583,48 +1640,48 @@ function agregarUbicacionProducto($conexion, $data)
 {
     $producto_id = intval($data['producto_id'] ?? 0);
     $sucursal_ubicacion_id = intval($data['sucursal_ubicacion_id'] ?? 0);
-    
+
     if ($producto_id == 0) {
         return ['resultado' => false, 'error' => 'Producto no válido'];
     }
-    
+
     if ($sucursal_ubicacion_id == 0) {
         return ['resultado' => false, 'error' => 'Ubicación no válida'];
     }
-    
+
     // Verificar si ya existe esta ubicación para el producto
     $sql_check = "SELECT COUNT(*) as total FROM gestion__productos_ubicaciones 
                   WHERE producto_id = ? 
                   AND sucursal_ubicacion_id = ?";
-    
+
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "ii", $producto_id, $sucursal_ubicacion_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
-    
+
     if ($row['total'] > 0) {
         return ['resultado' => false, 'error' => 'Esta ubicación ya está asignada al producto'];
     }
-    
+
     // Insertar nueva ubicación
     $sql = "INSERT INTO gestion__productos_ubicaciones 
             (producto_id, sucursal_ubicacion_id, tabla_estado_registro_id) 
             VALUES (?, ?, 1)";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "ii", $producto_id, $sucursal_ubicacion_id);
     $success = mysqli_stmt_execute($stmt);
-    
+
     if ($success) {
         $producto_ubicacion_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
@@ -1639,21 +1696,21 @@ function agregarUbicacionProducto($conexion, $data)
 function eliminarUbicacionProducto($conexion, $producto_ubicacion_id)
 {
     $producto_ubicacion_id = intval($producto_ubicacion_id);
-    
+
     // Cambiar estado a inactivo en lugar de eliminar físicamente
     $sql = "UPDATE gestion__productos_ubicaciones 
             SET tabla_estado_registro_id = 2 
             WHERE producto_ubicacion_id = ?";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return ['success' => false, 'error' => 'Error en la consulta'];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "i", $producto_ubicacion_id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
-    
+
     if ($success) {
         return ['success' => true];
     } else {
@@ -1671,28 +1728,28 @@ function crearUbicacionSucursal($conexion, $data)
     $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
     $posicion = mysqli_real_escape_string($conexion, trim($data['posicion'] ?? ''));
     $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
-    
+
     // Validaciones
     if ($sucursal_id == 0) {
         return ['resultado' => false, 'error' => 'Seleccione una sucursal'];
     }
-    
+
     if (empty($seccion)) {
         return ['resultado' => false, 'error' => 'La sección es obligatoria'];
     }
-    
+
     if (empty($estanteria)) {
         return ['resultado' => false, 'error' => 'La estantería es obligatoria'];
     }
-    
+
     if (empty($estante)) {
         return ['resultado' => false, 'error' => 'El estante es obligatorio'];
     }
-    
+
     if (empty($posicion)) {
         return ['resultado' => false, 'error' => 'La posición es obligatoria'];
     }
-    
+
     // Verificar si ya existe esta ubicación
     $sql_check = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
                   WHERE sucursal_id = ? 
@@ -1700,37 +1757,46 @@ function crearUbicacionSucursal($conexion, $data)
                   AND estanteria = ? 
                   AND estante = ? 
                   AND posicion = ?";
-    
+
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "issss", $sucursal_id, $seccion, $estanteria, $estante, $posicion);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
-    
+
     if ($row['total'] > 0) {
         return ['resultado' => false, 'error' => 'Esta ubicación ya existe en la sucursal'];
     }
-    
+
     // Insertar nueva ubicación
     $sql = "INSERT INTO gestion__sucursales_ubicaciones 
             (empresa_id, sucursal_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
             VALUES (?, ?, ?, ?, ?, ?, ?, 1)";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
-    
-    mysqli_stmt_bind_param($stmt, "iisssss", 
-        $empresa_id, $sucursal_id, $seccion, $estanteria, $estante, $posicion, $descripcion);
-    
+
+    mysqli_stmt_bind_param(
+        $stmt,
+        "iisssss",
+        $empresa_id,
+        $sucursal_id,
+        $seccion,
+        $estanteria,
+        $estante,
+        $posicion,
+        $descripcion
+    );
+
     $success = mysqli_stmt_execute($stmt);
-    
+
     if ($success) {
         $sucursal_ubicacion_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
