@@ -1,4 +1,9 @@
 <?php
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // config.php en la raíz del proyecto
 if (!defined('ROOT_PATH')) {
     define('ROOT_PATH', __DIR__);
