@@ -1,9 +1,46 @@
 <?php
-// Al inicio del header1.php
-require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
+// templates/adminlte/header1.php
 
+require_once __DIR__ . '/../../config.php';
 
+if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true) {
+  header("Location: " . url('login.php'));
+  exit;
+}
+
+$ruta = $ruta_assets ?? '';
+
+$nombre_usuario_avatar = $_SESSION['usuario_nombre'] ?? 'Usuario';
+
+$palabras = explode(' ', $nombre_usuario_avatar);
+$iniciales = '';
+if (count($palabras) >= 1) {
+  $iniciales .= strtoupper(substr($palabras[0], 0, 1));
+}
+if (count($palabras) >= 2) {
+  $iniciales .= strtoupper(substr($palabras[1], 0, 1));
+}
+if (strlen($iniciales) < 2 && strlen($nombre_usuario_avatar) > 1 && count($palabras) == 1) {
+  $iniciales = strtoupper(substr($nombre_usuario_avatar, 0, 2));
+}
+
+$colores_avatar = [
+  '#007bff', // Azul
+  '#6610f2', // Indigo
+  '#6f42c1', // Purpura
+  '#e83e8c', // Rosa
+  '#dc3545', // Rojo
+  '#fd7e14', // Naranja
+  '#28a745', // Verde
+  '#20c997', // Verde azulado
+  '#17a2b8', // Cian
+  '#343a40', // Gris oscuro
+];
+
+$indice_color = hexdec(substr(md5($nombre_usuario_avatar), 0, 5)) % count($colores_avatar);
+$color_fondo_avatar = $colores_avatar[$indice_color];
 ?>
+
 <!doctype html>
 <html lang="en">
 
@@ -31,7 +68,7 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
   <link rel="stylesheet" href="<?= asset_local('css/overlayscrollbars.min.css') ?>" />
 
   <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.0/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="<?= asset_local('css/bootstrap-icons.css') ?>">
 
 
   <link href="<?= asset_local('css/bootstrap.min.css') ?>" rel="stylesheet" />
@@ -175,11 +212,17 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
                   continue;
 
                 $primer_modulo = $data['modulos'][0];
-                $url_destino = "../" . $primer_modulo['url'] . "?empresa_id=" . $eid . "&modulo_id=" . $primer_modulo['id'];
+
+                $ruta_modulo = $primer_modulo['url'];
+                if (strpos($ruta_modulo, 'modules/') === false) {
+                  $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
+                }
+
+                $target_url = url($ruta_modulo) . "?empresa_id=" . $eid . "&modulo_id=" . $primer_modulo['id'];
 
                 $selected = ($eid == $current_empresa_id) ? 'selected' : '';
                 ?>
-                <option value="<?= $url_destino ?>" <?= $selected ?>>
+                <option value="<?= $target_url ?>" <?= $selected ?>>
                   <?= htmlspecialchars($data['nombre']) ?>
                 </option>
               <?php endforeach; ?>
@@ -207,18 +250,35 @@ require_once __DIR__ . '/../../config.php'; // Ajusta según la ubicación real
 
             <li class="nav-item dropdown user-menu">
               <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                <img src="<?= asset('img/user2-160x160.jpg') ?>" class="user-image rounded-circle shadow"
-                  alt="User Image" />
-                <span class="d-none d-md-inline">Usuario</span>
+                <div
+                  class="user-image rounded-circle shadow d-inline-flex justify-content-center align-items-center text-white"
+                  style="width: 2.1rem; height: 2.1rem; background-color: <?= $color_fondo_avatar ?>; font-weight: bold; font-size: 0.9rem;">
+                  <?= $iniciales ?>
+                </div>
+
+                <span class="d-none d-md-inline">
+                  <?= htmlspecialchars($nombre_usuario_avatar) ?>
+                </span>
               </a>
+
               <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
-                <li class="user-header text-bg-primary">
-                  <img src="<?= asset('img/user2-160x160.jpg') ?>" class="rounded-circle shadow" alt="User Image" />
-                  <p>Usuario Sistema</p>
+                <li class="user-header text-bg-primary" style="height: auto; padding-bottom: 20px;">
+
+                  <div
+                    class="rounded-circle shadow d-flex justify-content-center align-items-center text-white mx-auto mb-2"
+                    style="width: 90px; height: 90px; background-color: <?= $color_fondo_avatar ?>; font-size: 2.5rem; font-weight: bold; border: 3px solid rgba(255,255,255,0.2);">
+                    <?= $iniciales ?>
+                  </div>
+
+                  <p>
+                    <?= htmlspecialchars($nombre_usuario_avatar) ?>
+                    <small>Usuario del Sistema</small>
+                  </p>
                 </li>
+
                 <li class="user-footer">
                   <a href="#" class="btn btn-default btn-flat">Perfil</a>
-                  <a href="#" class="btn btn-default btn-flat float-end">Salir</a>
+                  <a href="<?= url('logout.php') ?>" class="btn btn-default btn-flat float-end">Salir</a>
                 </li>
               </ul>
             </li>
