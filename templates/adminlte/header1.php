@@ -68,7 +68,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <link rel="stylesheet" href="<?= asset_local('css/overlayscrollbars.min.css') ?>" />
 
   <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="<?= asset_local('css/bootstrap-icons.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/bootstrap-icons.css') ?>">
 
 
   <link href="<?= asset_local('css/bootstrap.min.css') ?>" rel="stylesheet" />
