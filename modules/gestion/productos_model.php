@@ -615,6 +615,7 @@ function agregarProducto($conexion, $data)
     $codigo_barras = mysqli_real_escape_string($conexion, trim($data['codigo_barras'] ?? ''));
     $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
     $producto_categoria_id = intval($data['producto_categoria_id'] ?? 0);
+    $iva_alicuota_id = intval($data['iva_alicuota_id'] ?? 0);
     $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
     $lado = mysqli_real_escape_string($conexion, trim($data['lado'] ?? ''));
@@ -624,6 +625,7 @@ function agregarProducto($conexion, $data)
     $dimensiones = mysqli_real_escape_string($conexion, trim($data['dimensiones'] ?? ''));
     $garantia = mysqli_real_escape_string($conexion, trim($data['garantia'] ?? ''));
     $empresa_id = intval($data['empresa_id'] ?? 0);
+    $iva_alicuota_id = (!empty($data['iva_alicuota_id']) && $data['iva_alicuota_id'] > 0) ? intval($data['iva_alicuota_id']) : null;
 
     if (empty($producto_codigo)) {
         return ['resultado' => false, 'error' => 'El código del producto es obligatorio'];
@@ -669,11 +671,11 @@ function agregarProducto($conexion, $data)
     }
 
     // Insertar nuevo producto
-    $sql = "INSERT INTO gestion__productos 
-            (empresa_id, producto_codigo, producto_nombre, codigo_barras, producto_descripcion, 
-             producto_categoria_id, producto_tipo_id, unidad_medida_id, lado, material, color, 
-             peso, dimensiones, garantia, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+   $sql = "INSERT INTO gestion__productos 
+        (empresa_id, producto_codigo, producto_nombre, codigo_barras, producto_descripcion, 
+         producto_categoria_id, producto_tipo_id, unidad_medida_id, iva_alicuota_id, lado, material, color, 
+         peso, dimensiones, garantia, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -681,7 +683,7 @@ function agregarProducto($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "issssiiisssdssi",
+        "issssiiiiisssdsi", // Nota: agregar una 'i' más para iva_alicuota_id
         $empresa_id,
         $producto_codigo,
         $producto_nombre,
@@ -690,6 +692,7 @@ function agregarProducto($conexion, $data)
         $producto_categoria_id,
         $producto_tipo_id,
         $unidad_medida_id,
+        $iva_alicuota_id,    // ← Agregar esta variable
         $lado,
         $material,
         $color,
@@ -728,6 +731,8 @@ function editarProducto($conexion, $id, $data)
     $peso = !empty($data['peso']) ? floatval($data['peso']) : null;
     $dimensiones = mysqli_real_escape_string($conexion, trim($data['dimensiones'] ?? ''));
     $garantia = mysqli_real_escape_string($conexion, trim($data['garantia'] ?? ''));
+    
+    $iva_alicuota_id = (!empty($data['iva_alicuota_id']) && $data['iva_alicuota_id'] > 0) ? intval($data['iva_alicuota_id']) : null;
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
 
     if (empty($producto_codigo)) {
@@ -794,19 +799,19 @@ function editarProducto($conexion, $id, $data)
 
     // Actualizar producto
     $sql = "UPDATE gestion__productos 
-            SET producto_codigo = ?, producto_nombre = ?, codigo_barras = ?, 
-                producto_descripcion = ?, producto_categoria_id = ?, producto_tipo_id = ?, 
-                unidad_medida_id = ?, lado = ?, material = ?, color = ?, peso = ?, 
-                dimensiones = ?, garantia = ?
-            WHERE producto_id = ?";
-
+        SET producto_codigo = ?, producto_nombre = ?, codigo_barras = ?, 
+            producto_descripcion = ?, producto_categoria_id = ?, producto_tipo_id = ?, 
+            unidad_medida_id = ?, iva_alicuota_id = ?, lado = ?, material = ?, color = ?, peso = ?, 
+            dimensiones = ?, garantia = ?
+        WHERE producto_id = ?";
+    
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssiiisssdssi",
+        "ssssiiiiisssdsi", // Nota: agregar una 'i' más para iva_alicuota_id
         $producto_codigo,
         $producto_nombre,
         $codigo_barras,
@@ -814,6 +819,7 @@ function editarProducto($conexion, $id, $data)
         $producto_categoria_id,
         $producto_tipo_id,
         $unidad_medida_id,
+        $iva_alicuota_id,    // ← Agregar esta variable
         $lado,
         $material,
         $color,
@@ -857,16 +863,18 @@ function obtenerProductoPorId($conexion, $id, $empresa_idx)
         }
     }
 
-    $sql = "SELECT p.*, er.$estado_column as estado_registro, er.codigo_estandar,
-                   pt.producto_tipo, pt.producto_tipo_codigo,
-                   um.unidad_nombre, um.unidad_abreviatura,
-                   pc.producto_categoria_nombre
-            FROM gestion__productos p
-            LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
-            LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
-            LEFT JOIN gestion__productos_categorias pc ON p.producto_categoria_id = pc.producto_categoria_id
-            WHERE p.producto_id = ? AND p.empresa_id = ?";
+   $sql = "SELECT p.*, er.$estado_column as estado_registro, er.codigo_estandar,
+               pt.producto_tipo, pt.producto_tipo_codigo,
+               um.unidad_nombre, um.unidad_abreviatura,
+               pc.producto_categoria_nombre,
+               ia.iva_alicuota, ia.porcentaje, ia.es_gravado, ia.es_exento, ia.es_no_gravado
+        FROM gestion__productos p
+        LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
+        LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
+        LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
+        LEFT JOIN gestion__productos_categorias pc ON p.producto_categoria_id = pc.producto_categoria_id
+        LEFT JOIN gestion__impuestos__iva_alicuotas ia ON p.iva_alicuota_id = ia.iva_alicuota_id
+        WHERE p.producto_id = ? AND p.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -1805,5 +1813,32 @@ function crearUbicacionSucursal($conexion, $data)
         mysqli_stmt_close($stmt);
         return ['resultado' => false, 'error' => 'Error al crear la ubicación: ' . mysqli_error($conexion)];
     }
+}
+// ✅ Obtener alícuotas de IVA
+function obtenerIvaAlicuotas($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT iva_alicuota_id, codigo, iva_alicuota, porcentaje, 
+                   es_gravado, es_exento, es_no_gravado
+            FROM gestion__impuestos__iva_alicuotas
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY porcentaje DESC, iva_alicuota";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $alicuotas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $alicuotas[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $alicuotas;
 }
 ?>

@@ -283,6 +283,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     name="garantia" maxlength="50">
                                             </div>
                                         </div>
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-6">
+                                                <label for="iva_alicuota_id" class="form-label form-label-sm">IVA Alícuota</label>
+                                                <select class="form-select form-select-sm" id="iva_alicuota_id" name="iva_alicuota_id">
+                                                    <option value="">Seleccionar alícuota...</option>
+                                                </select>
+                                                <div class="form-text">Alícuota de IVA aplicable al producto</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="row g-2">
+                                                    <div class="col-md-8">
+                                                        <label class="form-label form-label-sm">Información IVA</label>
+                                                        <div id="iva_info" class="form-control form-control-sm bg-light small">
+                                                            <span class="text-muted">Seleccione una alícuota...</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label form-label-sm">Porcentaje</label>
+                                                        <div id="iva_porcentaje" class="form-control form-control-sm text-center fw-bold">
+                                                            <span class="text-muted">0%</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
                                         <div class="row g-2 mt-1">
                                             <div class="col-md-12">
@@ -1036,7 +1061,63 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 }, 'json');
             }
-
+            // Cargar opciones de IVA alícuotas
+            function cargarIvaAlicuotas() {
+                $.get('productos_ajax.php', {
+                    accion: 'obtener_iva_alicuotas',
+                    empresa_idx: empresa_idx
+                }, function(alicuotas) {
+                    var select = $('#iva_alicuota_id');
+                    
+                    select.empty().append('<option value="">Seleccionar alícuota...</option>');
+                    
+                    if (alicuotas && alicuotas.length > 0) {
+                        alicuotas.forEach(function(alicuota) {
+                            var porcentaje = alicuota.porcentaje ? parseFloat(alicuota.porcentaje).toFixed(2) + '%' : '';
+                            var texto = alicuota.iva_alicuota + (porcentaje ? ' (' + porcentaje + ')' : '');
+                            
+                            select.append(`<option value="${alicuota.iva_alicuota_id}" 
+                                data-porcentaje="${alicuota.porcentaje || 0}"
+                                data-gravado="${alicuota.es_gravado || 0}"
+                                data-exento="${alicuota.es_exento || 0}"
+                                data-no-gravado="${alicuota.es_no_gravado || 0}">
+                                ${texto}
+                            </option>`);
+                        });
+                    }
+                    
+                    // Evento para mostrar información de IVA
+                    select.off('change').on('change', function() {
+                        var selected = $(this).find('option:selected');
+                        var porcentaje = selected.data('porcentaje') || 0;
+                        var gravado = selected.data('gravado');
+                        var exento = selected.data('exento');
+                        var noGravado = selected.data('no-gravado');
+                        
+                        // Actualizar porcentaje
+                        $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + parseFloat(porcentaje).toFixed(2) + '%</span>' : '<span class="text-muted">0%</span>');
+                        
+                        // Actualizar información
+                        var infoHtml = '';
+                        if (exento == 1) {
+                            infoHtml = '<span class="badge bg-success">EXENTO</span>';
+                        } else if (noGravado == 1) {
+                            infoHtml = '<span class="badge bg-warning">NO GRAVADO</span>';
+                        } else if (gravado == 1) {
+                            infoHtml = '<span class="badge bg-info">GRAVADO</span>';
+                        } else {
+                            infoHtml = '<span class="text-muted">No especificado</span>';
+                        }
+                        
+                        $('#iva_info').html(infoHtml);
+                    });
+                    
+                    // Trigger inicial si hay valor seleccionado
+                    if (select.val()) {
+                        select.trigger('change');
+                    }
+                }, 'json');
+            }
             // Función para cargar marcas en los filtros y modal
             function cargarMarcasFiltro() {
                 $.get('productos_ajax.php', {
@@ -2382,6 +2463,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 cargarTiposProducto();
                 cargarCategoriasProducto();
                 cargarUnidadesMedida();
+                cargarIvaAlicuotas(); // ← Agregar esta línea junto con las otras funciones de carga
 
                 var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
                 modal.show();
@@ -2511,12 +2593,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         cargarTiposProducto();
                         cargarCategoriasProducto();
                         cargarUnidadesMedida();
-
-                        setTimeout(function () {
+                        cargarIvaAlicuotas(); // ← Agregar esta línea junto con las otras funciones de carga
+                       setTimeout(function() {
                             // Establecer valores seleccionados
                             $('#producto_tipo_id').val(res.producto_tipo_id);
                             $('#producto_categoria_id').val(res.producto_categoria_id);
                             $('#unidad_medida_id').val(res.unidad_medida_id || '');
+                            $('#iva_alicuota_id').val(res.iva_alicuota_id || ''); // ← Agregar esta línea
+                            
+                            // Trigger change para mostrar información de IVA
+                            if (res.iva_alicuota_id) {
+                                $('#iva_alicuota_id').trigger('change');
+                            }
                         }, 500);
 
                         $('#modalLabel').text('Editar Producto');
@@ -2547,6 +2635,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#formProducto')[0].reset();
                 $('#producto_id').val('');
                 $('#formProducto').removeClass('was-validated');
+                $('#iva_alicuota_id').empty().append('<option value="">Seleccionar alícuota...</option>');
+                $('#iva_info').html('<span class="text-muted">Seleccione una alícuota...</span>');
+                $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
 
                 $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
                 $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
@@ -2618,6 +2709,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         producto_categoria_id: productoCategoriaId,
                         producto_tipo_id: productoTipoId,
                         unidad_medida_id: $('#unidad_medida_id').val() || null,
+                        iva_alicuota_id: $('#iva_alicuota_id').val() || null, // ← Agregar esta línea
                         lado: $('#lado').val(),
                         material: $('#material').val(),
                         color: $('#color').val(),
@@ -2711,7 +2803,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarUnidadesMedida();
             cargarMarcasFiltro();
             cargarSucursales(); // ← Agrega esta línea
-
+            cargarIvaAlicuotas(); // ← Agregar esta línea junto con las otras funciones de carga
             // Agregar tooltips
             $('[title]').tooltip({
                 trigger: 'hover',

@@ -76,6 +76,7 @@ try {
                 'peso' => !empty($_POST['peso']) ? floatval($_POST['peso']) : null,
                 'dimensiones' => trim($_POST['dimensiones'] ?? ''),
                 'garantia' => trim($_POST['garantia'] ?? ''),
+                'iva_alicuota_id' => $_POST['iva_alicuota_id'] !== '' ? $_POST['iva_alicuota_id'] : null,
                 'pagina_idx' => $pagina_idx
             ];
 
@@ -99,11 +100,17 @@ try {
                 'peso' => !empty($_POST['peso']) ? floatval($_POST['peso']) : null,
                 'dimensiones' => trim($_POST['dimensiones'] ?? ''),
                 'garantia' => trim($_POST['garantia'] ?? ''),
+                'iva_alicuota_id' => $_POST['iva_alicuota_id'] !== '' ? $_POST['iva_alicuota_id'] : null,
                 'empresa_idx' => $empresa_idx
             ];
 
             $resultado = editarProducto($conexion, $id, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_iva_alicuotas':
+            $alicuotas = obtenerIvaAlicuotas($conexion, $empresa_idx);
+            echo json_encode($alicuotas, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'ejecutar_accion':
