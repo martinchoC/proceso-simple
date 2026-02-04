@@ -211,6 +211,15 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
               ];
             }
           }
+
+          if ($current_empresa_id > 0 && !isset($empresas_modulos[$current_empresa_id])) {
+            echo "<script>
+                  alert('Acceso Denegado: No tienes permisos para esta empresa.');
+                  window.location.href = '" . url('index.php') . "';
+              </script>";
+            exit;
+          }
+
           ?>
 
           <li class="nav-item d-none d-md-block">
