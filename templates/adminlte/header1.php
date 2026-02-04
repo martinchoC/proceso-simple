@@ -146,6 +146,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
           $current_empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 0;
           $current_modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 0;
 
+          /*
+          ANTERIOR
           $sql_modulos = "SELECT 
                   e.empresa_id,
                   e.empresa,
@@ -156,6 +158,26 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
               LEFT JOIN conf__empresas_modulos em ON e.empresa_id = em.empresa_id AND em.tabla_estado_registro_id = 1
               LEFT JOIN conf__modulos m ON em.modulo_id = m.modulo_id AND m.tabla_estado_registro_id = 1
               WHERE e.tabla_estado_registro_id = 1
+              ORDER BY e.empresa, m.modulo";
+          */
+
+          //INICIO NUEVO 
+          $usuario_logueado_id = $_SESSION['usuario_id'];
+          $sql_modulos = "SELECT DISTINCT
+                  e.empresa_id,
+                  e.empresa,
+                  m.modulo_id,
+                  m.modulo,
+                  m.modulo_url
+              FROM conf__empresas e
+              INNER JOIN conf__empresas_perfiles ep ON e.empresa_id = ep.empresa_id
+              INNER JOIN conf__usuarios_perfiles up ON ep.empresa_perfil_id = up.empresa_perfil_id
+              LEFT JOIN conf__empresas_modulos em ON e.empresa_id = em.empresa_id AND em.tabla_estado_registro_id = 1
+              LEFT JOIN conf__modulos m ON em.modulo_id = m.modulo_id AND m.tabla_estado_registro_id = 1
+              WHERE e.tabla_estado_registro_id = 1
+              AND ep.tabla_estado_registro_id = 1
+              AND up.tabla_estado_registro_id = 1
+              AND up.usuario_id = $usuario_logueado_id
               ORDER BY e.empresa, m.modulo";
 
           $res_modulos = mysqli_query($conexion, $sql_modulos);
@@ -333,6 +355,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             <?php
             $current_url_full = $_SERVER['REQUEST_URI'];
 
+            $qs_sidebar = "&empresa_id=" . $current_empresa_id . "&modulo_id=" . $current_modulo_id;
+
             if ($modudo_idx) {
               $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase FROM conf__paginas 
                   LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
@@ -364,11 +388,12 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                   $menu_url_clean = trim($row['url'], './');
                   $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
                 }
+
+                $link_padre = $has_submenu ? '#' : $row['url'] . '?pagina_id=' . $row['pagina_id'] . $qs_sidebar;
                 ?>
 
                 <li class="nav-item <?= $is_active ? 'menu-open' : '' ?>">
-                  <a href="<?= $has_submenu ? '#' : $row['url'] ?>"
-                    class="nav-link <?= $is_active && !$has_submenu ? 'active' : '' ?>">
+                  <a href="<?= $link_padre ?>" class="nav-link <?= $is_active && !$has_submenu ? 'active' : '' ?>">
                     <i class="nav-icon <?= $row['icono_clase'] ?>"></i>
                     <p>
                       <?= $row['pagina'] ?>
@@ -387,7 +412,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                         $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
                         ?>
                         <li class="nav-item">
-                          <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?>"
+                          <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?><?= $qs_sidebar ?>"
                             class="nav-link <?= $is_submenu_active ? 'active' : '' ?>" style="padding-left: 15px;">
                             <i class="nav-icon <?= $submenu_row['icono_clase'] ?>"></i>
                             <p><?= $submenu_row['pagina'] ?></p>
