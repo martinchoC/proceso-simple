@@ -1220,13 +1220,20 @@ function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
     $producto_id = intval($producto_id);
 
     $sql = "SELECT 
-                pi.*,
+                pi.producto_imagen_id,
+                pi.producto_id,
+                pi.empresa_id,
+                pi.descripcion,
+                pi.es_principal,
+                pi.orden,
+                pi.fecha_creacion,
+                pi.tabla_estado_registro_id,
                 ci.imagen_id,
                 ci.imagen_nombre,
                 ci.imagen_ruta,
                 ci.imagen_tipo,
-                ci.imagen_tamanio,
-                ci.imagen_data
+                ci.imagen_tamanio
+                -- NO seleccionamos imagen_data para evitar problemas de memoria
             FROM gestion__productos_imagenes pi
             INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
             WHERE pi.producto_id = ?

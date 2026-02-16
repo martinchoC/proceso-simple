@@ -658,7 +658,7 @@ function obtenerComprobantesTipos($conexion)
     $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra 
             FROM gestion__comprobantes_tipos 
             WHERE comprobante_grupo_id = 2 
-            AND comprobante_subgrupo_id = 3
+            AND comprobante_subgrupo_id = 8
             AND tabla_estado_registro_id = 1 
             ORDER BY comprobante_tipo";
     

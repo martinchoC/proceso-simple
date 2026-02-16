@@ -11,7 +11,7 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 46); // Página ID para grupos de comprobantes
-$pagina_subgrupos_idx = 47; // Página para subgrupos
+$pagina_subgrupos_idx = 66; // Página para subgrupos
 
 header('Content-Type: application/json; charset=utf-8');
 

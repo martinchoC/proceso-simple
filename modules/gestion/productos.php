@@ -958,372 +958,1238 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .rounded-circle {
             border-radius: 50% !important;
         }
+        /* Estilos para el carrusel de imágenes */
+            .carousel-container {
+                position: relative;
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 20px;
+            }
+
+            .carousel-imagen-principal {
+                max-height: 500px;
+                object-fit: contain;
+                background: white;
+            }
+
+            .carousel-thumbnails {
+                display: flex;
+                justify-content: center;
+                gap: 10px;
+                margin-top: 15px;
+                flex-wrap: wrap;
+            }
+
+            .thumbnail-item {
+                width: 80px;
+                height: 80px;
+                cursor: pointer;
+                border: 2px solid transparent;
+                border-radius: 8px;
+                overflow: hidden;
+                transition: all 0.3s;
+            }
+
+            .thumbnail-item:hover {
+                transform: scale(1.1);
+            }
+
+            .thumbnail-item.active {
+                border-color: #007bff;
+                box-shadow: 0 0 10px rgba(0,123,255,0.5);
+            }
+
+            .thumbnail-img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            .carousel-control-prev,
+            .carousel-control-next {
+                width: 10%;
+                background: rgba(0,0,0,0.2);
+                border-radius: 50%;
+                height: 50px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+
+            .carousel-indicators {
+                position: static;
+                margin: 10px 0 0;
+            }
+
+            .carousel-indicators button {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background-color: #007bff;
+                margin: 0 5px;
+            }
+
+            /* Contador de imágenes */
+            .imagen-contador {
+                position: absolute;
+                bottom: 10px;
+                right: 10px;
+                background: rgba(0,0,0,0.7);
+                color: white;
+                padding: 5px 10px;
+                border-radius: 20px;
+                font-size: 0.9rem;
+                z-index: 10;
+            }
     </style>
+<script>
+    $(document).ready(function () {
+        // Variables de contexto MULTIEMPRESA
+        const empresa_idx = 2;
+        const pagina_idx = <?php echo $pagina_idx; ?>;
 
-    <script>
-        $(document).ready(function () {
-            // Variables de contexto MULTIEMPRESA
-            const empresa_idx = 2;
-            const pagina_idx = <?php echo $pagina_idx; ?>;
+        // Variables globales
+        var tabla;
+        var tablaCompatibilidad;
+        var tablaUbicaciones;
+        var currentPage = 0;
+        var currentOrder = [[1, 'asc']];
+        var currentSearch = '';
+        var productoActualId = null;
+        var productoActualCompatibilidad = null;
+        var productoActualImagenes = null;
+        var productoActualUbicaciones = null;
+        var imagenesProductoActual = [];
 
-            // Variables globales
-            var tabla;
-            var tablaCompatibilidad;
-            var currentPage = 0;
-            var currentOrder = [[1, 'asc']];
-            var currentSearch = '';
-            var productoActualId = null;
-            var productoActualCompatibilidad = null;
-            var productoActualImagenes = null;
-
-            // ========== FUNCIONES DE CARGA DE DATOS ==========
-            // Agrega esta función al inicio del script, después de las variables globales:
-            // Función global para mostrar imagen en grande desde la tabla
-            window.mostrarImagenGrande = function (url, titulo) {
-                // Asegurar que la URL sea absoluta
-                var rutaCompleta = url;
-
-                // Crear modal dinámico si no existe
-                if ($('#modalImagenTabla').length === 0) {
-                    $('body').append(`
-                    <div class="modal fade" id="modalImagenTabla" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="tituloImagenTabla">${titulo || 'Imagen del producto'}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                                </div>
-                                <div class="modal-body text-center">
-                                    <img id="imagenGrandeTabla" src="" alt="Imagen del producto" class="img-fluid rounded">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `);
-                }
-
-                $('#imagenGrandeTabla').attr('src', rutaCompleta);
-                $('#tituloImagenTabla').text(titulo || 'Imagen del producto');
-
-                // Mostrar el modal
-                var modal = new bootstrap.Modal(document.getElementById('modalImagenTabla'));
-                modal.show();
-            };
-            // Cargar opciones de tipos de producto
-            function cargarTiposProducto() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_tipos_producto',
-                    empresa_idx: empresa_idx
-                }, function (tipos) {
-                    var select = $('#producto_tipo_id');
-
-                    select.empty().append('<option value="">Seleccionar tipo...</option>');
-
-                    if (tipos && tipos.length > 0) {
-                        tipos.forEach(function (tipo) {
-                            select.append(`<option value="${tipo.producto_tipo_id}">${tipo.producto_tipo} (${tipo.producto_tipo_codigo})</option>`);
-                        });
-                    }
-                }, 'json');
-            }
-
-            // Cargar opciones de categorías de producto
-            function cargarCategoriasProducto() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_categorias',
-                    empresa_idx: empresa_idx
-                }, function (categorias) {
-                    var select = $('#producto_categoria_id');
-
-                    select.empty().append('<option value="">Seleccionar categoría...</option>');
-
-                    if (categorias && categorias.length > 0) {
-                        categorias.forEach(function (categoria) {
-                            select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
-                        });
-                    }
-                }, 'json');
-            }
-
-            // Cargar opciones de unidades de medida
-            function cargarUnidadesMedida() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_unidades_medida',
-                    empresa_idx: empresa_idx
-                }, function (unidades) {
-                    var select = $('#unidad_medida_id');
-                    select.empty().append('<option value="">Seleccionar unidad...</option>');
-
-                    if (unidades && unidades.length > 0) {
-                        unidades.forEach(function (unidad) {
-                            select.append(`<option value="${unidad.unidad_medida_id}">${unidad.unidad_nombre} (${unidad.unidad_abreviatura})</option>`);
-                        });
-                    }
-                }, 'json');
-            }
-            // Cargar opciones de IVA alícuotas
-            function cargarIvaAlicuotas() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_iva_alicuotas',
-                    empresa_idx: empresa_idx
-                }, function(alicuotas) {
-                    var select = $('#iva_alicuota_id');
-                    
-                    select.empty().append('<option value="">Seleccionar alícuota...</option>');
-                    
-                    if (alicuotas && alicuotas.length > 0) {
-                        alicuotas.forEach(function(alicuota) {
-                            var porcentaje = alicuota.porcentaje ? parseFloat(alicuota.porcentaje).toFixed(2) + '%' : '';
-                            var texto = alicuota.iva_alicuota + (porcentaje ? ' (' + porcentaje + ')' : '');
-                            
-                            select.append(`<option value="${alicuota.iva_alicuota_id}" 
-                                data-porcentaje="${alicuota.porcentaje || 0}"
-                                data-gravado="${alicuota.es_gravado || 0}"
-                                data-exento="${alicuota.es_exento || 0}"
-                                data-no-gravado="${alicuota.es_no_gravado || 0}">
-                                ${texto}
-                            </option>`);
-                        });
-                    }
-                    
-                    // Evento para mostrar información de IVA
-                    select.off('change').on('change', function() {
-                        var selected = $(this).find('option:selected');
-                        var porcentaje = selected.data('porcentaje') || 0;
-                        var gravado = selected.data('gravado');
-                        var exento = selected.data('exento');
-                        var noGravado = selected.data('no-gravado');
-                        
-                        // Actualizar porcentaje
-                        $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + parseFloat(porcentaje).toFixed(2) + '%</span>' : '<span class="text-muted">0%</span>');
-                        
-                        // Actualizar información
-                        var infoHtml = '';
-                        if (exento == 1) {
-                            infoHtml = '<span class="badge bg-success">EXENTO</span>';
-                        } else if (noGravado == 1) {
-                            infoHtml = '<span class="badge bg-warning">NO GRAVADO</span>';
-                        } else if (gravado == 1) {
-                            infoHtml = '<span class="badge bg-info">GRAVADO</span>';
-                        } else {
-                            infoHtml = '<span class="text-muted">No especificado</span>';
-                        }
-                        
-                        $('#iva_info').html(infoHtml);
-                    });
-                    
-                    // Trigger inicial si hay valor seleccionado
-                    if (select.val()) {
-                        select.trigger('change');
-                    }
-                }, 'json');
-            }
-            // Función para cargar marcas en los filtros y modal
-            function cargarMarcasFiltro() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_marcas',
-                    empresa_idx: empresa_idx
-                }, function (marcas) {
-                    var selectFiltro = $('#filtroMarca');
-                    var selectModal = $('#marca_id');
-
-                    selectFiltro.empty().append('<option value="">Todas las marcas</option>');
-                    selectModal.empty().append('<option value="">Seleccionar marca...</option>');
-
-                    if (marcas && marcas.length > 0) {
-                        marcas.forEach(function (marca) {
-                            selectFiltro.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
-                            selectModal.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
-                        });
-                    }
-                }, 'json');
-            }
-            // ========== FUNCIONES DE UBICACIONES ==========
-
-            // Variable global para ubicaciones
-            var productoActualUbicaciones = null;
-            var tablaUbicaciones = null;
-
-            // Cargar ubicaciones de un producto
-            function cargarUbicacionesProducto(productoId) {
-                productoActualUbicaciones = productoId;
-
-                if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
-                    $('#tablaUbicaciones').DataTable().destroy();
-                    $('#tablaUbicaciones tbody').empty();
-                }
-
-                tablaUbicaciones = $('#tablaUbicaciones').DataTable({
-                    ajax: {
-                        url: 'productos_ajax.php',
-                        type: 'GET',
-                        data: {
-                            accion: 'obtener_ubicaciones_producto',
-                            producto_id: productoId,
-                            empresa_idx: empresa_idx
-                        },
-                        dataSrc: ''
+        // ========== FUNCIÓN PARA MOSTRAR CARRUSEL (DEFINIR UNA SOLA VEZ) ==========
+        window.mostrarImagenGrande = function(url, titulo, productoId) {
+            console.log("mostrarImagenGrande llamada con:", {url, titulo, productoId});
+            
+            // Si tenemos productoId, cargar todas las imágenes del producto
+            if (productoId) {
+                $.ajax({
+                    url: 'productos_ajax.php',
+                    type: 'GET',
+                    data: {
+                        accion: 'obtener_imagenes_producto',
+                        producto_id: productoId,
+                        empresa_idx: empresa_idx
                     },
-                    columns: [
-                        {
-                            data: 'sucursal_nombre',
-                            render: function (data) {
-                                return data || '-';
-                            }
-                        },
-                        {
-                            data: 'seccion',
-                            render: function (data) {
-                                return data || '-';
-                            }
-                        },
-                        {
-                            data: 'estanteria',
-                            render: function (data) {
-                                return data || '-';
-                            }
-                        },
-                        {
-                            data: null,
-                            render: function (data) {
-                                var estante = data.estante || ' - ';
-                                var posicion = data.posicion || ' - ';
-                                return `${estante} - ${posicion}`;
-                            }
-                        },
-                        {
-                            data: 'producto_ubicacion_id',
-                            orderable: false,
-                            searchable: false,
-                            className: "text-center",
-                            render: function (data, type, row) {
-                                return `
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <button type="button" class="btn btn-outline-danger btn-eliminar-ubicacion" 
-                                                data-id="${data}" title="Eliminar">
+                    dataType: 'json',
+                    success: function(imagenes) {
+                        console.log("Imágenes recibidas:", imagenes);
+                        if (imagenes && imagenes.length > 0) {
+                            // Encontrar el índice de la imagen actual
+                            var indiceActual = 0;
+                            var imagenIdActual = url.split('=')[1]; // Extraer el ID de la imagen de la URL
+
+                            imagenes.forEach(function(img, idx) {
+                                // Comparar por ID de imagen en lugar de URL completa
+                                var imgId = img.imagen_url.split('=')[1];
+                                if (imgId == imagenIdActual) {
+                                    indiceActual = idx;
+                                }
+                            });
+                            mostrarCarruselImagenes(imagenes, indiceActual);
+                        } else {
+                            // Si no hay imágenes, mostrar solo esta
+                            mostrarCarruselImagenes([{
+                                imagen_url: url,
+                                descripcion: titulo || 'Imagen del producto'
+                            }], 0);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Error al cargar imágenes:", error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'No se pudieron cargar las imágenes'
+                        });
+                    }
+                });
+            } else {
+                // Si no tenemos productoId, mostrar solo la imagen proporcionada
+                mostrarCarruselImagenes([{
+                    imagen_url: url,
+                    descripcion: titulo || 'Imagen del producto'
+                }], 0);
+            }
+        };
+
+        // Función para mostrar carrusel de imágenes
+        function mostrarCarruselImagenes(imagenes, indiceInicial) {
+            console.log("Mostrando carrusel con imágenes:", imagenes);
+            
+            // Validar que haya imágenes
+            if (!imagenes || imagenes.length === 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin imágenes',
+                    text: 'Este producto no tiene imágenes para mostrar',
+                    confirmButtonText: 'Entendido'
+                });
+                return;
+            }
+
+            // Guardar las imágenes globalmente
+            imagenesProductoActual = imagenes;
+
+            // Asegurar que todas las imágenes tengan URL válida
+            imagenes = imagenes.map(img => {
+                if (!img.imagen_url) {
+                    img.imagen_url = 'get_imagen.php?id=' + img.imagen_id;
+                }
+                return img;
+            });
+
+            // Construir el carrusel
+            var carouselHtml = `
+                <div id="carruselProducto" class="carousel slide carousel-container" data-bs-ride="false">
+                    <div class="carousel-inner">
+                        ${imagenes.map((img, idx) => `
+                            <div class="carousel-item ${idx === indiceInicial ? 'active' : ''}">
+                                <img src="${img.imagen_url}" class="d-block w-100 carousel-imagen-principal" 
+                                     alt="${img.descripcion || 'Imagen ' + (idx + 1)}"
+                                     onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'500\' height=\'500\'><rect width=\'500\' height=\'500\' fill=\'#f8f9fa\'/><text x=\'250\' y=\'250\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'24\'>Error</text></svg>';">
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="imagen-contador">
+                        <span id="imagenActual">${indiceInicial + 1}</span> / ${imagenes.length}
+                    </div>
+                    
+                    ${imagenes.length > 1 ? `
+                        <button class="carousel-control-prev" type="button" data-bs-target="#carruselProducto" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Anterior</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#carruselProducto" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </button>
+                        
+                        <div class="carousel-indicators">
+                            ${imagenes.map((_, idx) => `
+                                <button type="button" data-bs-target="#carruselProducto" 
+                                        data-bs-slide-to="${idx}" 
+                                        class="${idx === indiceInicial ? 'active' : ''}"
+                                        aria-current="${idx === indiceInicial ? 'true' : 'false'}"
+                                        aria-label="Imagen ${idx + 1}">
+                                </button>
+                            `).join('')}
+                        </div>
+                        
+                        <div class="carousel-thumbnails">
+                            ${imagenes.map((img, idx) => `
+                                <div class="thumbnail-item ${idx === indiceInicial ? 'active' : ''}" 
+                                     onclick="$('#carruselProducto').carousel(${idx})">
+                                    <img src="${img.imagen_url}" class="thumbnail-img" 
+                                         alt="Miniatura ${idx + 1}"
+                                         onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'#f8f9fa\'/><text x=\'40\' y=\'40\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';">
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="text-center mt-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cerrarModalCarrusel()">
+                        <i class="fas fa-times me-1"></i>Cerrar
+                    </button>
+                </div>
+            `;
+
+            // Actualizar el contenido del modal
+            $('#contenidoCarrusel').html(carouselHtml);
+            
+            // Inicializar el carrusel de Bootstrap
+            var carruselElement = document.getElementById('carruselProducto');
+            if (carruselElement) {
+                var carrusel = new bootstrap.Carousel(carruselElement, {
+                    interval: false,
+                    wrap: true
+                });
+            }
+            
+            // Actualizar el contador cuando cambie la imagen
+            $('#carruselProducto').on('slid.bs.carousel', function(e) {
+                var currentIndex = $('.carousel-item.active').index();
+                $('#imagenActual').text(currentIndex + 1);
+                
+                // Actualizar thumbnails activos
+                $('.thumbnail-item').removeClass('active');
+                $('.thumbnail-item').eq(currentIndex).addClass('active');
+            });
+
+            // Mostrar el modal
+            var modalElement = document.getElementById('modalCarrusel');
+            if (modalElement) {
+                var modal = new bootstrap.Modal(modalElement);
+                modal.show();
+            } else {
+                console.error("Modal carrusel no encontrado");
+            }
+        }
+
+        // Función para cerrar el modal
+        window.cerrarModalCarrusel = function() {
+            var modalElement = document.getElementById('modalCarrusel');
+            if (modalElement) {
+                var modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
+            }
+        };
+
+        // ========== FUNCIONES DE CARGA DE DATOS ==========
+        
+        // Cargar opciones de tipos de producto
+        function cargarTiposProducto() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_tipos_producto',
+                empresa_idx: empresa_idx
+            }, function(tipos) {
+                var select = $('#producto_tipo_id');
+                select.empty().append('<option value="">Seleccionar tipo...</option>');
+                if (tipos && tipos.length > 0) {
+                    tipos.forEach(function(tipo) {
+                        select.append(`<option value="${tipo.producto_tipo_id}">${tipo.producto_tipo} (${tipo.producto_tipo_codigo})</option>`);
+                    });
+                }
+            }, 'json');
+        }
+
+        // Cargar opciones de categorías de producto
+        function cargarCategoriasProducto() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_categorias',
+                empresa_idx: empresa_idx
+            }, function(categorias) {
+                var select = $('#producto_categoria_id');
+                select.empty().append('<option value="">Seleccionar categoría...</option>');
+                if (categorias && categorias.length > 0) {
+                    categorias.forEach(function(categoria) {
+                        select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
+                    });
+                }
+            }, 'json');
+        }
+
+        // Cargar opciones de unidades de medida
+        function cargarUnidadesMedida() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_unidades_medida',
+                empresa_idx: empresa_idx
+            }, function(unidades) {
+                var select = $('#unidad_medida_id');
+                select.empty().append('<option value="">Seleccionar unidad...</option>');
+                if (unidades && unidades.length > 0) {
+                    unidades.forEach(function(unidad) {
+                        select.append(`<option value="${unidad.unidad_medida_id}">${unidad.unidad_nombre} (${unidad.unidad_abreviatura})</option>`);
+                    });
+                }
+            }, 'json');
+        }
+
+        // Cargar opciones de IVA alícuotas
+        function cargarIvaAlicuotas() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_iva_alicuotas',
+                empresa_idx: empresa_idx
+            }, function(alicuotas) {
+                var select = $('#iva_alicuota_id');
+                select.empty().append('<option value="">Seleccionar alícuota...</option>');
+                
+                if (alicuotas && alicuotas.length > 0) {
+                    alicuotas.forEach(function(alicuota) {
+                        var porcentaje = alicuota.porcentaje ? parseFloat(alicuota.porcentaje).toFixed(2) + '%' : '';
+                        var texto = alicuota.iva_alicuota + (porcentaje ? ' (' + porcentaje + ')' : '');
+                        
+                        select.append(`<option value="${alicuota.iva_alicuota_id}" 
+                            data-porcentaje="${alicuota.porcentaje || 0}"
+                            data-gravado="${alicuota.es_gravado || 0}"
+                            data-exento="${alicuota.es_exento || 0}"
+                            data-no-gravado="${alicuota.es_no_gravado || 0}">
+                            ${texto}
+                        </option>`);
+                    });
+                }
+                
+                select.off('change').on('change', function() {
+                    var selected = $(this).find('option:selected');
+                    var porcentaje = selected.data('porcentaje') || 0;
+                    var gravado = selected.data('gravado');
+                    var exento = selected.data('exento');
+                    var noGravado = selected.data('no-gravado');
+                    
+                    $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + parseFloat(porcentaje).toFixed(2) + '%</span>' : '<span class="text-muted">0%</span>');
+                    
+                    var infoHtml = '';
+                    if (exento == 1) {
+                        infoHtml = '<span class="badge bg-success">EXENTO</span>';
+                    } else if (noGravado == 1) {
+                        infoHtml = '<span class="badge bg-warning">NO GRAVADO</span>';
+                    } else if (gravado == 1) {
+                        infoHtml = '<span class="badge bg-info">GRAVADO</span>';
+                    } else {
+                        infoHtml = '<span class="text-muted">No especificado</span>';
+                    }
+                    
+                    $('#iva_info').html(infoHtml);
+                });
+                
+                if (select.val()) {
+                    select.trigger('change');
+                }
+            }, 'json');
+        }
+
+        // Función para cargar marcas
+        function cargarMarcas() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_marcas',
+                empresa_idx: empresa_idx
+            }, function(marcas) {
+                var selectFiltro = $('#filtroMarca');
+                var selectModal = $('#marca_id');
+
+                selectFiltro.empty().append('<option value="">Todas las marcas</option>');
+                selectModal.empty().append('<option value="">Seleccionar marca...</option>');
+
+                if (marcas && marcas.length > 0) {
+                    marcas.forEach(function(marca) {
+                        selectFiltro.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
+                        selectModal.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
+                    });
+                }
+            }, 'json');
+        }
+
+        // Cargar modelos por marca
+        function cargarModelos(marcaId, targetId = '#modelo_id') {
+            if (!marcaId) {
+                $(targetId).empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
+                return;
+            }
+            
+            $.get('productos_ajax.php', {
+                accion: 'obtener_modelos',
+                empresa_idx: empresa_idx,
+                marca_id: marcaId
+            }, function(modelos) {
+                var select = $(targetId);
+                select.empty().append('<option value="">Seleccionar modelo...</option>');
+
+                if (modelos && modelos.length > 0) {
+                    select.prop('disabled', false);
+                    modelos.forEach(function(modelo) {
+                        select.append(`<option value="${modelo.modelo_id}">${modelo.modelo_nombre}</option>`);
+                    });
+                } else {
+                    select.prop('disabled', true);
+                }
+            }, 'json');
+        }
+
+        // Cargar submodelos por modelo
+        function cargarSubmodelos(modeloId, targetId = '#submodelo_id') {
+            if (!modeloId) {
+                $(targetId).empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
+                return;
+            }
+            
+            $.get('productos_ajax.php', {
+                accion: 'obtener_submodelos',
+                empresa_idx: empresa_idx,
+                modelo_id: modeloId
+            }, function(submodelos) {
+                var select = $(targetId);
+                select.empty().append('<option value="">Seleccionar submodelo...</option>')
+                    .append('<option value="0">Sin submodelo</option>');
+
+                if (submodelos && submodelos.length > 0) {
+                    select.prop('disabled', false);
+                    submodelos.forEach(function(submodelo) {
+                        select.append(`<option value="${submodelo.submodelo_id}">${submodelo.submodelo_nombre}</option>`);
+                    });
+                } else {
+                    select.prop('disabled', false);
+                }
+            }, 'json');
+        }
+
+        // Cargar años para selects
+        function cargarAnios() {
+            var currentYear = new Date().getFullYear();
+            var startYear = 1950;
+
+            var selectDesde = $('#anio_desde');
+            selectDesde.empty().append('<option value="">Año...</option>');
+
+            var selectHasta = $('#anio_hasta');
+            selectHasta.empty().append('<option value="">Año...</option>')
+                .append('<option value="0">Actual</option>');
+
+            for (var year = startYear; year <= currentYear + 10; year++) {
+                selectDesde.append(`<option value="${year}">${year}</option>`);
+                selectHasta.append(`<option value="${year}">${year}</option>`);
+            }
+        }
+
+        // ========== FUNCIONES DE UBICACIONES ==========
+
+        // Cargar ubicaciones de un producto
+        function cargarUbicacionesProducto(productoId) {
+            productoActualUbicaciones = productoId;
+
+            if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
+                $('#tablaUbicaciones').DataTable().destroy();
+                $('#tablaUbicaciones tbody').empty();
+            }
+
+            tablaUbicaciones = $('#tablaUbicaciones').DataTable({
+                ajax: {
+                    url: 'productos_ajax.php',
+                    type: 'GET',
+                    data: {
+                        accion: 'obtener_ubicaciones_producto',
+                        producto_id: productoId,
+                        empresa_idx: empresa_idx
+                    },
+                    dataSrc: ''
+                },
+                columns: [
+                    { data: 'sucursal_nombre', render: function(data) { return data || '-'; } },
+                    { data: 'seccion', render: function(data) { return data || '-'; } },
+                    { data: 'estanteria', render: function(data) { return data || '-'; } },
+                    { 
+                        data: null, 
+                        render: function(data) { 
+                            var estante = data.estante || ' - ';
+                            var posicion = data.posicion || ' - ';
+                            return `${estante} - ${posicion}`;
+                        } 
+                    },
+                    { 
+                        data: 'producto_ubicacion_id', 
+                        orderable: false, 
+                        searchable: false, 
+                        className: "text-center",
+                        render: function(data) {
+                            return `<div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-danger btn-eliminar-ubicacion" 
+                                        data-id="${data}" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>`;
+                        }
+                    }
+                ],
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                responsive: true,
+                pageLength: 10,
+                searching: false,
+                paging: false,
+                info: false
+            });
+        }
+
+        // Cargar sucursales
+        function cargarSucursales() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_sucursales',
+                empresa_idx: empresa_idx
+            }, function(sucursales) {
+                var select = $('#sucursal_id');
+                select.empty().append('<option value="">Seleccionar sucursal...</option>');
+                if (sucursales && sucursales.length > 0) {
+                    sucursales.forEach(function(sucursal) {
+                        select.append(`<option value="${sucursal.sucursal_id}">${sucursal.sucursal_nombre}</option>`);
+                    });
+                }
+            }, 'json');
+        }
+
+        // Cargar ubicaciones de sucursales
+        function cargarUbicacionesSucursales() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_ubicaciones_sucursales',
+                empresa_idx: empresa_idx
+            }, function(ubicaciones) {
+                var select = $('#sucursal_ubicacion_id');
+                select.empty().append('<option value="">Seleccionar ubicación...</option>');
+
+                if (ubicaciones && ubicaciones.length > 0) {
+                    var sucursalActual = '';
+                    ubicaciones.forEach(function(ubicacion) {
+                        if (ubicacion.sucursal_nombre !== sucursalActual) {
+                            if (sucursalActual !== '') select.append('</optgroup>');
+                            sucursalActual = ubicacion.sucursal_nombre;
+                            select.append(`<optgroup label="${sucursalActual}">`);
+                        }
+
+                        var descripcionUbicacion = `${ubicacion.seccion} - ${ubicacion.estanteria} - Est. ${ubicacion.estante} Pos. ${ubicacion.posicion}`;
+                        if (ubicacion.descripcion) descripcionUbicacion += ` (${ubicacion.descripcion})`;
+
+                        select.append(`<option value="${ubicacion.sucursal_ubicacion_id}">${descripcionUbicacion}</option>`);
+                    });
+                    if (sucursalActual !== '') select.append('</optgroup>');
+                }
+            }, 'json');
+        }
+
+        // ========== FUNCIONES DE COMPATIBILIDAD ==========
+
+        // Cargar compatibilidad de un producto
+        function cargarCompatibilidad(productoId) {
+            productoActualCompatibilidad = productoId;
+
+            if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
+                $('#tablaCompatibilidad').DataTable().destroy();
+                $('#tablaCompatibilidad tbody').empty();
+            }
+
+            tablaCompatibilidad = $('#tablaCompatibilidad').DataTable({
+                ajax: {
+                    url: 'productos_ajax.php',
+                    type: 'GET',
+                    data: {
+                        accion: 'obtener_compatibilidad',
+                        producto_id: productoId,
+                        empresa_idx: empresa_idx
+                    },
+                    dataSrc: ''
+                },
+                columns: [
+                    { data: 'marca_nombre', render: function(data) { return data || '-'; } },
+                    { data: 'modelo_nombre', render: function(data) { return data || '-'; } },
+                    { data: 'submodelo_nombre', render: function(data) { return data || '-'; } },
+                    { 
+                        data: null, 
+                        className: 'text-center',
+                        render: function(data) {
+                            var anioDesde = data.anio_desde || '';
+                            var anioHasta = data.anio_hasta == '0' ? 'Actual' : (data.anio_hasta || '');
+                            if (anioHasta && anioHasta !== 'Actual') return `${anioDesde} - ${anioHasta}`;
+                            return anioDesde || '-';
+                        }
+                    },
+                    { 
+                        data: 'compatibilidad_id', 
+                        orderable: false, 
+                        searchable: false, 
+                        className: "text-center",
+                        render: function(data) {
+                            return `<div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-editar-compatibilidad" 
+                                        data-id="${data}" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-eliminar-compatibilidad" 
+                                        data-id="${data}" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>`;
+                        }
+                    }
+                ],
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                responsive: true,
+                pageLength: 10,
+                searching: false,
+                paging: false,
+                info: false
+            });
+        }
+
+        // Mostrar modal de compatibilidad
+        function mostrarModalCompatibilidad(productoId, compatibilidadId = null) {
+            resetModalCompatibilidad();
+            $('#compatibilidad_producto_id').val(productoId);
+            cargarMarcas();
+            cargarAnios();
+
+            if (compatibilidadId) {
+                $('#modalCompatibilidadLabel').html('<i class="fas fa-edit me-2"></i>Editar Compatibilidad');
+                $('#compatibilidad_id').val(compatibilidadId);
+
+                setTimeout(function() {
+                    $.get('productos_ajax.php', {
+                        accion: 'obtener_compatibilidad_por_id',
+                        compatibilidad_id: compatibilidadId,
+                        empresa_idx: empresa_idx
+                    }, function(res) {
+                        if (res && res.compatibilidad_id) {
+                            $('#marca_id').val(res.marca_id);
+                            cargarModelos(res.marca_id);
+                            
+                            setTimeout(function() {
+                                $('#modelo_id').val(res.modelo_id);
+                                cargarSubmodelos(res.modelo_id);
+                                
+                                setTimeout(function() {
+                                    $('#submodelo_id').val(res.submodelo_id || '');
+                                    $('#anio_desde').val(res.anio_desde);
+                                    $('#anio_hasta').val(res.anio_hasta || '');
+                                }, 300);
+                            }, 300);
+                        }
+                    }, 'json');
+                }, 500);
+            } else {
+                $('#modalCompatibilidadLabel').html('<i class="fas fa-plus me-2"></i>Agregar Compatibilidad');
+            }
+
+            new bootstrap.Modal(document.getElementById('modalCompatibilidad')).show();
+        }
+
+        function resetModalCompatibilidad() {
+            $('#formCompatibilidad')[0].reset();
+            $('#compatibilidad_id').val('');
+            $('#formCompatibilidad').removeClass('was-validated');
+            $('#marca_id').empty().append('<option value="">Seleccionar marca...</option>');
+            $('#modelo_id').empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
+            $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
+        }
+
+        // ========== FUNCIONES DE IMÁGENES ==========
+
+        // Cargar imágenes de un producto
+       function cargarImagenesProducto(productoId) {
+        productoActualImagenes = productoId;
+
+        $.get('productos_ajax.php', {
+            accion: 'obtener_imagenes_producto',
+            producto_id: productoId,
+            empresa_idx: empresa_idx
+        }, function(imagenes) {
+            console.log("Imágenes cargadas para producto", productoId, ":", imagenes);
+            var galeria = $('#galeriaImagenes');
+            var sinImagenes = $('#sinImagenes');
+            galeria.empty();
+
+            if (imagenes && imagenes.length > 0) {
+                sinImagenes.hide();
+
+                imagenes.forEach(function(imagen, index) {
+                    var srcImagen = imagen.imagen_url; // Ahora viene del servidor
+                    console.log("URL de imagen:", srcImagen);
+                    
+                    var esPrincipal = imagen.es_principal == 1;
+                    var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
+
+                    var cardHtml = `
+                        <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
+                            <div class="card card-imagen ${clasePrincipal} h-100">
+                                <div class="position-relative">
+                                    <img src="${srcImagen}" class="card-img-top imagen-miniatura" 
+                                        alt="${imagen.descripcion || 'Imagen del producto'}"
+                                        onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'><rect width=\'150\' height=\'150\' fill=\'#f8f9fa\'/><text x=\'75\' y=\'75\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';"
+                                        onclick="mostrarImagenGrande('${srcImagen}', '${imagen.descripcion || ''}', ${productoId})">
+                                    ${esPrincipal ? '<span class="badge bg-success badge-imagen-principal">Principal</span>' : ''}
+                                </div>
+                                <div class="card-body p-2">
+                                    <h6 class="card-title mb-1 text-truncate" title="${imagen.descripcion || 'Sin descripción'}">
+                                        ${imagen.descripcion || 'Sin descripción'}
+                                    </h6>
+                                    <p class="card-text small text-muted mb-1">
+                                        <i class="fas fa-sort-numeric-up me-1"></i>Orden: ${imagen.orden || 0}
+                                    </p>
+                                    <p class="card-text small text-muted mb-2">
+                                        <i class="fas fa-weight-hanging me-1"></i>${formatBytes(imagen.imagen_tamanio)}
+                                    </p>
+                                    <p class="card-text small text-muted mb-2">
+                                        <i class="fas fa-folder me-1"></i>${imagen.imagen_nombre}
+                                    </p>
+                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                        <button type="button" class="btn btn-outline-primary btn-editar-imagen" 
+                                                data-id="${imagen.producto_imagen_id}" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success btn-imagen-principal" 
+                                                data-id="${imagen.producto_imagen_id}" title="${esPrincipal ? 'Ya es principal' : 'Marcar como principal'}" 
+                                                ${esPrincipal ? 'disabled' : ''}>
+                                            <i class="fas fa-star"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-eliminar-imagen" 
+                                                data-id="${imagen.producto_imagen_id}" title="Eliminar">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
-                                `;
-                            }
-                        }
-                    ],
-                    language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-                    },
-                    responsive: true,
-                    pageLength: 10,
-                    searching: false,
-                    paging: false,
-                    info: false
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    galeria.append(cardHtml);
+                });
+                inicializarSortable();
+            } else {
+                sinImagenes.show();
+            }
+        }, 'json').fail(function(xhr, status, error) {
+            console.error("Error al cargar imágenes:", error);
+            console.error("Respuesta:", xhr.responseText);
+        });
+    }
+
+        // Función para formatear bytes
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // Inicializar ordenamiento por arrastre
+        function inicializarSortable() {
+            if (typeof Sortable !== 'undefined') {
+                new Sortable(document.getElementById('galeriaImagenes'), {
+                    animation: 150,
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    onEnd: actualizarOrdenImagenes
                 });
             }
+        }
 
-            // Cargar sucursales
-            function cargarSucursales() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_sucursales',
+        // Actualizar orden de imágenes
+        function actualizarOrdenImagenes() {
+            $('#galeriaImagenes .col-md-3').each(function(index) {
+                $.post('productos_ajax.php', {
+                    accion: 'actualizar_imagen_producto',
+                    producto_imagen_id: $(this).data('id'),
+                    orden: index,
                     empresa_idx: empresa_idx
-                }, function (sucursales) {
-                    var select = $('#sucursal_id');
-                    select.empty().append('<option value="">Seleccionar sucursal...</option>');
+                }, function(res) {
+                    if (!res.resultado) console.error('Error al actualizar orden:', res.error);
+                }, 'json');
+            });
+        }
 
-                    if (sucursales && sucursales.length > 0) {
-                        sucursales.forEach(function (sucursal) {
-                            select.append(`<option value="${sucursal.sucursal_id}">${sucursal.sucursal_nombre}</option>`);
-                        });
+        // Mostrar modal para subir/editar imagen
+        function mostrarModalImagen(productoId, productoImagenId = null) {
+            resetModalImagen();
+            $('#imagen_producto_id').val(productoId);
+
+            if (productoImagenId) {
+                $('#modalImagenLabel').html('<i class="fas fa-edit me-2"></i>Editar Imagen');
+                $('#producto_imagen_id').val(productoImagenId);
+
+                $.get('productos_ajax.php', {
+                    accion: 'obtener_imagen_por_id',
+                    producto_imagen_id: productoImagenId,
+                    empresa_idx: empresa_idx
+                }, function(res) {
+                    if (res && res.producto_imagen_id) {
+                        $('#descripcion_imagen').val(res.descripcion || '');
+                        $('#es_principal_imagen').prop('checked', res.es_principal == 1);
+                        $('#orden_imagen').val(res.orden || 0);
+                        $('#vistaPreviaContainer').show();
+                        $('#vistaPreviaImagen').attr('src', 'get_imagen.php?id=' + res.imagen_id);
+                        $('#imagen_archivo').removeAttr('required');
                     }
                 }, 'json');
+            } else {
+                $('#modalImagenLabel').html('<i class="fas fa-plus me-2"></i>Agregar Imagen');
+                $('#imagen_archivo').attr('required', 'required');
             }
 
-            // Cargar ubicaciones de sucursales
-            function cargarUbicacionesSucursales() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_ubicaciones_sucursales',
-                    empresa_idx: empresa_idx
-                }, function (ubicaciones) {
-                    var select = $('#sucursal_ubicacion_id');
-                    select.empty().append('<option value="">Seleccionar ubicación...</option>');
+            new bootstrap.Modal(document.getElementById('modalImagen')).show();
+        }
 
-                    if (ubicaciones && ubicaciones.length > 0) {
-                        var sucursalActual = '';
-                        ubicaciones.forEach(function (ubicacion) {
-                            // Agrupar por sucursal
-                            if (ubicacion.sucursal_nombre !== sucursalActual) {
-                                if (sucursalActual !== '') {
-                                    select.append('</optgroup>');
-                                }
-                                sucursalActual = ubicacion.sucursal_nombre;
-                                select.append(`<optgroup label="${sucursalActual}">`);
+        function resetModalImagen() {
+            $('#formImagen')[0].reset();
+            $('#producto_imagen_id').val('');
+            $('#formImagen').removeClass('was-validated');
+            $('#vistaPreviaContainer').hide();
+            $('#vistaPreviaImagen').attr('src', '');
+        }
+
+        // ========== FUNCIONES DE TABLA PRINCIPAL ==========
+
+        function inicializarDataTable() {
+            if ($.fn.DataTable.isDataTable('#tablaProductos')) {
+                $('#tablaProductos').DataTable().destroy();
+                $('#tablaProductos tbody').empty();
+            }
+
+            tabla = $('#tablaProductos').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: 'productos_ajax.php',
+                    type: 'GET',
+                    data: function(d) {
+                        d.accion = 'listar';
+                        d.empresa_idx = empresa_idx;
+                        d.pagina_idx = pagina_idx;
+                        d.filtro_codigo = $('#filtroCodigo').val();
+                        d.filtro_marca = $('#filtroMarca').val();
+                        d.filtro_modelo = $('#filtroModelo').val();
+                        d.filtro_submodelo = $('#filtroSubmodelo').val();
+                    }
+                },
+                stateSave: true,
+                stateSaveParams: function(settings, data) {
+                    data.page = currentPage;
+                    data.order = currentOrder;
+                    data.search = { search: currentSearch !== '-1' ? currentSearch : '' };
+                    delete data.columns;
+                    return data;
+                },
+                stateLoadParams: function(settings, data) {
+                    if (data.page !== undefined) currentPage = data.page;
+                    if (data.order !== undefined) currentOrder = data.order;
+                    currentSearch = (data.search && data.search.search) ? data.search.search : '';
+                    data.search = { search: currentSearch };
+                },
+                dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                     '<"row"<"col-sm-12"tr>>' +
+                     '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                     '<"clear">',
+                pageLength: 50,
+                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+                columns: [
+                    { data: 'producto_id', className: 'text-center fw-bold', width: '80px' },
+                    { data: 'producto_codigo', className: 'text-center fw-medium', width: '100px' },
+                    { 
+                        data: 'producto_nombre', 
+                        width: '200px',
+                        render: function(data, type, row) {
+                            if (type === 'export') return data;
+                            var desc = row.producto_descripcion ? 
+                                `<small class="text-muted d-block">${row.producto_descripcion.substring(0, 40)}${row.producto_descripcion.length > 40 ? '...' : ''}</small>` : '';
+                            return `<div class="fw-medium">${data}</div>${desc}`;
+                        }
+                    },
+                    { 
+                        data: 'marcas_compatibles', 
+                        width: '150px',
+                        render: function(data) {
+                            return data ? `<span class="badge badge-compatibilidad bg-info text-white" title="${data}">${data}</span>` : '<span class="text-muted">-</span>';
+                        }
+                    },
+                    { 
+                        data: 'modelos_compatibles', 
+                        width: '150px',
+                        render: function(data) {
+                            return data ? `<span class="badge badge-compatibilidad bg-success text-white" title="${data}">${data}</span>` : '<span class="text-muted">-</span>';
+                        }
+                    },
+                    { 
+                        data: 'submodelos_compatibles', 
+                        width: '150px',
+                        render: function(data) {
+                            return data ? `<span class="badge badge-compatibilidad bg-warning text-dark" title="${data}">${data}</span>` : '<span class="text-muted">-</span>';
+                        }
+                    },
+                    { 
+                        data: 'ubicaciones_info', 
+                        width: '200px',
+                        render: function(data) {
+                            if (!data) return '<span class="text-muted">-</span>';
+                            var ubicaciones = data.split('; ');
+                            var html = ubicaciones.slice(0, 3).map(u => 
+                                `<span class="badge bg-secondary mb-1 d-block text-start" style="font-size: 0.7rem;">${u}</span>`
+                            ).join('');
+                            if (ubicaciones.length > 3) {
+                                html += `<span class="badge bg-light text-dark d-block" style="font-size: 0.7rem;">+${ubicaciones.length - 3} más</span>`;
                             }
-
-                            var descripcionUbicacion = `${ubicacion.seccion} - ${ubicacion.estanteria} - Est. ${ubicacion.estante} Pos. ${ubicacion.posicion}`;
-                            if (ubicacion.descripcion) {
-                                descripcionUbicacion += ` (${ubicacion.descripcion})`;
+                            return html;
+                        }
+                    },
+                    { 
+                        data: 'imagen_id_principal', 
+                        width: '80px', 
+                        className: 'text-center', 
+                        orderable: false, 
+                        searchable: false,
+                        render: function(data, type, row) {
+                            if (type === 'export') return data ? 'Sí' : 'No';
+                            if (data) {
+                                var rutaImagen = 'get_imagen.php?id=' + data;
+                                // Escapar correctamente el título para el onclick
+                                var titulo = (row.producto_nombre || '').replace(/'/g, "\\'");
+                                return `<img src="${rutaImagen}" alt="Prod" 
+                                    class="img-thumbnail rounded-circle" 
+                                    style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" 
+                                    onclick="mostrarImagenGrande('${rutaImagen}', '${titulo}', ${row.producto_id})"
+                                    onerror="this.style.display='none'">`;
                             }
-
-                            select.append(`<option value="${ubicacion.sucursal_ubicacion_id}">${descripcionUbicacion}</option>`);
-                        });
-
-                        if (sucursalActual !== '') {
-                            select.append('</optgroup>');
+                            return '<div class="text-center text-muted"><i class="fas fa-image fa-lg"></i></div>';
+                        }
+                    },
+                    { 
+                        data: 'estado_info', 
+                        className: 'text-center', 
+                        width: '100px',
+                        render: function(data, type) {
+                            if (!data || !data.estado_registro) return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
+                            if (type === 'export') return data.estado_registro;
+                            var clase = 'badge-estado-inactivo';
+                            if (data.codigo_estandar === 'ACTIVO') clase = 'badge-estado-activo';
+                            return `<span class="badge ${clase}">${data.estado_registro}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'botones', 
+                        orderable: false, 
+                        searchable: false, 
+                        className: "text-center", 
+                        width: '120px',
+                        render: function(data, type, row) {
+                            if (type === 'export' || !data) return '';
+                            return data.map(boton => {
+                                var clase = 'btn-xs me-1 ';
+                                var nombre = boton.accion_js || boton.nombre_funcion.toLowerCase();
+                                clase += nombre === 'editar' ? 'btn-outline-primary' :
+                                        (nombre === 'eliminar' || nombre === 'baja') ? 'btn-outline-danger' :
+                                        (nombre === 'alta' || nombre === 'activar') ? 'btn-outline-success' :
+                                        (nombre === 'suspender' || nombre === 'bloquear') ? 'btn-outline-warning' : 'btn-outline-secondary';
+                                return `<button type="button" class="btn ${clase} btn-accion" 
+                                    title="${boton.descripcion || boton.nombre_funcion}" 
+                                    data-id="${row.producto_id}" 
+                                    data-accion="${boton.accion_js}"
+                                    data-confirmable="${boton.es_confirmable || 0}"
+                                    data-producto="${row.producto_nombre}">
+                                    <i class="${boton.icono_clase || 'fas fa-cog'}"></i>
+                                </button>`;
+                            }).join('') || '<span class="text-muted small">-</span>';
                         }
                     }
+                ],
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                order: currentOrder,
+                responsive: true,
+                createdRow: function(row, data) {
+                    if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') $(row).addClass('table-secondary');
+                    else if (data.estado_info && data.estado_info.codigo_estandar === 'BLOQUEADO') $(row).addClass('table-warning');
+                },
+                initComplete: inicializarEventos
+            });
+        }
+
+        // ========== FUNCIONES DE EVENTOS ==========
+
+        function inicializarEventos() {
+            $('#btnRecargar').off('click').on('click', function() {
+                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+                tabla.ajax.reload(() => btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>'));
+            });
+
+            $('#btnAplicarFiltros').click(() => tabla.ajax.reload());
+            
+            $('#btnLimpiarFiltros').click(function() {
+                $('#filtroCodigo, #filtroMarca').val('');
+                $('#filtroModelo, #filtroSubmodelo').val('').prop('disabled', true);
+                tabla.ajax.reload();
+            });
+
+            $('#filtroMarca').change(function() {
+                var marcaId = $(this).val();
+                if (marcaId) cargarModelos(marcaId, '#filtroModelo');
+                else $('#filtroModelo, #filtroSubmodelo').val('').prop('disabled', true);
+            });
+
+            $('#filtroModelo').change(function() {
+                var modeloId = $(this).val();
+                if (modeloId) cargarSubmodelos(modeloId, '#filtroSubmodelo');
+                else $('#filtroSubmodelo').val('').prop('disabled', true);
+            });
+
+            $('#btnAgregarCompatibilidad').click(() => productoActualCompatibilidad && mostrarModalCompatibilidad(productoActualCompatibilidad));
+
+            $(document).on('click', '.btn-editar-compatibilidad', function() {
+                productoActualCompatibilidad && mostrarModalCompatibilidad(productoActualCompatibilidad, $(this).data('id'));
+            });
+
+            $(document).on('click', '.btn-eliminar-compatibilidad', function() {
+                var compatibilidadId = $(this).data('id');
+                Swal.fire({
+                    title: '¿Eliminar Compatibilidad?',
+                    text: 'Esta acción no se puede deshacer',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, eliminar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post('productos_ajax.php', {
+                            accion: 'eliminar_compatibilidad',
+                            compatibilidad_id: compatibilidadId,
+                            empresa_idx: empresa_idx
+                        }, function(res) {
+                            if (res.success) {
+                                Swal.fire('¡Eliminado!', 'Compatibilidad eliminada correctamente', 'success');
+                                tablaCompatibilidad.ajax.reload();
+                            } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                        }, 'json');
+                    }
+                });
+            });
+
+            $(document).on('change', '#marca_id', function() {
+                var marcaId = $(this).val();
+                if (marcaId) cargarModelos(marcaId);
+                else $('#modelo_id, #submodelo_id').val('').prop('disabled', true);
+            });
+
+            $(document).on('change', '#modelo_id', function() {
+                var modeloId = $(this).val();
+                if (modeloId) cargarSubmodelos(modeloId);
+                else $('#submodelo_id').val('').prop('disabled', true);
+            });
+
+            $('#btnGuardarCompatibilidad').click(function() {
+                var form = document.getElementById('formCompatibilidad');
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return false;
+                }
+
+                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                var datos = {
+                    accion: $('#compatibilidad_id').val() ? 'editar_compatibilidad' : 'agregar_compatibilidad',
+                    compatibilidad_id: $('#compatibilidad_id').val() || '',
+                    producto_id: $('#compatibilidad_producto_id').val(),
+                    marca_id: $('#marca_id').val(),
+                    modelo_id: $('#modelo_id').val(),
+                    submodelo_id: $('#submodelo_id').val() || null,
+                    anio_desde: $('#anio_desde').val(),
+                    anio_hasta: $('#anio_hasta').val() || null,
+                    empresa_idx: empresa_idx
+                };
+
+                $.post('productos_ajax.php', datos, function(res) {
+                    btn.prop('disabled', false).html('Guardar');
+                    if (res.success || res.resultado) {
+                        Swal.fire('¡Guardado!', 'Compatibilidad guardada correctamente', 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('modalCompatibilidad')).hide();
+                        tablaCompatibilidad.ajax.reload();
+                    } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
                 }, 'json');
-            }
+            });
 
-            // Mostrar modal para agregar ubicación existente
-            function mostrarModalUbicacion(productoId) {
-                resetModalUbicacion();
-                $('#ubicacion_producto_id').val(productoId);
-                cargarUbicacionesSucursales();
+            $('#btnAgregarImagen').click(() => productoActualImagenes && mostrarModalImagen(productoActualImagenes));
 
-                var modal = new bootstrap.Modal(document.getElementById('modalUbicacion'));
-                modal.show();
-            }
+            $(document).on('click', '.btn-editar-imagen', function() {
+                productoActualImagenes && mostrarModalImagen(productoActualImagenes, $(this).data('id'));
+            });
 
-            // Mostrar modal para crear nueva ubicación
-            function mostrarModalNuevaUbicacion(productoId) {
-                resetModalNuevaUbicacion();
-                $('#nueva_ubicacion_producto_id').val(productoId);
-                cargarSucursales();
+            $(document).on('click', '.btn-imagen-principal', function() {
+                var productoImagenId = $(this).data('id');
+                Swal.fire({
+                    title: '¿Marcar como principal?',
+                    text: 'Esta imagen será mostrada como la principal del producto',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, marcar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post('productos_ajax.php', {
+                            accion: 'actualizar_imagen_producto',
+                            producto_imagen_id: productoImagenId,
+                            es_principal: 1,
+                            empresa_idx: empresa_idx
+                        }, function(res) {
+                            if (res.resultado) {
+                                Swal.fire('¡Actualizado!', 'Imagen marcada como principal', 'success');
+                                cargarImagenesProducto(productoActualImagenes);
+                            } else Swal.fire('Error', res.error || 'Error al actualizar', 'error');
+                        }, 'json');
+                    }
+                });
+            });
 
-                var modal = new bootstrap.Modal(document.getElementById('modalNuevaUbicacion'));
-                modal.show();
-            }
+            $(document).on('click', '.btn-eliminar-imagen', function() {
+                var productoImagenId = $(this).data('id');
+                Swal.fire({
+                    title: '¿Eliminar Imagen?',
+                    text: 'Esta acción no se puede deshacer',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, eliminar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post('productos_ajax.php', {
+                            accion: 'eliminar_imagen_producto',
+                            producto_imagen_id: productoImagenId,
+                            empresa_idx: empresa_idx
+                        }, function(res) {
+                            if (res.success) {
+                                Swal.fire('¡Eliminado!', 'Imagen eliminada correctamente', 'success');
+                                cargarImagenesProducto(productoActualImagenes);
+                            } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                        }, 'json');
+                    }
+                });
+            });
 
-            // Resetear modal de ubicación existente
-            function resetModalUbicacion() {
-                $('#formUbicacion')[0].reset();
-                $('#formUbicacion').removeClass('was-validated');
-                $('#sucursal_ubicacion_id').empty().append('<option value="">Seleccionar ubicación...</option>');
-            }
+            $('#imagen_archivo').change(function() {
+                if (this.files[0]) {
+                    var reader = new FileReader();
+                    reader.onload = (e) => $('#vistaPreviaContainer').show().find('#vistaPreviaImagen').attr('src', e.target.result);
+                    reader.readAsDataURL(this.files[0]);
+                } else $('#vistaPreviaContainer').hide();
+            });
 
-            // Resetear modal de nueva ubicación
-            function resetModalNuevaUbicacion() {
-                $('#formNuevaUbicacion')[0].reset();
-                $('#formNuevaUbicacion').removeClass('was-validated');
-                $('#sucursal_id').empty().append('<option value="">Seleccionar sucursal...</option>');
-            }
+            $('#btnGuardarImagen').click(function() {
+                var form = document.getElementById('formImagen');
+                var productoImagenId = $('#producto_imagen_id').val();
 
-            // Agregar estos eventos en la función inicializarEventos():
+                if (!productoImagenId && !$('#imagen_archivo')[0].files[0]) {
+                    form.classList.add('was-validated');
+                    return false;
+                }
+
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return false;
+                }
+
+                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                var formData = new FormData(form);
+                formData.append('accion', productoImagenId ? 'actualizar_imagen_producto' : 'subir_imagen_producto');
+                formData.append('producto_id', $('#imagen_producto_id').val());
+                if (productoImagenId) formData.append('producto_imagen_id', productoImagenId);
+                formData.append('empresa_idx', empresa_idx);
+
+                $.ajax({
+                    url: 'productos_ajax.php',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        btn.prop('disabled', false).html('Guardar');
+                        if (res.resultado) {
+                            Swal.fire('¡Guardado!', 'Imagen guardada correctamente', 'success');
+                            bootstrap.Modal.getInstance(document.getElementById('modalImagen')).hide();
+                            cargarImagenesProducto(productoActualImagenes);
+                        } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
+                    },
+                    error: function() {
+                        btn.prop('disabled', false).html('Guardar');
+                        Swal.fire('Error', 'Error de conexión al servidor', 'error');
+                    }
+                });
+            });
 
             // Eventos de ubicaciones
-            $('#btnAgregarUbicacion').click(function () {
-                if (productoActualUbicaciones) {
-                    mostrarModalUbicacion(productoActualUbicaciones);
-                }
-            });
+            $('#btnAgregarUbicacion').click(() => productoActualUbicaciones && mostrarModalUbicacion(productoActualUbicaciones));
+            $('#btnNuevaUbicacion').click(() => productoActualUbicaciones && mostrarModalNuevaUbicacion(productoActualUbicaciones));
 
-            $('#btnNuevaUbicacion').click(function () {
-                if (productoActualUbicaciones) {
-                    mostrarModalNuevaUbicacion(productoActualUbicaciones);
-                }
-            });
-
-            $(document).on('click', '.btn-eliminar-ubicacion', function () {
+            $(document).on('click', '.btn-eliminar-ubicacion', function() {
                 var productoUbicacionId = $(this).data('id');
-
                 Swal.fire({
                     title: '¿Eliminar Ubicación?',
                     text: 'Esta acción no se puede deshacer',
@@ -1331,77 +2197,55 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     showCancelButton: true,
                     confirmButtonColor: '#dc3545',
                     cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, eliminar',
-                    cancelButtonText: 'Cancelar'
+                    confirmButtonText: 'Sí, eliminar'
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.post('productos_ajax.php', {
                             accion: 'eliminar_ubicacion_producto',
                             producto_ubicacion_id: productoUbicacionId,
                             empresa_idx: empresa_idx
-                        }, function (res) {
+                        }, function(res) {
                             if (res.success) {
                                 Swal.fire('¡Eliminado!', 'Ubicación eliminada correctamente', 'success');
-                                if (tablaUbicaciones) {
-                                    tablaUbicaciones.ajax.reload();
-                                }
-                            } else {
-                                Swal.fire('Error', res.error || 'Error al eliminar', 'error');
-                            }
+                                tablaUbicaciones.ajax.reload();
+                            } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
                         }, 'json');
                     }
                 });
             });
 
-            // Guardar ubicación existente
-            $('#btnGuardarUbicacion').click(function () {
+            $('#btnGuardarUbicacion').click(function() {
                 var form = document.getElementById('formUbicacion');
                 if (!form.checkValidity()) {
                     form.classList.add('was-validated');
                     return false;
                 }
 
-                var btn = $(this);
-                var originalText = btn.html();
-                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-
-                var datos = {
+                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                $.post('productos_ajax.php', {
                     accion: 'agregar_ubicacion_producto',
                     producto_id: $('#ubicacion_producto_id').val(),
                     sucursal_ubicacion_id: $('#sucursal_ubicacion_id').val(),
                     empresa_idx: empresa_idx
-                };
-
-                $.post('productos_ajax.php', datos, function (res) {
-                    btn.prop('disabled', false).html(originalText);
-
+                }, function(res) {
+                    btn.prop('disabled', false).html('Guardar');
                     if (res.resultado) {
                         Swal.fire('¡Guardado!', 'Ubicación asignada correctamente', 'success');
-                        var modal = bootstrap.Modal.getInstance(document.getElementById('modalUbicacion'));
-                        modal.hide();
-
-                        if (tablaUbicaciones) {
-                            tablaUbicaciones.ajax.reload();
-                        }
-                    } else {
-                        Swal.fire('Error', res.error || 'Error al guardar', 'error');
-                    }
+                        bootstrap.Modal.getInstance(document.getElementById('modalUbicacion')).hide();
+                        tablaUbicaciones.ajax.reload();
+                    } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
                 }, 'json');
             });
 
-            // Guardar nueva ubicación
-            $('#btnGuardarNuevaUbicacion').click(function () {
+            $('#btnGuardarNuevaUbicacion').click(function() {
                 var form = document.getElementById('formNuevaUbicacion');
                 if (!form.checkValidity()) {
                     form.classList.add('was-validated');
                     return false;
                 }
 
-                var btn = $(this);
-                var originalText = btn.html();
-                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Creando...');
-
-                var datos = {
+                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Creando...');
+                $.post('productos_ajax.php', {
                     accion: 'crear_ubicacion_sucursal',
                     empresa_id: empresa_idx,
                     sucursal_id: $('#sucursal_id').val(),
@@ -1410,11 +2254,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     estante: $('#estante').val(),
                     posicion: $('#posicion').val(),
                     descripcion: $('#descripcion_ubicacion').val()
-                };
-
-                $.post('productos_ajax.php', datos, function (res) {
-                    btn.prop('disabled', false).html(originalText);
-
+                }, function(res) {
+                    btn.prop('disabled', false).html('Crear');
                     if (res.resultado) {
                         Swal.fire({
                             title: '¡Creada!',
@@ -1426,1391 +2267,328 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             confirmButtonText: 'Sí, asignar',
                             cancelButtonText: 'No, solo crear'
                         }).then((result) => {
-                            // Cerrar modal de creación
-                            var modalCreacion = bootstrap.Modal.getInstance(document.getElementById('modalNuevaUbicacion'));
-                            modalCreacion.hide();
-
+                            bootstrap.Modal.getInstance(document.getElementById('modalNuevaUbicacion')).hide();
                             if (result.isConfirmed) {
-                                // Asignar la nueva ubicación al producto
                                 $.post('productos_ajax.php', {
                                     accion: 'agregar_ubicacion_producto',
                                     producto_id: $('#nueva_ubicacion_producto_id').val(),
                                     sucursal_ubicacion_id: res.sucursal_ubicacion_id,
                                     empresa_idx: empresa_idx
-                                }, function (res2) {
+                                }, function(res2) {
                                     if (res2.resultado) {
                                         Swal.fire('¡Asignada!', 'Ubicación creada y asignada correctamente', 'success');
-                                        if (tablaUbicaciones) {
-                                            tablaUbicaciones.ajax.reload();
-                                        }
-                                    } else {
-                                        Swal.fire('¡Creada!', 'Ubicación creada correctamente', 'success');
-                                    }
+                                        tablaUbicaciones.ajax.reload();
+                                    } else Swal.fire('¡Creada!', 'Ubicación creada correctamente', 'success');
                                 }, 'json');
                             }
                         });
-                    } else {
-                        Swal.fire('Error', res.error || 'Error al crear la ubicación', 'error');
-                    }
+                    } else Swal.fire('Error', res.error || 'Error al crear la ubicación', 'error');
                 }, 'json');
             });
-            // Cargar modelos por marca
-            function cargarModelos(marcaId, targetId = '#modelo_id') {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_modelos',
-                    empresa_idx: empresa_idx,
-                    marca_id: marcaId
-                }, function (modelos) {
-                    var select = $(targetId);
-                    select.empty().append('<option value="">Seleccionar modelo...</option>');
+        }
 
-                    if (modelos && modelos.length > 0) {
-                        select.prop('disabled', false);
-                        modelos.forEach(function (modelo) {
-                            select.append(`<option value="${modelo.modelo_id}">${modelo.modelo_nombre}</option>`);
-                        });
-                    } else {
-                        select.prop('disabled', true);
-                    }
-                }, 'json');
-            }
+        // Mostrar modal para agregar ubicación existente
+        function mostrarModalUbicacion(productoId) {
+            resetModalUbicacion();
+            $('#ubicacion_producto_id').val(productoId);
+            cargarUbicacionesSucursales();
+            new bootstrap.Modal(document.getElementById('modalUbicacion')).show();
+        }
 
-            // Cargar submodelos por modelo
-            function cargarSubmodelos(modeloId, targetId = '#submodelo_id') {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_submodelos',
-                    empresa_idx: empresa_idx,
-                    modelo_id: modeloId
-                }, function (submodelos) {
-                    var select = $(targetId);
-                    select.empty().append('<option value="">Seleccionar submodelo...</option>')
-                        .append('<option value="0">Sin submodelo</option>');
+        // Mostrar modal para crear nueva ubicación
+        function mostrarModalNuevaUbicacion(productoId) {
+            resetModalNuevaUbicacion();
+            $('#nueva_ubicacion_producto_id').val(productoId);
+            cargarSucursales();
+            new bootstrap.Modal(document.getElementById('modalNuevaUbicacion')).show();
+        }
 
-                    if (submodelos && submodelos.length > 0) {
-                        select.prop('disabled', false);
-                        submodelos.forEach(function (submodelo) {
-                            select.append(`<option value="${submodelo.submodelo_id}">${submodelo.submodelo_nombre}</option>`);
-                        });
-                    } else {
-                        select.prop('disabled', false);
-                    }
-                }, 'json');
-            }
+        function resetModalUbicacion() {
+            $('#formUbicacion')[0].reset();
+            $('#formUbicacion').removeClass('was-validated');
+            $('#sucursal_ubicacion_id').empty().append('<option value="">Seleccionar ubicación...</option>');
+        }
 
-            // Cargar años para selects
-            function cargarAnios() {
-                var currentYear = new Date().getFullYear();
-                var startYear = 1950;
+        function resetModalNuevaUbicacion() {
+            $('#formNuevaUbicacion')[0].reset();
+            $('#formNuevaUbicacion').removeClass('was-validated');
+            $('#sucursal_id').empty().append('<option value="">Seleccionar sucursal...</option>');
+        }
 
-                // Año desde
-                var selectDesde = $('#anio_desde');
-                selectDesde.empty().append('<option value="">Año...</option>');
+        // ========== FUNCIONES DE ACCIONES ==========
 
-                // Año hasta
-                var selectHasta = $('#anio_hasta');
-                selectHasta.empty().append('<option value="">Año...</option>')
-                    .append('<option value="0">Actual</option>');
-
-                for (var year = startYear; year <= currentYear + 10; year++) {
-                    selectDesde.append(`<option value="${year}">${year}</option>`);
-                    selectHasta.append(`<option value="${year}">${year}</option>`);
-                }
-            }
-
-            // ========== FUNCIONES DE TABLA PRINCIPAL ==========
-
-            // Función para inicializar DataTable de productos
-            function inicializarDataTable() {
-                if ($.fn.DataTable.isDataTable('#tablaProductos')) {
-                    $('#tablaProductos').DataTable().destroy();
-                    $('#tablaProductos tbody').empty();
-                }
-
-                tabla = $('#tablaProductos').DataTable({
-                    processing: true,
-                    serverSide: true,
-                    ajax: {
-                        url: 'productos_ajax.php',
-                        type: 'GET',
-                        data: function (d) {
-                            d.accion = 'listar';
-                            d.empresa_idx = empresa_idx;
-                            d.pagina_idx = pagina_idx;
-                            d.filtro_codigo = $('#filtroCodigo').val();
-                            d.filtro_marca = $('#filtroMarca').val();
-                            d.filtro_modelo = $('#filtroModelo').val();
-                            d.filtro_submodelo = $('#filtroSubmodelo').val();
-                        }
-                    },
-                    stateSave: true,
-                    stateSaveParams: function (settings, data) {
-                        data.page = currentPage;
-                        data.order = currentOrder;
-                        if (currentSearch !== '-1' && currentSearch !== '') {
-                            data.search = { search: currentSearch };
-                        } else {
-                            data.search = { search: '' };
-                        }
-                        delete data.columns;
-                        return data;
-                    },
-                    stateLoadParams: function (settings, data) {
-                        if (data.page !== undefined) currentPage = data.page;
-                        if (data.order !== undefined && data.order.length > 0) currentOrder = data.order;
-                        if (data.search && data.search.search !== undefined) {
-                            var searchValue = data.search.search;
-                            if (searchValue === '-1' || searchValue === '') {
-                                currentSearch = '';
-                            } else {
-                                currentSearch = searchValue;
-                            }
-                        } else {
-                            currentSearch = '';
-                        }
-                        data.search = { search: currentSearch };
-                    },
-                    dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                        '<"row"<"col-sm-12"tr>>' +
-                        '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
-                        '<"clear">',
-                    pageLength: 50,
-                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-                    columns: [
-                        {
-                            data: 'producto_id',
-                            className: 'text-center fw-bold',
-                            width: '80px'
-                        },
-                        {
-                            data: 'producto_codigo',
-                            className: 'text-center fw-medium',
-                            width: '100px',
-                            render: function (data, type, row) {
-                                return type === 'export' ? data : `<div class="fw-bold">${data}</div>`;
-                            }
-                        },
-                        {
-                            data: 'producto_nombre',
-                            width: '200px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data;
-                                var desc = row.producto_descripcion ?
-                                    `<small class="text-muted d-block">${row.producto_descripcion.substring(0, 40)}${row.producto_descripcion.length > 40 ? '...' : ''}</small>` : '';
-                                return `<div class="fw-medium">${data}</div>${desc}`;
-                            }
-                        },
-                        {
-                            data: 'marcas_compatibles',
-                            width: '150px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data || '';
-                                if (!data || data === '') return '<span class="text-muted">-</span>';
-                                return `<span class="badge badge-compatibilidad bg-info text-white" title="${data}">${data}</span>`;
-                            }
-                        },
-                        {
-                            data: 'modelos_compatibles',
-                            width: '150px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data || '';
-                                if (!data || data === '') return '<span class="text-muted">-</span>';
-                                return `<span class="badge badge-compatibilidad bg-success text-white" title="${data}">${data}</span>`;
-                            }
-                        },
-                        {
-                            data: 'submodelos_compatibles',
-                            width: '150px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data || '';
-                                if (!data || data === '') return '<span class="text-muted">-</span>';
-                                return `<span class="badge badge-compatibilidad bg-warning text-dark" title="${data}">${data}</span>`;
-                            }
-                        },
-                        {
-                            data: 'ubicaciones_info',  // Nueva columna de ubicaciones
-                            width: '200px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return data || '';
-                                if (!data || data === '') return '<span class="text-muted">-</span>';
-
-                                // Limitar a 3 ubicaciones para no hacer muy larga la celda
-                                var ubicaciones = data.split('; ');
-                                var mostrar = ubicaciones.slice(0, 3);
-                                var html = '';
-
-                                mostrar.forEach(function (ubicacion) {
-                                    html += `<span class="badge bg-secondary mb-1 d-block text-start" style="font-size: 0.7rem;">${ubicacion}</span>`;
-                                });
-
-                                if (ubicaciones.length > 3) {
-                                    html += `<span class="badge bg-light text-dark d-block" style="font-size: 0.7rem;">+${ubicaciones.length - 3} más</span>`;
-                                }
-
-                                return html;
-                            }
-                        },
-                        {
-
-                            data: 'imagen_id_principal',
-                            width: '80px',
-                            className: 'text-center',
-                            orderable: false,
-                            searchable: false,
-                            render: function (data, type, row) {
-                                if (type === 'export') return data ? 'Sí' : 'No';
-
-                                if (data) {
-                                    var rutaImagen = 'get_imagen.php?id=' + data;
-                                    return '<img src="' + rutaImagen + '" alt="Prod" ' +
-                                        'class="img-thumbnail rounded-circle" ' +
-                                        'style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" ' +
-                                        'onclick="mostrarImagenGrande(\'' + rutaImagen + '\', \'' + (row.producto_nombre || '').replace(/'/g, "\\'") + '\')" ' +
-                                        'onerror="this.style.display=\'none\'">';
-                                } else {
-                                    return '<div class="text-center text-muted"><i class="fas fa-image fa-lg"></i></div>';
-                                }
-                            }
-
-                        },
-                        {
-                            data: 'estado_info',
-                            className: 'text-center',
-                            width: '100px',
-                            render: function (data, type, row) {
-                                if (!data || !data.estado_registro) {
-                                    return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
-                                }
-
-                                var estado = data.estado_registro;
-                                var codigo = data.codigo_estandar || 'DESCONOCIDO';
-
-                                if (type === 'export') return estado;
-
-                                var claseBadge = 'badge-estado-inactivo';
-                                if (codigo === 'ACTIVO') claseBadge = 'badge-estado-activo';
-                                else if (codigo === 'SUSPENDIDO') claseBadge = 'badge-estado-suspendido';
-                                else if (codigo === 'BLOQUEADO') claseBadge = 'badge-estado-bloqueado';
-
-                                return `<span class="badge ${claseBadge}">${estado}</span>`;
-                            }
-                        },
-                        {
-                            data: 'botones',
-                            orderable: false,
-                            searchable: false,
-                            className: "text-center",
-                            width: '120px',
-                            render: function (data, type, row) {
-                                if (type === 'export') return '';
-
-                                var botones = '';
-                                if (data && data.length > 0) {
-                                    data.forEach(boton => {
-                                        var claseBoton = 'btn-xs me-1 ';
-                                        var nombreAccion = boton.accion_js || boton.nombre_funcion.toLowerCase();
-                                        var icono = boton.icono_clase || 'fas fa-cog';
-
-                                        // Determinar clase de botón basado en la acción
-                                        if (nombreAccion === 'editar') {
-                                            claseBoton += 'btn-outline-primary';
-                                        } else if (nombreAccion === 'eliminar' || nombreAccion === 'baja') {
-                                            claseBoton += 'btn-outline-danger';
-                                        } else if (nombreAccion === 'alta' || nombreAccion === 'activar') {
-                                            claseBoton += 'btn-outline-success';
-                                        } else if (nombreAccion === 'suspender' || nombreAccion === 'bloquear') {
-                                            claseBoton += 'btn-outline-warning';
-                                        } else {
-                                            claseBoton += 'btn-outline-secondary';
-                                        }
-
-                                        botones += `<button type="button" class="btn ${claseBoton} btn-accion" 
-                                        title="${boton.descripcion || boton.nombre_funcion}" 
-                                        data-id="${row.producto_id}" 
-                                        data-accion="${boton.accion_js}"
-                                        data-confirmable="${boton.es_confirmable || 0}"
-                                        data-producto="${row.producto_nombre}">
-                                        <i class="${icono}"></i>
-                                    </button>`;
-                                    });
-                                }
-
-                                return botones || '<span class="text-muted small">-</span>';
-                            }
-                        }
-                    ],
-                    language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-                    },
-                    order: currentOrder,
-                    responsive: true,
-                    createdRow: function (row, data, dataIndex) {
-                        if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
-                            $(row).addClass('table-secondary');
-                        } else if (data.estado_info && data.estado_info.codigo_estandar === 'BLOQUEADO') {
-                            $(row).addClass('table-warning');
-                        }
-                    },
-                    initComplete: function () {
-                        inicializarEventos();
-                    }
-                });
-            }
-
-            // ========== FUNCIONES DE COMPATIBILIDAD ==========
-
-            // Cargar compatibilidad de un producto
-            function cargarCompatibilidad(productoId) {
-                productoActualCompatibilidad = productoId;
-
-                if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
-                    $('#tablaCompatibilidad').DataTable().destroy();
-                    $('#tablaCompatibilidad tbody').empty();
-                }
-
-                tablaCompatibilidad = $('#tablaCompatibilidad').DataTable({
-                    ajax: {
-                        url: 'productos_ajax.php',
-                        type: 'GET',
-                        data: {
-                            accion: 'obtener_compatibilidad',
-                            producto_id: productoId,
-                            empresa_idx: empresa_idx
-                        },
-                        dataSrc: ''
-                    },
-                    columns: [
-                        {
-                            data: 'marca_nombre',
-                            render: function (data) {
-                                return data || '-';
-                            }
-                        },
-                        {
-                            data: 'modelo_nombre',
-                            render: function (data) {
-                                return data || '-';
-                            }
-                        },
-                        {
-                            data: 'submodelo_nombre',
-                            render: function (data) {
-                                return data || '-';
-                            }
-                        },
-                        {
-                            data: null,
-                            className: 'text-center',
-                            render: function (data) {
-                                var anioDesde = data.anio_desde || '';
-                                var anioHasta = data.anio_hasta == '0' ? 'Actual' : (data.anio_hasta || '');
-                                if (anioHasta && anioHasta !== 'Actual') {
-                                    return `${anioDesde} - ${anioHasta}`;
-                                }
-                                return anioDesde || '-';
-                            }
-                        },
-                        {
-                            data: 'compatibilidad_id',
-                            orderable: false,
-                            searchable: false,
-                            className: "text-center",
-                            render: function (data, type, row) {
-                                return `
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <button type="button" class="btn btn-outline-primary btn-editar-compatibilidad" 
-                                                data-id="${data}" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-danger btn-eliminar-compatibilidad" 
-                                                data-id="${data}" title="Eliminar">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                `;
-                            }
-                        }
-                    ],
-                    language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-                    },
-                    responsive: true,
-                    pageLength: 10,
-                    searching: false,
-                    paging: false,
-                    info: false
-                });
-            }
-
-            // Mostrar modal de compatibilidad
-            function mostrarModalCompatibilidad(productoId, compatibilidadId = null) {
-                resetModalCompatibilidad();
-                $('#compatibilidad_producto_id').val(productoId);
-
-                // Cargar marcas primero
-                cargarMarcasFiltro();
-                cargarAnios();
-
-                if (compatibilidadId) {
-                    // Modo edición
-                    $('#modalCompatibilidadLabel').html('<i class="fas fa-edit me-2"></i>Editar Compatibilidad');
-                    $('#compatibilidad_id').val(compatibilidadId);
-
-                    // Cargar datos de la compatibilidad después de que carguen las marcas
-                    setTimeout(function () {
-                        $.get('productos_ajax.php', {
-                            accion: 'obtener_compatibilidad_por_id',
-                            compatibilidad_id: compatibilidadId,
-                            empresa_idx: empresa_idx
-                        }, function (res) {
-                            if (res && res.compatibilidad_id) {
-                                setTimeout(function () {
-                                    $('#marca_id').val(res.marca_id);
-                                    // Cargar modelos de esta marca
-                                    cargarModelos(res.marca_id);
-
-                                    setTimeout(function () {
-                                        $('#modelo_id').val(res.modelo_id);
-                                        // Cargar submodelos de este modelo
-                                        cargarSubmodelos(res.modelo_id);
-
-                                        setTimeout(function () {
-                                            $('#submodelo_id').val(res.submodelo_id || '');
-                                            $('#anio_desde').val(res.anio_desde);
-                                            $('#anio_hasta').val(res.anio_hasta || '');
-                                        }, 300);
-                                    }, 300);
-                                }, 300);
-                            }
-                        }, 'json');
-                    }, 500);
+        function cargarBotonAgregar() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_boton_agregar',
+                pagina_idx: pagina_idx
+            }, function(botonAgregar) {
+                if (botonAgregar && botonAgregar.nombre_funcion) {
+                    var icono = botonAgregar.icono_clase ? `<i class="${botonAgregar.icono_clase} me-1"></i>` : '';
+                    var colorClase = botonAgregar.bg_clase && botonAgregar.text_clase ? botonAgregar.bg_clase + ' ' + botonAgregar.text_clase : (botonAgregar.color_clase || 'btn-primary');
+                    $('#contenedor-boton-agregar').html(`<button type="button" class="btn ${colorClase}" id="btnNuevo">${icono}${botonAgregar.nombre_funcion}</button>`);
                 } else {
-                    // Modo creación
-                    $('#modalCompatibilidadLabel').html('<i class="fas fa-plus me-2"></i>Agregar Compatibilidad');
+                    $('#contenedor-boton-agregar').html('<button type="button" class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-1"></i>Agregar Producto</button>');
                 }
-
-                var modal = new bootstrap.Modal(document.getElementById('modalCompatibilidad'));
-                modal.show();
-            }
-
-            // Resetear modal de compatibilidad
-            function resetModalCompatibilidad() {
-                $('#formCompatibilidad')[0].reset();
-                $('#compatibilidad_id').val('');
-                $('#formCompatibilidad').removeClass('was-validated');
-
-                $('#marca_id').empty().append('<option value="">Seleccionar marca...</option>');
-                $('#modelo_id').empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
-                $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
-            }
-
-            // ========== FUNCIONES DE IMÁGENES ==========
-            // Cargar imágenes de un producto
-            function cargarImagenesProducto(productoId) {
-                productoActualImagenes = productoId;
-
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_imagenes_producto',
-                    producto_id: productoId,
-                    empresa_idx: empresa_idx
-                }, function (imagenes) {
-                    var galeria = $('#galeriaImagenes');
-                    var sinImagenes = $('#sinImagenes');
-
-                    galeria.empty();
-
-                    if (imagenes && imagenes.length > 0) {
-                        sinImagenes.hide();
-
-                        imagenes.forEach(function (imagen, index) {
-                            // Usar imagen_url desde el servidor
-                            var srcImagen = imagen.imagen_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150"><rect width="150" height="150" fill="#f8f9fa"/><text x="75" y="75" text-anchor="middle" fill="#6c757d" font-family="Arial" font-size="12">Imagen</text></svg>';
-
-                            var esPrincipal = imagen.es_principal == 1;
-                            var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
-
-                            var cardHtml = `
-                                <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
-                                    <div class="card card-imagen ${clasePrincipal} h-100">
-                                        <div class="position-relative">
-                                            <img src="${srcImagen}" class="card-img-top imagen-miniatura" 
-                                                alt="${imagen.descripcion || 'Imagen del producto'}"
-                                                onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"150\" height=\"150\"><rect width=\"150\" height=\"150\" fill=\"#f8f9fa\"/><text x=\"75\" y=\"75\" text-anchor=\"middle\" fill=\"#6c757d\" font-family=\"Arial\" font-size=\"12\">Error</text></svg>';"
-                                                onclick="mostrarImagenGrande('${srcImagen}', '${imagen.descripcion || ''}')">
-                                            ${esPrincipal ? '<span class="badge bg-success badge-imagen-principal">Principal</span>' : ''}
-                                        </div>
-                                        <div class="card-body p-2">
-                                            <h6 class="card-title mb-1 text-truncate" title="${imagen.descripcion || 'Sin descripción'}">
-                                                ${imagen.descripcion || 'Sin descripción'}
-                                            </h6>
-                                            <p class="card-text small text-muted mb-1">
-                                                <i class="fas fa-sort-numeric-up me-1"></i>Orden: ${imagen.orden || 0}
-                                            </p>
-                                            <p class="card-text small text-muted mb-2">
-                                                <i class="fas fa-weight-hanging me-1"></i>${formatBytes(imagen.imagen_tamanio)}
-                                            </p>
-                                            <p class="card-text small text-muted mb-2">
-                                                <i class="fas fa-folder me-1"></i>${imagen.imagen_nombre}
-                                            </p>
-                                            <div class="btn-group btn-group-sm w-100" role="group">
-                                                <button type="button" class="btn btn-outline-primary btn-editar-imagen" 
-                                                        data-id="${imagen.producto_imagen_id}" title="Editar">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-success btn-imagen-principal" 
-                                                        data-id="${imagen.producto_imagen_id}" title="${esPrincipal ? 'Ya es principal' : 'Marcar como principal'}" 
-                                                        ${esPrincipal ? 'disabled' : ''}>
-                                                    <i class="fas fa-star"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-danger btn-eliminar-imagen" 
-                                                        data-id="${imagen.producto_imagen_id}" title="Eliminar">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-
-                            galeria.append(cardHtml);
-                        });
-
-                        // Inicializar ordenamiento por arrastre
-                        inicializarSortable();
-                    } else {
-                        sinImagenes.show();
-                    }
-                }, 'json');
-            }
-
-            // Función para mostrar imagen en grande desde la tabla principal
-            window.mostrarImagenGrande = function (url, titulo) {
-                // Asegurar que la URL sea correcta
-                var rutaCompleta = url;
-
-                // Crear modal dinámico si no existe
-                if ($('#modalImagenTabla').length === 0) {
-                    $('body').append(`
-                        <div class="modal fade" id="modalImagenTabla" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered modal-lg">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="tituloImagenTabla">${titulo || 'Imagen del producto'}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                                    </div>
-                                    <div class="modal-body text-center">
-                                        <img id="imagenGrandeTabla" src="" alt="Imagen del producto" class="img-fluid rounded">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `);
-                }
-
-                $('#imagenGrandeTabla').attr('src', rutaCompleta);
-                $('#tituloImagenTabla').text(titulo || 'Imagen del producto');
-
-                // Mostrar el modal
-                var modal = new bootstrap.Modal(document.getElementById('modalImagenTabla'));
-                modal.show();
-            };
-
-            // Función para formatear bytes a formato legible
-            function formatBytes(bytes, decimals = 2) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const dm = decimals < 0 ? 0 : decimals;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-            }
-
-            // Función global para mostrar imagen en grande
-            function mostrarImagenGrande(ruta, descripcion) {
-                // Asegurar que la ruta tenga / al inicio
-                var rutaCompleta = ruta.startsWith('/') ? ruta : '/' + ruta;
-                $('#imagenGrande').attr('src', rutaCompleta);
-                $('#descripcionImagenGrande').text(descripcion || 'Sin descripción');
-
-                // Mostrar el modal
-                var modal = new bootstrap.Modal(document.getElementById('modalVerImagen'));
-                modal.show();
-            }
-
-            // Inicializar ordenamiento por arrastre
-            function inicializarSortable() {
-                if (typeof Sortable !== 'undefined') {
-                    var galeria = document.getElementById('galeriaImagenes');
-                    new Sortable(galeria, {
-                        animation: 150,
-                        ghostClass: 'sortable-ghost',
-                        chosenClass: 'sortable-chosen',
-                        onEnd: function (evt) {
-                            // Actualizar orden en base de datos
-                            actualizarOrdenImagenes();
-                        }
-                    });
-                }
-            }
-
-            // Actualizar orden de imágenes después de arrastrar
-            function actualizarOrdenImagenes() {
-                var ordenes = [];
-                $('#galeriaImagenes .col-md-3').each(function (index) {
-                    var id = $(this).data('id');
-                    ordenes.push({
-                        producto_imagen_id: id,
-                        orden: index
-                    });
-                });
-
-                // Actualizar cada imagen con su nuevo orden
-                ordenes.forEach(function (item) {
-                    $.post('productos_ajax.php', {
-                        accion: 'actualizar_imagen_producto',
-                        producto_imagen_id: item.producto_imagen_id,
-                        orden: item.orden,
-                        empresa_idx: empresa_idx
-                    }, function (res) {
-                        if (!res.resultado) {
-                            console.error('Error al actualizar orden:', res.error);
-                        }
-                    }, 'json');
-                });
-            }
-
-            // Mostrar modal para subir/editar imagen
-            function mostrarModalImagen(productoId, productoImagenId = null) {
-                resetModalImagen();
-                $('#imagen_producto_id').val(productoId);
-
-                if (productoImagenId) {
-                    // Modo edición
-                    $('#modalImagenLabel').html('<i class="fas fa-edit me-2"></i>Editar Imagen');
-                    $('#producto_imagen_id').val(productoImagenId);
-
-                    // Cargar datos de la imagen
-                    $.get('productos_ajax.php', {
-                        accion: 'obtener_imagen_por_id',
-                        producto_imagen_id: productoImagenId,
-                        empresa_idx: empresa_idx
-                    }, function (res) {
-                        if (res && res.producto_imagen_id) {
-                            $('#descripcion_imagen').val(res.descripcion || '');
-                            $('#es_principal_imagen').prop('checked', res.es_principal == 1);
-                            $('#orden_imagen').val(res.orden || 0);
-
-                            // Mostrar vista previa
-                            $('#vistaPreviaContainer').show();
-                            var urlImagen = 'get_imagen.php?id=' + res.imagen_id;
-                            $('#vistaPreviaImagen').attr('src', urlImagen);
-
-                            // No requerir archivo en modo edición
-                            $('#imagen_archivo').removeAttr('required');
-                        }
-                    }, 'json');
-                } else {
-                    // Modo creación
-                    $('#modalImagenLabel').html('<i class="fas fa-plus me-2"></i>Agregar Imagen');
-                    $('#imagen_archivo').attr('required', 'required');
-                }
-
-                var modal = new bootstrap.Modal(document.getElementById('modalImagen'));
-                modal.show();
-            }
-
-            // Resetear modal de imagen
-            function resetModalImagen() {
-                $('#formImagen')[0].reset();
-                $('#producto_imagen_id').val('');
-                $('#formImagen').removeClass('was-validated');
-                $('#vistaPreviaContainer').hide();
-                $('#vistaPreviaImagen').attr('src', '');
-            }
-
-            // ========== EVENTOS ==========
-
-            function inicializarEventos() {
-                // Botón recargar
-                $('#btnRecargar').off('click').on('click', function () {
-                    var btn = $(this);
-                    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
-                    tabla.ajax.reload(function () {
-                        btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>');
-                    });
-                });
-
-                // Filtros
-                $('#btnAplicarFiltros').click(function () {
-                    tabla.ajax.reload();
-                });
-
-                $('#btnLimpiarFiltros').click(function () {
-                    $('#filtroCodigo').val('');
-                    $('#filtroMarca').val('');
-                    $('#filtroModelo').val('').prop('disabled', true);
-                    $('#filtroSubmodelo').val('').prop('disabled', true);
-                    tabla.ajax.reload();
-                });
-
-                // Eventos para los filtros dependientes
-                $('#filtroMarca').change(function () {
-                    var marcaId = $(this).val();
-                    if (marcaId) {
-                        cargarModelos(marcaId, '#filtroModelo');
-                    } else {
-                        $('#filtroModelo').empty().append('<option value="">Todos los modelos</option>').prop('disabled', true);
-                        $('#filtroSubmodelo').empty().append('<option value="">Todos los submodelos</option>').prop('disabled', true);
-                    }
-                });
-
-                $('#filtroModelo').change(function () {
-                    var modeloId = $(this).val();
-                    if (modeloId) {
-                        cargarSubmodelos(modeloId, '#filtroSubmodelo');
-                    } else {
-                        $('#filtroSubmodelo').empty().append('<option value="">Todos los submodelos</option>').prop('disabled', true);
-                    }
-                });
-
-                // Eventos de compatibilidad
-                $('#btnAgregarCompatibilidad').click(function () {
-                    if (productoActualCompatibilidad) {
-                        mostrarModalCompatibilidad(productoActualCompatibilidad);
-                    }
-                });
-
-                $(document).on('click', '.btn-editar-compatibilidad', function () {
-                    var compatibilidadId = $(this).data('id');
-                    if (productoActualCompatibilidad) {
-                        mostrarModalCompatibilidad(productoActualCompatibilidad, compatibilidadId);
-                    }
-                });
-
-                $(document).on('click', '.btn-eliminar-compatibilidad', function () {
-                    var compatibilidadId = $(this).data('id');
-
-                    Swal.fire({
-                        title: '¿Eliminar Compatibilidad?',
-                        text: 'Esta acción no se puede deshacer',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#dc3545',
-                        cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Sí, eliminar',
-                        cancelButtonText: 'Cancelar'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            $.post('productos_ajax.php', {
-                                accion: 'eliminar_compatibilidad',
-                                compatibilidad_id: compatibilidadId,
-                                empresa_idx: empresa_idx
-                            }, function (res) {
-                                if (res.success) {
-                                    Swal.fire('¡Eliminado!', 'Compatibilidad eliminada correctamente', 'success');
-                                    if (tablaCompatibilidad) {
-                                        tablaCompatibilidad.ajax.reload();
-                                    }
-                                } else {
-                                    Swal.fire('Error', res.error || 'Error al eliminar', 'error');
-                                }
-                            }, 'json');
-                        }
-                    });
-                });
-
-                // Cambio de marca -> cargar modelos (para modal de compatibilidad)
-                $(document).on('change', '#marca_id', function () {
-                    var marcaId = $(this).val();
-                    if (marcaId) {
-                        cargarModelos(marcaId, '#modelo_id');
-                    } else {
-                        $('#modelo_id').empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
-                        $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
-                    }
-                });
-
-                // Cambio de modelo -> cargar submodelos (para modal de compatibilidad)
-                $(document).on('change', '#modelo_id', function () {
-                    var modeloId = $(this).val();
-                    if (modeloId) {
-                        cargarSubmodelos(modeloId, '#submodelo_id');
-                    } else {
-                        $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
-                    }
-                });
-
-                // Guardar compatibilidad
-                $('#btnGuardarCompatibilidad').click(function () {
-                    var form = document.getElementById('formCompatibilidad');
-                    if (!form.checkValidity()) {
-                        form.classList.add('was-validated');
-                        return false;
-                    }
-
-                    var btn = $(this);
-                    var originalText = btn.html();
-                    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-
-                    var datos = {
-                        accion: $('#compatibilidad_id').val() ? 'editar_compatibilidad' : 'agregar_compatibilidad',
-                        compatibilidad_id: $('#compatibilidad_id').val() || '',
-                        producto_id: $('#compatibilidad_producto_id').val(),
-                        marca_id: $('#marca_id').val(),
-                        modelo_id: $('#modelo_id').val(),
-                        submodelo_id: $('#submodelo_id').val() || null,
-                        anio_desde: $('#anio_desde').val(),
-                        anio_hasta: $('#anio_hasta').val() || null,
-                        empresa_idx: empresa_idx
-                    };
-
-                    $.post('productos_ajax.php', datos, function (res) {
-                        btn.prop('disabled', false).html(originalText);
-
-                        if (res.success || res.resultado) {
-                            Swal.fire('¡Guardado!', 'Compatibilidad guardada correctamente', 'success');
-                            var modal = bootstrap.Modal.getInstance(document.getElementById('modalCompatibilidad'));
-                            modal.hide();
-
-                            if (tablaCompatibilidad) {
-                                tablaCompatibilidad.ajax.reload();
-                            }
-                        } else {
-                            Swal.fire('Error', res.error || 'Error al guardar', 'error');
-                        }
-                    }, 'json');
-                });
-
-                // Eventos de imágenes
-                $('#btnAgregarImagen').click(function () {
-                    if (productoActualImagenes) {
-                        mostrarModalImagen(productoActualImagenes);
-                    }
-                });
-
-                $(document).on('click', '.btn-editar-imagen', function () {
-                    var productoImagenId = $(this).data('id');
-                    if (productoActualImagenes) {
-                        mostrarModalImagen(productoActualImagenes, productoImagenId);
-                    }
-                });
-
-                $(document).on('click', '.btn-imagen-principal', function () {
-                    var productoImagenId = $(this).data('id');
-
-                    Swal.fire({
-                        title: '¿Marcar como principal?',
-                        text: 'Esta imagen será mostrada como la principal del producto',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonColor: '#28a745',
-                        cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Sí, marcar como principal',
-                        cancelButtonText: 'Cancelar'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            $.post('productos_ajax.php', {
-                                accion: 'actualizar_imagen_producto',
-                                producto_imagen_id: productoImagenId,
-                                es_principal: 1,
-                                empresa_idx: empresa_idx
-                            }, function (res) {
-                                if (res.resultado) {
-                                    Swal.fire('¡Actualizado!', 'Imagen marcada como principal', 'success');
-                                    cargarImagenesProducto(productoActualImagenes);
-                                } else {
-                                    Swal.fire('Error', res.error || 'Error al actualizar', 'error');
-                                }
-                            }, 'json');
-                        }
-                    });
-                });
-
-                $(document).on('click', '.btn-eliminar-imagen', function () {
-                    var productoImagenId = $(this).data('id');
-
-                    Swal.fire({
-                        title: '¿Eliminar Imagen?',
-                        text: 'Esta acción no se puede deshacer',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#dc3545',
-                        cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Sí, eliminar',
-                        cancelButtonText: 'Cancelar'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            $.post('productos_ajax.php', {
-                                accion: 'eliminar_imagen_producto',
-                                producto_imagen_id: productoImagenId,
-                                empresa_idx: empresa_idx
-                            }, function (res) {
-                                if (res.success) {
-                                    Swal.fire('¡Eliminado!', 'Imagen eliminada correctamente', 'success');
-                                    cargarImagenesProducto(productoActualImagenes);
-                                } else {
-                                    Swal.fire('Error', res.error || 'Error al eliminar', 'error');
-                                }
-                            }, 'json');
-                        }
-                    });
-                });
-
-                // Vista previa de imagen al seleccionar archivo
-                $('#imagen_archivo').change(function () {
-                    var archivo = this.files[0];
-                    if (archivo) {
-                        var reader = new FileReader();
-                        reader.onload = function (e) {
-                            $('#vistaPreviaContainer').show();
-                            $('#vistaPreviaImagen').attr('src', e.target.result);
-                        };
-                        reader.readAsDataURL(archivo);
-                    } else {
-                        $('#vistaPreviaContainer').hide();
-                    }
-                });
-
-                // Guardar imagen
-                $('#btnGuardarImagen').click(function () {
-                    var form = document.getElementById('formImagen');
-                    var productoImagenId = $('#producto_imagen_id').val();
-
-                    // En modo creación, validar que se haya seleccionado archivo
-                    if (!productoImagenId) {
-                        var archivo = $('#imagen_archivo')[0].files[0];
-                        if (!archivo) {
-                            form.classList.add('was-validated');
-                            return false;
-                        }
-                    }
-
-                    if (!form.checkValidity()) {
-                        form.classList.add('was-validated');
-                        return false;
-                    }
-
-                    var btn = $(this);
-                    var originalText = btn.html();
-                    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-
-                    var formData = new FormData(form);
-                    formData.append('accion', productoImagenId ? 'actualizar_imagen_producto' : 'subir_imagen_producto');
-                    formData.append('producto_id', $('#imagen_producto_id').val());
-                    if (productoImagenId) {
-                        formData.append('producto_imagen_id', productoImagenId);
-                    }
-                    formData.append('empresa_idx', empresa_idx);
-
-                    $.ajax({
-                        url: 'productos_ajax.php',
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        success: function (res) {
-                            btn.prop('disabled', false).html(originalText);
-
-                            if (res.resultado) {
-                                Swal.fire('¡Guardado!', 'Imagen guardada correctamente', 'success');
-                                var modal = bootstrap.Modal.getInstance(document.getElementById('modalImagen'));
-                                modal.hide();
-
-                                cargarImagenesProducto(productoActualImagenes);
-                            } else {
-                                Swal.fire('Error', res.error || 'Error al guardar', 'error');
-                            }
-                        },
-                        error: function () {
-                            btn.prop('disabled', false).html(originalText);
-                            Swal.fire('Error', 'Error de conexión al servidor', 'error');
-                        }
-                    });
-                });
-            }
-
-            // ========== FUNCIONES PRINCIPALES ==========
-
-            // Cargar botón Agregar dinámicamente
-            function cargarBotonAgregar() {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_boton_agregar',
-                    pagina_idx: pagina_idx
-                }, function (botonAgregar) {
-                    if (botonAgregar && botonAgregar.nombre_funcion) {
-                        var icono = botonAgregar.icono_clase ? `<i class="${botonAgregar.icono_clase} me-1"></i>` : '';
-                        var colorClase = botonAgregar.bg_clase && botonAgregar.text_clase ?
-                            botonAgregar.bg_clase + ' ' + botonAgregar.text_clase :
-                            (botonAgregar.color_clase || 'btn-primary');
-
-                        $('#contenedor-boton-agregar').html(
-                            `<button type="button" class="btn ${colorClase}" id="btnNuevo">
-                                ${icono}${botonAgregar.nombre_funcion}
-                            </button>`
-                        );
-                    } else {
-                        $('#contenedor-boton-agregar').html(
-                            '<button type="button" class="btn btn-primary" id="btnNuevo">' +
-                            '<i class="fas fa-plus me-1"></i>Agregar Producto</button>'
-                        );
-                    }
-                }, 'json');
-            }
-
-            // Manejador para botón "Agregar"
-            $(document).on('click', '#btnNuevo', function () {
-                resetModal();
-                $('#modalLabel').text('Nuevo Producto');
-                cargarTiposProducto();
-                cargarCategoriasProducto();
-                cargarUnidadesMedida();
-                cargarIvaAlicuotas(); // ← Agregar esta línea junto con las otras funciones de carga
-
-                var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
-                modal.show();
-                $('#producto_codigo').focus();
-            });
-
-            $(document).on('click', '.btn-accion', function () {
-                var productoId = $(this).data('id');
-                var accionJs = $(this).data('accion');
-                var confirmable = $(this).data('confirmable');
-                var producto = $(this).data('producto');
-
-                if (accionJs === 'editar') {
-                    cargarProductoParaEditar(productoId);
-                } else {
-                    ejecutarAccion(productoId, accionJs, producto, confirmable);
-                }
-            });
-
-            // Función para mostrar modal de alta
-            function mostrarModalAlta(productoId, producto) {
-                productoActualId = productoId;
-                $('#alta_producto_id').val(productoId);
-                $('#mensajeAlta').html(`¿Está seguro de dar de ALTA el producto <strong>"${producto}"</strong>?`);
-                $('#formAltaProducto')[0].reset();
-                $('#formAltaProducto').removeClass('was-validated');
-
-                var hoy = new Date().toISOString().split('T')[0];
-                $('#fecha_alta').val(hoy);
-
-                var modal = new bootstrap.Modal(document.getElementById('modalAltaProducto'));
-                modal.show();
-                $('#motivo_alta').focus();
-            }
-
-            // Función para ejecutar cualquier acción del backend (MEJORADA)
-            function ejecutarAccion(productoId, accionJs, producto, esConfirmable = 0) {
-                // Si requiere confirmación y no se ha mostrado el modal de alta
-                if (esConfirmable == 1 && (accionJs === 'alta' || accionJs === 'activar')) {
-                    mostrarModalAlta(productoId, producto);
-                    return;
-                }
-
-                // Para otras acciones confirmables
-                if (esConfirmable == 1) {
-                    Swal.fire({
-                        title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
-                        html: `¿Está seguro de <strong>${accionJs}</strong> el producto <strong>"${producto}"</strong>?`,
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: `Sí, ${accionJs}`,
-                        cancelButtonText: 'Cancelar'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            enviarAccionBackend(productoId, accionJs, producto);
-                        }
-                    });
-                } else {
-                    enviarAccionBackend(productoId, accionJs, producto);
-                }
-            }
-
-            // Función auxiliar para enviar la acción al backend
-            function enviarAccionBackend(productoId, accionJs, producto) {
-                $.post('productos_ajax.php', {
-                    accion: 'ejecutar_accion',
-                    producto_id: productoId,
-                    accion_js: accionJs,
-                    empresa_idx: empresa_idx,
-                    pagina_idx: pagina_idx
-                }, function (res) {
-                    if (res.success) {
-                        tabla.ajax.reload(function () {
-                            Swal.fire({
-                                icon: "success",
-                                title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
-                                text: res.message || `Producto "${producto}" actualizado correctamente`,
-                                showConfirmButton: false,
-                                timer: 1500,
-                                toast: true,
-                                position: 'top-end'
-                            });
-
-                            if (accionJs === 'alta' || accionJs === 'activar') {
-                                var modalAlta = bootstrap.Modal.getInstance(document.getElementById('modalAltaProducto'));
-                                if (modalAlta) {
-                                    modalAlta.hide();
-                                }
-                            }
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: "error",
-                            title: "Error",
-                            text: res.error || `Error al ${accionJs} el producto`,
-                            confirmButtonText: "Entendido"
-                        });
-                    }
-                }, 'json');
-            }
-
-            // Función para cargar producto en modal de edición
-            function cargarProductoParaEditar(productoId) {
-                $.get('productos_ajax.php', {
-                    accion: 'obtener',
-                    producto_id: productoId,
-                    empresa_idx: empresa_idx
-                }, function (res) {
-                    if (res && res.producto_id) {
-                        resetModal();
-
-                        $('#producto_id').val(res.producto_id);
-                        $('#producto_codigo').val(res.producto_codigo);
-                        $('#producto_nombre').val(res.producto_nombre);
-                        $('#codigo_barras').val(res.codigo_barras);
-                        $('#producto_descripcion').val(res.producto_descripcion || '');
-                        $('#lado').val(res.lado || '');
-                        $('#material').val(res.material || '');
-                        $('#color').val(res.color || '');
-                        $('#peso').val(res.peso || '');
-                        $('#dimensiones').val(res.dimensiones || '');
-                        $('#garantia').val(res.guarantia || '');
-
-                        // Cargar selects
-                        cargarTiposProducto();
-                        cargarCategoriasProducto();
-                        cargarUnidadesMedida();
-                        cargarIvaAlicuotas(); // ← Agregar esta línea junto con las otras funciones de carga
-                       setTimeout(function() {
-                            // Establecer valores seleccionados
-                            $('#producto_tipo_id').val(res.producto_tipo_id);
-                            $('#producto_categoria_id').val(res.producto_categoria_id);
-                            $('#unidad_medida_id').val(res.unidad_medida_id || '');
-                            $('#iva_alicuota_id').val(res.iva_alicuota_id || ''); // ← Agregar esta línea
-                            
-                            // Trigger change para mostrar información de IVA
-                            if (res.iva_alicuota_id) {
-                                $('#iva_alicuota_id').trigger('change');
-                            }
-                        }, 500);
-
-                        $('#modalLabel').text('Editar Producto');
-
-                        // Cargar compatibilidad
-                        cargarCompatibilidad(productoId);
-
-                        // Cargar imágenes
-                        cargarImagenesProducto(productoId);
-                        // Cargar ubicaciones
-                        cargarUbicacionesProducto(productoId);
-
-                        var modal = new bootstrap.Modal(document.getElementById('modalProducto'));
-                        modal.show();
-                    } else {
-                        Swal.fire({
-                            icon: "error",
-                            title: "Error",
-                            text: "Error al obtener datos del producto",
-                            confirmButtonText: "Entendido"
-                        });
-                    }
-                }, 'json');
-            }
-
-            // Función para resetear el modal
-            function resetModal() {
-                $('#formProducto')[0].reset();
-                $('#producto_id').val('');
-                $('#formProducto').removeClass('was-validated');
-                $('#iva_alicuota_id').empty().append('<option value="">Seleccionar alícuota...</option>');
-                $('#iva_info').html('<span class="text-muted">Seleccione una alícuota...</span>');
-                $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
-
-                $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
-                $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
-                $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
-
-                // Limpiar tabla de compatibilidad
-                if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
-                    $('#tablaCompatibilidad').DataTable().destroy();
-                    $('#tablaCompatibilidad tbody').empty();
-                }
-
-                // Limpiar galería de imágenes
-                $('#galeriaImagenes').empty();
-                $('#sinImagenes').show();
-                // Limpiar tabla de ubicaciones
-                if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
-                    $('#tablaUbicaciones').DataTable().destroy();
-                    $('#tablaUbicaciones tbody').empty();
-                }
-            }
-
-            // Validación del formulario de producto
-            $('#btnGuardar').click(function () {
-                var form = document.getElementById('formProducto');
-                if (!form.checkValidity()) {
-                    form.classList.add('was-validated');
-                    return false;
-                }
-
-                var id = $('#producto_id').val();
-                var accionBackend = id ? 'editar' : 'agregar';
-
-                var productoCodigo = $('#producto_codigo').val().trim();
-                var productoNombre = $('#producto_nombre').val().trim();
-                var productoTipoId = $('#producto_tipo_id').val();
-                var productoCategoriaId = $('#producto_categoria_id').val();
-
-                if (!productoCodigo) {
-                    $('#producto_codigo').addClass('is-invalid');
-                    return false;
-                }
-                if (!productoNombre) {
-                    $('#producto_nombre').addClass('is-invalid');
-                    return false;
-                }
-                if (!productoTipoId) {
-                    $('#producto_tipo_id').addClass('is-invalid');
-                    return false;
-                }
-                if (!productoCategoriaId || productoCategoriaId < 1) {
-                    $('#producto_categoria_id').addClass('is-invalid');
-                    return false;
-                }
-
-                var btnGuardar = $(this);
-                var originalText = btnGuardar.html();
-                btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-
-                $.ajax({
-                    url: 'productos_ajax.php',
-                    type: 'POST',
-                    data: {
-                        accion: accionBackend,
-                        producto_id: id,
-                        producto_codigo: productoCodigo,
-                        producto_nombre: productoNombre,
-                        codigo_barras: $('#codigo_barras').val(),
-                        producto_descripcion: $('#producto_descripcion').val(),
-                        producto_categoria_id: productoCategoriaId,
-                        producto_tipo_id: productoTipoId,
-                        unidad_medida_id: $('#unidad_medida_id').val() || null,
-                        iva_alicuota_id: $('#iva_alicuota_id').val() || null, // ← Agregar esta línea
-                        lado: $('#lado').val(),
-                        material: $('#material').val(),
-                        color: $('#color').val(),
-                        peso: $('#peso').val(),
-                        dimensiones: $('#dimensiones').val(),
-                        garantia: $('#garantia').val(),
-                        empresa_idx: empresa_idx,
-                        pagina_idx: pagina_idx
-                    },
-                    success: function (res) {
-                        btnGuardar.prop('disabled', false).html(originalText);
-
-                        if (res.resultado) {
-                            tabla.ajax.reload(function () {
-                                Swal.fire({
-                                    icon: "success",
-                                    title: "¡Guardado!",
-                                    text: "Producto guardado correctamente",
-                                    showConfirmButton: false,
-                                    timer: 1500,
-                                    toast: true,
-                                    position: 'top-end'
-                                });
-
-                                var modalEl = document.getElementById('modalProducto');
-                                var modal = bootstrap.Modal.getInstance(modalEl);
-                                modal.hide();
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: "error",
-                                title: "Error",
-                                text: res.error || "Error al guardar los datos",
-                                confirmButtonText: "Entendido"
-                            });
-                        }
-                    },
-                    error: function () {
-                        btnGuardar.prop('disabled', false).html(originalText);
-                        Swal.fire({
-                            icon: "error",
-                            title: "Error de conexión",
-                            text: "Error al comunicarse con el servidor",
-                            confirmButtonText: "Entendido"
-                        });
-                    }
-                });
-            });
-
-            // Validación del formulario de alta
-            $('#btnConfirmarAlta').click(function () {
-                var form = document.getElementById('formAltaProducto');
-                if (!form.checkValidity()) {
-                    form.classList.add('was-validated');
-                    return false;
-                }
-
-                Swal.fire({
-                    title: '¿Confirmar Alta?',
-                    html: `¿Está seguro de dar de ALTA este producto?`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, dar de Alta',
-                    cancelButtonText: 'Cancelar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        ejecutarAccion(productoActualId, 'alta', 'Producto');
-                    }
-                });
-            });
-
-            // Evento para mantener tamaño del modal al cambiar pestañas
-            $(document).on('shown.bs.tab', function (e) {
-                // Reajustar el modal si está visible
-                var modal = $('#modalProducto');
-                if (modal.hasClass('show')) {
-                    // Forzar un redimensionamiento
-                    modal.find('.modal-dialog').css('margin-top', '1.75rem');
-                }
-            });
-
-            // ========== INICIALIZACIÓN ==========
-
-            // Inicializar
-            inicializarDataTable();
-            cargarBotonAgregar();
+            }, 'json');
+        }
+
+        $(document).on('click', '#btnNuevo', function() {
+            resetModal();
+            $('#modalLabel').text('Nuevo Producto');
             cargarTiposProducto();
             cargarCategoriasProducto();
             cargarUnidadesMedida();
-            cargarMarcasFiltro();
-            cargarSucursales(); // ← Agrega esta línea
-            cargarIvaAlicuotas(); // ← Agregar esta línea junto con las otras funciones de carga
-            // Agregar tooltips
-            $('[title]').tooltip({
-                trigger: 'hover',
-                placement: 'top'
+            cargarIvaAlicuotas();
+            new bootstrap.Modal(document.getElementById('modalProducto')).show();
+            $('#producto_codigo').focus();
+        });
+
+        $(document).on('click', '.btn-accion', function() {
+            var productoId = $(this).data('id');
+            var accionJs = $(this).data('accion');
+            var confirmable = $(this).data('confirmable');
+            var producto = $(this).data('producto');
+
+            if (accionJs === 'editar') cargarProductoParaEditar(productoId);
+            else ejecutarAccion(productoId, accionJs, producto, confirmable);
+        });
+
+        function mostrarModalAlta(productoId, producto) {
+            productoActualId = productoId;
+            $('#alta_producto_id').val(productoId);
+            $('#mensajeAlta').html(`¿Está seguro de dar de ALTA el producto <strong>"${producto}"</strong>?`);
+            $('#formAltaProducto')[0].reset();
+            $('#formAltaProducto').removeClass('was-validated');
+            $('#fecha_alta').val(new Date().toISOString().split('T')[0]);
+            new bootstrap.Modal(document.getElementById('modalAltaProducto')).show();
+            $('#motivo_alta').focus();
+        }
+
+        function ejecutarAccion(productoId, accionJs, producto, esConfirmable) {
+            if (esConfirmable == 1 && (accionJs === 'alta' || accionJs === 'activar')) {
+                mostrarModalAlta(productoId, producto);
+                return;
+            }
+
+            if (esConfirmable == 1) {
+                Swal.fire({
+                    title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
+                    html: `¿Está seguro de <strong>${accionJs}</strong> el producto <strong>"${producto}"</strong>?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: `Sí, ${accionJs}`,
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => result.isConfirmed && enviarAccionBackend(productoId, accionJs, producto));
+            } else {
+                enviarAccionBackend(productoId, accionJs, producto);
+            }
+        }
+
+        function enviarAccionBackend(productoId, accionJs, producto) {
+            $.post('productos_ajax.php', {
+                accion: 'ejecutar_accion',
+                producto_id: productoId,
+                accion_js: accionJs,
+                empresa_idx: empresa_idx,
+                pagina_idx: pagina_idx
+            }, function(res) {
+                if (res.success) {
+                    tabla.ajax.reload(() => {
+                        Swal.fire({
+                            icon: "success",
+                            title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
+                            text: res.message || `Producto "${producto}" actualizado correctamente`,
+                            showConfirmButton: false,
+                            timer: 1500,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                        if (accionJs === 'alta' || accionJs === 'activar') {
+                            var modalAlta = bootstrap.Modal.getInstance(document.getElementById('modalAltaProducto'));
+                            if (modalAlta) modalAlta.hide();
+                        }
+                    });
+                } else {
+                    Swal.fire({ icon: "error", title: "Error", text: res.error || `Error al ${accionJs} el producto` });
+                }
+            }, 'json');
+        }
+
+        function cargarProductoParaEditar(productoId) {
+            $.get('productos_ajax.php', {
+                accion: 'obtener',
+                producto_id: productoId,
+                empresa_idx: empresa_idx
+            }, function(res) {
+                if (res && res.producto_id) {
+                    resetModal();
+
+                    $('#producto_id').val(res.producto_id);
+                    $('#producto_codigo').val(res.producto_codigo);
+                    $('#producto_nombre').val(res.producto_nombre);
+                    $('#codigo_barras').val(res.codigo_barras);
+                    $('#producto_descripcion').val(res.producto_descripcion || '');
+                    $('#lado').val(res.lado || '');
+                    $('#material').val(res.material || '');
+                    $('#color').val(res.color || '');
+                    $('#peso').val(res.peso || '');
+                    $('#dimensiones').val(res.dimensiones || '');
+                    $('#garantia').val(res.garantia || '');
+
+                    cargarTiposProducto();
+                    cargarCategoriasProducto();
+                    cargarUnidadesMedida();
+                    cargarIvaAlicuotas();
+
+                    setTimeout(function() {
+                        $('#producto_tipo_id').val(res.producto_tipo_id);
+                        $('#producto_categoria_id').val(res.producto_categoria_id);
+                        $('#unidad_medida_id').val(res.unidad_medida_id || '');
+                        $('#iva_alicuota_id').val(res.iva_alicuota_id || '');
+                        if (res.iva_alicuota_id) $('#iva_alicuota_id').trigger('change');
+                    }, 500);
+
+                    $('#modalLabel').text('Editar Producto');
+
+                    cargarCompatibilidad(productoId);
+                    cargarImagenesProducto(productoId);
+                    cargarUbicacionesProducto(productoId);
+
+                    new bootstrap.Modal(document.getElementById('modalProducto')).show();
+                } else {
+                    Swal.fire({ icon: "error", title: "Error", text: "Error al obtener datos del producto" });
+                }
+            }, 'json');
+        }
+
+        function resetModal() {
+            $('#formProducto')[0].reset();
+            $('#producto_id').val('');
+            $('#formProducto').removeClass('was-validated');
+            $('#iva_alicuota_id').empty().append('<option value="">Seleccionar alícuota...</option>');
+            $('#iva_info').html('<span class="text-muted">Seleccione una alícuota...</span>');
+            $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
+            $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
+            $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
+            $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
+
+            if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
+                $('#tablaCompatibilidad').DataTable().destroy();
+                $('#tablaCompatibilidad tbody').empty();
+            }
+
+            $('#galeriaImagenes').empty();
+            $('#sinImagenes').show();
+
+            if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
+                $('#tablaUbicaciones').DataTable().destroy();
+                $('#tablaUbicaciones tbody').empty();
+            }
+        }
+
+        $('#btnGuardar').click(function() {
+            var form = document.getElementById('formProducto');
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return false;
+            }
+
+            var id = $('#producto_id').val();
+            var accionBackend = id ? 'editar' : 'agregar';
+
+            if (!$('#producto_codigo').val().trim()) {
+                $('#producto_codigo').addClass('is-invalid');
+                return false;
+            }
+            if (!$('#producto_nombre').val().trim()) {
+                $('#producto_nombre').addClass('is-invalid');
+                return false;
+            }
+            if (!$('#producto_tipo_id').val()) {
+                $('#producto_tipo_id').addClass('is-invalid');
+                return false;
+            }
+            if (!$('#producto_categoria_id').val()) {
+                $('#producto_categoria_id').addClass('is-invalid');
+                return false;
+            }
+
+            var btnGuardar = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+            $.ajax({
+                url: 'productos_ajax.php',
+                type: 'POST',
+                data: {
+                    accion: accionBackend,
+                    producto_id: id,
+                    producto_codigo: $('#producto_codigo').val().trim(),
+                    producto_nombre: $('#producto_nombre').val().trim(),
+                    codigo_barras: $('#codigo_barras').val(),
+                    producto_descripcion: $('#producto_descripcion').val(),
+                    producto_categoria_id: $('#producto_categoria_id').val(),
+                    producto_tipo_id: $('#producto_tipo_id').val(),
+                    unidad_medida_id: $('#unidad_medida_id').val() || null,
+                    iva_alicuota_id: $('#iva_alicuota_id').val() || null,
+                    lado: $('#lado').val(),
+                    material: $('#material').val(),
+                    color: $('#color').val(),
+                    peso: $('#peso').val(),
+                    dimensiones: $('#dimensiones').val(),
+                    garantia: $('#garantia').val(),
+                    empresa_idx: empresa_idx,
+                    pagina_idx: pagina_idx
+                },
+                success: function(res) {
+                    btnGuardar.prop('disabled', false).html('Guardar');
+                    if (res.resultado) {
+                        tabla.ajax.reload(() => {
+                            Swal.fire({ icon: "success", title: "¡Guardado!", text: "Producto guardado correctamente", showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
+                            bootstrap.Modal.getInstance(document.getElementById('modalProducto')).hide();
+                        });
+                    } else {
+                        Swal.fire({ icon: "error", title: "Error", text: res.error || "Error al guardar los datos" });
+                    }
+                },
+                error: function() {
+                    btnGuardar.prop('disabled', false).html('Guardar');
+                    Swal.fire({ icon: "error", title: "Error de conexión", text: "Error al comunicarse con el servidor" });
+                }
             });
         });
-    </script>
+
+        $('#btnConfirmarAlta').click(function() {
+            var form = document.getElementById('formAltaProducto');
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return false;
+            }
+
+            Swal.fire({
+                title: '¿Confirmar Alta?',
+                html: '¿Está seguro de dar de ALTA este producto?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, dar de Alta'
+            }).then((result) => result.isConfirmed && ejecutarAccion(productoActualId, 'alta', 'Producto', 0));
+        });
+
+        // ========== INICIALIZACIÓN ==========
+        inicializarDataTable();
+        cargarBotonAgregar();
+        cargarTiposProducto();
+        cargarCategoriasProducto();
+        cargarUnidadesMedida();
+        cargarMarcas();
+        cargarSucursales();
+        cargarIvaAlicuotas();
+
+        $('[title]').tooltip({ trigger: 'hover', placement: 'top' });
+    });
+</script>
 
     <!-- Librerías necesarias -->
     <link rel="stylesheet" type="text/css"
@@ -2836,6 +2614,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
             <div class="modal-body text-center">
                 <img id="imagenGrande" src="" alt="Imagen del producto" class="img-fluid rounded">
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal para carrusel de imágenes -->
+<div class="modal fade" id="modalCarrusel" tabindex="-1" aria-labelledby="modalCarruselLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-gradient-primary text-white">
+                <h5 class="modal-title" id="modalCarruselLabel">
+                    <i class="fas fa-images me-2"></i>Galería de Imágenes
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4" id="contenidoCarrusel">
+                <!-- El carrusel se cargará dinámicamente aquí -->
+                <div class="text-center py-5">
+                    <i class="fas fa-spinner fa-spin fa-3x text-primary mb-3"></i>
+                    <p class="text-muted">Cargando imágenes...</p>
+                </div>
             </div>
         </div>
     </div>

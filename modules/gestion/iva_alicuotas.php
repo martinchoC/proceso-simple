@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../db.php';
 $pageTitle = "IVA Alícuotas";
 $currentPage = 'iva_alicuotas';
 $modudo_idx = 2;
-$pagina_idx = 68; // ID de página para IVA alícuotas
+$pagina_idx = 65; // ID de página para IVA alícuotas
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
