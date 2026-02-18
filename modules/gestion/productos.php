@@ -186,6 +186,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         aria-controls="nav-ubicaciones" aria-selected="false">
                                         <i class="fas fa-map-marker-alt me-2"></i>Ubicaciones
                                     </button>
+                                    <button class="nav-link" id="nav-proveedores-tab" data-bs-toggle="tab"
+                                        data-bs-target="#nav-proveedores" type="button" role="tab"
+                                        aria-controls="nav-proveedores" aria-selected="false">
+                                        <i class="fas fa-truck me-2"></i>Proveedores
+                                    </button>
                                 </div>
                             </nav>
 
@@ -396,6 +401,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </button>
                                         </div>
                                     </div>
+                                     
 
                                     <!-- Tabla de ubicaciones -->
                                     <div class="table-responsive" style="max-height: 300px;">
@@ -416,6 +422,38 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="alert alert-warning mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         Un producto puede tener múltiples ubicaciones en diferentes sucursales.
+                                    </div>
+                                </div>
+                                <!-- Pestaña de Proveedores -->
+                                <div class="tab-pane fade" id="nav-proveedores" role="tabpanel"
+                                    aria-labelledby="nav-proveedores-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-truck me-2 text-info"></i>Proveedores del Producto
+                                        </h6>
+                                        <button type="button" class="btn btn-info btn-sm" id="btnAgregarProveedor">
+                                            <i class="fas fa-plus me-1"></i>Agregar Proveedor
+                                        </button>
+                                    </div>
+
+                                    <!-- Tabla de proveedores -->
+                                    <div class="table-responsive" style="max-height: 300px;">
+                                        <table id="tablaProveedores" class="table table-sm table-hover mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th width="35%" class="py-1">Proveedor</th>
+                                                    <th width="20%" class="py-1">CUIT</th>
+                                                    <th width="30%" class="py-1">Código de Proveedor</th>
+                                                    <th width="15%" class="py-1 text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="alert alert-info mt-3">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Puede asignar múltiples proveedores a un mismo producto con diferentes códigos.
                                     </div>
                                 </div>
                             </div>
@@ -709,6 +747,51 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
+            <!-- Modal para agregar/editar proveedor -->
+            <div class="modal fade" id="modalProveedor" tabindex="-1" aria-labelledby="modalProveedorLabel"
+                aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header bg-gradient-info text-white border-0">
+                            <h5 class="modal-title" id="modalProveedorLabel">
+                                <i class="fas fa-truck me-2"></i>Proveedor del Producto
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <form id="formProveedor" class="needs-validation" novalidate>
+                                <input type="hidden" id="proveedor_producto_id" name="producto_id" />
+                                <input type="hidden" id="producto_proveedor_id" name="producto_proveedor_id" />
+
+                                <div class="mb-3">
+                                    <label for="entidad_id" class="form-label">Proveedor *</label>
+                                    <select class="form-select" id="entidad_id" name="entidad_id" required>
+                                        <option value="">Seleccionar proveedor...</option>
+                                    </select>
+                                    <div class="invalid-feedback">Seleccione un proveedor</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="codigo_proveedor" class="form-label">Código de Proveedor</label>
+                                    <input type="text" class="form-control" id="codigo_proveedor"
+                                        name="codigo_proveedor" maxlength="50" placeholder="Código que usa el proveedor">
+                                    <div class="form-text">Opcional - Código con el que el proveedor identifica este producto</div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer bg-light border-top">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info px-3" id="btnGuardarProveedor">
+                                <i class="fas fa-save me-1"></i>Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+           
             <!-- Modal para dar de alta un producto -->
             <div class="modal fade" id="modalAltaProducto" tabindex="-1" aria-labelledby="modalAltaLabel"
                 aria-hidden="true" data-bs-backdrop="static">
@@ -785,8 +868,59 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
 
         /* Asegurar que todas las pestañas tengan el mismo tamaño */
+        /* Hacer que todas las pestañas tengan el mismo tamaño */
         .tab-content {
-            min-height: 350px;
+            min-height: 450px; /* Altura mínima fija */
+            background-color: white;
+            transition: min-height 0.3s ease;
+        }
+
+        /* Ajustar según el contenido */
+        .tab-pane {
+            height: 100%;
+            overflow-y: auto; /* Scroll si el contenido es muy grande */
+        }
+
+        /* Estilos para las tablas dentro de pestañas */
+        .tab-pane .table-responsive {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* Para la pestaña de información que tiene formulario */
+        #nav-info {
+            min-height: 400px;
+        }
+
+        /* Para la pestaña de imágenes */
+        #nav-imagenes {
+            min-height: 400px;
+        }
+
+        /* Asegurar que todas las pestañas tengan scroll si es necesario */
+        .tab-pane {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* Personalizar la barra de scroll para que sea más delgada */
+        .tab-pane::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .tab-pane::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .tab-pane::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .tab-pane::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
         /* Estilos para pestañas */
@@ -1027,7 +1161,55 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 background-color: #007bff;
                 margin: 0 5px;
             }
+            #carruselProducto .carousel-control-prev,
+            #carruselProducto .carousel-control-next {
+                opacity: 0.8;
+                transition: opacity 0.3s;
+            }
 
+            #carruselProducto .carousel-control-prev:hover,
+            #carruselProducto .carousel-control-next:hover {
+                opacity: 1;
+            }
+
+            #carruselProducto .carousel-control-prev-icon,
+            #carruselProducto .carousel-control-next-icon {
+                background-size: 1.5rem;
+            }
+
+            #carruselProducto .carousel-indicators {
+                margin-bottom: 0.5rem;
+            }
+
+            #carruselProducto .carousel-indicators button {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background-color: #007bff;
+                opacity: 0.5;
+                margin: 0 5px;
+                border: none;
+            }
+
+            #carruselProducto .carousel-indicators button.active {
+                opacity: 1;
+            }
+
+            /* Animación para el fade */
+            .carousel-fade .carousel-item {
+                opacity: 0;
+                transition: opacity 0.5s ease;
+            }
+
+            .carousel-fade .carousel-item.active {
+                opacity: 1;
+            }
+
+            /* Hover en thumbnails */
+            .thumbnail-wrapper:hover {
+                transform: scale(1.05);
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            }
             /* Contador de imágenes */
             .imagen-contador {
                 position: absolute;
@@ -1059,6 +1241,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         var productoActualImagenes = null;
         var productoActualUbicaciones = null;
         var imagenesProductoActual = [];
+        var tablaProveedores;
+        var productoActualProveedores = null;
 
         // ========== FUNCIÓN PARA MOSTRAR CARRUSEL (DEFINIR UNA SOLA VEZ) ==========
         window.mostrarImagenGrande = function(url, titulo, productoId) {
@@ -1115,8 +1299,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }], 0);
             }
         };
-
+        
         // Función para mostrar carrusel de imágenes
+        // Función para mostrar carrusel de imágenes (MEJORADA)
         function mostrarCarruselImagenes(imagenes, indiceInicial) {
             console.log("Mostrando carrusel con imágenes:", imagenes);
             
@@ -1142,59 +1327,76 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 return img;
             });
 
-            // Construir el carrusel
+            // Construir el carrusel MEJORADO con controles personalizados
             var carouselHtml = `
-                <div id="carruselProducto" class="carousel slide carousel-container" data-bs-ride="false">
-                    <div class="carousel-inner">
+                <div id="carruselProducto" class="carousel slide carousel-fade" data-bs-ride="false" data-bs-interval="false">
+                    <!-- Indicadores -->
+                    <div class="carousel-indicators">
+                        ${imagenes.map((_, idx) => `
+                            <button type="button" 
+                                    data-bs-target="#carruselProducto" 
+                                    data-bs-slide-to="${idx}" 
+                                    class="${idx === indiceInicial ? 'active' : ''}"
+                                    aria-current="${idx === indiceInicial ? 'true' : 'false'}"
+                                    aria-label="Imagen ${idx + 1}">
+                            </button>
+                        `).join('')}
+                    </div>
+                    
+                    <!-- Imágenes -->
+                    <div class="carousel-inner bg-dark" style="border-radius: 10px; min-height: 500px; display: flex; align-items: center;">
                         ${imagenes.map((img, idx) => `
-                            <div class="carousel-item ${idx === indiceInicial ? 'active' : ''}">
-                                <img src="${img.imagen_url}" class="d-block w-100 carousel-imagen-principal" 
-                                     alt="${img.descripcion || 'Imagen ' + (idx + 1)}"
-                                     onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'500\' height=\'500\'><rect width=\'500\' height=\'500\' fill=\'#f8f9fa\'/><text x=\'250\' y=\'250\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'24\'>Error</text></svg>';">
+                            <div class="carousel-item ${idx === indiceInicial ? 'active' : ''}" style="text-align: center;">
+                                <img src="${img.imagen_url}" 
+                                    class="d-block mx-auto" 
+                                    style="max-height: 500px; max-width: 100%; object-fit: contain;"
+                                    alt="${img.descripcion || 'Imagen ' + (idx + 1)}"
+                                    onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'500\' height=\'500\'><rect width=\'500\' height=\'500\' fill=\'#f8f9fa\'/><text x=\'250\' y=\'250\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'24\'>Error</text></svg>';">
+                                
+                                <!-- Descripción de la imagen (opcional) -->
+                                ${img.descripcion ? `
+                                    <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded p-2" style="bottom: 20px;">
+                                        <p class="mb-0 text-white">${img.descripcion}</p>
+                                    </div>
+                                ` : ''}
                             </div>
                         `).join('')}
                     </div>
                     
-                    <div class="imagen-contador">
+                    <!-- Controles de navegación MEJORADOS -->
+                    <button class="carousel-control-prev" type="button" data-bs-target="#carruselProducto" data-bs-slide="prev" style="width: 10%; background: linear-gradient(90deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%); border: none;">
+                        <span class="carousel-control-prev-icon" aria-hidden="true" style="width: 3rem; height: 3rem; background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 1rem;"></span>
+                        <span class="visually-hidden">Anterior</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#carruselProducto" data-bs-slide="next" style="width: 10%; background: linear-gradient(270deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%); border: none;">
+                        <span class="carousel-control-next-icon" aria-hidden="true" style="width: 3rem; height: 3rem; background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 1rem;"></span>
+                        <span class="visually-hidden">Siguiente</span>
+                    </button>
+                    
+                    <!-- Contador de imágenes -->
+                    <div class="position-absolute top-0 end-0 m-3 bg-dark bg-opacity-75 text-white px-3 py-2 rounded-pill" style="z-index: 10;">
                         <span id="imagenActual">${indiceInicial + 1}</span> / ${imagenes.length}
                     </div>
-                    
-                    ${imagenes.length > 1 ? `
-                        <button class="carousel-control-prev" type="button" data-bs-target="#carruselProducto" data-bs-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Anterior</span>
-                        </button>
-                        <button class="carousel-control-next" type="button" data-bs-target="#carruselProducto" data-bs-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Siguiente</span>
-                        </button>
-                        
-                        <div class="carousel-indicators">
-                            ${imagenes.map((_, idx) => `
-                                <button type="button" data-bs-target="#carruselProducto" 
-                                        data-bs-slide-to="${idx}" 
-                                        class="${idx === indiceInicial ? 'active' : ''}"
-                                        aria-current="${idx === indiceInicial ? 'true' : 'false'}"
-                                        aria-label="Imagen ${idx + 1}">
-                                </button>
-                            `).join('')}
+                </div>
+                
+                <!-- Thumbnails debajo del carrusel -->
+                <div class="row mt-4 justify-content-center" id="thumbnailsContainer">
+                    ${imagenes.map((img, idx) => `
+                        <div class="col-auto mb-2">
+                            <div class="thumbnail-wrapper" 
+                                onclick="$('#carruselProducto').carousel(${idx})"
+                                style="cursor: pointer; border: 3px solid ${idx === indiceInicial ? '#007bff' : 'transparent'}; border-radius: 8px; overflow: hidden; transition: all 0.3s;">
+                                <img src="${img.imagen_url}" 
+                                    style="width: 80px; height: 80px; object-fit: cover;" 
+                                    alt="Miniatura ${idx + 1}"
+                                    onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'#f8f9fa\'/><text x=\'40\' y=\'40\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';">
+                            </div>
                         </div>
-                        
-                        <div class="carousel-thumbnails">
-                            ${imagenes.map((img, idx) => `
-                                <div class="thumbnail-item ${idx === indiceInicial ? 'active' : ''}" 
-                                     onclick="$('#carruselProducto').carousel(${idx})">
-                                    <img src="${img.imagen_url}" class="thumbnail-img" 
-                                         alt="Miniatura ${idx + 1}"
-                                         onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'#f8f9fa\'/><text x=\'40\' y=\'40\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';">
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
+                    `).join('')}
                 </div>
                 
                 <div class="text-center mt-3">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cerrarModalCarrusel()">
+                    <button type="button" class="btn btn-outline-secondary" onclick="cerrarModalCarrusel()">
                         <i class="fas fa-times me-1"></i>Cerrar
                     </button>
                 </div>
@@ -1204,23 +1406,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             $('#contenidoCarrusel').html(carouselHtml);
             
             // Inicializar el carrusel de Bootstrap
-            var carruselElement = document.getElementById('carruselProducto');
-            if (carruselElement) {
-                var carrusel = new bootstrap.Carousel(carruselElement, {
-                    interval: false,
-                    wrap: true
-                });
-            }
-            
-            // Actualizar el contador cuando cambie la imagen
-            $('#carruselProducto').on('slid.bs.carousel', function(e) {
-                var currentIndex = $('.carousel-item.active').index();
-                $('#imagenActual').text(currentIndex + 1);
+            setTimeout(function() {
+                var carruselElement = document.getElementById('carruselProducto');
+                if (carruselElement) {
+                    var carrusel = new bootstrap.Carousel(carruselElement, {
+                        interval: false,
+                        wrap: true,
+                        touch: true
+                    });
+                }
                 
-                // Actualizar thumbnails activos
-                $('.thumbnail-item').removeClass('active');
-                $('.thumbnail-item').eq(currentIndex).addClass('active');
-            });
+                // Actualizar contador y thumbnails cuando cambie la imagen
+                $('#carruselProducto').on('slid.bs.carousel', function(e) {
+                    var currentIndex = $('.carousel-item.active').index();
+                    $('#imagenActual').text(currentIndex + 1);
+                    
+                    // Actualizar thumbnails activos
+                    $('.thumbnail-wrapper').css('border-color', 'transparent');
+                    $('.thumbnail-wrapper').eq(currentIndex).css('border-color', '#007bff');
+                });
+            }, 100);
 
             // Mostrar el modal
             var modalElement = document.getElementById('modalCarrusel');
@@ -1244,7 +1449,180 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         };
 
         // ========== FUNCIONES DE CARGA DE DATOS ==========
-        
+        // ========== FUNCIONES DE PROVEEDORES ==========
+
+        // Cargar proveedores de un producto
+        function cargarProveedoresProducto(productoId) {
+            productoActualProveedores = productoId;
+
+            if ($.fn.DataTable.isDataTable('#tablaProveedores')) {
+                $('#tablaProveedores').DataTable().destroy();
+                $('#tablaProveedores tbody').empty();
+            }
+
+            tablaProveedores = $('#tablaProveedores').DataTable({
+                ajax: {
+                    url: 'productos_ajax.php',
+                    type: 'GET',
+                    data: {
+                        accion: 'obtener_proveedores_producto',
+                        producto_id: productoId,
+                        empresa_idx: empresa_idx
+                    },
+                    dataSrc: ''
+                },
+                columns: [
+                    { data: 'entidad_nombre', render: function(data) { return data || '-'; } },
+                    { data: 'cuit', render: function(data) { return data || '-'; } },
+                    { data: 'codigo_proveedor', render: function(data) { return data || '-'; } },
+                    { 
+                        data: 'producto_proveedor_id', 
+                        orderable: false, 
+                        searchable: false, 
+                        className: "text-center",
+                        render: function(data) {
+                            return `<div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-editar-proveedor" 
+                                        data-id="${data}" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-eliminar-proveedor" 
+                                        data-id="${data}" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>`;
+                        }
+                    }
+                ],
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                responsive: true,
+                pageLength: 10,
+                searching: false,
+                paging: false,
+                info: false
+            });
+        }
+
+        // Cargar entidades proveedoras
+        function cargarEntidadesProveedores() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_entidades_proveedores',
+                empresa_idx: empresa_idx
+            }, function(entidades) {
+                var select = $('#entidad_id');
+                select.empty().append('<option value="">Seleccionar proveedor...</option>');
+                if (entidades && entidades.length > 0) {
+                    entidades.forEach(function(entidad) {
+                        var texto = entidad.entidad_nombre;
+                        if (entidad.cuit) texto += ' (' + entidad.cuit + ')';
+                        select.append(`<option value="${entidad.entidad_id}">${texto}</option>`);
+                    });
+                }
+            }, 'json');
+        }
+
+        // Mostrar modal de proveedor
+        function mostrarModalProveedor(productoId, productoProveedorId = null) {
+            resetModalProveedor();
+            $('#proveedor_producto_id').val(productoId);
+            cargarEntidadesProveedores();
+
+            if (productoProveedorId) {
+                $('#modalProveedorLabel').html('<i class="fas fa-edit me-2"></i>Editar Proveedor');
+                $('#producto_proveedor_id').val(productoProveedorId);
+
+                setTimeout(function() {
+                    $.get('productos_ajax.php', {
+                        accion: 'obtener_proveedor_producto_por_id',
+                        producto_proveedor_id: productoProveedorId,
+                        empresa_idx: empresa_idx
+                    }, function(res) {
+                        if (res && res.producto_proveedor_id) {
+                            $('#entidad_id').val(res.entidad_id);
+                            $('#codigo_proveedor').val(res.codigo_proveedor || '');
+                            
+                            // Deshabilitar cambio de proveedor en edición
+                            $('#entidad_id').prop('disabled', true);
+                        }
+                    }, 'json');
+                }, 300);
+            } else {
+                $('#modalProveedorLabel').html('<i class="fas fa-plus me-2"></i>Agregar Proveedor');
+                $('#entidad_id').prop('disabled', false);
+            }
+
+            new bootstrap.Modal(document.getElementById('modalProveedor')).show();
+        }
+
+        function resetModalProveedor() {
+            $('#formProveedor')[0].reset();
+            $('#producto_proveedor_id').val('');
+            $('#formProveedor').removeClass('was-validated');
+            $('#entidad_id').empty().append('<option value="">Seleccionar proveedor...</option>').prop('disabled', false);
+        }
+
+        // Cargar monedas
+        function cargarMonedas() {
+            $.get('productos_ajax.php', {
+                accion: 'obtener_monedas',
+                empresa_idx: empresa_idx
+            }, function(monedas) {
+                var select = $('#moneda_id');
+                select.empty().append('<option value="">Seleccionar moneda...</option>');
+                if (monedas && monedas.length > 0) {
+                    monedas.forEach(function(moneda) {
+                        var texto = moneda.moneda_nombre;
+                        if (moneda.moneda_simbolo) texto += ' (' + moneda.moneda_simbolo + ')';
+                        select.append(`<option value="${moneda.moneda_id}">${texto}</option>`);
+                    });
+                }
+            }, 'json');
+        }
+
+        // Mostrar modal de proveedor
+        function mostrarModalProveedor(productoId, productoProveedorId = null) {
+            resetModalProveedor();
+            $('#proveedor_producto_id').val(productoId);
+            cargarEntidadesProveedores();
+            cargarMonedas();
+
+            if (productoProveedorId) {
+                $('#modalProveedorLabel').html('<i class="fas fa-edit me-2"></i>Editar Proveedor');
+                $('#producto_proveedor_id').val(productoProveedorId);
+
+                setTimeout(function() {
+                    $.get('productos_ajax.php', {
+                        accion: 'obtener_proveedor_producto_por_id',
+                        producto_proveedor_id: productoProveedorId,
+                        empresa_idx: empresa_idx
+                    }, function(res) {
+                        if (res && res.producto_proveedor_id) {
+                            $('#entidad_id').val(res.entidad_id);
+                            $('#codigo_proveedor').val(res.codigo_proveedor || '');
+                            $('#costo').val(res.costo || '');
+                            $('#moneda_id').val(res.moneda_id || '');
+                            $('#plazo_entrega_dias').val(res.plazo_entrega_dias || '');
+                            
+                            // Deshabilitar cambio de proveedor en edición
+                            $('#entidad_id').prop('disabled', true);
+                        }
+                    }, 'json');
+                }, 300);
+            } else {
+                $('#modalProveedorLabel').html('<i class="fas fa-plus me-2"></i>Agregar Proveedor');
+                $('#entidad_id').prop('disabled', false);
+            }
+
+            new bootstrap.Modal(document.getElementById('modalProveedor')).show();
+        }
+
+        function resetModalProveedor() {
+            $('#formProveedor')[0].reset();
+            $('#producto_proveedor_id').val('');
+            $('#formProveedor').removeClass('was-validated');
+            $('#entidad_id').empty().append('<option value="">Seleccionar proveedor...</option>').prop('disabled', false);
+            $('#moneda_id').empty().append('<option value="">Seleccionar moneda...</option>');
+        }
         // Cargar opciones de tipos de producto
         function cargarTiposProducto() {
             $.get('productos_ajax.php', {
@@ -1658,81 +2036,87 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
         // Cargar imágenes de un producto
        function cargarImagenesProducto(productoId) {
-        productoActualImagenes = productoId;
+            productoActualImagenes = productoId;
 
-        $.get('productos_ajax.php', {
-            accion: 'obtener_imagenes_producto',
-            producto_id: productoId,
-            empresa_idx: empresa_idx
-        }, function(imagenes) {
-            console.log("Imágenes cargadas para producto", productoId, ":", imagenes);
-            var galeria = $('#galeriaImagenes');
-            var sinImagenes = $('#sinImagenes');
-            galeria.empty();
+            $.get('productos_ajax.php', {
+                accion: 'obtener_imagenes_producto',
+                producto_id: productoId,
+                empresa_idx: empresa_idx
+            }, function(imagenes) {
+                console.log("Imágenes cargadas para producto", productoId, ":", imagenes);
+                var galeria = $('#galeriaImagenes');
+                var sinImagenes = $('#sinImagenes');
+                galeria.empty();
 
-            if (imagenes && imagenes.length > 0) {
-                sinImagenes.hide();
+                if (imagenes && imagenes.length > 0) {
+                    sinImagenes.hide();
 
-                imagenes.forEach(function(imagen, index) {
-                    var srcImagen = imagen.imagen_url; // Ahora viene del servidor
-                    console.log("URL de imagen:", srcImagen);
-                    
-                    var esPrincipal = imagen.es_principal == 1;
-                    var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
+                    imagenes.forEach(function(imagen, index) {
+                        var srcImagen = imagen.imagen_url; // Ahora viene del servidor
+                        console.log("URL de imagen:", srcImagen);
+                        
+                        var esPrincipal = imagen.es_principal == 1;
+                        var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
 
-                    var cardHtml = `
-                        <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
-                            <div class="card card-imagen ${clasePrincipal} h-100">
-                                <div class="position-relative">
-                                    <img src="${srcImagen}" class="card-img-top imagen-miniatura" 
-                                        alt="${imagen.descripcion || 'Imagen del producto'}"
-                                        onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'><rect width=\'150\' height=\'150\' fill=\'#f8f9fa\'/><text x=\'75\' y=\'75\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';"
-                                        onclick="mostrarImagenGrande('${srcImagen}', '${imagen.descripcion || ''}', ${productoId})">
-                                    ${esPrincipal ? '<span class="badge bg-success badge-imagen-principal">Principal</span>' : ''}
-                                </div>
-                                <div class="card-body p-2">
-                                    <h6 class="card-title mb-1 text-truncate" title="${imagen.descripcion || 'Sin descripción'}">
-                                        ${imagen.descripcion || 'Sin descripción'}
-                                    </h6>
-                                    <p class="card-text small text-muted mb-1">
-                                        <i class="fas fa-sort-numeric-up me-1"></i>Orden: ${imagen.orden || 0}
-                                    </p>
-                                    <p class="card-text small text-muted mb-2">
-                                        <i class="fas fa-weight-hanging me-1"></i>${formatBytes(imagen.imagen_tamanio)}
-                                    </p>
-                                    <p class="card-text small text-muted mb-2">
-                                        <i class="fas fa-folder me-1"></i>${imagen.imagen_nombre}
-                                    </p>
-                                    <div class="btn-group btn-group-sm w-100" role="group">
-                                        <button type="button" class="btn btn-outline-primary btn-editar-imagen" 
-                                                data-id="${imagen.producto_imagen_id}" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-imagen-principal" 
-                                                data-id="${imagen.producto_imagen_id}" title="${esPrincipal ? 'Ya es principal' : 'Marcar como principal'}" 
-                                                ${esPrincipal ? 'disabled' : ''}>
-                                            <i class="fas fa-star"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-danger btn-eliminar-imagen" 
-                                                data-id="${imagen.producto_imagen_id}" title="Eliminar">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                        var cardHtml = `
+                            <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
+                                <div class="card card-imagen ${clasePrincipal} h-100">
+                                    <div class="position-relative">
+                                        <img src="${srcImagen}" class="card-img-top imagen-miniatura" 
+                                            alt="${imagen.descripcion || 'Imagen del producto'}"
+                                            onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'><rect width=\'150\' height=\'150\' fill=\'#f8f9fa\'/><text x=\'75\' y=\'75\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';"
+                                            onclick="mostrarImagenGrande('${srcImagen}', '${imagen.descripcion || ''}', ${productoId})">
+                                        ${esPrincipal ? '<span class="badge bg-success badge-imagen-principal">Principal</span>' : ''}
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <h6 class="card-title mb-1 text-truncate" title="${imagen.descripcion || 'Sin descripción'}">
+                                            ${imagen.descripcion || 'Sin descripción'}
+                                        </h6>
+                                        <p class="card-text small text-muted mb-1">
+                                            <i class="fas fa-sort-numeric-up me-1"></i>Orden: ${imagen.orden || 0}
+                                        </p>
+                                        <p class="card-text small text-muted mb-2">
+                                            <i class="fas fa-weight-hanging me-1"></i>${formatBytes(imagen.imagen_tamanio)}
+                                        </p>
+                                        <p class="card-text small text-muted mb-2">
+                                            <i class="fas fa-folder me-1"></i>${imagen.imagen_nombre}
+                                        </p>
+                                        <div class="btn-group btn-group-sm w-100" role="group">
+                                            <button type="button" class="btn btn-outline-primary btn-editar-imagen" 
+                                                    data-id="${imagen.producto_imagen_id}" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-success btn-imagen-principal" 
+                                                    data-id="${imagen.producto_imagen_id}" title="${esPrincipal ? 'Ya es principal' : 'Marcar como principal'}" 
+                                                    ${esPrincipal ? 'disabled' : ''}>
+                                                <i class="fas fa-star"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger btn-eliminar-imagen" 
+                                                    data-id="${imagen.producto_imagen_id}" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    `;
-                    galeria.append(cardHtml);
+                        `;
+                        galeria.append(cardHtml);
+                    });
+                    inicializarSortable();
+                } else {
+                    sinImagenes.show();
+                }
+            }, 'json').fail(function(xhr, status, error) {
+                console.error("Error al cargar imágenes:", error);
+                console.error("Respuesta:", xhr.responseText);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudieron cargar las imágenes'
                 });
-                inicializarSortable();
-            } else {
-                sinImagenes.show();
-            }
-        }, 'json').fail(function(xhr, status, error) {
-            console.error("Error al cargar imágenes:", error);
-            console.error("Respuesta:", xhr.responseText);
-        });
-    }
+            });
+        }
+
 
         // Función para formatear bytes
         function formatBytes(bytes, decimals = 2) {
@@ -1918,7 +2302,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     class="img-thumbnail rounded-circle" 
                                     style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" 
                                     onclick="mostrarImagenGrande('${rutaImagen}', '${titulo}', ${row.producto_id})"
-                                    onerror="this.style.display='none'">`;
+                                    onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><rect width=\'50\' height=\'50\' fill=\'#f8f9fa\'/><text x=\'25\' y=\'25\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'10\'>Error</text></svg>';">`;
                             }
                             return '<div class="text-center text-muted"><i class="fas fa-image fa-lg"></i></div>';
                         }
@@ -2285,6 +2669,71 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     } else Swal.fire('Error', res.error || 'Error al crear la ubicación', 'error');
                 }, 'json');
             });
+            // Eventos de proveedores
+            $('#btnAgregarProveedor').click(() => productoActualProveedores && mostrarModalProveedor(productoActualProveedores));
+
+            $(document).on('click', '.btn-editar-proveedor', function() {
+                productoActualProveedores && mostrarModalProveedor(productoActualProveedores, $(this).data('id'));
+            });
+
+            $(document).on('click', '.btn-eliminar-proveedor', function() {
+                var productoProveedorId = $(this).data('id');
+                Swal.fire({
+                    title: '¿Eliminar Proveedor?',
+                    text: 'Esta acción no se puede deshacer',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, eliminar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post('productos_ajax.php', {
+                            accion: 'eliminar_proveedor_producto',
+                            producto_proveedor_id: productoProveedorId,
+                            empresa_idx: empresa_idx
+                        }, function(res) {
+                            if (res.success) {
+                                Swal.fire('¡Eliminado!', 'Proveedor eliminado correctamente', 'success');
+                                tablaProveedores.ajax.reload();
+                            } else {
+                                Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                            }
+                        }, 'json');
+                    }
+                });
+            });
+
+            $('#btnGuardarProveedor').click(function() {
+                var form = document.getElementById('formProveedor');
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return false;
+                }
+
+                var productoProveedorId = $('#producto_proveedor_id').val();
+                var accionBackend = productoProveedorId ? 'editar_proveedor_producto' : 'agregar_proveedor_producto';
+
+                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+                $.post('productos_ajax.php', {
+                    accion: accionBackend,
+                    producto_proveedor_id: productoProveedorId,
+                    producto_id: $('#proveedor_producto_id').val(),
+                    entidad_id: $('#entidad_id').val(),
+                    codigo_proveedor: $('#codigo_proveedor').val(),
+                    empresa_idx: empresa_idx
+                }, function(res) {
+                    btn.prop('disabled', false).html('Guardar');
+                    if (res.resultado || res.success) {
+                        Swal.fire('¡Guardado!', 'Proveedor guardado correctamente', 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('modalProveedor')).hide();
+                        tablaProveedores.ajax.reload();
+                    } else {
+                        Swal.fire('Error', res.error || 'Error al guardar', 'error');
+                    }
+                }, 'json');
+            });
         }
 
         // Mostrar modal para agregar ubicación existente
@@ -2455,6 +2904,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     cargarCompatibilidad(productoId);
                     cargarImagenesProducto(productoId);
                     cargarUbicacionesProducto(productoId);
+                    cargarProveedoresProducto(productoId); // AGREGAR ESTA LÍNEA
 
                     new bootstrap.Modal(document.getElementById('modalProducto')).show();
                 } else {
@@ -2485,6 +2935,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
                 $('#tablaUbicaciones').DataTable().destroy();
                 $('#tablaUbicaciones tbody').empty();
+            }
+            if ($.fn.DataTable.isDataTable('#tablaProveedores')) {
+                $('#tablaProveedores').DataTable().destroy();
+                $('#tablaProveedores tbody').empty();
             }
         }
 

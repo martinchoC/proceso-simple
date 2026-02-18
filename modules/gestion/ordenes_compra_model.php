@@ -234,12 +234,14 @@ function obtenerOrdenesCompra($conexion, $empresa_idx, $pagina_id)
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
                    ct.comprobante_tipo,
-                   e.entidad_nombre, e.entidad_fantasia
+                   e.entidad_nombre, e.entidad_fantasia,
+                   m.moneda, m.simbolo
             FROM gestion__ordenes_compra oc
             LEFT JOIN conf__estados_registros er ON oc.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
             LEFT JOIN gestion__comprobantes_tipos ct ON oc.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON oc.entidad_id = e.entidad_id
+            LEFT JOIN gestion__monedas m ON oc.moneda_id = m.moneda_id
             WHERE oc.empresa_id = ?
             ORDER BY oc.f_emision DESC, oc.orden_compra_id DESC";
 
@@ -275,189 +277,248 @@ function obtenerOrdenesCompra($conexion, $empresa_idx, $pagina_id)
 
 function agregarOrdenCompra($conexion, $data)
 {
-    $comprobante_letra = mysqli_real_escape_string($conexion, trim($data['comprobante_letra'] ?? ''));
-    $comprobante_suc = mysqli_real_escape_string($conexion, trim($data['comprobante_suc'] ?? ''));
-    $comprobante_nro = mysqli_real_escape_string($conexion, trim($data['comprobante_nro'] ?? ''));
-    $f_emision = mysqli_real_escape_string($conexion, $data['f_emision'] ?? '');
-    $direccion_entrega = mysqli_real_escape_string($conexion, trim($data['direccion_entrega'] ?? ''));
-    $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
+    error_log("=== INICIO agregarOrdenCompra ===");
+    error_log("Datos recibidos: " . print_r($data, true));
 
-    if (empty($comprobante_nro)) {
+    if (!$conexion) {
+        error_log("Error: Conexión a BD no disponible");
+        return ['resultado' => false, 'error' => 'Error de conexión a la base de datos'];
+    }
+
+    // Validaciones básicas
+    if (empty($data['comprobante_nro'])) {
         return ['resultado' => false, 'error' => 'El número de comprobante es obligatorio'];
     }
-
-    if (empty($f_emision)) {
+    if (empty($data['f_emision'])) {
         return ['resultado' => false, 'error' => 'La fecha de emisión es obligatoria'];
     }
-
     if (empty($data['entidad_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar un proveedor'];
     }
-
     if (empty($data['comprobante_tipo_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar el tipo de comprobante'];
     }
-
     if (empty($data['moneda_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar la moneda'];
     }
-
-    if (empty($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
+    if (!isset($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
         return ['resultado' => false, 'error' => 'Debe agregar al menos un producto al detalle'];
     }
 
-    $estado_inicial = obtenerEstadoInicial($conexion);
+    mysqli_begin_transaction($conexion);
 
-    $sql_check = "SELECT COUNT(*) as total FROM gestion__ordenes_compra 
-                  WHERE comprobante_letra = ? AND comprobante_suc = ? AND comprobante_nro = ? AND empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    try {
+        // Verificar duplicados
+        $sql_check = "SELECT COUNT(*) as total FROM gestion__ordenes_compra 
+                      WHERE comprobante_letra = ? AND comprobante_suc = ? AND comprobante_nro = ? AND empresa_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_check);
+        if (!$stmt) {
+            throw new Exception("Error preparando consulta duplicados: " . mysqli_error($conexion));
+        }
 
-    mysqli_stmt_bind_param($stmt, "sssi", $comprobante_letra, $comprobante_suc, $comprobante_nro, $data['empresa_idx']);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
+        mysqli_stmt_bind_param($stmt, "sssi", 
+            $data['comprobante_letra'], 
+            $data['comprobante_suc'], 
+            $data['comprobante_nro'], 
+            $data['empresa_idx']
+        );
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
 
-    if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe una orden con este número de comprobante'];
-    }
+        if ($row['total'] > 0) {
+            throw new Exception('Ya existe una orden con este número de comprobante');
+        }
 
-    $f_entrega_estimada = (!empty($data['f_entrega_estimada'])) ? "'" . mysqli_real_escape_string($conexion, $data['f_entrega_estimada']) . "'" : "NULL";
-    $condicion_pago_id = (!empty($data['condicion_pago_id'])) ? intval($data['condicion_pago_id']) : "NULL";
-    $tipo_cambio = (!empty($data['tipo_cambio'])) ? floatval($data['tipo_cambio']) : "NULL";
+        // Obtener estado inicial
+        $estado_inicial = obtenerEstadoInicial($conexion);
+        if (!$estado_inicial) {
+            $estado_inicial = 1;
+        }
 
-    $sql = "INSERT INTO gestion__ordenes_compra 
-            (empresa_id, comprobante_tipo_id, comprobante_letra, comprobante_suc, comprobante_nro, entidad_id, entidad_sucursal_id, 
-             f_emision, f_entrega_estimada, condicion_pago_id, moneda_id, tipo_cambio, 
-             direccion_entrega, subtotal, descuentos, impuestos, total, observaciones, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, $f_entrega_estimada, $condicion_pago_id, ?, $tipo_cambio, ?, ?, ?, ?, ?, ?, ?)";
+        // Manejar valores NULL
+        $f_entrega_estimada = (!empty($data['f_entrega_estimada'])) ? $data['f_entrega_estimada'] : null;
+        $condicion_pago_id = (!empty($data['condicion_pago_id']) && $data['condicion_pago_id'] > 0) ? intval($data['condicion_pago_id']) : null;
+        $tipo_cambio = (!empty($data['tipo_cambio'])) ? floatval($data['tipo_cambio']) : 1.000000;
+        $entidad_sucursal_id = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0) ? intval($data['entidad_sucursal_id']) : null;
 
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+        // Insertar orden
+        $sql = "INSERT INTO gestion__ordenes_compra 
+                (empresa_id, comprobante_tipo_id, comprobante_letra, comprobante_suc, comprobante_nro, 
+                 entidad_id, entidad_sucursal_id, f_emision, f_entrega_estimada, condicion_pago_id, 
+                 moneda_id, tipo_cambio, direccion_entrega, subtotal, descuentos, impuestos, total, 
+                 observaciones, tabla_estado_registro_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    mysqli_stmt_bind_param($stmt, "iissiisdsdddddsi",
-        $data['empresa_idx'],
-        $data['comprobante_tipo_id'],
-        $comprobante_letra,
-        $comprobante_suc,
-        $comprobante_nro,
-        $data['entidad_id'],
-        $data['entidad_sucursal_id'],
-        $f_emision,
-        $data['moneda_id'],
-        $direccion_entrega,
-        $data['subtotal'],
-        $data['descuentos'],
-        $data['impuestos'],
-        $data['total'],
-        $observaciones,
-        $estado_inicial
-    );
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception("Error preparando insert: " . mysqli_error($conexion));
+        }
 
-    $success = mysqli_stmt_execute($stmt);
+        mysqli_stmt_bind_param($stmt, "iiissiisssidddddddsi",
+            $data['empresa_idx'],
+            $data['comprobante_tipo_id'],
+            $data['comprobante_letra'],
+            $data['comprobante_suc'],
+            $data['comprobante_nro'],
+            $data['entidad_id'],
+            $entidad_sucursal_id,
+            $data['f_emision'],
+            $f_entrega_estimada,
+            $condicion_pago_id,
+            $data['moneda_id'],
+            $tipo_cambio,
+            $data['direccion_entrega'],
+            $data['subtotal'],
+            $data['descuentos'],
+            $data['impuestos'],
+            $data['total'],
+            $data['observaciones'],
+            $estado_inicial
+        );
 
-    if ($success) {
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Error ejecutando insert: " . mysqli_stmt_error($stmt));
+        }
+
         $orden_compra_id = mysqli_insert_id($conexion);
-        
+        error_log("Orden creada con ID: " . $orden_compra_id);
+        mysqli_stmt_close($stmt);
+
+        // Insertar detalles
         $detalles_success = insertarDetallesOrden($conexion, $orden_compra_id, $data['empresa_idx'], $data['detalles']);
         
-        if ($detalles_success) {
-            mysqli_stmt_close($stmt);
-            return ['resultado' => true, 'orden_compra_id' => $orden_compra_id];
-        } else {
-            mysqli_stmt_close($stmt);
-            $sql_delete = "DELETE FROM gestion__ordenes_compra WHERE orden_compra_id = ?";
-            $stmt_delete = mysqli_prepare($conexion, $sql_delete);
-            mysqli_stmt_bind_param($stmt_delete, "i", $orden_compra_id);
-            mysqli_stmt_execute($stmt_delete);
-            mysqli_stmt_close($stmt_delete);
-            
-            return ['resultado' => false, 'error' => 'Error al insertar los detalles'];
+        if (!$detalles_success) {
+            throw new Exception("Error al insertar los detalles");
         }
-    } else {
-        mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al crear la orden de compra'];
+
+        mysqli_commit($conexion);
+        error_log("=== FIN agregarOrdenCompra - ÉXITO ===");
+        return ['resultado' => true, 'orden_compra_id' => $orden_compra_id];
+
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        error_log("ERROR en agregarOrdenCompra: " . $e->getMessage());
+        return ['resultado' => false, 'error' => $e->getMessage()];
     }
 }
 
 function insertarDetallesOrden($conexion, $orden_compra_id, $empresa_id, $detalles)
 {
-    foreach ($detalles as $detalle) {
+    error_log("Insertando " . count($detalles) . " detalles para orden $orden_compra_id");
+    
+    if (!is_array($detalles) || count($detalles) === 0) {
+        error_log("Error: No hay detalles para insertar");
+        return false;
+    }
+    
+    $insertados = 0;
+    
+    foreach ($detalles as $index => $detalle) {
+        // Validar campos requeridos
+        if (empty($detalle['producto_id'])) {
+            error_log("Error: producto_id vacío en detalle $index");
+            return false;
+        }
+        
+        $cantidad = floatval($detalle['cantidad'] ?? 0);
+        $precio_unitario = floatval($detalle['precio_unitario'] ?? 0);
+        
+        if ($cantidad <= 0) {
+            error_log("Error: cantidad inválida en detalle $index: $cantidad");
+            return false;
+        }
+        
+        if ($precio_unitario <= 0) {
+            error_log("Error: precio_unitario inválido en detalle $index: $precio_unitario");
+            return false;
+        }
+        
+        // Calcular valores
+        $neto_gravado = floatval($detalle['neto_gravado'] ?? ($cantidad * $precio_unitario));
+        $no_gravado = floatval($detalle['no_gravado'] ?? 0);
+        $exento = floatval($detalle['exento'] ?? 0);
+        $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : null;
+        $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
+        $iva_importe = floatval($detalle['iva_importe'] ?? ($neto_gravado * $iva_porcentaje / 100));
+        $total_linea = floatval($detalle['total_linea'] ?? ($neto_gravado + $iva_importe));
+        
+        // Insertar detalle con los nuevos campos
         $sql = "INSERT INTO gestion__ordenes_compra_detalle 
                 (orden_compra_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
-                 precio_unitario, neto_gravado, iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
-                VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)";
+                 precio_unitario, no_gravado, exento, neto_gravado, iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
+                VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = mysqli_prepare($conexion, $sql);
-        if (!$stmt)
+        if (!$stmt) {
+            error_log("Error preparando insert detalle: " . mysqli_error($conexion));
             return false;
+        }
         
-        mysqli_stmt_bind_param($stmt, "iiidddddii",
+        mysqli_stmt_bind_param($stmt, "iiidddddidid",
             $orden_compra_id,
             $empresa_id,
             $detalle['producto_id'],
-            $detalle['cantidad'],
-            $detalle['precio_unitario'],
-            $detalle['neto_gravado'],
-            $detalle['iva_alicuota_id'],
-            $detalle['iva_porcentaje'],
-            $detalle['iva_importe'],
-            $detalle['total_linea']
+            $cantidad,
+            $precio_unitario,
+            $no_gravado,
+            $exento,
+            $neto_gravado,
+            $iva_alicuota_id,
+            $iva_porcentaje,
+            $iva_importe,
+            $total_linea
         );
         
-        $success = mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-        
-        if (!$success)
+        if (!mysqli_stmt_execute($stmt)) {
+            $error = mysqli_stmt_error($stmt);
+            error_log("Error ejecutando insert detalle $index: " . $error);
+            mysqli_stmt_close($stmt);
             return false;
+        }
+        
+        $detalle_id = mysqli_insert_id($conexion);
+        error_log("Detalle $index insertado con ID: " . $detalle_id);
+        $insertados++;
+        mysqli_stmt_close($stmt);
     }
     
-    return true;
+    error_log("Se insertaron $insertados detalles correctamente");
+    return $insertados === count($detalles);
 }
 
 function editarOrdenCompra($conexion, $id, $data)
 {
     $id = intval($id);
-    $comprobante_letra = mysqli_real_escape_string($conexion, trim($data['comprobante_letra'] ?? ''));
-    $comprobante_suc = mysqli_real_escape_string($conexion, trim($data['comprobante_suc'] ?? ''));
-    $comprobante_nro = mysqli_real_escape_string($conexion, trim($data['comprobante_nro'] ?? ''));
-    $f_emision = mysqli_real_escape_string($conexion, $data['f_emision'] ?? '');
-    $direccion_entrega = mysqli_real_escape_string($conexion, trim($data['direccion_entrega'] ?? ''));
-    $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
+    
+    error_log("=== INICIO editarOrdenCompra ID: $id ===");
+    error_log("Datos recibidos: " . print_r($data, true));
 
-    if (empty($comprobante_nro)) {
+    // Validaciones básicas
+    if (empty($data['comprobante_nro'])) {
         return ['resultado' => false, 'error' => 'El número de comprobante es obligatorio'];
     }
-
-    if (empty($f_emision)) {
+    if (empty($data['f_emision'])) {
         return ['resultado' => false, 'error' => 'La fecha de emisión es obligatoria'];
     }
-
     if (empty($data['entidad_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar un proveedor'];
     }
-
     if (empty($data['comprobante_tipo_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar el tipo de comprobante'];
     }
-
     if (empty($data['moneda_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar la moneda'];
     }
-
-    if (empty($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
+    if (!isset($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
         return ['resultado' => false, 'error' => 'Debe agregar al menos un producto al detalle'];
     }
 
-    $sql_check = "SELECT orden_compra_id, tabla_estado_registro_id 
-                  FROM gestion__ordenes_compra 
-                  WHERE orden_compra_id = ?";
+    // Verificar si la orden existe
+    $sql_check = "SELECT orden_compra_id, tabla_estado_registro_id FROM gestion__ordenes_compra WHERE orden_compra_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
 
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
@@ -469,8 +530,8 @@ function editarOrdenCompra($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Registro no encontrado'];
     }
 
-    $sql_estado = "SELECT codigo_estandar FROM conf__estados_registros 
-                   WHERE estado_registro_id = ?";
+    // Verificar si la orden no está cerrada o cancelada
+    $sql_estado = "SELECT codigo_estandar FROM conf__estados_registros WHERE estado_registro_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_estado);
     mysqli_stmt_bind_param($stmt, "i", $orden['tabla_estado_registro_id']);
     mysqli_stmt_execute($stmt);
@@ -482,91 +543,220 @@ function editarOrdenCompra($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'No se puede editar una orden ' . strtolower($estado_info['codigo_estandar'])];
     }
 
-    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__ordenes_compra 
-                      WHERE comprobante_letra = ? AND comprobante_suc = ? AND comprobante_nro = ? 
-                      AND empresa_id = ?
-                      AND orden_compra_id != ?";
-    $stmt = mysqli_prepare($conexion, $sql_duplicate);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    mysqli_begin_transaction($conexion);
 
-    mysqli_stmt_bind_param($stmt, "sssii", $comprobante_letra, $comprobante_suc, $comprobante_nro, $data['empresa_idx'], $id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-
-    if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe otra orden con este número de comprobante'];
-    }
-
-    $f_entrega_estimada = (!empty($data['f_entrega_estimada'])) ? "'" . mysqli_real_escape_string($conexion, $data['f_entrega_estimada']) . "'" : "NULL";
-    $condicion_pago_id = (!empty($data['condicion_pago_id'])) ? intval($data['condicion_pago_id']) : "NULL";
-    $tipo_cambio = (!empty($data['tipo_cambio'])) ? floatval($data['tipo_cambio']) : "NULL";
-
-    $sql = "UPDATE gestion__ordenes_compra 
-            SET comprobante_tipo_id = ?, 
-                comprobante_letra = ?, 
-                comprobante_suc = ?, 
-                comprobante_nro = ?, 
-                entidad_id = ?, 
-                entidad_sucursal_id = ?, 
-                f_emision = ?, 
-                f_entrega_estimada = $f_entrega_estimada, 
-                condicion_pago_id = $condicion_pago_id, 
-                moneda_id = ?, 
-                tipo_cambio = $tipo_cambio, 
-                direccion_entrega = ?, 
-                subtotal = ?, 
-                descuentos = ?, 
-                impuestos = ?, 
-                total = ?, 
-                observaciones = ?
-            WHERE orden_compra_id = ?";
-
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "isssiisdddddddsi",
-        $data['comprobante_tipo_id'],
-        $comprobante_letra,
-        $comprobante_suc,
-        $comprobante_nro,
-        $data['entidad_id'],
-        $data['entidad_sucursal_id'],
-        $f_emision,
-        $data['moneda_id'],
-        $direccion_entrega,
-        $data['subtotal'],
-        $data['descuentos'],
-        $data['impuestos'],
-        $data['total'],
-        $observaciones,
-        $id
-    );
-
-    $success = mysqli_stmt_execute($stmt);
-
-    if ($success) {
-        $sql_delete = "DELETE FROM gestion__ordenes_compra_detalle WHERE orden_compra_id = ?";
-        $stmt_delete = mysqli_prepare($conexion, $sql_delete);
-        mysqli_stmt_bind_param($stmt_delete, "i", $id);
-        mysqli_stmt_execute($stmt_delete);
-        mysqli_stmt_close($stmt_delete);
-
-        $detalles_success = insertarDetallesOrden($conexion, $id, $data['empresa_idx'], $data['detalles']);
-
-        if ($detalles_success) {
-            mysqli_stmt_close($stmt);
-            return ['resultado' => true];
-        } else {
-            mysqli_stmt_close($stmt);
-            return ['resultado' => false, 'error' => 'Error al actualizar los detalles'];
+    try {
+        // Verificar duplicados (excluyendo el registro actual)
+        $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__ordenes_compra 
+                          WHERE comprobante_letra = ? AND comprobante_suc = ? AND comprobante_nro = ? 
+                          AND empresa_id = ? AND orden_compra_id != ?";
+        $stmt = mysqli_prepare($conexion, $sql_duplicate);
+        if (!$stmt) {
+            throw new Exception("Error preparando consulta duplicados: " . mysqli_error($conexion));
         }
-    } else {
+
+        mysqli_stmt_bind_param($stmt, "sssii", 
+            $data['comprobante_letra'], 
+            $data['comprobante_suc'], 
+            $data['comprobante_nro'], 
+            $data['empresa_idx'], 
+            $id
+        );
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
         mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al actualizar la orden de compra'];
+
+        if ($row['total'] > 0) {
+            throw new Exception('Ya existe otra orden con este número de comprobante');
+        }
+
+        // Manejar valores NULL
+        $f_entrega_estimada = (!empty($data['f_entrega_estimada'])) ? $data['f_entrega_estimada'] : null;
+        $condicion_pago_id = (!empty($data['condicion_pago_id']) && $data['condicion_pago_id'] > 0) ? intval($data['condicion_pago_id']) : null;
+        $entidad_sucursal_id = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0) ? intval($data['entidad_sucursal_id']) : null;
+
+        // Actualizar la orden
+        $sql = "UPDATE gestion__ordenes_compra 
+                SET comprobante_tipo_id = ?, 
+                    comprobante_letra = ?, 
+                    comprobante_suc = ?, 
+                    comprobante_nro = ?, 
+                    entidad_id = ?, 
+                    entidad_sucursal_id = ?, 
+                    f_emision = ?, 
+                    f_entrega_estimada = ?, 
+                    condicion_pago_id = ?, 
+                    moneda_id = ?, 
+                    tipo_cambio = ?, 
+                    direccion_entrega = ?, 
+                    subtotal = ?, 
+                    descuentos = ?, 
+                    impuestos = ?, 
+                    total = ?, 
+                    observaciones = ?
+                WHERE orden_compra_id = ?";
+
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception("Error preparando update: " . mysqli_error($conexion));
+        }
+
+        mysqli_stmt_bind_param($stmt, "issssiisssiddddddsi",
+            $data['comprobante_tipo_id'],
+            $data['comprobante_letra'],
+            $data['comprobante_suc'],
+            $data['comprobante_nro'],
+            $data['entidad_id'],
+            $entidad_sucursal_id,
+            $data['f_emision'],
+            $f_entrega_estimada,
+            $condicion_pago_id,
+            $data['moneda_id'],
+            $data['tipo_cambio'],
+            $data['direccion_entrega'],
+            $data['subtotal'],
+            $data['descuentos'],
+            $data['impuestos'],
+            $data['total'],
+            $data['observaciones'],
+            $id
+        );
+
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Error ejecutando update: " . mysqli_stmt_error($stmt));
+        }
+        mysqli_stmt_close($stmt);
+
+        // === PROCESAR DETALLES ===
+        
+        // Obtener IDs de detalles actuales en BD
+        $sql_get_ids = "SELECT ordenes_compra_detalle_id FROM gestion__ordenes_compra_detalle WHERE orden_compra_id = ?";
+        $stmt_ids = mysqli_prepare($conexion, $sql_get_ids);
+        mysqli_stmt_bind_param($stmt_ids, "i", $id);
+        mysqli_stmt_execute($stmt_ids);
+        $result_ids = mysqli_stmt_get_result($stmt_ids);
+        
+        $detalles_bd_ids = [];
+        while ($row = mysqli_fetch_assoc($result_ids)) {
+            $detalles_bd_ids[] = $row['ordenes_compra_detalle_id'];
+        }
+        mysqli_stmt_close($stmt_ids);
+        
+        // IDs que vienen del frontend (los que tienen ID > 0)
+        $detalles_frontend_ids = [];
+        $detalles_nuevos = [];
+        
+        foreach ($data['detalles'] as $detalle) {
+            if (!empty($detalle['ordenes_compra_detalle_id']) && $detalle['ordenes_compra_detalle_id'] > 0) {
+                $detalles_frontend_ids[] = $detalle['ordenes_compra_detalle_id'];
+            } else {
+                $detalles_nuevos[] = $detalle;
+            }
+        }
+        
+        // IDs a eliminar (los que están en BD pero no en frontend)
+        $ids_a_eliminar = array_diff($detalles_bd_ids, $detalles_frontend_ids);
+        
+        // Eliminar detalles que ya no están
+        if (!empty($ids_a_eliminar)) {
+            $ids_str = implode(',', array_map('intval', $ids_a_eliminar));
+            $sql_delete = "DELETE FROM gestion__ordenes_compra_detalle WHERE ordenes_compra_detalle_id IN ($ids_str)";
+            if (!mysqli_query($conexion, $sql_delete)) {
+                throw new Exception("Error eliminando detalles: " . mysqli_error($conexion));
+            }
+            error_log("Detalles eliminados: " . count($ids_a_eliminar));
+        }
+        
+        // Actualizar detalles existentes
+        foreach ($data['detalles'] as $detalle) {
+            if (!empty($detalle['ordenes_compra_detalle_id']) && $detalle['ordenes_compra_detalle_id'] > 0) {
+                $sql_update_detalle = "UPDATE gestion__ordenes_compra_detalle 
+                                       SET cantidad = ?, 
+                                           precio_unitario = ?,
+                                           no_gravado = ?,
+                                           exento = ?,
+                                           neto_gravado = ?, 
+                                           iva_alicuota_id = ?, 
+                                           iva_porcentaje = ?, 
+                                           iva_importe = ?, 
+                                           total_linea = ?
+                                       WHERE ordenes_compra_detalle_id = ?";
+                
+                $stmt_update = mysqli_prepare($conexion, $sql_update_detalle);
+                if (!$stmt_update) {
+                    throw new Exception("Error preparando update detalle: " . mysqli_error($conexion));
+                }
+                
+                mysqli_stmt_bind_param($stmt_update, "dddddididi",
+                    $detalle['cantidad'],
+                    $detalle['precio_unitario'],
+                    $detalle['no_gravado'] ?? 0,
+                    $detalle['exento'] ?? 0,
+                    $detalle['neto_gravado'],
+                    $detalle['iva_alicuota_id'],
+                    $detalle['iva_porcentaje'],
+                    $detalle['iva_importe'],
+                    $detalle['total_linea'],
+                    $detalle['ordenes_compra_detalle_id']
+                );
+                
+                if (!mysqli_stmt_execute($stmt_update)) {
+                    throw new Exception("Error actualizando detalle: " . mysqli_stmt_error($stmt_update));
+                }
+                
+                mysqli_stmt_close($stmt_update);
+                error_log("Detalle actualizado ID: " . $detalle['ordenes_compra_detalle_id']);
+            }
+        }
+        
+        // Insertar nuevos detalles
+        if (!empty($detalles_nuevos)) {
+            foreach ($detalles_nuevos as $detalle) {
+                $sql_insert_detalle = "INSERT INTO gestion__ordenes_compra_detalle 
+                                       (orden_compra_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
+                                        precio_unitario, no_gravado, exento, neto_gravado, iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
+                                       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)";
+                
+                $stmt_insert = mysqli_prepare($conexion, $sql_insert_detalle);
+                if (!$stmt_insert) {
+                    throw new Exception("Error preparando insert detalle: " . mysqli_error($conexion));
+                }
+                
+                mysqli_stmt_bind_param($stmt_insert, "iiidddddidid",
+                    $id,
+                    $data['empresa_idx'],
+                    $detalle['producto_id'],
+                    $detalle['cantidad'],
+                    $detalle['precio_unitario'],
+                    $detalle['no_gravado'] ?? 0,
+                    $detalle['exento'] ?? 0,
+                    $detalle['neto_gravado'],
+                    $detalle['iva_alicuota_id'],
+                    $detalle['iva_porcentaje'],
+                    $detalle['iva_importe'],
+                    $detalle['total_linea']
+                );
+                
+                if (!mysqli_stmt_execute($stmt_insert)) {
+                    throw new Exception("Error insertando detalle: " . mysqli_stmt_error($stmt_insert));
+                }
+                
+                $detalle_id = mysqli_insert_id($conexion);
+                mysqli_stmt_close($stmt_insert);
+                error_log("Nuevo detalle insertado ID: " . $detalle_id);
+            }
+            error_log("Nuevos detalles insertados: " . count($detalles_nuevos));
+        }
+
+        mysqli_commit($conexion);
+        error_log("=== FIN editarOrdenCompra - ÉXITO ===");
+        return ['resultado' => true, 'message' => 'Orden actualizada correctamente'];
+
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        error_log("ERROR en editarOrdenCompra: " . $e->getMessage());
+        return ['resultado' => false, 'error' => $e->getMessage()];
     }
 }
 
@@ -594,11 +784,13 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    ct.comprobante_tipo,
-                   e.entidad_nombre, e.entidad_fantasia
+                   e.entidad_nombre, e.entidad_fantasia,
+                   m.moneda, m.simbolo
             FROM gestion__ordenes_compra oc
             LEFT JOIN conf__estados_registros er ON oc.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN gestion__comprobantes_tipos ct ON oc.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON oc.entidad_id = e.entidad_id
+            LEFT JOIN gestion__monedas m ON oc.moneda_id = m.moneda_id
             WHERE oc.orden_compra_id = ? AND oc.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -616,9 +808,13 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
     }
 
     $sql_detalles = "SELECT d.*, p.producto_codigo, p.producto_nombre,
-                            p.iva_alicuota_id as producto_iva_id
+                            p.iva_alicuota_id as producto_iva_id,
+                            pp.codigo_proveedor,
+                            iva.porcentaje as iva_porcentaje
                      FROM gestion__ordenes_compra_detalle d
                      LEFT JOIN gestion__productos p ON d.producto_id = p.producto_id
+                     LEFT JOIN gestion__productos_proveedores pp ON d.producto_id = pp.producto_id AND pp.entidad_id = ?
+                     LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id
                      WHERE d.orden_compra_id = ?
                      ORDER BY d.ordenes_compra_detalle_id";
 
@@ -626,25 +822,26 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
     if (!$stmt)
         return $orden;
 
-    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_bind_param($stmt, "ii", $orden['entidad_id'], $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
     $detalles = [];
     while ($detalle = mysqli_fetch_assoc($result)) {
-        // Formatear los detalles para que coincidan con lo que espera el frontend
         $detalles[] = [
             'ordenes_compra_detalle_id' => $detalle['ordenes_compra_detalle_id'],
             'producto_id' => $detalle['producto_id'],
             'producto_nombre' => $detalle['producto_nombre'] . ' (' . $detalle['producto_codigo'] . ')',
             'cantidad' => floatval($detalle['cantidad']),
             'precio_unitario' => floatval($detalle['precio_unitario']),
+            'no_gravado' => floatval($detalle['no_gravado'] ?? 0),
+            'exento' => floatval($detalle['exento'] ?? 0),
             'iva_alicuota_id' => $detalle['producto_iva_id'] ?? $detalle['iva_alicuota_id'] ?? 1,
-            'iva_porcentaje' => floatval($detalle['iva_porcentaje']),
+            'iva_porcentaje' => floatval($detalle['iva_porcentaje'] ?? 21),
             'neto_gravado' => floatval($detalle['neto_gravado']),
             'iva_importe' => floatval($detalle['iva_importe']),
             'total_linea' => floatval($detalle['total_linea']),
-            'codigo_proveedor' => '' // Este campo se cargará dinámicamente
+            'codigo_proveedor' => $detalle['codigo_proveedor'] ?? ''
         ];
     }
     mysqli_stmt_close($stmt);
@@ -753,19 +950,56 @@ function obtenerCondicionesPago($conexion, $empresa_idx)
     return $condiciones;
 }
 
-function obtenerProductos($conexion, $empresa_idx)
+function obtenerMonedas($conexion, $empresa_idx)
 {
-    $sql = "SELECT producto_id, producto_codigo, producto_nombre 
-            FROM gestion__productos 
-            WHERE empresa_id = ? 
+    $sql = "SELECT moneda_id, codigo, moneda, simbolo, es_moneda_base, cotizacion_actual 
+            FROM gestion__monedas 
+            WHERE empresa_id = ?
             AND tabla_estado_registro_id = 1 
-            ORDER BY producto_nombre";
+            ORDER BY es_moneda_base DESC, orden, moneda";
     
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
+    if (!$stmt) {
+        error_log("Error preparando consulta monedas: " . mysqli_error($conexion));
         return [];
+    }
     
     mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $monedas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $monedas[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $monedas;
+}
+
+function obtenerProductosPorProveedor($conexion, $empresa_idx, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre, 
+                   pp.codigo_proveedor, p.iva_alicuota_id,
+                   iva.porcentaje as iva_porcentaje
+            FROM gestion__productos p
+            INNER JOIN gestion__productos_proveedores pp ON p.producto_id = pp.producto_id
+            LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id
+            WHERE p.empresa_id = ? 
+            AND pp.entidad_id = ?
+            AND p.tabla_estado_registro_id = 1
+            AND pp.tabla_estado_registro_id = 1
+            ORDER BY p.producto_nombre";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando consulta productos proveedor: " . mysqli_error($conexion));
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_idx, $entidad_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     
@@ -854,6 +1088,14 @@ function agregarProductoRapido($conexion, $data)
         return ['success' => false, 'error' => 'La categoría es obligatoria'];
     }
     
+    if (empty($data['codigo_proveedor'])) {
+        return ['success' => false, 'error' => 'El código del proveedor es obligatorio'];
+    }
+    
+    if (empty($data['entidad_id'])) {
+        return ['success' => false, 'error' => 'Debe seleccionar un proveedor'];
+    }
+    
     $sql_check = "SELECT COUNT(*) as total FROM gestion__productos 
                   WHERE producto_codigo = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
@@ -868,6 +1110,21 @@ function agregarProductoRapido($conexion, $data)
     
     if ($row['total'] > 0) {
         return ['success' => false, 'error' => 'Ya existe un producto con este código'];
+    }
+    
+    // Verificar si ya existe el código de proveedor para este proveedor
+    $sql_check_proveedor = "SELECT COUNT(*) as total FROM gestion__productos_proveedores pp
+                            INNER JOIN gestion__productos p ON pp.producto_id = p.producto_id
+                            WHERE pp.entidad_id = ? AND pp.codigo_proveedor = ? AND p.empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check_proveedor);
+    mysqli_stmt_bind_param($stmt, "isi", $data['entidad_id'], $data['codigo_proveedor'], $data['empresa_idx']);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row_proveedor = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row_proveedor && $row_proveedor['total'] > 0) {
+        return ['success' => false, 'error' => 'Ya existe un producto con este código de proveedor para el proveedor seleccionado'];
     }
     
     $sql = "INSERT INTO gestion__productos 
@@ -897,21 +1154,31 @@ function agregarProductoRapido($conexion, $data)
         $producto_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
         
-        if (!empty($data['codigo_proveedor']) && !empty($data['entidad_id'])) {
-            $sql_proveedor = "INSERT INTO gestion__productos_proveedores 
-                              (empresa_id, producto_id, entidad_id, codigo_proveedor, tabla_estado_registro_id) 
-                              VALUES (?, ?, ?, ?, 1)";
+        // Insertar la relación con el proveedor
+        $sql_proveedor = "INSERT INTO gestion__productos_proveedores 
+                          (empresa_id, producto_id, entidad_id, codigo_proveedor, tabla_estado_registro_id) 
+                          VALUES (?, ?, ?, ?, 1)";
+        
+        $stmt_proveedor = mysqli_prepare($conexion, $sql_proveedor);
+        if ($stmt_proveedor) {
+            mysqli_stmt_bind_param($stmt_proveedor, "iiis", 
+                $data['empresa_idx'],
+                $producto_id,
+                $data['entidad_id'],
+                $data['codigo_proveedor']
+            );
+            $success_proveedor = mysqli_stmt_execute($stmt_proveedor);
+            mysqli_stmt_close($stmt_proveedor);
             
-            $stmt_proveedor = mysqli_prepare($conexion, $sql_proveedor);
-            if ($stmt_proveedor) {
-                mysqli_stmt_bind_param($stmt_proveedor, "iiis", 
-                    $data['empresa_idx'],
-                    $producto_id,
-                    $data['entidad_id'],
-                    $data['codigo_proveedor']
-                );
-                mysqli_stmt_execute($stmt_proveedor);
-                mysqli_stmt_close($stmt_proveedor);
+            if (!$success_proveedor) {
+                // Si falla la inserción del proveedor, eliminar el producto creado
+                $sql_delete = "DELETE FROM gestion__productos WHERE producto_id = ?";
+                $stmt_delete = mysqli_prepare($conexion, $sql_delete);
+                mysqli_stmt_bind_param($stmt_delete, "i", $producto_id);
+                mysqli_stmt_execute($stmt_delete);
+                mysqli_stmt_close($stmt_delete);
+                
+                return ['success' => false, 'error' => 'Error al asociar el producto con el proveedor'];
             }
         }
         
@@ -920,5 +1187,68 @@ function agregarProductoRapido($conexion, $data)
         mysqli_stmt_close($stmt);
         return ['success' => false, 'error' => 'Error al crear el producto'];
     }
+}
+
+function buscarProductosPorProveedor($conexion, $empresa_idx, $entidad_id, $q)
+{
+    $entidad_id = intval($entidad_id);
+    $q = mysqli_real_escape_string($conexion, $q);
+    
+    $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre, 
+                   pp.codigo_proveedor, p.iva_alicuota_id,
+                   iva.porcentaje as iva_porcentaje
+            FROM gestion__productos p
+            INNER JOIN gestion__productos_proveedores pp ON p.producto_id = pp.producto_id
+            LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id
+            WHERE p.empresa_id = ? 
+            AND pp.entidad_id = ?
+            AND p.tabla_estado_registro_id = 1
+            AND pp.tabla_estado_registro_id = 1
+            AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR pp.codigo_proveedor LIKE ?)
+            ORDER BY p.producto_nombre
+            LIMIT 20";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    $search = "%$q%";
+    mysqli_stmt_bind_param($stmt, "iisss", $empresa_idx, $entidad_id, $search, $search, $search);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $productos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $productos[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $productos;
+}
+
+function obtenerUltimoPrecioProducto($conexion, $producto_id, $entidad_id, $empresa_id)
+{
+    $sql = "SELECT precio_unitario 
+            FROM gestion__ordenes_compra_detalle d
+            INNER JOIN gestion__ordenes_compra o ON d.orden_compra_id = o.orden_compra_id
+            WHERE d.producto_id = ? 
+            AND o.entidad_id = ? 
+            AND o.empresa_id = ?
+            ORDER BY o.orden_compra_id DESC 
+            LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['success' => false];
+    
+    mysqli_stmt_bind_param($stmt, "iii", $producto_id, $entidad_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row) {
+        return ['success' => true, 'precio' => $row['precio_unitario']];
+    }
+    
+    return ['success' => false];
 }
 ?>

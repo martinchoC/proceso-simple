@@ -167,14 +167,14 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             GROUP_CONCAT(DISTINCT s.submodelo_nombre ORDER BY s.submodelo_nombre SEPARATOR ', ') as submodelos_compatibles,
             GROUP_CONCAT(DISTINCT CONCAT(su.sucursal_nombre, ': ', s_ubic.seccion, ' ', s_ubic.estanteria, '-', s_ubic.estante, s_ubic.posicion) 
                ORDER BY su.sucursal_nombre, s_ubic.seccion, s_ubic.estanteria, s_ubic.estante, s_ubic.posicion SEPARATOR '; ') as ubicaciones_info,
-            (SELECT ci.imagen_id  -- CAMBIO IMPORTANTE: obtener imagen_id en lugar de ruta
+            (SELECT ci.imagen_id
              FROM gestion__productos_imagenes pi
              INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
              WHERE pi.producto_id = p.producto_id 
              AND pi.empresa_id = p.empresa_id
              AND pi.es_principal = 1
              AND pi.tabla_estado_registro_id = 1
-             LIMIT 1) as imagen_id_principal  -- CAMBIO IMPORTANTE: cambiar nombre del campo
+             LIMIT 1) as imagen_id_principal
         FROM gestion__productos p
         LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
         LEFT JOIN conf__colores c ON er.color_id = c.color_id
@@ -374,7 +374,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
     return $info;
 }
 
-// ✅ Obtener botones disponibles según el estado actual (CORREGIDA)
+// ✅ Obtener botones disponibles según el estado actual
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
     $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
@@ -683,7 +683,7 @@ function agregarProducto($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "issssiiiiisssdsi", // Nota: agregar una 'i' más para iva_alicuota_id
+        "issssiiiiisssdsi",
         $empresa_id,
         $producto_codigo,
         $producto_nombre,
@@ -692,7 +692,7 @@ function agregarProducto($conexion, $data)
         $producto_categoria_id,
         $producto_tipo_id,
         $unidad_medida_id,
-        $iva_alicuota_id,    // ← Agregar esta variable
+        $iva_alicuota_id,
         $lado,
         $material,
         $color,
@@ -811,7 +811,7 @@ function editarProducto($conexion, $id, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssiiiiisssdsi", // Nota: agregar una 'i' más para iva_alicuota_id
+        "ssssiiiiisssdsi",
         $producto_codigo,
         $producto_nombre,
         $codigo_barras,
@@ -819,7 +819,7 @@ function editarProducto($conexion, $id, $data)
         $producto_categoria_id,
         $producto_tipo_id,
         $unidad_medida_id,
-        $iva_alicuota_id,    // ← Agregar esta variable
+        $iva_alicuota_id,
         $lado,
         $material,
         $color,
@@ -1218,6 +1218,7 @@ function eliminarCompatibilidad($conexion, $compatibilidad_id, $empresa_idx)
 function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
 {
     $producto_id = intval($producto_id);
+    $empresa_idx = intval($empresa_idx);
 
     $sql = "SELECT 
                 pi.producto_imagen_id,
@@ -1233,7 +1234,6 @@ function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
                 ci.imagen_ruta,
                 ci.imagen_tipo,
                 ci.imagen_tamanio
-                -- NO seleccionamos imagen_data para evitar problemas de memoria
             FROM gestion__productos_imagenes pi
             INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
             WHERE pi.producto_id = ?
@@ -1262,9 +1262,10 @@ function obtenerImagenesProducto($conexion, $producto_id, $empresa_idx)
 }
 
 // ✅ Obtener imagen por ID (modificada para BLOB)
-function obtenerImagenPorId($conexion, $imagen_id, $empresa_idx)
+function obtenerImagenPorId($conexion, $producto_imagen_id, $empresa_idx)
 {
-    $imagen_id = intval($imagen_id);
+    $producto_imagen_id = intval($producto_imagen_id);
+    $empresa_idx = intval($empresa_idx);
 
     $sql = "SELECT 
                 pi.*,
@@ -1284,7 +1285,7 @@ function obtenerImagenPorId($conexion, $imagen_id, $empresa_idx)
         return null;
     }
 
-    mysqli_stmt_bind_param($stmt, "ii", $imagen_id, $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "ii", $producto_imagen_id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $imagen = mysqli_fetch_assoc($result);
@@ -1821,6 +1822,7 @@ function crearUbicacionSucursal($conexion, $data)
         return ['resultado' => false, 'error' => 'Error al crear la ubicación: ' . mysqli_error($conexion)];
     }
 }
+
 // ✅ Obtener alícuotas de IVA
 function obtenerIvaAlicuotas($conexion, $empresa_idx)
 {
@@ -1847,5 +1849,250 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx)
     
     mysqli_stmt_close($stmt);
     return $alicuotas;
+}
+
+// ========== FUNCIONES PARA PROVEEDORES (SOLO CÓDIGO) ==========
+
+// ✅ Obtener proveedores de un producto
+function obtenerProveedoresProducto($conexion, $producto_id, $empresa_idx)
+{
+    $producto_id = intval($producto_id);
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT 
+                pp.producto_proveedor_id,
+                pp.producto_id,
+                pp.entidad_id,
+                pp.codigo_proveedor,
+                e.entidad_nombre,
+                e.cuit
+            FROM gestion__productos_proveedores pp
+            LEFT JOIN gestion__entidades e ON pp.entidad_id = e.entidad_id
+            WHERE pp.producto_id = ?
+            AND pp.empresa_id = ?
+            AND pp.tabla_estado_registro_id = 1
+            ORDER BY e.entidad_nombre";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $producto_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $proveedores = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $proveedores[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $proveedores;
+}
+
+// ✅ Obtener proveedor por ID
+function obtenerProveedorProductoPorId($conexion, $producto_proveedor_id, $empresa_idx)
+{
+    $producto_proveedor_id = intval($producto_proveedor_id);
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT 
+                pp.*,
+                e.entidad_nombre,
+                e.cuit
+            FROM gestion__productos_proveedores pp
+            LEFT JOIN gestion__entidades e ON pp.entidad_id = e.entidad_id
+            WHERE pp.producto_proveedor_id = ?
+            AND pp.empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return null;
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $producto_proveedor_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $proveedor = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $proveedor;
+}
+
+// ✅ Obtener entidades que son proveedores
+function obtenerEntidadesProveedores($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    // Buscar proveedores - ajusta según tu estructura real de gestion__entidades_tipos
+    $sql = "SELECT entidad_id, entidad_nombre, cuit
+            FROM gestion__entidades
+            WHERE (empresa_id = 0 OR empresa_id = ?)
+            AND tabla_estado_registro_id = 1
+            ORDER BY entidad_nombre";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $entidades = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $entidades[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $entidades;
+}
+
+// ✅ Agregar proveedor a producto
+function agregarProveedorProducto($conexion, $data)
+{
+    $producto_id = intval($data['producto_id'] ?? 0);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $codigo_proveedor = mysqli_real_escape_string($conexion, trim($data['codigo_proveedor'] ?? ''));
+    
+    if ($producto_id == 0) {
+        return ['resultado' => false, 'error' => 'Producto no válido'];
+    }
+    
+    if ($entidad_id == 0) {
+        return ['resultado' => false, 'error' => 'Proveedor no válido'];
+    }
+    
+    // Verificar si ya existe este proveedor para el producto
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__productos_proveedores 
+                  WHERE producto_id = ? 
+                  AND entidad_id = ?
+                  AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "iii", $producto_id, $entidad_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Este proveedor ya está asignado al producto'];
+    }
+    
+    // Insertar nuevo proveedor
+    $sql = "INSERT INTO gestion__productos_proveedores 
+            (producto_id, entidad_id, empresa_id, codigo_proveedor, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, 1)";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param(
+        $stmt,
+        "iiis",
+        $producto_id,
+        $entidad_id,
+        $empresa_id,
+        $codigo_proveedor
+    );
+    
+    $success = mysqli_stmt_execute($stmt);
+    
+    if ($success) {
+        $producto_proveedor_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'producto_proveedor_id' => $producto_proveedor_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al asignar proveedor: ' . mysqli_error($conexion)];
+    }
+}
+
+// ✅ Editar proveedor de producto
+function editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empresa_idx)
+{
+    $producto_proveedor_id = intval($producto_proveedor_id);
+    $codigo_proveedor = mysqli_real_escape_string($conexion, trim($data['codigo_proveedor'] ?? ''));
+    
+    // Verificar que el registro exista y pertenezca a la empresa
+    $sql_check = "SELECT producto_proveedor_id FROM gestion__productos_proveedores 
+                  WHERE producto_proveedor_id = ? AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $producto_proveedor_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $proveedor = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if (!$proveedor) {
+        return ['resultado' => false, 'error' => 'Registro no encontrado'];
+    }
+    
+    // Actualizar
+    $sql = "UPDATE gestion__productos_proveedores 
+            SET codigo_proveedor = ?
+            WHERE producto_proveedor_id = ? AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param(
+        $stmt,
+        "sii",
+        $codigo_proveedor,
+        $producto_proveedor_id,
+        $empresa_idx
+    );
+    
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['resultado' => true];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar: ' . mysqli_error($conexion)];
+    }
+}
+
+// ✅ Eliminar proveedor de producto (cambiar estado a inactivo)
+function eliminarProveedorProducto($conexion, $producto_proveedor_id, $empresa_idx)
+{
+    $producto_proveedor_id = intval($producto_proveedor_id);
+    
+    $sql = "UPDATE gestion__productos_proveedores 
+            SET tabla_estado_registro_id = 2
+            WHERE producto_proveedor_id = ? AND empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $producto_proveedor_id, $empresa_idx);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true];
+    } else {
+        return ['success' => false, 'error' => 'Error al eliminar el proveedor'];
+    }
 }
 ?>

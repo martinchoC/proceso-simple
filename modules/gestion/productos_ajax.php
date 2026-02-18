@@ -449,6 +449,63 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
+        // ========== CASOS PARA PROVEEDORES (SOLO CÓDIGO) ==========
+            
+        case 'obtener_proveedores_producto':
+            $producto_id = intval($_GET['producto_id'] ?? 0);
+            if (empty($producto_id)) {
+                echo json_encode([], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $proveedores = obtenerProveedoresProducto($conexion, $producto_id, $empresa_idx);
+            echo json_encode($proveedores, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_proveedor_producto_por_id':
+            $producto_proveedor_id = intval($_GET['producto_proveedor_id'] ?? 0);
+            if (empty($producto_proveedor_id)) {
+                echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $proveedor = obtenerProveedorProductoPorId($conexion, $producto_proveedor_id, $empresa_idx);
+            if ($proveedor) {
+                echo json_encode($proveedor, JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['error' => 'Proveedor no encontrado'], JSON_UNESCAPED_UNICODE);
+            }
+            break;
+
+        case 'obtener_entidades_proveedores':
+            $entidades = obtenerEntidadesProveedores($conexion, $empresa_idx);
+            echo json_encode($entidades, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'agregar_proveedor_producto':
+            $data = [
+                'producto_id' => intval($_POST['producto_id'] ?? 0),
+                'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+                'empresa_id' => $empresa_idx,
+                'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? '')
+            ];
+            $resultado = agregarProveedorProducto($conexion, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'editar_proveedor_producto':
+            $producto_proveedor_id = intval($_POST['producto_proveedor_id'] ?? 0);
+            $data = [
+                'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? '')
+            ];
+            $resultado = editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empresa_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'eliminar_proveedor_producto':
+            $producto_proveedor_id = intval($_POST['producto_proveedor_id'] ?? 0);
+            $resultado = eliminarProveedorProducto($conexion, $producto_proveedor_id, $empresa_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }
