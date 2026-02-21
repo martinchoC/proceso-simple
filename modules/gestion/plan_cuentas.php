@@ -42,35 +42,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">
                                     <div class="card-header">
                                         <div id="contenedor-boton-agregar" class="d-inline"></div>
-                                        <div class="float-end">
-                                            <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    id="btnRecargar" title="Recargar tabla">
-                                                    <i class="fas fa-sync-alt"></i>
-                                                </button>
-                                                <button type="button"
-                                                    class="btn btn-sm btn-outline-success"
-                                                    id="btnExportarDropdown" data-bs-toggle="dropdown" aria-expanded="false"
-                                                    title="Exportar datos">
-                                                    <i class="fas fa-file-export"></i> Exportar
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li><a class="dropdown-item" href="#" id="btnExportarExcel"><i
-                                                                class="fas fa-file-excel text-success"></i> Excel</a>
-                                                    </li>
-                                                    <li><a class="dropdown-item" href="#" id="btnExportarPDF"><i
-                                                                class="fas fa-file-pdf text-danger"></i> PDF</a></li>
-                                                    <li>
-                                                        <hr class="dropdown-divider">
-                                                    </li>
-                                                    <li><a class="dropdown-item" href="#" id="btnExportarCSV"><i
-                                                                class="fas fa-file-csv text-primary"></i> CSV</a></li>
-                                                    <li><a class="dropdown-item" href="#" id="btnExportarPrint"><i
-                                                                class="fas fa-print text-secondary"></i> Imprimir</a>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
                                     </div>
 
                                     <div class="card-body">
@@ -84,6 +55,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <button type="button" class="btn btn-sm btn-outline-primary" id="btnCollapseAll" title="Contraer todo">
                                                         <i class="fas fa-compress-alt"></i> Contraer
                                                     </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar tabla">
+                                                        <i class="fas fa-sync-alt"></i>
+                                                    </button>
                                                 </div>
                                             </div>
                                             <div class="col-md-8">
@@ -93,10 +67,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     </span>
                                                     <select class="form-select" id="filtroCuentaRaiz" aria-label="Filtro por cuenta raíz">
                                                         <option value="">-- Mostrar todas las cuentas --</option>
-                                                        <?php
-                                                        // Aquí podrías cargar las cuentas raíz desde PHP para evitar una llamada AJAX adicional
-                                                        // Pero lo haremos desde JavaScript para mantener la consistencia
-                                                        ?>
                                                     </select>
                                                     <button class="btn btn-outline-secondary" type="button" id="btnLimpiarFiltro" title="Limpiar filtro">
                                                         <i class="fas fa-times"></i>
@@ -109,8 +79,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
 
                                         <!-- DataTable con estructura jerárquica expandible -->
-                                        <table id="tablaPlanCuentas" class="table table-striped table-bordered"
-                                            style="width:100%">
+                                        <table id="tablaPlanCuentas" class="table table-striped table-bordered" style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="60">ID</th>
@@ -139,8 +108,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalLabel">Cuenta Contable</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                aria-label="Cerrar"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body">
                             <form id="formCuenta" class="needs-validation" novalidate>
@@ -290,22 +258,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
     </style>
 
-    <!-- Librerías necesarias -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+    <!-- SOLO Librerías específicas para DataTables (lo que NO está en footer1.php) -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
-    <!-- Script principal separado -->
-    <script src="plan_cuentas.js"></script>
+    <!-- Script principal -->
+    
+    <script src="plan_cuentas.js?v=<?= filemtime(__DIR__.'/plan_cuentas.js') ?>"></script>
 </main>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>
-</body>
-</html>

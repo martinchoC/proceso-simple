@@ -22,7 +22,12 @@ if (!$conexion) {
 try {
     switch ($accion) {
         case 'listar':
+            error_log("Ejecutando acción listar para empresa_id: $empresa_id, pagina_idx: $pagina_idx");
             $cuentas = obtenerCuentas($conexion, $empresa_id, $pagina_idx);
+            error_log("Cuentas obtenidas: " . count($cuentas));
+            if (empty($cuentas)) {
+                error_log("No se encontraron cuentas para la empresa $empresa_id");
+            }
             echo json_encode($cuentas, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -108,6 +113,7 @@ try {
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }
 } catch (Exception $e) {
+    error_log("Error en plan_cuentas_ajax.php: " . $e->getMessage());
     echo json_encode(['error' => 'Error del servidor: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
 

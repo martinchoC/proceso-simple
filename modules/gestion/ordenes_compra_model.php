@@ -356,7 +356,8 @@ function agregarOrdenCompra($conexion, $data)
             throw new Exception("Error preparando insert: " . mysqli_error($conexion));
         }
 
-        mysqli_stmt_bind_param($stmt, "iiissiisssidddddddsi",
+        // Cadena de tipos: i,i,i,s,s,i,i,s,s,s,i,i,d,s,d,d,d,d,s,i
+        mysqli_stmt_bind_param($stmt, "iiissiisssiidsddddssi",
             $data['empresa_idx'],
             $data['comprobante_tipo_id'],
             $data['comprobante_letra'],
@@ -435,16 +436,16 @@ function insertarDetallesOrden($conexion, $orden_compra_id, $empresa_id, $detall
             return false;
         }
         
-        // Calcular valores
+        // Calcular valores con defaults
         $neto_gravado = floatval($detalle['neto_gravado'] ?? ($cantidad * $precio_unitario));
         $no_gravado = floatval($detalle['no_gravado'] ?? 0);
         $exento = floatval($detalle['exento'] ?? 0);
-        $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : null;
+        $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 0;
         $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
         $iva_importe = floatval($detalle['iva_importe'] ?? ($neto_gravado * $iva_porcentaje / 100));
         $total_linea = floatval($detalle['total_linea'] ?? ($neto_gravado + $iva_importe));
         
-        // Insertar detalle con los nuevos campos
+        // Insertar detalle
         $sql = "INSERT INTO gestion__ordenes_compra_detalle 
                 (orden_compra_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
                  precio_unitario, no_gravado, exento, neto_gravado, iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
@@ -515,19 +516,21 @@ function editarOrdenCompra($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Debe agregar al menos un producto al detalle'];
     }
 
-    // Verificar si la orden existe
-    $sql_check = "SELECT orden_compra_id, tabla_estado_registro_id FROM gestion__ordenes_compra WHERE orden_compra_id = ?";
+    // Verificar si la orden existe y pertenece a la empresa
+    $sql_check = "SELECT orden_compra_id, tabla_estado_registro_id 
+                  FROM gestion__ordenes_compra 
+                  WHERE orden_compra_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_bind_param($stmt, "ii", $id, $data['empresa_idx']);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $orden = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
     if (!$orden) {
-        return ['resultado' => false, 'error' => 'Registro no encontrado'];
+        return ['resultado' => false, 'error' => 'Registro no encontrado o no pertenece a la empresa'];
     }
 
     // Verificar si la orden no está cerrada o cancelada
@@ -576,7 +579,7 @@ function editarOrdenCompra($conexion, $id, $data)
         $condicion_pago_id = (!empty($data['condicion_pago_id']) && $data['condicion_pago_id'] > 0) ? intval($data['condicion_pago_id']) : null;
         $entidad_sucursal_id = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0) ? intval($data['entidad_sucursal_id']) : null;
 
-        // Actualizar la orden
+        // Actualizar la orden - INCLUIMOS empresa_id EN LA CONDICIÓN WHERE
         $sql = "UPDATE gestion__ordenes_compra 
                 SET comprobante_tipo_id = ?, 
                     comprobante_letra = ?, 
@@ -595,14 +598,16 @@ function editarOrdenCompra($conexion, $id, $data)
                     impuestos = ?, 
                     total = ?, 
                     observaciones = ?
-                WHERE orden_compra_id = ?";
+                WHERE orden_compra_id = ? AND empresa_id = ?";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
             throw new Exception("Error preparando update: " . mysqli_error($conexion));
         }
 
-        mysqli_stmt_bind_param($stmt, "issssiisssiddddddsi",
+        // 17 SET + 2 WHERE = 19 parámetros
+        mysqli_stmt_bind_param($stmt, 
+            "issssiisssidddddsiii", // i,s,s,s,s,i,i,s,s,s,i,d,d,d,d,d,d,s,i,i
             $data['comprobante_tipo_id'],
             $data['comprobante_letra'],
             $data['comprobante_suc'],
@@ -620,7 +625,8 @@ function editarOrdenCompra($conexion, $id, $data)
             $data['impuestos'],
             $data['total'],
             $data['observaciones'],
-            $id
+            $id,
+            $data['empresa_idx']
         );
 
         if (!mysqli_stmt_execute($stmt)) {
@@ -688,17 +694,29 @@ function editarOrdenCompra($conexion, $id, $data)
                     throw new Exception("Error preparando update detalle: " . mysqli_error($conexion));
                 }
                 
+                // Asegurar valores por defecto
+                $cantidad = floatval($detalle['cantidad'] ?? 0);
+                $precio_unitario = floatval($detalle['precio_unitario'] ?? 0);
+                $no_gravado = floatval($detalle['no_gravado'] ?? 0);
+                $exento = floatval($detalle['exento'] ?? 0);
+                $neto_gravado = floatval($detalle['neto_gravado'] ?? 0);
+                $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 0;
+                $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
+                $iva_importe = floatval($detalle['iva_importe'] ?? 0);
+                $total_linea = floatval($detalle['total_linea'] ?? 0);
+                $detalle_id = intval($detalle['ordenes_compra_detalle_id']);
+                
                 mysqli_stmt_bind_param($stmt_update, "dddddididi",
-                    $detalle['cantidad'],
-                    $detalle['precio_unitario'],
-                    $detalle['no_gravado'] ?? 0,
-                    $detalle['exento'] ?? 0,
-                    $detalle['neto_gravado'],
-                    $detalle['iva_alicuota_id'],
-                    $detalle['iva_porcentaje'],
-                    $detalle['iva_importe'],
-                    $detalle['total_linea'],
-                    $detalle['ordenes_compra_detalle_id']
+                    $cantidad,
+                    $precio_unitario,
+                    $no_gravado,
+                    $exento,
+                    $neto_gravado,
+                    $iva_alicuota_id,
+                    $iva_porcentaje,
+                    $iva_importe,
+                    $total_linea,
+                    $detalle_id
                 );
                 
                 if (!mysqli_stmt_execute($stmt_update)) {
@@ -706,7 +724,7 @@ function editarOrdenCompra($conexion, $id, $data)
                 }
                 
                 mysqli_stmt_close($stmt_update);
-                error_log("Detalle actualizado ID: " . $detalle['ordenes_compra_detalle_id']);
+                error_log("Detalle actualizado ID: " . $detalle_id);
             }
         }
         
@@ -723,19 +741,31 @@ function editarOrdenCompra($conexion, $id, $data)
                     throw new Exception("Error preparando insert detalle: " . mysqli_error($conexion));
                 }
                 
+                // Asegurar valores por defecto
+                $producto_id = intval($detalle['producto_id'] ?? 0);
+                $cantidad = floatval($detalle['cantidad'] ?? 0);
+                $precio_unitario = floatval($detalle['precio_unitario'] ?? 0);
+                $no_gravado = floatval($detalle['no_gravado'] ?? 0);
+                $exento = floatval($detalle['exento'] ?? 0);
+                $neto_gravado = floatval($detalle['neto_gravado'] ?? 0);
+                $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 0;
+                $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
+                $iva_importe = floatval($detalle['iva_importe'] ?? 0);
+                $total_linea = floatval($detalle['total_linea'] ?? 0);
+                
                 mysqli_stmt_bind_param($stmt_insert, "iiidddddidid",
                     $id,
                     $data['empresa_idx'],
-                    $detalle['producto_id'],
-                    $detalle['cantidad'],
-                    $detalle['precio_unitario'],
-                    $detalle['no_gravado'] ?? 0,
-                    $detalle['exento'] ?? 0,
-                    $detalle['neto_gravado'],
-                    $detalle['iva_alicuota_id'],
-                    $detalle['iva_porcentaje'],
-                    $detalle['iva_importe'],
-                    $detalle['total_linea']
+                    $producto_id,
+                    $cantidad,
+                    $precio_unitario,
+                    $no_gravado,
+                    $exento,
+                    $neto_gravado,
+                    $iva_alicuota_id,
+                    $iva_porcentaje,
+                    $iva_importe,
+                    $total_linea
                 );
                 
                 if (!mysqli_stmt_execute($stmt_insert)) {

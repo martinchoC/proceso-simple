@@ -522,12 +522,13 @@ $(document).ready(function () {
         var cantidad = parseFloat($('#producto_cantidad').val()) || 0;
         var precio = parseFloat($('#producto_precio').val()) || 0;
         var iva = parseFloat($('#producto_iva').val()) || 0;
-        var noGravado = parseFloat($('#producto_no_gravado').val()) || 0;
-        var exento = parseFloat($('#producto_exento').val()) || 0;
-        
-        var neto = (cantidad * precio) - noGravado - exento;
-        var ivaImporte = neto * (iva / 100);
-        
+        // NoGravado y Exento NO afectan el cálculo del IVA
+        // var noGravado = parseFloat($('#producto_no_gravado').val()) || 0;
+        // var exento = parseFloat($('#producto_exento').val()) || 0;
+
+        var netoGravado = cantidad * precio;
+        var ivaImporte = netoGravado * (iva / 100);
+
         $('#producto_iva_importe').val(ivaImporte.toFixed(2));
     }
 
@@ -568,7 +569,7 @@ $(document).ready(function () {
             return;
         }
         
-        var cantidad = parseFloat($('#producto_cantidad').val());
+         var cantidad = parseFloat($('#producto_cantidad').val());
         var precio = parseFloat($('#producto_precio').val());
         var iva = parseFloat($('#producto_iva').val());
         var ivaImporte = parseFloat($('#producto_iva_importe').val()) || 0;
@@ -597,8 +598,9 @@ $(document).ready(function () {
         
         var productoText = $('#busqueda_producto').val();
         
-        var neto = (cantidad * precio) - noGravado - exento;
-        var totalLinea = neto + ivaImporte + noGravado + exento;
+        var netoGravado = cantidad * precio; 
+        var ivaImporte = netoGravado * (iva / 100);
+        var totalLinea = netoGravado + ivaImporte + noGravado + exento;
         
         var nuevoDetalle = {
             detalle_idx: 'temp_' + new Date().getTime(),
@@ -611,9 +613,9 @@ $(document).ready(function () {
             exento: exento,
             iva_alicuota_id: obtenerIdIva(iva),
             iva_porcentaje: iva,
-            neto_gravado: neto,
+            neto_gravado: netoGravado,   // <-- AHORA SOLO ES cantidad * precio
             iva_importe: ivaImporte,
-            total_linea: totalLinea
+            total_linea: totalLinea       // <-- AHORA ES LA SUMA CORRECTA
         };
         
         detalles.push(nuevoDetalle);
@@ -713,14 +715,14 @@ $(document).ready(function () {
         var totalNoGravado = 0;
         var totalExento = 0;
         
-        detalles.forEach(function(detalle) {
-            subtotal += detalle.neto_gravado || 0;
-            impuestos += detalle.iva_importe || 0;
-            totalNoGravado += detalle.no_gravado || 0;
-            totalExento += detalle.exento || 0;
+         detalles.forEach(function(detalle) {
+            subtotal += detalle.neto_gravado || 0;        // Suma de netos gravados
+            impuestos += detalle.iva_importe || 0;        // Suma de IVA
+            totalNoGravado += detalle.no_gravado || 0;    // Suma de no gravados
+            totalExento += detalle.exento || 0;           // Suma de exentos
         });
         
-        var total = subtotal + impuestos + totalNoGravado + totalExento;
+         var total = subtotal + impuestos + totalNoGravado + totalExento;
         
         $('#subtotal').val(subtotal.toFixed(2));
         $('#impuestos').val(impuestos.toFixed(2));
@@ -1068,7 +1070,8 @@ $(document).ready(function () {
                             type: 'GET',
                             data: { 
                                 accion: 'obtener_sucursales',
-                                entidad_id: res.entidad_id 
+                                entidad_id: res.entidad_id,
+                                empresa_idx: empresa_idx  
                             },
                             dataType: 'json',
                             success: function(data) {

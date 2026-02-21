@@ -25,12 +25,19 @@ $(document).ready(function () {
 
     // Función para construir el árbol jerárquico
     function construirArbolJerarquico(cuentas) {
+        if (!cuentas || !Array.isArray(cuentas)) {
+            console.error('No hay cuentas para construir el árbol');
+            return [];
+        }
+        
         cuentaMap = {};
         var raices = [];
         todasLasCuentas = cuentas; // Guardar para el filtro
         
         // Primero, mapear todas las cuentas por ID
         cuentas.forEach(function(cuenta) {
+            if (!cuenta || !cuenta.cont_cuenta_id) return;
+            
             cuentaMap[cuenta.cont_cuenta_id] = {
                 ...cuenta,
                 children: [],
@@ -40,6 +47,8 @@ $(document).ready(function () {
         
         // Luego, construir las relaciones padre-hijo
         cuentas.forEach(function(cuenta) {
+            if (!cuenta || !cuenta.cont_cuenta_id) return;
+            
             var cuentaId = cuenta.cont_cuenta_id;
             var padreId = cuenta.cuenta_padre_id;
             
@@ -60,7 +69,7 @@ $(document).ready(function () {
         raices.sort(ordenarPorCodigo);
         
         function ordenarHijos(nodo) {
-            if (nodo.children && nodo.children.length > 0) {
+            if (nodo && nodo.children && nodo.children.length > 0) {
                 nodo.children.sort(ordenarPorCodigo);
                 nodo.children.forEach(ordenarHijos);
             }
@@ -68,24 +77,46 @@ $(document).ready(function () {
         
         raices.forEach(ordenarHijos);
         
+        console.log('Árbol construido:', raices.length, 'raíces');
         return raices;
     }
 
-    // Función para llenar el select de filtro jerárquico
+    // Función para llenar el select de filtro jerárquico (SOLO CUENTAS TÍTULO - es_imputable = 0)
     function llenarSelectFiltroJerarquico() {
         var $select = $('#filtroCuentaRaiz');
         $select.empty().append('<option value="">-- Mostrar todas las cuentas --</option>');
         
-        // Función recursiva para agregar opciones con sangría
+        if (!cuentaTree || cuentaTree.length === 0) {
+            console.log('No hay cuentas para llenar el filtro');
+            return;
+        }
+        
+        // Función recursiva para agregar opciones con sangría (solo cuentas título)
         function agregarOpcionesRecursivo(nodos, nivel = 0) {
+            if (!nodos || !Array.isArray(nodos)) return;
+            
             nodos.forEach(function(nodo) {
-                var prefix = ' '.repeat(nivel);
-                var selected = (cuentaRaizFiltro && cuentaRaizFiltro == nodo.cont_cuenta_id) ? 'selected' : '';
-                var naturalezaIcon = nodo.naturaleza === 'DEUDORA' ? '🔴' : '🟢';
-                var tipoIcon = nodo.es_imputable == 1 ? '📝' : '📌';
+                if (!nodo || !nodo.cont_cuenta_id) return;
                 
-                $select.append(`<option value="${nodo.cont_cuenta_id}" ${selected}>${prefix} ${tipoIcon} ${nodo.codigo} - ${nodo.nombre} (${naturalezaIcon})</option>`);
+                // SOLO AGREGAR CUENTAS TÍTULO (es_imputable = 0)
+                if (nodo.es_imputable == 0) {
+                    var prefix = ' '.repeat(nivel);
+                    var selected = (cuentaRaizFiltro && parseInt(cuentaRaizFiltro) === parseInt(nodo.cont_cuenta_id)) ? 'selected' : '';
+                    
+                    // Determinar íconos según naturaleza
+                    var naturalezaIcon = '';
+                    if (nodo.naturaleza === 'DEUDORA' || nodo.naturaleza === 'D') {
+                        naturalezaIcon = '🔴';
+                    } else if (nodo.naturaleza === 'ACREEDORA' || nodo.naturaleza === 'H') {
+                        naturalezaIcon = '🟢';
+                    }
+                    
+                    var tipoIcon = '📌'; // Siempre será título
+                    
+                    $select.append(`<option value="${nodo.cont_cuenta_id}" ${selected}>${prefix} ${tipoIcon} ${nodo.codigo} - ${nodo.nombre} (${naturalezaIcon})</option>`);
+                }
                 
+                // Siempre recorrer hijos, independientemente de si el padre es título o imputable
                 if (nodo.children && nodo.children.length > 0) {
                     agregarOpcionesRecursivo(nodo.children, nivel + 1);
                 }
@@ -93,17 +124,28 @@ $(document).ready(function () {
         }
         
         agregarOpcionesRecursivo(cuentaTree);
+        
+        // Si no hay cuentas título, mostrar mensaje
+        if ($select.find('option').length === 1) { // Solo la opción por defecto
+            $select.append('<option value="" disabled>-- No hay cuentas título disponibles --</option>');
+        }
     }
 
     // Función para obtener todos los IDs descendientes de una cuenta
     function obtenerDescendientes(cuentaId, incluirRaiz = true) {
-        var ids = incluirRaiz ? [cuentaId] : [];
-        var cuenta = cuentaMap[cuentaId];
+        if (!cuentaId) return [];
+        
+        var ids = incluirRaiz ? [parseInt(cuentaId)] : [];
+        var cuenta = cuentaMap[parseInt(cuentaId)];
         
         if (cuenta && cuenta.children) {
             function recorrerHijos(hijos) {
+                if (!hijos || !Array.isArray(hijos)) return;
+                
                 hijos.forEach(function(hijo) {
-                    ids.push(hijo.cont_cuenta_id);
+                    if (!hijo || !hijo.cont_cuenta_id) return;
+                    
+                    ids.push(parseInt(hijo.cont_cuenta_id));
                     if (hijo.children && hijo.children.length > 0) {
                         recorrerHijos(hijo.children);
                     }
@@ -118,6 +160,8 @@ $(document).ready(function () {
     // Función para aplicar el filtro jerárquico
     function aplicarFiltroJerarquico() {
         cuentaRaizFiltro = $('#filtroCuentaRaiz').val();
+        
+        if (!tabla) return;
         
         if (!cuentaRaizFiltro) {
             // Mostrar todas las cuentas
@@ -141,10 +185,10 @@ $(document).ready(function () {
             var data = this.data();
             var node = this.node();
             
-            if (idsPermitidos.includes(data.cont_cuenta_id)) {
+            if (data && idsPermitidos.includes(parseInt(data.cont_cuenta_id))) {
                 $(node).show();
                 // Resaltar la cuenta raíz filtrada
-                if (data.cont_cuenta_id == cuentaRaizFiltro) {
+                if (parseInt(data.cont_cuenta_id) === parseInt(cuentaRaizFiltro)) {
                     $(node).addClass('cuenta-filtrada');
                 } else {
                     $(node).removeClass('cuenta-filtrada');
@@ -156,9 +200,6 @@ $(document).ready(function () {
         
         // Reaplicar visibilidad jerárquica sobre las filas visibles
         aplicarVisibilidadJerarquica();
-        
-        // Expandir automáticamente la cuenta raíz filtrada
-        expandAll();
     }
 
     // Función para limpiar el filtro
@@ -171,7 +212,11 @@ $(document).ready(function () {
 
     // Función para aplanar el árbol para DataTable
     function aplanarArbol(nodos, nivel = 1, resultado = []) {
+        if (!nodos || !Array.isArray(nodos)) return resultado;
+        
         nodos.forEach(function(nodo) {
+            if (!nodo) return;
+            
             resultado.push({
                 ...nodo,
                 displayNivel: nivel,
@@ -204,24 +249,39 @@ $(document).ready(function () {
                     pagina_idx: pagina_idx
                 },
                 dataSrc: function(json) {
+                    console.log('Datos recibidos del servidor:', json);
+                    
+                    if (!json || !Array.isArray(json)) {
+                        console.error('Error: Los datos recibidos no son un array', json);
+                        return [];
+                    }
+                    
+                    if (json.length === 0) {
+                        console.warn('No se encontraron cuentas para la empresa', empresa_id);
+                    }
+                    
                     // Construir árbol jerárquico
                     cuentaTree = construirArbolJerarquico(json);
                     
-                    // INICIALIZAR TODO CONTRAÍDO (solo raíces visibles)
+                    // INICIALIZAR: raíces expandidas, hijos contraídos
                     expandedNodes = {};
                     json.forEach(function(item) {
-                        if (!item.cuenta_padre_id) {
-                            expandedNodes[item.cont_cuenta_id] = true; // Raíces expandidas
-                        } else {
-                            expandedNodes[item.cont_cuenta_id] = false; // Hijos contraídos
+                        if (item && item.cont_cuenta_id) {
+                            if (!item.cuenta_padre_id) {
+                                expandedNodes[item.cont_cuenta_id] = true; // Raíces expandidas
+                            } else {
+                                expandedNodes[item.cont_cuenta_id] = false; // Hijos contraídos
+                            }
                         }
                     });
                     
-                    // Llenar el select de filtro jerárquico
+                    // Llenar el select de filtro jerárquico (solo cuentas título)
                     llenarSelectFiltroJerarquico();
                     
                     // Aplanar para DataTable
-                    return aplanarArbol(cuentaTree);
+                    var datosAplanados = aplanarArbol(cuentaTree);
+                    console.log('Datos aplanados:', datosAplanados.length, 'registros');
+                    return datosAplanados;
                 }
             },
             stateSave: true,
@@ -229,12 +289,11 @@ $(document).ready(function () {
                 data.page = currentPage;
                 data.expandedNodes = expandedNodes;
                 data.cuentaRaizFiltro = cuentaRaizFiltro;
-                if (currentSearch !== '-1' && currentSearch !== '') {
+                if (currentSearch && currentSearch !== '') {
                     data.search = { search: currentSearch };
                 } else {
                     data.search = { search: '' };
                 }
-                // No guardar ordenamiento
                 data.order = [];
                 return data;
             },
@@ -249,7 +308,7 @@ $(document).ready(function () {
                     currentSearch = (data.search.search === '-1' || data.search.search === '') ? '' : data.search.search;
                 }
                 data.search = { search: currentSearch };
-                data.order = []; // Deshabilitar ordenamiento guardado
+                data.order = [];
             },
             dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                  '<"row"<"col-sm-12"tr>>' +
@@ -257,13 +316,7 @@ $(document).ready(function () {
                  '<"clear">',
             pageLength: 50,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-            ordering: false, // Deshabilitar ordenamiento por columnas
-            buttons: [
-                { extend: 'excelHtml5', text: '<i class="fas fa-file-excel"></i> Excel', className: 'btn btn-success btn-sm', title: 'Plan de Cuentas', exportOptions: { columns: [0,1,2,3,4,5,6] } },
-                { extend: 'pdfHtml5', text: '<i class="fas fa-file-pdf"></i> PDF', className: 'btn btn-danger btn-sm', title: 'Plan de Cuentas', orientation: 'landscape', pageSize: 'A4', exportOptions: { columns: [0,1,2,3,4,5,6] } },
-                { extend: 'csvHtml5', text: '<i class="fas fa-file-csv"></i> CSV', className: 'btn btn-primary btn-sm', title: 'Plan_de_Cuentas', exportOptions: { columns: [0,1,2,3,4,5,6] } },
-                { extend: 'print', text: '<i class="fas fa-print"></i> Imprimir', className: 'btn btn-secondary btn-sm', title: 'Plan de Cuentas', exportOptions: { columns: [0,1,2,3,4,5,6] } }
-            ],
+            ordering: false,
             columns: [
                 { data: 'cont_cuenta_id', className: 'text-center fw-bold' },
                 { data: 'codigo', className: 'text-center' },
@@ -299,8 +352,8 @@ $(document).ready(function () {
                     data: 'naturaleza',
                     className: 'text-center',
                     render: function (data) {
-                        if (data === 'DEUDORA') return '<span class="badge bg-danger">DEUDORA</span>';
-                        if (data === 'ACREEDORA') return '<span class="badge bg-success">ACREEDORA</span>';
+                        if (data === 'DEUDORA' || data === 'D') return '<span class="badge bg-danger">DEUDORA</span>';
+                        if (data === 'ACREEDORA' || data === 'H') return '<span class="badge bg-success">ACREEDORA</span>';
                         return data;
                     }
                 },
@@ -372,7 +425,7 @@ $(document).ready(function () {
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
             },
-            order: [], // Sin ordenamiento por defecto
+            order: [],
             responsive: true,
             createdRow: function (row, data, dataIndex) {
                 // Marcar filas ocultas según estado de expansión
@@ -391,14 +444,11 @@ $(document).ready(function () {
                 aplicarFiltroJerarquico();
             },
             initComplete: function () {
-                var buttons = new $.fn.dataTable.Buttons(tabla, {
-                    buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
-                }).container().appendTo($('#tablaPlanCuentas_wrapper .col-md-6:eq(1)'));
-                
+                console.log('DataTable inicializado correctamente');
                 $(tabla.table().container()).on('page.dt', function () { currentPage = tabla.page(); });
                 
-                // Eventos para expansión/contracción
-                $(document).on('click', '.expand-control', function(e) {
+                // Eventos para expansión/contracción - USAR DELEGACIÓN DE EVENTOS
+                $('#tablaPlanCuentas tbody').on('click', '.expand-control', function(e) {
                     e.stopPropagation();
                     var cuentaId = $(this).data('id');
                     toggleExpand(cuentaId);
@@ -423,6 +473,7 @@ $(document).ready(function () {
     function isParentExpanded(padreId) {
         if (!padreId) return true;
         
+        // Verificar si el padre está expandido
         var padreExpandido = expandedNodes[padreId];
         
         if (padreExpandido === undefined || padreExpandido === true) {
@@ -439,12 +490,15 @@ $(document).ready(function () {
 
     // Alternar expansión/contracción de un nodo
     function toggleExpand(cuentaId) {
+        // Cambiar estado
         expandedNodes[cuentaId] = !expandedNodes[cuentaId];
         
         // Actualizar ícono
         var control = $(`.expand-control[data-id="${cuentaId}"] i`);
-        control.removeClass('fa-chevron-right fa-chevron-down')
-               .addClass(expandedNodes[cuentaId] ? 'fa-chevron-down' : 'fa-chevron-right');
+        if (control.length) {
+            control.removeClass('fa-chevron-right fa-chevron-down')
+                   .addClass(expandedNodes[cuentaId] ? 'fa-chevron-down' : 'fa-chevron-right');
+        }
         
         // Aplicar visibilidad a los hijos
         aplicarVisibilidadJerarquica();
@@ -452,16 +506,18 @@ $(document).ready(function () {
 
     // Aplicar visibilidad según nodos expandidos
     function aplicarVisibilidadJerarquica() {
+        if (!tabla) return;
+        
         tabla.rows().every(function(rowIdx, tableLoop, rowLoop) {
             var data = this.data();
+            var node = this.node();
+            
             if (data && data.cuenta_padre_id) {
                 var deberiaMostrarse = isParentExpanded(data.cuenta_padre_id);
-                var node = this.node();
                 
-                // Solo modificar visibilidad si la fila está visible según el filtro
-                if ($(node).is(':visible') && !deberiaMostrarse) {
+                if (!deberiaMostrarse) {
                     $(node).addClass('hidden-row');
-                } else if (deberiaMostrarse) {
+                } else {
                     $(node).removeClass('hidden-row');
                 }
             }
@@ -470,18 +526,19 @@ $(document).ready(function () {
 
     // EXPANDIR TODO
     function expandAll() {
-        // Establecer todos los nodos como expandidos
+        // Establecer todos los nodos con hijos como expandidos
         Object.keys(cuentaMap).forEach(function(key) {
-            expandedNodes[key] = true;
+            var cuenta = cuentaMap[key];
+            if (cuenta && cuenta.children && cuenta.children.length > 0) {
+                expandedNodes[key] = true;
+            }
         });
         
         // Actualizar todos los íconos
         $('.expand-control i').removeClass('fa-chevron-right').addClass('fa-chevron-down');
         
-        // Mostrar todas las filas (respetando el filtro)
-        tabla.rows().every(function() {
-            $(this.node()).removeClass('hidden-row');
-        });
+        // Mostrar todas las filas
+        $('.hidden-row').removeClass('hidden-row');
     }
 
     // CONTRAER TODO
@@ -489,10 +546,8 @@ $(document).ready(function () {
         // Contraer todos los nodos que tienen hijos
         Object.keys(cuentaMap).forEach(function(key) {
             var cuenta = cuentaMap[key];
-            if (cuenta.children && cuenta.children.length > 0) {
+            if (cuenta && cuenta.children && cuenta.children.length > 0) {
                 expandedNodes[key] = false;
-            } else {
-                expandedNodes[key] = true; // Nodos sin hijos se mantienen visibles
             }
         });
         
@@ -504,7 +559,7 @@ $(document).ready(function () {
             }
         });
         
-        // Aplicar visibilidad (esto ocultará todos los hijos)
+        // Aplicar visibilidad (ocultar hijos)
         aplicarVisibilidadJerarquica();
     }
 
@@ -523,11 +578,11 @@ $(document).ready(function () {
         });
         
         // Eventos para botones de expandir/contraer todo
-        $('#btnExpandAll').click(function() {
+        $('#btnExpandAll').off('click').on('click', function() {
             expandAll();
         });
         
-        $('#btnCollapseAll').click(function() {
+        $('#btnCollapseAll').off('click').on('click', function() {
             collapseAll();
         });
     }
@@ -565,7 +620,15 @@ $(document).ready(function () {
             cuentas.forEach(function (cuenta) {
                 var prefix = ' '.repeat(cuenta.nivel);
                 var selected = (selectedId && selectedId == cuenta.cont_cuenta_id) ? 'selected' : '';
-                var naturalezaBadge = cuenta.naturaleza === 'DEUDORA' ? '🔴' : '🟢';
+                
+                // Determinar ícono según naturaleza
+                var naturalezaBadge = '';
+                if (cuenta.naturaleza === 'DEUDORA' || cuenta.naturaleza === 'D') {
+                    naturalezaBadge = '🔴';
+                } else if (cuenta.naturaleza === 'ACREEDORA' || cuenta.naturaleza === 'H') {
+                    naturalezaBadge = '🟢';
+                }
+                
                 var tipo = cuenta.es_imputable == 1 ? '📝' : '📌';
                 $select.append(`<option value="${cuenta.cont_cuenta_id}" ${selected}>${prefix} ${tipo} ${cuenta.codigo} - ${cuenta.nombre} (${naturalezaBadge})</option>`);
             });
@@ -692,7 +755,18 @@ $(document).ready(function () {
                 $('#cont_cuenta_id').val(res.cont_cuenta_id);
                 $('#codigo').val(res.codigo);
                 $('#nombre').val(res.nombre);
-                $('#naturaleza').val(res.naturaleza);
+                
+                // La naturaleza viene como D o H, convertir a DEUDORA/ACREEDORA para el select
+                var naturaleza = res.naturaleza;
+                
+                if (naturaleza === 'D') {
+                    $('#naturaleza').val('DEUDORA');
+                } else if (naturaleza === 'H') {
+                    $('#naturaleza').val('ACREEDORA');
+                } else {
+                    $('#naturaleza').val(naturaleza);
+                }
+                
                 $('#orden').val(res.orden || 0);
                 $('#es_imputable').val(res.es_imputable);
                 
@@ -710,7 +784,11 @@ $(document).ready(function () {
             } else {
                 Swal.fire({ icon: "error", title: "Error", text: "Error al obtener datos de la cuenta" });
             }
-        }, 'json');
+        }, 'json').fail(function(xhr, status, error) {
+            console.error('Error al cargar cuenta:', error);
+            console.error('Respuesta del servidor:', xhr.responseText);
+            Swal.fire({ icon: "error", title: "Error", text: "Error de conexión al cargar la cuenta" });
+        });
     }
 
     function resetModal() {
@@ -798,12 +876,6 @@ $(document).ready(function () {
             }
         });
     });
-
-    // Exportar
-    $('#btnExportarExcel').click(e => { e.preventDefault(); $('.buttons-excel').click(); });
-    $('#btnExportarPDF').click(e => { e.preventDefault(); $('.buttons-pdf').click(); });
-    $('#btnExportarCSV').click(e => { e.preventDefault(); $('.buttons-csv').click(); });
-    $('#btnExportarPrint').click(e => { e.preventDefault(); $('.buttons-print').click(); });
 
     // Inicializar
     inicializarDataTable();

@@ -115,8 +115,12 @@ try {
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'detalles' => $detalles,
-                'empresa_idx' => $empresa_idx
+                'empresa_idx' => $empresa_idx  // <-- Asegurar que se incluya
             ];
+
+            $resultado = editarOrdenCompra($conexion, $id, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
 
             $resultado = editarOrdenCompra($conexion, $id, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
@@ -161,10 +165,11 @@ try {
             break;
 
         case 'obtener_sucursales':
-            $entidad_id = intval($_GET['entidad_id'] ?? 0);
-            $sucursales = obtenerSucursales($conexion, $entidad_id, $empresa_idx);
-            echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
-            break;
+                $entidad_id = intval($_GET['entidad_id'] ?? 0);
+                $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx); // <-- USAR EL QUE VIENE
+                $sucursales = obtenerSucursales($conexion, $entidad_id, $empresa_idx_local);
+                echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
+                break;
 
         case 'obtener_condiciones_pago':
             $empresa_idx_param = intval($_GET['empresa_idx'] ?? $empresa_idx);

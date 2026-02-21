@@ -228,7 +228,17 @@ function obtenerCuentas($conexion, $empresa_id, $pagina_id)
     $empresa_id = intval($empresa_id);
     $pagina_id = intval($pagina_id);
 
-    // Consulta simple sin recursividad para evitar problemas de ordenamiento
+    // Verificar si hay datos en la tabla
+    $sql_count = "SELECT COUNT(*) as total FROM gestion__cont_cuentas WHERE empresa_id = ?";
+    $stmt_count = mysqli_prepare($conexion, $sql_count);
+    mysqli_stmt_bind_param($stmt_count, "i", $empresa_id);
+    mysqli_stmt_execute($stmt_count);
+    $result_count = mysqli_stmt_get_result($stmt_count);
+    $row_count = mysqli_fetch_assoc($result_count);
+    error_log("Total de cuentas para empresa $empresa_id: " . ($row_count['total'] ?? 0));
+    mysqli_stmt_close($stmt_count);
+
+    // Consulta para obtener las cuentas
     $sql = "SELECT 
                 c.*,
                 er.estado_registro,
@@ -243,7 +253,10 @@ function obtenerCuentas($conexion, $empresa_id, $pagina_id)
             ORDER BY c.codigo";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt) return [];
+    if (!$stmt) {
+        error_log("Error preparando consulta: " . mysqli_error($conexion));
+        return [];
+    }
 
     mysqli_stmt_bind_param($stmt, "i", $empresa_id);
     mysqli_stmt_execute($stmt);
@@ -265,11 +278,16 @@ function obtenerCuentas($conexion, $empresa_id, $pagina_id)
 
         // Asegurar nivel para display
         $fila['nivel'] = $fila['nivel'] ?? 1;
+        
+        // La naturaleza ya viene como D o H, la dejamos así para el frontend
+        // El frontend se encargará de mostrar DEUDORA/ACREEDORA según corresponda
 
         $data[] = $fila;
     }
 
     mysqli_stmt_close($stmt);
+    
+    error_log("Cuentas encontradas: " . count($data));
     return $data;
 }
 
@@ -320,6 +338,7 @@ function obtenerCuentasParaSelect($conexion, $empresa_id, $excluir_id = 0)
 
     $cuentas = [];
     while ($fila = mysqli_fetch_assoc($result)) {
+        // Dejar la naturaleza como está (D/H)
         $cuentas[] = $fila;
     }
 
@@ -344,7 +363,12 @@ function agregarCuenta($conexion, $data, $pagina_idx)
         return ['resultado' => false, 'error' => 'Código, nombre y naturaleza son obligatorios'];
     }
 
-    if (!in_array($naturaleza, ['DEUDORA', 'ACREEDORA'])) {
+    // Convertir DEUDORA/ACREEDORA a D/H para guardar en BD
+    if ($naturaleza === 'DEUDORA') {
+        $naturaleza_bd = 'D';
+    } elseif ($naturaleza === 'ACREEDORA') {
+        $naturaleza_bd = 'H';
+    } else {
         return ['resultado' => false, 'error' => 'Naturaleza inválida'];
     }
 
@@ -375,7 +399,7 @@ function agregarCuenta($conexion, $data, $pagina_idx)
     if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
 
     mysqli_stmt_bind_param($stmt, "isssiiiii", 
-        $empresa_id, $codigo, $nombre, $naturaleza, $cuenta_padre_id, $nivel, $orden, $es_imputable, $estado_inicial);
+        $empresa_id, $codigo, $nombre, $naturaleza_bd, $cuenta_padre_id, $nivel, $orden, $es_imputable, $estado_inicial);
 
     $success = mysqli_stmt_execute($stmt);
 
@@ -407,7 +431,12 @@ function editarCuenta($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Código, nombre y naturaleza son obligatorios'];
     }
 
-    if (!in_array($naturaleza, ['DEUDORA', 'ACREEDORA'])) {
+    // Convertir DEUDORA/ACREEDORA a D/H para guardar en BD
+    if ($naturaleza === 'DEUDORA') {
+        $naturaleza_bd = 'D';
+    } elseif ($naturaleza === 'ACREEDORA') {
+        $naturaleza_bd = 'H';
+    } else {
         return ['resultado' => false, 'error' => 'Naturaleza inválida'];
     }
 
@@ -450,7 +479,7 @@ function editarCuenta($conexion, $id, $data)
     if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
 
     mysqli_stmt_bind_param($stmt, "sssiiiii", 
-        $codigo, $nombre, $naturaleza, $cuenta_padre_id, $nivel, $orden, $es_imputable, $id);
+        $codigo, $nombre, $naturaleza_bd, $cuenta_padre_id, $nivel, $orden, $es_imputable, $id);
 
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
@@ -470,17 +499,21 @@ function obtenerCuentaPorId($conexion, $id, $empresa_id)
     $sql = "SELECT c.*, er.estado_registro
             FROM gestion__cont_cuentas c
             LEFT JOIN conf__estados_registros er ON c.tabla_estado_registro_id = er.estado_registro_id
-            WHERE c.cont_cuenta_id = ?";
+            WHERE c.cont_cuenta_id = ? AND c.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return null;
 
-    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $cuenta = mysqli_fetch_assoc($result);
 
     mysqli_stmt_close($stmt);
+    
+    // NO convertir naturaleza aquí, dejamos D/H para que el frontend lo maneje
+    // El frontend ya tiene lógica para mostrar DEUDORA/ACREEDORA según D/H
+    
     return $cuenta;
 }
 ?>
