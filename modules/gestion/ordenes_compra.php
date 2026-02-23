@@ -116,7 +116,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 
                                 <!-- Primera fila de cabecera -->
                                 <div class="row mb-2">
-                                    <div class="col-md-4 mb-2">
+                                    <div class="col-md-3 mb-2">
                                         <label for="entidad_id" class="form-label small mb-1">Proveedor *</label>
                                         <div class="input-group input-group-sm">
                                             <select class="form-select" id="entidad_id" name="entidad_id" required>
@@ -129,6 +129,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback small">Seleccione proveedor</div>
                                     </div>
                                     <div class="col-md-2 mb-2">
+                                        <label for="sucursal_id" class="form-label small mb-1">Sucursal *</label>
+                                        <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
+                                            <option value="">Seleccionar sucursal</option>
+                                        </select>
+                                        <div class="invalid-feedback small">Seleccione sucursal</div>
+                                    </div>
+                                    <div class="col-md-2 mb-2">
                                         <label for="comprobante_tipo_id" class="form-label small mb-1">Tipo *</label>
                                         <select class="form-select form-select-sm" id="comprobante_tipo_id" name="comprobante_tipo_id" required>
                                             <option value="">Seleccionar</option>
@@ -136,23 +143,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback small">Seleccione el tipo</div>
                                     </div>
                                     <div class="col-md-1 mb-2">
-                                        <label for="comprobante_letra" class="form-label small mb-1">Letra</label>
-                                        <select class="form-select form-select-sm" id="comprobante_letra" name="comprobante_letra">
-                                            <option value="">Letra</option>
-                                            <option value="A">A</option>
-                                            <option value="B">B</option>
-                                            <option value="C">C</option>
-                                            <option value="E">E</option>
-                                            <option value="M">M</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-1 mb-2">
-                                        <label for="comprobante_suc" class="form-label small mb-1">Sucursal</label>
-                                        <input type="text" class="form-control form-control-sm" id="comprobante_suc" name="comprobante_suc" maxlength="4" placeholder="0000">
+                                        <label for="comprobante_pv" class="form-label small mb-1">PV *</label>
+                                        <input type="number" class="form-control form-control-sm" id="comprobante_pv" name="comprobante_pv" value="0" min="0" required>
+                                        <div class="invalid-feedback small">Obligatorio</div>
                                     </div>
                                     <div class="col-md-2 mb-2">
                                         <label for="comprobante_nro" class="form-label small mb-1">Número *</label>
-                                        <input type="text" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" maxlength="50" required>
+                                        <input type="number" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" value="0" min="1" required>
                                         <div class="invalid-feedback small">Número obligatorio</div>
                                     </div>
                                     <div class="col-md-2 mb-2">
@@ -172,7 +169,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     <div class="col-md-2 mb-2">
                                         <label for="f_entrega_estimada" class="form-label small mb-1">Entrega Est.</label>
-                                        <input type="date" class="form-control form-control-sm" id="f_entrega_estimada" name="f_entrega_estimada">
+                                        <input type="date" class="form-control form-control-sm" id="f_entrega_estimada" name="f_entrega_estimada" min="">
                                     </div>
                                     <div class="col-md-2 mb-2">
                                         <label for="moneda_id" class="form-label small mb-1">Moneda *</label>
@@ -561,7 +558,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="ordenes_compra.js"></script>
+    
+    <script src="ordenes_compra.js?v=<?= filemtime(__DIR__.'/ordenes_compra.js') ?>"></script>
 </main>
 
 <?php

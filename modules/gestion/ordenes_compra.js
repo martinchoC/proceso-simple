@@ -1,6 +1,6 @@
 $(document).ready(function () {
     const empresa_idx = 2;
-    const pagina_idx = 65; // Este valor debería venir de PHP
+    const pagina_idx = 65;
     
     var tabla;
     var currentPage = 0;
@@ -11,7 +11,7 @@ $(document).ready(function () {
     var detalles = [];
     var proveedorActualId = null;
     var timeoutBusqueda = null;
-    var selectedIndex = -1; // Para navegación con flechas
+    var selectedIndex = -1;
 
     // ========== FUNCIONES DE DATATABLE ==========
     function inicializarDataTable() {
@@ -268,13 +268,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
-                buttons: {
-                    excel: 'Excel',
-                    pdf: 'PDF',
-                    csv: 'CSV',
-                    print: 'Imprimir'
-                }
+                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
             },
             order: currentOrder,
             responsive: true,
@@ -522,9 +516,6 @@ $(document).ready(function () {
         var cantidad = parseFloat($('#producto_cantidad').val()) || 0;
         var precio = parseFloat($('#producto_precio').val()) || 0;
         var iva = parseFloat($('#producto_iva').val()) || 0;
-        // NoGravado y Exento NO afectan el cálculo del IVA
-        // var noGravado = parseFloat($('#producto_no_gravado').val()) || 0;
-        // var exento = parseFloat($('#producto_exento').val()) || 0;
 
         var netoGravado = cantidad * precio;
         var ivaImporte = netoGravado * (iva / 100);
@@ -613,9 +604,9 @@ $(document).ready(function () {
             exento: exento,
             iva_alicuota_id: obtenerIdIva(iva),
             iva_porcentaje: iva,
-            neto_gravado: netoGravado,   // <-- AHORA SOLO ES cantidad * precio
+            neto_gravado: netoGravado,
             iva_importe: ivaImporte,
-            total_linea: totalLinea       // <-- AHORA ES LA SUMA CORRECTA
+            total_linea: totalLinea
         };
         
         detalles.push(nuevoDetalle);
@@ -716,10 +707,10 @@ $(document).ready(function () {
         var totalExento = 0;
         
          detalles.forEach(function(detalle) {
-            subtotal += detalle.neto_gravado || 0;        // Suma de netos gravados
-            impuestos += detalle.iva_importe || 0;        // Suma de IVA
-            totalNoGravado += detalle.no_gravado || 0;    // Suma de no gravados
-            totalExento += detalle.exento || 0;           // Suma de exentos
+            subtotal += detalle.neto_gravado || 0;
+            impuestos += detalle.iva_importe || 0;
+            totalNoGravado += detalle.no_gravado || 0;
+            totalExento += detalle.exento || 0;
         });
         
          var total = subtotal + impuestos + totalNoGravado + totalExento;
@@ -773,7 +764,7 @@ $(document).ready(function () {
                     title: 'Eliminado',
                     text: 'Producto eliminado del detalle',
                     showConfirmButton: false,
-                    timer: 1000,
+                    timer: 1500,
                     toast: true,
                     position: 'top-end'
                 });
@@ -813,34 +804,61 @@ $(document).ready(function () {
 
     // ========== FUNCIONES DE CARGA DE COMBOS ==========
     function cargarCombosFormulario() {
-        // Cargar proveedores
-        $.get('ordenes_compra_ajax.php', { accion: 'obtener_proveedores' }, function(data) {
-            var options = '<option value="">Seleccionar proveedor</option>';
+        
+
+        $.get('ordenes_compra_ajax.php', { 
+                accion: 'obtener_proveedores' 
+            }, function(data) {
+                console.log("Proveedores recibidos:", data);
+                var options = '<option value="">Seleccionar proveedor</option>';
+                if (data && data.length > 0) {
+                    data.forEach(function(item) {
+                        options += `<option value="${item.entidad_id}">${item.entidad_nombre}</option>`;
+                    });
+                } else {
+                    options = '<option value="">No hay proveedores disponibles</option>';
+                }
+                $('#entidad_id').html(options);
+            }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+                console.error("Error cargando proveedores:", textStatus, errorThrown);
+                console.error("Respuesta:", jqXHR.responseText);
+            });
+
+        // Cargar sucursales de la empresa
+        $.get('ordenes_compra_ajax.php', { 
+            accion: 'obtener_sucursales_empresa',
+            empresa_idx: empresa_idx 
+        }, function(data) {
+            let options = '<option value="">Seleccionar sucursal</option>';
             if (data && data.length > 0) {
                 data.forEach(function(item) {
-                    options += `<option value="${item.entidad_id}">${item.entidad_nombre}</option>`;
+                    options += `<option value="${item.sucursal_id}">${item.sucursal_nombre}</option>`;
                 });
             }
-            $('#entidad_id').html(options);
+            $('#sucursal_id').html(options);
+
+            // Si hay un valor pendiente (edición), asignarlo
+            if (window.sucursalIdEditar) {
+                $('#sucursal_id').val(window.sucursalIdEditar);
+                window.sucursalIdEditar = null; // Limpiar variable
+            }
         }, 'json');
 
         // Cargar tipos de comprobante
         $.get('ordenes_compra_ajax.php', { accion: 'obtener_comprobantes_tipos' }, function(data) {
-            var options = '<option value="">Seleccionar</option>';
             if (data && data.length > 0) {
-                data.forEach(function(item) {
-                    options += `<option value="${item.comprobante_tipo_id}" data-letra="${item.letra || ''}">${item.comprobante_tipo}</option>`;
-                });
-            }
-            $('#comprobante_tipo_id').html(options);
-            
-            $('#comprobante_tipo_id').off('change').on('change', function() {
-                var selectedOption = $(this).find('option:selected');
-                var letra = selectedOption.data('letra');
-                if (letra) {
-                    $('#comprobante_letra').val(letra);
+                if (data.length === 1) {
+                    // Si solo hay un tipo, seleccionarlo automáticamente
+                    var options = `<option value="${data[0].comprobante_tipo_id}" selected>${data[0].comprobante_tipo}</option>`;
+                    $('#comprobante_tipo_id').html(options);
+                } else {
+                    var options = '<option value="">Seleccionar</option>';
+                    data.forEach(function(item) {
+                        options += `<option value="${item.comprobante_tipo_id}">${item.comprobante_tipo}</option>`;
+                    });
+                    $('#comprobante_tipo_id').html(options);
                 }
-            });
+            }
         }, 'json');
 
         // Cargar monedas
@@ -874,13 +892,20 @@ $(document).ready(function () {
             accion: 'obtener_condiciones_pago',
             empresa_idx: empresa_idx 
         }, function(data) {
-            var options = '<option value="">Seleccionar</option>';
             if (data && data.length > 0) {
+                var options = '';
                 data.forEach(function(item) {
                     options += `<option value="${item.condicion_pago_id}">${item.codigo} - ${item.condicion_pago}</option>`;
                 });
+                $('#condicion_pago_id').html(options);
+                
+                // Opcional: seleccionar la primera por defecto si no hay ninguna seleccionada
+                if (!$('#condicion_pago_id').val()) {
+                    $('#condicion_pago_id').val(data[0].condicion_pago_id);
+                }
+            } else {
+                $('#condicion_pago_id').html('<option value="">No hay condiciones</option>');
             }
-            $('#condicion_pago_id').html(options);
         }, 'json');
     }
 
@@ -891,23 +916,32 @@ $(document).ready(function () {
         $('#proveedor_actual_nombre').text(proveedorNombre || 'No seleccionado');
         
         if (proveedorActualId) {
-            // Cargar sucursales
+            // Cargar sucursales del proveedor
             $.ajax({
                 url: 'ordenes_compra_ajax.php',
                 type: 'GET',
                 data: { 
                     accion: 'obtener_sucursales',
-                    entidad_id: proveedorActualId 
+                    entidad_id: proveedorActualId,
+                    empresa_idx: empresa_idx
                 },
                 dataType: 'json',
                 success: function(data) {
-                    var options = '<option value="">Seleccionar sucursal</option>';
                     if (data && data.length > 0) {
-                        data.forEach(function(item) {
-                            options += `<option value="${item.sucursal_id}">${item.sucursal_nombre}</option>`;
-                        });
+                        if (data.length === 1) {
+                            // Si solo hay una sucursal, seleccionarla automáticamente
+                            var options = `<option value="${data[0].sucursal_id}" selected>${data[0].sucursal_nombre}</option>`;
+                            $('#entidad_sucursal_id').html(options);
+                        } else {
+                            var options = '<option value="">Seleccionar sucursal</option>';
+                            data.forEach(function(item) {
+                                options += `<option value="${item.sucursal_id}">${item.sucursal_nombre}</option>`;
+                            });
+                            $('#entidad_sucursal_id').html(options);
+                        }
+                    } else {
+                        $('#entidad_sucursal_id').html('<option value="">Sin sucursales</option>');
                     }
-                    $('#entidad_sucursal_id').html(options);
                 }
             });
         } else {
@@ -929,6 +963,8 @@ $(document).ready(function () {
         
         $('#entidad_sucursal_id').html('<option value="">Seleccionar sucursal</option>');
         $('#proveedor_actual_nombre').text('No seleccionado');
+         $('#entidad_id').prop('disabled', false);
+         window.sucursalIdEditar = null;
     }
 
     $(document).on('click', '#btnNuevo', function () {
@@ -1029,12 +1065,16 @@ $(document).ready(function () {
             
             if (res && res.orden_compra_id) {
                 resetModal();
+                window.sucursalIdEditar = res.sucursal_id || null;
                 cargarCombosFormulario();
                 
                 $('#orden_compra_id').val(res.orden_compra_id);
+                
+                console.log("Asignando sucursal_id:", res.sucursal_id);
+                $('#sucursal_id').val(res.sucursal_id || '');
+                
                 $('#comprobante_nro').val(res.comprobante_nro);
-                $('#comprobante_letra').val(res.comprobante_letra || '');
-                $('#comprobante_suc').val(res.comprobante_suc || '');
+                $('#comprobante_pv').val(res.comprobante_pv || '0');
                 $('#f_emision').val(res.f_emision);
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
                 $('#direccion_entrega').val(res.direccion_entrega);
@@ -1049,7 +1089,7 @@ $(document).ready(function () {
                 $('#descuentos_display').text(parseFloat(res.descuentos || 0).toFixed(2));
                 $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
                 $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
-                
+                $('#entidad_id').prop('disabled', true);
                 $('#modalLabel').text('Editar Orden de Compra');
 
                 setTimeout(function() {
@@ -1064,7 +1104,7 @@ $(document).ready(function () {
                         var proveedorNombre = $('#entidad_id option:selected').text();
                         $('#proveedor_actual_nombre').text(proveedorNombre || 'No seleccionado');
                         
-                        // Cargar sucursales
+                        // Cargar sucursales del proveedor
                         $.ajax({
                             url: 'ordenes_compra_ajax.php',
                             type: 'GET',
@@ -1127,6 +1167,18 @@ $(document).ready(function () {
     // ========== GUARDAR ORDEN ==========
     $('#btnGuardar').click(function() {
         var form = document.getElementById('formOrdenCompra');
+        var fEmision = $('#f_emision').val();
+        var fEntrega = $('#f_entrega_estimada').val();
+
+        if (fEntrega && fEntrega < fEmision) {
+            Swal.fire({
+                icon: "warning",
+                title: "Fecha inválida",
+                text: "La fecha de entrega estimada debe ser mayor o igual a la fecha de emisión",
+                confirmButtonText: "Entendido"
+            });
+            return false;
+        }
         
         if (!form.checkValidity()) {
             form.classList.add('was-validated');
@@ -1150,11 +1202,36 @@ $(document).ready(function () {
         var originalText = btnGuardar.html();
         btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
         
-        var formData = new FormData(document.getElementById('formOrdenCompra'));
+        // Crear FormData manualmente
+        var formData = new FormData();
         formData.append('accion', accionBackend);
         formData.append('empresa_idx', empresa_idx);
         formData.append('pagina_idx', pagina_idx);
+        formData.append('orden_compra_id', $('#orden_compra_id').val() || '');
+        formData.append('sucursal_id', $('#sucursal_id').val() || '');
+        formData.append('entidad_id', $('#entidad_id').val() || '');
+        formData.append('entidad_sucursal_id', $('#entidad_sucursal_id').val() || '');
+        formData.append('comprobante_tipo_id', $('#comprobante_tipo_id').val() || '');
+        formData.append('comprobante_pv', $('#comprobante_pv').val() || '0');
+        formData.append('comprobante_nro', $('#comprobante_nro').val() || '0');
+        formData.append('f_emision', $('#f_emision').val() || '');
+        formData.append('f_entrega_estimada', $('#f_entrega_estimada').val() || '');
+        formData.append('condicion_pago_id', $('#condicion_pago_id').val() || '');
+        formData.append('moneda_id', $('#moneda_id').val() || '');
+        formData.append('tipo_cambio', $('#tipo_cambio').val() || '1.000000');
+        formData.append('direccion_entrega', $('#direccion_entrega').val() || '');
+        formData.append('observaciones', $('#observaciones').val() || '');
+        formData.append('subtotal', $('#subtotal').val() || '0');
+        formData.append('descuentos', $('#descuentos').val() || '0');
+        formData.append('impuestos', $('#impuestos').val() || '0');
+        formData.append('total', $('#total').val() || '0');
         formData.append('detalles', JSON.stringify(detalles));
+
+        // Log para depuración
+        console.log("=== DATOS ENVIADOS ===");
+        for (var pair of formData.entries()) {
+            console.log(pair[0] + ': "' + pair[1] + '"');
+        }
         
         var savedState = {
             page: tabla ? tabla.page() : 0,
@@ -1337,26 +1414,7 @@ $(document).ready(function () {
         });
     });
 
-    // ========== EXPORTAR ==========
-    $('#btnExportarExcel').click(function (e) {
-        e.preventDefault();
-        $('.buttons-excel').click();
-    });
-
-    $('#btnExportarPDF').click(function (e) {
-        e.preventDefault();
-        $('.buttons-pdf').click();
-    });
-
-    $('#btnExportarCSV').click(function (e) {
-        e.preventDefault();
-        $('.buttons-csv').click();
-    });
-
-    $('#btnExportarPrint').click(function (e) {
-        e.preventDefault();
-        $('.buttons-print').click();
-    });
+    
 
     // ========== INICIALIZACIÓN ==========
     inicializarDataTable();

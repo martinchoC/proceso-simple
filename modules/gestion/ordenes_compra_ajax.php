@@ -47,6 +47,12 @@ try {
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_sucursales_empresa':
+            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
+            $sucursales = obtenerSucursalesEmpresa($conexion, $empresa_idx_local);
+            echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'agregar':
             if (!isset($_POST['detalles'])) {
                 enviarRespuesta(['resultado' => false, 'error' => 'No se recibieron los detalles']);
@@ -57,10 +63,16 @@ try {
                 enviarRespuesta(['resultado' => false, 'error' => 'Error al decodificar los detalles: ' . json_last_error_msg()]);
             }
             
+            // LOG TEMPORAL para depuración
+            error_log("=== DATOS RECIBIDOS EN AGREGAR ===");
+            error_log("POST: " . print_r($_POST, true));
+            error_log("detalles decodificados: " . print_r($detalles, true));
+            
             $data = [
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'comprobante_letra' => trim($_POST['comprobante_letra'] ?? ''),
-                'comprobante_suc' => trim($_POST['comprobante_suc'] ?? ''),
+                'comprobante_pv' => trim($_POST['comprobante_pv'] ?? ''),
+                'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
                 'comprobante_nro' => trim($_POST['comprobante_nro'] ?? ''),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
@@ -87,6 +99,10 @@ try {
         case 'editar':
             $id = intval($_POST['orden_compra_id'] ?? 0);
             
+            error_log("=== EDITAR - ID recibido: $id ===");
+            error_log("POST completo: " . print_r($_POST, true));
+            
+            
             if (!isset($_POST['detalles'])) {
                 enviarRespuesta(['resultado' => false, 'error' => 'No se recibieron los detalles']);
             }
@@ -96,10 +112,12 @@ try {
                 enviarRespuesta(['resultado' => false, 'error' => 'Error al decodificar los detalles: ' . json_last_error_msg()]);
             }
             
+            error_log("detalles decodificados: " . print_r($detalles, true));
+            
             $data = [
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
-                'comprobante_letra' => trim($_POST['comprobante_letra'] ?? ''),
-                'comprobante_suc' => trim($_POST['comprobante_suc'] ?? ''),
+                'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
+                'comprobante_pv' => trim($_POST['comprobante_pv'] ?? ''),                
                 'comprobante_nro' => trim($_POST['comprobante_nro'] ?? ''),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
@@ -115,14 +133,14 @@ try {
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'detalles' => $detalles,
-                'empresa_idx' => $empresa_idx  // <-- Asegurar que se incluya
+                'empresa_idx' => $empresa_idx
             ];
+            
+            error_log("data armada para editarOrdenCompra: " . print_r($data, true));
 
             $resultado = editarOrdenCompra($conexion, $id, $data);
-            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-            break;
-
-            $resultado = editarOrdenCompra($conexion, $id, $data);
+            error_log("resultado de editarOrdenCompra: " . print_r($resultado, true));
+            
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -159,7 +177,7 @@ try {
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
 
-        case 'obtener_proveedores':
+       case 'obtener_proveedores':
             $proveedores = obtenerProveedores($conexion, $empresa_idx);
             echo json_encode($proveedores, JSON_UNESCAPED_UNICODE);
             break;
