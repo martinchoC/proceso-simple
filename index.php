@@ -1,70 +1,71 @@
 <?php
-// index.php
-
-// 1. Incluimos config.php (inicia la sesión)
-require_once 'config.php';
-
-// 2. VERIFICACIÓN DE SEGURIDAD
-if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true) {
-    // Si no hay sesión válida, al login
-    header("Location: " . url('login.php'));
-    exit;
-}
-
-// Variables para el header
-$ruta_assets = "";
-$modudo_idx = 0;
-
-// Incluimos el header
 require_once 'templates/adminlte/header1.php';
 ?>
 
-<main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">Panel Principal</h3>
-                </div>
+<div class="app-content-header">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-6">
+                <h3 class="mb-0 fw-bold">Panel de Acceso</h3>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="app-content">
-        <div class="container-fluid">
-            <div class="callout callout-info mb-4">
-                <h5>Bienvenido, <?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Usuario') ?></h5>
-                <p>Selecciona un módulo para comenzar.</p>
-            </div>
+<div class="app-content">
+    <div class="container-fluid">
 
-            <div class="row">
-                <div class="col-lg-3 col-6">
-                    <div class="small-box text-bg-primary">
-                        <div class="inner">
-                            <h3>Ventas</h3>
-                            <p>Gestión Comercial</p>
-                        </div>
-                        <div class="icon"><i class="fas fa-shopping-cart"></i></div>
-                        <a href="<?= url('modules/ventas/index.php') ?>" class="small-box-footer">Ingresar <i
-                                class="fas fa-arrow-circle-right"></i></a>
-                    </div>
+        <?php
+        if (!empty($empresas_modulos)):
+            ?>
+            <?php
+            foreach ($empresas_modulos as $eid => $empresa):
+                ?>
+                <?php
+                if (empty($empresa['modulos']))
+                    continue;
+                ?>
+
+                <div class="empresa-separator">
+                    <h4>
+                        <i class="bi bi-building text-primary"></i>
+                        <?= htmlspecialchars($empresa['nombre']) ?>
+                    </h4>
+                    <div class="line"></div>
                 </div>
 
-                <div class="col-lg-3 col-6">
-                    <div class="small-box text-bg-warning">
-                        <div class="inner">
-                            <h3>Compras</h3>
-                            <p>Proveedores</p>
+                <div class="row g-3"> <?php
+                foreach ($empresa['modulos'] as $mod):
+                    ?>
+                        <?php
+                        $ruta_modulo = $mod['url'];
+                        if (strpos($ruta_modulo, 'modules/') === false) {
+                            $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
+                        }
+                        $target_url = url($ruta_modulo) . "?empresa_id=" . $eid . "&modulo_id=" . $mod['id'];
+                        ?>
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2">
+                            <a href="<?= $target_url ?>" class="modulo-card">
+                                <i class="bi bi-grid-fill modulo-icon"></i>
+                                <h5 class="modulo-title"><?= htmlspecialchars($mod['nombre']) ?></h5>
+                            </a>
                         </div>
-                        <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
-                        <a href="<?= url('modules/compras/index.php') ?>" class="small-box-footer">Ingresar <i
-                                class="fas fa-arrow-circle-right"></i></a>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
 
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div class="alert alert-warning shadow-sm border-0 border-start border-warning border-5 p-4 mt-3">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    No se encontraron módulos asignados a tu usuario. Por favor, contacta al administrador.
+                </h5>
             </div>
-        </div>
+        <?php endif; ?>
+
     </div>
-</main>
+</div>
 
-<?php require_once 'templates/adminlte/footer1.php'; ?>
+<?php
+require_once 'templates/adminlte/footer1.php';
+?>

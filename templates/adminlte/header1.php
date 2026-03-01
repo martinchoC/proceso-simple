@@ -57,83 +57,96 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 
   <meta name="supported-color-schemes" content="light dark" />
 
-
   <link href="<?= asset_local('css/dataTables.bootstrap5.min.css') ?>" rel="stylesheet" />
   <link rel="stylesheet" href="<?= asset_local('css/all.min.css') ?>" />
-
   <link href="<?= asset_local('css/sweetalert2-bootstrap-4.min.css') ?>" rel="stylesheet" />
-
   <link rel="stylesheet" href="<?= asset_local('css/adminlte.min.css') ?>" />
-
   <link rel="stylesheet" href="<?= asset_local('css/overlayscrollbars.min.css') ?>" />
-
-  <!-- Bootstrap Icons -->
   <link rel="stylesheet" href="<?= asset_local('css/bootstrap-icons.css') ?>">
-
-
   <link href="<?= asset_local('css/bootstrap.min.css') ?>" rel="stylesheet" />
-
+  <link rel="stylesheet" href="<?= asset_local('css/styles.css') ?>">
 
   <script src="<?= asset_local('js/jquery.min.js') ?>"></script>
-
   <script src="<?= asset_local('js/dataTables.min.js') ?>"></script>
-
   <script src="<?= asset_local('js/dataTables.bootstrap5.min.js') ?>"></script>
-
-
-
   <script src="<?= asset_local('js/dataTables.buttons.min.js') ?>"></script>
   <script src="<?= asset_local('js/buttons.html5.min.js') ?>"></script>
-
   <script src="<?= asset_local('js/jszip.min.js') ?>"></script>
   <script src="<?= asset_local('js/pdfmake.min.js') ?>"></script>
   <script src="<?= asset_local('js/vfs_fonts.js') ?>"></script>
 
-
   <link rel="stylesheet" href="<?= asset_local('css/adminlte.min.css') ?>" />
   <link rel="stylesheet" href="<?= asset_local('css/apexcharts.css') ?>" />
   <link rel="stylesheet" href="<?= asset_local('css/jsvectormap.min.css') ?>" />
+
 </head>
-<style>
-  .sidebar-wrapper {
-    width: auto !important;
-    min-width: 250px;
-    white-space: nowrap;
-    overflow-x: visible;
-  }
-
-  .sidebar-wrapper .nav-link p {
-    display: inline-block;
-    width: auto;
-  }
-
-  .skip-link {
-    position: absolute !important;
-    top: -100px !important;
-    left: 0 !important;
-    background: #007bff !important;
-    color: white !important;
-    padding: 8px 16px !important;
-    z-index: 9999 !important;
-    transition: top 0.3s !important;
-    text-decoration: none !important;
-    border-radius: 0 0 5px 5px !important;
-    display: inline-block !important;
-  }
-
-  .skip-link:focus {
-    top: 0 !important;
-    outline: none !important;
-  }
-
-  .skip-links {
-    position: absolute !important;
-    z-index: 10000 !important;
-  }
-</style>
 
 <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
   <div class="app-wrapper">
+
+    <?php
+    $current_empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 0;
+    $current_modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 0;
+    $usuario_logueado_id = $_SESSION['usuario_id'];
+
+    $sql_modulos = "SELECT DISTINCT
+            e.empresa_id,
+            e.empresa,
+            m.modulo_id,
+            m.modulo,
+            m.modulo_url
+        FROM conf__empresas e
+        INNER JOIN conf__empresas_perfiles ep ON e.empresa_id = ep.empresa_id
+        INNER JOIN conf__usuarios_perfiles up ON ep.empresa_perfil_id = up.empresa_perfil_id
+        LEFT JOIN conf__empresas_modulos em ON e.empresa_id = em.empresa_id AND em.tabla_estado_registro_id = 1
+        LEFT JOIN conf__modulos m ON em.modulo_id = m.modulo_id AND m.tabla_estado_registro_id = 1
+        WHERE e.tabla_estado_registro_id = 1
+        AND ep.tabla_estado_registro_id = 1
+        AND up.tabla_estado_registro_id = 1
+        AND up.usuario_id = $usuario_logueado_id
+        ORDER BY e.empresa, m.modulo";
+
+    $res_modulos = mysqli_query($conexion, $sql_modulos);
+    $empresas_modulos = [];
+    $nombre_empresa_actual = "";
+    $nombre_modulo_actual = "";
+
+    while ($row = mysqli_fetch_assoc($res_modulos)) {
+      $eid = $row['empresa_id'];
+      $mid = $row['modulo_id'];
+
+      if (!isset($empresas_modulos[$eid])) {
+        $empresas_modulos[$eid] = [
+          'nombre' => $row['empresa'],
+          'modulos' => []
+        ];
+      }
+
+      if ($eid == $current_empresa_id) {
+        $nombre_empresa_actual = $row['empresa'];
+        if ($mid == $current_modulo_id) {
+          $nombre_modulo_actual = $row['modulo'];
+        }
+      }
+
+      if (!empty($mid)) {
+        $empresas_modulos[$eid]['modulos'][] = [
+          'id' => $mid,
+          'nombre' => $row['modulo'],
+          'url' => $row['modulo_url']
+        ];
+      }
+    }
+
+    if ($current_empresa_id > 0 && !isset($empresas_modulos[$current_empresa_id])) {
+      echo "<script>
+            alert('Acceso Denegado: No tienes permisos para esta empresa.');
+            window.location.href = '" . url('index.php') . "';
+        </script>";
+      exit;
+    }
+    ?>
+
     <nav class="app-header navbar navbar-expand bg-body">
       <div class="container-fluid">
         <ul class="navbar-nav">
@@ -142,85 +155,6 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
               <i class="bi bi-list"></i>
             </a>
           </li>
-          <?php
-          $current_empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 0;
-          $current_modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 0;
-
-          /*
-          ANTERIOR
-          $sql_modulos = "SELECT 
-                  e.empresa_id,
-                  e.empresa,
-                  m.modulo_id,
-                  m.modulo,
-                  m.modulo_url
-              FROM conf__empresas e
-              LEFT JOIN conf__empresas_modulos em ON e.empresa_id = em.empresa_id AND em.tabla_estado_registro_id = 1
-              LEFT JOIN conf__modulos m ON em.modulo_id = m.modulo_id AND m.tabla_estado_registro_id = 1
-              WHERE e.tabla_estado_registro_id = 1
-              ORDER BY e.empresa, m.modulo";
-          */
-
-          //INICIO NUEVO 
-          $usuario_logueado_id = $_SESSION['usuario_id'];
-          $sql_modulos = "SELECT DISTINCT
-                  e.empresa_id,
-                  e.empresa,
-                  m.modulo_id,
-                  m.modulo,
-                  m.modulo_url
-              FROM conf__empresas e
-              INNER JOIN conf__empresas_perfiles ep ON e.empresa_id = ep.empresa_id
-              INNER JOIN conf__usuarios_perfiles up ON ep.empresa_perfil_id = up.empresa_perfil_id
-              LEFT JOIN conf__empresas_modulos em ON e.empresa_id = em.empresa_id AND em.tabla_estado_registro_id = 1
-              LEFT JOIN conf__modulos m ON em.modulo_id = m.modulo_id AND m.tabla_estado_registro_id = 1
-              WHERE e.tabla_estado_registro_id = 1
-              AND ep.tabla_estado_registro_id = 1
-              AND up.tabla_estado_registro_id = 1
-              AND up.usuario_id = $usuario_logueado_id
-              ORDER BY e.empresa, m.modulo";
-
-          $res_modulos = mysqli_query($conexion, $sql_modulos);
-          $empresas_modulos = [];
-          $nombre_empresa_actual = "Seleccionar Empresa";
-          $nombre_modulo_actual = "";
-
-          while ($row = mysqli_fetch_assoc($res_modulos)) {
-            $eid = $row['empresa_id'];
-            $mid = $row['modulo_id'];
-
-            if (!isset($empresas_modulos[$eid])) {
-              $empresas_modulos[$eid] = [
-                'nombre' => $row['empresa'],
-                'modulos' => []
-              ];
-            }
-
-            if ($eid == $current_empresa_id) {
-              $nombre_empresa_actual = $row['empresa'];
-              if ($mid == $current_modulo_id) {
-                $nombre_modulo_actual = $row['modulo'];
-              }
-            }
-
-            if (!empty($mid)) {
-              $empresas_modulos[$eid]['modulos'][] = [
-                'id' => $mid,
-                'nombre' => $row['modulo'],
-                'url' => $row['modulo_url']
-              ];
-            }
-          }
-
-          if ($current_empresa_id > 0 && !isset($empresas_modulos[$current_empresa_id])) {
-            echo "<script>
-                  alert('Acceso Denegado: No tienes permisos para esta empresa.');
-                  window.location.href = '" . url('index.php') . "';
-              </script>";
-            exit;
-          }
-
-          ?>
 
           <li class="nav-item d-none d-md-block">
             <span class="navbar-text fw-bold fs-5 ms-3 text-primary">
@@ -230,36 +164,6 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
         </ul>
 
         <div class="ms-auto d-flex align-items-center">
-
-          <div class="input-group input-group-sm me-3" style="width: 250px;">
-            <span class="input-group-text bg-primary text-white border-primary">
-              <i class="bi bi-building"></i>
-            </span>
-            <select class="form-select border-primary" onchange="if(this.value) window.location.href=this.value;">
-              <option value="">Cambiar Empresa...</option>
-              <?php foreach ($empresas_modulos as $eid => $data): ?>
-                <?php
-                if (empty($data['modulos']))
-                  continue;
-
-                $primer_modulo = $data['modulos'][0];
-
-                $ruta_modulo = $primer_modulo['url'];
-                if (strpos($ruta_modulo, 'modules/') === false) {
-                  $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
-                }
-
-                $target_url = url($ruta_modulo) . "?empresa_id=" . $eid . "&modulo_id=" . $primer_modulo['id'];
-
-                $selected = ($eid == $current_empresa_id) ? 'selected' : '';
-                ?>
-                <option value="<?= $target_url ?>" <?= $selected ?>>
-                  <?= htmlspecialchars($data['nombre']) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-
           <ul class="navbar-nav ms-auto">
             <li class="nav-item dropdown">
               <a class="nav-link" data-bs-toggle="dropdown" href="#">
@@ -294,7 +198,6 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 
               <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
                 <li class="user-header text-bg-primary" style="height: auto; padding-bottom: 20px;">
-
                   <div
                     class="rounded-circle shadow d-flex justify-content-center align-items-center text-white mx-auto mb-2"
                     style="width: 90px; height: 90px; background-color: <?= $color_fondo_avatar ?>; font-size: 2.5rem; font-weight: bold; border: 3px solid rgba(255,255,255,0.2);">
@@ -326,21 +229,22 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
         </a>
       </div>
 
-      <div class="sidebar-info px-3 py-2 border-bottom border-secondary text-center"
-        style="background: rgba(0,0,0,0.1);">
+      <div class="sidebar-info px-3 py-3 border-bottom border-secondary" style="background: rgba(0,0,0,0.1);">
 
-        <div class="text-white opacity-75 small fw-bold text-uppercase mb-2"
-          style="font-size: 0.75rem; letter-spacing: 0.5px;">
-          <?= htmlspecialchars($nombre_empresa_actual) ?>
-        </div>
-
-        <div class="text-primary small fw-semibold">
-          <select class="form-select form-select-sm bg-dark text-light border-secondary" style="font-size: 0.8rem;"
-            onchange="if(this.value) window.location.href=this.value;">
+        <div class="mb-3">
+          <label class="form-label text-white-50 mb-1"
+            style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Módulo Activo</label>
+          <select class="form-select form-select-sm bg-dark text-light border-secondary shadow-sm"
+            style="font-size: 0.85rem;" onchange="if(this.value) window.location.href=this.value;">
+            <option value="">Seleccionar Módulo...</option>
             <?php
             if (isset($empresas_modulos[$current_empresa_id]) && !empty($empresas_modulos[$current_empresa_id]['modulos'])):
               foreach ($empresas_modulos[$current_empresa_id]['modulos'] as $mod):
-                $url_mod = "../" . $mod['url'] . "?empresa_id=" . $current_empresa_id . "&modulo_id=" . $mod['id'];
+                $ruta_modulo = $mod['url'];
+                if (strpos($ruta_modulo, 'modules/') === false) {
+                  $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
+                }
+                $url_mod = url($ruta_modulo) . "?empresa_id=" . $current_empresa_id . "&modulo_id=" . $mod['id'];
                 $selected = ($mod['id'] == $current_modulo_id) ? 'selected' : '';
                 ?>
                 <option value="<?= $url_mod ?>" <?= $selected ?>>
@@ -348,37 +252,66 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                 </option>
                 <?php
               endforeach;
-            else:
-              ?>
-              <option value="">Sin módulos</option>
-            <?php endif; ?>
+            endif;
+            ?>
           </select>
         </div>
+
+        <div>
+          <label class="form-label text-white-50 mb-1"
+            style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Empresa</label>
+          <select class="form-select form-select-sm bg-dark text-light border-secondary shadow-sm"
+            style="font-size: 0.85rem;" onchange="if(this.value) window.location.href=this.value;">
+            <option value="">Cambiar Empresa...</option>
+            <?php foreach ($empresas_modulos as $eid => $data): ?>
+              <?php
+              if (empty($data['modulos']))
+                continue;
+              $primer_modulo = $data['modulos'][0];
+              $ruta_modulo = $primer_modulo['url'];
+              if (strpos($ruta_modulo, 'modules/') === false) {
+                $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
+              }
+              $target_url = url($ruta_modulo) . "?empresa_id=" . $eid . "&modulo_id=" . $primer_modulo['id'];
+              $selected = ($eid == $current_empresa_id) ? 'selected' : '';
+              ?>
+              <option value="<?= $target_url ?>" <?= $selected ?>>
+                <?= htmlspecialchars($data['nombre']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
       </div>
 
       <div class="sidebar-wrapper">
         <nav class="mt-2">
           <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation"
-            aria-label="Main navigation" data-accordion="false" id="navigation">
+            aria-label="Main navigation" data-accordion="true" id="navigation">
 
             <?php
             $current_url_full = $_SERVER['REQUEST_URI'];
-
             $qs_sidebar = "&empresa_id=" . $current_empresa_id . "&modulo_id=" . $current_modulo_id;
 
+            $modudo_idx = $current_modulo_id;
+
             if ($modudo_idx) {
-              $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase FROM conf__paginas 
-                  LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
-                  WHERE conf__paginas.modulo_id=$modudo_idx AND conf__paginas.tabla_estado_registro_id=1 AND conf__paginas.padre_id=0 
-                  ORDER BY conf__paginas.orden";
+              $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase 
+                      FROM conf__paginas 
+                      LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
+                      WHERE conf__paginas.modulo_id = $modudo_idx 
+                      AND conf__paginas.tabla_estado_registro_id = 1 
+                      AND conf__paginas.padre_id = 0 
+                      ORDER BY conf__paginas.orden";
               $res = mysqli_query($conexion, $sql);
 
               while ($row = mysqli_fetch_array($res)) {
                 $submenu_sql = "SELECT conf__paginas.*, conf__iconos.icono_clase
-                      FROM conf__paginas 
-                      LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
-                      WHERE conf__paginas.padre_id = " . $row['pagina_id'] . " AND conf__paginas.tabla_estado_registro_id = 1 
-                      ORDER BY conf__paginas.orden";
+                                FROM conf__paginas 
+                                LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
+                                WHERE conf__paginas.padre_id = " . $row['pagina_id'] . " 
+                                AND conf__paginas.tabla_estado_registro_id = 1 
+                                ORDER BY conf__paginas.orden";
                 $submenu_res = mysqli_query($conexion, $submenu_sql);
                 $has_submenu = mysqli_num_rows($submenu_res) > 0;
 
@@ -414,7 +347,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 
                   <?php if ($has_submenu): ?>
                     <ul class="nav nav-treeview"
-                      style="display: <?= $is_active ? 'block' : 'none'; ?>; padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
+                      style="padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
                       <?php while ($submenu_row = mysqli_fetch_array($submenu_res)): ?>
                         <?php
                         $submenu_url_clean = trim($submenu_row['url'], './');
