@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../db.php';
 $pageTitle = "Órdenes de Compra";
 $currentPage = 'ordenes_compra';
 $modudo_idx = 2;
-$pagina_idx = 65;
+$pagina_idx = 51;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';

@@ -52,6 +52,15 @@ try {
             $sucursales = obtenerSucursalesEmpresa($conexion, $empresa_idx_local);
             echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
             break;
+        case 'ejecutar_accion':
+            $orden_compra_id = intval($_POST['orden_compra_id'] ?? 0);
+            $accion_js = $_POST['accion_js'] ?? '';
+            $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
+            $pagina_id = intval($_POST['pagina_idx'] ?? 0);
+            
+            $resultado = ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empresa_idx, $pagina_id);
+            echo json_encode($resultado);
+            break;
 
         case 'agregar':
             if (!isset($_POST['detalles'])) {

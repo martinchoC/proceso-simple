@@ -78,7 +78,16 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
     $botones = [];
 
     foreach ($funciones as $funcion) {
+        // Incluir botones donde el origen coincide con el estado actual
+        // O donde el origen es 0 (botón agregar, pero eso se maneja aparte)
         if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
+            
+            // Determinar si es confirmable (cambia de estado)
+            $esConfirmable = 0;
+            if ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) {
+                $esConfirmable = 1;
+            }
+            
             $botones[] = [
                 'nombre_funcion' => $funcion['nombre_funcion'],
                 'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
@@ -88,7 +97,7 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
                 'text_clase' => $funcion['text_clase'] ?? '',
                 'descripcion' => $funcion['descripcion'],
                 'estado_destino_id' => $funcion['tabla_estado_registro_destino_id'],
-                'es_confirmable' => ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0
+                'es_confirmable' => $esConfirmable
             ];
         }
     }
@@ -508,9 +517,6 @@ function editarOrdenCompra($conexion, $id, $data)
 
         error_log("Valores para update:");
         error_log("sucursal_id: " . ($sucursal_id_val ?? 'null'));
-        error_log("f_emision: " . $f_emision_val);
-        error_log("f_entrega_estimada: " . ($f_entrega_estimada_val ?? 'null'));
-        error_log("direccion_entrega: " . $direccion_entrega_val);
 
         // Cadena de tipos: i,i,i,i,i,i,i,s,s,i,i,d,s,d,d,d,d,s,i,i (19 caracteres)
         mysqli_stmt_bind_param($stmt, 
@@ -541,11 +547,33 @@ function editarOrdenCompra($conexion, $id, $data)
         }
         
         $affected_rows = mysqli_stmt_affected_rows($stmt);
-        error_log("Filas afectadas: " . $affected_rows);
+        error_log("Filas afectadas en update: " . $affected_rows);
         mysqli_stmt_close($stmt);
 
-        // Procesar detalles (igual que antes)
-        // ... (código de procesamiento de detalles) ...
+        // ===== PROCESAR DETALLES =====
+        // Primero, eliminar todos los detalles existentes
+        $sql_delete = "DELETE FROM gestion__ordenes_compra_detalle WHERE orden_compra_id = ?";
+        $stmt_delete = mysqli_prepare($conexion, $sql_delete);
+        if (!$stmt_delete) {
+            throw new Exception("Error preparando delete de detalles: " . mysqli_error($conexion));
+        }
+        
+        mysqli_stmt_bind_param($stmt_delete, "i", $id);
+        if (!mysqli_stmt_execute($stmt_delete)) {
+            throw new Exception("Error eliminando detalles existentes: " . mysqli_stmt_error($stmt_delete));
+        }
+        mysqli_stmt_close($stmt_delete);
+        
+        // Luego, insertar los nuevos detalles
+        if (isset($data['detalles']) && is_array($data['detalles']) && count($data['detalles']) > 0) {
+            $detalles_success = insertarDetallesOrden($conexion, $id, $empresa_idx_val, $data['detalles']);
+            
+            if (!$detalles_success) {
+                throw new Exception("Error al insertar los nuevos detalles");
+            }
+        } else {
+            throw new Exception("Debe haber al menos un detalle en la orden");
+        }
 
         mysqli_commit($conexion);
         error_log("=== FIN editarOrdenCompra - ÉXITO ===");
@@ -557,7 +585,6 @@ function editarOrdenCompra($conexion, $id, $data)
         return ['resultado' => false, 'error' => $e->getMessage()];
     }
 }
-
 function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
 {
     $id = intval($id);

@@ -1,6 +1,6 @@
 $(document).ready(function () {
     const empresa_idx = 2;
-    const pagina_idx = 65;
+    const pagina_idx = 51;
     
     var tabla;
     var currentPage = 0;
@@ -217,10 +217,6 @@ $(document).ready(function () {
                     className: "text-center",
                     width: '250px',
                     render: function (data, type, row) {
-                        if (type === 'export') {
-                            return '';
-                        }
-
                         var botones = '';
 
                         if (data && data.length > 0) {
@@ -241,15 +237,20 @@ $(document).ready(function () {
                                 var accionJs = boton.accion_js;
                                 var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
                                 var esConfirmable = boton.es_confirmable || 0;
+                                
+                                // Obtener información del comprobante para mostrar en la confirmación
+                                var comprobanteInfo = `${row.comprobante_tipo || ''} ${row.comprobante_pv || ''}-${row.comprobante_nro || ''}`;
+                                var proveedorInfo = row.entidad_nombre || row.entidad_fantasia || '';
 
                                 var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
-                                               title="${titulo}" 
-                                               data-id="${row.orden_compra_id}" 
-                                               data-accion="${accionJs}"
-                                               data-confirmable="${esConfirmable}"
-                                               data-comprobante="${row.comprobante_nro}">
-                                            ${icono}
-                                        </button>`;
+                                                title="${titulo}" 
+                                                data-id="${row.orden_compra_id}" 
+                                                data-accion="${accionJs}"
+                                                data-confirmable="${esConfirmable}"
+                                                data-comprobante="${comprobanteInfo}"
+                                                data-proveedor="${proveedorInfo}">
+                                                ${icono}
+                                            </button>`;
 
                                 if (accionJs === 'editar') {
                                     editarBoton = botonHtml;
@@ -371,7 +372,92 @@ $(document).ready(function () {
             }
         }, 'json');
     }
+    // ========== MANEJADOR DE ACCIONES DE BOTONES ==========
+    $(document).on('click', '.btn-accion', function () {
+        var ordenId = $(this).data('id');
+        var accionJs = $(this).data('accion');
+        var confirmable = $(this).data('confirmable');
+        var comprobanteInfo = $(this).data('comprobante') || 'Orden #' + ordenId;
+        var proveedorInfo = $(this).data('proveedor') || '';
 
+        if (accionJs === 'editar') {
+            cargarOrdenParaEditar(ordenId);
+        } else if (confirmable == 1) {
+            Swal.fire({
+                title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
+                html: `¿Está seguro de <strong>${accionJs}</strong> la orden<br>
+                    <strong>${comprobanteInfo}</strong>?<br>
+                    <small class="text-muted">Proveedor: ${proveedorInfo}</small>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: `Sí, ${accionJs}`,
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    ejecutarAccion(ordenId, accionJs, comprobanteInfo);
+                }
+            });
+        } else {
+            ejecutarAccion(ordenId, accionJs, comprobanteInfo);
+        }
+    });
+
+    // Función para ejecutar cualquier acción del backend
+    function ejecutarAccion(ordenId, accionJs, comprobanteInfo) {
+        var savedState = {
+            page: tabla.page(),
+            order: tabla.order(),
+            search: tabla.search()
+        };
+
+        $.post('ordenes_compra_ajax.php', {
+            accion: 'ejecutar_accion',
+            orden_compra_id: ordenId,
+            accion_js: accionJs,
+            empresa_idx: empresa_idx,
+            pagina_idx: pagina_idx
+        }, function (res) {
+            if (res.success) {
+                tabla.ajax.reload(function (json) {
+                    if (savedState.page !== undefined) {
+                        tabla.page(savedState.page).draw('page');
+                    }
+                    if (savedState.search && savedState.search !== '') {
+                        tabla.search(savedState.search).draw();
+                    }
+
+                    Swal.fire({
+                        icon: "success",
+                        title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
+                        text: res.message || `Orden "${comprobanteInfo}" actualizada correctamente`,
+                        showConfirmButton: false,
+                        timer: 1500,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }, false);
+            } else {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: res.error || `Error al ${accionJs} la orden`,
+                    confirmButtonText: "Entendido"
+                });
+            }
+        }, 'json').fail(function(xhr) {
+            Swal.fire({
+                icon: "error",
+                title: "Error de conexión",
+                text: "No se pudo conectar con el servidor",
+                confirmButtonText: "Entendido"
+            });
+            console.error('Error en ejecutarAccion:', xhr.responseText);
+        });
+    }
     // ========== FUNCIONES DE BÚSQUEDA DE PRODUCTOS ==========
     $('#busqueda_producto').on('input', function() {
         var q = $(this).val().trim();
@@ -804,25 +890,23 @@ $(document).ready(function () {
 
     // ========== FUNCIONES DE CARGA DE COMBOS ==========
     function cargarCombosFormulario() {
-        
-
         $.get('ordenes_compra_ajax.php', { 
-                accion: 'obtener_proveedores' 
-            }, function(data) {
-                console.log("Proveedores recibidos:", data);
-                var options = '<option value="">Seleccionar proveedor</option>';
-                if (data && data.length > 0) {
-                    data.forEach(function(item) {
-                        options += `<option value="${item.entidad_id}">${item.entidad_nombre}</option>`;
-                    });
-                } else {
-                    options = '<option value="">No hay proveedores disponibles</option>';
-                }
-                $('#entidad_id').html(options);
-            }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
-                console.error("Error cargando proveedores:", textStatus, errorThrown);
-                console.error("Respuesta:", jqXHR.responseText);
-            });
+            accion: 'obtener_proveedores' 
+        }, function(data) {
+            console.log("Proveedores recibidos:", data);
+            var options = '<option value="">Seleccionar proveedor</option>';
+            if (data && data.length > 0) {
+                data.forEach(function(item) {
+                    options += `<option value="${item.entidad_id}">${item.entidad_nombre}</option>`;
+                });
+            } else {
+                options = '<option value="">No hay proveedores disponibles</option>';
+            }
+            $('#entidad_id').html(options);
+        }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+            console.error("Error cargando proveedores:", textStatus, errorThrown);
+            console.error("Respuesta:", jqXHR.responseText);
+        });
 
         // Cargar sucursales de la empresa
         $.get('ordenes_compra_ajax.php', { 
@@ -836,19 +920,13 @@ $(document).ready(function () {
                 });
             }
             $('#sucursal_id').html(options);
-
-            // Si hay un valor pendiente (edición), asignarlo
-            if (window.sucursalIdEditar) {
-                $('#sucursal_id').val(window.sucursalIdEditar);
-                window.sucursalIdEditar = null; // Limpiar variable
-            }
+            console.log("Sucursales cargadas:", data);
         }, 'json');
 
         // Cargar tipos de comprobante
         $.get('ordenes_compra_ajax.php', { accion: 'obtener_comprobantes_tipos' }, function(data) {
             if (data && data.length > 0) {
                 if (data.length === 1) {
-                    // Si solo hay un tipo, seleccionarlo automáticamente
                     var options = `<option value="${data[0].comprobante_tipo_id}" selected>${data[0].comprobante_tipo}</option>`;
                     $('#comprobante_tipo_id').html(options);
                 } else {
@@ -899,7 +977,6 @@ $(document).ready(function () {
                 });
                 $('#condicion_pago_id').html(options);
                 
-                // Opcional: seleccionar la primera por defecto si no hay ninguna seleccionada
                 if (!$('#condicion_pago_id').val()) {
                     $('#condicion_pago_id').val(data[0].condicion_pago_id);
                 }
@@ -963,8 +1040,10 @@ $(document).ready(function () {
         
         $('#entidad_sucursal_id').html('<option value="">Seleccionar sucursal</option>');
         $('#proveedor_actual_nombre').text('No seleccionado');
-         $('#entidad_id').prop('disabled', false);
-         window.sucursalIdEditar = null;
+        $('#entidad_id').prop('disabled', false);
+        
+        // Limpiar cualquier variable temporal
+        window.sucursalIdEditar = null;
     }
 
     $(document).on('click', '#btnNuevo', function () {
@@ -1054,7 +1133,7 @@ $(document).ready(function () {
         }, 'json');
     }
 
-    // ========== CARGA DE ORDEN PARA EDITAR ==========
+   // ========== CARGA DE ORDEN PARA EDITAR ==========
     function cargarOrdenParaEditar(ordenId) {
         $.get('ordenes_compra_ajax.php', {
             accion: 'obtener',
@@ -1065,14 +1144,14 @@ $(document).ready(function () {
             
             if (res && res.orden_compra_id) {
                 resetModal();
-                window.sucursalIdEditar = res.sucursal_id || null;
+                
+                // Guardar el ID de sucursal para asignarlo después de cargar los combos
+                var sucursalIdParaEditar = res.sucursal_id || null;
+                console.log("Sucursal ID a cargar:", sucursalIdParaEditar);
+                
                 cargarCombosFormulario();
                 
                 $('#orden_compra_id').val(res.orden_compra_id);
-                
-                console.log("Asignando sucursal_id:", res.sucursal_id);
-                $('#sucursal_id').val(res.sucursal_id || '');
-                
                 $('#comprobante_nro').val(res.comprobante_nro);
                 $('#comprobante_pv').val(res.comprobante_pv || '0');
                 $('#f_emision').val(res.f_emision);
@@ -1092,10 +1171,17 @@ $(document).ready(function () {
                 $('#entidad_id').prop('disabled', true);
                 $('#modalLabel').text('Editar Orden de Compra');
 
+                // Asignar valores después de que los combos se hayan cargado
                 setTimeout(function() {
                     $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                     $('#moneda_id').val(res.moneda_id);
                     $('#condicion_pago_id').val(res.condicion_pago_id);
+                    
+                    // ASIGNAR SUCURSAL_ID DESPUÉS DE CARGAR EL COMBO
+                    if (sucursalIdParaEditar) {
+                        console.log("Asignando sucursal_id:", sucursalIdParaEditar);
+                        $('#sucursal_id').val(sucursalIdParaEditar);
+                    }
                     
                     if (res.entidad_id) {
                         proveedorActualId = res.entidad_id;
@@ -1247,44 +1333,54 @@ $(document).ready(function () {
             contentType: false,
             dataType: 'json',
             success: function(res) {
-                if (res.resultado) {
-                    if (tabla) {
-                        tabla.ajax.reload(function(json) {
-                            if (savedState.page !== undefined) {
-                                tabla.page(savedState.page).draw('page');
-                            }
-                            if (savedState.search && savedState.search !== '') {
-                                tabla.search(savedState.search).draw();
-                            }
-                        }, false);
-                    }
-                    
-                    btnGuardar.prop('disabled', false).html(originalText);
-                    
-                    Swal.fire({
-                        icon: "success",
-                        title: "¡Guardado!",
-                        text: "Orden de compra guardada correctamente",
-                        showConfirmButton: false,
-                        timer: 1500,
-                        toast: true,
-                        position: 'top-end'
-                    });
-                    
-                    var modalEl = document.getElementById('modalOrdenCompra');
-                    var modal = bootstrap.Modal.getInstance(modalEl);
+            // SIEMPRE habilitar el botón primero
+            btnGuardar.prop('disabled', false).html(originalText);
+            
+            if (res.resultado) {
+                if (tabla) {
+                    tabla.ajax.reload(function(json) {
+                        if (savedState.page !== undefined) {
+                            tabla.page(savedState.page).draw('page');
+                        }
+                        if (savedState.search && savedState.search !== '') {
+                            tabla.search(savedState.search).draw();
+                        }
+                    }, false);
+                }
+                
+                Swal.fire({
+                    icon: "success",
+                    title: "¡Guardado!",
+                    text: "Orden de compra guardada correctamente",
+                    showConfirmButton: false,
+                    timer: 1500,
+                    toast: true,
+                    position: 'top-end'
+                });
+                
+                // Cerrar modal - FORMA CORRECTA
+                var modalEl = document.getElementById('modalOrdenCompra');
+                var modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) {
                     modal.hide();
                 } else {
-                    btnGuardar.prop('disabled', false).html(originalText);
-                    
-                    Swal.fire({
-                        icon: "error",
-                        title: "Error",
-                        text: res.error || "Error al guardar los datos",
-                        confirmButtonText: "Entendido"
-                    });
+                    // Si no existe instancia, crear una nueva y ocultar
+                    modal = new bootstrap.Modal(modalEl);
+                    modal.hide();
                 }
-            },
+                
+                // También podemos forzar la eliminación de la clase modal-open del body
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+            } else {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: res.error || "Error al guardar los datos",
+                    confirmButtonText: "Entendido"
+                });
+            }
+        },
             error: function(xhr, status, error) {
                 btnGuardar.prop('disabled', false).html(originalText);
                 
@@ -1299,7 +1395,7 @@ $(document).ready(function () {
                 });
             }
         });
-    });
+    }); 
 
     // ========== PRODUCTO RÁPIDO ==========
     function cargarDatosProductoRapido() {
