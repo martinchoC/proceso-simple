@@ -2,12 +2,11 @@
 </div>
 </main>
 <footer class="app-footer">
-  <div class="float-end d-none d-sm-inline">Anything you want</div>
+  <div class="float-end d-none d-sm-inline"></div>
   <strong>
     Copyright &copy; 2014-<?php echo date("Y"); ?>&nbsp;
     <a href="https://developsam.com" class="text-decoration-none">Developsam</a>.
   </strong>
-  All rights reserved.
 </footer>
 </div>
 <script src="<?= asset_local('js/overlayscrollbars.browser.es6.min.js') ?>"></script>

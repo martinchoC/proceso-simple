@@ -1,0 +1,196 @@
+/* =========================================
+index.php
+========================================= */
+
+/* =========================================
+1. TARJETAS DE MÓDULOS
+========================================= */
+.modulo-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid #edf2f9;
+    border-radius: 16px;
+    padding: 1.5rem 1rem;
+    color: #495057;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.modulo-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 123, 255, 0.12);
+    border-color: #b3d7ff;
+    color: #007bff;
+}
+
+.modulo-icon {
+    font-size: 2rem;
+    margin-bottom: 0.8rem;
+    color: #adb5bd;
+    transition: all 0.3s ease-in-out;
+}
+
+.modulo-card:hover .modulo-icon {
+    color: #007bff;
+    transform: scale(1.1);
+}
+
+.modulo-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    text-align: center;
+}
+
+/* =========================================
+    2. SEPARADOR DE EMPRESAS (MINIMALISTA)
+    ========================================= */
+.empresa-separator {
+    display: flex;
+    align-items: center;
+    margin: 2.5rem 0 1.5rem 0;
+}
+
+.empresa-separator:first-of-type {
+    margin-top: 0.5rem;
+}
+
+.empresa-separator h4 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #343a40;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+}
+
+.empresa-separator .line {
+    flex-grow: 1;
+    height: 1px;
+    background-color: #e9ecef;
+    margin-left: 20px;
+}
+
+/* =========================================
+ header1.php
+ ========================================= */
+/* =========================================
+1. AJUSTE MULTILÍNEA Y SCROLL DEL MENÚ LATERAL
+========================================= */
+.app-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.sidebar-wrapper {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    white-space: normal !important;
+    padding-bottom: 30px !important;
+}
+
+.sidebar-wrapper::-webkit-scrollbar {
+    width: 5px;
+}
+
+.sidebar-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-wrapper::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+}
+
+.sidebar-wrapper .nav-link {
+    display: flex !important;
+    align-items: flex-start !important;
+    white-space: normal !important;
+    height: auto !important;
+}
+
+.sidebar-wrapper .nav-link p {
+    display: inline-block !important;
+    white-space: normal !important;
+    width: 175px !important;
+    line-height: 1.3;
+    margin: 0;
+}
+
+.sidebar-wrapper .nav-icon {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+/* =========================================
+2. SKIP LINKS PERSONALIZADOS
+========================================= */
+.skip-link {
+    position: absolute !important;
+    top: -100px !important;
+    left: 0 !important;
+    background: #007bff !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    z-index: 9999 !important;
+    transition: top 0.3s !important;
+    text-decoration: none !important;
+    border-radius: 0 0 5px 5px !important;
+    display: inline-block !important;
+}
+
+.skip-link:focus {
+    top: 0 !important;
+    outline: none !important;
+}
+
+.skip-links {
+    position: absolute !important;
+    z-index: 10000 !important;
+}
+
+/* =========================================
+3. MAXIMIZAR EL ESPACIO DEL CONTENIDO
+========================================= */
+.app-main .container,
+.app-main .container-fluid {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+}
+
+/* =========================================
+4. COMPORTAMIENTO TIPO "APP"
+========================================= */
+html,
+body {
+    height: 100vh !important;
+    overflow: hidden !important;
+}
+
+.app-wrapper {
+    height: 100vh !important;
+}
+
+.app-main {
+    min-height: 0 !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+.app-footer {
+    flex-shrink: 0 !important;
+    z-index: 1030 !important;
+}
