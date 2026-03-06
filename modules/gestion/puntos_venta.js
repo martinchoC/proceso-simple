@@ -83,18 +83,7 @@ $(document).ready(function () {
                 '<"clear">',
             pageLength: 50,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-            buttons: [
-                {
-                    extend: 'print',
-                    text: '<i class="fas fa-print"></i> Imprimir',
-                    className: 'btn btn-secondary btn-sm',
-                    title: 'Puntos de Venta',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5],
-                        stripHtml: false
-                    }
-                }
-            ],
+            
             columns: [
                 {
                     data: 'punto_venta_id',
@@ -148,7 +137,7 @@ $(document).ready(function () {
                             if (type === 'export') {
                                 return 'Sin estado';
                             }
-                            return '<span class="badge bg-secondary">Sin estado</span>';
+                            return '<span class="fw-medium">Sin estado</span>';
                         }
 
                         var estado = data.estado_registro;
@@ -229,7 +218,7 @@ $(document).ready(function () {
             },
             initComplete: function () {
                 var buttons = new $.fn.dataTable.Buttons(tabla, {
-                    buttons: ['print']
+                    buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
                 }).container().appendTo($('#tablaPuntosVenta_wrapper .col-md-6:eq(1)'));
 
                 $(tabla.table().container()).on('page.dt', function (e) {
@@ -292,7 +281,29 @@ $(document).ready(function () {
     }
 
     function inicializarBotonesExternos() {
-        $('#btnImprimir').off('click').on('click', function() {
+        $('#btnExportarExcel').off('click').on('click', function(e) {
+            e.preventDefault();
+            if (tabla) {
+                tabla.button('.buttons-excel').trigger();
+            }
+        });
+
+        $('#btnExportarPDF').off('click').on('click', function(e) {
+            e.preventDefault();
+            if (tabla) {
+                tabla.button('.buttons-pdf').trigger();
+            }
+        });
+
+        $('#btnExportarCSV').off('click').on('click', function(e) {
+            e.preventDefault();
+            if (tabla) {
+                tabla.button('.buttons-csv').trigger();
+            }
+        });
+
+        $('#btnExportarPrint').off('click').on('click', function(e) {
+            e.preventDefault();
             if (tabla) {
                 tabla.button('.buttons-print').trigger();
             }

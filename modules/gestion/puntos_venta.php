@@ -101,16 +101,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="modal fade" id="modalPuntoVenta" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-centered">
                     <div class="modal-content">
-                        <div class="modal-header py-2">
+                        <div class="modal-header py-2 position-relative">
                             <h5 class="modal-title" id="modalLabel">Punto de Venta</h5>
-                            <div class="d-flex align-items-center">
-                                <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="btnToggleFullscreen" title="Pantalla completa">
+                            <div class="position-absolute top-0 end-0 mt-2 me-2 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnToggleFullscreen" title="Pantalla completa">
                                     <i class="fas fa-expand"></i>
                                 </button>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                             </div>
                         </div>
                         <div class="modal-body p-3">
+                            <!-- Resto del contenido del modal sin cambios -->
                             <form id="formPuntoVenta" class="needs-validation" novalidate>
                                 <input type="hidden" id="punto_venta_id" name="punto_venta_id" />
                                 

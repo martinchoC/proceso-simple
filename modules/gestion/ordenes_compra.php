@@ -78,10 +78,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="80">ID</th>
-                                                    <th width="120">Comprobante</th>
+                                                    <th width="100">Tipo</th>
+                                                    <th width="120">Número</th>
                                                     <th width="200">Proveedor</th>
                                                     <th width="100">Emisión</th>
-                                                    <th width="120">Entrega Estimada</th>
+                                                    <th width="120">Entrega Est.</th>
                                                     <th width="120">Total</th>
                                                     <th width="120">Estado</th>
                                                     <th width="250" class="text-center">Acciones</th>
@@ -98,7 +99,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
 
             <!-- Modal principal -->
-           <div class="modal fade" id="modalOrdenCompra" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+            <div class="modal fade" id="modalOrdenCompra" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-xl modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header py-2">
@@ -110,14 +111,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                             </div>
                         </div>
-                    <div class="modal-body p-3">
+                        <div class="modal-body p-3">
                             <form id="formOrdenCompra" class="needs-validation" novalidate>
                                 <input type="hidden" id="orden_compra_id" name="orden_compra_id" />
                                 
                                 <!-- Primera fila de cabecera -->
                                 <div class="row mb-2">
                                     <div class="col-md-3 mb-2">
-                                        <label for="entidad_id" class="form-label small mb-1">Proveedor *</label>
+                                        <label for="sucursal_id" class="form-label small mb-1">Sucursal</label>
+                                        <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
+                                            <option value="">Seleccionar sucursal</option>
+                                        </select>
+                                        <div class="invalid-feedback small">Seleccione sucursal</div>
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="entidad_id" class="form-label small mb-1">Proveedor</label>
                                         <div class="input-group input-group-sm">
                                             <select class="form-select" id="entidad_id" name="entidad_id" required>
                                                 <option value="">Seleccionar proveedor</option>
@@ -129,31 +137,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback small">Seleccione proveedor</div>
                                     </div>
                                     <div class="col-md-2 mb-2">
-                                        <label for="sucursal_id" class="form-label small mb-1">Sucursal *</label>
-                                        <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
-                                            <option value="">Seleccionar sucursal</option>
-                                        </select>
-                                        <div class="invalid-feedback small">Seleccione sucursal</div>
-                                    </div>
-                                    <div class="col-md-2 mb-2">
-                                        <label for="comprobante_tipo_id" class="form-label small mb-1">Tipo *</label>
+                                        <label for="comprobante_tipo_id" class="form-label small mb-1">Tipo</label>
                                         <select class="form-select form-select-sm" id="comprobante_tipo_id" name="comprobante_tipo_id" required>
                                             <option value="">Seleccionar</option>
                                         </select>
                                         <div class="invalid-feedback small">Seleccione el tipo</div>
                                     </div>
                                     <div class="col-md-1 mb-2">
-                                        <label for="comprobante_pv" class="form-label small mb-1">PV *</label>
+                                        <label for="comprobante_pv" class="form-label small mb-1">PV</label>
                                         <input type="number" class="form-control form-control-sm" id="comprobante_pv" name="comprobante_pv" value="0" min="0" required>
                                         <div class="invalid-feedback small">Obligatorio</div>
                                     </div>
                                     <div class="col-md-2 mb-2">
-                                        <label for="comprobante_nro" class="form-label small mb-1">Número *</label>
+                                        <label for="comprobante_nro" class="form-label small mb-1">Número</label>
                                         <input type="number" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" value="0" min="1" required>
                                         <div class="invalid-feedback small">Número obligatorio</div>
                                     </div>
-                                    <div class="col-md-2 mb-2">
-                                        <label for="f_emision" class="form-label small mb-1">Emisión *</label>
+                                    <div class="col-md-1 mb-2">
+                                        <label for="f_emision" class="form-label small mb-1">Emisión</label>
                                         <input type="date" class="form-control form-control-sm" id="f_emision" name="f_emision" required>
                                         <div class="invalid-feedback small">Fecha obligatoria</div>
                                     </div>
@@ -172,7 +173,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <input type="date" class="form-control form-control-sm" id="f_entrega_estimada" name="f_entrega_estimada" min="">
                                     </div>
                                     <div class="col-md-2 mb-2">
-                                        <label for="moneda_id" class="form-label small mb-1">Moneda *</label>
+                                        <label for="moneda_id" class="form-label small mb-1">Moneda</label>
                                         <select class="form-select form-select-sm" id="moneda_id" name="moneda_id" required>
                                             <option value="">Seleccionar</option>
                                         </select>
@@ -202,8 +203,67 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                 </div>
 
+                                
+
+                                <!-- Totales en formato horizontal con nuevos campos -->
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <div class="card bg-light">
+                                            <div class="card-body py-2">
+                                                <div class="row align-items-center">
+                                                    <div class="col-md-3">
+                                                        <div class="d-flex justify-content-between">
+                                                            <span class="small">Total Neto:</span>
+                                                            <span class="fw-bold" id="total_neto_display">0.00</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <div class="d-flex justify-content-between">
+                                                            <span class="small">No Gravado:</span>
+                                                            <span id="no_gravado_display">0.00</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <div class="d-flex justify-content-between">
+                                                            <span class="small">Exento:</span>
+                                                            <span id="exento_display">0.00</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <div class="d-flex justify-content-between">
+                                                            <span class="small">Impuestos:</span>
+                                                            <span id="impuestos_display">0.00</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="d-flex justify-content-between fw-bold text-primary">
+                                                            <span class="small">TOTAL:</span>
+                                                            <span id="total_display">0.00</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="total_neto" name="total_neto" value="0">
+                                        <input type="hidden" id="no_gravado" name="no_gravado" value="0">
+                                        <input type="hidden" id="exento" name="exento" value="0">
+                                        <input type="hidden" id="impuestos" name="impuestos" value="0">
+                                        <input type="hidden" id="total" name="total" value="0">
+                                    </div>
+                                </div>
+                                <!-- BOTONES SUPERIORES (Guardar/Cancelar) - Ahora arriba de Detalles de Productos -->
+                                <div class="row mt-3 mb-3">
+                                    <div class="col-12 text-center">
+                                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                                            <i class="fas fa-times me-1"></i>Cancelar
+                                        </button>
+                                        <button type="button" class="btn btn-primary btn-sm" id="btnGuardar">
+                                            <i class="fas fa-save me-1"></i>Guardar Orden
+                                        </button>
+                                    </div>
+                                </div>
                                 <!-- Título de sección de productos -->
-                                <div class="row mt-3">
+                                <div class="row">
                                     <div class="col-12">
                                         <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
                                             <h6 class="mb-0">
@@ -216,7 +276,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                 </div>
 
-                               <!-- Fila de agregado rápido de productos -->
+                                <!-- Fila de agregado rápido de productos -->
                                 <div class="row mb-3">
                                     <div class="col-12">
                                         <div class="card card-primary card-outline">
@@ -298,45 +358,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Totales -->
-                                <div class="row mt-4">
-                                    <div class="col-md-8"></div>
-                                    <div class="col-md-4">
-                                        <table class="table table-sm table-borderless">
-                                            <tbody>
-                                                <tr>
-                                                    <td><strong class="small">Subtotal:</strong></td>
-                                                    <td class="text-end"><span id="subtotal_display" class="fw-bold">0.00</span></td>
-                                                </tr>
-                                                <tr>
-                                                    <td><strong class="small">Descuentos:</strong></td>
-                                                    <td class="text-end"><span id="descuentos_display">0.00</span></td>
-                                                </tr>
-                                                <tr>
-                                                    <td><strong class="small">Impuestos:</strong></td>
-                                                    <td class="text-end"><span id="impuestos_display">0.00</span></td>
-                                                </tr>
-                                                <tr class="table-active">
-                                                    <td><strong class="small">TOTAL:</strong></td>
-                                                    <td class="text-end"><span id="total_display" class="fw-bold text-primary fs-6">0.00</span></td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                        <input type="hidden" id="subtotal" name="subtotal" value="0">
-                                        <input type="hidden" id="descuentos" name="descuentos" value="0">
-                                        <input type="hidden" id="impuestos" name="impuestos" value="0">
-                                        <input type="hidden" id="total" name="total" value="0">
-                                    </div>
-                                </div>
                             </form>
                         </div>
-                        <div class="modal-footer py-2">
-                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-primary btn-sm" id="btnGuardar">
-                                <i class="fas fa-save me-1"></i>Guardar Orden
-                            </button>
-                        </div>
+                        <!-- Footer del modal eliminado (los botones ahora están arriba) -->
                     </div>
                 </div>
             </div>
