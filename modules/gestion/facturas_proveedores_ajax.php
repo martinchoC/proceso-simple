@@ -20,7 +20,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 });
 
 require_once __DIR__ . '/../../db.php';
-require_once "ordenes_compra_model.php";
+require_once "facturas_proveedores_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
@@ -29,7 +29,7 @@ if (empty($accion)) {
 }
 
 $empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
-$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 65);
+$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 52);
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
@@ -38,8 +38,8 @@ if (!$conexion) {
 try {
     switch ($accion) {
         case 'listar':
-            $ordenes = obtenerOrdenesCompra($conexion, $empresa_idx, $pagina_idx);
-            echo json_encode($ordenes, JSON_UNESCAPED_UNICODE);
+            $facturas = obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_idx);
+            echo json_encode($facturas, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_boton_agregar':
@@ -52,44 +52,14 @@ try {
             $sucursales = obtenerSucursalesEmpresa($conexion, $empresa_idx_local);
             echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
             break;
-            
-        case 'obtener_puntos_venta':
-            $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
-            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
-            
-            if (empty($sucursal_id)) {
-                echo json_encode([]);
-                break;
-            }
-            
-            $sql = "SELECT punto_venta_id, nombre as punto_venta_nombre, codigo_fiscal as punto_venta_codigo 
-                    FROM gestion__puntos_venta 
-                    WHERE sucursal_id = ? 
-                    AND empresa_id = ?
-                    AND tabla_estado_registro_id = 1 
-                    ORDER BY nombre";
-            
-            $stmt = mysqli_prepare($conexion, $sql);
-            mysqli_stmt_bind_param($stmt, "ii", $sucursal_id, $empresa_idx_local);
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
-            
-            $puntos_venta = [];
-            while ($fila = mysqli_fetch_assoc($result)) {
-                $puntos_venta[] = $fila;
-            }
-            mysqli_stmt_close($stmt);
-            
-            echo json_encode($puntos_venta, JSON_UNESCAPED_UNICODE);
-            break;
-            
+
         case 'ejecutar_accion':
-            $orden_compra_id = intval($_POST['orden_compra_id'] ?? 0);
+            $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
             $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
             $pagina_id = intval($_POST['pagina_idx'] ?? 0);
             
-            $resultado = ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empresa_idx, $pagina_id);
+            $resultado = ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $empresa_idx, $pagina_id);
             echo json_encode($resultado);
             break;
 
@@ -119,7 +89,7 @@ try {
             
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-            
+
         case 'agregar':
             if (!isset($_POST['detalles'])) {
                 enviarRespuesta(['resultado' => false, 'error' => 'No se recibieron los detalles']);
@@ -130,26 +100,28 @@ try {
                 enviarRespuesta(['resultado' => false, 'error' => 'Error al decodificar los detalles: ' . json_last_error_msg()]);
             }
             
+            // LOG TEMPORAL para depuración
             error_log("=== DATOS RECIBIDOS EN AGREGAR ===");
             error_log("POST: " . print_r($_POST, true));
             error_log("detalles decodificados: " . print_r($detalles, true));
             
             $data = [
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
-                'comprobante_letra' => trim($_POST['comprobante_letra'] ?? ''),
+                'comprobante_pv' => trim($_POST['comprobante_pv'] ?? ''),
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'punto_venta_id' => intval($_POST['punto_venta_id'] ?? 0),
                 'comprobante_nro' => trim($_POST['comprobante_nro'] ?? ''),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
                 'f_emision' => $_POST['f_emision'] ?? '',
-                'f_entrega_estimada' => $_POST['f_entrega_estimada'] ?? null,
+                'f_vencimiento' => $_POST['f_vencimiento'] ?? null,
                 'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
                 'moneda_id' => intval($_POST['moneda_id'] ?? 0),
                 'tipo_cambio' => floatval($_POST['tipo_cambio'] ?? 0),
-                'direccion_entrega' => trim($_POST['direccion_entrega'] ?? ''),
+                'direccion' => trim($_POST['direccion'] ?? ''),
                 'subtotal' => floatval($_POST['subtotal'] ?? 0),
                 'descuentos' => floatval($_POST['descuentos'] ?? 0),
+                'no_gravado' => floatval($_POST['no_gravado'] ?? 0),
+                'exento' => floatval($_POST['exento'] ?? 0),
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
@@ -158,12 +130,12 @@ try {
                 'pagina_idx' => $pagina_idx
             ];
 
-            $resultado = agregarOrdenCompra($conexion, $data);
+            $resultado = agregarFacturaProveedor($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'editar':
-            $id = intval($_POST['orden_compra_id'] ?? 0);
+            $id = intval($_POST['factura_proveedor_id'] ?? 0);
             
             error_log("=== EDITAR - ID recibido: $id ===");
             error_log("POST completo: " . print_r($_POST, true));
@@ -182,18 +154,20 @@ try {
             $data = [
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'punto_venta_id' => intval($_POST['punto_venta_id'] ?? 0),
+                'comprobante_pv' => trim($_POST['comprobante_pv'] ?? ''),                
                 'comprobante_nro' => trim($_POST['comprobante_nro'] ?? ''),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
                 'f_emision' => $_POST['f_emision'] ?? '',
-                'f_entrega_estimada' => $_POST['f_entrega_estimada'] ?? null,
+                'f_vencimiento' => $_POST['f_vencimiento'] ?? null,
                 'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
                 'moneda_id' => intval($_POST['moneda_id'] ?? 0),
                 'tipo_cambio' => floatval($_POST['tipo_cambio'] ?? 0),
-                'direccion_entrega' => trim($_POST['direccion_entrega'] ?? ''),
+                'direccion' => trim($_POST['direccion'] ?? ''),
                 'subtotal' => floatval($_POST['subtotal'] ?? 0),
                 'descuentos' => floatval($_POST['descuentos'] ?? 0),
+                'no_gravado' => floatval($_POST['no_gravado'] ?? 0),
+                'exento' => floatval($_POST['exento'] ?? 0),
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
@@ -201,26 +175,26 @@ try {
                 'empresa_idx' => $empresa_idx
             ];
             
-            error_log("data armada para editarOrdenCompra: " . print_r($data, true));
+            error_log("data armada para editarFacturaProveedor: " . print_r($data, true));
 
-            $resultado = editarOrdenCompra($conexion, $id, $data);
-            error_log("resultado de editarOrdenCompra: " . print_r($resultado, true));
+            $resultado = editarFacturaProveedor($conexion, $id, $data);
+            error_log("resultado de editarFacturaProveedor: " . print_r($resultado, true));
             
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener':
-            $id = intval($_POST['orden_compra_id'] ?? $_GET['orden_compra_id'] ?? 0);
+            $id = intval($_POST['factura_proveedor_id'] ?? $_GET['factura_proveedor_id'] ?? 0);
             if (empty($id)) {
                 echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
 
-            $orden = obtenerOrdenCompraPorId($conexion, $id, $empresa_idx);
-            if ($orden) {
-                echo json_encode($orden, JSON_UNESCAPED_UNICODE);
+            $factura = obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx);
+            if ($factura) {
+                echo json_encode($factura, JSON_UNESCAPED_UNICODE);
             } else {
-                echo json_encode(['error' => 'Orden de compra no encontrada'], JSON_UNESCAPED_UNICODE);
+                echo json_encode(['error' => 'Factura de proveedor no encontrada'], JSON_UNESCAPED_UNICODE);
             }
             break;
 
@@ -349,7 +323,7 @@ try {
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }
 } catch (Exception $e) {
-    error_log("Excepción en ordenes_compra_ajax.php: " . $e->getMessage());
+    error_log("Excepción en facturas_proveedores_ajax.php: " . $e->getMessage());
     manejarError('Error del servidor: ' . $e->getMessage(), 500);
 }
 

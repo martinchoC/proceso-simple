@@ -78,8 +78,11 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
     $botones = [];
 
     foreach ($funciones as $funcion) {
+        // Incluir botones donde el origen coincide con el estado actual
+        // O donde el origen es 0 (botón agregar, pero eso se maneja aparte)
         if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
             
+            // Determinar si es confirmable (cambia de estado)
             $esConfirmable = 0;
             if ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) {
                 $esConfirmable = 1;
@@ -121,7 +124,7 @@ function obtenerBotonAgregar($conexion, $pagina_id)
     }
 
     return [
-        'nombre_funcion' => 'Nueva Orden',
+        'nombre_funcion' => 'Nueva Factura',
         'accion_js' => 'agregar',
         'icono_clase' => 'fas fa-plus',
         'color_clase' => 'btn-primary',
@@ -130,213 +133,46 @@ function obtenerBotonAgregar($conexion, $pagina_id)
     ];
 }
 
-function obtenerEstadoInicial($conexion, $pagina_id)
+function obtenerEstadoInicial($conexion)
 {
-    $pagina_id = intval($pagina_id);
-    
-    $sql = "SELECT ter.estado_registro_id
-            FROM conf__paginas p
-            JOIN conf__tablas_estados_registros ter ON ter.tabla_id = p.tabla_id
-            WHERE p.pagina_id = ?
-            AND ter.es_inicial = 1
+    $sql = "SELECT estado_registro_id 
+            FROM conf__estados_registros 
+            WHERE valor_estandar IS NOT NULL
+            ORDER BY valor_estandar ASC 
             LIMIT 1";
-    
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt) {
-        error_log("Error preparando consulta estado inicial: " . mysqli_error($conexion));
-        return 1; // Valor por defecto si hay error
+
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return 1;
     }
-    
-    mysqli_stmt_bind_param($stmt, "i", $pagina_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
+
     $fila = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    
-    if ($fila) {
-        error_log("Estado inicial encontrado: " . $fila['estado_registro_id']);
-        return $fila['estado_registro_id'];
-    }
-    
-    // Si no encuentra, buscar un estado por defecto
-    error_log("No se encontró estado inicial para página $pagina_id, usando ID 1 por defecto");
-    return 1;
+    return $fila ? $fila['estado_registro_id'] : 1;
 }
 
-/**
- * Obtiene el próximo número de comprobante y actualiza el numerador
- */
-function obtenerProximoNumeroComprobante($conexion, $empresa_id, $punto_venta_id, $comprobante_tipo_id) {
-    error_log("=== obtenerProximoNumeroComprobante ===");
-    error_log("empresa_id: $empresa_id, punto_venta_id: $punto_venta_id, comprobante_tipo_id: $comprobante_tipo_id");
-    
-    // Verificar si existe el numerador
-    $sql_check = "SELECT numerador_id, ultimo_numero 
-                  FROM gestion__comprobantes_numeradores 
-                  WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?";
-    
-    $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt) {
-        error_log("Error preparando consulta numerador: " . mysqli_error($conexion));
-        return false;
-    }
-    
-    mysqli_stmt_bind_param($stmt, "iii", $empresa_id, $punto_venta_id, $comprobante_tipo_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $numerador = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    
-    if ($numerador) {
-        // Actualizar el número
-        $nuevo_numero = $numerador['ultimo_numero'] + 1;
-        error_log("Numerador encontrado - ID: {$numerador['numerador_id']}, último: {$numerador['ultimo_numero']}, nuevo: $nuevo_numero");
-        
-        $sql_update = "UPDATE gestion__comprobantes_numeradores 
-                       SET ultimo_numero = ? 
-                       WHERE numerador_id = ?";
-        
-        $stmt_update = mysqli_prepare($conexion, $sql_update);
-        if (!$stmt_update) {
-            error_log("Error preparando update numerador: " . mysqli_error($conexion));
-            return false;
-        }
-        
-        mysqli_stmt_bind_param($stmt_update, "ii", $nuevo_numero, $numerador['numerador_id']);
-        $success = mysqli_stmt_execute($stmt_update);
-        mysqli_stmt_close($stmt_update);
-        
-        if ($success) {
-            error_log("Numerador actualizado correctamente. Nuevo número: $nuevo_numero");
-            return $nuevo_numero;
-        } else {
-            error_log("Error actualizando numerador: " . mysqli_error($conexion));
-            return false;
-        }
-    } else {
-        // No existe el numerador, crear uno nuevo empezando en 1
-        error_log("No existe numerador para empresa $empresa_id, punto_venta $punto_venta_id, tipo $comprobante_tipo_id. Creando nuevo con número 1");
-        
-        $sql_insert = "INSERT INTO gestion__comprobantes_numeradores 
-                       (empresa_id, punto_venta_id, comprobante_tipo_id, ultimo_numero) 
-                       VALUES (?, ?, ?, 1)";
-        
-        $stmt_insert = mysqli_prepare($conexion, $sql_insert);
-        if (!$stmt_insert) {
-            error_log("Error preparando insert numerador: " . mysqli_error($conexion));
-            return false;
-        }
-        
-        mysqli_stmt_bind_param($stmt_insert, "iii", $empresa_id, $punto_venta_id, $comprobante_tipo_id);
-        $success = mysqli_stmt_execute($stmt_insert);
-        $insert_id = mysqli_insert_id($conexion);
-        mysqli_stmt_close($stmt_insert);
-        
-        if ($success) {
-            error_log("Numerador creado con ID: $insert_id, número inicial: 1");
-            return 1;
-        } else {
-            error_log("Error insertando numerador: " . mysqli_error($conexion));
-            return false;
-        }
-    }
-}
-/**
- * Asigna número de comprobante a una orden al ser confirmada
- */
-function asignarNumeroComprobante($conexion, $orden_compra_id) {
-    // Obtener datos de la orden necesarios para la numeración
-    $sql = "SELECT oc.empresa_id, oc.punto_venta_id, oc.comprobante_tipo_id
-            FROM gestion__ordenes_compra oc
-            WHERE oc.orden_compra_id = ?";
-    
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt) {
-        return ['success' => false, 'error' => 'Error preparando consulta: ' . mysqli_error($conexion)];
-    }
-    
-    mysqli_stmt_bind_param($stmt, "i", $orden_compra_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $orden = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    
-    if (!$orden) {
-        return ['success' => false, 'error' => 'Orden no encontrada'];
-    }
-    
-    if (empty($orden['punto_venta_id'])) {
-        return ['success' => false, 'error' => 'La orden no tiene punto de venta asignado'];
-    }
-    
-    // Obtener próximo número
-    $proximo_numero = obtenerProximoNumeroComprobante(
-        $conexion, 
-        $orden['empresa_id'], 
-        $orden['punto_venta_id'], 
-        $orden['comprobante_tipo_id']
-    );
-    
-    if ($proximo_numero === false) {
-        return ['success' => false, 'error' => 'Error al obtener próximo número de comprobante'];
-    }
-    
-    // Actualizar la orden con el nuevo número
-    $sql_update = "UPDATE gestion__ordenes_compra 
-                   SET comprobante_nro = ? 
-                   WHERE orden_compra_id = ?";
-    
-    $stmt_update = mysqli_prepare($conexion, $sql_update);
-    if (!$stmt_update) {
-        return ['success' => false, 'error' => 'Error preparando update: ' . mysqli_error($conexion)];
-    }
-    
-    mysqli_stmt_bind_param($stmt_update, "ii", $proximo_numero, $orden_compra_id);
-    $success = mysqli_stmt_execute($stmt_update);
-    mysqli_stmt_close($stmt_update);
-    
-    if ($success) {
-        return [
-            'success' => true, 
-            'message' => 'Número de comprobante asignado correctamente',
-            'comprobante_nro' => $proximo_numero
-        ];
-    } else {
-        return ['success' => false, 'error' => 'Error al actualizar la orden: ' . mysqli_error($conexion)];
-    }
-}
-function ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empresa_idx, $pagina_id)
+function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $empresa_idx, $pagina_id)
 {
-    $orden_compra_id = intval($orden_compra_id);
+    $factura_proveedor_id = intval($factura_proveedor_id);
     $pagina_id = intval($pagina_id);
 
-    // Obtener datos completos de la orden
-    $sql_check = "SELECT oc.orden_compra_id, oc.tabla_estado_registro_id, oc.comprobante_nro, 
-                         oc.comprobante_tipo_id, oc.punto_venta_id, oc.empresa_id,
-                         pv.punto_venta_id as pv_id
-                  FROM gestion__ordenes_compra oc
-                  LEFT JOIN gestion__puntos_venta pv ON oc.punto_venta_id = pv.punto_venta_id
-                  WHERE oc.orden_compra_id = ?";
-    
+    $sql_check = "SELECT factura_proveedor_id, tabla_estado_registro_id 
+                  FROM gestion__facturas_proveedores 
+                  WHERE factura_proveedor_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt) {
-        error_log("Error preparando consulta: " . mysqli_error($conexion));
+    if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
-    }
 
-    mysqli_stmt_bind_param($stmt, "i", $orden_compra_id);
+    mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $orden = mysqli_fetch_assoc($result);
+    $factura = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    if (!$orden) {
+    if (!$factura)
         return ['success' => false, 'error' => 'Registro no encontrado'];
-    }
 
-    $estado_actual_id = $orden['tabla_estado_registro_id'];
+    $estado_actual_id = $factura['tabla_estado_registro_id'];
 
-    // Buscar la función que corresponde a la acción
     $sql_funcion = "SELECT pf.* 
                     FROM conf__paginas_funciones pf
                     WHERE pf.pagina_id = ? 
@@ -345,10 +181,8 @@ function ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empr
                     LIMIT 1";
 
     $stmt = mysqli_prepare($conexion, $sql_funcion);
-    if (!$stmt) {
-        error_log("Error preparando consulta función: " . mysqli_error($conexion));
+    if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
-    }
 
     mysqli_stmt_bind_param($stmt, "iis", $pagina_id, $estado_actual_id, $accion_js);
     mysqli_stmt_execute($stmt);
@@ -356,103 +190,35 @@ function ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empr
     $funcion = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    if (!$funcion) {
-        error_log("Acción no permitida - página: $pagina_id, estado origen: $estado_actual_id, acción: $accion_js");
+    if (!$funcion)
         return ['success' => false, 'error' => 'Acción no permitida para este estado'];
-    }
 
     $estado_destino_id = $funcion['tabla_estado_registro_destino_id'];
 
-    // Si el estado no cambia, retornar éxito
     if ($estado_destino_id == $estado_actual_id) {
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
 
-    mysqli_begin_transaction($conexion);
-    
-    try {
-        // Variable para almacenar el número asignado
-        $numero_asignado = null;
-        
-        // Si la acción es "confirmar", asignar número ANTES de cambiar el estado
-        if ($accion_js === 'confirmar') {
-            
-            // Verificar que la orden tenga punto de venta
-            if (empty($orden['punto_venta_id'])) {
-                throw new Exception('La orden no tiene punto de venta asignado. No se puede generar número de comprobante.');
-            }
-            
-            // Verificar que no tenga ya un número asignado
-            if (!empty($orden['comprobante_nro']) && $orden['comprobante_nro'] > 0) {
-                // Ya tiene número, lo usamos
-                $numero_asignado = $orden['comprobante_nro'];
-                error_log("La orden ya tiene número: $numero_asignado");
-            } else {
-                // Obtener el próximo número del numerador
-                $proximo_numero = obtenerProximoNumeroComprobante(
-                    $conexion, 
-                    $orden['empresa_id'], 
-                    $orden['punto_venta_id'], 
-                    $orden['comprobante_tipo_id']
-                );
-                
-                if ($proximo_numero === false) {
-                    throw new Exception('Error al obtener próximo número de comprobante');
-                }
-                
-                // Actualizar la orden con el nuevo número
-                $sql_update_numero = "UPDATE gestion__ordenes_compra 
-                                      SET comprobante_nro = ? 
-                                      WHERE orden_compra_id = ?";
-                
-                $stmt_numero = mysqli_prepare($conexion, $sql_update_numero);
-                if (!$stmt_numero) {
-                    throw new Exception('Error preparando update de número: ' . mysqli_error($conexion));
-                }
-                
-                mysqli_stmt_bind_param($stmt_numero, "ii", $proximo_numero, $orden_compra_id);
-                if (!mysqli_stmt_execute($stmt_numero)) {
-                    throw new Exception('Error actualizando número: ' . mysqli_stmt_error($stmt_numero));
-                }
-                mysqli_stmt_close($stmt_numero);
-                
-                $numero_asignado = $proximo_numero;
-                error_log("Nuevo número asignado: $numero_asignado");
-            }
-        }
-        
-        // Actualizar estado
-        $sql_update = "UPDATE gestion__ordenes_compra 
-                       SET tabla_estado_registro_id = ? 
-                       WHERE orden_compra_id = ?";
-        
-        $stmt = mysqli_prepare($conexion, $sql_update);
-        if (!$stmt) {
-            throw new Exception('Error preparando update de estado: ' . mysqli_error($conexion));
-        }
-        
-        mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $orden_compra_id);
-        if (!mysqli_stmt_execute($stmt)) {
-            throw new Exception('Error actualizando estado: ' . mysqli_stmt_error($stmt));
-        }
-        mysqli_stmt_close($stmt);
-        
-        mysqli_commit($conexion);
-        
-        $mensaje = 'Estado actualizado correctamente';
-        if ($numero_asignado) {
-            $mensaje .= ' - Número asignado: ' . $numero_asignado;
-        }
-        
-        return ['success' => true, 'message' => $mensaje, 'comprobante_nro' => $numero_asignado];
-        
-    } catch (Exception $e) {
-        mysqli_rollback($conexion);
-        error_log("ERROR en ejecutarTransicionEstado: " . $e->getMessage());
-        return ['success' => false, 'error' => $e->getMessage()];
+    $sql_update = "UPDATE gestion__facturas_proveedores 
+                   SET tabla_estado_registro_id = ? 
+                   WHERE factura_proveedor_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt)
+        return ['success' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $factura_proveedor_id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['success' => true, 'message' => 'Estado actualizado correctamente'];
+    } else {
+        return ['success' => false, 'error' => 'Error al actualizar el estado'];
     }
 }
-function obtenerOrdenesCompra($conexion, $empresa_idx, $pagina_id)
+
+function obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
 
@@ -472,25 +238,21 @@ function obtenerOrdenesCompra($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT oc.*, 
+    $sql = "SELECT fp.*, 
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
                    ct.comprobante_tipo,
                    e.entidad_nombre, e.entidad_fantasia,
-                   m.moneda, m.simbolo,
-                   s.sucursal_nombre,
-                   pv.nombre as punto_venta_nombre, pv.codigo_fiscal as punto_venta_codigo
-            FROM gestion__ordenes_compra oc
-            LEFT JOIN conf__estados_registros er ON oc.tabla_estado_registro_id = er.estado_registro_id
+                   m.moneda, m.simbolo
+            FROM gestion__facturas_proveedores fp
+            LEFT JOIN conf__estados_registros er ON fp.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            LEFT JOIN gestion__comprobantes_tipos ct ON oc.comprobante_tipo_id = ct.comprobante_tipo_id
-            LEFT JOIN gestion__entidades e ON oc.entidad_id = e.entidad_id
-            LEFT JOIN gestion__monedas m ON oc.moneda_id = m.moneda_id
-            LEFT JOIN gestion__sucursales s ON oc.sucursal_id = s.sucursal_id AND s.empresa_id = oc.empresa_id
-            LEFT JOIN gestion__puntos_venta pv ON oc.punto_venta_id = pv.punto_venta_id AND pv.empresa_id = oc.empresa_id
-            WHERE oc.empresa_id = ?
-            ORDER BY oc.f_emision DESC, oc.orden_compra_id DESC";
+            LEFT JOIN gestion__comprobantes_tipos ct ON fp.comprobante_tipo_id = ct.comprobante_tipo_id
+            LEFT JOIN gestion__entidades e ON fp.entidad_id = e.entidad_id
+            LEFT JOIN gestion__monedas m ON fp.moneda_id = m.moneda_id
+            WHERE fp.empresa_id = ?
+            ORDER BY fp.f_emision DESC, fp.factura_proveedor_id DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -522,9 +284,9 @@ function obtenerOrdenesCompra($conexion, $empresa_idx, $pagina_id)
     return $data;
 }
 
-function agregarOrdenCompra($conexion, $data)
+function agregarFacturaProveedor($conexion, $data)
 {
-    error_log("=== INICIO agregarOrdenCompra ===");
+    error_log("=== INICIO agregarFacturaProveedor ===");
     error_log("Datos recibidos: " . print_r($data, true));
 
     if (!$conexion) {
@@ -532,7 +294,10 @@ function agregarOrdenCompra($conexion, $data)
         return ['resultado' => false, 'error' => 'Error de conexión a la base de datos'];
     }
 
-    // Validaciones básicas (sin validar precio)
+    // Validaciones básicas
+    if (empty($data['comprobante_nro']) && $data['comprobante_nro'] !== '0') {
+        return ['resultado' => false, 'error' => 'El número de comprobante es obligatorio'];
+    }
     if (empty($data['f_emision'])) {
         return ['resultado' => false, 'error' => 'La fecha de emisión es obligatoria'];
     }
@@ -545,12 +310,6 @@ function agregarOrdenCompra($conexion, $data)
     if (empty($data['moneda_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar la moneda'];
     }
-    if (empty($data['sucursal_id'])) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar la sucursal'];
-    }
-    if (empty($data['punto_venta_id'])) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar el punto de venta'];
-    }
     if (!isset($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
         return ['resultado' => false, 'error' => 'Debe agregar al menos un producto al detalle'];
     }
@@ -558,72 +317,105 @@ function agregarOrdenCompra($conexion, $data)
     mysqli_begin_transaction($conexion);
 
     try {
-        // Obtener estado inicial usando la página
-        $estado_inicial = obtenerEstadoInicial($conexion, $data['pagina_idx']);
+        // Verificar duplicados
+        $sql_check = "SELECT COUNT(*) as total FROM gestion__facturas_proveedores 
+                      WHERE comprobante_pv = ? AND comprobante_nro = ? AND comprobante_tipo_id = ? AND empresa_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_check);
+        if (!$stmt) {
+            throw new Exception("Error preparando consulta duplicados: " . mysqli_error($conexion));
+        }
+
+        $comprobante_pv_check = intval($data['comprobante_pv'] ?? 0);
+        $comprobante_nro_check = intval($data['comprobante_nro'] ?? 0);
+        $comprobante_tipo_id_check = intval($data['comprobante_tipo_id'] ?? 0);
+        $empresa_idx_check = intval($data['empresa_idx'] ?? 0);
+
+        mysqli_stmt_bind_param($stmt, "iiii", 
+            $comprobante_pv_check,
+            $comprobante_nro_check,
+            $comprobante_tipo_id_check,
+            $empresa_idx_check
+        );
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+
+        if ($row['total'] > 0) {
+            throw new Exception('Ya existe una factura con este número de comprobante');
+        }
+
+        // Obtener estado inicial
+        $estado_inicial = obtenerEstadoInicial($conexion);
         if (!$estado_inicial) {
-            $estado_inicial = 1; // Fallback
+            $estado_inicial = 1;
         }
 
         // Manejar valores NULL
-        $f_entrega_estimada = (!empty($data['f_entrega_estimada'])) ? $data['f_entrega_estimada'] : null;
+        $f_vencimiento = (!empty($data['f_vencimiento'])) ? $data['f_vencimiento'] : null;
         $condicion_pago_id = (!empty($data['condicion_pago_id']) && $data['condicion_pago_id'] > 0) ? intval($data['condicion_pago_id']) : null;
         $tipo_cambio = (!empty($data['tipo_cambio'])) ? floatval($data['tipo_cambio']) : 1.000000;
         $entidad_sucursal_id = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0) ? intval($data['entidad_sucursal_id']) : null;
         $sucursal_id = (!empty($data['sucursal_id']) && $data['sucursal_id'] > 0) ? intval($data['sucursal_id']) : null;
-        $punto_venta_id = (!empty($data['punto_venta_id']) && $data['punto_venta_id'] > 0) ? intval($data['punto_venta_id']) : null;
         
-        $direccion_entrega = isset($data['direccion_entrega']) ? trim($data['direccion_entrega']) : '';
+        $direccion = isset($data['direccion']) ? trim($data['direccion']) : '';
         $observaciones = isset($data['observaciones']) ? trim($data['observaciones']) : '';
 
-        // Insertar orden
-        $sql = "INSERT INTO gestion__ordenes_compra 
-                (empresa_id, sucursal_id, punto_venta_id, comprobante_tipo_id, comprobante_nro, 
-                 entidad_id, entidad_sucursal_id, f_emision, f_entrega_estimada, condicion_pago_id, 
-                 moneda_id, tipo_cambio, direccion_entrega, subtotal, descuentos, impuestos, total, 
+        // Insertar factura
+        $sql = "INSERT INTO gestion__facturas_proveedores 
+                (empresa_id, sucursal_id, comprobante_tipo_id, comprobante_pv, comprobante_nro, 
+                 entidad_id, entidad_sucursal_id, f_emision, f_vencimiento, condicion_pago_id, 
+                 moneda_id, tipo_cambio, direccion_entrega, subtotal, descuentos, no_gravado, exento, impuestos, total, 
                  observaciones, tabla_estado_registro_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
             throw new Exception("Error preparando insert: " . mysqli_error($conexion));
         }
 
+        // Asignar variables
         $empresa_id_val = intval($data['empresa_idx']);
         $sucursal_id_val = $sucursal_id;
-        $punto_venta_id_val = $punto_venta_id;
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
-        $comprobante_nro_val = 0;
+        $comprobante_pv_val = intval($data['comprobante_pv'] ?? 0);
+        $comprobante_nro_val = intval($data['comprobante_nro'] ?? 0);
         $entidad_id_val = intval($data['entidad_id']);
         $entidad_sucursal_id_val = $entidad_sucursal_id;
         $f_emision_val = $data['f_emision'];
-        $f_entrega_estimada_val = $f_entrega_estimada;
+        $f_vencimiento_val = $f_vencimiento;
         $condicion_pago_id_val = $condicion_pago_id;
         $moneda_id_val = intval($data['moneda_id']);
         $tipo_cambio_val = $tipo_cambio;
-        $direccion_entrega_val = $direccion_entrega;
+        $direccion_val = $direccion;
         $subtotal_val = floatval($data['subtotal'] ?? 0);
         $descuentos_val = floatval($data['descuentos'] ?? 0);
+        $no_gravado_val = floatval($data['no_gravado'] ?? 0);
+        $exento_val = floatval($data['exento'] ?? 0);
         $impuestos_val = floatval($data['impuestos'] ?? 0);
         $total_val = floatval($data['total'] ?? 0);
         $observaciones_val = $observaciones;
         $estado_inicial_val = intval($estado_inicial);
 
-        mysqli_stmt_bind_param($stmt, "iiiiiiissiiddddddsi",
+        // Cadena de tipos: i,i,i,i,i,i,i,s,s,i,i,d,s,d,d,d,d,d,d,s,i (21 caracteres)
+        mysqli_stmt_bind_param($stmt, "iiiiiiissiidsddddddddsi",
             $empresa_id_val,
             $sucursal_id_val,
-            $punto_venta_id_val,
             $comprobante_tipo_id_val,
+            $comprobante_pv_val,
             $comprobante_nro_val,
             $entidad_id_val,
             $entidad_sucursal_id_val,
             $f_emision_val,
-            $f_entrega_estimada_val,
+            $f_vencimiento_val,
             $condicion_pago_id_val,
             $moneda_id_val,
             $tipo_cambio_val,
-            $direccion_entrega_val,
+            $direccion_val,
             $subtotal_val,
             $descuentos_val,
+            $no_gravado_val,
+            $exento_val,
             $impuestos_val,
             $total_val,
             $observaciones_val,
@@ -634,111 +426,124 @@ function agregarOrdenCompra($conexion, $data)
             throw new Exception("Error ejecutando insert: " . mysqli_stmt_error($stmt));
         }
 
-        $orden_compra_id = mysqli_insert_id($conexion);
-        error_log("Orden creada con ID: " . $orden_compra_id);
+        $factura_proveedor_id = mysqli_insert_id($conexion);
+        error_log("Factura creada con ID: " . $factura_proveedor_id);
         mysqli_stmt_close($stmt);
 
-        // Insertar detalles (ahora permite precio cero)
-        $detalles_success = insertarDetallesOrden($conexion, $orden_compra_id, $data['empresa_idx'], $data['detalles']);
+        // Insertar detalles
+        $detalles_success = insertarDetallesFactura($conexion, $factura_proveedor_id, $data['empresa_idx'], $data['detalles']);
         
         if (!$detalles_success) {
             throw new Exception("Error al insertar los detalles");
         }
 
         mysqli_commit($conexion);
-        error_log("=== FIN agregarOrdenCompra - ÉXITO ===");
-        return ['resultado' => true, 'orden_compra_id' => $orden_compra_id];
+        error_log("=== FIN agregarFacturaProveedor - ÉXITO ===");
+        return ['resultado' => true, 'factura_proveedor_id' => $factura_proveedor_id];
 
     } catch (Exception $e) {
         mysqli_rollback($conexion);
-        error_log("ERROR en agregarOrdenCompra: " . $e->getMessage());
+        error_log("ERROR en agregarFacturaProveedor: " . $e->getMessage());
         return ['resultado' => false, 'error' => $e->getMessage()];
     }
 }
 
-
-function editarOrdenCompra($conexion, $id, $data)
+function editarFacturaProveedor($conexion, $id, $data)
 {
     $id = intval($id);
     
-    error_log("=== INICIO editarOrdenCompra ID: $id ===");
+    error_log("=== INICIO editarFacturaProveedor ID: $id ===");
     error_log("Datos recibidos en función: " . print_r($data, true));
 
     mysqli_begin_transaction($conexion);
 
     try {
-        $f_entrega_estimada = (!empty($data['f_entrega_estimada'])) ? $data['f_entrega_estimada'] : null;
+        // Manejar valores NULL
+        $f_vencimiento = (!empty($data['f_vencimiento'])) ? $data['f_vencimiento'] : null;
         $condicion_pago_id = (!empty($data['condicion_pago_id']) && $data['condicion_pago_id'] > 0) ? intval($data['condicion_pago_id']) : null;
         $tipo_cambio = floatval($data['tipo_cambio'] ?? 1.000000);
         $entidad_sucursal_id = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0) ? intval($data['entidad_sucursal_id']) : null;
         $sucursal_id = (!empty($data['sucursal_id']) && $data['sucursal_id'] > 0) ? intval($data['sucursal_id']) : null;
-        $punto_venta_id = (!empty($data['punto_venta_id']) && $data['punto_venta_id'] > 0) ? intval($data['punto_venta_id']) : null;
-        $direccion_entrega = isset($data['direccion_entrega']) ? trim($data['direccion_entrega']) : '';
+        $direccion = isset($data['direccion']) ? trim($data['direccion']) : '';
         $observaciones = isset($data['observaciones']) ? trim($data['observaciones']) : '';
         
+        // Asegurar valores para campos que ahora son INT
+        $comprobante_pv = intval($data['comprobante_pv'] ?? 0);
         $comprobante_nro = intval($data['comprobante_nro'] ?? 0);
 
-        $sql = "UPDATE gestion__ordenes_compra 
+        // Actualizar la factura
+        $sql = "UPDATE gestion__facturas_proveedores 
                 SET sucursal_id = ?,
-                    punto_venta_id = ?,
                     comprobante_tipo_id = ?, 
+                    comprobante_pv = ?, 
                     comprobante_nro = ?, 
                     entidad_id = ?, 
                     entidad_sucursal_id = ?, 
                     f_emision = ?, 
-                    f_entrega_estimada = ?, 
+                    f_vencimiento = ?, 
                     condicion_pago_id = ?, 
                     moneda_id = ?, 
                     tipo_cambio = ?, 
                     direccion_entrega = ?, 
                     subtotal = ?, 
                     descuentos = ?, 
+                    no_gravado = ?,
+                    exento = ?,
                     impuestos = ?, 
                     total = ?, 
                     observaciones = ?
-                WHERE orden_compra_id = ? AND empresa_id = ?";
+                WHERE factura_proveedor_id = ? AND empresa_id = ?";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
             throw new Exception("Error preparando update: " . mysqli_error($conexion));
         }
 
+        // ASIGNAR TODOS LOS VALORES A VARIABLES ANTES DE bind_param
         $sucursal_id_val = $sucursal_id;
-        $punto_venta_id_val = $punto_venta_id;
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
-        $comprobante_nro_val = $comprobante_nro;
+        $comprobante_pv_val = intval($data['comprobante_pv'] ?? 0);
+        $comprobante_nro_val = intval($data['comprobante_nro'] ?? 0);
         $entidad_id_val = intval($data['entidad_id']);
         $entidad_sucursal_id_val = $entidad_sucursal_id;
         $f_emision_val = $data['f_emision'];
-        $f_entrega_estimada_val = $f_entrega_estimada;
+        $f_vencimiento_val = $f_vencimiento;
         $condicion_pago_id_val = $condicion_pago_id;
         $moneda_id_val = intval($data['moneda_id']);
         $tipo_cambio_val = $tipo_cambio;
-        $direccion_entrega_val = $direccion_entrega;
+        $direccion_val = $direccion;
         $subtotal_val = floatval($data['subtotal'] ?? 0);
         $descuentos_val = floatval($data['descuentos'] ?? 0);
+        $no_gravado_val = floatval($data['no_gravado'] ?? 0);
+        $exento_val = floatval($data['exento'] ?? 0);
         $impuestos_val = floatval($data['impuestos'] ?? 0);
         $total_val = floatval($data['total'] ?? 0);
         $observaciones_val = $observaciones;
         $id_val = $id;
         $empresa_idx_val = intval($data['empresa_idx']);
 
+        error_log("Valores para update:");
+        error_log("sucursal_id: " . ($sucursal_id_val ?? 'null'));
+
+        // Cadena de tipos: i,i,i,i,i,i,i,s,s,i,i,d,s,d,d,d,d,d,d,s,i,i (22 caracteres)
         mysqli_stmt_bind_param($stmt, 
-            "iiiiiissiiddddddsii",
+            "iiiiiissiidsddddddddsii",
             $sucursal_id_val,
-            $punto_venta_id_val,
             $comprobante_tipo_id_val,
+            $comprobante_pv_val,
             $comprobante_nro_val,
             $entidad_id_val,
             $entidad_sucursal_id_val,
             $f_emision_val,
-            $f_entrega_estimada_val,
+            $f_vencimiento_val,
             $condicion_pago_id_val,
             $moneda_id_val,
             $tipo_cambio_val,
-            $direccion_entrega_val,
+            $direccion_val,
             $subtotal_val,
             $descuentos_val,
+            $no_gravado_val,
+            $exento_val,
             $impuestos_val,
             $total_val,
             $observaciones_val,
@@ -754,8 +559,9 @@ function editarOrdenCompra($conexion, $id, $data)
         error_log("Filas afectadas en update: " . $affected_rows);
         mysqli_stmt_close($stmt);
 
-        // Eliminar detalles existentes
-        $sql_delete = "DELETE FROM gestion__ordenes_compra_detalle WHERE orden_compra_id = ?";
+        // ===== PROCESAR DETALLES =====
+        // Primero, eliminar todos los detalles existentes
+        $sql_delete = "DELETE FROM gestion__facturas_proveedores_detalle WHERE factura_proveedor_id = ?";
         $stmt_delete = mysqli_prepare($conexion, $sql_delete);
         if (!$stmt_delete) {
             throw new Exception("Error preparando delete de detalles: " . mysqli_error($conexion));
@@ -767,28 +573,29 @@ function editarOrdenCompra($conexion, $id, $data)
         }
         mysqli_stmt_close($stmt_delete);
         
-        // Insertar nuevos detalles (permite precio cero)
+        // Luego, insertar los nuevos detalles
         if (isset($data['detalles']) && is_array($data['detalles']) && count($data['detalles']) > 0) {
-            $detalles_success = insertarDetallesOrden($conexion, $id, $empresa_idx_val, $data['detalles']);
+            $detalles_success = insertarDetallesFactura($conexion, $id, $empresa_idx_val, $data['detalles']);
             
             if (!$detalles_success) {
                 throw new Exception("Error al insertar los nuevos detalles");
             }
         } else {
-            throw new Exception("Debe haber al menos un detalle en la orden");
+            throw new Exception("Debe haber al menos un detalle en la factura");
         }
 
         mysqli_commit($conexion);
-        error_log("=== FIN editarOrdenCompra - ÉXITO ===");
-        return ['resultado' => true, 'message' => 'Orden actualizada correctamente'];
+        error_log("=== FIN editarFacturaProveedor - ÉXITO ===");
+        return ['resultado' => true, 'message' => 'Factura actualizada correctamente'];
 
     } catch (Exception $e) {
         mysqli_rollback($conexion);
-        error_log("ERROR en editarOrdenCompra: " . $e->getMessage());
+        error_log("ERROR en editarFacturaProveedor: " . $e->getMessage());
         return ['resultado' => false, 'error' => $e->getMessage()];
     }
 }
-function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
+
+function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx)
 {
     $id = intval($id);
 
@@ -808,18 +615,18 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
         }
     }
 
-    $sql = "SELECT oc.*, oc.sucursal_id, oc.punto_venta_id,
+    $sql = "SELECT fp.*, fp.sucursal_id,
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    ct.comprobante_tipo,
                    e.entidad_nombre, e.entidad_fantasia,
                    m.moneda, m.simbolo
-            FROM gestion__ordenes_compra oc
-            LEFT JOIN conf__estados_registros er ON oc.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN gestion__comprobantes_tipos ct ON oc.comprobante_tipo_id = ct.comprobante_tipo_id
-            LEFT JOIN gestion__entidades e ON oc.entidad_id = e.entidad_id
-            LEFT JOIN gestion__monedas m ON oc.moneda_id = m.moneda_id
-            WHERE oc.orden_compra_id = ? AND oc.empresa_id = ?";
+            FROM gestion__facturas_proveedores fp
+            LEFT JOIN conf__estados_registros er ON fp.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN gestion__comprobantes_tipos ct ON fp.comprobante_tipo_id = ct.comprobante_tipo_id
+            LEFT JOIN gestion__entidades e ON fp.entidad_id = e.entidad_id
+            LEFT JOIN gestion__monedas m ON fp.moneda_id = m.moneda_id
+            WHERE fp.factura_proveedor_id = ? AND fp.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -828,45 +635,46 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $orden = mysqli_fetch_assoc($result);
+    $factura = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    if (!$orden) {
+    if (!$factura) {
         return null;
     }
-
-    error_log("Orden cargada - sucursal_id: " . ($orden['sucursal_id'] ?? 'null') . " - punto_venta_id: " . ($orden['punto_venta_id'] ?? 'null'));
+    
+    // Log para verificar que sucursal_id viene
+    error_log("Factura cargada - sucursal_id: " . ($factura['sucursal_id'] ?? 'null'));
     
     $sql_detalles = "SELECT d.*, p.producto_codigo, p.producto_nombre,
                             p.iva_alicuota_id as producto_iva_id,
-                            pp.codigo_proveedor,
-                            iva.porcentaje as iva_porcentaje
-                     FROM gestion__ordenes_compra_detalle d
+                            pp.codigo_proveedor
+                     FROM gestion__facturas_proveedores_detalle d
                      LEFT JOIN gestion__productos p ON d.producto_id = p.producto_id
                      LEFT JOIN gestion__productos_proveedores pp ON d.producto_id = pp.producto_id AND pp.entidad_id = ?
-                     LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id
-                     WHERE d.orden_compra_id = ?
-                     ORDER BY d.ordenes_compra_detalle_id";
+                     WHERE d.factura_proveedor_id = ?
+                     ORDER BY d.factura_proveedor_detalle_id";
 
     $stmt = mysqli_prepare($conexion, $sql_detalles);
     if (!$stmt)
-        return $orden;
+        return $factura;
 
-    mysqli_stmt_bind_param($stmt, "ii", $orden['entidad_id'], $id);
+    mysqli_stmt_bind_param($stmt, "ii", $factura['entidad_id'], $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
     $detalles = [];
     while ($detalle = mysqli_fetch_assoc($result)) {
         $detalles[] = [
-            'ordenes_compra_detalle_id' => $detalle['ordenes_compra_detalle_id'],
+            'factura_proveedor_detalle_id' => $detalle['factura_proveedor_detalle_id'],
             'producto_id' => $detalle['producto_id'],
             'producto_nombre' => $detalle['producto_nombre'] . ' (' . $detalle['producto_codigo'] . ')',
             'cantidad' => floatval($detalle['cantidad']),
             'precio_unitario' => floatval($detalle['precio_unitario']),
+            'descuento_porcentaje' => floatval($detalle['descuento_porcentaje'] ?? 0),
+            'descuento' => floatval($detalle['descuento'] ?? 0),
             'no_gravado' => floatval($detalle['no_gravado'] ?? 0),
             'exento' => floatval($detalle['exento'] ?? 0),
-            'iva_alicuota_id' => $detalle['producto_iva_id'] ?? $detalle['iva_alicuota_id'] ?? 1,
+            'iva_alicuota_id' => $detalle['iva_alicuota_id'] ?? $detalle['producto_iva_id'] ?? 1,
             'iva_porcentaje' => floatval($detalle['iva_porcentaje'] ?? 21),
             'neto_gravado' => floatval($detalle['neto_gravado']),
             'iva_importe' => floatval($detalle['iva_importe']),
@@ -876,8 +684,8 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
     }
     mysqli_stmt_close($stmt);
 
-    $orden['detalles'] = $detalles;
-    return $orden;
+    $factura['detalles'] = $detalles;
+    return $factura;
 }
 
 function obtenerComprobantesTipos($conexion)
@@ -885,7 +693,7 @@ function obtenerComprobantesTipos($conexion)
     $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra 
             FROM gestion__comprobantes_tipos 
             WHERE comprobante_grupo_id = 2 
-            AND comprobante_subgrupo_id = 8
+            AND comprobante_subgrupo_id = 6
             AND tabla_estado_registro_id = 1 
             ORDER BY comprobante_tipo";
     
@@ -1142,6 +950,7 @@ function agregarProductoRapido($conexion, $data)
         return ['success' => false, 'error' => 'Ya existe un producto con este código'];
     }
     
+    // Verificar si ya existe el código de proveedor para este proveedor
     $sql_check_proveedor = "SELECT COUNT(*) as total FROM gestion__productos_proveedores pp
                             INNER JOIN gestion__productos p ON pp.producto_id = p.producto_id
                             WHERE pp.entidad_id = ? AND pp.codigo_proveedor = ? AND p.empresa_id = ?";
@@ -1183,6 +992,7 @@ function agregarProductoRapido($conexion, $data)
         $producto_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
         
+        // Insertar la relación con el proveedor
         $sql_proveedor = "INSERT INTO gestion__productos_proveedores 
                           (empresa_id, producto_id, entidad_id, codigo_proveedor, tabla_estado_registro_id) 
                           VALUES (?, ?, ?, ?, 1)";
@@ -1199,6 +1009,7 @@ function agregarProductoRapido($conexion, $data)
             mysqli_stmt_close($stmt_proveedor);
             
             if (!$success_proveedor) {
+                // Si falla la inserción del proveedor, eliminar el producto creado
                 $sql_delete = "DELETE FROM gestion__productos WHERE producto_id = ?";
                 $stmt_delete = mysqli_prepare($conexion, $sql_delete);
                 mysqli_stmt_bind_param($stmt_delete, "i", $producto_id);
@@ -1255,12 +1066,12 @@ function buscarProductosPorProveedor($conexion, $empresa_idx, $entidad_id, $q)
 function obtenerUltimoPrecioProducto($conexion, $producto_id, $entidad_id, $empresa_id)
 {
     $sql = "SELECT precio_unitario 
-            FROM gestion__ordenes_compra_detalle d
-            INNER JOIN gestion__ordenes_compra o ON d.orden_compra_id = o.orden_compra_id
+            FROM gestion__facturas_proveedores_detalle d
+            INNER JOIN gestion__facturas_proveedores f ON d.factura_proveedor_id = f.factura_proveedor_id
             WHERE d.producto_id = ? 
-            AND o.entidad_id = ? 
-            AND o.empresa_id = ?
-            ORDER BY o.orden_compra_id DESC 
+            AND f.entidad_id = ? 
+            AND f.empresa_id = ?
+            ORDER BY f.factura_proveedor_id DESC 
             LIMIT 1";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -1279,9 +1090,9 @@ function obtenerUltimoPrecioProducto($conexion, $producto_id, $entidad_id, $empr
     return ['success' => false];
 }
 
-function insertarDetallesOrden($conexion, $orden_compra_id, $empresa_id, $detalles)
+function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, $detalles)
 {
-    error_log("Insertando " . count($detalles) . " detalles para orden $orden_compra_id");
+    error_log("Insertando " . count($detalles) . " detalles para factura $factura_proveedor_id");
     
     if (!is_array($detalles) || count($detalles) === 0) {
         error_log("Error: No hay detalles para insertar");
@@ -1305,29 +1116,28 @@ function insertarDetallesOrden($conexion, $orden_compra_id, $empresa_id, $detall
             return false;
         }
         
-        // ELIMINAMOS LA VALIDACIÓN DE PRECIO UNITARIO > 0
-        // Ahora permitimos precio = 0 (productos sin precio definido)
-        // if ($precio_unitario <= 0) {
-        //     error_log("Error: precio_unitario inválido en detalle $index: $precio_unitario");
-        //     return false;
-        // }
+        if ($precio_unitario <= 0) {
+            error_log("Error: precio_unitario inválido en detalle $index: $precio_unitario");
+            return false;
+        }
         
-        // Asegurar que iva_alicuota_id tenga un valor válido
-        $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 1; // Default a 21%
-        $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 21);
-        
-        // Calcular valores
+        // Calcular valores con defaults
         $neto_gravado = floatval($detalle['neto_gravado'] ?? ($cantidad * $precio_unitario));
         $no_gravado = floatval($detalle['no_gravado'] ?? 0);
         $exento = floatval($detalle['exento'] ?? 0);
+        $descuento_porcentaje = floatval($detalle['descuento_porcentaje'] ?? 0);
+        $descuento = floatval($detalle['descuento'] ?? 0);
+        $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 0;
+        $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
         $iva_importe = floatval($detalle['iva_importe'] ?? ($neto_gravado * $iva_porcentaje / 100));
         $total_linea = floatval($detalle['total_linea'] ?? ($neto_gravado + $iva_importe + $no_gravado + $exento));
         
         // Insertar detalle
-        $sql = "INSERT INTO gestion__ordenes_compra_detalle 
-                (orden_compra_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
-                 precio_unitario, no_gravado, exento, neto_gravado, iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
-                VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO gestion__facturas_proveedores_detalle 
+                (factura_proveedor_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
+                 precio_unitario, descuento_porcentaje, descuento, neto_gravado, no_gravado, exento, 
+                 iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
+                VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -1335,15 +1145,17 @@ function insertarDetallesOrden($conexion, $orden_compra_id, $empresa_id, $detall
             return false;
         }
         
-        mysqli_stmt_bind_param($stmt, "iiidddddidid",
-            $orden_compra_id,
+        mysqli_stmt_bind_param($stmt, "iiiddddddddiddd",
+            $factura_proveedor_id,
             $empresa_id,
             $detalle['producto_id'],
             $cantidad,
             $precio_unitario,
+            $descuento_porcentaje,
+            $descuento,
+            $neto_gravado,
             $no_gravado,
             $exento,
-            $neto_gravado,
             $iva_alicuota_id,
             $iva_porcentaje,
             $iva_importe,
@@ -1358,13 +1170,13 @@ function insertarDetallesOrden($conexion, $orden_compra_id, $empresa_id, $detall
         }
         
         $detalle_id = mysqli_insert_id($conexion);
-        error_log("Detalle $index insertado con ID: " . $detalle_id . " - Precio: $precio_unitario, Cantidad: $cantidad");
+        error_log("Detalle $index insertado con ID: " . $detalle_id);
         $insertados++;
         mysqli_stmt_close($stmt);
     }
     
     error_log("Se insertaron $insertados detalles correctamente");
-    return true; // No necesitamos verificar count exacto si todos se insertaron
+    return $insertados === count($detalles);
 }
 
 function obtenerSucursalesEmpresa($conexion, $empresa_idx) {

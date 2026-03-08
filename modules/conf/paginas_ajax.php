@@ -1,6 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+
 require_once "paginas_model.php";
 
 $accion = $_GET['accion'] ?? '';
@@ -83,15 +84,18 @@ switch ($accion) {
         $tabla_tipo_id = $_GET['tabla_tipo_id'] ?? null;
         
         if ($pagina_id && $tabla_tipo_id) {
-            // Primero verificar si ya tiene funciones
-            if (paginaTieneFunciones($conexion, $pagina_id)) {
-                echo json_encode(['resultado' => false, 'error' => 'La página ya tiene funciones asignadas']);
-            } else {
-                $resultado = copiarFuncionesDeTipo($conexion, $pagina_id, $tabla_tipo_id);
-                echo json_encode(['resultado' => $resultado]);
-            }
+            $resultado = copiarFuncionesDeTipo($conexion, $pagina_id, $tabla_tipo_id, false);
+            echo json_encode([
+                'resultado' => $resultado,
+                'mensaje' => 'Funciones copiadas correctamente'
+            ]);
         } else {
-            echo json_encode(['resultado' => false, 'error' => 'Datos incompletos']);
+            echo json_encode([
+                'resultado' => false, 
+                'error' => 'Datos incompletos',
+                'pagina_id' => $pagina_id,
+                'tabla_tipo_id' => $tabla_tipo_id
+            ]);
         }
         break;
     
@@ -179,6 +183,26 @@ switch ($accion) {
         $id = intval($_GET['pagina_id']);
         $pagina = obtenerpaginaPorId($conexion, $id);
         echo json_encode($pagina);
+        break;
+        // Nueva acción: Obtener resultado de la última copia
+    case 'obtenerResultadoCopia':
+        $resultado = $_SESSION['resultado_copia_funciones'] ?? null;
+        // No eliminar inmediatamente para permitir múltiples lecturas si es necesario
+        echo json_encode($resultado);
+        break;
+    case 'depurar':
+        $pagina_id = $_GET['pagina_id'] ?? 0;
+        $tabla_tipo_id = $_GET['tabla_tipo_id'] ?? 0;
+        
+        $funciones_tipo = obtenerFuncionesPorTipoTabla($conexion, $tabla_tipo_id);
+        $funciones_existentes = obtenerFuncionesPorPagina($conexion, $pagina_id);
+        
+        echo json_encode([
+            'funciones_tipo' => $funciones_tipo,
+            'funciones_existentes' => $funciones_existentes,
+            'count_tipo' => count($funciones_tipo),
+            'count_existentes' => count($funciones_existentes)
+        ]);
         break;
 
     default:

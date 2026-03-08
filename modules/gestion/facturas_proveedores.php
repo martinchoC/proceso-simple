@@ -2,10 +2,10 @@
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
 
-$pageTitle = "Órdenes de Compra";
-$currentPage = 'ordenes_compra';
+$pageTitle = "Facturas de Proveedores";
+$currentPage = 'facturas_proveedores';
 $modudo_idx = 2;
-$pagina_idx = 51;
+$pagina_idx = 57; // Nuevo ID para facturas proveedor
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -17,7 +17,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="row">
                 <div class="col-sm-6">
                     <h3 class="mb-0">
-                        <i class="fas fa-shopping-cart me-2"></i>Órdenes de Compra
+                        <i class="fas fa-file-invoice me-2"></i>Facturas de Proveedores
                     </h3>
                     <small class="text-muted">Sistema Declarativo Multiempresa</small>
                 </div>
@@ -25,7 +25,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <ol class="breadcrumb float-sm-end">
                         <li class="breadcrumb-item"><a href="#">Home</a></li>
                         <li class="breadcrumb-item"><a href="#">Compras</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Órdenes de Compra</li>
+                        <li class="breadcrumb-item active" aria-current="page">Facturas de Proveedores</li>
                     </ol>
                 </div>
             </div>
@@ -42,41 +42,47 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">
                                     <div class="card-header">
                                         <div id="contenedor-boton-agregar" class="d-inline"></div>
-                                       <div class="float-end">
+                                        <div class="float-end">
                                             <div class="btn-group" role="group">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary"
                                                     id="btnRecargar" title="Recargar tabla">
                                                     <i class="fas fa-sync-alt"></i>
                                                 </button>
-                                                <!-- Botones de exportación directos en lugar de dropdown -->
-                                                <button type="button" class="btn btn-sm btn-outline-success" id="btnExportarExcel" title="Exportar a Excel">
-                                                    <i class="fas fa-file-excel"></i>
+                                                <button type="button"
+                                                    class="btn btn-sm btn-outline-success dropdown-toggle"
+                                                    data-bs-toggle="dropdown" aria-expanded="false"
+                                                    title="Exportar datos">
+                                                    <i class="fas fa-file-export"></i> Exportar
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnExportarPDF" title="Exportar a PDF">
-                                                    <i class="fas fa-file-pdf"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnExportarCSV" title="Exportar a CSV">
-                                                    <i class="fas fa-file-csv"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnExportarPrint" title="Imprimir tabla">
-                                                    <i class="fas fa-print"></i>
-                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li><a class="dropdown-item" href="#" id="btnExportarExcel"><i
+                                                                class="fas fa-file-excel text-success"></i> Excel</a>
+                                                    </li>
+                                                    <li><a class="dropdown-item" href="#" id="btnExportarPDF"><i
+                                                                class="fas fa-file-pdf text-danger"></i> PDF</a></li>
+                                                    <li>
+                                                        <hr class="dropdown-divider">
+                                                    </li>
+                                                    <li><a class="dropdown-item" href="#" id="btnExportarCSV"><i
+                                                                class="fas fa-file-csv text-primary"></i> CSV</a></li>
+                                                    <li><a class="dropdown-item" href="#" id="btnExportarPrint"><i
+                                                                class="fas fa-print text-secondary"></i> Imprimir</a>
+                                                    </li>
+                                                </ul>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="card-body">
-                                        <table id="tablaOrdenesCompra" class="table table-striped table-bordered" style="width:100%">
+                                        <table id="tablaFacturasProveedor" class="table table-striped table-bordered" style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="80">ID</th>
                                                     <th width="100">Tipo</th>
-                                                    <th width="120">Sucursal</th>        <!-- NUEVA -->
-                                                    <th width="120">Punto Venta</th> 
                                                     <th width="120">Número</th>
                                                     <th width="200">Proveedor</th>
                                                     <th width="100">Emisión</th>
-                                                    <th width="120">Entrega Est.</th>
+                                                    <th width="120">Vencimiento</th>
                                                     <th width="120">Total</th>
                                                     <th width="120">Estado</th>
                                                     <th width="250" class="text-center">Acciones</th>
@@ -93,12 +99,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
 
             <!-- Modal principal -->
-            <div class="modal fade" id="modalOrdenCompra" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+            <div class="modal fade" id="modalFacturaProveedor" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-xl modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header py-2" style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <h5 class="modal-title" id="modalLabel">
-                                <i class="fas fa-shopping-cart me-2 text-primary"></i>Orden de Compra
+                                <i class="fas fa-file-invoice me-2 text-primary"></i>Factura de Proveedor
                             </h5>
                             <div class="d-flex align-items-center">
                                 <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="btnToggleFullscreen" title="Pantalla completa">
@@ -108,8 +114,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>
                         </div>
                         <div class="modal-body p-3">
-                            <form id="formOrdenCompra" class="needs-validation" novalidate>
-                                <input type="hidden" id="orden_compra_id" name="orden_compra_id" />
+                            <form id="formFacturaProveedor" class="needs-validation" novalidate>
+                                <input type="hidden" id="factura_proveedor_id" name="factura_proveedor_id" />
                                 <input type="hidden" id="producto_iva_id" name="producto_iva_id" />
                                 <input type="hidden" id="entidad_id" name="entidad_id" />
                                 <input type="hidden" id="entidad_sucursal_id" name="entidad_sucursal_id" />
@@ -118,13 +124,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card mb-3 border-primary" style="background-color: #f0f7ff;">
                                     <div class="card-header py-2 bg-primary bg-opacity-10 border-bottom border-primary">
                                         <h6 class="mb-0 text-primary">
-                                            <i class="fas fa-file-invoice me-2"></i>Datos de la Orden
+                                            <i class="fas fa-file-invoice me-2"></i>Datos de la Factura
                                         </h6>
                                     </div>
                                     <div class="card-body py-2">
                                         <!-- Primera fila de cabecera -->
                                         <div class="row mb-2">
-                                            <div class="col-md-2 mb-2">
+                                            <div class="col-md-3 mb-2">
                                                 <label for="sucursal_id" class="form-label small mb-1">Sucursal</label>
                                                 <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
                                                     <option value="">Seleccionar sucursal</option>
@@ -132,14 +138,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <div class="invalid-feedback small">Seleccione sucursal</div>
                                             </div>
                                             
-                                            <div class="col-md-2 mb-2">
-                                                <label for="punto_venta_id" class="form-label small mb-1">Punto de Venta</label>
-                                                <select class="form-select form-select-sm" id="punto_venta_id" name="punto_venta_id" required>
-                                                    <option value="">Primero seleccione sucursal</option>
-                                                </select>
-                                                <div class="invalid-feedback small">Seleccione punto de venta</div>
-                                            </div>
-                                            
+                                            <!-- Campo unificado Proveedor/Sucursal en una sola línea -->
                                             <div class="col-md-4 mb-2">
                                                 <label for="entidad_combo" class="form-label small mb-1">Proveedor / Sucursal</label>
                                                 <select class="form-select form-select-sm" id="entidad_combo" name="entidad_combo" required>
@@ -155,12 +154,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </select>
                                                 <div class="invalid-feedback small">Seleccione el tipo</div>
                                             </div>
-                                            
+                                            <div class="col-md-1 mb-2">
+                                                <label for="comprobante_pv" class="form-label small mb-1">PV</label>
+                                                <input type="number" class="form-control form-control-sm" id="comprobante_pv" name="comprobante_pv" value="0" min="0" required>
+                                                <div class="invalid-feedback small">Obligatorio</div>
+                                            </div>
                                             <div class="col-md-2 mb-2">
                                                 <label for="comprobante_nro" class="form-label small mb-1">Número</label>
-                                                <input type="number" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" value="0" min="1" readonly>
-                                                <div class="invalid-feedback small">Se asigna al confirmar</div>
-                                                <small class="text-muted">Se asigna al confirmar</small>
+                                                <input type="number" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" value="0" min="1" required>
+                                                <div class="invalid-feedback small">Número obligatorio</div>
                                             </div>
                                         </div>
 
@@ -172,8 +174,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <div class="invalid-feedback small">Fecha obligatoria</div>
                                             </div>
                                             <div class="col-md-2 mb-2">
-                                                <label for="f_entrega_estimada" class="form-label small mb-1">Entrega Est.</label>
-                                                <input type="date" class="form-control form-control-sm" id="f_entrega_estimada" name="f_entrega_estimada" min="">
+                                                <label for="f_vencimiento" class="form-label small mb-1">Vencimiento</label>
+                                                <input type="date" class="form-control form-control-sm" id="f_vencimiento" name="f_vencimiento" min="">
                                             </div>
                                             <div class="col-md-2 mb-2">
                                                 <label for="moneda_id" class="form-label small mb-1">Moneda</label>
@@ -184,7 +186,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                             <div class="col-md-1 mb-2">
                                                 <label for="tipo_cambio" class="form-label small mb-1">TC</label>
-                                                <input type="number" class="form-control form-control-sm no-spinner" id="tipo_cambio" name="tipo_cambio">
+                                                <input type="number" class="form-control form-control-sm no-spinner" id="tipo_cambio" name="tipo_cambio" step="0.000001">
                                             </div>
                                             <div class="col-md-4 mb-2">
                                                 <label for="condicion_pago_id" class="form-label small mb-1">Condición Pago</label>
@@ -197,8 +199,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <!-- Dirección y observaciones -->
                                         <div class="row mb-2">
                                             <div class="col-md-8 mb-2">
-                                                <label for="direccion_entrega" class="form-label small mb-1">Dirección de Entrega</label>
-                                                <textarea class="form-control form-control-sm" id="direccion_entrega" name="direccion_entrega" rows="1" maxlength="255"></textarea>
+                                                <label for="direccion" class="form-label small mb-1">Dirección</label>
+                                                <textarea class="form-control form-control-sm" id="direccion" name="direccion" rows="1" maxlength="255"></textarea>
                                             </div>
                                             <div class="col-md-4 mb-2">
                                                 <label for="observaciones" class="form-label small mb-1">Observaciones</label>
@@ -215,7 +217,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <i class="fas fa-times me-1"></i>Cancelar
                                         </button>
                                         <button type="button" class="btn btn-primary btn-sm px-4" id="btnGuardar">
-                                            <i class="fas fa-save me-1"></i>Guardar Orden
+                                            <i class="fas fa-save me-1"></i>Guardar Factura
                                         </button>
                                     </div>
                                 </div>
@@ -234,6 +236,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     </div>
                                                     <div class="col-md-2">
                                                         <div class="d-flex justify-content-between">
+                                                            <span class="small text-secondary">Descuentos:</span>
+                                                            <span id="descuentos_display">0.00</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <div class="d-flex justify-content-between">
                                                             <span class="small text-secondary">No Gravado:</span>
                                                             <span id="no_gravado_display">0.00</span>
                                                         </div>
@@ -244,22 +252,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                             <span id="exento_display">0.00</span>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-2">
-                                                        <div class="d-flex justify-content-between">
-                                                            <span class="small text-warning">Impuestos:</span>
+                                                    <div class="col-md-3">
+                                                        <div class="d-flex justify-content-between fw-bold text-warning">
+                                                            <span class="small">Impuestos:</span>
                                                             <span id="impuestos_display">0.00</span>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-3">
-                                                        <div class="d-flex justify-content-between fw-bold text-primary border-start ps-2">
-                                                            <span class="small">TOTAL:</span>
-                                                            <span id="total_display" class="text-primary">0.00</span>
+                                                </div>
+                                                <div class="row mt-1">
+                                                    <div class="col-12">
+                                                        <div class="d-flex justify-content-end fw-bold text-primary border-top pt-1">
+                                                            <span class="me-3">TOTAL:</span>
+                                                            <span id="total_display" class="text-primary fs-5">0.00</span>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <input type="hidden" id="total_neto" name="total_neto" value="0">
+                                        <input type="hidden" id="subtotal" name="subtotal" value="0">
+                                        <input type="hidden" id="descuentos" name="descuentos" value="0">
                                         <input type="hidden" id="no_gravado" name="no_gravado" value="0">
                                         <input type="hidden" id="exento" name="exento" value="0">
                                         <input type="hidden" id="impuestos" name="impuestos" value="0">
@@ -311,6 +322,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                     step="0.0001" min="0">
                                                             </div>
                                                             <div class="col-md-1">
+                                                                <label class="small mb-1">Dto %</label>
+                                                                <input type="number" class="form-control form-control-sm no-spinner" 
+                                                                    id="producto_descuento_porcentaje" 
+                                                                    step="0.01" min="0" max="100" value="0">
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <label class="small mb-1">Dto $</label>
+                                                                <input type="number" class="form-control form-control-sm no-spinner" 
+                                                                    id="producto_descuento" 
+                                                                    step="0.01" min="0" value="0.00">
+                                                            </div>
+                                                            <div class="col-md-1">
                                                                 <label class="small mb-1">IVA %</label>
                                                                 <select class="form-select form-select-sm" id="producto_iva">
                                                                     <option value="21">21%</option>
@@ -319,8 +342,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                     <option value="0">0%</option>
                                                                 </select>
                                                             </div>
-                                                            <div class="col-md-2">
-                                                                <label class="small mb-1">IVA Importe</label>
+                                                            <div class="col-md-1">
+                                                                <label class="small mb-1">IVA $</label>
                                                                 <input type="number" class="form-control form-control-sm no-spinner" 
                                                                     id="producto_iva_importe" 
                                                                     step="0.01" min="0" value="0.00">
@@ -593,50 +616,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             color: #6c757d;
         }
     </style>
-    <!-- En el head, después de los estilos existentes, agregar: -->
-<style>
-    /* Estilos para los filtros de columna */
-    .column-filter {
-        width: 100%;
-        padding: 0.25rem;
-        font-size: 0.8rem;
-        border: 1px solid #ced4da;
-        border-radius: 0.2rem;
-        margin-top: 0.25rem;
-    }
-    
-    .column-filter:focus {
-        border-color: #80bdff;
-        outline: 0;
-        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
-    }
-    
-    /* Ajustes para la tabla */
-    #tablaOrdenesCompra thead th {
-        vertical-align: top;
-        padding-bottom: 0.5rem;
-    }
-    
-    #tablaOrdenesCompra thead .filter-row {
-        padding-top: 0.25rem;
-        padding-bottom: 0.25rem;
-    }
-    
-    /* Estilo para el botón de imprimir en edición */
-    .btn-imprimir-editar {
-        margin-left: 0.5rem;
-    }
-    /* Asegurar que el texto de estado sea negro cuando no tiene badge */
-    #tablaOrdenesCompra tbody td .text-dark {
-        color: #212529 !important;
-        font-weight: normal;
-    }
-
-    /* Opcional: quitar cualquier estilo heredado */
-    #tablaOrdenesCompra tbody td span:not(.badge) {
-        color: #212529;
-    }
-</style>
 
     <link rel="stylesheet" type="text/css"
         href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
@@ -649,7 +628,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
-    <script src="ordenes_compra.js?v=<?= filemtime(__DIR__.'/ordenes_compra.js') ?>"></script>
+    <script src="facturas_proveedores.js?v=<?= filemtime(__DIR__.'/facturas_proveedores.js') ?>"></script>
 </main>
 
 <?php

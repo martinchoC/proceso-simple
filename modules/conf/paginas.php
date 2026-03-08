@@ -154,17 +154,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <p>Esta página está asociada a una tabla con tipo de funciones predefinidas.</p>
             <p>¿Desea copiar las funciones estándar para esta página?</p>
             <div class="alert alert-info mt-3">
-                <small>Nota: Esta acción copiará todas las funciones definidas para este tipo de tabla.</small>
+                <small>Nota: Solo se agregarán las funciones nuevas. Las que ya existen no se duplicarán.</small>
             </div>
         </div>
         <div id="listaFunciones" style="display: none;">
-            <h6>Funciones que se copiarán:</h6>
+            <h6>Funciones disponibles:</h6>
             <ul id="listaFuncionesItems" class="list-group"></ul>
         </div>
       </div>
       <div class="modal-footer">
         <button id="btnCopiarFunciones" class="btn btn-primary">Sí, copiar funciones</button>
-        <button id="btnNoCopiarFunciones" class="btn btn-secondary">No, dejar vacío</button>
+        <button id="btnNoCopiarFunciones" class="btn btn-secondary">No, dejar como está</button>
         <button id="btnCancelarCopiar" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
       </div>
     </div>
@@ -221,6 +221,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 // Variables globales para el modal de copiar funciones
 var paginaIdParaCopiar = null;
 var tablaTipoIdParaCopiar = null;
+var tabla;
 
 // Función para mostrar el modal de visualizar funciones
 function mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion) {
@@ -324,9 +325,31 @@ function mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion) 
 }
 
 // Función para mostrar el modal de copiar funciones
+// Función para mostrar el modal de copiar funciones (actualizar)
 function mostrarModalCopiarFunciones(pagina_id, tabla_tipo_id) {
     paginaIdParaCopiar = pagina_id;
     tablaTipoIdParaCopiar = tabla_tipo_id;
+    
+    // Verificar si la página ya tiene funciones
+    $.ajax({
+        url: 'paginas_ajax.php',
+        type: 'GET',
+        data: {accion: 'verificarFunciones', pagina_id: pagina_id},
+        dataType: 'json',
+        success: function(res) {
+            if (res.tiene_funciones) {
+                // Modificar el mensaje si ya tiene funciones
+                $('#mensajeCopiarFunciones p:first').html('Esta página ya tiene algunas funciones asignadas.');
+                $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones adicionales del tipo de tabla?');
+                $('.alert-info small').text('Nota: Solo se agregarán las funciones nuevas. Las existentes no se duplicarán.');
+            } else {
+                // Mensaje original si no tiene funciones
+                $('#mensajeCopiarFunciones p:first').html('Esta página está asociada a una tabla con tipo de funciones predefinidas.');
+                $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones estándar para esta página?');
+                $('.alert-info small').text('Nota: Solo se agregarán las funciones. No se crearán duplicados.');
+            }
+        }
+    });
     
     // Mostrar el modal
     var modal = new bootstrap.Modal(document.getElementById('modalCopiarFunciones'));
@@ -338,7 +361,7 @@ function mostrarModalCopiarFunciones(pagina_id, tabla_tipo_id) {
     }
 }
 
-// Función para obtener funciones por tipo
+// Función para obtener funciones por tipo (mejorada)
 function obtenerFuncionesPorTipo(tabla_tipo_id) {
     $.ajax({
         url: 'paginas_ajax.php',
@@ -347,15 +370,20 @@ function obtenerFuncionesPorTipo(tabla_tipo_id) {
         dataType: 'json',
         success: function(res) {
             if(res && res.length > 0) {
-                var html = '';
+                var html = '<h6>Funciones disponibles:</h6><ul class="list-group">';
                 $.each(res, function(index, funcion) {
-                    html += `<li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>${funcion.nombre_funcion}</strong>
-                                    ${funcion.descripcion ? `<div class="text-muted small">${funcion.descripcion}</div>` : ''}
-                                </div>
-                            </li>`;
+                    var estados = '';
+                    if (funcion.tabla_estado_registro_origen_id || funcion.tabla_estado_registro_destino_id) {
+                        estados = `<br><small class="text-muted">Estados: ${funcion.tabla_estado_registro_origen_id || '0'} → ${funcion.tabla_estado_registro_destino_id || '0'}</small>`;
+                    }
+                    
+                    html += `<li class="list-group-item">
+                        <strong>${funcion.nombre_funcion}</strong>
+                        ${funcion.descripcion ? `<br><small class="text-muted">${funcion.descripcion}</small>` : ''}
+                        ${estados}
+                    </li>`;
                 });
+                html += '</ul>';
                 $('#listaFuncionesItems').html(html);
                 $('#listaFunciones').show();
             } else {
@@ -369,12 +397,25 @@ function obtenerFuncionesPorTipo(tabla_tipo_id) {
     });
 }
 
-// Función para copiar funciones
+
+// Función para copiar funciones (versión mejorada)
 function copiarFunciones() {
     if (!paginaIdParaCopiar || !tablaTipoIdParaCopiar) {
         Swal.fire('Error', 'Datos incompletos', 'error');
         return;
     }
+    
+    console.log('Copiando funciones - Página ID:', paginaIdParaCopiar, 'Tipo ID:', tablaTipoIdParaCopiar);
+    
+    // Mostrar loading
+    Swal.fire({
+        title: 'Copiando funciones...',
+        text: 'Por favor espere',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
     
     $.ajax({
         url: 'paginas_ajax.php',
@@ -385,28 +426,113 @@ function copiarFunciones() {
             tabla_tipo_id: tablaTipoIdParaCopiar
         },
         dataType: 'json',
+        timeout: 30000,
         success: function(res) {
-            if(res.resultado) {
-                // Cerrar el modal
-                var modal = bootstrap.Modal.getInstance(document.getElementById('modalCopiarFunciones'));
+            console.log('Respuesta de copia:', res);
+            
+            // Cerrar el modal de copiar funciones
+            var modal = bootstrap.Modal.getInstance(document.getElementById('modalCopiarFunciones'));
+            if (modal) {
                 modal.hide();
-                
-                // Recargar la tabla
-                tabla.ajax.reload(null, false);
-                
-                Swal.fire({
-                    icon: "success",
-                    title: "Funciones copiadas",
-                    text: "Las funciones se han copiado exitosamente",
-                    showConfirmButton: false,
-                    timer: 1500
-                });
+            }
+            
+            if(res && res.resultado) {
+                // Recargar la tabla y luego mostrar el resultado
+                if (typeof tabla !== 'undefined' && tabla) {
+                    tabla.ajax.reload(function() {
+                        // Una vez recargada la tabla, obtener resultado detallado
+                        $.ajax({
+                            url: 'paginas_ajax.php',
+                            type: 'GET',
+                            data: {accion: 'obtenerResultadoCopia'},
+                            dataType: 'json',
+                            timeout: 10000,
+                            success: function(resultado) {
+                                Swal.close();
+                                console.log('Resultado detallado:', resultado);
+                                
+                                if (resultado) {
+                                    let mensaje = '';
+                                    if (resultado.nuevas > 0 && resultado.existentes > 0) {
+                                        mensaje = `Se agregaron ${resultado.nuevas} funciones nuevas. ${resultado.existentes} funciones ya existían y fueron omitidas.`;
+                                    } else if (resultado.nuevas > 0) {
+                                        mensaje = `Se agregaron ${resultado.nuevas} funciones correctamente.`;
+                                    } else if (resultado.existentes > 0) {
+                                        mensaje = `No se agregaron funciones nuevas. Todas las funciones (${resultado.existentes}) ya existían en la página.`;
+                                    } else {
+                                        mensaje = 'No se encontraron funciones para copiar.';
+                                    }
+                                    
+                                    Swal.fire({
+                                        icon: resultado.nuevas > 0 ? "success" : "info",
+                                        title: resultado.nuevas > 0 ? "Funciones copiadas" : "Sin funciones nuevas",
+                                        text: mensaje,
+                                        showConfirmButton: true
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        icon: "success",
+                                        title: "Funciones copiadas",
+                                        text: res.mensaje || "Las funciones se han procesado exitosamente",
+                                        showConfirmButton: false,
+                                        timer: 1500
+                                    });
+                                }
+                            },
+                            error: function(xhr, status, error) {
+                                Swal.close();
+                                console.error('Error al obtener resultado:', status, error);
+                                
+                                Swal.fire({
+                                    icon: "success",
+                                    title: "Funciones copiadas",
+                                    text: "Las funciones se han copiado exitosamente",
+                                    showConfirmButton: false,
+                                    timer: 1500
+                                });
+                            }
+                        });
+                    }, false); // false = no resetear el paginado
+                } else {
+                    // Si tabla no está definida, recargar la página
+                    Swal.close();
+                    Swal.fire({
+                        icon: "success",
+                        title: "Funciones copiadas",
+                        text: "Las funciones se han copiado exitosamente. Recargando página...",
+                        showConfirmButton: false,
+                        timer: 1500
+                    }).then(() => {
+                        location.reload();
+                    });
+                }
             } else {
-                Swal.fire('Error', res.error || 'Error al copiar funciones', 'error');
+                Swal.close();
+                console.error('Error en respuesta:', res);
+                Swal.fire('Error', res?.error || 'Error al copiar funciones', 'error');
             }
         },
-        error: function() {
-            Swal.fire('Error', 'Error de conexión', 'error');
+        error: function(xhr, status, error) {
+            Swal.close();
+            console.error('Error en la copia:', status, error);
+            
+            // Cerrar el modal
+            var modal = bootstrap.Modal.getInstance(document.getElementById('modalCopiarFunciones'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Intentar recargar la tabla de todas formas
+            if (typeof tabla !== 'undefined' && tabla) {
+                tabla.ajax.reload(null, false);
+            }
+            
+            Swal.fire({
+                icon: "warning",
+                title: "Proceso completado",
+                text: "Las funciones se copiaron pero hubo un error en la respuesta",
+                showConfirmButton: true
+            });
         }
     });
 }
@@ -521,6 +647,7 @@ $(document).ready(function(){
     cargarTablas();
     cargarIconos();
     
+    
     // Configuración de DataTable
     var tabla = $('#tablapaginas').DataTable({
         pageLength: 25,
@@ -631,17 +758,17 @@ $(document).ready(function(){
                 searchable: false,
                 className: "text-center",
                 render: function(data, type, row){
-                  return `
+                return `
                     <button class="btn btn-sm btn-primary btnEditar me-1" title="Editar">
-                      <i class="fa fa-pencil-alt"></i>
+                    <i class="fa fa-pencil-alt"></i>
                     </button>
-                    <button class="btn btn-sm btn-info btnCopiarFunciones me-1" title="Copiar Funciones" ${row.tiene_funciones > 0 ? 'disabled' : ''}>
-                      <i class="fa fa-copy"></i>
+                    <button class="btn btn-sm btn-info btnCopiarFunciones me-1" title="Copiar Funciones">
+                    <i class="fa fa-copy"></i>
                     </button>
                     <button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
-                      <i class="fa fa-trash"></i>
+                    <i class="fa fa-trash"></i>
                     </button>
-                  `;
+                `;
                 }
             }
         ]
@@ -665,32 +792,130 @@ $(document).ready(function(){
     });
 
     // Evento para botón de copiar funciones
-    $('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
-        var data = tabla.row($(this).parents('tr')).data();
-        
-        if (data.tiene_funciones > 0) {
-            Swal.fire('Información', 'Esta página ya tiene funciones asignadas', 'info');
-            return;
+    // Actualizar el evento para botón de copiar funciones
+    // Actualizar el evento para botón de copiar funciones
+$('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
+    var data = tabla.row($(this).parents('tr')).data();
+    
+    // Verificar si tiene tabla asociada
+    if (!data.tabla_id) {
+        Swal.fire('Información', 'Esta página no tiene una tabla asociada', 'info');
+        return;
+    }
+    
+    // Mostrar loading
+    Swal.fire({
+        title: 'Verificando...',
+        text: 'Obteniendo información de la tabla',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
         }
-        
-        // Obtener el tipo de tabla
-        $.ajax({
-            url: 'paginas_ajax.php',
-            type: 'GET',
-            data: {accion: 'obtenerTablaTipo', tabla_id: data.tabla_id},
-            dataType: 'json',
-            success: function(res) {
-                if(res.tabla_tipo_id) {
-                    mostrarModalCopiarFunciones(data.pagina_id, res.tabla_tipo_id);
-                } else {
-                    Swal.fire('Información', 'La tabla asociada no tiene tipo definido o no hay funciones predefinidas', 'info');
+    });
+
+    var timeoutId = setTimeout(function() {
+        Swal.close();
+        Swal.fire({
+            icon: 'warning',
+            title: 'Tiempo de espera agotado',
+            text: 'La operación está tomando más tiempo de lo normal. ¿Desea continuar esperando?',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, esperar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // El usuario quiere seguir esperando, reiniciar el timeout
+                copiarFunciones(); // Reintentar
+            } else {
+                // El usuario canceló, recargar la tabla
+                if (typeof tabla !== 'undefined' && tabla) {
+                    tabla.ajax.reload(null, false);
                 }
-            },
-            error: function() {
-                Swal.fire('Error', 'Error al obtener información de la tabla', 'error');
             }
         });
+    }, 15000); // 15 segundos de timeout
+
+    
+    // Obtener el tipo de tabla
+    $.ajax({
+        url: 'paginas_ajax.php',
+        type: 'GET',
+        data: {accion: 'obtenerTablaTipo', tabla_id: data.tabla_id},
+        dataType: 'json',
+        success: function(res) {
+            Swal.close();
+            
+            if(res.tabla_tipo_id) {
+                // Primero verificar cuántas funciones tiene el tipo
+                $.ajax({
+                    url: 'paginas_ajax.php',
+                    type: 'GET',
+                    data: {accion: 'obtenerFuncionesPorTipo', tabla_tipo_id: res.tabla_tipo_id},
+                    dataType: 'json',
+                    success: function(funciones) {
+                        if (funciones && funciones.length > 0) {
+                            // Guardar los datos en variables globales
+                            paginaIdParaCopiar = data.pagina_id;
+                            tablaTipoIdParaCopiar = res.tabla_tipo_id;
+                            
+                            // Verificar si la página ya tiene funciones
+                            $.ajax({
+                                url: 'paginas_ajax.php',
+                                type: 'GET',
+                                data: {accion: 'verificarFunciones', pagina_id: data.pagina_id},
+                                dataType: 'json',
+                                success: function(resFunciones) {
+                                    if (resFunciones.tiene_funciones) {
+                                        $('#mensajeCopiarFunciones p:first').html('Esta página ya tiene algunas funciones asignadas.');
+                                        $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones adicionales del tipo de tabla?');
+                                        $('.alert-info small').text('Nota: Solo se agregarán las funciones nuevas. Las existentes no se duplicarán.');
+                                    } else {
+                                        $('#mensajeCopiarFunciones p:first').html('Esta página está asociada a una tabla con tipo de funciones predefinidas.');
+                                        $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones estándar para esta página?');
+                                        $('.alert-info small').text('Nota: Se copiarán todas las funciones del tipo de tabla.');
+                                    }
+                                    
+                                    // Mostrar la lista de funciones disponibles
+                                    var listaHtml = '<h6>Funciones disponibles:</h6><ul class="list-group">';
+                                    $.each(funciones, function(index, funcion) {
+                                        listaHtml += `<li class="list-group-item">
+                                            <strong>${funcion.nombre_funcion}</strong>
+                                            ${funcion.descripcion ? `<br><small class="text-muted">${funcion.descripcion}</small>` : ''}
+                                        </li>`;
+                                    });
+                                    listaHtml += '</ul>';
+                                    $('#listaFuncionesItems').html(listaHtml);
+                                    $('#listaFunciones').show();
+                                    
+                                    // Mostrar el modal
+                                    var modal = new bootstrap.Modal(document.getElementById('modalCopiarFunciones'));
+                                    modal.show();
+                                },
+                                error: function() {
+                                    Swal.fire('Error', 'Error al verificar funciones existentes', 'error');
+                                }
+                            });
+                        } else {
+                            Swal.fire('Información', 'No hay funciones predefinidas para este tipo de tabla', 'info');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        Swal.close();
+                        console.error('Error al obtener funciones del tipo:', error);
+                        Swal.fire('Error', 'Error al obtener funciones del tipo', 'error');
+                    }
+                });
+            } else {
+                Swal.fire('Información', 'La tabla asociada no tiene tipo definido', 'info');
+            }
+        },
+        error: function(xhr, status, error) {
+            Swal.close();
+            console.error('Error al obtener tipo de tabla:', error);
+            Swal.fire('Error', 'Error al obtener información de la tabla', 'error');
+        }
     });
+});
 
     $('#tablapaginas tbody').on('click', '.btnEditar', function(){
         var data = tabla.row($(this).parents('tr')).data();

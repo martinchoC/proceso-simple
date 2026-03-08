@@ -52,37 +52,6 @@ try {
             $sucursales = obtenerSucursalesEmpresa($conexion, $empresa_idx_local);
             echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
             break;
-            
-        case 'obtener_puntos_venta':
-            $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
-            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
-            
-            if (empty($sucursal_id)) {
-                echo json_encode([]);
-                break;
-            }
-            
-            $sql = "SELECT punto_venta_id, nombre as punto_venta_nombre, codigo_fiscal as punto_venta_codigo 
-                    FROM gestion__puntos_venta 
-                    WHERE sucursal_id = ? 
-                    AND empresa_id = ?
-                    AND tabla_estado_registro_id = 1 
-                    ORDER BY nombre";
-            
-            $stmt = mysqli_prepare($conexion, $sql);
-            mysqli_stmt_bind_param($stmt, "ii", $sucursal_id, $empresa_idx_local);
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
-            
-            $puntos_venta = [];
-            while ($fila = mysqli_fetch_assoc($result)) {
-                $puntos_venta[] = $fila;
-            }
-            mysqli_stmt_close($stmt);
-            
-            echo json_encode($puntos_venta, JSON_UNESCAPED_UNICODE);
-            break;
-            
         case 'ejecutar_accion':
             $orden_compra_id = intval($_POST['orden_compra_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
@@ -93,33 +62,6 @@ try {
             echo json_encode($resultado);
             break;
 
-        case 'obtener_proveedores_con_sucursales':
-            $proveedores = obtenerProveedores($conexion, $empresa_idx);
-            $resultado = [];
-            
-            foreach ($proveedores as $proveedor) {
-                $item = [
-                    'tipo' => 'proveedor',
-                    'entidad_id' => $proveedor['entidad_id'],
-                    'entidad_nombre' => $proveedor['entidad_nombre'],
-                    'sucursales' => []
-                ];
-                
-                // Obtener sucursales del proveedor
-                $sucursales = obtenerSucursales($conexion, $proveedor['entidad_id'], $empresa_idx);
-                foreach ($sucursales as $sucursal) {
-                    $item['sucursales'][] = [
-                        'sucursal_id' => $sucursal['sucursal_id'],
-                        'sucursal_nombre' => $sucursal['sucursal_nombre']
-                    ];
-                }
-                
-                $resultado[] = $item;
-            }
-            
-            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-            break;
-            
         case 'agregar':
             if (!isset($_POST['detalles'])) {
                 enviarRespuesta(['resultado' => false, 'error' => 'No se recibieron los detalles']);
@@ -130,6 +72,7 @@ try {
                 enviarRespuesta(['resultado' => false, 'error' => 'Error al decodificar los detalles: ' . json_last_error_msg()]);
             }
             
+            // LOG TEMPORAL para depuración
             error_log("=== DATOS RECIBIDOS EN AGREGAR ===");
             error_log("POST: " . print_r($_POST, true));
             error_log("detalles decodificados: " . print_r($detalles, true));
@@ -137,8 +80,8 @@ try {
             $data = [
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'comprobante_letra' => trim($_POST['comprobante_letra'] ?? ''),
+                'comprobante_pv' => trim($_POST['comprobante_pv'] ?? ''),
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'punto_venta_id' => intval($_POST['punto_venta_id'] ?? 0),
                 'comprobante_nro' => trim($_POST['comprobante_nro'] ?? ''),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
@@ -168,6 +111,7 @@ try {
             error_log("=== EDITAR - ID recibido: $id ===");
             error_log("POST completo: " . print_r($_POST, true));
             
+            
             if (!isset($_POST['detalles'])) {
                 enviarRespuesta(['resultado' => false, 'error' => 'No se recibieron los detalles']);
             }
@@ -182,7 +126,7 @@ try {
             $data = [
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'punto_venta_id' => intval($_POST['punto_venta_id'] ?? 0),
+                'comprobante_pv' => trim($_POST['comprobante_pv'] ?? ''),                
                 'comprobante_nro' => trim($_POST['comprobante_nro'] ?? ''),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
@@ -209,6 +153,19 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'ejecutar_accion':
+            $orden_compra_id = intval($_POST['orden_compra_id'] ?? 0);
+            $accion_js = $_POST['accion_js'] ?? '';
+
+            if (empty($orden_compra_id) || empty($accion_js)) {
+                echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+
+            $resultado = ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empresa_idx, $pagina_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'obtener':
             $id = intval($_POST['orden_compra_id'] ?? $_GET['orden_compra_id'] ?? 0);
             if (empty($id)) {
@@ -229,17 +186,17 @@ try {
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
 
-        case 'obtener_proveedores':
+       case 'obtener_proveedores':
             $proveedores = obtenerProveedores($conexion, $empresa_idx);
             echo json_encode($proveedores, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_sucursales':
-            $entidad_id = intval($_GET['entidad_id'] ?? 0);
-            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
-            $sucursales = obtenerSucursales($conexion, $entidad_id, $empresa_idx_local);
-            echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
-            break;
+                $entidad_id = intval($_GET['entidad_id'] ?? 0);
+                $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx); // <-- USAR EL QUE VIENE
+                $sucursales = obtenerSucursales($conexion, $entidad_id, $empresa_idx_local);
+                echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
+                break;
 
         case 'obtener_condiciones_pago':
             $empresa_idx_param = intval($_GET['empresa_idx'] ?? $empresa_idx);
@@ -308,7 +265,6 @@ try {
             $resultado = obtenerUltimoPrecioProducto($conexion, $producto_id, $entidad_id, $empresa_idx_local);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-            
         case 'obtener_alicuotas_iva':
             $sql = "SELECT iva_alicuota_id, codigo, iva_alicuota, porcentaje 
                     FROM gestion__impuestos__iva_alicuotas 
