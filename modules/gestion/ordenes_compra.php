@@ -41,26 +41,34 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <div class="col-12">
                                 <div class="card">
                                     <div class="card-header">
-                                        <div id="contenedor-boton-agregar" class="d-inline"></div>
-                                       <div class="float-end">
-                                            <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    id="btnRecargar" title="Recargar tabla">
-                                                    <i class="fas fa-sync-alt"></i>
-                                                </button>
-                                                <!-- Botones de exportación directos en lugar de dropdown -->
-                                                <button type="button" class="btn btn-sm btn-outline-success" id="btnExportarExcel" title="Exportar a Excel">
-                                                    <i class="fas fa-file-excel"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnExportarPDF" title="Exportar a PDF">
-                                                    <i class="fas fa-file-pdf"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnExportarCSV" title="Exportar a CSV">
-                                                    <i class="fas fa-file-csv"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnExportarPrint" title="Imprimir tabla">
-                                                    <i class="fas fa-print"></i>
-                                                </button>
+                                        <div class="row align-items-center">
+                                            <div class="col-md-2">
+                                                <div id="contenedor-boton-agregar" class="d-inline"></div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="dataTables_length" id="tablaOrdenesCompra_length"></div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="dataTables_filter" id="tablaOrdenesCompra_filter"></div>
+                                            </div>
+                                            <div class="col-md-4 text-end">
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar tabla">
+                                                        <i class="fas fa-sync-alt"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-success" id="btnExportarExcel" title="Exportar a Excel">
+                                                        <i class="fas fa-file-excel"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" id="btnExportarPDF" title="Exportar a PDF">
+                                                        <i class="fas fa-file-pdf"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnExportarCSV" title="Exportar a CSV">
+                                                        <i class="fas fa-file-csv"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnExportarPrint" title="Imprimir tabla">
+                                                        <i class="fas fa-print"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -636,6 +644,282 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     #tablaOrdenesCompra tbody td span:not(.badge) {
         color: #212529;
     }
+    /* ===== ESTILOS RESPONSIVE ===== */
+    @media (max-width: 768px) {
+        /* Ajustes generales */
+        .card-header .float-end {
+            float: none !important;
+            margin-top: 10px;
+            text-align: right;
+        }
+        
+        #contenedor-boton-agregar {
+            display: block !important;
+            margin-bottom: 10px;
+        }
+        
+        /* Ajustes de la tabla */
+        .dataTables_wrapper {
+            overflow-x: auto;
+        }
+        
+        #tablaOrdenesCompra {
+            width: 100% !important;
+            font-size: 12px;
+        }
+        
+        #tablaOrdenesCompra th, 
+        #tablaOrdenesCompra td {
+            white-space: nowrap;
+            padding: 0.5rem 0.3rem;
+        }
+        
+        /* Ocultar columnas menos importantes en móvil */
+        #tablaOrdenesCompra th:nth-child(3),
+        #tablaOrdenesCompra td:nth-child(3),
+        #tablaOrdenesCompra th:nth-child(4),
+        #tablaOrdenesCompra td:nth-child(4),
+        #tablaOrdenesCompra th:nth-child(7),
+        #tablaOrdenesCompra td:nth-child(7) {
+            display: none;
+        }
+        
+        /* Ajustes del modal */
+        .modal-dialog {
+            margin: 0;
+            max-width: 100%;
+            height: 100%;
+        }
+        
+        .modal-content {
+            border-radius: 0;
+            height: 100%;
+        }
+        
+        .modal-body {
+            padding: 0.75rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 60px);
+        }
+        
+        /* Ajustes de filas del formulario */
+        .row.mb-2 > [class*="col-"] {
+            margin-bottom: 10px;
+        }
+        
+        /* Ajustes de la sección de agregar producto */
+        .card-body .row.g-2 {
+            flex-direction: column;
+        }
+        
+        .card-body .row.g-2 > [class*="col-"] {
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        
+        #resultados_busqueda {
+            position: static !important;
+            max-height: 150px;
+            margin-top: 5px;
+        }
+        
+        /* Ajustes de la tabla de detalles */
+        #contenedor-detalles {
+            overflow-x: auto;
+        }
+        
+        #contenedor-detalles table {
+            font-size: 11px;
+        }
+        
+        #contenedor-detalles table th,
+        #contenedor-detalles table td {
+            white-space: nowrap;
+            padding: 0.3rem 0.2rem;
+        }
+        
+        /* Ocultar columnas menos importantes en móvil */
+        #contenedor-detalles table th:nth-child(4),
+        #contenedor-detalles table td:nth-child(4),
+        #contenedor-detalles table th:nth-child(5),
+        #contenedor-detalles table td:nth-child(5),
+        #contenedor-detalles table th:nth-child(6),
+        #contenedor-detalles table td:nth-child(6),
+        #contenedor-detalles table th:nth-child(7),
+        #contenedor-detalles table td:nth-child(7) {
+            display: none;
+        }
+        
+        /* Ajustes de los totales */
+        .card-body .row.align-items-center {
+            flex-direction: column;
+        }
+        
+        .card-body .row.align-items-center > [class*="col-"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        
+        .border-start {
+            border-left: none !important;
+            padding-left: 0 !important;
+        }
+        
+        /* Ajustes de botones */
+        .btn-group {
+            flex-wrap: wrap;
+        }
+        
+        .btn-sm {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.7rem;
+        }
+        
+        /* Ajustes de filtros de columna */
+        .column-filter {
+            font-size: 0.7rem;
+            padding: 0.15rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        /* Ocultar más columnas en móviles muy pequeños */
+        #tablaOrdenesCompra th:nth-child(6),
+        #tablaOrdenesCompra td:nth-child(6) {
+            display: none;
+        }
+        
+        #contenedor-detalles table th:nth-child(8),
+        #contenedor-detalles table td:nth-child(8) {
+            display: none;
+        }
+        
+        /* Ajustes de títulos */
+        h3.mb-0 {
+            font-size: 1.2rem;
+        }
+        
+        /* Botones más pequeños */
+        .btn-sm {
+            padding: 0.15rem 0.3rem;
+            font-size: 0.65rem;
+        }
+    }
+
+    /* Mejoras para tablets */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        #tablaOrdenesCompra {
+            font-size: 13px;
+        }
+        
+        #tablaOrdenesCompra th, 
+        #tablaOrdenesCompra td {
+            padding: 0.4rem 0.25rem;
+        }
+        
+        .modal-dialog {
+            max-width: 95%;
+            margin: 1.75rem auto;
+        }
+    }
+
+    /* Estilos para el scroll horizontal en tablas */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Ajustes para los inputs en móvil */
+    input, select, textarea {
+        font-size: 16px !important; /* Evita zoom automático en iOS */
+    }
+
+    /* Ajustes para los botones de acción en móvil */
+    .btn-accion {
+        margin-bottom: 2px;
+    }
+
+    /* Estilo para el contenedor de exportación en móvil */
+    .dataTables_wrapper .col-md-6 {
+        text-align: center !important;
+        margin-bottom: 10px;
+    }
+
+    /* Ajustes para el paginador en móvil */
+    .dataTables_paginate {
+        white-space: nowrap;
+        overflow-x: auto;
+        padding-bottom: 5px;
+    }
+
+    .dataTables_paginate .paginate_button {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.8rem;
+    }
+    /* Ocultar los botones que DataTable intenta agregar */
+    .dt-buttons {
+        display: none !important;
+    }
+
+    /* Estilos para los controles en el header */
+    #tablaOrdenesCompra_length,
+    #tablaOrdenesCompra_filter {
+        margin: 0;
+        padding: 0;
+    }
+
+    #tablaOrdenesCompra_length label,
+    #tablaOrdenesCompra_filter label {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0;
+        gap: 5px;
+    }
+
+    #tablaOrdenesCompra_length select {
+        width: auto;
+        display: inline-block;
+        margin: 0 5px;
+    }
+
+    #tablaOrdenesCompra_filter input {
+        width: 200px;
+        margin-left: 5px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .card-header .row > div {
+            margin-bottom: 10px;
+            text-align: center !important;
+        }
+        
+        .card-header .col-md-3,
+        .card-header .col-md-2,
+        .card-header .col-md-4 {
+            width: 100%;
+        }
+        
+        #tablaOrdenesCompra_filter label,
+        #tablaOrdenesCompra_length label {
+            justify-content: center;
+        }
+        
+        #tablaOrdenesCompra_filter input {
+            width: 150px;
+        }
+        
+        .btn-group {
+            justify-content: center;
+        }
+    }
+
+    /* Ocultar los controles originales de DataTable */
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter {
+        display: none !important;
+    }
+}
 </style>
 
     <link rel="stylesheet" type="text/css"

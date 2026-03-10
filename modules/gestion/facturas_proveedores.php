@@ -324,7 +324,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                             <div class="col-md-1">
                                                                 <label class="small mb-1">Dto %</label>
                                                                 <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_descuento_porcentaje" 
+                                                                    id="producto_descuento_item_pct" 
                                                                     step="0.01" min="0" max="100" value="0">
                                                             </div>
                                                             <div class="col-md-1">

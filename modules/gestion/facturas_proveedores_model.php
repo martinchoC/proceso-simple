@@ -361,13 +361,14 @@ function agregarFacturaProveedor($conexion, $data)
         $direccion = isset($data['direccion']) ? trim($data['direccion']) : '';
         $observaciones = isset($data['observaciones']) ? trim($data['observaciones']) : '';
 
-        // Insertar factura
+        // Insertar factura - CORREGIDO con 23 columnas
         $sql = "INSERT INTO gestion__facturas_proveedores 
                 (empresa_id, sucursal_id, comprobante_tipo_id, comprobante_pv, comprobante_nro, 
-                 entidad_id, entidad_sucursal_id, f_emision, f_vencimiento, condicion_pago_id, 
-                 moneda_id, tipo_cambio, direccion_entrega, subtotal, descuentos, no_gravado, exento, impuestos, total, 
+                 entidad_id, entidad_sucursal_id, f_emision, f_vencimiento, f_entrega_estimada,
+                 condicion_pago_id, moneda_id, tipo_cambio, direccion_entrega, 
+                 subtotal, no_gravado, exento, descuentos, impuestos, total, 
                  observaciones, tabla_estado_registro_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -384,21 +385,25 @@ function agregarFacturaProveedor($conexion, $data)
         $entidad_sucursal_id_val = $entidad_sucursal_id;
         $f_emision_val = $data['f_emision'];
         $f_vencimiento_val = $f_vencimiento;
+        $f_entrega_estimada_val = null; // Campo nuevo, puede ser NULL
         $condicion_pago_id_val = $condicion_pago_id;
         $moneda_id_val = intval($data['moneda_id']);
         $tipo_cambio_val = $tipo_cambio;
         $direccion_val = $direccion;
         $subtotal_val = floatval($data['subtotal'] ?? 0);
-        $descuentos_val = floatval($data['descuentos'] ?? 0);
         $no_gravado_val = floatval($data['no_gravado'] ?? 0);
         $exento_val = floatval($data['exento'] ?? 0);
+        $descuentos_val = floatval($data['descuentos'] ?? 0);
         $impuestos_val = floatval($data['impuestos'] ?? 0);
         $total_val = floatval($data['total'] ?? 0);
         $observaciones_val = $observaciones;
         $estado_inicial_val = intval($estado_inicial);
 
-        // Cadena de tipos: i,i,i,i,i,i,i,s,s,i,i,d,s,d,d,d,d,d,d,s,i (21 caracteres)
-        mysqli_stmt_bind_param($stmt, "iiiiiiissiidsddddddddsi",
+        // Cadena de tipos: 22 parámetros
+        // i: 14 integers, s: 5 strings, d: 3 decimals = 22
+        
+        mysqli_stmt_bind_param($stmt, 
+            "iiiiiiisssiidsddddddsi", // Con espacios para contar
             $empresa_id_val,
             $sucursal_id_val,
             $comprobante_tipo_id_val,
@@ -408,19 +413,22 @@ function agregarFacturaProveedor($conexion, $data)
             $entidad_sucursal_id_val,
             $f_emision_val,
             $f_vencimiento_val,
+            $f_entrega_estimada_val,  // Nuevo campo
             $condicion_pago_id_val,
             $moneda_id_val,
             $tipo_cambio_val,
             $direccion_val,
             $subtotal_val,
-            $descuentos_val,
             $no_gravado_val,
             $exento_val,
+            $descuentos_val,
             $impuestos_val,
             $total_val,
             $observaciones_val,
             $estado_inicial_val
         );
+
+        
 
         if (!mysqli_stmt_execute($stmt)) {
             throw new Exception("Error ejecutando insert: " . mysqli_stmt_error($stmt));
@@ -471,7 +479,8 @@ function editarFacturaProveedor($conexion, $id, $data)
         $comprobante_pv = intval($data['comprobante_pv'] ?? 0);
         $comprobante_nro = intval($data['comprobante_nro'] ?? 0);
 
-        // Actualizar la factura
+        
+        // Actualizar la factura - CORREGIDO
         $sql = "UPDATE gestion__facturas_proveedores 
                 SET sucursal_id = ?,
                     comprobante_tipo_id = ?, 
@@ -481,14 +490,15 @@ function editarFacturaProveedor($conexion, $id, $data)
                     entidad_sucursal_id = ?, 
                     f_emision = ?, 
                     f_vencimiento = ?, 
+                    f_entrega_estimada = ?,
                     condicion_pago_id = ?, 
                     moneda_id = ?, 
                     tipo_cambio = ?, 
                     direccion_entrega = ?, 
                     subtotal = ?, 
-                    descuentos = ?, 
                     no_gravado = ?,
                     exento = ?,
+                    descuentos = ?, 
                     impuestos = ?, 
                     total = ?, 
                     observaciones = ?
@@ -508,6 +518,7 @@ function editarFacturaProveedor($conexion, $id, $data)
         $entidad_sucursal_id_val = $entidad_sucursal_id;
         $f_emision_val = $data['f_emision'];
         $f_vencimiento_val = $f_vencimiento;
+        $f_entrega_estimada_val = null; // Siempre NULL por ahora
         $condicion_pago_id_val = $condicion_pago_id;
         $moneda_id_val = intval($data['moneda_id']);
         $tipo_cambio_val = $tipo_cambio;
@@ -525,9 +536,10 @@ function editarFacturaProveedor($conexion, $id, $data)
         error_log("Valores para update:");
         error_log("sucursal_id: " . ($sucursal_id_val ?? 'null'));
 
-        // Cadena de tipos: i,i,i,i,i,i,i,s,s,i,i,d,s,d,d,d,d,d,d,s,i,i (22 caracteres)
+        // Cadena de tipos SIN ESPACIOS - 22 caracteres (20 SET + 2 WHERE)
+        // La cadena exacta es: "iiiiiissiidsddddddddsii"
         mysqli_stmt_bind_param($stmt, 
-            "iiiiiissiidsddddddddsii",
+            "iiiiiisssiidsddddddsii",
             $sucursal_id_val,
             $comprobante_tipo_id_val,
             $comprobante_pv_val,
@@ -536,6 +548,7 @@ function editarFacturaProveedor($conexion, $id, $data)
             $entidad_sucursal_id_val,
             $f_emision_val,
             $f_vencimiento_val,
+            $f_entrega_estimada_val,
             $condicion_pago_id_val,
             $moneda_id_val,
             $tipo_cambio_val,
@@ -554,7 +567,7 @@ function editarFacturaProveedor($conexion, $id, $data)
         if (!mysqli_stmt_execute($stmt)) {
             throw new Exception("Error ejecutando update: " . mysqli_stmt_error($stmt));
         }
-        
+
         $affected_rows = mysqli_stmt_affected_rows($stmt);
         error_log("Filas afectadas en update: " . $affected_rows);
         mysqli_stmt_close($stmt);
@@ -670,7 +683,7 @@ function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx)
             'producto_nombre' => $detalle['producto_nombre'] . ' (' . $detalle['producto_codigo'] . ')',
             'cantidad' => floatval($detalle['cantidad']),
             'precio_unitario' => floatval($detalle['precio_unitario']),
-            'descuento_porcentaje' => floatval($detalle['descuento_porcentaje'] ?? 0),
+            'descuento_item_pct' => floatval($detalle['descuento_item_pct'] ?? 0),
             'descuento' => floatval($detalle['descuento'] ?? 0),
             'no_gravado' => floatval($detalle['no_gravado'] ?? 0),
             'exento' => floatval($detalle['exento'] ?? 0),
@@ -692,8 +705,7 @@ function obtenerComprobantesTipos($conexion)
 {
     $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra 
             FROM gestion__comprobantes_tipos 
-            WHERE comprobante_grupo_id = 2 
-            AND comprobante_subgrupo_id = 6
+            WHERE comprobante_subgrupo_id = 5
             AND tabla_estado_registro_id = 1 
             ORDER BY comprobante_tipo";
     
@@ -1125,7 +1137,7 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         $neto_gravado = floatval($detalle['neto_gravado'] ?? ($cantidad * $precio_unitario));
         $no_gravado = floatval($detalle['no_gravado'] ?? 0);
         $exento = floatval($detalle['exento'] ?? 0);
-        $descuento_porcentaje = floatval($detalle['descuento_porcentaje'] ?? 0);
+        $descuento_item_pct = floatval($detalle['descuento_item_pct'] ?? 0);
         $descuento = floatval($detalle['descuento'] ?? 0);
         $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 0;
         $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
@@ -1135,7 +1147,7 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         // Insertar detalle
         $sql = "INSERT INTO gestion__facturas_proveedores_detalle 
                 (factura_proveedor_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
-                 precio_unitario, descuento_porcentaje, descuento, neto_gravado, no_gravado, exento, 
+                 precio_unitario, descuento_item_pct, descuento, neto_gravado, no_gravado, exento, 
                  iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
                 VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
@@ -1145,13 +1157,13 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
             return false;
         }
         
-        mysqli_stmt_bind_param($stmt, "iiiddddddddiddd",
+        mysqli_stmt_bind_param($stmt, "iiiddddddidddd",
             $factura_proveedor_id,
             $empresa_id,
             $detalle['producto_id'],
             $cantidad,
             $precio_unitario,
-            $descuento_porcentaje,
+            $descuento_item_pct,
             $descuento,
             $neto_gravado,
             $no_gravado,

@@ -84,55 +84,12 @@ $(document).ready(function () {
                 }
                 return null;
             },
-            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                '<"row"<"col-sm-12"tr>>' +
+            dom: '<"row"<"col-sm-12"tr>>' +
                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
                 '<"clear">',
             pageLength: 50,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-            buttons: [
-                {
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel"></i> Excel',
-                    className: 'btn btn-success btn-sm',
-                    title: 'Órdenes de Compra',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                        orthogonal: 'export'
-                    }
-                },
-                {
-                    extend: 'pdfHtml5',
-                    text: '<i class="fas fa-file-pdf"></i> PDF',
-                    className: 'btn btn-danger btn-sm',
-                    title: 'Órdenes de Compra',
-                    orientation: 'landscape',
-                    pageSize: 'A4',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                        orthogonal: 'export'
-                    }
-                },
-                {
-                    extend: 'csvHtml5',
-                    text: '<i class="fas fa-file-csv"></i> CSV',
-                    className: 'btn btn-primary btn-sm',
-                    title: 'Ordenes_Compra',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-                    }
-                },
-                {
-                    extend: 'print',
-                    text: '<i class="fas fa-print"></i> Imprimir',
-                    className: 'btn btn-secondary btn-sm',
-                    title: 'Órdenes de Compra',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                        stripHtml: false
-                    }
-                }
-            ],
+            
             columns: [
                 {
                     data: 'orden_compra_id',
@@ -329,6 +286,44 @@ $(document).ready(function () {
                             }
                         });
                 });
+
+                // Mover controles de longitud (Mostrar X registros) y búsqueda al header
+                setTimeout(function() {
+                    // Mover el control de longitud
+                    var lengthControl = $('#tablaOrdenesCompra_length').detach();
+                    $('#tablaOrdenesCompra_length').replaceWith(lengthControl);
+                    
+                    // Mover el control de búsqueda
+                    var filterControl = $('#tablaOrdenesCompra_filter').detach();
+                    $('#tablaOrdenesCompra_filter').replaceWith(filterControl);
+                    
+                    // Aplicar estilos para que se vean bien en el header
+                    $('#tablaOrdenesCompra_length').addClass('dataTables_length_custom');
+                    $('#tablaOrdenesCompra_filter').addClass('dataTables_filter_custom');
+                    
+                    // Si el control de longitud está vacío, lo llenamos manualmente
+                    if ($('#tablaOrdenesCompra_length').html().trim() === '') {
+                        var selectHtml = '<label>Mostrar <select name="tablaOrdenesCompra_length" aria-controls="tablaOrdenesCompra" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
+                        $('#tablaOrdenesCompra_length').html(selectHtml);
+                        
+                        // Agregar evento al select
+                        $('#tablaOrdenesCompra_length select').on('change', function() {
+                            tabla.page.len($(this).val()).draw();
+                        });
+                    }
+                    
+                    // Si el control de búsqueda está vacío, lo llenamos manualmente
+                    if ($('#tablaOrdenesCompra_filter').html().trim() === '') {
+                        var filterHtml = '<label>Buscar:<input type="search" class="form-control form-control-sm" placeholder="" aria-controls="tablaOrdenesCompra"></label>';
+                        $('#tablaOrdenesCompra_filter').html(filterHtml);
+                        
+                        // Agregar evento al input
+                        $('#tablaOrdenesCompra_filter input').on('keyup', function() {
+                            tabla.search($(this).val()).draw();
+                        });
+                    }
+                }, 100);
+
 
                 // Configurar botones de exportación
                 var buttons = new $.fn.dataTable.Buttons(tabla, {

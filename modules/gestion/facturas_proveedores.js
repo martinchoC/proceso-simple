@@ -578,7 +578,7 @@ $(document).ready(function () {
                                 producto_nombre: detalle.producto_nombre,
                                 cantidad: detalle.cantidad,
                                 precio_unitario: detalle.precio_unitario,
-                                descuento_porcentaje: detalle.descuento_porcentaje || 0,
+                                descuento_item_pct: detalle.descuento_item_pct || 0,
                                 descuento: detalle.descuento || 0,
                                 no_gravado: detalle.no_gravado || 0,
                                 exento: detalle.exento || 0,
@@ -876,7 +876,7 @@ $(document).ready(function () {
     function calcularDescuentos() {
         var cantidad = parseFloat($('#producto_cantidad').val()) || 0;
         var precio = parseFloat($('#producto_precio').val()) || 0;
-        var descuentoPorcentaje = parseFloat($('#producto_descuento_porcentaje').val()) || 0;
+        var descuentoPorcentaje = parseFloat($('#producto_descuento_item_pct').val()) || 0;
         var descuentoMonto = parseFloat($('#producto_descuento').val()) || 0;
         
         var netoBase = cantidad * precio;
@@ -899,7 +899,7 @@ $(document).ready(function () {
         $('#producto_iva_importe').val(ivaImporte.toFixed(2));
     }
 
-    $('#producto_cantidad, #producto_precio, #producto_iva, #producto_descuento_porcentaje, #producto_descuento').on('input', function() {
+    $('#producto_cantidad, #producto_precio, #producto_iva, #producto_descuento_item_pct, #producto_descuento').on('input', function() {
         calcularDescuentos();
     });
 
@@ -938,7 +938,7 @@ $(document).ready(function () {
         
         var cantidad = parseFloat($('#producto_cantidad').val());
         var precio = parseFloat($('#producto_precio').val());
-        var descuentoPorcentaje = parseFloat($('#producto_descuento_porcentaje').val()) || 0;
+        var descuentoPorcentaje = parseFloat($('#producto_descuento_item_pct').val()) || 0;
         var descuento = parseFloat($('#producto_descuento').val()) || 0;
         var iva = parseFloat($('#producto_iva').val());
         var ivaId = $('#producto_iva_id').val() || obtenerIdIva(iva);
@@ -987,7 +987,7 @@ $(document).ready(function () {
             producto_nombre: productoText,
             cantidad: cantidad,
             precio_unitario: precio,
-            descuento_porcentaje: descuentoPorcentaje,
+            descuento_item_pct: descuentoPorcentaje,
             descuento: descuentoCalculado,
             no_gravado: noGravado,
             exento: exento,
@@ -1008,7 +1008,7 @@ $(document).ready(function () {
         $('#producto_iva_id').val('');
         $('#producto_cantidad').val('1.00');
         $('#producto_precio').val('');
-        $('#producto_descuento_porcentaje').val('0');
+        $('#producto_descuento_item_pct').val('0');
         $('#producto_descuento').val('0.00');
         $('#producto_iva').val('21');
         $('#producto_iva_importe').val('0.00');
@@ -1068,7 +1068,7 @@ $(document).ready(function () {
                 </td>
                 <td class="text-center">${detalle.cantidad.toFixed(2)}</td>
                 <td class="text-end">$${detalle.precio_unitario.toFixed(4)}</td>
-                <td class="text-center">${detalle.descuento_porcentaje.toFixed(2)}%</td>
+                <td class="text-center">${detalle.descuento_item_pct.toFixed(2)}%</td>
                 <td class="text-end">$${(detalle.descuento || 0).toFixed(2)}</td>
                 <td class="text-end">$${(detalle.neto_gravado || 0).toFixed(2)}</td>
                 <td class="text-center">${detalle.iva_porcentaje.toFixed(2)}%</td>
@@ -1191,7 +1191,7 @@ $(document).ready(function () {
             $('#producto_iva_id').val(detalle.iva_alicuota_id);
             $('#producto_cantidad').val(detalle.cantidad);
             $('#producto_precio').val(detalle.precio_unitario);
-            $('#producto_descuento_porcentaje').val(detalle.descuento_porcentaje);
+            $('#producto_descuento_item_pct').val(detalle.descuento_item_pct);
             $('#producto_descuento').val(detalle.descuento);
             $('#producto_iva').val(detalle.iva_porcentaje);
             $('#producto_iva_importe').val(detalle.iva_importe);
@@ -1416,7 +1416,7 @@ $(document).ready(function () {
                                 producto_nombre: detalle.producto_nombre,
                                 cantidad: detalle.cantidad,
                                 precio_unitario: detalle.precio_unitario,
-                                descuento_porcentaje: detalle.descuento_porcentaje || 0,
+                                descuento_item_pct: detalle.descuento_item_pct || 0,
                                 descuento: detalle.descuento || 0,
                                 no_gravado: detalle.no_gravado || 0,
                                 exento: detalle.exento || 0,
