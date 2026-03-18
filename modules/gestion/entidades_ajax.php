@@ -62,13 +62,6 @@ try {
                 'sitio_web' => trim($_POST['sitio_web'] ?? ''),
                 'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
                 'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
-                // NUEVOS CAMPOS: Descuentos
-                'descuento_general_pct_cliente' => isset($_POST['descuento_general_pct_cliente']) && $_POST['descuento_general_pct_cliente'] !== '' 
-                    ? floatval($_POST['descuento_general_pct_cliente']) 
-                    : null,
-                'descuento_general_pct_proveedor' => isset($_POST['descuento_general_pct_proveedor']) && $_POST['descuento_general_pct_proveedor'] !== '' 
-                    ? floatval($_POST['descuento_general_pct_proveedor']) 
-                    : null,
                 'es_proveedor' => isset($_POST['es_proveedor']) ? intval($_POST['es_proveedor']) : 0,
                 'es_cliente' => isset($_POST['es_cliente']) ? intval($_POST['es_cliente']) : 0,
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
@@ -89,13 +82,6 @@ try {
                 'sitio_web' => trim($_POST['sitio_web'] ?? ''),
                 'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
                 'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
-                // NUEVOS CAMPOS: Descuentos
-                'descuento_general_pct_cliente' => isset($_POST['descuento_general_pct_cliente']) && $_POST['descuento_general_pct_cliente'] !== '' 
-                    ? floatval($_POST['descuento_general_pct_cliente']) 
-                    : null,
-                'descuento_general_pct_proveedor' => isset($_POST['descuento_general_pct_proveedor']) && $_POST['descuento_general_pct_proveedor'] !== '' 
-                    ? floatval($_POST['descuento_general_pct_proveedor']) 
-                    : null,
                 'es_proveedor' => isset($_POST['es_proveedor']) ? intval($_POST['es_proveedor']) : 0,
                 'es_cliente' => isset($_POST['es_cliente']) ? intval($_POST['es_cliente']) : 0,
                 'observaciones' => trim($_POST['observaciones'] ?? ''),

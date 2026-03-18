@@ -87,8 +87,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="120">CUIT</th>
                                                     <th width="80">Proveedor</th>
                                                     <th width="80">Cliente</th>
-                                                    <th width="80">Prov%</th>
-                                                    <th width="80">Cli%</th>
                                                     <th width="120">Estado</th>
                                                     <th width="200" class="text-center">Acciones</th>
                                                 </tr>
@@ -220,42 +218,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <input class="form-check-input" type="checkbox" id="es_cliente" name="es_cliente" value="1">
                                                     <label class="form-check-label" for="es_cliente">Es Cliente</label>
                                                 </div>
-                                            </div>
-                                        </div>
-                                        <!-- NUEVA SECCIÓN: Descuentos -->
-                                        <div class="row mt-3">
-                                            <div class="col-12">
-                                                <h6 class="border-bottom pb-2 mb-3">
-                                                    <i class="fas fa-percent me-2"></i>Descuentos Generales
-                                                </h6>
-                                            </div>
-                                        </div>
-
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label for="descuento_general_pct_cliente" class="form-label">
-                                                    <i class="fas fa-user-tie me-1 text-primary"></i>Descuento a Clientes (%)
-                                                </label>
-                                                <div class="input-group">
-                                                    <input type="number" class="form-control" id="descuento_general_pct_cliente" 
-                                                        name="descuento_general_pct_cliente" min="0" max="100" step="0.01" 
-                                                        placeholder="0.00">
-                                                    <span class="input-group-text">%</span>
-                                                </div>
-                                                <div class="form-text">Porcentaje de descuento que se otorga a este cliente</div>
-                                            </div>
-                                            
-                                            <div class="col-md-6 mb-3">
-                                                <label for="descuento_general_pct_proveedor" class="form-label">
-                                                    <i class="fas fa-truck me-1 text-success"></i>Descuento de Proveedores (%)
-                                                </label>
-                                                <div class="input-group">
-                                                    <input type="number" class="form-control" id="descuento_general_pct_proveedor" 
-                                                        name="descuento_general_pct_proveedor" min="0" max="100" step="0.01" 
-                                                        placeholder="0.00">
-                                                    <span class="input-group-text">%</span>
-                                                </div>
-                                                <div class="form-text">Porcentaje de descuento que se recibe de este proveedor</div>
                                             </div>
                                         </div>
 
@@ -1451,37 +1413,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     return '<i class="fas fa-times-circle text-secondary"></i>';
                                 }
                             }
-                        },
-                        {
-                            data: 'descuento_general_pct_cliente',
-                            className: 'text-center',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data ? data + '%' : '';
-                                }
-                                
-                                if (data !== null && data > 0) {
-                                    return `<span class="badge bg-info">${parseFloat(data).toFixed(2)}%</span>`;
-                                } else {
-                                    return '<span class="text-muted">-</span>';
-                                }
-                            }
-                        },
-                        {
-                            data: 'descuento_general_pct_proveedor',
-                            className: 'text-center',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data ? data + '%' : '';
-                                }
-                                
-                                if (data !== null && data > 0) {
-                                    return `<span class="badge bg-success">${parseFloat(data).toFixed(2)}%</span>`;
-                                } else {
-                                    return '<span class="text-muted">-</span>';
-                                }
-                            }
-                        },
+                        },                        
                         {
                             data: 'estado_info',
                             className: 'text-center',
@@ -2480,19 +2412,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#es_proveedor').prop('checked', parseInt(res.es_proveedor) === 1);
                         $('#es_cliente').prop('checked', parseInt(res.es_cliente) === 1);
                         
-                        // NUEVO: Cargar valores de descuento
-                        if (res.descuento_general_pct_cliente !== null && res.descuento_general_pct_cliente !== undefined) {
-                            $('#descuento_general_pct_cliente').val(parseFloat(res.descuento_general_pct_cliente).toFixed(2));
-                        } else {
-                            $('#descuento_general_pct_cliente').val('');
-                        }
-
-                        if (res.descuento_general_pct_proveedor !== null && res.descuento_general_pct_proveedor !== undefined) {
-                            $('#descuento_general_pct_proveedor').val(parseFloat(res.descuento_general_pct_proveedor).toFixed(2));
-                        } else {
-                            $('#descuento_general_pct_proveedor').val('');
-                        }
-                        
+                       
                         $('#modalLabel').text('Editar Entidad');
                         entidadActualId = res.entidad_id;
                         $('#sucursales-tab').removeClass('disabled');
@@ -2568,9 +2488,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#tablaSucursales tbody').html('<tr><td colspan="9" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
                 $('#contador-sucursales').text('0').addClass('bg-secondary').removeClass('bg-primary');
                 
-                // NUEVO: Resetear campos de descuento
-                $('#descuento_general_pct_cliente').val('');
-                $('#descuento_general_pct_proveedor').val('');
+                
                 // Al final de resetModal
                 if ($.fn.DataTable.isDataTable('#tablaCondicionesClientes')) {
                     $('#tablaCondicionesClientes tbody').html('<tr><td colspan="9" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
@@ -2659,8 +2577,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         sitio_web: sitioWeb,
                         domicilio_legal: $('#domicilio_legal').val().trim(),
                         localidad_id: $('#localidad_id').val(),
-                        descuento_general_pct_cliente: $('#descuento_general_pct_cliente').val() || '',
-                        descuento_general_pct_proveedor: $('#descuento_general_pct_proveedor').val() || '',
                         es_proveedor: esProveedor,  // Usar la variable calculada
                         es_cliente: esCliente,      // Usar la variable calculada
                         observaciones: $('#observaciones').val().trim(),

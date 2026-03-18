@@ -416,7 +416,7 @@ function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_
     return $data;
 }
 
-// ✅ Agregar nueva entidad (con estado inicial) - VERSIÓN CORREGIDA CON DESCUENTOS
+// ✅ Agregar nueva entidad (con estado inicial) - SIN DESCUENTOS
 function agregarEntidad($conexion, $data)
 {
     $empresa_id = intval($data['empresa_id'] ?? 0);
@@ -432,14 +432,6 @@ function agregarEntidad($conexion, $data)
     $es_proveedor = isset($data['es_proveedor']) && $data['es_proveedor'] ? 1 : 0;
     $es_cliente = isset($data['es_cliente']) && $data['es_cliente'] ? 1 : 0;
     
-    // NUEVOS CAMPOS: Descuentos
-    $descuento_general_pct_cliente = isset($data['descuento_general_pct_cliente']) && $data['descuento_general_pct_cliente'] !== '' 
-        ? floatval($data['descuento_general_pct_cliente']) 
-        : null;
-    $descuento_general_pct_proveedor = isset($data['descuento_general_pct_proveedor']) && $data['descuento_general_pct_proveedor'] !== '' 
-        ? floatval($data['descuento_general_pct_proveedor']) 
-        : null;
-    
     $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
 
     if (empty($entidad_nombre)) {
@@ -452,15 +444,6 @@ function agregarEntidad($conexion, $data)
 
     if ($cuit && ($cuit < 0 || $cuit > 99999999999)) {
         return ['resultado' => false, 'error' => 'CUIT inválido'];
-    }
-
-    // Validar rangos de descuentos
-    if ($descuento_general_pct_cliente !== null && ($descuento_general_pct_cliente < 0 || $descuento_general_pct_cliente > 100)) {
-        return ['resultado' => false, 'error' => 'El descuento de cliente debe estar entre 0 y 100'];
-    }
-    
-    if ($descuento_general_pct_proveedor !== null && ($descuento_general_pct_proveedor < 0 || $descuento_general_pct_proveedor > 100)) {
-        return ['resultado' => false, 'error' => 'El descuento de proveedor debe estar entre 0 y 100'];
     }
 
     $estado_inicial = obtenerEstadoInicial($conexion);
@@ -483,18 +466,17 @@ function agregarEntidad($conexion, $data)
         return ['resultado' => false, 'error' => 'Ya existe una entidad con este nombre'];
     }
 
-    // Insertar nueva entidad - INCLUYE NUEVOS CAMPOS DE DESCUENTO
+    // Insertar nueva entidad - SIN CAMPOS DE DESCUENTO
     $sql = "INSERT INTO gestion__entidades 
             (empresa_id, entidad_nombre, entidad_fantasia, entidad_tipo_id, cuit, sitio_web, 
-             domicilio_legal, localidad_id, es_proveedor, es_cliente, 
-             descuento_general_pct_cliente, descuento_general_pct_proveedor, observaciones, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             domicilio_legal, localidad_id, es_proveedor, es_cliente, observaciones, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issiissiidddsi", 
+    mysqli_stmt_bind_param($stmt, "issiissiissi", 
         $empresa_id, 
         $entidad_nombre, 
         $entidad_fantasia, 
@@ -505,8 +487,6 @@ function agregarEntidad($conexion, $data)
         $localidad_id,
         $es_proveedor,
         $es_cliente,
-        $descuento_general_pct_cliente,
-        $descuento_general_pct_proveedor,
         $observaciones,
         $estado_inicial
     );
@@ -523,7 +503,7 @@ function agregarEntidad($conexion, $data)
     }
 }
 
-// ✅ Editar entidad existente (VERSIÓN CORREGIDA CON DESCUENTOS)
+// ✅ Editar entidad existente - SIN DESCUENTOS
 function editarEntidad($conexion, $id, $data)
 {
     $id = intval($id);
@@ -540,14 +520,6 @@ function editarEntidad($conexion, $id, $data)
     $es_proveedor = intval($data['es_proveedor'] ?? 0);
     $es_cliente   = intval($data['es_cliente'] ?? 0);
     
-    // NUEVOS CAMPOS: Descuentos
-    $descuento_general_pct_cliente = isset($data['descuento_general_pct_cliente']) && $data['descuento_general_pct_cliente'] !== '' 
-        ? floatval($data['descuento_general_pct_cliente']) 
-        : null;
-    $descuento_general_pct_proveedor = isset($data['descuento_general_pct_proveedor']) && $data['descuento_general_pct_proveedor'] !== '' 
-        ? floatval($data['descuento_general_pct_proveedor']) 
-        : null;
-    
     $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
 
     if (empty($entidad_nombre)) {
@@ -560,15 +532,6 @@ function editarEntidad($conexion, $id, $data)
 
     if ($cuit && ($cuit < 0 || $cuit > 99999999999)) {
         return ['resultado' => false, 'error' => 'CUIT inválido'];
-    }
-
-    // Validar rangos de descuentos
-    if ($descuento_general_pct_cliente !== null && ($descuento_general_pct_cliente < 0 || $descuento_general_pct_cliente > 100)) {
-        return ['resultado' => false, 'error' => 'El descuento de cliente debe estar entre 0 y 100'];
-    }
-    
-    if ($descuento_general_pct_proveedor !== null && ($descuento_general_pct_proveedor < 0 || $descuento_general_pct_proveedor > 100)) {
-        return ['resultado' => false, 'error' => 'El descuento de proveedor debe estar entre 0 y 100'];
     }
 
     // Verificar que la entidad exista
@@ -606,7 +569,7 @@ function editarEntidad($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Ya existe otra entidad con este nombre'];
     }
 
-    // Actualizar entidad - INCLUYE NUEVOS CAMPOS DE DESCUENTO
+    // Actualizar entidad - SIN CAMPOS DE DESCUENTO
     $sql = "UPDATE gestion__entidades 
             SET entidad_nombre = ?, 
                 entidad_fantasia = ?, 
@@ -617,8 +580,6 @@ function editarEntidad($conexion, $id, $data)
                 localidad_id = ?, 
                 es_proveedor = ?, 
                 es_cliente = ?, 
-                descuento_general_pct_cliente = ?,
-                descuento_general_pct_proveedor = ?,
                 observaciones = ?
             WHERE entidad_id = ?";
 
@@ -626,7 +587,7 @@ function editarEntidad($conexion, $id, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssiissiidddsi", 
+    mysqli_stmt_bind_param($stmt, "ssiissiissi", 
         $entidad_nombre, 
         $entidad_fantasia, 
         $entidad_tipo_id,
@@ -636,8 +597,6 @@ function editarEntidad($conexion, $id, $data)
         $localidad_id,
         $es_proveedor,
         $es_cliente,
-        $descuento_general_pct_cliente,
-        $descuento_general_pct_proveedor,
         $observaciones,
         $id
     );
@@ -651,6 +610,9 @@ function editarEntidad($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Error al actualizar la entidad'];
     }
 }
+
+
+
 // ✅ Agregar nueva sucursal (con estado inicial)
 function agregarSucursal($conexion, $data)
 {
