@@ -90,7 +90,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label>Lista de Precios *</label>
-                                        <select class="form-control" id="lista_id" name="lista_id" required>
+                                        <select class="form-control" id="lista_precio_id" name="lista_precio_id" required>
                                             <option value="">Seleccionar lista...</option>
                                         </select>
                                         <div class="invalid-feedback">Seleccione una lista de precios</div>
@@ -143,12 +143,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         var optionsModal = '<option value="">Seleccionar lista...</option>';
                         
                         res.forEach(function(lista){
-                            optionsFiltro += `<option value="${lista.lista_id}">${lista.nombre}</option>`;
-                            optionsModal += `<option value="${lista.lista_id}">${lista.nombre}</option>`;
+                            optionsFiltro += `<option value="${lista.lista_precio_id}">${lista.nombre}</option>`;
+                            optionsModal += `<option value="${lista.lista_precio_id}">${lista.nombre}</option>`;
                         });
                         
                         $('#filtroLista').html(optionsFiltro);
-                        $('#lista_id').html(optionsModal);
+                        $('#lista_precio_id').html(optionsModal);
                     }, 'json');
                 }
 
@@ -289,7 +289,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }, function(res){
                         if(res){
                             $('#lista_precio_producto_id').val(res.lista_precio_producto_id);
-                            $('#lista_id').val(res.lista_id);
+                            $('#lista_precio_id').val(res.lista_precio_id);
                             $('#producto_id').val(res.producto_id);
                             $('#precio_unitario').val(res.precio_unitario);
                             $('#ajuste_id').val(res.ajuste_id);
@@ -367,7 +367,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     var formData = {
                         accion: accion,
                         lista_precio_producto_id: id,
-                        lista_id: $('#lista_id').val(),
+                        lista_precio_id: $('#lista_precio_id').val(),
                         producto_id: $('#producto_id').val(),
                         precio_unitario: $('#precio_unitario').val(),
                         ajuste_id: $('#ajuste_id').val() || null

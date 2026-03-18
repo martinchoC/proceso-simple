@@ -9,13 +9,13 @@ function obtenerListasPreciosProductos($conexion, $filtro_lista = '', $filtro_pr
                    p.producto_codigo, 
                    p.producto_nombre
             FROM `gestion__listas_precios_productos` lpp
-            INNER JOIN `gestion__listas_precios` lp ON lpp.lista_id = lp.lista_id
+            INNER JOIN `gestion__listas_precios` lp ON lpp.lista_precio_id = lp.lista_precio_id
             INNER JOIN `gestion__productos` p ON lpp.producto_id = p.producto_id
             WHERE 1=1";
 
     if (!empty($filtro_lista)) {
         $filtro_lista = intval($filtro_lista);
-        $sql .= " AND lpp.lista_id = $filtro_lista";
+        $sql .= " AND lpp.lista_precio_id = $filtro_lista";
     }
 
     if (!empty($filtro_producto)) {
@@ -35,18 +35,18 @@ function obtenerListasPreciosProductos($conexion, $filtro_lista = '', $filtro_pr
 
 function agregarListaPrecioProducto($conexion, $data)
 {
-    if (empty($data['lista_id']) || empty($data['producto_id']) || empty($data['precio_unitario'])) {
+    if (empty($data['lista_precio_id']) || empty($data['producto_id']) || empty($data['precio_unitario'])) {
         return false;
     }
 
-    $lista_id = intval($data['lista_id']);
+    $lista_precio_id = intval($data['lista_precio_id']);
     $producto_id = intval($data['producto_id']);
     $precio_unitario = floatval($data['precio_unitario']);
     $ajuste_id = !empty($data['ajuste_id']) ? intval($data['ajuste_id']) : 'NULL';
 
     // Verificar si ya existe el producto en la lista
     $sql_check = "SELECT COUNT(*) as existe FROM `gestion__listas_precios_productos` 
-                  WHERE lista_id = $lista_id AND producto_id = $producto_id";
+                  WHERE lista_precio_id = $lista_precio_id AND producto_id = $producto_id";
     $res_check = mysqli_query($conexion, $sql_check);
     $existe = mysqli_fetch_assoc($res_check)['existe'];
 
@@ -55,28 +55,28 @@ function agregarListaPrecioProducto($conexion, $data)
     }
 
     $sql = "INSERT INTO `gestion__listas_precios_productos` 
-            (lista_id, producto_id, precio_unitario, ajuste_id) 
+            (lista_precio_id, producto_id, precio_unitario, ajuste_id) 
             VALUES 
-            ($lista_id, $producto_id, $precio_unitario, $ajuste_id)";
+            ($lista_precio_id, $producto_id, $precio_unitario, $ajuste_id)";
 
     return mysqli_query($conexion, $sql);
 }
 
 function editarListaPrecioProducto($conexion, $id, $data)
 {
-    if (empty($data['lista_id']) || empty($data['producto_id']) || empty($data['precio_unitario'])) {
+    if (empty($data['lista_precio_id']) || empty($data['producto_id']) || empty($data['precio_unitario'])) {
         return false;
     }
 
     $id = intval($id);
-    $lista_id = intval($data['lista_id']);
+    $lista_precio_id = intval($data['lista_precio_id']);
     $producto_id = intval($data['producto_id']);
     $precio_unitario = floatval($data['precio_unitario']);
     $ajuste_id = !empty($data['ajuste_id']) ? intval($data['ajuste_id']) : 'NULL';
 
     // Verificar si ya existe el producto en la lista (excluyendo el registro actual)
     $sql_check = "SELECT COUNT(*) as existe FROM `gestion__listas_precios_productos` 
-                  WHERE lista_id = $lista_id 
+                  WHERE lista_precio_id = $lista_precio_id 
                   AND producto_id = $producto_id
                   AND lista_precio_producto_id != $id";
     $res_check = mysqli_query($conexion, $sql_check);
@@ -87,7 +87,7 @@ function editarListaPrecioProducto($conexion, $id, $data)
     }
 
     $sql = "UPDATE `gestion__listas_precios_productos` SET
-            lista_id = $lista_id,
+            lista_precio_id = $lista_precio_id,
             producto_id = $producto_id,
             precio_unitario = $precio_unitario,
             ajuste_id = $ajuste_id,
@@ -117,7 +117,7 @@ function obtenerListaPrecioProductoPorId($conexion, $id)
 
 function obtenerListasPrecios($conexion)
 {
-    $sql = "SELECT lista_id, nombre 
+    $sql = "SELECT lista_precio_id, nombre 
             FROM `gestion__listas_precios` 
             WHERE estado = 'activa'
             ORDER BY nombre";

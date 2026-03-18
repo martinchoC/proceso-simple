@@ -53,46 +53,58 @@ try {
             break;
 
         case 'agregar_entidad':
-    $data = [
-        'empresa_id' => $empresa_idx,
-        'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
-        'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
-        'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
-        'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
-        'sitio_web' => trim($_POST['sitio_web'] ?? ''),
-        'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
-        'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
-        // CORRECCIÓN: Convertir a entero explícitamente
-        'es_proveedor' => isset($_POST['es_proveedor']) ? intval($_POST['es_proveedor']) : 0,
-        'es_cliente' => isset($_POST['es_cliente']) ? intval($_POST['es_cliente']) : 0,
-        'observaciones' => trim($_POST['observaciones'] ?? ''),
-        'pagina_idx' => $pagina_idx
-    ];
+            $data = [
+                'empresa_id' => $empresa_idx,
+                'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
+                'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
+                'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
+                'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
+                'sitio_web' => trim($_POST['sitio_web'] ?? ''),
+                'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
+                'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
+                // NUEVOS CAMPOS: Descuentos
+                'descuento_general_pct_cliente' => isset($_POST['descuento_general_pct_cliente']) && $_POST['descuento_general_pct_cliente'] !== '' 
+                    ? floatval($_POST['descuento_general_pct_cliente']) 
+                    : null,
+                'descuento_general_pct_proveedor' => isset($_POST['descuento_general_pct_proveedor']) && $_POST['descuento_general_pct_proveedor'] !== '' 
+                    ? floatval($_POST['descuento_general_pct_proveedor']) 
+                    : null,
+                'es_proveedor' => isset($_POST['es_proveedor']) ? intval($_POST['es_proveedor']) : 0,
+                'es_cliente' => isset($_POST['es_cliente']) ? intval($_POST['es_cliente']) : 0,
+                'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'pagina_idx' => $pagina_idx
+            ];
 
-    $resultado = agregarEntidad($conexion, $data);
-    echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-    break;
+            $resultado = agregarEntidad($conexion, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
 
         case 'editar_entidad':
-    $id = intval($_POST['entidad_id'] ?? 0);
-    $data = [
-        'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
-        'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
-        'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
-        'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
-        'sitio_web' => trim($_POST['sitio_web'] ?? ''),
-        'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
-        'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
-        // CORRECCIÓN: Convertir a entero explícitamente
-        'es_proveedor' => isset($_POST['es_proveedor']) ? intval($_POST['es_proveedor']) : 0,
-        'es_cliente' => isset($_POST['es_cliente']) ? intval($_POST['es_cliente']) : 0,
-        'observaciones' => trim($_POST['observaciones'] ?? ''),
-        'empresa_idx' => $empresa_idx
-    ];
+            $id = intval($_POST['entidad_id'] ?? 0);
+            $data = [
+                'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
+                'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
+                'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
+                'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
+                'sitio_web' => trim($_POST['sitio_web'] ?? ''),
+                'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
+                'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
+                // NUEVOS CAMPOS: Descuentos
+                'descuento_general_pct_cliente' => isset($_POST['descuento_general_pct_cliente']) && $_POST['descuento_general_pct_cliente'] !== '' 
+                    ? floatval($_POST['descuento_general_pct_cliente']) 
+                    : null,
+                'descuento_general_pct_proveedor' => isset($_POST['descuento_general_pct_proveedor']) && $_POST['descuento_general_pct_proveedor'] !== '' 
+                    ? floatval($_POST['descuento_general_pct_proveedor']) 
+                    : null,
+                'es_proveedor' => isset($_POST['es_proveedor']) ? intval($_POST['es_proveedor']) : 0,
+                'es_cliente' => isset($_POST['es_cliente']) ? intval($_POST['es_cliente']) : 0,
+                'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'empresa_idx' => $empresa_idx
+            ];
 
-    $resultado = editarEntidad($conexion, $id, $data);
-    echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-    break;
+            $resultado = editarEntidad($conexion, $id, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
 
         case 'agregar_sucursal':
             $data = [
@@ -181,6 +193,145 @@ try {
             } else {
                 echo json_encode(['error' => 'Sucursal no encontrada'], JSON_UNESCAPED_UNICODE);
             }
+            break;
+            case 'obtener_condiciones_pago':
+    $condiciones = obtenerCondicionesPago($conexion);
+    echo json_encode($condiciones, JSON_UNESCAPED_UNICODE);
+    break;
+
+case 'obtener_listas_precios':
+    $listas = obtenerListasPrecios($conexion);
+    echo json_encode($listas, JSON_UNESCAPED_UNICODE);
+    break;
+
+case 'obtener_categorias_proveedores':
+    $categorias = obtenerCategoriasProveedores($conexion);
+    echo json_encode($categorias, JSON_UNESCAPED_UNICODE);
+    break;
+
+case 'listar_condiciones_cliente':
+    $entidad_id = intval($_GET['entidad_id'] ?? 0);
+    if (empty($entidad_id)) {
+        echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+        break;
+    }
+    
+    $condiciones = obtenerCondicionesCliente($conexion, $empresa_idx, $entidad_id, $pagina_idx);
+    echo json_encode($condiciones, JSON_UNESCAPED_UNICODE);
+    break;
+
+case 'listar_condiciones_proveedor':
+    $entidad_id = intval($_GET['entidad_id'] ?? 0);
+    if (empty($entidad_id)) {
+        echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+        break;
+    }
+    
+    $condiciones = obtenerCondicionesProveedor($conexion, $empresa_idx, $entidad_id, $pagina_idx);
+    echo json_encode($condiciones, JSON_UNESCAPED_UNICODE);
+    break;
+
+    case 'agregar_condicion_cliente':
+        $data = [
+            'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+            'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
+            'lista_precio_id' => $_POST['lista_precio_id'] ? intval($_POST['lista_precio_id']) : null,
+            'limite_credito' => $_POST['limite_credito'] ?? null,
+            'cliente_descuento_general' => $_POST['cliente_descuento_general'] ?? null,
+            'f_desde' => $_POST['f_desde'] ?? '',
+            'f_hasta' => $_POST['f_hasta'] ?? null
+        ];
+        
+        $resultado = agregarCondicionCliente($conexion, $data);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'agregar_condicion_proveedor':
+        $data = [
+            'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+            'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
+            'proveedor_categoria_id' => $_POST['proveedor_categoria_id'] ? intval($_POST['proveedor_categoria_id']) : null,
+            'proveedor_descuento_general' => $_POST['proveedor_descuento_general'] ?? null,
+            'f_desde' => $_POST['f_desde'] ?? '',
+            'f_hasta' => $_POST['f_hasta'] ?? null
+        ];
+        
+        $resultado = agregarCondicionProveedor($conexion, $data);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'obtener_condicion_cliente':
+        $id = intval($_POST['condicion_cliente_id'] ?? $_GET['condicion_cliente_id'] ?? 0);
+        if (empty($id)) {
+            echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        
+        $condicion = obtenerCondicionClientePorId($conexion, $id);
+        if ($condicion) {
+            echo json_encode($condicion, JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode(['error' => 'Condición no encontrada'], JSON_UNESCAPED_UNICODE);
+        }
+        break;
+
+    case 'obtener_condicion_proveedor':
+        $id = intval($_POST['condicion_proveedor_id'] ?? $_GET['condicion_proveedor_id'] ?? 0);
+        if (empty($id)) {
+            echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        
+        $condicion = obtenerCondicionProveedorPorId($conexion, $id);
+        if ($condicion) {
+            echo json_encode($condicion, JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode(['error' => 'Condición no encontrada'], JSON_UNESCAPED_UNICODE);
+        }
+        break;
+
+        case 'obtener_condicion_cliente_vigente':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            
+            $condicion = obtenerCondicionClienteVigente($conexion, $entidad_id);
+            echo json_encode($condicion, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_condicion_proveedor_vigente':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            
+            $condicion = obtenerCondicionProveedorVigente($conexion, $entidad_id);
+            echo json_encode($condicion, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'listar_historial_condiciones_cliente':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            
+            $historial = obtenerHistorialCondicionesCliente($conexion, $entidad_id);
+            echo json_encode($historial, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'listar_historial_condiciones_proveedor':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            
+            $historial = obtenerHistorialCondicionesProveedor($conexion, $entidad_id);
+            echo json_encode($historial, JSON_UNESCAPED_UNICODE);
             break;
 
         default:

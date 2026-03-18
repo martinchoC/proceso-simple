@@ -83,7 +83,7 @@ function editarListaPrecios($conexion, $id, $data)
     $ip_origen = mysqli_real_escape_string($conexion, $data['ip_origen']);
 
     // Obtener empresa_id y tipo actual para las verificaciones
-    $sql_current = "SELECT empresa_id, tipo FROM `gestion__listas_precios` WHERE lista_id = $id";
+    $sql_current = "SELECT empresa_id, tipo FROM `gestion__listas_precios` WHERE lista_precio_id = $id";
     $res_current = mysqli_query($conexion, $sql_current);
     $current_data = mysqli_fetch_assoc($res_current);
     $empresa_id = $current_data['empresa_id'];
@@ -93,7 +93,7 @@ function editarListaPrecios($conexion, $id, $data)
     $sql_check = "SELECT COUNT(*) as existe FROM `gestion__listas_precios` 
                   WHERE nombre = '$nombre' 
                   AND empresa_id = $empresa_id 
-                  AND lista_id != $id";
+                  AND lista_precio_id != $id";
     $res_check = mysqli_query($conexion, $sql_check);
     $existe_nombre = mysqli_fetch_assoc($res_check)['existe'];
 
@@ -105,7 +105,7 @@ function editarListaPrecios($conexion, $id, $data)
     if ($es_principal == 1) {
         $sql_update_principal = "UPDATE `gestion__listas_precios` 
                                 SET es_principal = 0 
-                                WHERE empresa_id = $empresa_id AND tipo = '$tipo' AND lista_id != $id";
+                                WHERE empresa_id = $empresa_id AND tipo = '$tipo' AND lista_precio_id != $id";
         mysqli_query($conexion, $sql_update_principal);
     }
 
@@ -122,7 +122,7 @@ function editarListaPrecios($conexion, $id, $data)
             usuario_id_modificacion = $usuario_id_modificacion,
             ip_origen = '$ip_origen',
             f_actualizacion = CURRENT_TIMESTAMP
-            WHERE lista_id = $id";
+            WHERE lista_precio_id = $id";
 
     return mysqli_query($conexion, $sql);
 }
@@ -135,7 +135,7 @@ function eliminarListaPrecios($conexion, $id)
     // Aquí puedes agregar verificaciones según tu estructura de base de datos
 
     $sql = "DELETE FROM `gestion__listas_precios` 
-            WHERE lista_id = $id";
+            WHERE lista_precio_id = $id";
     return mysqli_query($conexion, $sql);
 }
 
@@ -143,7 +143,7 @@ function obtenerListaPreciosPorId($conexion, $id)
 {
     $id = intval($id);
     $sql = "SELECT * FROM `gestion__listas_precios` 
-            WHERE lista_id = $id";
+            WHERE lista_precio_id = $id";
     $res = mysqli_query($conexion, $sql);
     return mysqli_fetch_assoc($res);
 }

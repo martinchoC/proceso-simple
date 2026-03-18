@@ -69,7 +69,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         </div>
                         <div class="modal-body">
                             <form id="formListaPrecios">
-                                <input type="hidden" id="lista_id" name="lista_id" />
+                                <input type="hidden" id="lista_precio_id" name="lista_precio_id" />
                                 
                                 <div class="row g-3">
                                     <div class="col-md-6">
@@ -188,7 +188,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     },
                     columns: [
-                        { data: 'lista_id' },
+                        { data: 'lista_precio_id' },
                         { data: 'nombre' },
                         { 
                             data: 'tipo',
@@ -271,7 +271,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                 $('#btnNuevo').click(function(){
                     $('#formListaPrecios')[0].reset();
-                    $('#lista_id').val('');
+                    $('#lista_precio_id').val('');
                     $('#modalLabel').text('Nueva Lista de Precios');
                     $('#estado').val('activa');
                     $('#es_principal').prop('checked', false);
@@ -295,10 +295,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     
                     $.get('listas_precios_ajax.php', {
                         accion: 'obtener', 
-                        lista_id: data.lista_id
+                        lista_precio_id: data.lista_precio_id
                     }, function(res){
                         if(res){
-                            $('#lista_id').val(res.lista_id);
+                            $('#lista_precio_id').val(res.lista_precio_id);
                             $('#nombre').val(res.nombre);
                             $('#descripcion').val(res.descripcion);
                             $('#tipo').val(res.tipo);
@@ -335,7 +335,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         if (result.isConfirmed) {
                             $.get('listas_precios_ajax.php', {
                                 accion: 'eliminar', 
-                                lista_id: data.lista_id
+                                lista_precio_id: data.lista_precio_id
                             }, function(res){
                                 if(res.resultado){
                                     // Guardar página actual
@@ -371,11 +371,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         return false;
                     }
                     
-                    var id = $('#lista_id').val();
+                    var id = $('#lista_precio_id').val();
                     var accion = id ? 'editar' : 'agregar';
                     var formData = {
                         accion: accion,
-                        lista_id: id,
+                        lista_precio_id: id,
                         nombre: $('#nombre').val(),
                         descripcion: $('#descripcion').val(),
                         tipo: $('#tipo').val(),

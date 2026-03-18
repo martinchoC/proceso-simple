@@ -43,7 +43,7 @@ switch ($accion) {
         break;
 
     case 'editar':
-        $id = intval($_POST['lista_id']);
+        $id = intval($_POST['lista_precio_id']);
         $data = [
             'nombre' => $_POST['nombre'] ?? '',
             'descripcion' => $_POST['descripcion'] ?? '',
@@ -72,7 +72,7 @@ switch ($accion) {
         break;
 
     case 'eliminar':
-        $id = intval($_GET['lista_id']);
+        $id = intval($_GET['lista_precio_id']);
         $resultado = eliminarListaPrecios($conexion, $id);
         if (!$resultado) {
             echo json_encode(['resultado' => false, 'error' => 'No se puede eliminar la lista de precios porque está siendo usada']);
@@ -82,7 +82,7 @@ switch ($accion) {
         break;
 
     case 'obtener':
-        $id = intval($_GET['lista_id']);
+        $id = intval($_GET['lista_precio_id']);
         $lista_precios = obtenerListaPreciosPorId($conexion, $id);
         echo json_encode($lista_precios);
         break;

@@ -17,13 +17,13 @@ switch ($accion) {
     
     case 'agregar':
         $data = [
-            'lista_id' => $_POST['lista_id'] ?? 0,
+            'lista_precio_id' => $_POST['lista_precio_id'] ?? 0,
             'producto_id' => $_POST['producto_id'] ?? 0,
             'precio_unitario' => $_POST['precio_unitario'] ?? 0,
             'ajuste_id' => $_POST['ajuste_id'] ?? null
         ];
         
-        if (empty($data['lista_id']) || empty($data['producto_id']) || $data['precio_unitario'] <= 0) {
+        if (empty($data['lista_precio_id']) || empty($data['producto_id']) || $data['precio_unitario'] <= 0) {
             echo json_encode(['resultado' => false, 'error' => 'Lista, producto y precio son obligatorios']);
             break;
         }
@@ -39,13 +39,13 @@ switch ($accion) {
     case 'editar':
         $id = intval($_POST['lista_precio_producto_id']);
         $data = [
-            'lista_id' => $_POST['lista_id'] ?? 0,
+            'lista_precio_id' => $_POST['lista_precio_id'] ?? 0,
             'producto_id' => $_POST['producto_id'] ?? 0,
             'precio_unitario' => $_POST['precio_unitario'] ?? 0,
             'ajuste_id' => $_POST['ajuste_id'] ?? null
         ];
         
-        if (empty($data['lista_id']) || empty($data['producto_id']) || $data['precio_unitario'] <= 0) {
+        if (empty($data['lista_precio_id']) || empty($data['producto_id']) || $data['precio_unitario'] <= 0) {
             echo json_encode(['resultado' => false, 'error' => 'Lista, producto y precio son obligatorios']);
             break;
         }

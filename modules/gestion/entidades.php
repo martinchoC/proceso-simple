@@ -87,6 +87,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="120">CUIT</th>
                                                     <th width="80">Proveedor</th>
                                                     <th width="80">Cliente</th>
+                                                    <th width="80">Prov%</th>
+                                                    <th width="80">Cli%</th>
                                                     <th width="120">Estado</th>
                                                     <th width="200" class="text-center">Acciones</th>
                                                 </tr>
@@ -129,6 +131,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <span id="contador-sucursales" class="badge bg-secondary ms-1">0</span>
                                     </button>
                                 </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="condiciones-clientes-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#condiciones-clientes" type="button" role="tab" 
+                                            aria-controls="condiciones-clientes" aria-selected="false">
+                                        <i class="fas fa-user-tie me-1"></i>Condiciones Clientes
+                                        
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="condiciones-proveedores-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#condiciones-proveedores" type="button" role="tab" 
+                                            aria-controls="condiciones-proveedores" aria-selected="false">
+                                        <i class="fas fa-truck me-1"></i>Condiciones Proveedores
+                                        
+                                    </button>
+                                </li>
                             </ul>
                             
                             <div class="tab-content p-3 border border-top-0 rounded-bottom" id="entidadTabsContent">
@@ -142,37 +160,35 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <label for="entidad_nombre" class="form-label">Nombre Legal *</label>
                                                 <input type="text" class="form-control" id="entidad_nombre"
                                                     name="entidad_nombre" maxlength="255" required>
-                                                <div class="invalid-feedback">El nombre legal es obligatorio</div>
+                                                
                                             </div>
                                             
                                             <div class="col-md-6 mb-3">
                                                 <label for="entidad_fantasia" class="form-label">Nombre Fantasía</label>
                                                 <input type="text" class="form-control" id="entidad_fantasia"
                                                     name="entidad_fantasia" maxlength="255">
-                                                <div class="form-text">Nombre comercial o de fantasía</div>
+                                                
                                             </div>
                                         </div>
                                         
                                         <div class="row">
                                             <div class="col-md-4 mb-3">
                                                 <label for="entidad_tipo_id" class="form-label">Tipo de Entidad</label>
-                                                <select class="form-select" id="entidad_tipo_id" name="entidad_tipo_id">
-                                                    <option value="">Seleccionar tipo...</option>
+                                                <select class="form-select" id="entidad_tipo_id" name="entidad_tipo_id">                                                    
                                                 </select>
                                             </div>
                                             
                                             <div class="col-md-4 mb-3">
-                                                <label for="cuit" class="form-label">CUIT</label>
+                                                <label for="cuit" class="form-label">CUIT (11 dígitos sin guiones)</label>
                                                 <input type="number" class="form-control" id="cuit"
-                                                    name="cuit" min="0" max="99999999999">
-                                                <div class="form-text">11 dígitos sin guiones</div>
+                                                    name="cuit" min="0" max="99999999999">                                                
                                             </div>
                                             
                                             <div class="col-md-4 mb-3">
-                                                <label for="sitio_web" class="form-label">Sitio Web</label>
+                                                <label for="sitio_web" class="form-label">Sitio Web (Ej: https://empresa.com)</label>
                                                 <input type="url" class="form-control" id="sitio_web"
                                                     name="sitio_web" maxlength="150">
-                                                <div class="form-text">Ej: https://empresa.com</div>
+                                                
                                             </div>
                                         </div>
                                         
@@ -206,7 +222,43 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </div>
                                             </div>
                                         </div>
-                                        
+                                        <!-- NUEVA SECCIÓN: Descuentos -->
+                                        <div class="row mt-3">
+                                            <div class="col-12">
+                                                <h6 class="border-bottom pb-2 mb-3">
+                                                    <i class="fas fa-percent me-2"></i>Descuentos Generales
+                                                </h6>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="descuento_general_pct_cliente" class="form-label">
+                                                    <i class="fas fa-user-tie me-1 text-primary"></i>Descuento a Clientes (%)
+                                                </label>
+                                                <div class="input-group">
+                                                    <input type="number" class="form-control" id="descuento_general_pct_cliente" 
+                                                        name="descuento_general_pct_cliente" min="0" max="100" step="0.01" 
+                                                        placeholder="0.00">
+                                                    <span class="input-group-text">%</span>
+                                                </div>
+                                                <div class="form-text">Porcentaje de descuento que se otorga a este cliente</div>
+                                            </div>
+                                            
+                                            <div class="col-md-6 mb-3">
+                                                <label for="descuento_general_pct_proveedor" class="form-label">
+                                                    <i class="fas fa-truck me-1 text-success"></i>Descuento de Proveedores (%)
+                                                </label>
+                                                <div class="input-group">
+                                                    <input type="number" class="form-control" id="descuento_general_pct_proveedor" 
+                                                        name="descuento_general_pct_proveedor" min="0" max="100" step="0.01" 
+                                                        placeholder="0.00">
+                                                    <span class="input-group-text">%</span>
+                                                </div>
+                                                <div class="form-text">Porcentaje de descuento que se recibe de este proveedor</div>
+                                            </div>
+                                        </div>
+
                                         <div class="row">
                                             <div class="col-md-12 mb-3">
                                                 <label for="observaciones" class="form-label">Observaciones</label>
@@ -214,9 +266,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     rows="3" maxlength="1000"></textarea>
                                                 <div class="form-text">Máximo 1000 caracteres</div>
                                             </div>
-                                        </div>
+                                        </div>                                        
                                     </form>
                                 </div>
+                                
                                 
                                 <!-- Pestaña Sucursales -->
                                 <div class="tab-pane fade" id="sucursales" role="tabpanel" aria-labelledby="sucursales-tab">
@@ -252,6 +305,125 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="alert alert-info mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         <small>Las sucursales representan los domicilios comerciales de la entidad.</small>
+                                    </div>
+                                </div>
+
+                               <!-- Pestaña Condiciones Clientes -->
+                                <div class="tab-pane fade" id="condiciones-clientes" role="tabpanel" aria-labelledby="condiciones-clientes-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-user-tie me-1"></i>Condición Comercial Vigente - Cliente
+                                        </h6>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-info me-2" id="btnHistorialCliente">
+                                                <i class="fas fa-history me-1"></i>Ver Historial
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevaCondicionCliente">
+                                                <i class="fas fa-plus me-1"></i>Nueva Condición
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Tarjeta con condición vigente -->
+                                    <div class="card card-outline card-primary">
+                                        
+                                        <div class="card-body">
+                                            <div id="condicion-cliente-vigente" class="row">
+                                                <div class="col-12 text-center text-muted py-4">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>Cargando condición vigente...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Modal para historial de clientes -->
+                                    <div class="modal fade" id="modalHistorialCliente" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-xl">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">
+                                                        <i class="fas fa-history me-2"></i>Historial de Condiciones - Cliente
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <table id="tablaHistorialClientes" class="table table-sm table-hover" style="width:100%">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th>ID</th>
+                                                                <th>Condición de Pago</th>
+                                                                <th>Lista de Precios</th>
+                                                                <th>Límite de Crédito</th>
+                                                                <th>Dto. General %</th>
+                                                                <th>Fecha Desde</th>
+                                                                <th>Fecha Hasta</th>
+                                                                <th>Estado</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody></tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Pestaña Condiciones Proveedores -->
+                                <div class="tab-pane fade" id="condiciones-proveedores" role="tabpanel" aria-labelledby="condiciones-proveedores-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-truck me-1"></i>Condición Comercial Vigente - Proveedor
+                                        </h6>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-info me-2" id="btnHistorialProveedor">
+                                                <i class="fas fa-history me-1"></i>Ver Historial
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevaCondicionProveedor">
+                                                <i class="fas fa-plus me-1"></i>Nueva Condición
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Tarjeta con condición vigente -->
+                                    <div class="card card-outline card-primary">
+                                        
+                                        <div class="card-body">
+                                            <div id="condicion-proveedor-vigente" class="row">
+                                                <div class="col-12 text-center text-muted py-4">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>Cargando condición vigente...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Modal para historial de proveedores -->
+                                    <div class="modal fade" id="modalHistorialProveedor" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-xl">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">
+                                                        <i class="fas fa-history me-2"></i>Historial de Condiciones - Proveedor
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <table id="tablaHistorialProveedores" class="table table-sm table-hover" style="width:100%">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th>ID</th>
+                                                                <th>Condición de Pago</th>
+                                                                <th>Categoría</th>
+                                                                <th>Dto. General %</th>
+                                                                <th>Fecha Desde</th>
+                                                                <th>Fecha Hasta</th>
+                                                                <th>Estado</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody></tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -340,6 +512,127 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
+
+            <!-- Modal para condición de cliente -->
+            <div class="modal fade" id="modalCondicionCliente" tabindex="-1" aria-labelledby="modalCondicionClienteLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalCondicionClienteLabel">Condición de Cliente</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="formCondicionCliente" class="needs-validation" novalidate>
+                                <input type="hidden" id="condicion_cliente_id" name="condicion_cliente_id" />
+                                <input type="hidden" id="entidad_id_condicion_cliente" name="entidad_id" />
+                                
+                                <div class="mb-3">
+                                    <label for="condicion_pago_cliente_id" class="form-label">Condición de Pago *</label>
+                                    <select class="form-select" id="condicion_pago_cliente_id" name="condicion_pago_id" required>
+                                        <option value="">Seleccionar...</option>
+                                    </select>
+                                    <div class="invalid-feedback">Seleccione una condición de pago</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="lista_precio_id" class="form-label">Lista de Precios</label>
+                                    <select class="form-select" id="lista_precio_id" name="lista_precio_id">
+                                        <option value="">Seleccionar...</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="limite_credito" class="form-label">Límite de Crédito ($)</label>
+                                    <input type="number" class="form-control" id="limite_credito" name="limite_credito" step="0.01" min="0">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="cliente_descuento_general" class="form-label">Descuento General (%)</label>
+                                    <input type="number" class="form-control" id="cliente_descuento_general" name="cliente_descuento_general" step="0.01" min="0" max="100">
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="f_desde_cliente" class="form-label">Fecha Desde *</label>
+                                        <input type="date" class="form-control" id="f_desde_cliente" name="f_desde" required>
+                                        <div class="invalid-feedback">Fecha requerida</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="f_hasta_cliente" class="form-label">Fecha Hasta</label>
+                                        <input type="date" class="form-control" id="f_hasta_cliente" name="f_hasta">
+                                        <div class="form-text">Dejar vacío si es vigente</div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" id="btnGuardarCondicionCliente">
+                                <i class="fas fa-save me-1"></i>Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal para condición de proveedor -->
+            <div class="modal fade" id="modalCondicionProveedor" tabindex="-1" aria-labelledby="modalCondicionProveedorLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalCondicionProveedorLabel">Condición de Proveedor</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="formCondicionProveedor" class="needs-validation" novalidate>
+                                <input type="hidden" id="condicion_proveedor_id" name="condicion_proveedor_id" />
+                                <input type="hidden" id="entidad_id_condicion_proveedor" name="entidad_id" />
+                                
+                                <div class="mb-3">
+                                    <label for="condicion_pago_proveedor_id" class="form-label">Condición de Pago *</label>
+                                    <select class="form-select" id="condicion_pago_proveedor_id" name="condicion_pago_id" required>
+                                        <option value="">Seleccionar...</option>
+                                    </select>
+                                    <div class="invalid-feedback">Seleccione una condición de pago</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="proveedor_categoria_id" class="form-label">Categoría</label>
+                                    <select class="form-select" id="proveedor_categoria_id" name="proveedor_categoria_id">
+                                        <option value="">Seleccionar...</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="proveedor_descuento_general" class="form-label">Descuento General (%)</label>
+                                    <input type="number" class="form-control" id="proveedor_descuento_general" name="proveedor_descuento_general" step="0.01" min="0" max="100">
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="f_desde_proveedor" class="form-label">Fecha Desde *</label>
+                                        <input type="date" class="form-control" id="f_desde_proveedor" name="f_desde" required>
+                                        <div class="invalid-feedback">Fecha requerida</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="f_hasta_proveedor" class="form-label">Fecha Hasta</label>
+                                        <input type="date" class="form-control" id="f_hasta_proveedor" name="f_hasta">
+                                        <div class="form-text">Dejar vacío si es vigente</div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" id="btnGuardarCondicionProveedor">
+                                <i class="fas fa-save me-1"></i>Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -395,6 +688,518 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var currentOrder = [[1, 'asc']];
             var currentSearch = '';
             var entidadActualId = 0;
+            var tablaCondicionesClientes;
+            var tablaCondicionesProveedores;
+            var tablaHistorialClientes;
+            var tablaHistorialProveedores;
+            
+            // Función para cargar condición vigente de cliente
+            function cargarCondicionClienteVigente() {
+                if (!entidadActualId) {
+                    $('#condicion-cliente-vigente').html('<div class="col-12 text-center text-muted py-4">Seleccione una entidad primero</div>');
+                    return;
+                }
+                
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_condicion_cliente_vigente',
+                    entidad_id: entidadActualId
+                }, function (condicion) {
+                    if (condicion && condicion.entidad_condicion_cliente_id) {
+                        var html = `
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <th width="40%">Condición de Pago:</th>
+                                        <td><span class="badge bg-info">${condicion.condicion_pago || 'No especificado'}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Lista de Precios:</th>
+                                        <td>${condicion.lista_precio || 'No especificada'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Descuento General:</th>
+                                        <td>${condicion.cliente_descuento_general ? condicion.cliente_descuento_general + '%' : '-'}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <th width="40%">Límite de Crédito:</th>
+                                        <td><span class="fw-bold">${condicion.limite_credito ? '$ ' + parseFloat(condicion.limite_credito).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,') : '-'}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Vigencia Desde:</th>
+                                        <td>${moment(condicion.f_desde).format('DD/MM/YYYY')}</td>
+                                    </tr>
+                                    
+                                </table>
+                            </div>
+                        `;
+                        $('#condicion-cliente-vigente').html(html);
+                    } else {
+                        $('#condicion-cliente-vigente').html('<div class="col-12 text-center text-muted py-4">No hay condición vigente para este cliente</div>');
+                    }
+                }, 'json');
+            }
+            
+            // Función para cargar condición vigente de proveedor
+            function cargarCondicionProveedorVigente() {
+                if (!entidadActualId) {
+                    $('#condicion-proveedor-vigente').html('<div class="col-12 text-center text-muted py-4">Seleccione una entidad primero</div>');
+                    return;
+                }
+                
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_condicion_proveedor_vigente',
+                    entidad_id: entidadActualId
+                }, function (condicion) {
+                    if (condicion && condicion.entidad_condicion_proveedor_id) {
+                        var html = `
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <th width="40%">Condición de Pago:</th>
+                                        <td><span class="badge bg-info">${condicion.condicion_pago || 'No especificado'}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Categoría:</th>
+                                        <td>${condicion.proveedor_categoria || 'No especificada'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Descuento General:</th>
+                                        <td>${condicion.proveedor_descuento_general ? condicion.proveedor_descuento_general + '%' : '-'}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <th width="40%">Vigencia Desde:</th>
+                                        <td>${moment(condicion.f_desde).format('DD/MM/YYYY')}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Vigencia Hasta:</th>
+                                        <td>${condicion.f_hasta ? moment(condicion.f_hasta).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>'}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        `;
+                        $('#condicion-proveedor-vigente').html(html);
+                    } else {
+                        $('#condicion-proveedor-vigente').html('<div class="col-12 text-center text-muted py-4">No hay condición vigente para este proveedor</div>');
+                    }
+                }, 'json');
+            }
+            // Función para inicializar tabla de historial de clientes
+            function inicializarTablaHistorialClientes() {
+                if ($.fn.DataTable.isDataTable('#tablaHistorialClientes')) {
+                    $('#tablaHistorialClientes').DataTable().destroy();
+                }
+                
+                tablaHistorialClientes = $('#tablaHistorialClientes').DataTable({
+                    ajax: {
+                        url: 'entidades_ajax.php',
+                        type: 'GET',
+                        data: {
+                            accion: 'listar_historial_condiciones_cliente',
+                            entidad_id: entidadActualId
+                        },
+                        dataSrc: ''
+                    },
+                    columns: [
+                        { data: 'entidad_condicion_cliente_id', className: 'text-center' },
+                        { data: 'condicion_pago' },
+                        { data: 'lista_precio' },
+                        { 
+                            data: 'limite_credito',
+                            className: 'text-end',
+                            render: function(data) {
+                                return data ? '$ ' + parseFloat(data).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,') : '-';
+                            }
+                        },
+                        { 
+                            data: 'cliente_descuento_general',
+                            className: 'text-center',
+                            render: function(data) {
+                                return data ? data + '%' : '-';
+                            }
+                        },
+                        { 
+                            data: 'f_desde',
+                            render: function(data) {
+                                return moment(data).format('DD/MM/YYYY');
+                            }
+                        },
+                        { 
+                            data: 'f_hasta',
+                            render: function(data) {
+                                return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                            }
+                        },
+                        {
+                            data: 'estado_info',
+                            render: function(data) {
+                                if (!data || !data.estado_registro) return '-';
+                                var badgeClass = data.bg_clase ? 'badge ' + data.bg_clase : 'badge bg-secondary';
+                                return `<span class="${badgeClass}">${data.estado_registro}</span>`;
+                            }
+                        }
+                    ],
+                    language: {
+                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    },
+                    order: [[5, 'desc']]
+                });
+            }
+
+            // Función para inicializar tabla de historial de proveedores
+            function inicializarTablaHistorialProveedores() {
+                if ($.fn.DataTable.isDataTable('#tablaHistorialProveedores')) {
+                    $('#tablaHistorialProveedores').DataTable().destroy();
+                }
+                
+                tablaHistorialProveedores = $('#tablaHistorialProveedores').DataTable({
+                    ajax: {
+                        url: 'entidades_ajax.php',
+                        type: 'GET',
+                        data: {
+                            accion: 'listar_historial_condiciones_proveedor',
+                            entidad_id: entidadActualId
+                        },
+                        dataSrc: ''
+                    },
+                    columns: [
+                        { data: 'entidad_condicion_proveedor_id', className: 'text-center' },
+                        { data: 'condicion_pago' },
+                        { data: 'proveedor_categoria' },
+                        { 
+                            data: 'proveedor_descuento_general',
+                            className: 'text-center',
+                            render: function(data) {
+                                return data ? data + '%' : '-';
+                            }
+                        },
+                        { 
+                            data: 'f_desde',
+                            render: function(data) {
+                                return moment(data).format('DD/MM/YYYY');
+                            }
+                        },
+                        { 
+                            data: 'f_hasta',
+                            render: function(data) {
+                                return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                            }
+                        },
+                        {
+                            data: 'estado_info',
+                            render: function(data) {
+                                if (!data || !data.estado_registro) return '-';
+                                var badgeClass = data.bg_clase ? 'badge ' + data.bg_clase : 'badge bg-secondary';
+                                return `<span class="${badgeClass}">${data.estado_registro}</span>`;
+                            }
+                        }
+                    ],
+                    language: {
+                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    },
+                    order: [[4, 'desc']]
+                });
+            }
+            function cargarCondicionesPago() {
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_condiciones_pago',
+                    empresa_idx: empresa_idx
+                }, function (condiciones) {
+                    var selectCliente = $('#condicion_pago_cliente_id');
+                    var selectProveedor = $('#condicion_pago_proveedor_id');
+                    
+                    selectCliente.empty();
+                    selectCliente.append('<option value="">Seleccionar...</option>');
+                    selectProveedor.empty();
+                    selectProveedor.append('<option value="">Seleccionar...</option>');
+                    
+                    if (condiciones && condiciones.length > 0) {
+                        $.each(condiciones, function (index, cond) {
+                            selectCliente.append('<option value="' + cond.condicion_pago_id + '">' + cond.condicion_pago + '</option>');
+                            selectProveedor.append('<option value="' + cond.condicion_pago_id + '">' + cond.condicion_pago + '</option>');
+                        });
+                    }
+                }, 'json');
+            }
+
+            // Función para cargar listas de precios
+            function cargarListasPrecios() {
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_listas_precios',
+                    empresa_idx: empresa_idx
+                }, function (listas) {
+                    var select = $('#lista_precio_id');
+                    select.empty();
+                    select.append('<option value="">Seleccionar...</option>');
+                    
+                    if (listas && listas.length > 0) {
+                        $.each(listas, function (index, lista) {
+                            // Usar lista_precio_id y lista_precio (coincide con la estructura de la tabla)
+                            select.append('<option value="' + lista.lista_precio_id + '">' + lista.lista_precio + '</option>');
+                        });
+                    }
+                }, 'json');
+            }
+
+            // Función para cargar categorías de proveedores
+            function cargarCategoriasProveedores() {
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_categorias_proveedores',
+                    empresa_idx: empresa_idx
+                }, function (categorias) {
+                    var select = $('#proveedor_categoria_id');
+                    select.empty();
+                    select.append('<option value="">Seleccionar...</option>');
+                    
+                    if (categorias && categorias.length > 0) {
+                        $.each(categorias, function (index, cat) {
+                            select.append('<option value="' + cat.proveedor_categoria_id + '">' + cat.proveedor_categoria + '</option>');
+                        });
+                    }
+                }, 'json');
+            }
+
+            // Función para inicializar DataTable de condiciones de clientes
+            function inicializarDataTableCondicionesClientes(entidadId) {
+                if ($.fn.DataTable.isDataTable('#tablaCondicionesClientes')) {
+                    if (tablaCondicionesClientes) {
+                        tablaCondicionesClientes.destroy();
+                    }
+                    $('#tablaCondicionesClientes tbody').empty();
+                }
+
+                if (!entidadId) {
+                    $('#tablaCondicionesClientes tbody').html('<tr><td colspan="9" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+                    return;
+                }
+
+                tablaCondicionesClientes = $('#tablaCondicionesClientes').DataTable({
+                    ajax: {
+                        url: 'entidades_ajax.php',
+                        type: 'GET',
+                        data: {
+                            accion: 'listar_condiciones_cliente',
+                            empresa_idx: empresa_idx,
+                            entidad_id: entidadId
+                        },
+                        dataSrc: ''
+                    },
+                    dom: '<"row"<"col-sm-12"tr>>' +
+                        '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                    pageLength: 10,
+                    lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
+                    columns: [
+                        { data: 'entidad_condicion_cliente_id', className: 'text-center fw-bold' },
+                        { 
+                            data: 'condicion_pago',
+                            render: function(data, type, row) {
+                                return data || '<span class="text-muted fst-italic">No especificado</span>';
+                            }
+                        },
+                        {
+                            data: 'lista_precio',
+                            render: function(data, type, row) {
+                                return data || '<span class="text-muted fst-italic">No especificada</span>';
+                            }
+                        },
+                        {
+                            data: 'limite_credito',
+                            className: 'text-end',
+                            render: function(data, type, row) {
+                                if (type === 'export') {
+                                    return data || '';
+                                }
+                                if (data !== null) {
+                                    return '$ ' + parseFloat(data).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+                                }
+                                return '<span class="text-muted">-</span>';
+                            }
+                        },
+                        {
+                            data: 'cliente_descuento_general',
+                            className: 'text-center',
+                            render: function(data, type, row) {
+                                if (data !== null) {
+                                    return parseFloat(data).toFixed(2) + '%';
+                                }
+                                return '<span class="text-muted">-</span>';
+                            }
+                        },
+                        { 
+                            data: 'f_desde',
+                            className: 'text-center',
+                            render: function(data) {
+                                return data ? moment(data).format('DD/MM/YYYY') : '-';
+                            }
+                        },
+                        { 
+                            data: 'f_hasta',
+                            className: 'text-center',
+                            render: function(data) {
+                                return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                            }
+                        },
+                        {
+                            data: 'estado_info',
+                            className: 'text-center',
+                            render: function(data, type, row) {
+                                if (!data || !data.estado_registro) {
+                                    return '<span class="fw-medium">Sin estado</span>';
+                                }
+                                var badgeClass = data.bg_clase ? 'badge ' + data.bg_clase : 'badge bg-dark';
+                                return `<span class="${badgeClass}">${data.estado_registro}</span>`;
+                            }
+                        },
+                        {
+                            data: null,
+                            orderable: false,
+                            searchable: false,
+                            className: "text-center",
+                            render: function(data, type, row) {
+                                if (type === 'export') return '';
+                                
+                                return `<div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-xs btn-outline-primary" 
+                                            onclick="editarCondicionCliente(${row.entidad_condicion_cliente_id})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>`;
+                            }
+                        }
+                    ],
+                    language: {
+                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    },
+                    responsive: true,
+                    createdRow: function(row, data, dataIndex) {
+                        if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
+                            $(row).addClass('table-secondary');
+                        }
+                    },
+                    drawCallback: function() {
+                        var total = tablaCondicionesClientes.rows().count();
+                        $('#contador-condiciones-clientes').text(total).toggleClass('bg-secondary', total === 0).toggleClass('bg-primary', total > 0);
+                    }
+                });
+            }
+
+            // Función para inicializar DataTable de condiciones de proveedores
+            function inicializarDataTableCondicionesProveedores(entidadId) {
+                if ($.fn.DataTable.isDataTable('#tablaCondicionesProveedores')) {
+                    if (tablaCondicionesProveedores) {
+                        tablaCondicionesProveedores.destroy();
+                    }
+                    $('#tablaCondicionesProveedores tbody').empty();
+                }
+
+                if (!entidadId) {
+                    $('#tablaCondicionesProveedores tbody').html('<tr><td colspan="8" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+                    return;
+                }
+
+                tablaCondicionesProveedores = $('#tablaCondicionesProveedores').DataTable({
+                    ajax: {
+                        url: 'entidades_ajax.php',
+                        type: 'GET',
+                        data: {
+                            accion: 'listar_condiciones_proveedor',
+                            empresa_idx: empresa_idx,
+                            entidad_id: entidadId
+                        },
+                        dataSrc: ''
+                    },
+                    dom: '<"row"<"col-sm-12"tr>>' +
+                        '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                    pageLength: 10,
+                    lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
+                    columns: [
+                        { data: 'entidad_condicion_proveedor_id', className: 'text-center fw-bold' },
+                        { 
+                            data: 'condicion_pago',
+                            render: function(data, type, row) {
+                                return data || '<span class="text-muted fst-italic">No especificado</span>';
+                            }
+                        },
+                        {
+                            data: 'proveedor_categoria',
+                                render: function(data, type, row) {
+                                    return data || '<span class="text-muted fst-italic">No especificada</span>';
+                                }
+                        },
+                        {
+                            data: 'proveedor_descuento_general',
+                            className: 'text-center',
+                            render: function(data, type, row) {
+                                if (data !== null) {
+                                    return parseFloat(data).toFixed(2) + '%';
+                                }
+                                return '<span class="text-muted">-</span>';
+                            }
+                        },
+                        { 
+                            data: 'f_desde',
+                            className: 'text-center',
+                            render: function(data) {
+                                return data ? moment(data).format('DD/MM/YYYY') : '-';
+                            }
+                        },
+                        { 
+                            data: 'f_hasta',
+                            className: 'text-center',
+                            render: function(data) {
+                                return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                            }
+                        },
+                        {
+                            data: 'estado_info',
+                            className: 'text-center',
+                            render: function(data, type, row) {
+                                if (!data || !data.estado_registro) {
+                                    return '<span class="fw-medium">Sin estado</span>';
+                                }
+                                var badgeClass = data.bg_clase ? 'badge ' + data.bg_clase : 'badge bg-dark';
+                                return `<span class="${badgeClass}">${data.estado_registro}</span>`;
+                            }
+                        },
+                        {
+                            data: null,
+                            orderable: false,
+                            searchable: false,
+                            className: "text-center",
+                            render: function(data, type, row) {
+                                if (type === 'export') return '';
+                                
+                                return `<div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-xs btn-outline-primary" 
+                                            onclick="editarCondicionProveedor(${row.entidad_condicion_proveedor_id})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>`;
+                            }
+                        }
+                    ],
+                    language: {
+                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    },
+                    responsive: true,
+                    createdRow: function(row, data, dataIndex) {
+                        if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
+                            $(row).addClass('table-secondary');
+                        }
+                    },
+                    drawCallback: function() {
+                        var total = tablaCondicionesProveedores.rows().count();
+                        $('#contador-condiciones-proveedores').text(total).toggleClass('bg-secondary', total === 0).toggleClass('bg-primary', total > 0);
+                    }
+                });
+            }
 
             // Función para cargar tipos de entidad
             function cargarTiposEntidad() {
@@ -644,6 +1449,36 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     return '<i class="fas fa-check-circle text-success"></i>';
                                 } else {
                                     return '<i class="fas fa-times-circle text-secondary"></i>';
+                                }
+                            }
+                        },
+                        {
+                            data: 'descuento_general_pct_cliente',
+                            className: 'text-center',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data ? data + '%' : '';
+                                }
+                                
+                                if (data !== null && data > 0) {
+                                    return `<span class="badge bg-info">${parseFloat(data).toFixed(2)}%</span>`;
+                                } else {
+                                    return '<span class="text-muted">-</span>';
+                                }
+                            }
+                        },
+                        {
+                            data: 'descuento_general_pct_proveedor',
+                            className: 'text-center',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data ? data + '%' : '';
+                                }
+                                
+                                if (data !== null && data > 0) {
+                                    return `<span class="badge bg-success">${parseFloat(data).toFixed(2)}%</span>`;
+                                } else {
+                                    return '<span class="text-muted">-</span>';
                                 }
                             }
                         },
@@ -1014,6 +1849,40 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 }, 'json');
             }
+            $(document).on('click', '#btnHistorialCliente', function () {
+                if (!entidadActualId) {
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Advertencia",
+                        text: "Seleccione una entidad primero",
+                        confirmButtonText: "Entendido"
+                    });
+                    return;
+                }
+                
+                inicializarTablaHistorialClientes();
+                var modal = new bootstrap.Modal(document.getElementById('modalHistorialCliente'));
+                modal.show();
+            });
+
+            // Manejador para botón "Ver Historial" de proveedor
+            $(document).on('click', '#btnHistorialProveedor', function () {
+                if (!entidadActualId) {
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Advertencia",
+                        text: "Seleccione una entidad primero",
+                        confirmButtonText: "Entendido"
+                    });
+                    return;
+                }
+                
+                inicializarTablaHistorialProveedores();
+                var modal = new bootstrap.Modal(document.getElementById('modalHistorialProveedor'));
+                modal.show();
+            });
+
+
 
             // Manejador para botón "Agregar"
             $(document).on('click', '#btnNuevo', function () {
@@ -1106,6 +1975,378 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     ejecutarAccionSucursal(sucursalId, accionJs, sucursal);
                 }
             });
+
+            // Manejador para botón "Nueva Condición Cliente"
+            $(document).on('click', '#btnNuevaCondicionCliente', function () {
+            if (!entidadActualId) {
+                Swal.fire({
+                    icon: "warning",
+                    title: "Advertencia",
+                    text: "Debe guardar la entidad primero antes de agregar condiciones",
+                    confirmButtonText: "Entendido"
+                });
+                return;
+            }
+            
+            // Mostrar indicador de carga
+            Swal.fire({
+                title: 'Cargando...',
+                text: 'Obteniendo datos de la condición vigente',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Obtener condición vigente para precargar datos
+            $.get('entidades_ajax.php', {
+                accion: 'obtener_condicion_cliente_vigente',
+                entidad_id: entidadActualId
+            }, function (condicionVigente) {
+                Swal.close();
+                
+                resetModalCondicionCliente();
+                $('#modalCondicionClienteLabel').text('Nueva Condición de Cliente (basada en la actual)');
+                $('#entidad_id_condicion_cliente').val(entidadActualId);
+                
+                // Precargar datos de la condición vigente si existe
+                if (condicionVigente && condicionVigente.entidad_condicion_cliente_id) {
+                    $('#condicion_pago_cliente_id').val(condicionVigente.condicion_pago_id);
+                    $('#lista_precio_id').val(condicionVigente.lista_precio_id);
+                    $('#limite_credito').val(condicionVigente.limite_credito);
+                    $('#cliente_descuento_general').val(condicionVigente.cliente_descuento_general);
+                    
+                    // Mostrar mensaje informativo
+                    Swal.fire({
+                        icon: "info",
+                        title: "Datos precargados",
+                        text: "Se cargaron los datos de la condición vigente. Modifique solo lo necesario.",
+                        timer: 2000,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }
+                
+                // Set fecha desde por defecto a hoy
+                var today = new Date().toISOString().split('T')[0];
+                $('#f_desde_cliente').val(today);
+                
+                var modal = new bootstrap.Modal(document.getElementById('modalCondicionCliente'));
+                modal.show();
+                
+            }).fail(function() {
+                Swal.close();
+                resetModalCondicionCliente();
+                $('#modalCondicionClienteLabel').text('Nueva Condición de Cliente');
+                $('#entidad_id_condicion_cliente').val(entidadActualId);
+                
+                var today = new Date().toISOString().split('T')[0];
+                $('#f_desde_cliente').val(today);
+                
+                var modal = new bootstrap.Modal(document.getElementById('modalCondicionCliente'));
+                modal.show();
+            });
+        });
+
+            // Manejador para botón "Nueva Condición Proveedor"
+            $(document).on('click', '#btnNuevaCondicionProveedor', function () {
+                if (!entidadActualId) {
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Advertencia",
+                        text: "Debe guardar la entidad primero antes de agregar condiciones",
+                        confirmButtonText: "Entendido"
+                    });
+                    return;
+                }
+                
+                // Mostrar indicador de carga
+                Swal.fire({
+                    title: 'Cargando...',
+                    text: 'Obteniendo datos de la condición vigente',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Obtener condición vigente para precargar datos
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_condicion_proveedor_vigente',
+                    entidad_id: entidadActualId
+                }, function (condicionVigente) {
+                    Swal.close();
+                    
+                    resetModalCondicionProveedor();
+                    $('#modalCondicionProveedorLabel').text('Nueva Condición de Proveedor (basada en la actual)');
+                    $('#entidad_id_condicion_proveedor').val(entidadActualId);
+                    
+                    // Precargar datos de la condición vigente si existe
+                    if (condicionVigente && condicionVigente.entidad_condicion_proveedor_id) {
+                        $('#condicion_pago_proveedor_id').val(condicionVigente.condicion_pago_id);
+                        $('#proveedor_categoria_id').val(condicionVigente.proveedor_categoria_id);
+                        $('#proveedor_descuento_general').val(condicionVigente.proveedor_descuento_general);
+                        
+                        // Mostrar mensaje informativo
+                        Swal.fire({
+                            icon: "info",
+                            title: "Datos precargados",
+                            text: "Se cargaron los datos de la condición vigente. Modifique solo lo necesario.",
+                            timer: 2000,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                    }
+                    
+                    // Set fecha desde por defecto a hoy
+                    var today = new Date().toISOString().split('T')[0];
+                    $('#f_desde_proveedor').val(today);
+                    
+                    var modal = new bootstrap.Modal(document.getElementById('modalCondicionProveedor'));
+                    modal.show();
+                    
+                }).fail(function() {
+                    Swal.close();
+                    resetModalCondicionProveedor();
+                    $('#modalCondicionProveedorLabel').text('Nueva Condición de Proveedor');
+                    $('#entidad_id_condicion_proveedor').val(entidadActualId);
+                    
+                    var today = new Date().toISOString().split('T')[0];
+                    $('#f_desde_proveedor').val(today);
+                    
+                    var modal = new bootstrap.Modal(document.getElementById('modalCondicionProveedor'));
+                    modal.show();
+                });
+            });
+
+            // Funciones para resetear modales
+            function resetModalCondicionCliente() {
+                $('#formCondicionCliente')[0].reset();
+                $('#condicion_cliente_id').val('');
+                $('#formCondicionCliente').removeClass('was-validated');
+            }
+
+            function resetModalCondicionProveedor() {
+                $('#formCondicionProveedor')[0].reset();
+                $('#condicion_proveedor_id').val('');
+                $('#formCondicionProveedor').removeClass('was-validated');
+            }
+
+            // Guardar condición de cliente
+            $('#btnGuardarCondicionCliente').click(function () {
+                var form = document.getElementById('formCondicionCliente');
+
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return false;
+                }
+
+                var id = $('#condicion_cliente_id').val();
+                var accionBackend = id ? 'editar_condicion_cliente' : 'agregar_condicion_cliente';
+
+                var btnGuardar = $(this);
+                var originalText = btnGuardar.html();
+                btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+                $.ajax({
+                    url: 'entidades_ajax.php',
+                    type: 'POST',
+                    data: {
+                        accion: accionBackend,
+                        condicion_cliente_id: id,
+                        entidad_id: $('#entidad_id_condicion_cliente').val(),
+                        condicion_pago_id: $('#condicion_pago_cliente_id').val(),
+                        lista_precio_id: $('#lista_precio_id').val(),
+                        limite_credito: $('#limite_credito').val(),
+                        cliente_descuento_general: $('#cliente_descuento_general').val(),
+                        f_desde: $('#f_desde_cliente').val(),
+                        f_hasta: $('#f_hasta_cliente').val(),
+                        empresa_idx: empresa_idx
+                    },
+                    success: function (res) {
+                        if (res.resultado) {
+                            tablaCondicionesClientes.ajax.reload();
+                            cargarCondicionClienteVigente(); // Para cliente
+// o
+                            cargarCondicionProveedorVigente(); // Para proveedor
+                            
+                            btnGuardar.prop('disabled', false).html(originalText);
+                            
+                            Swal.fire({
+                                icon: "success",
+                                title: "¡Guardado!",
+                                text: "Condición guardada correctamente",
+                                showConfirmButton: false,
+                                timer: 1500,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                            
+                            var modalEl = document.getElementById('modalCondicionCliente');
+                            var modal = bootstrap.Modal.getInstance(modalEl);
+                            modal.hide();
+                        } else {
+                            btnGuardar.prop('disabled', false).html(originalText);
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error",
+                                text: res.error || "Error al guardar los datos",
+                                confirmButtonText: "Entendido"
+                            });
+                        }
+                    },
+                    error: function () {
+                        btnGuardar.prop('disabled', false).html(originalText);
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error de conexión",
+                            text: "Error al comunicarse con el servidor",
+                            confirmButtonText: "Entendido"
+                        });
+                    }
+                });
+            });
+
+            // Guardar condición de proveedor
+            $('#btnGuardarCondicionProveedor').click(function () {
+                var form = document.getElementById('formCondicionProveedor');
+
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return false;
+                }
+
+                var id = $('#condicion_proveedor_id').val();
+                var accionBackend = id ? 'editar_condicion_proveedor' : 'agregar_condicion_proveedor';
+
+                var btnGuardar = $(this);
+                var originalText = btnGuardar.html();
+                btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+                $.ajax({
+                    url: 'entidades_ajax.php',
+                    type: 'POST',
+                    data: {
+                        accion: accionBackend,
+                        condicion_proveedor_id: id,
+                        entidad_id: $('#entidad_id_condicion_proveedor').val(),
+                        condicion_pago_id: $('#condicion_pago_proveedor_id').val(),
+                        proveedor_categoria_id: $('#proveedor_categoria_id').val(),
+                        proveedor_descuento_general: $('#proveedor_descuento_general').val(),
+                        f_desde: $('#f_desde_proveedor').val(),
+                        f_hasta: $('#f_hasta_proveedor').val(),
+                        empresa_idx: empresa_idx
+                    },
+                    success: function (res) {
+                        if (res.resultado) {
+                            // Recargar la tabla de condiciones (si existe)
+                            if (tablaCondicionesProveedores) {
+                                tablaCondicionesProveedores.ajax.reload();
+                            }
+                            
+                            // IMPORTANTE: Recargar la condición vigente
+                            cargarCondicionProveedorVigente();
+                            
+                            btnGuardar.prop('disabled', false).html(originalText);
+                            
+                            Swal.fire({
+                                icon: "success",
+                                title: "¡Guardado!",
+                                text: res.message || "Condición guardada correctamente",
+                                showConfirmButton: false,
+                                timer: 1500,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                            
+                            var modalEl = document.getElementById('modalCondicionProveedor');
+                            var modal = bootstrap.Modal.getInstance(modalEl);
+                            modal.hide();
+                        } else {
+                            btnGuardar.prop('disabled', false).html(originalText);
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error",
+                                text: res.error || "Error al guardar los datos",
+                                confirmButtonText: "Entendido"
+                            });
+                        }
+                    },
+                    error: function () {
+                        btnGuardar.prop('disabled', false).html(originalText);
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error de conexión",
+                            text: "Error al comunicarse con el servidor",
+                            confirmButtonText: "Entendido"
+                        });
+                    }
+                });
+            });
+
+            // Funciones para editar condiciones
+            function editarCondicionCliente(id) {
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_condicion_cliente',
+                    condicion_cliente_id: id
+                }, function (res) {
+                    if (res && res.entidad_condicion_cliente_id) {
+                        resetModalCondicionCliente();
+                        
+                        $('#condicion_cliente_id').val(res.entidad_condicion_cliente_id);
+                        $('#entidad_id_condicion_cliente').val(res.entidad_id);
+                        $('#condicion_pago_cliente_id').val(res.condicion_pago_id);
+                        $('#lista_precio_id').val(res.lista_precio_id);
+                        $('#limite_credito').val(res.limite_credito);
+                        $('#cliente_descuento_general').val(res.cliente_descuento_general);
+                        $('#f_desde_cliente').val(res.f_desde);
+                        $('#f_hasta_cliente').val(res.f_hasta);
+                        
+                        $('#modalCondicionClienteLabel').text('Editar Condición de Cliente');
+                        var modal = new bootstrap.Modal(document.getElementById('modalCondicionCliente'));
+                        modal.show();
+                    } else {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: "Error al obtener datos de la condición",
+                            confirmButtonText: "Entendido"
+                        });
+                    }
+                }, 'json');
+            }
+
+            function editarCondicionProveedor(id) {
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_condicion_proveedor',
+                    condicion_proveedor_id: id
+                }, function (res) {
+                    if (res && res.entidad_condicion_proveedor_id) {
+                        resetModalCondicionProveedor();
+                        
+                        $('#condicion_proveedor_id').val(res.entidad_condicion_proveedor_id);
+                        $('#entidad_id_condicion_proveedor').val(res.entidad_id);
+                        $('#condicion_pago_proveedor_id').val(res.condicion_pago_id);
+                        $('#proveedor_categoria_id').val(res.proveedor_categoria_id);
+                        $('#proveedor_descuento_general').val(res.proveedor_descuento_general);
+                        $('#f_desde_proveedor').val(res.f_desde);
+                        $('#f_hasta_proveedor').val(res.f_hasta);
+                        
+                        $('#modalCondicionProveedorLabel').text('Editar Condición de Proveedor');
+                        var modal = new bootstrap.Modal(document.getElementById('modalCondicionProveedor'));
+                        modal.show();
+                    } else {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: "Error al obtener datos de la condición",
+                            confirmButtonText: "Entendido"
+                        });
+                    }
+                }, 'json');
+            }
 
             // Función para ejecutar cualquier acción del backend (entidades)
             function ejecutarAccionEntidad(entidadId, accionJs, entidad) {
@@ -1239,12 +2480,29 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#es_proveedor').prop('checked', parseInt(res.es_proveedor) === 1);
                         $('#es_cliente').prop('checked', parseInt(res.es_cliente) === 1);
                         
+                        // NUEVO: Cargar valores de descuento
+                        if (res.descuento_general_pct_cliente !== null && res.descuento_general_pct_cliente !== undefined) {
+                            $('#descuento_general_pct_cliente').val(parseFloat(res.descuento_general_pct_cliente).toFixed(2));
+                        } else {
+                            $('#descuento_general_pct_cliente').val('');
+                        }
+
+                        if (res.descuento_general_pct_proveedor !== null && res.descuento_general_pct_proveedor !== undefined) {
+                            $('#descuento_general_pct_proveedor').val(parseFloat(res.descuento_general_pct_proveedor).toFixed(2));
+                        } else {
+                            $('#descuento_general_pct_proveedor').val('');
+                        }
+                        
                         $('#modalLabel').text('Editar Entidad');
                         entidadActualId = res.entidad_id;
                         $('#sucursales-tab').removeClass('disabled');
                         
                         // Cargar sucursales
                         inicializarDataTableSucursales(entidadActualId);
+                        inicializarDataTableCondicionesClientes(entidadActualId);
+                        inicializarDataTableCondicionesProveedores(entidadActualId);
+                        cargarCondicionClienteVigente();
+                        cargarCondicionProveedorVigente();
                         
                         var modal = new bootstrap.Modal(document.getElementById('modalEntidad'));
                         modal.show();
@@ -1309,6 +2567,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#sucursales-tab').addClass('disabled');
                 $('#tablaSucursales tbody').html('<tr><td colspan="9" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
                 $('#contador-sucursales').text('0').addClass('bg-secondary').removeClass('bg-primary');
+                
+                // NUEVO: Resetear campos de descuento
+                $('#descuento_general_pct_cliente').val('');
+                $('#descuento_general_pct_proveedor').val('');
+                // Al final de resetModal
+                if ($.fn.DataTable.isDataTable('#tablaCondicionesClientes')) {
+                    $('#tablaCondicionesClientes tbody').html('<tr><td colspan="9" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+                }
+                if ($.fn.DataTable.isDataTable('#tablaCondicionesProveedores')) {
+                    $('#tablaCondicionesProveedores tbody').html('<tr><td colspan="8" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+                }
+                $('#contador-condiciones-clientes').text('0').addClass('bg-secondary').removeClass('bg-primary');
+                $('#contador-condiciones-proveedores').text('0').addClass('bg-secondary').removeClass('bg-primary');
+                $('#condicion-cliente-vigente').html('<div class="col-12 text-center text-muted py-4">Seleccione una entidad primero</div>');
+                $('#condicion-proveedor-vigente').html('<div class="col-12 text-center text-muted py-4">Seleccione una entidad primero</div>'); 
             }
 
             // Función para resetear el modal de sucursal
@@ -1386,6 +2659,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         sitio_web: sitioWeb,
                         domicilio_legal: $('#domicilio_legal').val().trim(),
                         localidad_id: $('#localidad_id').val(),
+                        descuento_general_pct_cliente: $('#descuento_general_pct_cliente').val() || '',
+                        descuento_general_pct_proveedor: $('#descuento_general_pct_proveedor').val() || '',
                         es_proveedor: esProveedor,  // Usar la variable calculada
                         es_cliente: esCliente,      // Usar la variable calculada
                         observaciones: $('#observaciones').val().trim(),
@@ -1418,6 +2693,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     $('#entidad_id').val(entidadActualId);
                                     $('#sucursales-tab').removeClass('disabled');
                                     inicializarDataTableSucursales(entidadActualId);
+                                    // AGREGAR ESTAS LÍNEAS:
+                                    inicializarDataTableCondicionesClientes(entidadActualId);
+                                    inicializarDataTableCondicionesProveedores(entidadActualId);
                                 }
 
                                 btnGuardar.prop('disabled', false).html(originalText);
@@ -1600,6 +2878,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarBotonAgregar();
             cargarTiposEntidad();
             cargarLocalidades();
+            cargarCondicionesPago();
+            cargarListasPrecios();
+            cargarCategoriasProveedores();
+
 
             // Agregar tooltips a los botones
             $('[title]').tooltip({
@@ -1636,6 +2918,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/locale/es.min.js"></script>
 </main>
 
 <?php

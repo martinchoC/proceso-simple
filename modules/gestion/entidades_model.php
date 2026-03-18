@@ -416,8 +416,7 @@ function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_
     return $data;
 }
 
-// ✅ Agregar nueva entidad (con estado inicial)
-// ✅ Agregar nueva entidad (con estado inicial) - VERSIÓN CORREGIDA
+// ✅ Agregar nueva entidad (con estado inicial) - VERSIÓN CORREGIDA CON DESCUENTOS
 function agregarEntidad($conexion, $data)
 {
     $empresa_id = intval($data['empresa_id'] ?? 0);
@@ -433,6 +432,14 @@ function agregarEntidad($conexion, $data)
     $es_proveedor = isset($data['es_proveedor']) && $data['es_proveedor'] ? 1 : 0;
     $es_cliente = isset($data['es_cliente']) && $data['es_cliente'] ? 1 : 0;
     
+    // NUEVOS CAMPOS: Descuentos
+    $descuento_general_pct_cliente = isset($data['descuento_general_pct_cliente']) && $data['descuento_general_pct_cliente'] !== '' 
+        ? floatval($data['descuento_general_pct_cliente']) 
+        : null;
+    $descuento_general_pct_proveedor = isset($data['descuento_general_pct_proveedor']) && $data['descuento_general_pct_proveedor'] !== '' 
+        ? floatval($data['descuento_general_pct_proveedor']) 
+        : null;
+    
     $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
 
     if (empty($entidad_nombre)) {
@@ -445,6 +452,15 @@ function agregarEntidad($conexion, $data)
 
     if ($cuit && ($cuit < 0 || $cuit > 99999999999)) {
         return ['resultado' => false, 'error' => 'CUIT inválido'];
+    }
+
+    // Validar rangos de descuentos
+    if ($descuento_general_pct_cliente !== null && ($descuento_general_pct_cliente < 0 || $descuento_general_pct_cliente > 100)) {
+        return ['resultado' => false, 'error' => 'El descuento de cliente debe estar entre 0 y 100'];
+    }
+    
+    if ($descuento_general_pct_proveedor !== null && ($descuento_general_pct_proveedor < 0 || $descuento_general_pct_proveedor > 100)) {
+        return ['resultado' => false, 'error' => 'El descuento de proveedor debe estar entre 0 y 100'];
     }
 
     $estado_inicial = obtenerEstadoInicial($conexion);
@@ -467,17 +483,18 @@ function agregarEntidad($conexion, $data)
         return ['resultado' => false, 'error' => 'Ya existe una entidad con este nombre'];
     }
 
-    // Insertar nueva entidad
+    // Insertar nueva entidad - INCLUYE NUEVOS CAMPOS DE DESCUENTO
     $sql = "INSERT INTO gestion__entidades 
             (empresa_id, entidad_nombre, entidad_fantasia, entidad_tipo_id, cuit, sitio_web, 
-             domicilio_legal, localidad_id, es_proveedor, es_cliente, observaciones, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             domicilio_legal, localidad_id, es_proveedor, es_cliente, 
+             descuento_general_pct_cliente, descuento_general_pct_proveedor, observaciones, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issiissiiisi", 
+    mysqli_stmt_bind_param($stmt, "issiissiidddsi", 
         $empresa_id, 
         $entidad_nombre, 
         $entidad_fantasia, 
@@ -488,6 +505,8 @@ function agregarEntidad($conexion, $data)
         $localidad_id,
         $es_proveedor,
         $es_cliente,
+        $descuento_general_pct_cliente,
+        $descuento_general_pct_proveedor,
         $observaciones,
         $estado_inicial
     );
@@ -504,8 +523,7 @@ function agregarEntidad($conexion, $data)
     }
 }
 
-// ✅ Editar entidad existente
-// ✅ Editar entidad existente (VERSIÓN CORREGIDA)
+// ✅ Editar entidad existente (VERSIÓN CORREGIDA CON DESCUENTOS)
 function editarEntidad($conexion, $id, $data)
 {
     $id = intval($id);
@@ -519,9 +537,16 @@ function editarEntidad($conexion, $id, $data)
     $localidad_id = $data['localidad_id'] ? intval($data['localidad_id']) : null;
     
     // CORRECCIÓN CRÍTICA: Manejar correctamente los checkboxes desde $_POST
-    // Los valores vienen como strings '1' cuando están marcados, o no vienen cuando no lo están
     $es_proveedor = intval($data['es_proveedor'] ?? 0);
     $es_cliente   = intval($data['es_cliente'] ?? 0);
+    
+    // NUEVOS CAMPOS: Descuentos
+    $descuento_general_pct_cliente = isset($data['descuento_general_pct_cliente']) && $data['descuento_general_pct_cliente'] !== '' 
+        ? floatval($data['descuento_general_pct_cliente']) 
+        : null;
+    $descuento_general_pct_proveedor = isset($data['descuento_general_pct_proveedor']) && $data['descuento_general_pct_proveedor'] !== '' 
+        ? floatval($data['descuento_general_pct_proveedor']) 
+        : null;
     
     $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
 
@@ -535,6 +560,15 @@ function editarEntidad($conexion, $id, $data)
 
     if ($cuit && ($cuit < 0 || $cuit > 99999999999)) {
         return ['resultado' => false, 'error' => 'CUIT inválido'];
+    }
+
+    // Validar rangos de descuentos
+    if ($descuento_general_pct_cliente !== null && ($descuento_general_pct_cliente < 0 || $descuento_general_pct_cliente > 100)) {
+        return ['resultado' => false, 'error' => 'El descuento de cliente debe estar entre 0 y 100'];
+    }
+    
+    if ($descuento_general_pct_proveedor !== null && ($descuento_general_pct_proveedor < 0 || $descuento_general_pct_proveedor > 100)) {
+        return ['resultado' => false, 'error' => 'El descuento de proveedor debe estar entre 0 y 100'];
     }
 
     // Verificar que la entidad exista
@@ -572,7 +606,7 @@ function editarEntidad($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Ya existe otra entidad con este nombre'];
     }
 
-    // Actualizar entidad - TODOS LOS CAMPOS INCLUIDOS
+    // Actualizar entidad - INCLUYE NUEVOS CAMPOS DE DESCUENTO
     $sql = "UPDATE gestion__entidades 
             SET entidad_nombre = ?, 
                 entidad_fantasia = ?, 
@@ -583,6 +617,8 @@ function editarEntidad($conexion, $id, $data)
                 localidad_id = ?, 
                 es_proveedor = ?, 
                 es_cliente = ?, 
+                descuento_general_pct_cliente = ?,
+                descuento_general_pct_proveedor = ?,
                 observaciones = ?
             WHERE entidad_id = ?";
 
@@ -590,7 +626,7 @@ function editarEntidad($conexion, $id, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssiissiiisi", 
+    mysqli_stmt_bind_param($stmt, "ssiissiidddsi", 
         $entidad_nombre, 
         $entidad_fantasia, 
         $entidad_tipo_id,
@@ -598,8 +634,10 @@ function editarEntidad($conexion, $id, $data)
         $sitio_web,
         $domicilio_legal,
         $localidad_id,
-        $es_proveedor,    // Valor corregido (0 o 1)
-        $es_cliente,      // Valor corregido (0 o 1)
+        $es_proveedor,
+        $es_cliente,
+        $descuento_general_pct_cliente,
+        $descuento_general_pct_proveedor,
         $observaciones,
         $id
     );
@@ -874,4 +912,625 @@ function obtenerSucursalPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_close($stmt);
     return $sucursal;
 }
+// ============================================
+// FUNCIONES PARA CONDICIONES DE CLIENTES
+// ============================================
+
+// Obtener condiciones de pago
+function obtenerCondicionesPago($conexion) {
+    $sql = "SELECT cp.*, er.estado_registro
+            FROM gestion__condiciones_pago cp
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            WHERE cp.tabla_estado_registro_id IN (1, 2)
+            ORDER BY cp.condicion_pago";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $condiciones = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $condiciones[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $condiciones;
+}
+
+// Obtener listas de precios
+function obtenerListasPrecios($conexion) {
+    $sql = "SELECT lista_precio_id, lista_precio, descripcion, empresa_id, es_principal, 
+                   metodo_calculo, margen_ganancia, tipo, estado, f_vigencia_desde, f_vigencia_hasta
+            FROM gestion__listas_precios 
+            WHERE estado = 'activa' 
+            AND (f_vigencia_desde IS NULL OR f_vigencia_desde <= CURDATE())
+            AND (f_vigencia_hasta IS NULL OR f_vigencia_hasta >= CURDATE())
+            ORDER BY lista_precio";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $listas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $listas[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $listas;
+}
+
+// Obtener categorías de proveedores (CORREGIDO: usar proveedor_categoria_id como clave)
+function obtenerCategoriasProveedores($conexion) {
+    $sql = "SELECT cp.*, er.estado_registro
+            FROM gestion__proveedores_categorias cp
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            WHERE cp.tabla_estado_registro_id IN (1, 2)
+            ORDER BY cp.proveedor_categoria";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $categorias = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        // Asegurar que devolvemos el campo correcto
+        $categorias[] = [
+            'proveedor_categoria_id' => $fila['proveedor_categoria_id'],
+            'proveedor_categoria' => $fila['proveedor_categoria'],
+            'estado_registro' => $fila['estado_registro'] ?? null
+        ];
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $categorias;
+}
+
+// Obtener condiciones de cliente para una entidad (CORREGIDO)
+function obtenerCondicionesCliente($conexion, $empresa_idx, $entidad_id, $pagina_id) {
+    $pagina_id = intval($pagina_id);
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cc.*, 
+                   cp.condicion_pago,
+                   lp.lista_precio,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_clientes cc
+            LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
+            LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+            LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cc.entidad_id = ?
+            ORDER BY cc.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? ($fila['tabla_estado_registro_id'] == 1 ? 'Activo' : 'Inactivo'),
+            'codigo_estandar' => $fila['codigo_estandar'] ?? ($fila['tabla_estado_registro_id'] == 1 ? 'ACTIVO' : 'INACTIVO'),
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+// Obtener condiciones de proveedor para una entidad (CORREGIDO: usar proveedor_categoria_id)
+function obtenerCondicionesProveedor($conexion, $empresa_idx, $entidad_id, $pagina_id) {
+    $pagina_id = intval($pagina_id);
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cp.*, 
+                   cond.condicion_pago,
+                   cat.proveedor_categoria,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_proveedores cp
+            LEFT JOIN gestion__condiciones_pago cond ON cp.condicion_pago_id = cond.condicion_pago_id
+            LEFT JOIN gestion__proveedores_categorias cat ON cp.proveedor_categoria_id = cat.proveedor_categoria_id
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cp.entidad_id = ?
+            ORDER BY cp.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+// Agregar condición de cliente (CORREGIDA - f_hasta = nueva f_desde)
+function agregarCondicionCliente($conexion, $data) {
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $condicion_pago_id = $data['condicion_pago_id'] ? intval($data['condicion_pago_id']) : null;
+    $lista_precio_id = $data['lista_precio_id'] ? intval($data['lista_precio_id']) : null;
+    $limite_credito = isset($data['limite_credito']) && $data['limite_credito'] !== '' ? floatval($data['limite_credito']) : null;
+    $cliente_descuento_general = isset($data['cliente_descuento_general']) && $data['cliente_descuento_general'] !== '' ? floatval($data['cliente_descuento_general']) : null;
+    $f_desde = mysqli_real_escape_string($conexion, $data['f_desde'] ?? '');
+    $f_hasta = null; // La nueva condición no tiene fecha hasta (vigente)
+    
+    if (empty($entidad_id)) {
+        return ['resultado' => false, 'error' => 'ID de entidad no proporcionado'];
+    }
+    
+    if (empty($condicion_pago_id)) {
+        return ['resultado' => false, 'error' => 'La condición de pago es obligatoria'];
+    }
+    
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha desde es obligatoria'];
+    }
+    
+    // VALIDACIÓN 1: La fecha no puede ser menor al día actual
+    $hoy = date('Y-m-d');
+    if ($f_desde < $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha desde no puede ser menor al día de hoy'];
+    }
+    
+    // Obtener la última condición activa para cerrarla
+    $sql_ultima = "SELECT entidad_condicion_cliente_id, f_desde 
+                   FROM gestion__entidades_condiciones_clientes 
+                   WHERE entidad_id = ? AND tabla_estado_registro_id = 1
+                   ORDER BY f_desde DESC LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_ultima);
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $ultima = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($ultima) {
+        // VALIDACIÓN 2: La fecha debe ser mayor o igual a la fecha de la condición anterior
+        if ($f_desde < $ultima['f_desde']) {
+            return ['resultado' => false, 'error' => 'La nueva fecha no puede ser menor a la fecha de la condición anterior (' . date('d/m/Y', strtotime($ultima['f_desde'])) . ')'];
+        }
+    }
+    
+    // Iniciar transacción
+    mysqli_begin_transaction($conexion);
+    
+    try {
+        // 1. Cerrar la condición anterior si existe y la nueva fecha es mayor
+        if ($ultima && $f_desde >= $ultima['f_desde']) {
+            // La condición anterior debe tener f_hasta = nueva f_desde (NO restar un día)
+            $sql_update = "UPDATE gestion__entidades_condiciones_clientes 
+                           SET f_hasta = ?, 
+                               tabla_estado_registro_id = 2 
+                           WHERE entidad_condicion_cliente_id = ?";
+            
+            $stmt = mysqli_prepare($conexion, $sql_update);
+            if (!$stmt) throw new Exception('Error al preparar actualización de condición anterior');
+            
+            mysqli_stmt_bind_param($stmt, "si", $f_desde, $ultima['entidad_condicion_cliente_id']);
+            $update_success = mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+            
+            if (!$update_success) throw new Exception('Error al cerrar condición anterior');
+        }
+        // Si la fecha es igual, no se cierra la anterior (coexisten)
+        
+        // 2. Insertar nueva condición con estado activo
+        $estado_activo = 1; // Estado activo
+        
+        $sql_insert = "INSERT INTO gestion__entidades_condiciones_clientes 
+                       (entidad_id, condicion_pago_id, lista_precio_id, limite_credito, 
+                        cliente_descuento_general, f_desde, f_hasta, tabla_estado_registro_id) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = mysqli_prepare($conexion, $sql_insert);
+        if (!$stmt) throw new Exception('Error al preparar inserción');
+        
+        mysqli_stmt_bind_param($stmt, "iiiddssi", 
+            $entidad_id,
+            $condicion_pago_id,
+            $lista_precio_id,
+            $limite_credito,
+            $cliente_descuento_general,
+            $f_desde,
+            $f_hasta,  // NULL para la nueva condición
+            $estado_activo
+        );
+        
+        $insert_success = mysqli_stmt_execute($stmt);
+        if (!$insert_success) throw new Exception('Error al insertar condición: ' . mysqli_error($conexion));
+        
+        $condicion_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        
+        // Confirmar transacción
+        mysqli_commit($conexion);
+        
+        $mensaje = ($ultima && $f_desde > $ultima['f_desde']) 
+            ? 'Condición creada correctamente. La condición anterior ha sido cerrada con fecha hasta ' . date('d/m/Y', strtotime($f_desde)) . ' y desactivada.' 
+            : 'Condición creada correctamente.';
+        
+        return ['resultado' => true, 'condicion_id' => $condicion_id, 'message' => $mensaje];
+        
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// Agregar condición de proveedor (CORREGIDA - f_hasta = nueva f_desde)
+function agregarCondicionProveedor($conexion, $data) {
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $condicion_pago_id = $data['condicion_pago_id'] ? intval($data['condicion_pago_id']) : null;
+    $proveedor_categoria_id = $data['proveedor_categoria_id'] ? intval($data['proveedor_categoria_id']) : null;
+    $proveedor_descuento_general = isset($data['proveedor_descuento_general']) && $data['proveedor_descuento_general'] !== '' ? floatval($data['proveedor_descuento_general']) : null;
+    $f_desde = mysqli_real_escape_string($conexion, $data['f_desde'] ?? '');
+    $f_hasta = null; // La nueva condición no tiene fecha hasta (vigente)
+    
+    if (empty($entidad_id)) {
+        return ['resultado' => false, 'error' => 'ID de entidad no proporcionado'];
+    }
+    
+    if (empty($condicion_pago_id)) {
+        return ['resultado' => false, 'error' => 'La condición de pago es obligatoria'];
+    }
+    
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha desde es obligatoria'];
+    }
+    
+    // VALIDACIÓN 1: La fecha no puede ser menor al día actual
+    $hoy = date('Y-m-d');
+    if ($f_desde < $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha desde no puede ser menor al día de hoy'];
+    }
+    
+    // Obtener la última condición activa para cerrarla
+    $sql_ultima = "SELECT entidad_condicion_proveedor_id, f_desde 
+                   FROM gestion__entidades_condiciones_proveedores 
+                   WHERE entidad_id = ? AND tabla_estado_registro_id = 1
+                   ORDER BY f_desde DESC LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_ultima);
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $ultima = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($ultima) {
+        // VALIDACIÓN 2: La fecha debe ser mayor o igual a la fecha de la condición anterior
+        if ($f_desde < $ultima['f_desde']) {
+            return ['resultado' => false, 'error' => 'La nueva fecha no puede ser menor a la fecha de la condición anterior (' . date('d/m/Y', strtotime($ultima['f_desde'])) . ')'];
+        }
+    }
+    
+    // Iniciar transacción
+    mysqli_begin_transaction($conexion);
+    
+    try {
+        // 1. Cerrar la condición anterior si existe y la nueva fecha es mayor
+        if ($ultima && $f_desde >= $ultima['f_desde']) {
+            // La condición anterior debe tener f_hasta = nueva f_desde (NO restar un día)
+            $sql_update = "UPDATE gestion__entidades_condiciones_proveedores 
+                           SET f_hasta = ?, 
+                               tabla_estado_registro_id = 2 
+                           WHERE entidad_condicion_proveedor_id = ?";
+            
+            $stmt = mysqli_prepare($conexion, $sql_update);
+            if (!$stmt) throw new Exception('Error al preparar actualización de condición anterior');
+            
+            mysqli_stmt_bind_param($stmt, "si", $f_desde, $ultima['entidad_condicion_proveedor_id']);
+            $update_success = mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+            
+            if (!$update_success) throw new Exception('Error al cerrar condición anterior');
+        }
+        // Si la fecha es igual, no se cierra la anterior (coexisten)
+        
+        // 2. Insertar nueva condición con estado activo
+        $estado_activo = 1; // Estado activo
+        
+        $sql_insert = "INSERT INTO gestion__entidades_condiciones_proveedores 
+                       (entidad_id, condicion_pago_id, proveedor_categoria_id, proveedor_descuento_general, 
+                        f_desde, f_hasta, tabla_estado_registro_id) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = mysqli_prepare($conexion, $sql_insert);
+        if (!$stmt) throw new Exception('Error al preparar inserción');
+        
+        mysqli_stmt_bind_param($stmt, "iiidssi", 
+            $entidad_id,
+            $condicion_pago_id,
+            $proveedor_categoria_id,
+            $proveedor_descuento_general,
+            $f_desde,
+            $f_hasta,  // NULL para la nueva condición
+            $estado_activo
+        );
+        
+        $insert_success = mysqli_stmt_execute($stmt);
+        if (!$insert_success) throw new Exception('Error al insertar condición: ' . mysqli_error($conexion));
+        
+        $condicion_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        
+        // Confirmar transacción
+        mysqli_commit($conexion);
+        
+        $mensaje = ($ultima && $f_desde > $ultima['f_desde']) 
+            ? 'Condición creada correctamente. La condición anterior ha sido cerrada con fecha hasta ' . date('d/m/Y', strtotime($f_desde)) . ' y desactivada.' 
+            : 'Condición creada correctamente.';
+        
+        return ['resultado' => true, 'condicion_id' => $condicion_id, 'message' => $mensaje];
+        
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// Obtener condición de cliente por ID
+function obtenerCondicionClientePorId($conexion, $id) {
+    $id = intval($id);
+    
+    $sql = "SELECT * FROM gestion__entidades_condiciones_clientes 
+            WHERE entidad_condicion_cliente_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $condicion;
+}
+
+// Obtener condición de proveedor por ID (CORREGIDO)
+function obtenerCondicionProveedorPorId($conexion, $id) {
+    $id = intval($id);
+    
+    $sql = "SELECT * FROM gestion__entidades_condiciones_proveedores 
+            WHERE entidad_condicion_proveedor_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $condicion;
+}
+
+// Obtener condición de cliente VIGENTE (actual) para una entidad
+function obtenerCondicionClienteVigente($conexion, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cc.*, 
+                   cp.condicion_pago,
+                   lp.lista_precio,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_clientes cc
+            LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
+            LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+            LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cc.entidad_id = ? 
+            AND cc.tabla_estado_registro_id = 1 -- Solo activas
+            AND (cc.f_hasta IS NULL OR cc.f_hasta >= CURDATE())
+            AND cc.f_desde <= CURDATE()
+            ORDER BY cc.f_desde DESC
+            LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    
+    if ($condicion) {
+        $color_clase = $condicion['color_clase'] ?? 'btn-dark';
+        $bg_clase = $condicion['bg_clase'] ?? 'bg-dark';
+        $text_clase = $condicion['text_clase'] ?? 'text-white';
+        
+        $condicion['estado_info'] = [
+            'estado_registro' => $condicion['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $condicion['codigo_estandar'] ?? 'ACTIVO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+    }
+    
+    return $condicion;
+}
+
+// Obtener condición de proveedor VIGENTE (actual) para una entidad
+function obtenerCondicionProveedorVigente($conexion, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cp.*, 
+                   cond.condicion_pago,
+                   cat.proveedor_categoria,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_proveedores cp
+            LEFT JOIN gestion__condiciones_pago cond ON cp.condicion_pago_id = cond.condicion_pago_id
+            LEFT JOIN gestion__proveedores_categorias cat ON cp.proveedor_categoria_id = cat.proveedor_categoria_id
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cp.entidad_id = ? 
+            AND cp.tabla_estado_registro_id = 1 -- Solo activas
+            AND (cp.f_hasta IS NULL OR cp.f_hasta >= CURDATE())
+            AND cp.f_desde <= CURDATE()
+            ORDER BY cp.f_desde DESC
+            LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    
+    if ($condicion) {
+        $color_clase = $condicion['color_clase'] ?? 'btn-dark';
+        $bg_clase = $condicion['bg_clase'] ?? 'bg-dark';
+        $text_clase = $condicion['text_clase'] ?? 'text-white';
+        
+        $condicion['estado_info'] = [
+            'estado_registro' => $condicion['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $condicion['codigo_estandar'] ?? 'ACTIVO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+    }
+    
+    return $condicion;
+}
+
+// Obtener HISTÓRICO de condiciones de cliente
+function obtenerHistorialCondicionesCliente($conexion, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cc.*, 
+                   cp.condicion_pago,
+                   lp.lista_precio,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_clientes cc
+            LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
+            LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+            LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cc.entidad_id = ? 
+            ORDER BY cc.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+// Obtener HISTÓRICO de condiciones de proveedor
+function obtenerHistorialCondicionesProveedor($conexion, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cp.*, 
+                   cond.condicion_pago,
+                   cat.proveedor_categoria,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_proveedores cp
+            LEFT JOIN gestion__condiciones_pago cond ON cp.condicion_pago_id = cond.condicion_pago_id
+            LEFT JOIN gestion__proveedores_categorias cat ON cp.proveedor_categoria_id = cat.proveedor_categoria_id
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cp.entidad_id = ? 
+            ORDER BY cp.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
 ?>
