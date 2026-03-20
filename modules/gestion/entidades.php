@@ -635,6 +635,349 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             opacity: 0.5;
             cursor: not-allowed;
         }
+        <!-- Añadir esto antes de las librerías, después del último </style> existente -->
+<style>
+    /* ... estilos existentes ... */
+    
+    /* ========== ESTILOS RESPONSIVE ========== */
+    @media (max-width: 767.98px) {
+        /* Header */
+        .app-content-header .row > div:first-child {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .app-content-header h3 {
+            font-size: 1.5rem;
+        }
+        
+        .breadcrumb {
+            justify-content: center;
+        }
+        
+        /* Card header */
+        .card-header {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+        
+        .card-header #contenedor-boton-agregar {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .card-header .float-end {
+            float: none !important;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .card-header .btn-group {
+            width: 100%;
+            display: flex;
+        }
+        
+        .card-header .btn-group .btn {
+            flex: 1;
+            font-size: 0.85rem;
+            padding: 0.375rem 0.25rem;
+        }
+        
+        .card-header .btn-group .dropdown-menu {
+            width: 100%;
+        }
+        
+        /* DataTables */
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_filter {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .dataTables_wrapper .dataTables_length label,
+        .dataTables_wrapper .dataTables_filter label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .dataTables_wrapper .dataTables_filter input {
+            width: 100% !important;
+            max-width: 300px;
+            margin-left: 0 !important;
+        }
+        
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate {
+            text-align: center;
+            margin-top: 15px;
+        }
+        
+        .dataTables_wrapper .dataTables_paginate {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .dataTables_wrapper .paginate_button {
+            padding: 0.3rem 0.5rem !important;
+            margin: 2px !important;
+        }
+        
+        /* Tabla */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .table td, .table th {
+            white-space: nowrap;
+            font-size: 0.85rem;
+        }
+        
+        .table td .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px;
+        }
+        
+        .table td .btn {
+            padding: 0.25rem 0.4rem;
+            font-size: 0.75rem;
+        }
+        
+        /* Modales */
+        .modal-dialog {
+            margin: 10px;
+        }
+        
+        .modal-xl {
+            max-width: 100%;
+        }
+        
+        .modal-body {
+            padding: 15px;
+        }
+        
+        .modal-footer {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .modal-footer .btn {
+            width: 100%;
+            margin: 0 !important;
+        }
+        
+        /* Tabs */
+        .nav-tabs {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            white-space: nowrap;
+            margin-bottom: 10px;
+        }
+        
+        .nav-tabs .nav-item {
+            float: none;
+        }
+        
+        .nav-tabs .nav-link {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        
+        .nav-tabs .nav-link i {
+            margin-right: 3px;
+        }
+        
+        .tab-content .row > div {
+            margin-bottom: 10px;
+        }
+        
+        /* Formularios */
+        .form-label {
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+        }
+        
+        .form-control, .form-select {
+            font-size: 0.9rem;
+            padding: 0.4rem 0.5rem;
+        }
+        
+        .input-group {
+            flex-direction: column;
+        }
+        
+        .input-group > * {
+            width: 100%;
+            margin: 2px 0 !important;
+            border-radius: 0.25rem !important;
+        }
+        
+        /* Cards de condiciones vigentes */
+        .card .table-borderless {
+            font-size: 0.85rem;
+        }
+        
+        .card .table-borderless td,
+        .card .table-borderless th {
+            padding: 0.3rem;
+        }
+        
+        /* Alertas */
+        .alert {
+            font-size: 0.85rem;
+            padding: 0.75rem;
+        }
+        
+        /* Botones de acción en modales de condiciones */
+        .card-header .btn-sm,
+        .card-body .btn-sm {
+            width: 100%;
+            margin: 2px 0 !important;
+        }
+        
+        .card-header .d-flex {
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .card-header .d-flex .btn {
+            width: 100%;
+        }
+        
+        /* Dropdowns */
+        .dropdown-menu {
+            position: fixed !important;
+            top: auto !important;
+            left: 10px !important;
+            right: 10px !important;
+            width: auto !important;
+            transform: none !important;
+            margin-top: 5px !important;
+        }
+        
+        .dropdown-menu .dropdown-item {
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+        }
+        
+        .dropdown-menu .dropdown-item i {
+            width: 25px;
+        }
+        
+        /* Swal (SweetAlert) */
+        .swal2-popup {
+            width: 90% !important;
+            margin: 20px auto !important;
+        }
+        
+        .swal2-actions {
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .swal2-actions button {
+            width: 100%;
+            margin: 2px 0 !important;
+        }
+        
+        /* Botón "Agregar" */
+        #contenedor-boton-agregar .btn {
+            width: 100%;
+            padding: 0.6rem;
+            font-size: 1rem;
+        }
+    }
+    
+    /* Tablets (768px - 991px) */
+    @media (min-width: 768px) and (max-width: 991.98px) {
+        .modal-xl {
+            max-width: 95%;
+        }
+        
+        .nav-tabs .nav-link {
+            padding: 0.5rem 0.6rem;
+            font-size: 0.9rem;
+        }
+        
+        .nav-tabs .nav-link i {
+            margin-right: 2px;
+        }
+        
+        .table td .btn-group {
+            flex-wrap: wrap;
+            min-width: 120px;
+        }
+        
+        .table td .btn {
+            padding: 0.2rem 0.3rem;
+            font-size: 0.7rem;
+        }
+        
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_filter {
+            padding: 0 10px;
+        }
+    }
+    
+    /* Pantallas pequeñas en horizontal */
+    @media (max-height: 600px) and (orientation: landscape) {
+        .modal-dialog {
+            max-height: 90vh;
+            margin: 5vh auto;
+        }
+        
+        .modal-body {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+    }
+    
+    /* Mejoras para DataTables en móviles */
+    .table.dataTable {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+    
+    .dataTables_wrapper .row {
+        margin: 0;
+    }
+    
+    .dataTables_wrapper .col-sm-12 {
+        padding: 0;
+    }
+    
+    /* Tooltips en móviles */
+    .tooltip {
+        display: none !important;
+    }
+    
+    /* Ajustes para badges */
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.35em 0.65em;
+    }
+    
+    /* Ajustes para el contador de sucursales */
+    #contador-sucursales {
+        display: inline-block;
+        min-width: 20px;
+    }
+</style>
+
+<!-- Añadir meta viewport si no existe -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+
     </style>
 
     <script>
@@ -2821,6 +3164,95 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 500);
             });
         });
+        // Añadir al final del $(document).ready(function() { ... }); antes de cerrar
+
+// ========== FUNCIONES RESPONSIVE ==========
+
+// Ajustar DataTables en móvil
+function ajustarDataTablesMobile() {
+    if (window.innerWidth < 768) {
+        // Configuración para móvil
+        if (tablaEntidades) {
+            tablaEntidades.settings()[0].oInit.pageLength = 10;
+            tablaEntidades.page.len(10).draw();
+        }
+        
+        // Ocultar columnas menos importantes en móvil
+        $('#tablaEntidades').DataTable().columns([2, 3, 6]).visible(false);
+    } else {
+        // Mostrar todas las columnas en desktop
+        if ($.fn.DataTable.isDataTable('#tablaEntidades')) {
+            $('#tablaEntidades').DataTable().columns([2, 3, 6]).visible(true);
+        }
+    }
+}
+
+// Manejar dropdowns en móvil
+function mejorarDropdownsMobile() {
+    $('.dropdown-toggle').on('click', function(e) {
+        if (window.innerWidth < 768) {
+            e.stopPropagation();
+            var $dropdownMenu = $(this).next('.dropdown-menu');
+            
+            // Cerrar otros dropdowns
+            $('.dropdown-menu').not($dropdownMenu).removeClass('show');
+            
+            // Toggle actual
+            $dropdownMenu.toggleClass('show');
+        }
+    });
+    
+    // Cerrar dropdowns al hacer click fuera
+    $(document).on('click', function(e) {
+        if (window.innerWidth < 768 && !$(e.target).closest('.dropdown').length) {
+            $('.dropdown-menu').removeClass('show');
+        }
+    });
+}
+
+// Ajustar modales para móvil
+function ajustarModalesMobile() {
+    $('.modal').on('show.bs.modal', function() {
+        if (window.innerWidth < 768) {
+            $('body').addClass('modal-open-mobile');
+        }
+    }).on('hidden.bs.modal', function() {
+        $('body').removeClass('modal-open-mobile');
+    });
+}
+
+// Prevenir zoom en inputs en iOS
+function prevenirZoomIOS() {
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        $('input, select, textarea').on('focus', function() {
+            $(this).css('font-size', '16px');
+        });
+    }
+}
+
+// Llamar funciones al inicio
+ajustarDataTablesMobile();
+mejorarDropdownsMobile();
+ajustarModalesMobile();
+prevenirZoomIOS();
+
+// Escuchar cambios de tamaño de ventana
+$(window).on('resize', function() {
+    clearTimeout(window.resizedFinished);
+    window.resizedFinished = setTimeout(function() {
+        ajustarDataTablesMobile();
+    }, 250);
+});
+
+// Mejorar navegación por tabs en móvil
+$('.nav-tabs').on('touchstart', function(e) {
+    e.stopPropagation();
+});
+
+// Ajustar tooltips en móvil
+if (window.innerWidth < 768) {
+    $('[data-bs-toggle="tooltip"]').tooltip('disable');
+}
     </script>
 
     <!-- Librerías necesarias para DataTables Buttons -->
