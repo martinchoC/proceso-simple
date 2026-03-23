@@ -100,7 +100,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <!-- Modal principal -->
             <div class="modal fade" id="modalFacturaProveedor" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-dialog modal-dialog-centered" style="max-width: 1600px; width: 95%;">
                     <div class="modal-content">
                         <div class="modal-header py-2" style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <h5 class="modal-title" id="modalLabel">
@@ -161,7 +161,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                             <div class="col-md-2 mb-2">
                                                 <label for="comprobante_nro" class="form-label small mb-1">Número</label>
-                                                <input type="number" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" value="0" min="1" required>
+                                                <input type="number" class="form-control form-control-sm no-spinner"  id="comprobante_nro" name="comprobante_nro" value="0" min="1" required>
                                                 <div class="invalid-feedback small">Número obligatorio</div>
                                             </div>
                                         </div>
@@ -188,11 +188,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <label for="tipo_cambio" class="form-label small mb-1">TC</label>
                                                 <input type="number" class="form-control form-control-sm no-spinner" id="tipo_cambio" name="tipo_cambio" step="0.000001">
                                             </div>
-                                            <div class="col-md-4 mb-2">
+                                            <div class="col-md-3 mb-2">
                                                 <label for="condicion_pago_id" class="form-label small mb-1">Condición Pago</label>
                                                 <select class="form-select form-select-sm" id="condicion_pago_id" name="condicion_pago_id">
                                                     <option value="">Seleccionar</option>
                                                 </select>
+                                            </div>
+                                            <div class="col-md-1 mb-2">
+                                                <label for="descuento_general_pct" class="form-label small mb-1">Dto. General</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" class="form-control form-control-sm no-spinner" 
+                                                        id="descuento_general_pct" 
+                                                        name="descuento_general_pct" 
+                                                        step="0.01" 
+                                                        min="0" 
+                                                        max="100" 
+                                                        value="0">
+                                                    <span class="input-group-text">%</span>
+                                                </div>
+                                                
                                             </div>
                                         </div>
 
@@ -291,86 +305,93 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
                                     </div>
                                     <div class="card-body p-2">
-                                        <!-- Fila de agregado rápido de productos -->
-                                        <div class="row mb-3">
-                                            <div class="col-12">
-                                                <div class="card card-primary card-outline border-info">
-                                                    <div class="card-header py-1 bg-info bg-opacity-10">
-                                                        <h6 class="mb-0 small text-info"><i class="fas fa-plus-circle me-2"></i>Agregar Producto</h6>
-                                                    </div>
-                                                    <div class="card-body py-2">
-                                                        <div class="row g-2 align-items-end">
-                                                            <div class="col-md-3 position-relative">
-                                                                <label class="small mb-1">Producto</label>
-                                                                <input type="text" class="form-control form-control-sm" 
-                                                                    id="busqueda_producto" 
-                                                                    placeholder="Buscar producto..."
-                                                                    autocomplete="off">
-                                                                <input type="hidden" id="producto_seleccionado_id">
-                                                                <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%; display: none;"></div>
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small mb-1">Cant.</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_cantidad" 
-                                                                    step="0.01" min="0.01" value="1.00">
-                                                            </div>
-                                                            <div class="col-md-2">
-                                                                <label class="small mb-1">Precio</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_precio" 
-                                                                    step="0.0001" min="0">
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small mb-1">Dto %</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_descuento_item_pct" 
-                                                                    step="0.01" min="0" max="100" value="0">
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small mb-1">Dto $</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_descuento" 
-                                                                    step="0.01" min="0" value="0.00">
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small mb-1">IVA %</label>
-                                                                <select class="form-select form-select-sm" id="producto_iva">
-                                                                    <option value="21">21%</option>
-                                                                    <option value="10.5">10.5%</option>
-                                                                    <option value="27">27%</option>
-                                                                    <option value="0">0%</option>
-                                                                </select>
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small mb-1">IVA $</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_iva_importe" 
-                                                                    step="0.01" min="0" value="0.00">
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small mb-1">No Grav.</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_no_gravado" 
-                                                                    step="0.01" min="0" value="0.00">
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small mb-1">Exento</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_exento" 
-                                                                    step="0.01" min="0" value="0.00">
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small mb-1">&nbsp;</label>
-                                                                <button type="button" class="btn btn-sm btn-success w-100" id="btnAgregarProducto">
-                                                                    <i class="fas fa-plus"></i>
-                                                                </button>
-                                                            </div>
+                                        <!-- Fila de agregado rápido de productos - Versión ultra compacta -->
+                                    <div class="row mb-3">
+                                        <div class="col-12">
+                                            <div class="card card-primary card-outline border-info">
+                                                <div class="card-header py-1 bg-info bg-opacity-10">
+                                                    <h6 class="mb-0 small text-info"><i class="fas fa-plus-circle me-2"></i>Agregar Producto</h6>
+                                                </div>
+                                                <div class="card-body py-2">
+                                                    <div class="row g-1 align-items-end">
+                                                        <!-- Producto -->
+                                                        <div class="col-md-3 position-relative">
+                                                            <label class="small mb-1">Producto</label>
+                                                            <input type="text" class="form-control form-control-sm" 
+                                                                id="busqueda_producto" 
+                                                                placeholder="Buscar producto..."
+                                                                autocomplete="off">
+                                                            <input type="hidden" id="producto_seleccionado_id">
+                                                            <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%; display: none;"></div>
+                                                        </div>
+                                                        
+                                                       <!-- Cantidad -->
+                                                        <div class="col-md-1">
+                                                            <label class="small mb-1">Cant.</label>
+                                                            <input type="number" class="form-control form-control-sm no-spinner" 
+                                                                id="producto_cantidad" 
+                                                                step="0.01" min="0.01" value="1.00">
+                                                        </div>
+
+                                                        <!-- Precio -->
+                                                        <div class="col-md-1">
+                                                            <label class="small mb-1">Precio</label>
+                                                            <input type="number" class="form-control form-control-sm no-spinner" 
+                                                                id="producto_precio" 
+                                                                step="0.01" min="0">
+                                                        </div>
+
+                                                        <!-- Dto % -->
+                                                        <div class="col-md-1">
+                                                            <label class="small mb-1">Dto %</label>
+                                                            <input type="number" class="form-control form-control-sm no-spinner" 
+                                                                id="producto_descuento_item_pct" 
+                                                                step="0.01" min="0" max="100" value="0">
+                                                        </div>
+                                                        
+                                                        <!-- IVA % -->
+                                                        <div class="col-md-1">
+                                                            <label class="small mb-1">IVA %</label>
+                                                            <select class="form-select form-select-sm" id="producto_iva">
+                                                                <option value="21">21%</option>
+                                                                <option value="10.5">10.5%</option>
+                                                                <option value="27">27%</option>
+                                                                <option value="0">0%</option>
+                                                            </select>
+                                                        </div>
+                                                        
+                                                        <!-- No Gravado -->
+                                                        <div class="col-md-1">
+                                                            <label class="small mb-1">No Grav.</label>
+                                                            <input type="number" class="form-control form-control-sm no-spinner" 
+                                                                id="producto_no_gravado" step="0.01" value="0">
+                                                        </div>
+                                                        
+                                                        <!-- Exento -->
+                                                        <div class="col-md-1">
+                                                            <label class="small mb-1">Exento</label>
+                                                            <input type="number" class="form-control form-control-sm no-spinner" 
+                                                                id="producto_exento" step="0.01" value="0">
+                                                        </div>
+                                                        
+                                                        <!-- Dto $ (oculto, solo para cálculo) -->
+                                                        <input type="hidden" id="producto_descuento" value="0">
+                                                        
+                                                        <!-- IVA $ (oculto, solo para cálculo) -->
+                                                        <input type="hidden" id="producto_iva_importe" value="0">
+                                                        
+                                                        <!-- Botón Agregar -->
+                                                        <div class="col-md-1">
+                                                            <label class="small mb-1 invisible">Acción</label>
+                                                            <button type="button" class="btn btn-sm btn-success w-100" id="btnAgregarProducto">
+                                                                <i class="fas fa-plus"></i>
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
 
                                         <!-- Lista de detalles -->
                                         <div class="row">
@@ -493,6 +514,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 
     <style>
+        .modal-xxl {
+            max-width: 1400px;
+        }
+        @media (min-width: 1400px) {
+            .modal-xxl {
+                max-width: 90%;
+            }
+        }
         /* Quitar flechitas de los inputs number */
         .no-spinner::-webkit-inner-spin-button,
         .no-spinner::-webkit-outer-spin-button {

@@ -124,6 +124,7 @@ try {
                 'exento' => floatval($_POST['exento'] ?? 0),
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
+                'descuento_general_pct' => floatval($_POST['descuento_general_pct'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx,
@@ -170,6 +171,7 @@ try {
                 'exento' => floatval($_POST['exento'] ?? 0),
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
+                'descuento_general_pct' => floatval($_POST['descuento_general_pct'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx
@@ -299,6 +301,21 @@ try {
             }
             mysqli_stmt_close($stmt);
             echo json_encode($alicuotas, JSON_UNESCAPED_UNICODE);
+            break;
+        
+        case 'obtener_condiciones_proveedor':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                echo json_encode(['success' => false, 'error' => 'ID de proveedor no proporcionado']);
+                break;
+            }
+            
+            $condiciones = obtenerCondicionesProveedor($conexion, $entidad_id, $empresa_idx);
+            if ($condiciones) {
+                echo json_encode(['success' => true, 'data' => $condiciones]);
+            } else {
+                echo json_encode(['success' => false, 'data' => null]);
+            }
             break;
 
         case 'agregar_producto_rapido':

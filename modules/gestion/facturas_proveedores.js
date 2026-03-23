@@ -15,6 +15,37 @@ $(document).ready(function () {
     var selectedIndex = -1;
 
     // ========== FUNCIONES DE DATATABLE ==========
+    // Función para formatear número con separador de miles y decimales
+   // Función para formatear número con separador de miles y decimales
+    function formatNumber(number, decimals = 2) {
+        if (number === null || number === undefined || number === '') return '0.00';
+        var num = parseFloat(number);
+        if (isNaN(num)) return '0.00';
+        return num.toLocaleString('es-AR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+
+    // Función para parsear un número formateado (eliminar separadores)
+    function parseFormattedNumber(value) {
+        if (!value) return 0;
+        var cleanValue = value.toString().replace(/[^\d.,-]/g, '');
+        cleanValue = cleanValue.replace(/\./g, '').replace(/,/g, '.');
+        var num = parseFloat(cleanValue);
+        return isNaN(num) ? 0 : num;
+    }
+
+    // Función para escapar HTML y prevenir XSS
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
     function inicializarDataTable() {
         if ($.fn.DataTable.isDataTable('#tablaFacturasProveedor')) {
             $('#tablaFacturasProveedor').DataTable().destroy();
@@ -209,7 +240,7 @@ $(document).ready(function () {
                         if (type === 'export') {
                             return parseFloat(data).toFixed(2);
                         }
-                        return `<span class="text-primary">$${parseFloat(data).toFixed(2)}</span>`;
+                        return `<span class="text-primary">${formatNumber(data, 2)}</span>`;
                     }
                 },
                 {
@@ -262,7 +293,6 @@ $(document).ready(function () {
                                 var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
                                 var esConfirmable = boton.es_confirmable || 0;
                                 
-                                // Obtener información del comprobante para mostrar en la confirmación
                                 var comprobanteInfo = `${row.comprobante_tipo || ''} ${row.comprobante_pv || ''}-${row.comprobante_nro || ''}`;
                                 var proveedorInfo = row.entidad_nombre || row.entidad_fantasia || '';
 
@@ -278,8 +308,6 @@ $(document).ready(function () {
 
                                 if (accionJs === 'editar') {
                                     editarBoton = botonHtml;
-                                } else if (accionJs === 'imprimir') {
-                                    otrosBotones += botonHtml;
                                 } else {
                                     otrosBotones += botonHtml;
                                 }
@@ -474,7 +502,10 @@ $(document).ready(function () {
                 var textoCompleto = selectedOption.text();
                 $('#proveedor_actual_nombre').text(textoCompleto);
             }
-            
+             if (entidadId) {
+                console.log("Llamando a cargarCondicionesProveedor con ID:", entidadId);
+                cargarCondicionesProveedor(entidadId);
+            }
             console.log("Proveedor seleccionado:", proveedorActualId, "Sucursal:", proveedorSucursalActualId);
             
         } else {
@@ -639,6 +670,30 @@ $(document).ready(function () {
     }
 
     // ========== MANEJADOR DE ACCIONES DE BOTONES ==========
+    $(document).on('change', '#descuento_general_pct', function() {
+        var descuentoGeneral = parseFloat($(this).val()) || 0;
+        
+        // Actualizar todos los detalles con el nuevo descuento general
+        detalles.forEach(function(detalle, index) {
+            var netoBase = detalle.cantidad * detalle.precio_unitario;
+            var descuentoItem = netoBase * (detalle.descuento_item_pct / 100);
+            var netoDespuesItem = netoBase - descuentoItem;
+            var descuentoGeneralMonto = netoDespuesItem * (descuentoGeneral / 100);
+            var descuentoTotal = descuentoItem + descuentoGeneralMonto;
+            
+            detalle.descuento_general_pct = descuentoGeneral;
+            detalle.descuento_general = descuentoGeneralMonto;
+            detalle.descuento = descuentoTotal;
+            detalle.neto_gravado = netoBase - descuentoTotal;
+            detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
+            detalle.total_linea = detalle.neto_gravado + detalle.iva_importe + detalle.no_gravado + detalle.exento;
+            
+            detalles[index] = detalle;
+        });
+        
+        renderizarDetalles();
+        actualizarTotales();
+    });
     $(document).on('click', '.btn-accion', function () {
         var facturaId = $(this).data('id');
         var accionJs = $(this).data('accion');
@@ -877,25 +932,14 @@ $(document).ready(function () {
         var cantidad = parseFloat($('#producto_cantidad').val()) || 0;
         var precio = parseFloat($('#producto_precio').val()) || 0;
         var descuentoPorcentaje = parseFloat($('#producto_descuento_item_pct').val()) || 0;
-        var descuentoMonto = parseFloat($('#producto_descuento').val()) || 0;
+        var iva = parseFloat($('#producto_iva').val()) || 0;
         
         var netoBase = cantidad * precio;
-        var descuentoCalculado = 0;
-        
-        // Si hay porcentaje de descuento, calcular sobre el neto base
-        if (descuentoPorcentaje > 0) {
-            descuentoCalculado = netoBase * (descuentoPorcentaje / 100);
-            $('#producto_descuento').val(descuentoCalculado.toFixed(2));
-        } 
-        // Si hay monto de descuento directo
-        else if (descuentoMonto > 0) {
-            descuentoCalculado = descuentoMonto;
-        }
-        
+        var descuentoCalculado = netoBase * (descuentoPorcentaje / 100);
         var netoGravado = netoBase - descuentoCalculado;
-        var iva = parseFloat($('#producto_iva').val()) || 0;
         var ivaImporte = netoGravado * (iva / 100);
         
+        $('#producto_descuento').val(descuentoCalculado.toFixed(2));
         $('#producto_iva_importe').val(ivaImporte.toFixed(2));
     }
 
@@ -915,108 +959,108 @@ $(document).ready(function () {
     }
 
     $('#btnAgregarProducto').click(function() {
-        if (!proveedorActualId) {
-            Swal.fire({
-                icon: "warning",
-                title: "Seleccione proveedor",
-                text: "Debe seleccionar un proveedor primero",
-                confirmButtonText: "Entendido"
-            });
-            return;
-        }
-        
-        var productoId = $('#producto_seleccionado_id').val();
-        if (!productoId) {
-            Swal.fire({
-                icon: "warning",
-                title: "Producto requerido",
-                text: "Debe seleccionar un producto de la lista",
-                confirmButtonText: "Entendido"
-            });
-            return;
-        }
-        
-        var cantidad = parseFloat($('#producto_cantidad').val());
-        var precio = parseFloat($('#producto_precio').val());
-        var descuentoPorcentaje = parseFloat($('#producto_descuento_item_pct').val()) || 0;
-        var descuento = parseFloat($('#producto_descuento').val()) || 0;
-        var iva = parseFloat($('#producto_iva').val());
-        var ivaId = $('#producto_iva_id').val() || obtenerIdIva(iva);
-        var ivaImporte = parseFloat($('#producto_iva_importe').val()) || 0;
-        var noGravado = parseFloat($('#producto_no_gravado').val()) || 0;
-        var exento = parseFloat($('#producto_exento').val()) || 0;
-        
-        if (cantidad <= 0) {
-            Swal.fire({
-                icon: "warning",
-                title: "Cantidad inválida",
-                text: "La cantidad debe ser mayor a 0",
-                confirmButtonText: "Entendido"
-            });
-            return;
-        }
-        
-        if (precio <= 0) {
-            Swal.fire({
-                icon: "warning",
-                title: "Precio inválido",
-                text: "El precio debe ser mayor a 0",
-                confirmButtonText: "Entendido"
-            });
-            return;
-        }
-        
-        var productoText = $('#busqueda_producto').val();
-        
-        var netoBase = cantidad * precio;
-        var descuentoCalculado = 0;
-        
-        if (descuentoPorcentaje > 0) {
-            descuentoCalculado = netoBase * (descuentoPorcentaje / 100);
-        } else if (descuento > 0) {
-            descuentoCalculado = descuento;
-        }
-        
-        var netoGravado = netoBase - descuentoCalculado; 
-        var totalLinea = netoGravado + ivaImporte + noGravado + exento;
-        
-        var nuevoDetalle = {
-            detalle_idx: 'temp_' + new Date().getTime(),
-            factura_proveedor_detalle_id: 0,
-            producto_id: parseInt(productoId),
-            producto_nombre: productoText,
-            cantidad: cantidad,
-            precio_unitario: precio,
-            descuento_item_pct: descuentoPorcentaje,
-            descuento: descuentoCalculado,
-            no_gravado: noGravado,
-            exento: exento,
-            iva_alicuota_id: parseInt(ivaId),
-            iva_porcentaje: iva,
-            neto_gravado: netoGravado,
-            iva_importe: ivaImporte,
-            total_linea: totalLinea
-        };
-        
-        detalles.push(nuevoDetalle);
-        renderizarDetalles();
-        actualizarTotales();
-        
-        // Limpiar campos
-        $('#busqueda_producto').val('');
-        $('#producto_seleccionado_id').val('');
-        $('#producto_iva_id').val('');
-        $('#producto_cantidad').val('1.00');
-        $('#producto_precio').val('');
-        $('#producto_descuento_item_pct').val('0');
-        $('#producto_descuento').val('0.00');
-        $('#producto_iva').val('21');
-        $('#producto_iva_importe').val('0.00');
-        $('#producto_no_gravado').val('0.00');
-        $('#producto_exento').val('0.00');
-        
-        $('#busqueda_producto').focus();
-    });
+    if (!proveedorActualId) {
+        Swal.fire({
+            icon: "warning",
+            title: "Seleccione proveedor",
+            text: "Debe seleccionar un proveedor primero",
+            confirmButtonText: "Entendido"
+        });
+        return;
+    }
+    
+    var productoId = $('#producto_seleccionado_id').val();
+    if (!productoId) {
+        Swal.fire({
+            icon: "warning",
+            title: "Producto requerido",
+            text: "Debe seleccionar un producto de la lista",
+            confirmButtonText: "Entendido"
+        });
+        return;
+    }
+    
+    var cantidad = parseFloat($('#producto_cantidad').val());
+    var precio = parseFloat($('#producto_precio').val());
+    var descuentoItemPct = parseFloat($('#producto_descuento_item_pct').val()) || 0;
+    var descuentoGeneralPct = parseFloat($('#descuento_general_pct').val()) || 0;
+    var iva = parseFloat($('#producto_iva').val());
+    var ivaId = $('#producto_iva_id').val() || obtenerIdIva(iva);
+    var ivaImporte = parseFloat($('#producto_iva_importe').val()) || 0;
+    var noGravado = parseFloat($('#producto_no_gravado').val()) || 0;
+    var exento = parseFloat($('#producto_exento').val()) || 0;
+    
+    if (cantidad <= 0) {
+        Swal.fire({
+            icon: "warning",
+            title: "Cantidad inválida",
+            text: "La cantidad debe ser mayor a 0",
+            confirmButtonText: "Entendido"
+        });
+        return;
+    }
+    
+    if (precio <= 0) {
+        Swal.fire({
+            icon: "warning",
+            title: "Precio inválido",
+            text: "El precio debe ser mayor a 0",
+            confirmButtonText: "Entendido"
+        });
+        return;
+    }
+    
+    var productoText = $('#busqueda_producto').val();
+    
+    // Calcular valores
+    var netoBase = cantidad * precio;
+    var descuentoItem = netoBase * (descuentoItemPct / 100);
+    var netoDespuesItem = netoBase - descuentoItem;
+    var descuentoGeneral = netoDespuesItem * (descuentoGeneralPct / 100);
+    var descuentoTotal = descuentoItem + descuentoGeneral;
+    var netoGravado = netoBase - descuentoTotal;
+    var totalLinea = netoGravado + ivaImporte + noGravado + exento;
+    
+    var nuevoDetalle = {
+        detalle_idx: 'temp_' + new Date().getTime(),
+        factura_proveedor_detalle_id: 0,
+        producto_id: parseInt(productoId),
+        producto_nombre: productoText,
+        cantidad: cantidad,
+        precio_unitario: precio,
+        descuento_item_pct: descuentoItemPct,
+        descuento_general_pct: descuentoGeneralPct,
+        descuento_item: descuentoItem,
+        descuento_general: descuentoGeneral,
+        descuento: descuentoTotal,
+        no_gravado: noGravado,
+        exento: exento,
+        iva_alicuota_id: parseInt(ivaId),
+        iva_porcentaje: iva,
+        neto_gravado: netoGravado,
+        iva_importe: ivaImporte,
+        total_linea: totalLinea
+    };
+    
+    detalles.push(nuevoDetalle);
+    renderizarDetalles();
+    actualizarTotales();
+    
+    // Limpiar campos
+    $('#busqueda_producto').val('');
+    $('#producto_seleccionado_id').val('');
+    $('#producto_iva_id').val('');
+    $('#producto_cantidad').val('1.00');
+    $('#producto_precio').val('');
+    $('#producto_descuento_item_pct').val('0');
+    $('#producto_descuento').val('0.00');
+    $('#producto_iva').val('21');
+    $('#producto_iva_importe').val('0.00');
+    $('#producto_no_gravado').val('0.00');
+    $('#producto_exento').val('0.00');
+    
+    $('#busqueda_producto').focus();
+});
 
     // ========== FUNCIONES DE RENDERIZADO DE DETALLES ==========
     function renderizarDetalles() {
@@ -1024,8 +1068,8 @@ $(document).ready(function () {
         
         if (detalles.length === 0) {
             var htmlVacio = `
-            <div class="detalles-vacio">
-                <i class="fas fa-box-open"></i>
+            <div class="detalles-vacio text-center p-4 border rounded bg-light">
+                <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
                 <p class="mb-0">No hay productos agregados</p>
                 <small class="text-muted">Seleccione un producto para comenzar</small>
             </div>`;
@@ -1034,48 +1078,66 @@ $(document).ready(function () {
         }
         
         var html = `
-        <table class="table table-sm table-bordered table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Producto</th>
-                    <th class="text-center">Cant.</th>
-                    <th class="text-end">Precio</th>
-                    <th class="text-center">Dto %</th>
-                    <th class="text-end">Dto $</th>
-                    <th class="text-end">Neto</th>
-                    <th class="text-center">IVA %</th>
-                    <th class="text-end">IVA $</th>
-                    <th class="text-end">No Grav.</th>
-                    <th class="text-end">Exento</th>
-                    <th class="text-end">Total</th>
-                    <th class="text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>`;
+        <div style="overflow-x: auto;">
+            <table class="table table-sm table-bordered table-hover mb-0" style="min-width: 1200px;">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width: 200px;">Producto</th>
+                        <th class="text-center" style="min-width: 70px;">Cant.</th>
+                        <th class="text-end" style="min-width: 100px;">Precio</th>
+                        <th class="text-center" style="min-width: 80px;">Dto. Item %</th>
+                        <th class="text-end" style="min-width: 100px;">Dto. Item</th>
+                        <th class="text-center" style="min-width: 80px;">Dto. Gral %</th>
+                        <th class="text-end" style="min-width: 100px;">Dto. Gral</th>
+                        <th class="text-end" style="min-width: 100px;">Neto</th>
+                        <th class="text-center" style="min-width: 70px;">IVA %</th>
+                        <th class="text-end" style="min-width: 100px;">IVA</th>
+                        <th class="text-end" style="min-width: 100px;">No Grav.</th>
+                        <th class="text-end" style="min-width: 100px;">Exento</th>
+                        <th class="text-end" style="min-width: 100px;">Total</th>
+                        <th class="text-center" style="min-width: 90px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>`;
         
         detalles.forEach(function(detalle) {
             var esNuevo = detalle.factura_proveedor_detalle_id === 0;
             var claseFila = esNuevo ? 'table-info' : '';
             
-            // Extraer solo el nombre del producto
             var nombreProducto = detalle.producto_nombre || '';
+            
+            // Asegurar que todos los valores sean números
+            var cantidad = typeof detalle.cantidad === 'number' ? detalle.cantidad : parseFloat(detalle.cantidad) || 0;
+            var precioUnitario = typeof detalle.precio_unitario === 'number' ? detalle.precio_unitario : parseFloat(detalle.precio_unitario) || 0;
+            var descuentoItemPct = typeof detalle.descuento_item_pct === 'number' ? detalle.descuento_item_pct : parseFloat(detalle.descuento_item_pct) || 0;
+            var descuentoItem = typeof detalle.descuento_item === 'number' ? detalle.descuento_item : parseFloat(detalle.descuento_item) || 0;
+            var descuentoGeneralPct = typeof detalle.descuento_general_pct === 'number' ? detalle.descuento_general_pct : parseFloat(detalle.descuento_general_pct) || 0;
+            var descuentoGeneral = typeof detalle.descuento_general === 'number' ? detalle.descuento_general : parseFloat(detalle.descuento_general) || 0;
+            var netoGravado = typeof detalle.neto_gravado === 'number' ? detalle.neto_gravado : parseFloat(detalle.neto_gravado) || 0;
+            var ivaPorcentaje = typeof detalle.iva_porcentaje === 'number' ? detalle.iva_porcentaje : parseFloat(detalle.iva_porcentaje) || 0;
+            var ivaImporte = typeof detalle.iva_importe === 'number' ? detalle.iva_importe : parseFloat(detalle.iva_importe) || 0;
+            var noGravado = typeof detalle.no_gravado === 'number' ? detalle.no_gravado : parseFloat(detalle.no_gravado) || 0;
+            var exento = typeof detalle.exento === 'number' ? detalle.exento : parseFloat(detalle.exento) || 0;
+            var totalLinea = typeof detalle.total_linea === 'number' ? detalle.total_linea : parseFloat(detalle.total_linea) || 0;
             
             html += `
             <tr class="${claseFila}" data-idx="${detalle.detalle_idx}">
                 <td>
-                    <div class="fw-bold">${nombreProducto.substring(0, 30)}${nombreProducto.length > 30 ? '...' : ''}</div>
+                    <div class="fw-bold">${escapeHtml(nombreProducto.substring(0, 50))}${nombreProducto.length > 50 ? '...' : ''}</div>
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                 </td>
-                <td class="text-center">${detalle.cantidad.toFixed(2)}</td>
-                <td class="text-end">$${detalle.precio_unitario.toFixed(4)}</td>
-                <td class="text-center">${detalle.descuento_item_pct.toFixed(2)}%</td>
-                <td class="text-end">$${(detalle.descuento || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.neto_gravado || 0).toFixed(2)}</td>
-                <td class="text-center">${detalle.iva_porcentaje.toFixed(2)}%</td>
-                <td class="text-end">$${(detalle.iva_importe || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.no_gravado || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.exento || 0).toFixed(2)}</td>
-                <td class="text-end fw-bold text-success">$${detalle.total_linea.toFixed(2)}</td>
+                <td class="text-center">${formatNumber(cantidad, 2)}</td>
+                <td class="text-end">${formatNumber(precioUnitario, 2)}</td>
+                <td class="text-center">${descuentoItemPct.toFixed(2)}%</td>
+                <td class="text-end">${formatNumber(descuentoItem, 2)}</td>
+                <td class="text-center">${descuentoGeneralPct.toFixed(2)}%</td>
+                <td class="text-end">${formatNumber(descuentoGeneral, 2)}</td>
+                <td class="text-end">${formatNumber(netoGravado, 2)}</td>
+                <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                <td class="text-end">${formatNumber(ivaImporte, 2)}</td>
+                <td class="text-end">${formatNumber(noGravado, 2)}</td>
+                <td class="text-end">${formatNumber(exento, 2)}</td>
+                <td class="text-end fw-bold text-success">${formatNumber(totalLinea, 2)}</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-warning btn-editar-detalle" 
                             data-idx="${detalle.detalle_idx}" title="Editar">
@@ -1090,45 +1152,50 @@ $(document).ready(function () {
         });
         
         html += `
-            </tbody>
-        </table>`;
+                </tbody>
+            </table>
+        </div>`;
         
         $('#contenedor-detalles').html(html);
     }
 
     // ========== FUNCIÓN ACTUALIZAR TOTALES ==========
-    function actualizarTotales() {
-        var totalNeto = 0;
-        var totalDescuentos = 0;
-        var totalNoGravado = 0;
-        var totalExento = 0;
-        var totalImpuestos = 0;
-        
-        detalles.forEach(function(detalle) {
-            totalNeto += detalle.neto_gravado || 0;
-            totalDescuentos += detalle.descuento || 0;
-            totalImpuestos += detalle.iva_importe || 0;
-            totalNoGravado += detalle.no_gravado || 0;
-            totalExento += detalle.exento || 0;
-        });
-        
-        var totalGeneral = totalNeto + totalImpuestos + totalNoGravado + totalExento;
-        
-        $('#subtotal').val(totalNeto.toFixed(2));
-        $('#descuentos').val(totalDescuentos.toFixed(2));
-        $('#no_gravado').val(totalNoGravado.toFixed(2));
-        $('#exento').val(totalExento.toFixed(2));
-        $('#impuestos').val(totalImpuestos.toFixed(2));
-        $('#total').val(totalGeneral.toFixed(2));
-        
-        $('#total_neto_display').text(totalNeto.toFixed(2));
-        $('#descuentos_display').text(totalDescuentos.toFixed(2));
-        $('#no_gravado_display').text(totalNoGravado.toFixed(2));
-        $('#exento_display').text(totalExento.toFixed(2));
-        $('#impuestos_display').text(totalImpuestos.toFixed(2));
-        $('#total_display').text(totalGeneral.toFixed(2));
-    }
-
+   function actualizarTotales() {
+    var totalNeto = 0;
+    var totalDescuentoItem = 0;
+    var totalDescuentoGeneral = 0;
+    var totalNoGravado = 0;
+    var totalExento = 0;
+    var totalImpuestos = 0;
+    
+    detalles.forEach(function(detalle) {
+        totalNeto += detalle.neto_gravado || 0;
+        totalDescuentoItem += detalle.descuento_item || 0;
+        totalDescuentoGeneral += detalle.descuento_general || 0;
+        totalImpuestos += detalle.iva_importe || 0;
+        totalNoGravado += detalle.no_gravado || 0;
+        totalExento += detalle.exento || 0;
+    });
+    
+    var totalDescuentos = totalDescuentoItem + totalDescuentoGeneral;
+    var totalGeneral = totalNeto + totalImpuestos + totalNoGravado + totalExento;
+    
+    // Guardar valores originales en los inputs hidden
+    $('#subtotal').val(totalNeto.toFixed(2));
+    $('#descuentos').val(totalDescuentos.toFixed(2));
+    $('#no_gravado').val(totalNoGravado.toFixed(2));
+    $('#exento').val(totalExento.toFixed(2));
+    $('#impuestos').val(totalImpuestos.toFixed(2));
+    $('#total').val(totalGeneral.toFixed(2));
+    
+    // Mostrar valores formateados
+    $('#total_neto_display').text(formatNumber(totalNeto, 2));
+    $('#descuentos_display').text(formatNumber(totalDescuentos, 2));
+    $('#no_gravado_display').text(formatNumber(totalNoGravado, 2));
+    $('#exento_display').text(formatNumber(totalExento, 2));
+    $('#impuestos_display').text(formatNumber(totalImpuestos, 2));
+    $('#total_display').text(formatNumber(totalGeneral, 2));
+}
     // ========== FUNCIONES DE PANTALLA COMPLETA ==========
     $('#btnToggleFullscreen').click(function() {
         var modalDialog = $('#modalFacturaProveedor .modal-dialog');
@@ -1192,7 +1259,6 @@ $(document).ready(function () {
             $('#producto_cantidad').val(detalle.cantidad);
             $('#producto_precio').val(detalle.precio_unitario);
             $('#producto_descuento_item_pct').val(detalle.descuento_item_pct);
-            $('#producto_descuento').val(detalle.descuento);
             $('#producto_iva').val(detalle.iva_porcentaje);
             $('#producto_iva_importe').val(detalle.iva_importe);
             $('#producto_no_gravado').val(detalle.no_gravado || 0);
@@ -1205,7 +1271,6 @@ $(document).ready(function () {
             renderizarDetalles();
             actualizarTotales();
             
-            // Enfocar el campo de búsqueda
             $('#busqueda_producto').focus();
         }
     });
@@ -1343,12 +1408,10 @@ $(document).ready(function () {
             if (res && res.factura_proveedor_id) {
                 resetModal();
                 
-                // Guardar el ID de sucursal para asignarlo después de cargar los combos
                 var sucursalIdParaEditar = res.sucursal_id || null;
-                console.log("Sucursal ID a cargar:", sucursalIdParaEditar);
                 
                 cargarCombosFormulario();
-                cargarProveedoresYSucursales(); // Cargar combo unificado
+                cargarProveedoresYSucursales();
                 
                 $('#factura_proveedor_id').val(res.factura_proveedor_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
@@ -1358,6 +1421,7 @@ $(document).ready(function () {
                 $('#direccion').val(res.direccion);
                 $('#observaciones').val(res.observaciones);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
+                $('#descuento_general_pct').val(res.descuento_general_pct || 0);
                 $('#subtotal').val(res.subtotal || 0);
                 $('#descuentos').val(res.descuentos || 0);
                 $('#no_gravado').val(res.no_gravado || 0);
@@ -1373,41 +1437,34 @@ $(document).ready(function () {
                 $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
                 $('#modalLabel').text('Editar Factura de Proveedor');
 
-                // Asignar valores después de que los combos se hayan cargado
                 setTimeout(function() {
                     $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                     $('#moneda_id').val(res.moneda_id);
                     $('#condicion_pago_id').val(res.condicion_pago_id);
                     
-                    // ASIGNAR SUCURSAL_ID DESPUÉS DE CARGAR EL COMBO
                     if (sucursalIdParaEditar) {
-                        console.log("Asignando sucursal_id:", sucursalIdParaEditar);
                         $('#sucursal_id').val(sucursalIdParaEditar);
                     }
                     
-                    // Seleccionar el valor correcto en el combo unificado
                     if (res.entidad_id) {
                         proveedorActualId = res.entidad_id;
                         
                         if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
-                            // Tiene sucursal específica
                             $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
                             proveedorSucursalActualId = parseInt(res.entidad_sucursal_id);
                         } else {
-                            // Solo proveedor principal
                             $('#entidad_combo').val('P-' + res.entidad_id);
                             proveedorSucursalActualId = null;
                         }
                         
-                        // Obtener el texto de la opción seleccionada para mostrarlo
                         var textoSeleccionado = $('#entidad_combo option:selected').text();
                         $('#proveedor_actual_nombre').text(textoSeleccionado || 'No seleccionado');
-                        
-                        console.log("Proveedor cargado para edición:", proveedorActualId, "Sucursal:", proveedorSucursalActualId);
                     }
                     
-                    // Cargar detalles si existen
+                    // Cargar detalles con todos los campos
                     if (res.detalles && res.detalles.length > 0) {
+                        console.log("Detalles recibidos:", res.detalles);
+                        
                         detalles = res.detalles.map(function(detalle, index) {
                             return {
                                 detalle_idx: index,
@@ -1417,7 +1474,11 @@ $(document).ready(function () {
                                 cantidad: detalle.cantidad,
                                 precio_unitario: detalle.precio_unitario,
                                 descuento_item_pct: detalle.descuento_item_pct || 0,
+                                descuento_general_pct: detalle.descuento_general_pct || 0,
+                                descuento_item: detalle.descuento_item || 0,
+                                descuento_general: detalle.descuento_general || 0,
                                 descuento: detalle.descuento || 0,
+                                precio_unitario_bruto: detalle.precio_unitario_bruto || detalle.precio_unitario,
                                 no_gravado: detalle.no_gravado || 0,
                                 exento: detalle.exento || 0,
                                 iva_alicuota_id: detalle.iva_alicuota_id,
@@ -1427,6 +1488,8 @@ $(document).ready(function () {
                                 total_linea: detalle.total_linea
                             };
                         });
+                        
+                        console.log("Detalles procesados:", detalles);
                         renderizarDetalles();
                         actualizarTotales();
                     }
@@ -1521,6 +1584,7 @@ $(document).ready(function () {
         formData.append('impuestos', $('#impuestos').val() || '0');
         formData.append('total', $('#total').val() || '0');
         formData.append('detalles', JSON.stringify(detalles));
+        formData.append('descuento_general_pct', $('#descuento_general_pct').val() || '0');
 
         // Log para depuración
         console.log("=== DATOS ENVIADOS ===");
@@ -1737,4 +1801,123 @@ $(document).ready(function () {
         trigger: 'hover',
         placement: 'top'
     });
+    
+function cargarCondicionesProveedor(entidadId) {
+    if (!entidadId) {
+        console.log("No hay entidadId para cargar condiciones");
+        return;
+    }
+    
+    console.log("Cargando condiciones para entidadId:", entidadId);
+    
+    $.get('facturas_proveedores_ajax.php', {
+        accion: 'obtener_condiciones_proveedor',
+        entidad_id: entidadId,
+        empresa_idx: empresa_idx
+    }, function(res) {
+        console.log("Respuesta de condiciones:", res);
+        
+        if (res.success && res.data) {
+            console.log("Condiciones encontradas:", res.data);
+            
+            // Aplicar condición de pago si existe
+            if (res.data.condicion_pago_id && res.data.condicion_pago_id > 0) {
+                console.log("Aplicando condición de pago ID:", res.data.condicion_pago_id);
+                function setCondicionPago() {
+                    if ($('#condicion_pago_id option[value="' + res.data.condicion_pago_id + '"]').length) {
+                        $('#condicion_pago_id').val(res.data.condicion_pago_id);
+                        console.log("Condición de pago aplicada");
+                    } else {
+                        console.log("Esperando que cargue el combo de condiciones...");
+                        setTimeout(setCondicionPago, 100);
+                    }
+                }
+                setCondicionPago();
+            } else {
+                console.log("No hay condición de pago para este proveedor");
+            }
+            
+            // Aplicar descuento general
+            var descuentoGeneral = parseFloat(res.data.proveedor_descuento_general) || 0;
+            console.log("Aplicando descuento general:", descuentoGeneral);
+            
+            // Actualizar el campo de descuento general
+            $('#descuento_general_pct').val(descuentoGeneral);
+            
+            // Si hay detalles, actualizarlos con el nuevo descuento
+            if (detalles.length > 0) {
+                detalles.forEach(function(detalle, index) {
+                    var netoBase = detalle.cantidad * detalle.precio_unitario;
+                    var descuentoItem = netoBase * (detalle.descuento_item_pct / 100);
+                    var netoDespuesItem = netoBase - descuentoItem;
+                    var descuentoGeneralMonto = netoDespuesItem * (descuentoGeneral / 100);
+                    var descuentoTotal = descuentoItem + descuentoGeneralMonto;
+                    
+                    detalle.descuento_general_pct = descuentoGeneral;
+                    detalle.descuento_general = descuentoGeneralMonto;
+                    detalle.descuento = descuentoTotal;
+                    detalle.neto_gravado = netoBase - descuentoTotal;
+                    detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
+                    detalle.total_linea = detalle.neto_gravado + detalle.iva_importe + detalle.no_gravado + detalle.exento;
+                    
+                    detalles[index] = detalle;
+                });
+                
+                renderizarDetalles();
+                actualizarTotales();
+            } else {
+                // Si no hay detalles, solo actualizar el campo visualmente
+                // El descuento se aplicará cuando se agregue un nuevo producto
+                console.log("No hay detalles, solo se actualizó el campo de descuento general");
+                // Forzar actualización de totales para que muestre el descuento en 0 (no hay productos)
+                actualizarTotales();
+            }
+            
+            // Mostrar mensaje de confirmación opcional (puedes comentarlo si molesta)
+            if (descuentoGeneral > 0) {
+                console.log("Descuento general del " + descuentoGeneral + "% aplicado");
+                // Opcional: mostrar un pequeño toast
+                // Swal.fire({
+                //     icon: "info",
+                //     title: "Descuento aplicado",
+                //     text: "Se aplicó un descuento general del " + descuentoGeneral + "%",
+                //     showConfirmButton: false,
+                //     timer: 1500,
+                //     toast: true,
+                //     position: 'top-end'
+                // });
+            }
+        } else {
+            console.log("No hay condiciones para este proveedor o error:", res);
+            // Resetear descuento general
+            $('#descuento_general_pct').val(0);
+            
+            // Si hay detalles, actualizarlos con descuento 0
+            if (detalles.length > 0) {
+                detalles.forEach(function(detalle, index) {
+                    var netoBase = detalle.cantidad * detalle.precio_unitario;
+                    var descuentoItem = netoBase * (detalle.descuento_item_pct / 100);
+                    var descuentoTotal = descuentoItem;
+                    
+                    detalle.descuento_general_pct = 0;
+                    detalle.descuento_general = 0;
+                    detalle.descuento = descuentoTotal;
+                    detalle.neto_gravado = netoBase - descuentoTotal;
+                    detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
+                    detalle.total_linea = detalle.neto_gravado + detalle.iva_importe + detalle.no_gravado + detalle.exento;
+                    
+                    detalles[index] = detalle;
+                });
+                
+                renderizarDetalles();
+                actualizarTotales();
+            } else {
+                actualizarTotales();
+            }
+        }
+    }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+        console.error("Error al cargar condiciones:", textStatus, errorThrown);
+        console.error("Respuesta:", jqXHR.responseText);
+    });
+}
 });
