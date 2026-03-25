@@ -47,6 +47,11 @@ try {
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_cuentas_contables':
+            $cuentas = obtenerCuentasContables($conexion, $empresa_idx);
+            echo json_encode($cuentas, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'obtener_localidades':
             $localidades = obtenerLocalidades($conexion);
             echo json_encode($localidades, JSON_UNESCAPED_UNICODE);
@@ -58,6 +63,8 @@ try {
                 'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
                 'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
                 'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
+                'cont_cuenta_id_proveedor' => !empty($_POST['cont_cuenta_id_proveedor']) ? intval($_POST['cont_cuenta_id_proveedor']) : null,
+                'cont_cuenta_id_cliente' => !empty($_POST['cont_cuenta_id_cliente']) ? intval($_POST['cont_cuenta_id_cliente']) : null,
                 'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
                 'sitio_web' => trim($_POST['sitio_web'] ?? ''),
                 'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),
@@ -78,6 +85,8 @@ try {
                 'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
                 'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
                 'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
+                'cont_cuenta_id_proveedor' => !empty($_POST['cont_cuenta_id_proveedor']) ? intval($_POST['cont_cuenta_id_proveedor']) : null,
+                'cont_cuenta_id_cliente' => !empty($_POST['cont_cuenta_id_cliente']) ? intval($_POST['cont_cuenta_id_cliente']) : null,
                 'cuit' => $_POST['cuit'] ? intval($_POST['cuit']) : null,
                 'sitio_web' => trim($_POST['sitio_web'] ?? ''),
                 'domicilio_legal' => trim($_POST['domicilio_legal'] ?? ''),

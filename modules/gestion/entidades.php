@@ -206,18 +206,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
                                         
                                         <div class="row">
-                                            <div class="col-md-3 mb-3">
+                                            <div class="col-md-2 mb-3">
                                                 <div class="form-check form-switch">
                                                     <input class="form-check-input" type="checkbox" id="es_proveedor" name="es_proveedor" value="1">
                                                     <label class="form-check-label" for="es_proveedor">Es Proveedor</label>
                                                 </div>
                                             </div>
                                             
-                                            <div class="col-md-3 mb-3">
+                                            <div class="col-md-2 mb-3">
                                                 <div class="form-check form-switch">
                                                     <input class="form-check-input" type="checkbox" id="es_cliente" name="es_cliente" value="1">
                                                     <label class="form-check-label" for="es_cliente">Es Cliente</label>
                                                 </div>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label for="cont_cuenta_id_proveedor" class="form-label">Cuenta Contable (Proveedor)</label>
+                                                <select class="form-select" id="cont_cuenta_id_proveedor" name="cont_cuenta_id_proveedor">
+                                                    <option value="">Seleccionar cuenta...</option>
+                                                </select>                                                
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label for="cont_cuenta_id_cliente" class="form-label">Cuenta Contable (Cliente)</label>
+                                                <select class="form-select" id="cont_cuenta_id_cliente" name="cont_cuenta_id_cliente">
+                                                    <option value="">Seleccionar cuenta...</option>
+                                                </select>                                                
                                             </div>
                                         </div>
 
@@ -1047,7 +1059,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 }, 'json');
             }
-            
+            // Cargar cuentas contables para proveedores y clientes
+            function cargarCuentasContables() {
+                $.get('entidades_ajax.php', {
+                    accion: 'obtener_cuentas_contables',
+                    empresa_idx: empresa_idx
+                }, function(cuentas) {
+                    var selectProv = $('#cont_cuenta_id_proveedor');
+                    var selectCli = $('#cont_cuenta_id_cliente');
+                    
+                    selectProv.empty().append('<option value="">Seleccionar cuenta...</option>');
+                    selectCli.empty().append('<option value="">Seleccionar cuenta...</option>');
+                    
+                    if (cuentas && cuentas.length > 0) {
+                        cuentas.forEach(function(cuenta) {
+                            var prefix = '';
+                            for (var i = 1; i < cuenta.nivel; i++) {
+                                prefix += '&nbsp;&nbsp;';
+                            }
+                            var texto = prefix + cuenta.codigo + ' - ' + cuenta.nombre;
+                            selectProv.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
+                            selectCli.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
+                        });
+                    }
+                }, 'json');
+            }
             // Función para cargar condición vigente de proveedor
             function cargarCondicionProveedorVigente() {
                 if (!entidadActualId) {
@@ -2156,14 +2192,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 var modal = new bootstrap.Modal(document.getElementById('modalHistorialProveedor'));
                 modal.show();
             });
-
-
-
             // Manejador para botón "Agregar"
             $(document).on('click', '#btnNuevo', function () {
                 resetModal();
                 $('#modalLabel').text('Nueva Entidad');
                 $('#sucursales-tab').addClass('disabled');
+                cargarCuentasContables(); // <--- AGREGAR ESTA LÍNEA
                 var modal = new bootstrap.Modal(document.getElementById('modalEntidad'));
                 modal.show();
                 $('#entidad_nombre').focus();
@@ -2253,8 +2287,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             // Manejador para botón "Nueva Condición Cliente"
             $(document).on('click', '#btnNuevaCondicionCliente', function () {
-            if (!entidadActualId) {
-                Swal.fire({
+                if (!entidadActualId) {
+                  Swal.fire({
                     icon: "warning",
                     title: "Advertencia",
                     text: "Debe guardar la entidad primero antes de agregar condiciones",
@@ -2446,6 +2480,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             cargarCondicionClienteVigente(); // Para cliente
 // o
                             cargarCondicionProveedorVigente(); // Para proveedor
+                            cargarCuentasContables();
                             
                             btnGuardar.prop('disabled', false).html(originalText);
                             
@@ -2729,6 +2764,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, function (res) {
                     if (res && res.entidad_id) {
                         resetModal();
+                        cargarCuentasContables(); // <--- AGREGAR ESTA LÍNEA
                         
                         $('#entidad_id').val(res.entidad_id);
                         $('#entidad_nombre').val(res.entidad_nombre);
@@ -2744,7 +2780,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 $('#entidad_tipo_id').val(res.entidad_tipo_id);
                             }, 100);
                         }
-                        
+
+                        setTimeout(function() {
+                            $('#cont_cuenta_id_proveedor').val(res.cont_cuenta_id_proveedor || '');
+                            $('#cont_cuenta_id_cliente').val(res.cont_cuenta_id_cliente || '');
+                        }, 100);
+
                         if (res.localidad_id) {
                             setTimeout(function() {
                                 $('#localidad_id').val(res.localidad_id);
@@ -2825,6 +2866,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function resetModal() {
                 $('#formEntidad')[0].reset();
                 $('#entidad_id').val('');
+                $('#cont_cuenta_id_proveedor').val('');
+                $('#cont_cuenta_id_cliente').val('');
                 $('#formEntidad').removeClass('was-validated');
                 entidadActualId = 0;
                 $('#sucursales-tab').addClass('disabled');
@@ -2916,6 +2959,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         entidad_nombre: entidadNombre,
                         entidad_fantasia: $('#entidad_fantasia').val().trim(),
                         entidad_tipo_id: $('#entidad_tipo_id').val(),
+                        cont_cuenta_id_proveedor: $('#cont_cuenta_id_proveedor').val() || null,
+                        cont_cuenta_id_cliente: $('#cont_cuenta_id_cliente').val() || null,
                         cuit: cuit,
                         sitio_web: sitioWeb,
                         domicilio_legal: $('#domicilio_legal').val().trim(),

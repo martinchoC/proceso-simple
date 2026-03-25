@@ -15,8 +15,37 @@ $(document).ready(function () {
     var selectedIndex = -1;
 
     // ========== FUNCIONES DE DATATABLE ==========
+    function calcularFechaVencimiento(fechaEmision, condicionPagoId) {
+        if (!fechaEmision || !condicionPagoId) return '';
+        
+        // Buscar en el combo de condiciones de pago los días
+        var selectedOption = $('#condicion_pago_id option:selected');
+        var dias = selectedOption.data('dias') || 0;
+        
+        if (dias <= 0) return '';
+        
+        var fecha = new Date(fechaEmision);
+        fecha.setDate(fecha.getDate() + dias);
+        
+        // Formatear como YYYY-MM-DD
+        var year = fecha.getFullYear();
+        var month = String(fecha.getMonth() + 1).padStart(2, '0');
+        var day = String(fecha.getDate()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}`;
+    }
+
+    // ========== ACTUALIZAR FECHA DE CONTABILIDAD ==========
+    function actualizarFechaContabilidad() {
+        var fEmision = $('#f_emision').val();
+        if (fEmision) {
+            $('#f_contabilidad').val(fEmision);
+        }
+    }
+
+
     // Función para formatear número con separador de miles y decimales
-   // Función para formatear número con separador de miles y decimales
+   // Función para formatear número con separador de miles y decimales   
     function formatNumber(number, decimals = 2) {
         if (number === null || number === undefined || number === '') return '0.00';
         var num = parseFloat(number);
@@ -374,7 +403,67 @@ $(document).ready(function () {
 
         inicializarEventos();
     }
-
+    
+    // ========== FUNCIÓN PARA CARGAR CONDICIONES DE PAGO ==========
+    function cargarCondicionesPago() {
+        $.get('facturas_proveedores_ajax.php', { 
+            accion: 'obtener_condiciones_pago',
+            empresa_idx: empresa_idx 
+        }, function(data) {
+            if (data && data.length > 0) {
+                var options = '<option value="">Seleccionar</option>';
+                data.forEach(function(item) {
+                    // Guardar los días como data attribute
+                    var dias = item.dias_primer_vencimiento || 0;
+                    options += `<option value="${item.condicion_pago_id}" data-dias="${dias}">
+                                    ${item.codigo} - ${item.condicion_pago}
+                                </option>`;
+                });
+                $('#condicion_pago_id').html(options);
+                
+                // Si hay un valor seleccionado, actualizar vencimiento
+                var condicionPagoId = $('#condicion_pago_id').val();
+                if (condicionPagoId) {
+                    actualizarVencimientoPorCondicionPago();
+                }
+            } else {
+                $('#condicion_pago_id').html('<option value="">No hay condiciones</option>');
+            }
+        }, 'json');
+    }
+    // ========== FUNCIÓN PARA ACTUALIZAR VENCIMIENTO SEGÚN CONDICIÓN DE PAGO ==========
+    function actualizarVencimientoPorCondicionPago() {
+        var fEmision = $('#f_emision').val();
+        var condicionPagoId = $('#condicion_pago_id').val();
+        
+        if (!fEmision || !condicionPagoId) {
+            return;
+        }
+        
+        // Obtener los días de la opción seleccionada
+        var selectedOption = $('#condicion_pago_id option:selected');
+        var dias = parseInt(selectedOption.data('dias')) || 0;
+        
+        console.log("Actualizando vencimiento - Días:", dias, "Fecha emisión:", fEmision);
+        
+        if (dias > 0) {
+            var fecha = new Date(fEmision);
+            fecha.setDate(fecha.getDate() + dias);
+            
+            // Formatear como YYYY-MM-DD
+            var year = fecha.getFullYear();
+            var month = String(fecha.getMonth() + 1).padStart(2, '0');
+            var day = String(fecha.getDate()).padStart(2, '0');
+            var fechaVencimiento = `${year}-${month}-${day}`;
+            
+            $('#f_vencimiento').val(fechaVencimiento);
+            console.log("Fecha vencimiento calculada:", fechaVencimiento);
+        } else {
+            // Si no hay días configurados, dejar vacío
+            $('#f_vencimiento').val('');
+            console.log("No hay días configurados para esta condición de pago");
+        }
+    }
     function inicializarEventos() {
         $('#btnRecargar').off('click').on('click', function () {
             var btn = $(this);
@@ -466,7 +555,27 @@ $(document).ready(function () {
         });
     }
 
-    
+    $('#f_emision').on('change', function() {
+        var fechaEmision = $(this).val();
+        console.log("Fecha emisión cambiada a:", fechaEmision);
+        
+        // Actualizar fecha de contabilidad
+        if (fechaEmision) {
+            $('#f_contabilidad').val(fechaEmision);
+        }
+        
+        // Recalcular vencimiento si hay condición de pago seleccionada
+        var condicionPagoId = $('#condicion_pago_id').val();
+        if (condicionPagoId) {
+            actualizarVencimientoPorCondicionPago();
+        }
+    });
+
+    // Cuando cambia la condición de pago, recalcular vencimiento
+    $('#condicion_pago_id').on('change', function() {
+        console.log("Condición de pago cambiada a:", $(this).val());
+        actualizarVencimientoPorCondicionPago();
+    });
     // ========== EVENTO CHANGE DEL COMBO UNIFICADO ==========
     $('#entidad_combo').on('change', function() {
         var selectedOption = $(this).find('option:selected');
@@ -548,6 +657,7 @@ $(document).ready(function () {
                 $('#comprobante_pv').val(res.comprobante_pv || '0');
                 $('#f_emision').val(res.f_emision);
                 $('#f_vencimiento').val(res.f_vencimiento);
+                $('#f_contabilidad').val(res.f_contabilidad || res.f_emision);
                 $('#direccion').val(res.direccion);
                 $('#observaciones').val(res.observaciones);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
@@ -1292,7 +1402,7 @@ $(document).ready(function () {
             console.log("Sucursales cargadas:", data);
         }, 'json');
 
-        // Cargar tipos de comprobante (para facturas de proveedores - grupo 2, subgrupo 6 probablemente)
+        // Cargar tipos de comprobante
         $.get('facturas_proveedores_ajax.php', { accion: 'obtener_comprobantes_tipos' }, function(data) {
             if (data && data.length > 0) {
                 if (data.length === 1) {
@@ -1334,25 +1444,8 @@ $(document).ready(function () {
             });
         }, 'json');
 
-        // Cargar condiciones de pago
-        $.get('facturas_proveedores_ajax.php', { 
-            accion: 'obtener_condiciones_pago',
-            empresa_idx: empresa_idx 
-        }, function(data) {
-            if (data && data.length > 0) {
-                var options = '';
-                data.forEach(function(item) {
-                    options += `<option value="${item.condicion_pago_id}">${item.codigo} - ${item.condicion_pago}</option>`;
-                });
-                $('#condicion_pago_id').html(options);
-                
-                if (!$('#condicion_pago_id').val()) {
-                    $('#condicion_pago_id').val(data[0].condicion_pago_id);
-                }
-            } else {
-                $('#condicion_pago_id').html('<option value="">No hay condiciones</option>');
-            }
-        }, 'json');
+        // Cargar condiciones de pago (esta función ya tiene su propio manejador)
+        cargarCondicionesPago();
     }
 
     // ========== FUNCIONES DEL MODAL ==========
@@ -1381,6 +1474,9 @@ $(document).ready(function () {
         
         // Limpiar cualquier variable temporal
         window.sucursalIdEditar = null;
+        
+        // Limpiar campos de fecha
+        $('#f_contabilidad').val('');
     }
 
     $(document).on('click', '#btnNuevo', function () {
@@ -1391,6 +1487,7 @@ $(document).ready(function () {
         
         var today = new Date().toISOString().split('T')[0];
         $('#f_emision').val(today);
+        $('#f_contabilidad').val(today); // Inicializar contabilidad con misma fecha
 
         var modal = new bootstrap.Modal(document.getElementById('modalFacturaProveedor'));
         modal.show();
@@ -1417,6 +1514,7 @@ $(document).ready(function () {
                 $('#comprobante_nro').val(res.comprobante_nro);
                 $('#comprobante_pv').val(res.comprobante_pv || '0');
                 $('#f_emision').val(res.f_emision);
+                $('#f_contabilidad').val(res.f_contabilidad || res.f_emision);
                 $('#f_vencimiento').val(res.f_vencimiento);
                 $('#direccion').val(res.direccion);
                 $('#observaciones').val(res.observaciones);
@@ -1460,6 +1558,10 @@ $(document).ready(function () {
                         var textoSeleccionado = $('#entidad_combo option:selected').text();
                         $('#proveedor_actual_nombre').text(textoSeleccionado || 'No seleccionado');
                     }
+                    
+                    // Después de cargar la condición de pago, recalcular vencimiento
+                    // por si acaso la fecha de vencimiento original no coincide con los días
+                    actualizarVencimientoPorCondicionPago();
                     
                     // Cargar detalles con todos los campos
                     if (res.detalles && res.detalles.length > 0) {
@@ -1802,122 +1904,104 @@ $(document).ready(function () {
         placement: 'top'
     });
     
-function cargarCondicionesProveedor(entidadId) {
-    if (!entidadId) {
-        console.log("No hay entidadId para cargar condiciones");
-        return;
+    function cargarCondicionesProveedor(entidadId) {
+        if (!entidadId) {
+            console.log("No hay entidadId para cargar condiciones");
+            return;
+        }
+        
+        console.log("Cargando condiciones para entidadId:", entidadId);
+        
+        $.get('facturas_proveedores_ajax.php', {
+            accion: 'obtener_condiciones_proveedor',
+            entidad_id: entidadId,
+            empresa_idx: empresa_idx
+        }, function(res) {
+            console.log("Respuesta de condiciones:", res);
+            
+            if (res.success && res.data) {
+                console.log("Condiciones encontradas:", res.data);
+                
+                // Aplicar condición de pago si existe
+                if (res.data.condicion_pago_id && res.data.condicion_pago_id > 0) {
+                    console.log("Aplicando condición de pago ID:", res.data.condicion_pago_id);
+                    
+                    function setCondicionPago() {
+                        if ($('#condicion_pago_id option[value="' + res.data.condicion_pago_id + '"]').length) {
+                            $('#condicion_pago_id').val(res.data.condicion_pago_id);
+                            console.log("Condición de pago aplicada");
+                            // Forzar actualización del vencimiento después de cambiar la condición
+                            actualizarVencimientoPorCondicionPago();
+                        } else {
+                            console.log("Esperando que cargue el combo de condiciones...");
+                            setTimeout(setCondicionPago, 100);
+                        }
+                    }
+                    setCondicionPago();
+                } else {
+                    console.log("No hay condición de pago para este proveedor");
+                }
+                
+                // Aplicar descuento general
+                var descuentoGeneral = parseFloat(res.data.proveedor_descuento_general) || 0;
+                console.log("Aplicando descuento general:", descuentoGeneral);
+                
+                $('#descuento_general_pct').val(descuentoGeneral);
+                
+                if (detalles.length > 0) {
+                    detalles.forEach(function(detalle, index) {
+                        var netoBase = detalle.cantidad * detalle.precio_unitario;
+                        var descuentoItem = netoBase * (detalle.descuento_item_pct / 100);
+                        var netoDespuesItem = netoBase - descuentoItem;
+                        var descuentoGeneralMonto = netoDespuesItem * (descuentoGeneral / 100);
+                        var descuentoTotal = descuentoItem + descuentoGeneralMonto;
+                        
+                        detalle.descuento_general_pct = descuentoGeneral;
+                        detalle.descuento_general = descuentoGeneralMonto;
+                        detalle.descuento = descuentoTotal;
+                        detalle.neto_gravado = netoBase - descuentoTotal;
+                        detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
+                        detalle.total_linea = detalle.neto_gravado + detalle.iva_importe + detalle.no_gravado + detalle.exento;
+                        
+                        detalles[index] = detalle;
+                    });
+                    
+                    renderizarDetalles();
+                    actualizarTotales();
+                } else {
+                    actualizarTotales();
+                }
+            } else {
+                console.log("No hay condiciones para este proveedor o error:", res);
+                $('#descuento_general_pct').val(0);
+                
+                if (detalles.length > 0) {
+                    detalles.forEach(function(detalle, index) {
+                        var netoBase = detalle.cantidad * detalle.precio_unitario;
+                        var descuentoItem = netoBase * (detalle.descuento_item_pct / 100);
+                        var descuentoTotal = descuentoItem;
+                        
+                        detalle.descuento_general_pct = 0;
+                        detalle.descuento_general = 0;
+                        detalle.descuento = descuentoTotal;
+                        detalle.neto_gravado = netoBase - descuentoTotal;
+                        detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
+                        detalle.total_linea = detalle.neto_gravado + detalle.iva_importe + detalle.no_gravado + detalle.exento;
+                        
+                        detalles[index] = detalle;
+                    });
+                    
+                    renderizarDetalles();
+                    actualizarTotales();
+                } else {
+                    actualizarTotales();
+                }
+            }
+        }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+            console.error("Error al cargar condiciones:", textStatus, errorThrown);
+            console.error("Respuesta:", jqXHR.responseText);
+        });
     }
     
-    console.log("Cargando condiciones para entidadId:", entidadId);
-    
-    $.get('facturas_proveedores_ajax.php', {
-        accion: 'obtener_condiciones_proveedor',
-        entidad_id: entidadId,
-        empresa_idx: empresa_idx
-    }, function(res) {
-        console.log("Respuesta de condiciones:", res);
-        
-        if (res.success && res.data) {
-            console.log("Condiciones encontradas:", res.data);
-            
-            // Aplicar condición de pago si existe
-            if (res.data.condicion_pago_id && res.data.condicion_pago_id > 0) {
-                console.log("Aplicando condición de pago ID:", res.data.condicion_pago_id);
-                function setCondicionPago() {
-                    if ($('#condicion_pago_id option[value="' + res.data.condicion_pago_id + '"]').length) {
-                        $('#condicion_pago_id').val(res.data.condicion_pago_id);
-                        console.log("Condición de pago aplicada");
-                    } else {
-                        console.log("Esperando que cargue el combo de condiciones...");
-                        setTimeout(setCondicionPago, 100);
-                    }
-                }
-                setCondicionPago();
-            } else {
-                console.log("No hay condición de pago para este proveedor");
-            }
-            
-            // Aplicar descuento general
-            var descuentoGeneral = parseFloat(res.data.proveedor_descuento_general) || 0;
-            console.log("Aplicando descuento general:", descuentoGeneral);
-            
-            // Actualizar el campo de descuento general
-            $('#descuento_general_pct').val(descuentoGeneral);
-            
-            // Si hay detalles, actualizarlos con el nuevo descuento
-            if (detalles.length > 0) {
-                detalles.forEach(function(detalle, index) {
-                    var netoBase = detalle.cantidad * detalle.precio_unitario;
-                    var descuentoItem = netoBase * (detalle.descuento_item_pct / 100);
-                    var netoDespuesItem = netoBase - descuentoItem;
-                    var descuentoGeneralMonto = netoDespuesItem * (descuentoGeneral / 100);
-                    var descuentoTotal = descuentoItem + descuentoGeneralMonto;
-                    
-                    detalle.descuento_general_pct = descuentoGeneral;
-                    detalle.descuento_general = descuentoGeneralMonto;
-                    detalle.descuento = descuentoTotal;
-                    detalle.neto_gravado = netoBase - descuentoTotal;
-                    detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
-                    detalle.total_linea = detalle.neto_gravado + detalle.iva_importe + detalle.no_gravado + detalle.exento;
-                    
-                    detalles[index] = detalle;
-                });
-                
-                renderizarDetalles();
-                actualizarTotales();
-            } else {
-                // Si no hay detalles, solo actualizar el campo visualmente
-                // El descuento se aplicará cuando se agregue un nuevo producto
-                console.log("No hay detalles, solo se actualizó el campo de descuento general");
-                // Forzar actualización de totales para que muestre el descuento en 0 (no hay productos)
-                actualizarTotales();
-            }
-            
-            // Mostrar mensaje de confirmación opcional (puedes comentarlo si molesta)
-            if (descuentoGeneral > 0) {
-                console.log("Descuento general del " + descuentoGeneral + "% aplicado");
-                // Opcional: mostrar un pequeño toast
-                // Swal.fire({
-                //     icon: "info",
-                //     title: "Descuento aplicado",
-                //     text: "Se aplicó un descuento general del " + descuentoGeneral + "%",
-                //     showConfirmButton: false,
-                //     timer: 1500,
-                //     toast: true,
-                //     position: 'top-end'
-                // });
-            }
-        } else {
-            console.log("No hay condiciones para este proveedor o error:", res);
-            // Resetear descuento general
-            $('#descuento_general_pct').val(0);
-            
-            // Si hay detalles, actualizarlos con descuento 0
-            if (detalles.length > 0) {
-                detalles.forEach(function(detalle, index) {
-                    var netoBase = detalle.cantidad * detalle.precio_unitario;
-                    var descuentoItem = netoBase * (detalle.descuento_item_pct / 100);
-                    var descuentoTotal = descuentoItem;
-                    
-                    detalle.descuento_general_pct = 0;
-                    detalle.descuento_general = 0;
-                    detalle.descuento = descuentoTotal;
-                    detalle.neto_gravado = netoBase - descuentoTotal;
-                    detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
-                    detalle.total_linea = detalle.neto_gravado + detalle.iva_importe + detalle.no_gravado + detalle.exento;
-                    
-                    detalles[index] = detalle;
-                });
-                
-                renderizarDetalles();
-                actualizarTotales();
-            } else {
-                actualizarTotales();
-            }
-        }
-    }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
-        console.error("Error al cargar condiciones:", textStatus, errorThrown);
-        console.error("Respuesta:", jqXHR.responseText);
-    });
-}
+
 });

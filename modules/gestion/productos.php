@@ -290,27 +290,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
                                         <div class="row g-2 mt-1">
                                             <div class="col-md-6">
+                                                <label for="cont_cuenta_id" class="form-label form-label-sm">Cuenta Contable</label>
+                                                <select class="form-select form-select-sm" id="cont_cuenta_id" name="cont_cuenta_id">
+                                                    <option value="">Seleccionar cuenta...</option>
+                                                </select>
+                                                <div class="form-text">Cuenta contable para imputación del producto</div>
+                                            </div>
+                                            <div class="col-md-6">
                                                 <label for="iva_alicuota_id" class="form-label form-label-sm">IVA Alícuota</label>
                                                 <select class="form-select form-select-sm" id="iva_alicuota_id" name="iva_alicuota_id">
                                                     <option value="">Seleccionar alícuota...</option>
                                                 </select>
                                                 <div class="form-text">Alícuota de IVA aplicable al producto</div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="row g-2">
-                                                    <div class="col-md-8">
-                                                        <label class="form-label form-label-sm">Información IVA</label>
-                                                        <div id="iva_info" class="form-control form-control-sm bg-light small">
-                                                            <span class="text-muted">Seleccione una alícuota...</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <label class="form-label form-label-sm">Porcentaje</label>
-                                                        <div id="iva_porcentaje" class="form-control form-control-sm text-center fw-bold">
-                                                            <span class="text-muted">0%</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
                                             </div>
                                         </div>
 
@@ -408,11 +399,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <table id="tablaUbicaciones" class="table table-sm table-hover mb-0">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="25%" class="py-1">Sucursal</th>
-                                                    <th width="20%" class="py-1">Sección</th>
-                                                    <th width="20%" class="py-1">Estantería</th>
-                                                    <th width="20%" class="py-1">Estante/Posición</th>
-                                                    <th width="15%" class="py-1 text-center">Acciones</th>
+                                                    <th width="20%" class="py-1">Sucursal</th>
+                                                    <th width="15%" class="py-1">Depósito</th>
+                                                    <th width="15%" class="py-1">Sección</th>
+                                                    <th width="15%" class="py-1">Estantería</th>
+                                                    <th width="15%" class="py-1">Estante</th>
+                                                    <th width="15%" class="py-1">Posición</th>
+                                                    <th width="5%" class="py-1 text-center">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -694,6 +687,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <option value="">Seleccionar sucursal...</option>
                                         </select>
                                         <div class="invalid-feedback">Seleccione una sucursal</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="deposito_id_nueva" class="form-label form-label-sm">Depósito *</label>
+                                        <select class="form-select form-select-sm" id="deposito_id_nueva" name="deposito_id" required>
+                                            <option value="">Primero seleccione una sucursal...</option>
+                                        </select>
+                                        <div class="invalid-feedback">Debe seleccionar un depósito</div>
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label for="seccion" class="form-label form-label-sm">Sección *</label>
@@ -1299,7 +1299,69 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }], 0);
             }
         };
-        
+        // Función para cargar depósitos según sucursal seleccionada
+        function cargarDepositosParaNuevaUbicacion(sucursalId, selectedId = null) {
+            if (!sucursalId) {
+                $('#deposito_id_nueva').html('<option value="">Primero seleccione una sucursal...</option>');
+                return;
+            }
+            
+            $.get('productos_ajax.php', {
+                accion: 'obtener_depositos_por_sucursal',
+                sucursal_id: sucursalId,
+                empresa_idx: empresa_idx
+            }, function(depositos) {
+                var select = $('#deposito_id_nueva');
+                select.empty();
+                select.append('<option value="">Seleccionar depósito...</option>');
+                
+                $.each(depositos, function(index, deposito) {
+                    var selected = (selectedId && deposito.deposito_id == selectedId) ? 'selected' : '';
+                    var nombre = deposito.deposito_nombre;
+                    if (deposito.es_principal) {
+                        nombre += ' (Principal)';
+                    }
+                    select.append(`<option value="${deposito.deposito_id}" ${selected}>${nombre}</option>`);
+                });
+            }, 'json');
+        }
+
+        // Evento change del select de sucursal en modal de nueva ubicación
+        $(document).on('change', '#sucursal_id', function() {
+            cargarDepositosParaNuevaUbicacion($(this).val());
+        });
+        // Cargar opciones de cuentas contables
+       function cargarCuentasContables() {
+            console.log("=== Iniciando cargarCuentasContables ===");
+            console.log("empresa_idx:", empresa_idx);
+            
+            $.get('productos_ajax.php', {
+                accion: 'obtener_cuentas_contables',
+                empresa_idx: empresa_idx
+            }, function(cuentas) {
+                console.log("Respuesta recibida:", cuentas);
+                var select = $('#cont_cuenta_id');
+                console.log("Select encontrado:", select.length);
+                select.empty().append('<option value="">Seleccionar cuenta...</option>');
+                
+                if (cuentas && cuentas.length > 0) {
+                    console.log("Número de cuentas:", cuentas.length);
+                    cuentas.forEach(function(cuenta) {
+                        var prefix = '';
+                        for (var i = 1; i < cuenta.nivel; i++) {
+                            prefix += '&nbsp;&nbsp;';
+                        }
+                        var texto = prefix + cuenta.codigo + ' - ' + cuenta.nombre;
+                        select.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
+                    });
+                } else {
+                    console.log("No se recibieron cuentas o array vacío");
+                }
+            }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+                console.error("Error en la petición:", textStatus, errorThrown);
+                console.error("Respuesta del servidor:", jqXHR.responseText);
+            });
+        }
         // Función para mostrar carrusel de imágenes
         // Función para mostrar carrusel de imágenes (MEJORADA)
         function mostrarCarruselImagenes(imagenes, indiceInicial) {
@@ -1819,7 +1881,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         // ========== FUNCIONES DE UBICACIONES ==========
 
         // Cargar ubicaciones de un producto
-        function cargarUbicacionesProducto(productoId) {
+       function cargarUbicacionesProducto(productoId) {
             productoActualUbicaciones = productoId;
 
             if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
@@ -1840,16 +1902,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 },
                 columns: [
                     { data: 'sucursal_nombre', render: function(data) { return data || '-'; } },
+                    { data: 'deposito_nombre', render: function(data) { return data || '-'; } },
                     { data: 'seccion', render: function(data) { return data || '-'; } },
                     { data: 'estanteria', render: function(data) { return data || '-'; } },
-                    { 
-                        data: null, 
-                        render: function(data) { 
-                            var estante = data.estante || ' - ';
-                            var posicion = data.posicion || ' - ';
-                            return `${estante} - ${posicion}`;
-                        } 
-                    },
+                    { data: 'estante', render: function(data) { return data || '-'; } },
+                    { data: 'posicion', render: function(data) { return data || '-'; } },
                     { 
                         data: 'producto_ubicacion_id', 
                         orderable: false, 
@@ -2622,53 +2679,58 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             });
 
             $('#btnGuardarNuevaUbicacion').click(function() {
-                var form = document.getElementById('formNuevaUbicacion');
-                if (!form.checkValidity()) {
-                    form.classList.add('was-validated');
-                    return false;
-                }
+            var form = document.getElementById('formNuevaUbicacion');
+            if (!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return false;
+            }
 
-                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Creando...');
-                $.post('productos_ajax.php', {
-                    accion: 'crear_ubicacion_sucursal',
-                    empresa_id: empresa_idx,
-                    sucursal_id: $('#sucursal_id').val(),
-                    seccion: $('#seccion').val(),
-                    estanteria: $('#estanteria').val(),
-                    estante: $('#estante').val(),
-                    posicion: $('#posicion').val(),
-                    descripcion: $('#descripcion_ubicacion').val()
-                }, function(res) {
-                    btn.prop('disabled', false).html('Crear');
-                    if (res.resultado) {
-                        Swal.fire({
-                            title: '¡Creada!',
-                            html: 'Ubicación creada correctamente. ¿Desea asignarla a este producto?',
-                            icon: 'success',
-                            showCancelButton: true,
-                            confirmButtonColor: '#28a745',
-                            cancelButtonColor: '#6c757d',
-                            confirmButtonText: 'Sí, asignar',
-                            cancelButtonText: 'No, solo crear'
-                        }).then((result) => {
-                            bootstrap.Modal.getInstance(document.getElementById('modalNuevaUbicacion')).hide();
-                            if (result.isConfirmed) {
-                                $.post('productos_ajax.php', {
-                                    accion: 'agregar_ubicacion_producto',
-                                    producto_id: $('#nueva_ubicacion_producto_id').val(),
-                                    sucursal_ubicacion_id: res.sucursal_ubicacion_id,
-                                    empresa_idx: empresa_idx
-                                }, function(res2) {
-                                    if (res2.resultado) {
-                                        Swal.fire('¡Asignada!', 'Ubicación creada y asignada correctamente', 'success');
-                                        tablaUbicaciones.ajax.reload();
-                                    } else Swal.fire('¡Creada!', 'Ubicación creada correctamente', 'success');
-                                }, 'json');
-                            }
-                        });
-                    } else Swal.fire('Error', res.error || 'Error al crear la ubicación', 'error');
-                }, 'json');
-            });
+            var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Creando...');
+            $.post('productos_ajax.php', {
+                accion: 'crear_ubicacion_sucursal',
+                empresa_id: empresa_idx,
+                sucursal_id: $('#sucursal_id').val(),
+                deposito_id: $('#deposito_id_nueva').val(),  // AGREGADO
+                seccion: $('#seccion').val(),
+                estanteria: $('#estanteria').val(),
+                estante: $('#estante').val(),
+                posicion: $('#posicion').val(),
+                descripcion: $('#descripcion_ubicacion').val()
+            }, function(res) {
+                btn.prop('disabled', false).html('Crear');
+                if (res.resultado) {
+                    Swal.fire({
+                        title: '¡Creada!',
+                        html: 'Ubicación creada correctamente. ¿Desea asignarla a este producto?',
+                        icon: 'success',
+                        showCancelButton: true,
+                        confirmButtonColor: '#28a745',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, asignar',
+                        cancelButtonText: 'No, solo crear'
+                    }).then((result) => {
+                        bootstrap.Modal.getInstance(document.getElementById('modalNuevaUbicacion')).hide();
+                        if (result.isConfirmed) {
+                            $.post('productos_ajax.php', {
+                                accion: 'agregar_ubicacion_producto',
+                                producto_id: $('#nueva_ubicacion_producto_id').val(),
+                                sucursal_ubicacion_id: res.sucursal_ubicacion_id,
+                                empresa_idx: empresa_idx
+                            }, function(res2) {
+                                if (res2.resultado) {
+                                    Swal.fire('¡Asignada!', 'Ubicación creada y asignada correctamente', 'success');
+                                    tablaUbicaciones.ajax.reload();
+                                } else {
+                                    Swal.fire('¡Creada!', 'Ubicación creada correctamente', 'success');
+                                }
+                            }, 'json');
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', res.error || 'Error al crear la ubicación', 'error');
+                }
+            }, 'json');
+        });
             // Eventos de proveedores
             $('#btnAgregarProveedor').click(() => productoActualProveedores && mostrarModalProveedor(productoActualProveedores));
 
@@ -2762,6 +2824,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             $('#formNuevaUbicacion')[0].reset();
             $('#formNuevaUbicacion').removeClass('was-validated');
             $('#sucursal_id').empty().append('<option value="">Seleccionar sucursal...</option>');
+            $('#deposito_id_nueva').empty().append('<option value="">Primero seleccione una sucursal...</option>');
         }
 
         // ========== FUNCIONES DE ACCIONES ==========
@@ -2788,6 +2851,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarCategoriasProducto();
             cargarUnidadesMedida();
             cargarIvaAlicuotas();
+            cargarCuentasContables();  // <--- AGREGAR ESTA LÍNEA
             new bootstrap.Modal(document.getElementById('modalProducto')).show();
             $('#producto_codigo').focus();
         });
@@ -2890,11 +2954,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     cargarCategoriasProducto();
                     cargarUnidadesMedida();
                     cargarIvaAlicuotas();
+                    cargarCuentasContables();  // <--- AGREGAR ESTA LÍNEA
 
                     setTimeout(function() {
                         $('#producto_tipo_id').val(res.producto_tipo_id);
                         $('#producto_categoria_id').val(res.producto_categoria_id);
                         $('#unidad_medida_id').val(res.unidad_medida_id || '');
+                        $('#cont_cuenta_id').val(res.cont_cuenta_id || '');
                         $('#iva_alicuota_id').val(res.iva_alicuota_id || '');
                         if (res.iva_alicuota_id) $('#iva_alicuota_id').trigger('change');
                     }, 500);
@@ -2919,6 +2985,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             $('#formProducto').removeClass('was-validated');
             $('#iva_alicuota_id').empty().append('<option value="">Seleccionar alícuota...</option>');
             $('#iva_info').html('<span class="text-muted">Seleccione una alícuota...</span>');
+            $('#cont_cuenta_id').empty().append('<option value="">Seleccionar cuenta...</option>');
             $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
             $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
             $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
@@ -2984,6 +3051,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     producto_categoria_id: $('#producto_categoria_id').val(),
                     producto_tipo_id: $('#producto_tipo_id').val(),
                     unidad_medida_id: $('#unidad_medida_id').val() || null,
+                    cont_cuenta_id: $('#cont_cuenta_id').val() || null,
                     iva_alicuota_id: $('#iva_alicuota_id').val() || null,
                     lado: $('#lado').val(),
                     material: $('#material').val(),
@@ -3039,6 +3107,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         cargarMarcas();
         cargarSucursales();
         cargarIvaAlicuotas();
+        cargarCuentasContables();  // <--- Esta línea está presente
 
         $('[title]').tooltip({ trigger: 'hover', placement: 'top' });
     });

@@ -23,6 +23,7 @@ try {
         case 'listar':
             $filters = [
                 'sucursal' => $_GET['filter_sucursal'] ?? '',
+                'deposito' => $_GET['filter_deposito'] ?? '',
                 'estado' => $_GET['filter_estado'] ?? '',
                 'busqueda' => $_GET['filter_busqueda'] ?? ''
             ];
@@ -40,6 +41,16 @@ try {
             $sucursales = obtenerSucursalesActivas($conexion, $empresa_idx);
             echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
             break;
+            
+        case 'obtener_depositos_por_sucursal':
+            $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
+            if ($sucursal_id <= 0) {
+                echo json_encode(['error' => 'ID de sucursal inválido'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $depositos = obtenerDepositosPorSucursal($conexion, $sucursal_id);
+            echo json_encode($depositos, JSON_UNESCAPED_UNICODE);
+            break;
 
         case 'obtener_estados_registro':
             $estados = obtenerEstadosRegistro($conexion);
@@ -49,10 +60,11 @@ try {
         case 'agregar':
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
+                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
                 'seccion' => trim($_POST['seccion'] ?? ''),
                 'estanteria' => trim($_POST['estanteria'] ?? ''),
                 'estante' => trim($_POST['estante'] ?? ''),
-                'posicion' => trim($_POST['posicion'] ?? ''), // AÑADIDO
+                'posicion' => trim($_POST['posicion'] ?? ''),
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'estado_registro_id' => !empty($_POST['estado_registro_id']) ? intval($_POST['estado_registro_id']) : null,
                 'empresa_idx' => $empresa_idx,
@@ -67,10 +79,11 @@ try {
             $id = intval($_POST['sucursal_ubicacion_id'] ?? 0);
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
+                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
                 'seccion' => trim($_POST['seccion'] ?? ''),
                 'estanteria' => trim($_POST['estanteria'] ?? ''),
                 'estante' => trim($_POST['estante'] ?? ''),
-                'posicion' => trim($_POST['posicion'] ?? ''), // AÑADIDO
+                'posicion' => trim($_POST['posicion'] ?? ''),
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'estado_registro_id' => !empty($_POST['estado_registro_id']) ? intval($_POST['estado_registro_id']) : null,
                 'empresa_idx' => $empresa_idx

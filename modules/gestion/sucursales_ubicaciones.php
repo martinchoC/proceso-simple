@@ -87,6 +87,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     </div>
                                                 </div>
                                                 <div class="stats-item">
+                                                    <i class="fas fa-warehouse stats-icon"></i>
+                                                    <div class="stats-content">
+                                                        <div class="stats-number" id="totalDepositos">0</div>
+                                                        <div class="stats-label">Depósitos</div>
+                                                    </div>
+                                                </div>
+                                                <div class="stats-item">
                                                     <i class="fas fa-layer-group stats-icon"></i>
                                                     <div class="stats-content">
                                                         <div class="stats-number" id="totalSecciones">0</div>
@@ -125,6 +132,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <div class="legend-item">
                                                 <span class="legend-color legend-sucursal"></span>
                                                 <span class="legend-text">Sucursal</span>
+                                            </div>
+                                            <div class="legend-item">
+                                                <span class="legend-color legend-deposito"></span>
+                                                <span class="legend-text">Depósito</span>
                                             </div>
                                             <div class="legend-item">
                                                 <span class="legend-color legend-seccion"></span>
@@ -290,6 +301,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </select>
                                         </div>
                                         <div class="invalid-feedback">Debe seleccionar una sucursal</div>
+                                    </div>
+                                    <div class="col-md-12 mb-3">
+                                        <label for="deposito_id" class="form-label">
+                                            <i class="fas fa-warehouse me-1"></i>Depósito *
+                                        </label>
+                                        <div class="input-group input-group-modern">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-building"></i>
+                                            </span>
+                                            <select class="form-select" id="deposito_id" name="deposito_id" required>
+                                                <option value="">Primero seleccione una sucursal...</option>
+                                            </select>
+                                        </div>
+                                        <div class="invalid-feedback">Debe seleccionar un depósito</div>
                                     </div>
                                     
                                     <div class="col-md-3 mb-3">
@@ -513,7 +538,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         border-radius: 4px;
         margin-right: 0.75rem;
     }
-    
+    .legend-deposito {
+        background: linear-gradient(135deg, #16a085 0%, #27ae60 100%);
+    }
+
+    .tree-node-deposito .tree-node-icon {
+        background: linear-gradient(135deg, #16a085 0%, #27ae60 100%);
+    }
+
     .legend-sucursal {
         background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     }
@@ -1325,6 +1357,41 @@ $(document).ready(function(){
             }, 'json').fail(reject);
         });
     }
+    // Variable global para almacenar depósitos por sucursal
+    let depositosPorSucursal = {};
+    // Cargar depósitos según sucursal seleccionada
+    function cargarDepositos(sucursalId, selectedId = null) {
+        if (!sucursalId) {
+            $('#deposito_id').html('<option value="">Primero seleccione una sucursal...</option>');
+            return;
+        }
+        
+        $.get('sucursales_ubicaciones_ajax.php', {
+            accion: 'obtener_depositos_por_sucursal',
+            sucursal_id: sucursalId
+        }, function(depositos) {
+            // Guardar en variable global
+            depositosPorSucursal[sucursalId] = depositos;
+            
+            var select = $('#deposito_id');
+            select.empty();
+            select.append('<option value="">Seleccionar depósito...</option>');
+            
+            $.each(depositos, function(index, deposito) {
+                var selected = (selectedId && deposito.deposito_id == selectedId) ? 'selected' : '';
+                var nombre = deposito.deposito_nombre;
+                if (deposito.es_principal) {
+                    nombre += ' (Principal)';
+                }
+                select.append(`<option value="${deposito.deposito_id}" ${selected}>${nombre}</option>`);
+            });
+        }, 'json');
+    }
+
+    // Evento change del select de sucursal
+    $(document).on('change', '#sucursal_id', function() {
+        cargarDepositos($(this).val());
+    });
     
     // Cargar sucursales en el select del modal
     function cargarSucursalesEnModal() {
@@ -1403,6 +1470,7 @@ $(document).ready(function(){
         treeData = {};
         estadisticas = {
             sucursales: 0,
+            depositos: 0,
             secciones: 0,
             estanterias: 0,
             estantes: 0,
@@ -1413,6 +1481,8 @@ $(document).ready(function(){
             const sucursalId = ubicacion.sucursal_id;
             const sucursalNombre = ubicacion.sucursal_nombre;
             const localidad = ubicacion.localidad || '';
+            const depositoId = ubicacion.deposito_id;
+            const depositoNombre = ubicacion.deposito_nombre;
             const seccion = ubicacion.seccion;
             const estanteria = ubicacion.estanteria;
             const estante = ubicacion.estante;
@@ -1424,50 +1494,63 @@ $(document).ready(function(){
                     type: 'sucursal',
                     nombre: sucursalNombre,
                     localidad: localidad,
-                    secciones: {}
+                    depositos: {}
                 };
                 estadisticas.sucursales++;
             }
             
-            if (!treeData[sucursalId].secciones[seccion]) {
-                treeData[sucursalId].secciones[seccion] = {
+            if (!treeData[sucursalId].depositos[depositoId]) {
+                treeData[sucursalId].depositos[depositoId] = {
+                    id: depositoId,
+                    type: 'deposito',
+                    nombre: depositoNombre,
+                    parentSucursalId: sucursalId,
+                    secciones: {}
+                };
+                estadisticas.depositos++;
+            }
+            
+            if (!treeData[sucursalId].depositos[depositoId].secciones[seccion]) {
+                treeData[sucursalId].depositos[depositoId].secciones[seccion] = {
                     id: seccion,
                     type: 'seccion',
                     nombre: `Sección ${seccion}`,
                     parentSucursalId: sucursalId,
+                    parentDepositoId: depositoId,
                     estanterias: {}
                 };
                 estadisticas.secciones++;
             }
             
-            if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria]) {
-                treeData[sucursalId].secciones[seccion].estanterias[estanteria] = {
+            if (!treeData[sucursalId].depositos[depositoId].secciones[seccion].estanterias[estanteria]) {
+                treeData[sucursalId].depositos[depositoId].secciones[seccion].estanterias[estanteria] = {
                     id: estanteria,
                     type: 'estanteria',
                     nombre: `Estantería ${estanteria}`,
                     parentSucursalId: sucursalId,
+                    parentDepositoId: depositoId,
                     parentSeccion: seccion,
                     estantes: {}
                 };
                 estadisticas.estanterias++;
             }
             
-            if (!treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante]) {
-                treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante] = {
+            if (!treeData[sucursalId].depositos[depositoId].secciones[seccion].estanterias[estanteria].estantes[estante]) {
+                treeData[sucursalId].depositos[depositoId].secciones[seccion].estanterias[estanteria].estantes[estante] = {
                     id: estante,
                     type: 'estante',
                     nombre: `Estante ${estante}`,
                     parentSucursalId: sucursalId,
+                    parentDepositoId: depositoId,
                     parentSeccion: seccion,
                     parentEstanteria: estanteria,
                     posiciones: {},
-                    posicionesPorFila: {} // Para organizar por filas
+                    posicionesPorFila: {}
                 };
                 estadisticas.estantes++;
             }
             
-            // AGREGAR POSICIONES - Organizar por filas
-            const estanteObj = treeData[sucursalId].secciones[seccion].estanterias[estanteria].estantes[estante];
+            const estanteObj = treeData[sucursalId].depositos[depositoId].secciones[seccion].estanterias[estanteria].estantes[estante];
             
             if (!estanteObj.posiciones[posicion]) {
                 estanteObj.posiciones[posicion] = {
@@ -1478,17 +1561,17 @@ $(document).ready(function(){
                     estado: ubicacion.estado_info,
                     botones: ubicacion.botones,
                     sucursal_id: sucursalId,
+                    deposito_id: depositoId,
                     seccion: seccion,
                     estanteria: estanteria,
                     estante: estante,
                     posicion: posicion,
                     sucursal_nombre: sucursalNombre,
-                    localidad: localidad
+                    localidad: localidad,
+                    deposito_nombre: depositoNombre
                 };
                 estadisticas.posiciones++;
                 
-                // Organizar por filas para la vista en columnas
-                // Extraer número de fila de la posición (ej: "1A" -> fila 1, "2B" -> fila 2)
                 const numeroFila = parseInt(posicion.match(/\d+/)?.[0]) || 1;
                 if (!estanteObj.posicionesPorFila[numeroFila]) {
                     estanteObj.posicionesPorFila[numeroFila] = {};
@@ -1529,6 +1612,11 @@ $(document).ready(function(){
                 class: 'tree-node-sucursal',
                 title: 'Sucursal'
             },
+            'deposito': {
+                icon: 'fas fa-warehouse',
+                class: 'tree-node-deposito',
+                title: 'Depósito'
+            },
             'seccion': {
                 icon: 'fas fa-layer-group',
                 class: 'tree-node-seccion',
@@ -1557,15 +1645,14 @@ $(document).ready(function(){
         
         // Determinar el ID según el tipo
         let nodoId = nodo.id;
-        if (nodo.type === 'seccion' && nodo.parentSucursalId) {
-            // Para secciones: sucursalId_seccion
+        if (nodo.type === 'deposito' && nodo.parentSucursalId) {
             nodoId = `${nodo.parentSucursalId}_${nodo.id}`;
-        } else if (nodo.type === 'estanteria' && nodo.parentSucursalId && nodo.parentSeccion) {
-            // Para estanterías: sucursalId_seccion_estanteria
-            nodoId = `${nodo.parentSucursalId}_${nodo.parentSeccion}_${nodo.id}`;
-        } else if (nodo.type === 'estante' && nodo.parentSucursalId && nodo.parentSeccion && nodo.parentEstanteria) {
-            // Para estantes: sucursalId_seccion_estanteria_estante
-            nodoId = `${nodo.parentSucursalId}_${nodo.parentSeccion}_${nodo.parentEstanteria}_${nodo.id}`;
+        } else if (nodo.type === 'seccion' && nodo.parentSucursalId && nodo.parentDepositoId) {
+            nodoId = `${nodo.parentSucursalId}_${nodo.parentDepositoId}_${nodo.id}`;
+        } else if (nodo.type === 'estanteria' && nodo.parentSucursalId && nodo.parentDepositoId && nodo.parentSeccion) {
+            nodoId = `${nodo.parentSucursalId}_${nodo.parentDepositoId}_${nodo.parentSeccion}_${nodo.id}`;
+        } else if (nodo.type === 'estante' && nodo.parentSucursalId && nodo.parentDepositoId && nodo.parentSeccion && nodo.parentEstanteria) {
+            nodoId = `${nodo.parentSucursalId}_${nodo.parentDepositoId}_${nodo.parentSeccion}_${nodo.parentEstanteria}_${nodo.id}`;
         }
         
         html += `<li class="tree-node ${tipoInfo.class}" data-id="${nodoId}" data-type="${nodo.type}">`;
@@ -1997,7 +2084,8 @@ $(document).ready(function(){
     // Obtener el tipo de hijo
     function getChildType(parentType) {
         const hierarchy = {
-            'sucursal': 'seccion',
+            'sucursal': 'deposito',
+            'deposito': 'seccion',
             'seccion': 'estanteria',
             'estanteria': 'estante',
             'estante': 'posicion'
@@ -2008,6 +2096,7 @@ $(document).ready(function(){
     // Obtener hijos de un nodo
     function getChildren(nodo, childType) {
         switch (childType) {
+            case 'deposito': return nodo.depositos || {};
             case 'seccion': return nodo.secciones || {};
             case 'estanteria': return nodo.estanterias || {};
             case 'estante': return nodo.estantes || {};
@@ -2030,6 +2119,7 @@ $(document).ready(function(){
     // Actualizar estadísticas
     function actualizarEstadisticas() {
         $('#totalSucursales').text(estadisticas.sucursales);
+        $('#totalDepositos').text(estadisticas.depositos);
         $('#totalSecciones').text(estadisticas.secciones);
         $('#totalEstanterias').text(estadisticas.estanterias);
         $('#totalEstantes').text(estadisticas.estantes);
@@ -2090,7 +2180,8 @@ $(document).ready(function(){
         });
     });
     
-    // Manejar agregar hijo desde árbol
+    
+   // Manejar agregar hijo desde árbol
     $(document).on('click', '.btn-agregar-hijo, .btn-agregar-posicion-estante', function(e){
         e.stopPropagation();
         const parentId = $(this).data('parent-id') || $(this).data('id');
@@ -2109,6 +2200,8 @@ $(document).ready(function(){
             // Llenar campos con valores por defecto
             if (valores.sucursal_id) {
                 $('#sucursal_id').val(valores.sucursal_id);
+                // ✅ Cargar depósitos después de seleccionar la sucursal
+                cargarDepositos(valores.sucursal_id, valores.deposito_id);
             }
             if (valores.seccion) {
                 $('#seccion').val(valores.seccion);
@@ -2337,9 +2430,9 @@ $(document).ready(function(){
         }
     }
 
-    // Actualizar ruta completa en el modal
     function actualizarRutaCompleta() {
         const sucursalId = $('#sucursal_id').val();
+        const depositoId = $('#deposito_id').val();
         const seccion = $('#seccion').val();
         const estanteria = $('#estanteria').val();
         const estante = $('#estante').val();
@@ -2355,6 +2448,24 @@ $(document).ready(function(){
                     ruta += ` <span class="text-muted">(${sucursal.localidad})</span>`;
                 }
             }
+        }
+        
+        if (depositoId) {
+            // Obtener nombre del depósito
+            let depositoNombre = '';
+            if (depositosPorSucursal[sucursalId]) {
+                const deposito = depositosPorSucursal[sucursalId].find(d => d.deposito_id == depositoId);
+                if (deposito) {
+                    depositoNombre = deposito.deposito_nombre;
+                    if (deposito.es_principal) {
+                        depositoNombre += ' (Principal)';
+                    }
+                }
+            }
+            if (!depositoNombre) {
+                depositoNombre = $('#deposito_id option:selected').text();
+            }
+            ruta += ` &nbsp;&nbsp;<i class="fas fa-arrow-right text-muted"></i>&nbsp;&nbsp; <strong>${depositoNombre}</strong>`;
         }
         
         if (seccion) {
@@ -2376,7 +2487,7 @@ $(document).ready(function(){
         $('#fullPath').html(ruta || '<span class="text-muted">Seleccione los datos para ver la ruta completa</span>');
     }
     
-    // Cargar ubicación para editar
+    // Cargar ubicación para editar   
     function cargarUbicacionParaEditar(id) {
         $.get('sucursales_ubicaciones_ajax.php', {
             accion: 'obtener', 
@@ -2389,6 +2500,10 @@ $(document).ready(function(){
                 
                 setTimeout(() => {
                     $('#sucursal_id').val(res.sucursal_id);
+                    
+                    // ✅ Cargar depósitos según la sucursal seleccionada
+                    cargarDepositos(res.sucursal_id, res.deposito_id);
+                    
                     $('#seccion').val(res.seccion || '');
                     $('#estanteria').val(res.estanteria || '');
                     $('#estante').val(res.estante || '');
@@ -2480,6 +2595,7 @@ $(document).ready(function(){
         $('#fullPath').html('<span class="text-muted">Seleccione los datos para ver la ruta completa</span>');
     }
     
+    
     // Validación del formulario
     $('#btnGuardar').click(function(){
         var form = document.getElementById('formSucursalUbicacion');
@@ -2492,6 +2608,7 @@ $(document).ready(function(){
         var id = $('#sucursal_ubicacion_id').val();
         var accionBackend = id ? 'editar' : 'agregar';
         var sucursalId = $('#sucursal_id').val();
+        var depositoId = $('#deposito_id').val();  // ✅ AGREGAR ESTA LÍNEA
         var seccion = $('#seccion').val().trim();
         var estanteria = $('#estanteria').val().trim();
         var estante = $('#estante').val().trim();
@@ -2499,6 +2616,12 @@ $(document).ready(function(){
         
         if (!sucursalId) {
             $('#sucursal_id').addClass('is-invalid');
+            return false;
+        }
+        
+        // ✅ AGREGAR VALIDACIÓN DE DEPÓSITO
+        if (!depositoId) {
+            $('#deposito_id').addClass('is-invalid');
             return false;
         }
         
@@ -2533,6 +2656,7 @@ $(document).ready(function(){
                 accion: accionBackend,
                 sucursal_ubicacion_id: id,
                 sucursal_id: sucursalId,
+                deposito_id: depositoId,  // ✅ AGREGAR ESTA LÍNEA
                 seccion: seccion,
                 estanteria: estanteria,
                 estante: estante,

@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
+
+
 // ✅ Obtener productos con paginación del servidor
 function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params = [])
 {
@@ -615,6 +617,7 @@ function agregarProducto($conexion, $data)
     $codigo_barras = mysqli_real_escape_string($conexion, trim($data['codigo_barras'] ?? ''));
     $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
     $producto_categoria_id = intval($data['producto_categoria_id'] ?? 0);
+    $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
     $iva_alicuota_id = intval($data['iva_alicuota_id'] ?? 0);
     $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
@@ -673,9 +676,9 @@ function agregarProducto($conexion, $data)
     // Insertar nuevo producto
    $sql = "INSERT INTO gestion__productos 
         (empresa_id, producto_codigo, producto_nombre, codigo_barras, producto_descripcion, 
-         producto_categoria_id, producto_tipo_id, unidad_medida_id, iva_alicuota_id, lado, material, color, 
+         producto_categoria_id, producto_tipo_id, unidad_medida_id, cont_cuenta_id, iva_alicuota_id, lado, material, color, 
          peso, dimensiones, garantia, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -683,7 +686,7 @@ function agregarProducto($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "issssiiiiisssdsi",
+        "issssiiiiiisssdsi",
         $empresa_id,
         $producto_codigo,
         $producto_nombre,
@@ -692,6 +695,7 @@ function agregarProducto($conexion, $data)
         $producto_categoria_id,
         $producto_tipo_id,
         $unidad_medida_id,
+        $cont_cuenta_id,
         $iva_alicuota_id,
         $lado,
         $material,
@@ -725,6 +729,7 @@ function editarProducto($conexion, $id, $data)
     $producto_categoria_id = intval($data['producto_categoria_id'] ?? 0);
     $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
+    $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
     $lado = mysqli_real_escape_string($conexion, trim($data['lado'] ?? ''));
     $material = mysqli_real_escape_string($conexion, trim($data['material'] ?? ''));
     $color = mysqli_real_escape_string($conexion, trim($data['color'] ?? ''));
@@ -801,7 +806,7 @@ function editarProducto($conexion, $id, $data)
     $sql = "UPDATE gestion__productos 
         SET producto_codigo = ?, producto_nombre = ?, codigo_barras = ?, 
             producto_descripcion = ?, producto_categoria_id = ?, producto_tipo_id = ?, 
-            unidad_medida_id = ?, iva_alicuota_id = ?, lado = ?, material = ?, color = ?, peso = ?, 
+            unidad_medida_id = ?, cont_cuenta_id = ?, iva_alicuota_id = ?, lado = ?, material = ?, color = ?, peso = ?, 
             dimensiones = ?, garantia = ?
         WHERE producto_id = ?";
     
@@ -811,7 +816,7 @@ function editarProducto($conexion, $id, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssiiiiisssdsi",
+        "ssssiiiiiisssdsi",
         $producto_codigo,
         $producto_nombre,
         $codigo_barras,
@@ -819,6 +824,7 @@ function editarProducto($conexion, $id, $data)
         $producto_categoria_id,
         $producto_tipo_id,
         $unidad_medida_id,
+        $cont_cuenta_id,        
         $iva_alicuota_id,
         $lado,
         $material,
@@ -839,6 +845,7 @@ function editarProducto($conexion, $id, $data)
     }
 }
 
+// ✅ Obtener producto específico
 // ✅ Obtener producto específico
 function obtenerProductoPorId($conexion, $id, $empresa_idx)
 {
@@ -863,17 +870,19 @@ function obtenerProductoPorId($conexion, $id, $empresa_idx)
         }
     }
 
-   $sql = "SELECT p.*, er.$estado_column as estado_registro, er.codigo_estandar,
+    $sql = "SELECT p.*, er.$estado_column as estado_registro, er.codigo_estandar,
                pt.producto_tipo, pt.producto_tipo_codigo,
                um.unidad_nombre, um.unidad_abreviatura,
                pc.producto_categoria_nombre,
-               ia.iva_alicuota, ia.porcentaje, ia.es_gravado, ia.es_exento, ia.es_no_gravado
+               ia.iva_alicuota, ia.porcentaje, ia.es_gravado, ia.es_exento, ia.es_no_gravado,
+               cc.cont_cuenta_id, cc.codigo as cuenta_codigo, cc.nombre as cuenta_nombre
         FROM gestion__productos p
         LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
         LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
         LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
         LEFT JOIN gestion__productos_categorias pc ON p.producto_categoria_id = pc.producto_categoria_id
         LEFT JOIN gestion__impuestos__iva_alicuotas ia ON p.iva_alicuota_id = ia.iva_alicuota_id
+        LEFT JOIN gestion__cont_cuentas cc ON p.cont_cuenta_id = cc.cont_cuenta_id
         WHERE p.producto_id = ? AND p.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -1512,6 +1521,7 @@ function actualizarImagenProducto($conexion, $producto_imagen_id, $data, $empres
 }
 
 // ✅ Obtener ubicaciones de sucursales
+// ✅ Obtener ubicaciones de sucursales (con depósitos)
 function obtenerUbicacionesSucursales($conexion, $empresa_idx)
 {
     $empresa_idx = intval($empresa_idx);
@@ -1519,17 +1529,21 @@ function obtenerUbicacionesSucursales($conexion, $empresa_idx)
     $sql = "SELECT 
                 su.sucursal_ubicacion_id,
                 su.sucursal_id,
+                su.deposito_id,
                 su.seccion,
                 su.estanteria,
                 su.estante,
                 su.posicion,
                 su.descripcion,
-                s.sucursal_nombre
+                s.sucursal_nombre,
+                d.deposito_nombre,
+                d.codigo AS deposito_codigo
             FROM gestion__sucursales_ubicaciones su
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
+            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
             WHERE (su.empresa_id = 0 OR su.empresa_id = ?)
             AND su.tabla_estado_registro_id = 1
-            ORDER BY s.sucursal_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
+            ORDER BY s.sucursal_nombre, d.deposito_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -1578,7 +1592,7 @@ function obtenerSucursales($conexion, $empresa_idx)
     return $sucursales;
 }
 
-// ✅ Obtener ubicaciones de un producto
+// ✅ Obtener ubicaciones de un producto (con depósitos)
 function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
 {
     $producto_id = intval($producto_id);
@@ -1587,18 +1601,22 @@ function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
                 pu.producto_ubicacion_id,
                 pu.sucursal_ubicacion_id,
                 su.sucursal_id,
+                su.deposito_id,
                 su.seccion,
                 su.estanteria,
                 su.estante,
                 su.posicion,
                 su.descripcion,
-                s.sucursal_nombre
+                s.sucursal_nombre,
+                d.deposito_nombre,
+                d.codigo AS deposito_codigo
             FROM gestion__productos_ubicaciones pu
             INNER JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
+            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
             WHERE pu.producto_id = ?
             AND pu.tabla_estado_registro_id = 1
-            ORDER BY s.sucursal_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
+            ORDER BY s.sucursal_nombre, d.deposito_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -1617,7 +1635,6 @@ function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
     mysqli_stmt_close($stmt);
     return $ubicaciones;
 }
-
 // ✅ Obtener ubicación por ID
 function obtenerUbicacionPorId($conexion, $producto_ubicacion_id)
 {
@@ -1734,11 +1751,12 @@ function eliminarUbicacionProducto($conexion, $producto_ubicacion_id)
     }
 }
 
-// ✅ Crear nueva ubicación de sucursal
+// ✅ Crear nueva ubicación de sucursal (con depósito)
 function crearUbicacionSucursal($conexion, $data)
 {
     $empresa_id = intval($data['empresa_id'] ?? 0);
     $sucursal_id = intval($data['sucursal_id'] ?? 0);
+    $deposito_id = intval($data['deposito_id'] ?? 0);
     $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
     $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
     $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
@@ -1748,6 +1766,10 @@ function crearUbicacionSucursal($conexion, $data)
     // Validaciones
     if ($sucursal_id == 0) {
         return ['resultado' => false, 'error' => 'Seleccione una sucursal'];
+    }
+    
+    if ($deposito_id == 0) {
+        return ['resultado' => false, 'error' => 'Seleccione un depósito'];
     }
 
     if (empty($seccion)) {
@@ -1766,9 +1788,10 @@ function crearUbicacionSucursal($conexion, $data)
         return ['resultado' => false, 'error' => 'La posición es obligatoria'];
     }
 
-    // Verificar si ya existe esta ubicación
+    // Verificar si ya existe esta ubicación (incluyendo depósito)
     $sql_check = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
                   WHERE sucursal_id = ? 
+                  AND deposito_id = ?
                   AND seccion = ? 
                   AND estanteria = ? 
                   AND estante = ? 
@@ -1779,20 +1802,20 @@ function crearUbicacionSucursal($conexion, $data)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
 
-    mysqli_stmt_bind_param($stmt, "issss", $sucursal_id, $seccion, $estanteria, $estante, $posicion);
+    mysqli_stmt_bind_param($stmt, "iissss", $sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
     if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Esta ubicación ya existe en la sucursal'];
+        return ['resultado' => false, 'error' => 'Esta ubicación ya existe en la sucursal/depósito'];
     }
 
     // Insertar nueva ubicación
     $sql = "INSERT INTO gestion__sucursales_ubicaciones 
-            (empresa_id, sucursal_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1)";
+            (empresa_id, sucursal_id, deposito_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -1801,9 +1824,10 @@ function crearUbicacionSucursal($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "iisssss",
+        "iiisssss",
         $empresa_id,
         $sucursal_id,
+        $deposito_id,
         $seccion,
         $estanteria,
         $estante,
@@ -2094,5 +2118,66 @@ function eliminarProveedorProducto($conexion, $producto_proveedor_id, $empresa_i
     } else {
         return ['success' => false, 'error' => 'Error al eliminar el proveedor'];
     }
+}
+// ✅ Obtener cuentas contables para combo
+
+// ✅ Obtener cuentas contables para combo
+function obtenerCuentasContables($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT cont_cuenta_id, codigo, nombre, nivel
+            FROM gestion__cont_cuentas
+            WHERE empresa_id = ?
+            AND tabla_estado_registro_id = 1
+            AND es_imputable = 1
+            ORDER BY codigo";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $cuentas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $cuentas[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $cuentas;
+}
+// ✅ Obtener depósitos por sucursal
+function obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx)
+{
+    $sucursal_id = intval($sucursal_id);
+    $empresa_idx = intval($empresa_idx);
+
+    $sql = "SELECT deposito_id, deposito_nombre, codigo, es_principal
+            FROM gestion__depositos
+            WHERE sucursal_id = ? 
+            AND empresa_id = ?
+            AND tabla_estado_registro_id = 1
+            ORDER BY es_principal DESC, orden ASC, deposito_nombre ASC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $sucursal_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $depositos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $depositos[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $depositos;
 }
 ?>

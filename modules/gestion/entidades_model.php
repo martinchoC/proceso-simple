@@ -423,6 +423,8 @@ function agregarEntidad($conexion, $data)
     $entidad_nombre = mysqli_real_escape_string($conexion, trim($data['entidad_nombre'] ?? ''));
     $entidad_fantasia = mysqli_real_escape_string($conexion, trim($data['entidad_fantasia'] ?? ''));
     $entidad_tipo_id = $data['entidad_tipo_id'] ? intval($data['entidad_tipo_id']) : null;
+    $cont_cuenta_id_proveedor = $data['cont_cuenta_id_proveedor'] ? intval($data['cont_cuenta_id_proveedor']) : null;
+    $cont_cuenta_id_cliente = $data['cont_cuenta_id_cliente'] ? intval($data['cont_cuenta_id_cliente']) : null;
     $cuit = $data['cuit'] ? intval($data['cuit']) : null;
     $sitio_web = mysqli_real_escape_string($conexion, trim($data['sitio_web'] ?? ''));
     $domicilio_legal = mysqli_real_escape_string($conexion, trim($data['domicilio_legal'] ?? ''));
@@ -469,14 +471,14 @@ function agregarEntidad($conexion, $data)
     // Insertar nueva entidad - SIN CAMPOS DE DESCUENTO
     $sql = "INSERT INTO gestion__entidades 
             (empresa_id, entidad_nombre, entidad_fantasia, entidad_tipo_id, cuit, sitio_web, 
-             domicilio_legal, localidad_id, es_proveedor, es_cliente, observaciones, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             domicilio_legal, localidad_id, cont_cuenta_id_proveedor, cont_cuenta_id_cliente, es_proveedor, es_cliente, observaciones, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issiissiissi", 
+    mysqli_stmt_bind_param($stmt, "issiissiiiissi", 
         $empresa_id, 
         $entidad_nombre, 
         $entidad_fantasia, 
@@ -485,6 +487,8 @@ function agregarEntidad($conexion, $data)
         $sitio_web,
         $domicilio_legal,
         $localidad_id,
+        $cont_cuenta_id_proveedor,
+        $cont_cuenta_id_cliente,
         $es_proveedor,
         $es_cliente,
         $observaciones,
@@ -511,6 +515,8 @@ function editarEntidad($conexion, $id, $data)
     $entidad_nombre = mysqli_real_escape_string($conexion, trim($data['entidad_nombre'] ?? ''));
     $entidad_fantasia = mysqli_real_escape_string($conexion, trim($data['entidad_fantasia'] ?? ''));
     $entidad_tipo_id = $data['entidad_tipo_id'] ? intval($data['entidad_tipo_id']) : null;
+    $cont_cuenta_id_proveedor = $data['cont_cuenta_id_proveedor'] ? intval($data['cont_cuenta_id_proveedor']) : null;
+    $cont_cuenta_id_cliente = $data['cont_cuenta_id_cliente'] ? intval($data['cont_cuenta_id_cliente']) : null;
     $cuit = $data['cuit'] ? intval($data['cuit']) : null;
     $sitio_web = mysqli_real_escape_string($conexion, trim($data['sitio_web'] ?? ''));
     $domicilio_legal = mysqli_real_escape_string($conexion, trim($data['domicilio_legal'] ?? ''));
@@ -577,7 +583,9 @@ function editarEntidad($conexion, $id, $data)
                 cuit = ?, 
                 sitio_web = ?, 
                 domicilio_legal = ?, 
-                localidad_id = ?, 
+                localidad_id = ?,
+                cont_cuenta_id_proveedor = ?,
+                cont_cuenta_id_cliente = ?, 
                 es_proveedor = ?, 
                 es_cliente = ?, 
                 observaciones = ?
@@ -587,7 +595,7 @@ function editarEntidad($conexion, $id, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssiissiissi", 
+    mysqli_stmt_bind_param($stmt, "ssiissiiiissi", 
         $entidad_nombre, 
         $entidad_fantasia, 
         $entidad_tipo_id,
@@ -595,6 +603,8 @@ function editarEntidad($conexion, $id, $data)
         $sitio_web,
         $domicilio_legal,
         $localidad_id,
+        $cont_cuenta_id_proveedor,
+        $cont_cuenta_id_cliente,
         $es_proveedor,
         $es_cliente,
         $observaciones,
@@ -1494,5 +1504,33 @@ function obtenerHistorialCondicionesProveedor($conexion, $entidad_id) {
     mysqli_stmt_close($stmt);
     return $data;
 }
-
+// ✅ Obtener cuentas contables para combo
+function obtenerCuentasContables($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT cont_cuenta_id, codigo, nombre, nivel
+            FROM gestion__cont_cuentas
+            WHERE empresa_id = ?
+            AND tabla_estado_registro_id = 1
+            AND es_imputable = 1
+            ORDER BY codigo";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $cuentas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $cuentas[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $cuentas;
+}
 ?>

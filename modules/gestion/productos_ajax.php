@@ -54,7 +54,27 @@ try {
                 'data' => $data['productos']
             ], JSON_UNESCAPED_UNICODE);
             break;
-
+        
+        case 'obtener_cuentas_contables':
+            error_log("=== DEBUG obtener_cuentas_contables ===");
+            error_log("empresa_idx: " . $empresa_idx);
+            
+            $cuentas = obtenerCuentasContables($conexion, $empresa_idx);
+            
+            error_log("Número de cuentas encontradas: " . count($cuentas));
+            error_log("Primera cuenta: " . print_r(array_slice($cuentas, 0, 1), true));
+            
+            echo json_encode($cuentas, JSON_UNESCAPED_UNICODE);
+            break;
+        case 'obtener_depositos_por_sucursal':
+            $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
+            if ($sucursal_id <= 0) {
+                echo json_encode(['error' => 'ID de sucursal inválido'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $depositos = obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx);
+            echo json_encode($depositos, JSON_UNESCAPED_UNICODE);
+            break;
         case 'obtener_boton_agregar':
             $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
@@ -76,6 +96,7 @@ try {
                 'peso' => !empty($_POST['peso']) ? floatval($_POST['peso']) : null,
                 'dimensiones' => trim($_POST['dimensiones'] ?? ''),
                 'garantia' => trim($_POST['garantia'] ?? ''),
+                'cont_cuenta_id' => !empty($_POST['cont_cuenta_id']) ? intval($_POST['cont_cuenta_id']) : null,
                 'iva_alicuota_id' => $_POST['iva_alicuota_id'] !== '' ? $_POST['iva_alicuota_id'] : null,
                 'pagina_idx' => $pagina_idx
             ];
@@ -100,6 +121,7 @@ try {
                 'peso' => !empty($_POST['peso']) ? floatval($_POST['peso']) : null,
                 'dimensiones' => trim($_POST['dimensiones'] ?? ''),
                 'garantia' => trim($_POST['garantia'] ?? ''),
+                'cont_cuenta_id' => !empty($_POST['cont_cuenta_id']) ? intval($_POST['cont_cuenta_id']) : null,
                 'iva_alicuota_id' => $_POST['iva_alicuota_id'] !== '' ? $_POST['iva_alicuota_id'] : null,
                 'empresa_idx' => $empresa_idx
             ];

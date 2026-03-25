@@ -366,11 +366,11 @@ function agregarFacturaProveedor($conexion, $data)
        // Insertar factura con descuento_general_pct
         $sql = "INSERT INTO gestion__facturas_proveedores 
                 (empresa_id, sucursal_id, comprobante_tipo_id, comprobante_pv, comprobante_nro, 
-                 entidad_id, entidad_sucursal_id, f_emision, f_vencimiento, f_entrega_estimada,
+                 entidad_id, entidad_sucursal_id, f_emision, f_contabilidad, f_vencimiento, f_entrega_estimada,
                  condicion_pago_id, moneda_id, tipo_cambio, direccion_entrega, 
                  subtotal, no_gravado, exento, descuentos, impuestos, total, 
                  descuento_general_pct, observaciones, tabla_estado_registro_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -403,7 +403,7 @@ function agregarFacturaProveedor($conexion, $data)
         $estado_inicial_val = intval($estado_inicial);
 
         // Cadena de tipos: 23 parámetros
-        $types = "iiiiiiisssiidsdddddddsi";
+        $types = "iiiiiiissssiidsdddddddsi";
         mysqli_stmt_bind_param($stmt, $types,
             $empresa_id_val,
             $sucursal_id_val,
@@ -413,6 +413,7 @@ function agregarFacturaProveedor($conexion, $data)
             $entidad_id_val,
             $entidad_sucursal_id_val,
             $f_emision_val,
+            $f_contabilidad_val,
             $f_vencimiento_val,
             $f_entrega_estimada_val,
             $condicion_pago_id_val,
@@ -491,7 +492,8 @@ function editarFacturaProveedor($conexion, $id, $data)
                 comprobante_nro = ?, 
                 entidad_id = ?, 
                 entidad_sucursal_id = ?, 
-                f_emision = ?, 
+                f_emision = ?,
+                f_contabilidad = ?, 
                 f_vencimiento = ?, 
                 f_entrega_estimada = ?,
                 condicion_pago_id = ?, 
@@ -521,6 +523,7 @@ function editarFacturaProveedor($conexion, $id, $data)
         $entidad_id_val = intval($data['entidad_id']);
         $entidad_sucursal_id_val = $entidad_sucursal_id;
         $f_emision_val = $data['f_emision'];
+        $f_contabilidad_val = $data['f_contabilidad'];
         $f_vencimiento_val = $f_vencimiento;
         $f_entrega_estimada_val = null;
         $condicion_pago_id_val = $condicion_pago_id;
@@ -539,7 +542,7 @@ function editarFacturaProveedor($conexion, $id, $data)
         $empresa_idx_val = intval($data['empresa_idx']);
 
         // Cadena de tipos: 23 parámetros (21 SET + 2 WHERE)
-        $types = "iiiiiisssiidsdddddddsii";
+        $types = "iiiiiissssiidsdddddddsii";
          //1, 34, 1, 90, 2, 2, '2026-03-09', '2026-03-19', NULL, 1, 1, 1.0, '', 667555.3, 36711.7, 0.0, 0.0, 140186.61, 807741.91, 0.0, '', 8, 2
         mysqli_stmt_bind_param($stmt, $types,
             $sucursal_id_val,
@@ -549,6 +552,7 @@ function editarFacturaProveedor($conexion, $id, $data)
             $entidad_id_val,
             $entidad_sucursal_id_val,
             $f_emision_val,
+            $f_contabilidad_val,
             $f_vencimiento_val,
             $f_entrega_estimada_val,
             $condicion_pago_id_val,
@@ -632,7 +636,7 @@ function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx)
         }
     }
 
-    $sql = "SELECT fp.*, fp.sucursal_id, fp.descuento_general_pct,
+    $sql = "SELECT fp.*, fp.sucursal_id, fp.descuento_general_pct, fp.f_contabilidad,
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    ct.comprobante_tipo,
@@ -797,7 +801,7 @@ function obtenerSucursales($conexion, $entidad_id, $empresa_idx)
 
 function obtenerCondicionesPago($conexion, $empresa_idx)
 {
-    $sql = "SELECT condicion_pago_id, codigo, condicion_pago, tipo 
+    $sql = "SELECT condicion_pago_id, codigo, condicion_pago, tipo, dias_primer_vencimiento 
             FROM gestion__condiciones_pago 
             WHERE empresa_id = ?
             AND tabla_estado_registro_id = 1 

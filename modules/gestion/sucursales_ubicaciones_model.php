@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
 /**
- * Modelo para gestión de ubicaciones de sucursales
+ * Modelo para gestión de ubicaciones de sucursales con depósitos
  * Toda la configuración se obtiene de conf__paginas_funciones
  */
 
@@ -252,8 +252,35 @@ function obtenerSucursalesActivas($conexion, $empresa_idx)
     return $sucursales;
 }
 
+// ✅ Obtener depósitos por sucursal
+function obtenerDepositosPorSucursal($conexion, $sucursal_id)
+{
+    $sucursal_id = intval($sucursal_id);
 
-// ✅ Obtener todas las ubicaciones con filtros (ORDENADO)
+    $sql = "SELECT deposito_id, deposito_nombre, codigo, es_principal
+            FROM gestion__depositos
+            WHERE sucursal_id = ? 
+            AND tabla_estado_registro_id = 1
+            ORDER BY es_principal DESC, orden ASC, deposito_nombre ASC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $sucursal_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $depositos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $depositos[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $depositos;
+}
+
+// ✅ Obtener todas las ubicaciones con filtros (ORDENADO con depósito)
 function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filters = [])
 {
     $empresa_idx = intval($empresa_idx);
@@ -263,10 +290,13 @@ function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filt
                    gs.sucursal_nombre,
                    gs.localidad_id,
                    cl.localidad,
+                   gd.deposito_nombre,
+                   gd.codigo AS deposito_codigo,
                    er.estado_registro, er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase
             FROM gestion__sucursales_ubicaciones gu
             INNER JOIN gestion__sucursales gs ON gu.sucursal_id = gs.sucursal_id
+            INNER JOIN gestion__depositos gd ON gu.deposito_id = gd.deposito_id
             LEFT JOIN conf__localidades cl ON gs.localidad_id = cl.localidad_id
             LEFT JOIN conf__estados_registros er ON gu.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
@@ -279,6 +309,12 @@ function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filt
     if (!empty($filters['sucursal'])) {
         $sql .= " AND gu.sucursal_id = ?";
         $params[] = intval($filters['sucursal']);
+        $types .= "i";
+    }
+
+    if (!empty($filters['deposito'])) {
+        $sql .= " AND gu.deposito_id = ?";
+        $params[] = intval($filters['deposito']);
         $types .= "i";
     }
 
@@ -299,8 +335,8 @@ function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filt
         $types .= "sssss";
     }
 
-    // ✅ ORDENAR POR: sucursal, sección, estantería, estante y posición
-    $sql .= " ORDER BY gs.sucursal_nombre ASC, gu.seccion ASC, gu.estanteria ASC, gu.estante ASC, gu.posicion ASC";
+    // ✅ ORDENAR POR: sucursal, depósito, sección, estantería, estante y posición
+    $sql .= " ORDER BY gs.sucursal_nombre ASC, gd.deposito_nombre ASC, gu.seccion ASC, gu.estanteria ASC, gu.estante ASC, gu.posicion ASC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -329,6 +365,11 @@ function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filt
             'sucursal_nombre' => $fila['sucursal_nombre'],
             'localidad' => $fila['localidad']
         ];
+        
+        $fila['deposito_info'] = [
+            'deposito_nombre' => $fila['deposito_nombre'],
+            'deposito_codigo' => $fila['deposito_codigo']
+        ];
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $data[] = $fila;
@@ -338,10 +379,11 @@ function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filt
     return $data;
 }
 
-// ✅ Agregar nueva ubicación (con estado inicial) - ACTUALIZADA CON POSICIÓN
+// ✅ Agregar nueva ubicación (con estado inicial y depósito)
 function agregarSucursalUbicacion($conexion, $data)
 {
     $sucursal_id = intval($data['sucursal_id'] ?? 0);
+    $deposito_id = intval($data['deposito_id'] ?? 0);
     $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
     $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
     $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
@@ -353,6 +395,10 @@ function agregarSucursalUbicacion($conexion, $data)
     // Validaciones básicas
     if ($sucursal_id <= 0) {
         return ['resultado' => false, 'error' => 'Debe seleccionar una sucursal válida'];
+    }
+    
+    if ($deposito_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un depósito válido'];
     }
 
     if (empty($seccion)) {
@@ -404,28 +450,44 @@ function agregarSucursalUbicacion($conexion, $data)
     if (mysqli_num_rows($result) == 0) {
         return ['resultado' => false, 'error' => 'La sucursal seleccionada no pertenece a esta empresa'];
     }
+    
+    // Verificar que el depósito pertenezca a la sucursal y empresa
+    $sql_check_deposito = "SELECT deposito_id FROM gestion__depositos 
+                           WHERE deposito_id = ? AND sucursal_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check_deposito);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    // Verificar duplicados (misma sucursal + misma sección + misma estantería + mismo estante + misma posición)
+    mysqli_stmt_bind_param($stmt, "iii", $deposito_id, $sucursal_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'El depósito seleccionado no pertenece a esta sucursal/empresa'];
+    }
+
+    // Verificar duplicados (misma sucursal + mismo depósito + misma sección + misma estantería + mismo estante + misma posición)
     $sql_check = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
-                  WHERE sucursal_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?";
+                  WHERE sucursal_id = ? AND deposito_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issss", $sucursal_id, $seccion, $estanteria, $estante, $posicion);
+    mysqli_stmt_bind_param($stmt, "iissss", $sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
     if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe una ubicación con esta combinación completa en la sucursal seleccionada'];
+        return ['resultado' => false, 'error' => 'Ya existe una ubicación con esta combinación completa en la sucursal/depósito seleccionado'];
     }
 
     // Insertar nueva ubicación
     $sql = "INSERT INTO gestion__sucursales_ubicaciones 
-            (empresa_id, sucursal_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            (empresa_id, sucursal_id, deposito_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -433,9 +495,10 @@ function agregarSucursalUbicacion($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "iisssssi",
+        "iiisssssi",
         $empresa_idx,
         $sucursal_id,
+        $deposito_id,
         $seccion,
         $estanteria,
         $estante,
@@ -455,11 +518,12 @@ function agregarSucursalUbicacion($conexion, $data)
     }
 }
 
-// ✅ Editar ubicación existente - ACTUALIZADA CON POSICIÓN
+// ✅ Editar ubicación existente (con depósito)
 function editarSucursalUbicacion($conexion, $id, $data)
 {
     $id = intval($id);
     $sucursal_id = intval($data['sucursal_id'] ?? 0);
+    $deposito_id = intval($data['deposito_id'] ?? 0);
     $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
     $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
     $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
@@ -471,6 +535,10 @@ function editarSucursalUbicacion($conexion, $id, $data)
     // Validaciones básicas
     if ($sucursal_id <= 0) {
         return ['resultado' => false, 'error' => 'Debe seleccionar una sucursal válida'];
+    }
+    
+    if ($deposito_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un depósito válido'];
     }
 
     if (empty($seccion)) {
@@ -540,31 +608,47 @@ function editarSucursalUbicacion($conexion, $id, $data)
     if (mysqli_num_rows($result) == 0) {
         return ['resultado' => false, 'error' => 'La sucursal seleccionada no pertenece a esta empresa'];
     }
+    
+    // Verificar que el depósito pertenezca a la sucursal y empresa
+    $sql_check_deposito = "SELECT deposito_id FROM gestion__depositos 
+                           WHERE deposito_id = ? AND sucursal_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check_deposito);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    // Verificar duplicados (excluyendo registro actual) - AHORA CON POSICIÓN
+    mysqli_stmt_bind_param($stmt, "iii", $deposito_id, $sucursal_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'El depósito seleccionado no pertenece a esta sucursal/empresa'];
+    }
+
+    // Verificar duplicados (excluyendo registro actual) - AHORA CON DEPÓSITO Y POSICIÓN
     $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
-                      WHERE sucursal_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?
+                      WHERE sucursal_id = ? AND deposito_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?
                       AND sucursal_ubicacion_id != ?";
     $stmt = mysqli_prepare($conexion, $sql_duplicate);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issssi", $sucursal_id, $seccion, $estanteria, $estante, $posicion, $id);
+    mysqli_stmt_bind_param($stmt, "iissssi", $sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion, $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
     if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe otra ubicación con esta combinación completa en la sucursal seleccionada'];
+        return ['resultado' => false, 'error' => 'Ya existe otra ubicación con esta combinación completa en la sucursal/depósito seleccionado'];
     }
 
-    // Construir consulta de actualización - AHORA CON POSICIÓN
+    // Construir consulta de actualización - AHORA CON DEPÓSITO Y POSICIÓN
     $sql = "UPDATE gestion__sucursales_ubicaciones 
-            SET sucursal_id = ?, seccion = ?, estanteria = ?, estante = ?, posicion = ?, descripcion = ?";
+            SET sucursal_id = ?, deposito_id = ?, seccion = ?, estanteria = ?, estante = ?, posicion = ?, descripcion = ?";
 
-    $params = [$sucursal_id, $seccion, $estanteria, $estante, $posicion, $descripcion];
-    $types = "isssss";
+    $params = [$sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion, $descripcion];
+    $types = "iisssss";
 
     if ($estado_registro_id) {
         $sql .= ", tabla_estado_registro_id = ?";
@@ -597,9 +681,11 @@ function obtenerSucursalUbicacionPorId($conexion, $id, $empresa_idx)
     $id = intval($id);
     $empresa_idx = intval($empresa_idx);
 
-    $sql = "SELECT gu.*, gs.sucursal_nombre, er.estado_registro, er.codigo_estandar
+    $sql = "SELECT gu.*, gs.sucursal_nombre, er.estado_registro, er.codigo_estandar,
+                   gd.deposito_nombre, gd.codigo AS deposito_codigo
             FROM gestion__sucursales_ubicaciones gu
             INNER JOIN gestion__sucursales gs ON gu.sucursal_id = gs.sucursal_id
+            INNER JOIN gestion__depositos gd ON gu.deposito_id = gd.deposito_id
             LEFT JOIN conf__estados_registros er ON gu.tabla_estado_registro_id = er.estado_registro_id
             WHERE gu.sucursal_ubicacion_id = ? AND gs.empresa_id = ?";
 
@@ -616,7 +702,7 @@ function obtenerSucursalUbicacionPorId($conexion, $id, $empresa_idx)
     return $sucursal_ubicacion;
 }
 
-// ✅ Obtener valores por defecto según tipo de padre - REVISADO
+// ✅ Obtener valores por defecto según tipo de padre (con depósito)
 function obtenerValoresPorDefecto($conexion, $parent_type, $parent_id, $empresa_idx)
 {
     $parent_type = mysqli_real_escape_string($conexion, trim($parent_type));
@@ -625,68 +711,100 @@ function obtenerValoresPorDefecto($conexion, $parent_type, $parent_id, $empresa_
     
     $valores = [
         'sucursal_id' => 0,
+        'deposito_id' => 0,
         'seccion' => '',
         'estanteria' => '',
         'estante' => '',
-        'posicion' => '1A' // Valor por defecto para posición (primera posición)
+        'posicion' => '1A' // Valor por defecto para posición
     ];
     
     switch ($parent_type) {
         case 'sucursal':
             // El parent_id ES el ID de la sucursal
             $valores['sucursal_id'] = intval($parent_id);
+            // Obtener depósito principal por defecto
+            $depositos = obtenerDepositosPorSucursal($conexion, $valores['sucursal_id']);
+            if (!empty($depositos)) {
+                // Buscar el depósito principal
+                foreach ($depositos as $deposito) {
+                    if ($deposito['es_principal']) {
+                        $valores['deposito_id'] = $deposito['deposito_id'];
+                        break;
+                    }
+                }
+                // Si no hay principal, tomar el primero
+                if ($valores['deposito_id'] == 0 && !empty($depositos)) {
+                    $valores['deposito_id'] = $depositos[0]['deposito_id'];
+                }
+            }
             break;
             
-        case 'seccion':
-            // El parent_id tiene formato: sucursalId_seccion
-            // Ejemplo: "2_A" (sucursal 2, sección A)
+        case 'deposito':
+            // El parent_id tiene formato: sucursalId_depositoId
+            // Ejemplo: "2_1" (sucursal 2, depósito 1)
             $partes = explode('_', $parent_id);
             if (count($partes) >= 2) {
                 $valores['sucursal_id'] = intval($partes[0]);
-                $valores['seccion'] = $partes[1];
+                $valores['deposito_id'] = intval($partes[1]);
+            }
+            break;
+            
+        case 'seccion':
+            // El parent_id tiene formato: sucursalId_depositoId_seccion
+            // Ejemplo: "2_1_A" (sucursal 2, depósito 1, sección A)
+            $partes = explode('_', $parent_id);
+            if (count($partes) >= 3) {
+                $valores['sucursal_id'] = intval($partes[0]);
+                $valores['deposito_id'] = intval($partes[1]);
+                $valores['seccion'] = $partes[2];
             }
             break;
             
         case 'estanteria':
-            // El parent_id tiene formato: sucursalId_seccion_estanteria
-            // Ejemplo: "2_A_01" (sucursal 2, sección A, estantería 01)
+            // El parent_id tiene formato: sucursalId_depositoId_seccion_estanteria
+            // Ejemplo: "2_1_A_01"
             $partes = explode('_', $parent_id);
-            if (count($partes) >= 3) {
+            if (count($partes) >= 4) {
                 $valores['sucursal_id'] = intval($partes[0]);
-                $valores['seccion'] = $partes[1];
-                $valores['estanteria'] = $partes[2];
+                $valores['deposito_id'] = intval($partes[1]);
+                $valores['seccion'] = $partes[2];
+                $valores['estanteria'] = $partes[3];
             }
             break;
             
         case 'estante':
-            // El parent_id tiene formato: sucursalId_seccion_estanteria_estante
-            // Ejemplo: "2_A_01_01"
+            // El parent_id tiene formato: sucursalId_depositoId_seccion_estanteria_estante
+            // Ejemplo: "2_1_A_01_01"
             $partes = explode('_', $parent_id);
-            if (count($partes) >= 4) {
+            if (count($partes) >= 5) {
                 $valores['sucursal_id'] = intval($partes[0]);
-                $valores['seccion'] = $partes[1];
-                $valores['estanteria'] = $partes[2];
-                $valores['estante'] = $partes[3];
+                $valores['deposito_id'] = intval($partes[1]);
+                $valores['seccion'] = $partes[2];
+                $valores['estanteria'] = $partes[3];
+                $valores['estante'] = $partes[4];
                 
                 // Buscar la próxima posición disponible en este estante
                 $sql = "SELECT MAX(posicion) as max_posicion 
                         FROM gestion__sucursales_ubicaciones 
                         WHERE sucursal_id = ? 
+                        AND deposito_id = ?
                         AND seccion = ? 
                         AND estanteria = ? 
                         AND estante = ?";
                 
                 $stmt = mysqli_prepare($conexion, $sql);
                 if ($stmt) {
-                    mysqli_stmt_bind_param($stmt, "isss", 
+                    mysqli_stmt_bind_param($stmt, "iisss", 
                         $valores['sucursal_id'], 
+                        $valores['deposito_id'],
                         $valores['seccion'], 
                         $valores['estanteria'], 
                         $valores['estante']
                     );
                     mysqli_stmt_execute($stmt);
                     $result = mysqli_stmt_get_result($stmt);
-                    if ($fila = mysqli_fetch_assoc($result) && $fila['max_posicion']) {
+                    $fila = mysqli_fetch_assoc($result);
+                    if ($fila && $fila['max_posicion']) {
                         // Determinar próxima posición
                         $valores['posicion'] = obtenerProximaPosicion($fila['max_posicion']);
                     }

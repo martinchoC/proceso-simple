@@ -166,7 +166,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
 
-                                        <!-- Segunda fila de cabecera -->
+                                        <!-- Segunda fila de cabecera - Ultra compacta -->
                                         <div class="row mb-2">
                                             <div class="col-md-2 mb-2">
                                                 <label for="f_emision" class="form-label small mb-1">Emisión</label>
@@ -174,39 +174,38 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <div class="invalid-feedback small">Fecha obligatoria</div>
                                             </div>
                                             <div class="col-md-2 mb-2">
+                                                <label for="f_contabilidad" class="form-label small mb-1">Contabilidad</label>
+                                                <input type="date" class="form-control form-control-sm" id="f_contabilidad" name="f_contabilidad">
+                                            </div>
+                                            <div class="col-md-2 mb-2">
                                                 <label for="f_vencimiento" class="form-label small mb-1">Vencimiento</label>
-                                                <input type="date" class="form-control form-control-sm" id="f_vencimiento" name="f_vencimiento" min="">
+                                                <input type="date" class="form-control form-control-sm" id="f_vencimiento" name="f_vencimiento">
                                             </div>
                                             <div class="col-md-2 mb-2">
                                                 <label for="moneda_id" class="form-label small mb-1">Moneda</label>
                                                 <select class="form-select form-select-sm" id="moneda_id" name="moneda_id" required>
                                                     <option value="">Seleccionar</option>
                                                 </select>
-                                                <div class="invalid-feedback small">Seleccione moneda</div>
                                             </div>
                                             <div class="col-md-1 mb-2">
                                                 <label for="tipo_cambio" class="form-label small mb-1">TC</label>
-                                                <input type="number" class="form-control form-control-sm no-spinner" id="tipo_cambio" name="tipo_cambio" step="0.000001">
+                                                <input type="number" class="form-control form-control-sm no-spinner" id="tipo_cambio" name="tipo_cambio" step="0.000001" value="1">
                                             </div>
-                                            <div class="col-md-3 mb-2">
-                                                <label for="condicion_pago_id" class="form-label small mb-1">Condición Pago</label>
+                                            <div class="col-md-2 mb-2">
+                                                <label for="condicion_pago_id" class="form-label small mb-1">Cond. Pago</label>
                                                 <select class="form-select form-select-sm" id="condicion_pago_id" name="condicion_pago_id">
                                                     <option value="">Seleccionar</option>
                                                 </select>
                                             </div>
                                             <div class="col-md-1 mb-2">
-                                                <label for="descuento_general_pct" class="form-label small mb-1">Dto. General</label>
-                                                <div class="input-group input-group-sm">
-                                                    <input type="number" class="form-control form-control-sm no-spinner" 
-                                                        id="descuento_general_pct" 
-                                                        name="descuento_general_pct" 
-                                                        step="0.01" 
-                                                        min="0" 
-                                                        max="100" 
-                                                        value="0">
-                                                    <span class="input-group-text">%</span>
-                                                </div>
-                                                
+                                                <label for="descuento_general_pct" class="form-label small mb-1">Dto.%</label>
+                                                <input type="number" class="form-control form-control-sm no-spinner" 
+                                                    id="descuento_general_pct" 
+                                                    name="descuento_general_pct" 
+                                                    step="0.01" 
+                                                    min="0" 
+                                                    max="100" 
+                                                    value="0">
                                             </div>
                                         </div>
 
@@ -535,19 +534,37 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
 
         /* Estilo para pantalla completa */
+        /* Estilo para pantalla completa */
         .modal-fullscreen {
-            max-width: 100%;
-            margin: 0;
-            height: 100vh;
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+            height: 100vh !important;
         }
 
         .modal-fullscreen .modal-content {
-            height: 100vh;
-            border-radius: 0;
+            height: 100vh !important;
+            border-radius: 0 !important;
         }
 
         .modal-fullscreen .modal-body {
-            overflow-y: auto;
+            overflow-y: auto !important;
+            max-height: calc(100vh - 120px) !important;
+        }
+
+        /* Asegurar que el modal ocupe toda la pantalla */
+        .modal-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+        }
+
+        .modal-fullscreen .modal-dialog {
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
         }
 
         /* Estilo para los resultados de búsqueda */
@@ -643,6 +660,32 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         
         .detalles-vacio {
             color: #6c757d;
+        }
+        /* Asegurar que el botón de cerrar siempre sea visible */
+        .modal-header .btn-close {
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 50%;
+            padding: 0.5rem;
+            margin: -0.5rem -0.5rem -0.5rem auto;
+        }
+
+        .modal-header .btn-close:hover {
+            background-color: rgba(0,0,0,0.2);
+        }
+
+        /* Mejorar el espaciado en pantalla completa */
+        .modal-fullscreen .modal-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #f8f9fa !important;
+        }
+
+        .modal-fullscreen .modal-footer {
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+            background-color: white;
         }
     </style>
 
