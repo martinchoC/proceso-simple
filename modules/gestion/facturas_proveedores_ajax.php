@@ -109,6 +109,7 @@ try {
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'comprobante_pv' => trim($_POST['comprobante_pv'] ?? ''),
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
+                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
                 'comprobante_nro' => trim($_POST['comprobante_nro'] ?? ''),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
@@ -156,6 +157,7 @@ try {
             $data = [
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
+                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
                 'comprobante_pv' => trim($_POST['comprobante_pv'] ?? ''),                
                 'comprobante_nro' => trim($_POST['comprobante_nro'] ?? ''),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
@@ -337,7 +339,19 @@ try {
             $resultado = agregarProductoRapido($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-
+        
+        case 'obtener_depositos':
+            $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
+            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
+            
+            if (empty($sucursal_id)) {
+                echo json_encode([]);
+                break;
+            }
+            
+            $depositos = obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx_local);
+            echo json_encode($depositos, JSON_UNESCAPED_UNICODE);
+            break;
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }

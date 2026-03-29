@@ -43,7 +43,31 @@ $(document).ready(function () {
         }
     }
 
-
+    function cargarDepositosPorSucursal(sucursalId, callback) {
+        if (!sucursalId) {
+            $('#deposito_id').html('<option value="">Seleccionar depósito</option>');
+            if (callback) callback();
+            return;
+        }
+        
+        $.get('facturas_proveedores_ajax.php', {
+            accion: 'obtener_depositos',
+            sucursal_id: sucursalId,
+            empresa_idx: empresa_idx
+        }, function(data) {
+            var options = '<option value="">Seleccionar depósito</option>';
+            if (data && data.length > 0) {
+                data.forEach(function(deposito) {
+                    var selected = deposito.es_principal == 1 ? 'selected' : '';
+                    options += `<option value="${deposito.deposito_id}" ${selected}>${deposito.deposito_nombre} (${deposito.codigo})</option>`;
+                });
+            } else {
+                options = '<option value="">No hay depósitos disponibles</option>';
+            }
+            $('#deposito_id').html(options);
+            if (callback) callback();
+        }, 'json');
+    }
     // Función para formatear número con separador de miles y decimales
    // Función para formatear número con separador de miles y decimales   
     function formatNumber(number, decimals = 2) {
@@ -157,7 +181,7 @@ $(document).ready(function () {
                     className: 'btn btn-success btn-sm',
                     title: 'Facturas de Proveedores',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10],
                         orthogonal: 'export'
                     }
                 },
@@ -169,7 +193,7 @@ $(document).ready(function () {
                     orientation: 'portrait',
                     pageSize: 'A4',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10],
                         orthogonal: 'export'
                     }
                 },
@@ -179,7 +203,7 @@ $(document).ready(function () {
                     className: 'btn btn-primary btn-sm',
                     title: 'Facturas_Proveedores',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7,8, 9,10]
                     }
                 },
                 {
@@ -188,144 +212,124 @@ $(document).ready(function () {
                     className: 'btn btn-secondary btn-sm',
                     title: 'Facturas de Proveedores',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10],
                         stripHtml: false
                     }
                 }
             ],
             columns: [
-                {
-                    data: 'factura_proveedor_id',
-                    className: 'text-center'
-                },
-                {
-                    data: 'comprobante_tipo',
-                    className: 'text-center',
-                    render: function(data, type, row) {
-                        if (type === 'export') {
-                            return data || '';
-                        }
-                        return `<span>${data || ''}</span>`;
+            { data: 'factura_proveedor_id', className: 'text-center' },
+            { data: 'comprobante_tipo', className: 'text-center' },
+            { 
+                data: null, 
+                className: 'text-center',
+                render: function(data, type, row) {
+                    let numero = '';
+                    if (row.comprobante_pv && row.comprobante_pv != 0) {
+                        numero = row.comprobante_pv + '-';
                     }
-                },
-                {
-                    data: null,
-                    className: 'text-center',
-                    render: function(data, type, row) {
-                        let numero = '';
-                        if (row.comprobante_pv && row.comprobante_pv != 0) {
-                            numero = row.comprobante_pv + '-';
-                        }
-                        numero += row.comprobante_nro || '';
-                        if (type === 'export') {
-                            return numero;
-                        }
-                        return `<span>${numero}</span>`;
+                    numero += row.comprobante_nro || '';
+                    if (type === 'export') return numero;
+                    return `<span>${numero}</span>`;
+                }
+            },
+            { 
+                data: null, 
+                render: function(data, type, row) {
+                    if (type === 'export') return data.entidad_nombre || '';
+                    return `<div>${data.entidad_nombre || ''}</div>
+                            <small class="text-muted">${data.entidad_fantasia || ''}</small>`;
+                }
+            },
+            { 
+                data: 'sucursal_nombre', 
+                className: 'text-center',
+                defaultContent: '',
+                render: function(data, type, row) {
+                    if (type === 'export') return data || '';
+                    return data || '<span class="text-muted">-</span>';
+                }
+            },
+            { 
+                data: 'deposito_nombre', 
+                className: 'text-center',
+                defaultContent: '',
+                render: function(data, type, row) {
+                    if (type === 'export') return data || '';
+                    return data || '<span class="text-muted">-</span>';
+                }
+            },
+            { 
+                data: 'f_emision', 
+                className: 'text-center',
+                render: function(data, type, row) {
+                    if (type === 'export') return data;
+                    if (!data) return '';
+                    let parts = data.split('-');
+                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    return data;
+                }
+            },
+            { 
+                data: 'f_vencimiento', 
+                className: 'text-center',
+                render: function(data, type, row) {
+                    if (type === 'export' || !data) return data || '';
+                    let parts = data.split('-');
+                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    return data;
+                }
+            },
+            { 
+                data: 'total', 
+                className: 'text-end',
+                render: function(data, type, row) {
+                    if (type === 'export') return parseFloat(data).toFixed(2);
+                    return `<span class="text-primary">${formatNumber(data, 2)}</span>`;
+                }
+            },
+            { 
+                data: 'estado_info',   // ← Importante: debe ser 'estado_info'
+                className: 'text-center',
+                render: function(data, type, row) {
+                    if (!data || !data.estado_registro) {
+                        if (type === 'export') return 'Sin estado';
+                        return '<span class="text-dark">Sin estado</span>';
                     }
-                },
-                {
-                    data: null,
-                    render: function(data, type, row) {
-                        if (type === 'export') {
-                            return data.entidad_nombre || '';
-                        }
-                        return `<div>${data.entidad_nombre || ''}</div>
-                                <small class="text-muted">${data.entidad_fantasia || ''}</small>`;
-                    }
-                },
-                {
-                    data: 'f_emision',
-                    className: 'text-center',
-                    render: function(data, type, row) {
-                        if (type === 'export') {
-                            return data;
-                        }
-                        if (!data) return '';
-                        let parts = data.split('-');
-                        if (parts.length === 3) {
-                            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                        }
-                        return data;
-                    }
-                },
-                {
-                    data: 'f_vencimiento',
-                    className: 'text-center',
-                    render: function(data, type, row) {
-                        if (type === 'export' || !data) {
-                            return data || '';
-                        }
-                        let parts = data.split('-');
-                        if (parts.length === 3) {
-                            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                        }
-                        return data;
-                    }
-                },
-                {
-                    data: 'total',
-                    className: 'text-end',
-                    render: function(data, type, row) {
-                        if (type === 'export') {
-                            return parseFloat(data).toFixed(2);
-                        }
-                        return `<span class="text-primary">${formatNumber(data, 2)}</span>`;
-                    }
-                },
-                {
-                    data: 'estado_info',
-                    className: 'text-center',
-                    render: function(data, type, row) {
-                        if (!data || !data.estado_registro) {
-                            if (type === 'export') {
-                                return 'Sin estado';
+                    var estado = data.estado_registro;
+                    var colorClass = data.bg_clase || 'bg-secondary';
+                    var textClass = data.text_clase || 'text-white';
+                    if (type === 'export') return estado;
+                    return estado;
+                }
+            },
+            { 
+                data: 'botones', 
+                orderable: false, 
+                searchable: false, 
+                className: "text-center", 
+                width: '250px',
+                render: function(data, type, row) {
+                    var botones = '';
+                    if (data && data.length > 0) {
+                        var editarBoton = '';
+                        var otrosBotones = '';
+                        data.forEach(function(boton) {
+                            var claseBoton = 'btn-sm me-1 ';
+                            if (boton.bg_clase && boton.text_clase) {
+                                claseBoton += boton.bg_clase + ' ' + boton.text_clase;
+                            } else if (boton.color_clase) {
+                                claseBoton += boton.color_clase;
+                            } else {
+                                claseBoton += 'btn-outline-primary';
                             }
-                            return '<span class="text-dark">Sin estado</span>';
-                        }
-
-                        var estado = data.estado_registro;
-                        var colorClass = data.bg_clase || 'bg-secondary';
-                        var textClass = data.text_clase || 'text-white';
-
-                        if (type === 'export') {
-                            return estado;
-                        }
-
-                        return `<span class="badge ${colorClass} ${textClass}">${estado}</span>`;
-                    }
-                },
-                {
-                    data: 'botones',
-                    orderable: false,
-                    searchable: false,
-                    className: "text-center",
-                    width: '250px',
-                    render: function(data, type, row) {
-                        var botones = '';
-
-                        if (data && data.length > 0) {
-                            var editarBoton = '';
-                            var otrosBotones = '';
-
-                            data.forEach(boton => {
-                                var claseBoton = 'btn-sm me-1 ';
-                                if (boton.bg_clase && boton.text_clase) {
-                                    claseBoton += boton.bg_clase + ' ' + boton.text_clase;
-                                } else if (boton.color_clase) {
-                                    claseBoton += boton.color_clase;
-                                } else {
-                                    claseBoton += 'btn-outline-primary';
-                                }
-
-                                var titulo = boton.descripcion || boton.nombre_funcion;
-                                var accionJs = boton.accion_js;
-                                var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
-                                var esConfirmable = boton.es_confirmable || 0;
-                                
-                                var comprobanteInfo = `${row.comprobante_tipo || ''} ${row.comprobante_pv || ''}-${row.comprobante_nro || ''}`;
-                                var proveedorInfo = row.entidad_nombre || row.entidad_fantasia || '';
-
-                                var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
+                            var titulo = boton.descripcion || boton.nombre_funcion;
+                            var accionJs = boton.accion_js;
+                            var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
+                            var esConfirmable = boton.es_confirmable || 0;
+                            var comprobanteInfo = `${row.comprobante_tipo || ''} ${row.comprobante_pv || ''}-${row.comprobante_nro || ''}`;
+                            var proveedorInfo = row.entidad_nombre || row.entidad_fantasia || '';
+                            var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
                                                 title="${titulo}" 
                                                 data-id="${row.factura_proveedor_id}" 
                                                 data-accion="${accionJs}"
@@ -334,23 +338,20 @@ $(document).ready(function () {
                                                 data-proveedor="${proveedorInfo}">
                                                 ${icono}
                                             </button>`;
-
-                                if (accionJs === 'editar') {
-                                    editarBoton = botonHtml;
-                                } else {
-                                    otrosBotones += botonHtml;
-                                }
-                            });
-
-                            botones = editarBoton + otrosBotones;
-                        } else {
-                            botones = '<span class="text-muted small">Sin acciones</span>';
-                        }
-
-                        return `<div class="btn-group" role="group">${botones}</div>`;
+                            if (accionJs === 'editar') {
+                                editarBoton = botonHtml;
+                            } else {
+                                otrosBotones += botonHtml;
+                            }
+                        });
+                        botones = editarBoton + otrosBotones;
+                    } else {
+                        botones = '<span class="text-muted small">Sin acciones</span>';
                     }
+                    return `<div class="btn-group" role="group">${botones}</div>`;
                 }
-            ],
+            }
+        ],
             language: {
                 url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
             },
@@ -571,6 +572,10 @@ $(document).ready(function () {
         }
     });
 
+    $('#sucursal_id').on('change', function() {
+        var sucursalId = $(this).val();
+        cargarDepositosPorSucursal(sucursalId);
+    });
     // Cuando cambia la condición de pago, recalcular vencimiento
     $('#condicion_pago_id').on('change', function() {
         console.log("Condición de pago cambiada a:", $(this).val());
@@ -686,6 +691,15 @@ $(document).ready(function () {
                     // ASIGNAR SUCURSAL_ID DESPUÉS DE CARGAR EL COMBO
                     if (sucursalIdParaEditar) {
                         $('#sucursal_id').val(sucursalIdParaEditar);
+                        // Cargar depósitos y luego asignar el depósito guardado
+                        cargarDepositosPorSucursal(sucursalIdParaEditar, function() {
+                            if (res.deposito_id) {
+                                $('#deposito_id').val(res.deposito_id);
+                            }
+                        });
+                    } else {
+                        // Si no hay sucursal, limpiar depósitos
+                        cargarDepositosPorSucursal(null);
                     }
                     
                     // Seleccionar el valor correcto en el combo unificado
@@ -708,7 +722,9 @@ $(document).ready(function () {
                         
                         console.log("Proveedor cargado para edición:", proveedorActualId, "Sucursal:", proveedorSucursalActualId);
                     }
-                    
+                    if (res.deposito_id) {
+                        $('#deposito_id').val(res.deposito_id);
+                    }
                     // Cargar detalles si existen
                     if (res.detalles && res.detalles.length > 0) {
                         detalles = res.detalles.map(function(detalle, index) {
@@ -1462,6 +1478,7 @@ $(document).ready(function () {
         $('#impuestos').val('0');
         $('#total').val('0');
         $('#formFacturaProveedor').removeClass('was-validated');
+        $('#deposito_id').val('');
         
         detalles = [];
         proveedorActualId = null;
@@ -1542,8 +1559,19 @@ $(document).ready(function () {
                     
                     if (sucursalIdParaEditar) {
                         $('#sucursal_id').val(sucursalIdParaEditar);
+                        // Cargar depósitos y luego asignar el depósito guardado
+                        cargarDepositosPorSucursal(sucursalIdParaEditar, function() {
+                            if (res.deposito_id) {
+                                $('#deposito_id').val(res.deposito_id);
+                            }
+                        });
+                    } else {
+                        // Si no hay sucursal, limpiar depósitos
+                        cargarDepositosPorSucursal(null);
                     }
-                    
+                    if (res.deposito_id) {
+                        $('#deposito_id').val(res.deposito_id);
+                    }
                     if (res.entidad_id) {
                         proveedorActualId = res.entidad_id;
                         
@@ -1687,6 +1715,7 @@ $(document).ready(function () {
         formData.append('total', $('#total').val() || '0');
         formData.append('detalles', JSON.stringify(detalles));
         formData.append('descuento_general_pct', $('#descuento_general_pct').val() || '0');
+        formData.append('deposito_id', $('#deposito_id').val() || '');
 
         // Log para depuración
         console.log("=== DATOS ENVIADOS ===");

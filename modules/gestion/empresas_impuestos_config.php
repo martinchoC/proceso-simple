@@ -2,10 +2,10 @@
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
 
-$pageTitle = "IVA Alícuotas";
-$currentPage = 'iva_alicuotas';
+$pageTitle = "Tipos de Impuestos";
+$currentPage = 'impuestos_tipos';
 $modudo_idx = 2;
-$pagina_idx = 65; // ID de página para IVA alícuotas
+$pagina_idx = 72; // ID de página para Tipos de Impuestos (ajustar según corresponda)
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -17,7 +17,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="row">
                 <div class="col-sm-6">
                     <h3 class="mb-0">
-                        <i class="fas fa-percentage me-2"></i>IVA Alícuotas
+                        <i class="fas fa-tags me-2"></i>Tipos de Impuestos
                     </h3>
                     <small class="text-muted">Sistema Declarativo Multiempresa</small>
                 </div>
@@ -26,7 +26,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <li class="breadcrumb-item"><a href="#">Home</a></li>
                         <li class="breadcrumb-item"><a href="#">Gestión</a></li>
                         <li class="breadcrumb-item"><a href="#">Impuestos</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">IVA Alícuotas</li>
+                        <li class="breadcrumb-item active" aria-current="page">Tipos de Impuestos</li>
                     </ol>
                 </div>
             </div>
@@ -77,17 +77,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                     <div class="card-body">
                                         <!-- DataTable -->
-                                        <table id="tablaIvaAlicuotas" class="table table-striped table-bordered"
+                                        <table id="tablaImpuestosTipos" class="table table-striped table-bordered"
                                             style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="80">ID</th>
-                                                    <th width="100">Código</th>
-                                                    <th width="200">Alicuota</th>
-                                                    <th width="100">Porcentaje</th>
-                                                    <th width="150">Tipo</th>
-                                                    <th width="120">Estado</th>
-                                                    <th width="200" class="text-center">Acciones</th>
+                                                    <th width="50">ID</th>
+                                                    <th width="200">Tipo de Impuesto</th>
+                                                    <th width="100">Código AFIP</th>
+                                                    <th width="80" class="text-center">Compra</th>
+                                                    <th width="80" class="text-center">Venta</th>
+                                                    <th width="80" class="text-center">Retención</th>
+                                                    <th width="80" class="text-center">Percepción</th>
+                                                    <th width="200">Cuenta Contable</th>
+                                                    <th width="100">Estado</th>
+                                                    <th width="150" class="text-center">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -100,112 +103,90 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </section>
             </div>
 
-            <!-- Modal para crear/editar IVA alícuota -->
-            <div class="modal fade" id="modalIvaAlicuota" tabindex="-1" aria-labelledby="modalLabel"
+            <!-- Modal para crear/editar Tipo de Impuesto -->
+            <div class="modal fade" id="modalTipoImpuesto" tabindex="-1" aria-labelledby="modalLabel"
                 aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="modalLabel">IVA Alícuota</h5>
+                            <h5 class="modal-title" id="modalLabel">Tipo de Impuesto</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"
                                 aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body">
-                            <form id="formIvaAlicuota" class="needs-validation" novalidate>
-                                <input type="hidden" id="iva_alicuota_id" name="iva_alicuota_id" />
+                            <form id="formTipoImpuesto" class="needs-validation" novalidate>
+                                <input type="hidden" id="impuesto_tipo_id" name="impuesto_tipo_id" />
                                 
                                 <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="codigo" class="form-label">Código *</label>
-                                        <input type="text" class="form-control" id="codigo" name="codigo" 
-                                            maxlength="10" required>
-                                        <div class="invalid-feedback">El código es obligatorio (máx. 10 caracteres)</div>
+                                    <div class="col-md-12 mb-3">
+                                        <label for="impuesto_tipo" class="form-label">Tipo de Impuesto *</label>
+                                        <input type="text" class="form-control" id="impuesto_tipo" 
+                                            name="impuesto_tipo" maxlength="100" required>
+                                        <div class="invalid-feedback">El tipo de impuesto es obligatorio (máx. 100 caracteres)</div>
                                     </div>
+                                </div>
+
+                                <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="porcentaje" class="form-label">Porcentaje (%) *</label>
-                                        <div class="input-group">
-                                            <input type="number" class="form-control" id="porcentaje" 
-                                                name="porcentaje" step="0.01" min="0" max="100" 
-                                                placeholder="21.00" required>
-                                            <span class="input-group-text">%</span>
-                                        </div>
-                                        
+                                        <label for="codigo_afip" class="form-label">Código AFIP</label>
+                                        <input type="text" class="form-control" id="codigo_afip" 
+                                            name="codigo_afip" maxlength="20">
+                                        <div class="form-text">Código según nomenclador AFIP (opcional)</div>
                                     </div>
-                                    <!-- NUEVO: Campo Cuenta Contable -->
+                                    
                                     <div class="col-md-6 mb-3">
-                                        <label for="cont_cuenta_id" class="form-label">Cuenta Contable *</label>
-                                        <select class="form-select select2-cuenta" id="cont_cuenta_id" name="cont_cuenta_id" required>
+                                        <label for="cuenta_contable_id" class="form-label">Cuenta Contable</label>
+                                        <select class="form-select select2-cuenta" id="cuenta_contable_id" name="cuenta_contable_id">
                                             <option value="">Seleccione una cuenta contable...</option>
                                         </select>
-                                        <div class="invalid-feedback">La cuenta contable es obligatoria</div>
-                                        <div class="form-text">Cuenta contable para registrar este IVA</div>
+                                        <div class="form-text">Cuenta contable asociada (opcional)</div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-12 mb-3">
-                                        <label for="iva_alicuota" class="form-label">Descripción *</label>
-                                        <input type="text" class="form-control" id="iva_alicuota" 
-                                            name="iva_alicuota" maxlength="100" required>
-                                        <div class="invalid-feedback">La descripción es obligatoria</div>
-                                        <div class="form-text">Máximo 100 caracteres</div>
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-md-4 mb-3">
-                                        <label class="form-label">Tipo de IVA *</label>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="tipo_iva" 
-                                                id="gravado" value="gravado" checked>
-                                            <label class="form-check-label" for="gravado">
-                                                <i class="fas fa-check-circle text-success me-1"></i>Gravado
-                                            </label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="tipo_iva" 
-                                                id="exento" value="exento">
-                                            <label class="form-check-label" for="exento">
-                                                <i class="fas fa-ban text-warning me-1"></i>Exento
-                                            </label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="tipo_iva" 
-                                                id="no_gravado" value="no_gravado">
-                                            <label class="form-check-label" for="no_gravado">
-                                                <i class="fas fa-times-circle text-danger me-1"></i>No Gravado
-                                            </label>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-8 mb-3">
-                                        <label class="form-label">Campos correspondientes</label>
+                                        <label class="form-label">Aplicaciones</label>
                                         <div class="border rounded p-3 bg-light">
                                             <div class="row">
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <div class="form-check form-switch">
                                                         <input class="form-check-input" type="checkbox" 
-                                                            id="es_gravado" name="es_gravado" checked disabled>
-                                                        <label class="form-check-label" for="es_gravado">Gravado</label>
+                                                            id="aplica_compra" name="aplica_compra" value="1" checked>
+                                                        <label class="form-check-label" for="aplica_compra">
+                                                            <i class="fas fa-shopping-cart text-primary me-1"></i>Aplica a Compras
+                                                        </label>
                                                     </div>
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <div class="form-check form-switch">
                                                         <input class="form-check-input" type="checkbox" 
-                                                            id="es_exento" name="es_exento" disabled>
-                                                        <label class="form-check-label" for="es_exento">Exento</label>
+                                                            id="aplica_venta" name="aplica_venta" value="1">
+                                                        <label class="form-check-label" for="aplica_venta">
+                                                            <i class="fas fa-chart-line text-success me-1"></i>Aplica a Ventas
+                                                        </label>
                                                     </div>
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <div class="form-check form-switch">
                                                         <input class="form-check-input" type="checkbox" 
-                                                            id="es_no_gravado" name="es_no_gravado" disabled>
-                                                        <label class="form-check-label" for="es_no_gravado">No Gravado</label>
+                                                            id="es_retencion" name="es_retencion" value="1">
+                                                        <label class="form-check-label" for="es_retencion">
+                                                            <i class="fas fa-hand-holding-usd text-warning me-1"></i>Retención
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" 
+                                                            id="es_percepcion" name="es_percepcion" value="1">
+                                                        <label class="form-check-label" for="es_percepcion">
+                                                            <i class="fas fa-eye text-info me-1"></i>Percepción
+                                                        </label>
                                                     </div>
                                                 </div>
                                             </div>
                                             <small class="text-muted d-block mt-2">
-                                                Estos campos se actualizan automáticamente según el tipo seleccionado
+                                                Seleccione las aplicaciones del impuesto
                                             </small>
                                         </div>
                                     </div>
@@ -255,6 +236,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             background-color: #0d6efd;
             border-color: #0d6efd;
         }
+
+        .switch-label {
+            cursor: pointer;
+        }
     </style>
 
     <script>
@@ -266,13 +251,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Variables para mantener el estado del DataTable
             var tabla;
             var currentPage = 0;
-            var currentOrder = [[1, 'asc']];
+            var currentOrder = [[0, 'asc']];
             var currentSearch = '';
             
             function cargarCuentasContables() {
-                console.log("Cargando cuentas contables..."); // Para debug
+                console.log("Cargando cuentas contables...");
                 $.ajax({
-                    url: 'iva_alicuotas_ajax.php',
+                    url: 'gestion__impuestos_tipos_ajax.php',
                     type: 'GET',
                     data: {
                         accion: 'listar_cuentas_contables',
@@ -280,8 +265,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     },
                     dataType: 'json',
                     success: function(response) {
-                        console.log("Respuesta recibida:", response); // Para debug
-                        var select = $('#cont_cuenta_id');
+                        console.log("Respuesta recibida:", response);
+                        var select = $('#cuenta_contable_id');
                         select.empty();
                         select.append('<option value="">Seleccione una cuenta contable...</option>');
                         
@@ -294,46 +279,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             select.append('<option value="" disabled>No hay cuentas contables disponibles</option>');
                         }
                         
-                        // Refrescar Select2 después de cargar los datos
-                        if ($('#cont_cuenta_id').data('select2')) {
-                            $('#cont_cuenta_id').select2('destroy');
+                        if ($('#cuenta_contable_id').data('select2')) {
+                            $('#cuenta_contable_id').select2('destroy');
                         }
                         inicializarSelect2();
                     },
                     error: function(xhr, status, error) {
                         console.error('Error al cargar cuentas contables:', error);
-                        console.error('Respuesta:', xhr.responseText);
-                        $('#cont_cuenta_id').append('<option value="" disabled>Error al cargar cuentas</option>');
+                        $('#cuenta_contable_id').append('<option value="" disabled>Error al cargar cuentas</option>');
                     }
                 });
             }
-            // Manejar cambios en los radio buttons para actualizar checkboxes
-            $('input[name="tipo_iva"]').change(function() {
-                var tipo = $(this).val();
-                
-                // Resetear todos los checkboxes
-                $('#es_gravado').prop('checked', false);
-                $('#es_exento').prop('checked', false);
-                $('#es_no_gravado').prop('checked', false);
-                
-                // Activar el checkbox correspondiente
-                if (tipo === 'gravado') {
-                    $('#es_gravado').prop('checked', true);
-                } else if (tipo === 'exento') {
-                    $('#es_exento').prop('checked', true);
-                } else if (tipo === 'no_gravado') {
-                    $('#es_no_gravado').prop('checked', true);
-                }
-            });
 
             // Inicializar Select2 en el modal
             function inicializarSelect2() {
-                $('#cont_cuenta_id').select2({
+                $('#cuenta_contable_id').select2({
                     theme: 'bootstrap-5',
                     placeholder: 'Buscar cuenta contable...',
                     allowClear: true,
                     width: '100%',
-                    dropdownParent: $('#modalIvaAlicuota'),
+                    dropdownParent: $('#modalTipoImpuesto'),
                     language: {
                         noResults: function() {
                             return "No se encontraron cuentas contables";
@@ -344,16 +309,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             // Función para inicializar DataTable
             function inicializarDataTable() {
-                // Destruir DataTable existente si hay uno
-                if ($.fn.DataTable.isDataTable('#tablaIvaAlicuotas')) {
-                    $('#tablaIvaAlicuotas').DataTable().destroy();
-                    $('#tablaIvaAlicuotas tbody').empty();
+                if ($.fn.DataTable.isDataTable('#tablaImpuestosTipos')) {
+                    $('#tablaImpuestosTipos').DataTable().destroy();
+                    $('#tablaImpuestosTipos tbody').empty();
                 }
 
-                // Configuración de DataTable
-                tabla = $('#tablaIvaAlicuotas').DataTable({
+                tabla = $('#tablaImpuestosTipos').DataTable({
                     ajax: {
-                        url: 'iva_alicuotas_ajax.php',
+                        url: 'gestion__impuestos_tipos_ajax.php',
                         type: 'GET',
                         data: {
                             accion: 'listar',
@@ -393,133 +356,83 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         
                         data.search = { search: currentSearch };
                     },
-                    stateLoadCallback: function (settings) {
-                        var savedData = localStorage.getItem('DataTables_' + settings.sInstance);
-                        if (savedData) {
-                            var data = JSON.parse(savedData);
-                            
-                            if (data.search && (data.search.search === '-1' || data.search.search === '')) {
-                                data.search.search = '';
-                            }
-                            
-                            if (data.columns) {
-                                $.each(data.columns, function (i, col) {
-                                    if (col.search && col.search.search === '-1') {
-                                        col.search.search = '';
-                                    }
-                                });
-                            }
-                            
-                            return data;
-                        }
-                        return null;
-                    },
                     dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                          '<"row"<"col-sm-12"tr>>' +
                          '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
                          '<"clear">',
                     pageLength: 50,
                     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-                    buttons: [
-                        {
-                            extend: 'excelHtml5',
-                            text: '<i class="fas fa-file-excel"></i> Excel',
-                            className: 'btn btn-success btn-sm',
-                            title: 'IVA Alícuotas',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5],
-                                orthogonal: 'export'
-                            }
-                        },
-                        {
-                            extend: 'pdfHtml5',
-                            text: '<i class="fas fa-file-pdf"></i> PDF',
-                            className: 'btn btn-danger btn-sm',
-                            title: 'IVA Alícuotas',
-                            orientation: 'portrait',
-                            pageSize: 'A4',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5],
-                                orthogonal: 'export'
-                            }
-                        },
-                        {
-                            extend: 'csvHtml5',
-                            text: '<i class="fas fa-file-csv"></i> CSV',
-                            className: 'btn btn-primary btn-sm',
-                            title: 'IVA_Alicuotas',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5]
-                            }
-                        },
-                        {
-                            extend: 'print',
-                            text: '<i class="fas fa-print"></i> Imprimir',
-                            className: 'btn btn-secondary btn-sm',
-                            title: 'IVA Alícuotas',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5],
-                                stripHtml: false
-                            }
-                        }
-                    ],
                     columns: [
                         {
-                            data: 'iva_alicuota_id',
+                            data: 'impuesto_tipo_id',
                             className: 'text-center fw-bold'
                         },
                         {
-                            data: 'codigo',
-                            className: 'text-center fw-medium',
+                            data: 'impuesto_tipo',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return data;
                                 }
-                                return `<span class="badge bg-primary">${data}</span>`;
+                                return `<div class="fw-medium">${escapeHtml(data)}</div>`;
                             }
                         },
                         {
-                            data: 'iva_alicuota',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data;
-                                }
-                                return `<div class="fw-medium">${data}</div>`;
-                            }
-                        },
-                        {
-                            data: 'porcentaje',
+                            data: 'codigo_afip',
                             className: 'text-center',
                             render: function (data, type, row) {
                                 if (type === 'export') {
-                                    return data + '%';
+                                    return data || '';
                                 }
-                                return `<span class="fw-bold ${data > 0 ? 'text-success' : 'text-secondary'}">${data}%</span>`;
+                                return data ? `<span class="badge bg-secondary">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>';
                             }
                         },
                         {
-                            data: 'tipo_iva',
+                            data: 'aplica_compra',
                             className: 'text-center',
                             render: function (data, type, row) {
-                                var badgeClass = 'secondary';
-                                var icon = '';
-                                
-                                if (data === 'Gravado') {
-                                    badgeClass = 'success';
-                                    icon = '<i class="fas fa-check-circle me-1"></i>';
-                                } else if (data === 'Exento') {
-                                    badgeClass = 'warning';
-                                    icon = '<i class="fas fa-ban me-1"></i>';
-                                } else if (data === 'No Gravado') {
-                                    badgeClass = 'danger';
-                                    icon = '<i class="fas fa-times-circle me-1"></i>';
-                                }
-                                
                                 if (type === 'export') {
-                                    return data;
+                                    return data == 1 ? 'Sí' : 'No';
                                 }
-                                
-                                return `<span class="badge bg-${badgeClass} badge-tipo">${icon}${data}</span>`;
+                                return data == 1 ? '<i class="fas fa-check-circle text-success fa-lg" title="Aplica a compras"></i>' : '<i class="fas fa-times-circle text-danger fa-lg" title="No aplica a compras"></i>';
+                            }
+                        },
+                        {
+                            data: 'aplica_venta',
+                            className: 'text-center',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data == 1 ? 'Sí' : 'No';
+                                }
+                                return data == 1 ? '<i class="fas fa-check-circle text-success fa-lg" title="Aplica a ventas"></i>' : '<i class="fas fa-times-circle text-danger fa-lg" title="No aplica a ventas"></i>';
+                            }
+                        },
+                        {
+                            data: 'es_retencion',
+                            className: 'text-center',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data == 1 ? 'Sí' : 'No';
+                                }
+                                return data == 1 ? '<i class="fas fa-check-circle text-success fa-lg" title="Es retención"></i>' : '<i class="fas fa-times-circle text-danger fa-lg" title="No es retención"></i>';
+                            }
+                        },
+                        {
+                            data: 'es_percepcion',
+                            className: 'text-center',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data == 1 ? 'Sí' : 'No';
+                                }
+                                return data == 1 ? '<i class="fas fa-check-circle text-success fa-lg" title="Es percepción"></i>' : '<i class="fas fa-times-circle text-danger fa-lg" title="No es percepción"></i>';
+                            }
+                        },
+                        {
+                            data: 'cuenta_contable',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data || '';
+                                }
+                                return data ? `<span class="text-info">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>';
                             }
                         },
                         {
@@ -548,7 +461,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             orderable: false,
                             searchable: false,
                             className: "text-center",
-                            width: '200px',
+                            width: '150px',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return '';
@@ -577,10 +490,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                         var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
                                        title="${titulo}" 
-                                       data-id="${row.iva_alicuota_id}" 
+                                       data-id="${row.impuesto_tipo_id}" 
                                        data-accion="${accionJs}"
                                        data-confirmable="${esConfirmable}"
-                                       data-alicuota="${row.iva_alicuota}">
+                                       data-tipo="${escapeHtml(row.impuesto_tipo)}">
                                     ${icono}
                                 </button>`;
 
@@ -601,13 +514,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
-                        buttons: {
-                            excel: 'Excel',
-                            pdf: 'PDF',
-                            csv: 'CSV',
-                            print: 'Imprimir'
-                        }
+                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
                     },
                     order: currentOrder,
                     responsive: true,
@@ -619,12 +526,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     },
                     initComplete: function () {
-                        // Mover los botones de exportación
-                        var buttons = new $.fn.dataTable.Buttons(tabla, {
-                            buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
-                        }).container().appendTo($('#tablaIvaAlicuotas_wrapper .col-md-6:eq(1)'));
-
-                        // Guardar estado actual
                         $(tabla.table().container()).on('page.dt', function (e) {
                             currentPage = tabla.page();
                         });
@@ -637,33 +538,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             currentSearch = tabla.search();
                         });
 
-                        // Limpiar el campo de búsqueda si tiene "-1"
                         setTimeout(function () {
                             var searchInput = $('.dataTables_filter input');
                             if (searchInput.val() === '-1' || searchInput.val() === '') {
                                 searchInput.val('');
                                 currentSearch = '';
-
-                                var savedData = localStorage.getItem('DataTables_' + tabla.settings()[0].sInstance);
-                                if (savedData) {
-                                    var data = JSON.parse(savedData);
-                                    if (data.search && (data.search.search === '-1' || data.search.search === '')) {
-                                        data.search.search = '';
-                                        localStorage.setItem('DataTables_' + tabla.settings()[0].sInstance, JSON.stringify(data));
-                                    }
-                                }
                             }
                         }, 100);
                     }
                 });
 
-                // Inicializar eventos después de crear la tabla
                 inicializarEventos();
             }
 
-            // Función para inicializar eventos
             function inicializarEventos() {
-                // Botón recargar
                 $('#btnRecargar').off('click').on('click', function () {
                     var btn = $(this);
                     btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
@@ -674,7 +562,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         search: tabla.search()
                     };
 
-                    tabla.ajax.reload(function (json) {
+                    tabla.ajax.reload(function () {
                         if (savedState.page !== undefined) {
                             tabla.page(savedState.page).draw('page');
                         }
@@ -686,9 +574,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
             }
 
-            // Cargar botón Agregar dinámicamente
             function cargarBotonAgregar() {
-                $.get('iva_alicuotas_ajax.php', {
+                $.get('gestion__impuestos_tipos_ajax.php', {
                     accion: 'obtener_boton_agregar',
                     pagina_idx: pagina_idx
                 }, function (botonAgregar) {
@@ -710,38 +597,39 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     } else {
                         $('#contenedor-boton-agregar').html(
                             '<button type="button" class="btn btn-primary" id="btnNuevo">' +
-                            '<i class="fas fa-plus me-1"></i>Agregar Alícuota</button>'
+                            '<i class="fas fa-plus me-1"></i>Agregar Tipo de Impuesto</button>'
                         );
                     }
                 }, 'json');
             }
 
-            // Manejador para botón "Agregar"
             $(document).on('click', '#btnNuevo', function () {
                 resetModal();
-                $('#modalLabel').text('Nueva Alícuota IVA');
+                $('#modalLabel').text('Nuevo Tipo de Impuesto');
                 
-                // Establecer valores por defecto
-                $('input[name="tipo_iva"][value="gravado"]').prop('checked', true).trigger('change');
+                // Valores por defecto
+                $('#aplica_compra').prop('checked', true);
+                $('#aplica_venta').prop('checked', false);
+                $('#es_retencion').prop('checked', false);
+                $('#es_percepcion').prop('checked', false);
                 
-                var modal = new bootstrap.Modal(document.getElementById('modalIvaAlicuota'));
+                var modal = new bootstrap.Modal(document.getElementById('modalTipoImpuesto'));
                 modal.show();
-                $('#codigo').focus();
+                $('#impuesto_tipo').focus();
             });
 
-            // Manejador para botones de acción dinámicos
             $(document).on('click', '.btn-accion', function () {
-                var alicuotaId = $(this).data('id');
+                var tipoId = $(this).data('id');
                 var accionJs = $(this).data('accion');
                 var confirmable = $(this).data('confirmable');
-                var alicuota = $(this).data('alicuota');
+                var tipo = $(this).data('tipo');
 
                 if (accionJs === 'editar') {
-                    cargarAlicuotaParaEditar(alicuotaId);
+                    cargarTipoParaEditar(tipoId);
                 } else if (confirmable == 1) {
                     Swal.fire({
                         title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
-                        html: `¿Está seguro de <strong>${accionJs}</strong> la alícuota <strong>"${alicuota}"</strong>?`,
+                        html: `¿Está seguro de <strong>${accionJs}</strong> el tipo de impuesto <strong>"${tipo}"</strong>?`,
                         icon: 'question',
                         showCancelButton: true,
                         confirmButtonColor: '#3085d6',
@@ -752,31 +640,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         allowOutsideClick: false
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            ejecutarAccion(alicuotaId, accionJs, alicuota);
+                            ejecutarAccion(tipoId, accionJs, tipo);
                         }
                     });
                 } else {
-                    ejecutarAccion(alicuotaId, accionJs, alicuota);
+                    ejecutarAccion(tipoId, accionJs, tipo);
                 }
             });
 
-            // Función para ejecutar cualquier acción del backend
-            function ejecutarAccion(alicuotaId, accionJs, alicuota) {
+            function ejecutarAccion(tipoId, accionJs, tipo) {
                 var savedState = {
                     page: tabla.page(),
                     order: tabla.order(),
                     search: tabla.search()
                 };
 
-                $.post('iva_alicuotas_ajax.php', {
+                $.post('gestion__impuestos_tipos_ajax.php', {
                     accion: 'ejecutar_accion',
-                    iva_alicuota_id: alicuotaId,
+                    impuesto_tipo_id: tipoId,
                     accion_js: accionJs,
                     empresa_idx: empresa_idx,
                     pagina_idx: pagina_idx
                 }, function (res) {
                     if (res.success) {
-                        tabla.ajax.reload(function (json) {
+                        tabla.ajax.reload(function () {
                             if (savedState.page !== undefined) {
                                 tabla.page(savedState.page).draw('page');
                             }
@@ -784,10 +671,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 tabla.search(savedState.search).draw();
                             }
 
-                            // Buscar el registro actualizado y resaltarlo
                             tabla.rows().every(function (rowIdx, tableLoop, rowLoop) {
                                 var data = this.data();
-                                if (data.iva_alicuota_id == alicuotaId) {
+                                if (data.impuesto_tipo_id == tipoId) {
                                     $(this.node()).addClass('table-success');
                                     setTimeout(function () {
                                         $(this.node()).removeClass('table-success');
@@ -798,7 +684,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             Swal.fire({
                                 icon: "success",
                                 title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
-                                text: res.message || `Alícuota "${alicuota}" actualizada correctamente`,
+                                text: res.message || `Tipo de impuesto "${tipo}" actualizado correctamente`,
                                 showConfirmButton: false,
                                 timer: 1500,
                                 toast: true,
@@ -809,148 +695,100 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         Swal.fire({
                             icon: "error",
                             title: "Error",
-                            text: res.error || `Error al ${accionJs} la alícuota`,
+                            text: res.error || `Error al ${accionJs} el tipo de impuesto`,
                             confirmButtonText: "Entendido"
                         });
                     }
                 }, 'json');
             }
 
-            // Función para cargar alícuota en modal de edición
-             function cargarAlicuotaParaEditar(alicuotaId) {
-                $.get('iva_alicuotas_ajax.php', {
+            function cargarTipoParaEditar(tipoId) {
+                $.get('gestion__impuestos_tipos_ajax.php', {
                     accion: 'obtener',
-                    iva_alicuota_id: alicuotaId,
+                    impuesto_tipo_id: tipoId,
                     empresa_idx: empresa_idx
                 }, function (res) {
-                    if (res && res.iva_alicuota_id) {
+                    if (res && res.impuesto_tipo_id) {
                         resetModal();
                         
-                        $('#iva_alicuota_id').val(res.iva_alicuota_id);
-                        $('#codigo').val(res.codigo);
-                        $('#iva_alicuota').val(res.iva_alicuota);
-                        $('#porcentaje').val(res.porcentaje);
+                        $('#impuesto_tipo_id').val(res.impuesto_tipo_id);
+                        $('#impuesto_tipo').val(res.impuesto_tipo);
+                        $('#codigo_afip').val(res.codigo_afip || '');
                         
-                        // Cargar la cuenta contable seleccionada
-                        if (res.cont_cuenta_id) {
-                            $('#cont_cuenta_id').val(res.cont_cuenta_id).trigger('change');
+                        if (res.cuenta_contable_id) {
+                            $('#cuenta_contable_id').val(res.cuenta_contable_id).trigger('change');
                         }
                         
-                        // Determinar el tipo de IVA basado en los booleanos
-                        var tipoIva = 'gravado';
-                        if (res.es_exento == 1) {
-                            tipoIva = 'exento';
-                        } else if (res.es_no_gravado == 1) {
-                            tipoIva = 'no_gravado';
-                        }
+                        $('#aplica_compra').prop('checked', res.aplica_compra == 1);
+                        $('#aplica_venta').prop('checked', res.aplica_venta == 1);
+                        $('#es_retencion').prop('checked', res.es_retencion == 1);
+                        $('#es_percepcion').prop('checked', res.es_percepcion == 1);
                         
-                        $('input[name="tipo_iva"][value="' + tipoIva + '"]').prop('checked', true).trigger('change');
-                        
-                        $('#modalLabel').text('Editar Alícuota IVA');
+                        $('#modalLabel').text('Editar Tipo de Impuesto');
 
-                        var modal = new bootstrap.Modal(document.getElementById('modalIvaAlicuota'));
+                        var modal = new bootstrap.Modal(document.getElementById('modalTipoImpuesto'));
                         modal.show();
-
                     } else {
                         Swal.fire({
                             icon: "error",
                             title: "Error",
-                            text: "Error al obtener datos de la alícuota",
+                            text: "Error al obtener datos del tipo de impuesto",
                             confirmButtonText: "Entendido"
                         });
                     }
                 }, 'json');
             }
 
-            // Función para resetear el modal
             function resetModal() {
-               $('#formIvaAlicuota')[0].reset();
-                $('#iva_alicuota_id').val('');
-                $('#formIvaAlicuota').removeClass('was-validated');
-                
-                // Limpiar select2
-                $('#cont_cuenta_id').val('').trigger('change');
-                
-                // Restablecer valores por defecto
-                $('#es_gravado').prop('checked', true);
-                $('#es_exento').prop('checked', false);
-                $('#es_no_gravado').prop('checked', false);
+                $('#formTipoImpuesto')[0].reset();
+                $('#impuesto_tipo_id').val('');
+                $('#formTipoImpuesto').removeClass('was-validated');
+                $('#cuenta_contable_id').val('').trigger('change');
             }
 
-            // Validación del formulario
-           $('#btnGuardar').click(function () {
-                var form = document.getElementById('formIvaAlicuota');
+            $('#btnGuardar').click(function () {
+                var form = document.getElementById('formTipoImpuesto');
 
                 if (!form.checkValidity()) {
                     form.classList.add('was-validated');
                     return false;
                 }
 
-                var id = $('#iva_alicuota_id').val();
+                var id = $('#impuesto_tipo_id').val();
                 var accionBackend = id ? 'editar' : 'agregar';
-                var codigo = $('#codigo').val().trim();
-                var ivaAlicuota = $('#iva_alicuota').val().trim();
-                var porcentaje = parseFloat($('#porcentaje').val());
-                var contCuentaId = $('#cont_cuenta_id').val();
-                var tipoIva = $('input[name="tipo_iva"]:checked').val();
+                var impuestoTipo = $('#impuesto_tipo').val().trim();
+                var codigoAfip = $('#codigo_afip').val().trim();
+                var cuentaContableId = $('#cuenta_contable_id').val();
+                var aplicaCompra = $('#aplica_compra').is(':checked') ? 1 : 0;
+                var aplicaVenta = $('#aplica_venta').is(':checked') ? 1 : 0;
+                var esRetencion = $('#es_retencion').is(':checked') ? 1 : 0;
+                var esPercepcion = $('#es_percepcion').is(':checked') ? 1 : 0;
 
-                // Validaciones adicionales
-                if (!codigo || codigo.length > 10) {
-                    $('#codigo').addClass('is-invalid');
+                if (!impuestoTipo || impuestoTipo.length > 100) {
+                    $('#impuesto_tipo').addClass('is-invalid');
                     Swal.fire({
                         icon: "warning",
                         title: "Validación",
-                        text: "El código es obligatorio y no puede exceder los 10 caracteres",
+                        text: "El tipo de impuesto es obligatorio y no puede exceder los 100 caracteres",
                         confirmButtonText: "Entendido"
                     });
                     return false;
                 } else {
-                    $('#codigo').removeClass('is-invalid');
+                    $('#impuesto_tipo').removeClass('is-invalid');
                 }
 
-                if (!ivaAlicuota || ivaAlicuota.length > 100) {
-                    $('#iva_alicuota').addClass('is-invalid');
+                if (codigoAfip && codigoAfip.length > 20) {
+                    $('#codigo_afip').addClass('is-invalid');
                     Swal.fire({
                         icon: "warning",
                         title: "Validación",
-                        text: "La descripción es obligatoria y no puede exceder los 100 caracteres",
+                        text: "El código AFIP no puede exceder los 20 caracteres",
                         confirmButtonText: "Entendido"
                     });
                     return false;
                 } else {
-                    $('#iva_alicuota').removeClass('is-invalid');
+                    $('#codigo_afip').removeClass('is-invalid');
                 }
-
-                if (isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) {
-                    $('#porcentaje').addClass('is-invalid');
-                    Swal.fire({
-                        icon: "warning",
-                        title: "Validación",
-                        text: "El porcentaje debe ser un número entre 0 y 100",
-                        confirmButtonText: "Entendido"
-                    });
-                    return false;
-                } else {
-                    $('#porcentaje').removeClass('is-invalid');
-                }
-
-                if (!contCuentaId || contCuentaId === '') {
-                    $('#cont_cuenta_id').addClass('is-invalid');
-                    Swal.fire({
-                        icon: "warning",
-                        title: "Campo requerido",
-                        text: "Debe seleccionar una cuenta contable",
-                        confirmButtonText: "Entendido"
-                    });
-                    return false;
-                } else {
-                    $('#cont_cuenta_id').removeClass('is-invalid');
-                }
-
-                // Determinar valores booleanos
-                var es_gravado = (tipoIva === 'gravado') ? 1 : 0;
-                var es_exento = (tipoIva === 'exento') ? 1 : 0;
-                var es_no_gravado = (tipoIva === 'no_gravado') ? 1 : 0;
 
                 var btnGuardar = $(this);
                 var originalText = btnGuardar.html();
@@ -963,25 +801,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 };
 
                 $.ajax({
-                    url: 'iva_alicuotas_ajax.php',
+                    url: 'gestion__impuestos_tipos_ajax.php',
                     type: 'POST',
                     data: {
                         accion: accionBackend,
-                        iva_alicuota_id: id,
-                        codigo: codigo,
-                        iva_alicuota: ivaAlicuota,
-                        porcentaje: porcentaje,
-                        cont_cuenta_id: contCuentaId,
-                        es_gravado: es_gravado,
-                        es_exento: es_exento,
-                        es_no_gravado: es_no_gravado,
+                        impuesto_tipo_id: id,
+                        impuesto_tipo: impuestoTipo,
+                        codigo_afip: codigoAfip,
+                        cuenta_contable_id: cuentaContableId,
+                        aplica_compra: aplicaCompra,
+                        aplica_venta: aplicaVenta,
+                        es_retencion: esRetencion,
+                        es_percepcion: esPercepcion,
                         empresa_idx: empresa_idx,
                         pagina_idx: pagina_idx
                     },
                     dataType: 'json',
                     success: function (res) {
                         if (res.resultado) {
-                            tabla.ajax.reload(function (json) {
+                            tabla.ajax.reload(function () {
                                 if (savedState.page !== undefined) {
                                     tabla.page(savedState.page).draw('page');
                                 }
@@ -989,31 +827,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     tabla.search(savedState.search).draw();
                                 }
 
-                                if (id) {
-                                    tabla.rows().every(function (rowIdx, tableLoop, rowLoop) {
-                                        var data = this.data();
-                                        if (data.iva_alicuota_id == id) {
-                                            $(this.node()).addClass('table-success');
-                                            setTimeout(function () {
-                                                $(this.node()).removeClass('table-success');
-                                            }.bind(this), 2000);
-                                        }
-                                    });
-                                }
-
                                 btnGuardar.prop('disabled', false).html(originalText);
 
                                 Swal.fire({
                                     icon: "success",
                                     title: "¡Guardado!",
-                                    text: "Alícuota IVA guardada correctamente",
+                                    text: "Tipo de impuesto guardado correctamente",
                                     showConfirmButton: false,
                                     timer: 1500,
                                     toast: true,
                                     position: 'top-end'
                                 });
 
-                                var modalEl = document.getElementById('modalIvaAlicuota');
+                                var modalEl = document.getElementById('modalTipoImpuesto');
                                 var modal = bootstrap.Modal.getInstance(modalEl);
                                 modal.hide();
                             }, false);
@@ -1030,7 +856,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     error: function(xhr, status, error) {
                         btnGuardar.prop('disabled', false).html(originalText);
                         console.error('Error:', error);
-                        console.error('Response:', xhr.responseText);
                         Swal.fire({
                             icon: "error",
                             title: "Error de conexión",
@@ -1041,63 +866,131 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
             });
 
-            // Manejadores para los botones del dropdown
             $('#btnExportarExcel').click(function (e) {
                 e.preventDefault();
-                $('.buttons-excel').click();
+                exportToExcel();
             });
 
             $('#btnExportarPDF').click(function (e) {
                 e.preventDefault();
-                $('.buttons-pdf').click();
+                exportToPDF();
             });
 
             $('#btnExportarCSV').click(function (e) {
                 e.preventDefault();
-                $('.buttons-csv').click();
+                exportToCSV();
             });
 
             $('#btnExportarPrint').click(function (e) {
                 e.preventDefault();
-                $('.buttons-print').click();
+                exportToPrint();
             });
 
-            // Inicializar
+            function exportToExcel() {
+                var data = tabla.rows().data().toArray();
+                var exportData = data.map(row => ({
+                    'ID': row.impuesto_tipo_id,
+                    'Tipo de Impuesto': row.impuesto_tipo,
+                    'Código AFIP': row.codigo_afip || '',
+                    'Aplica Compra': row.aplica_compra == 1 ? 'Sí' : 'No',
+                    'Aplica Venta': row.aplica_venta == 1 ? 'Sí' : 'No',
+                    'Retención': row.es_retencion == 1 ? 'Sí' : 'No',
+                    'Percepción': row.es_percepcion == 1 ? 'Sí' : 'No',
+                    'Cuenta Contable': row.cuenta_contable || '',
+                    'Estado': row.estado_info?.estado_registro || ''
+                }));
+                
+                var ws = XLSX.utils.json_to_sheet(exportData);
+                var wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Tipos_Impuestos');
+                XLSX.writeFile(wb, `Tipos_Impuestos_${new Date().toISOString().slice(0,19)}.xlsx`);
+            }
+
+            function exportToPDF() {
+                var printWindow = window.open('', '_blank');
+                var content = '<html><head><title>Tipos de Impuestos</title>';
+                content += '<style>table {border-collapse: collapse; width: 100%;} th, td {border: 1px solid #ddd; padding: 8px; text-align: left;} th {background-color: #f2f2f2;}</style>';
+                content += '</head><body>';
+                content += '<h2>Tipos de Impuestos</h2>';
+                content += '<table>';
+                content += '<thead><tr><th>ID</th><th>Tipo de Impuesto</th><th>Código AFIP</th><th>Compra</th><th>Venta</th><th>Retención</th><th>Percepción</th><th>Cuenta Contable</th><th>Estado</th></tr></thead><tbody>';
+                
+                var data = tabla.rows().data().toArray();
+                data.forEach(row => {
+                    content += `<tr>
+                        <td>${row.impuesto_tipo_id}</td>
+                        <td>${escapeHtml(row.impuesto_tipo)}</td>
+                        <td>${row.codigo_afip || ''}</td>
+                        <td>${row.aplica_compra == 1 ? 'Sí' : 'No'}</td>
+                        <td>${row.aplica_venta == 1 ? 'Sí' : 'No'}</td>
+                        <td>${row.es_retencion == 1 ? 'Sí' : 'No'}</td>
+                        <td>${row.es_percepcion == 1 ? 'Sí' : 'No'}</td>
+                        <td>${row.cuenta_contable || ''}</td>
+                        <td>${row.estado_info?.estado_registro || ''}</td>
+                    </tr>`;
+                });
+                
+                content += '</tbody></table></body></html>';
+                printWindow.document.write(content);
+                printWindow.document.close();
+                printWindow.print();
+            }
+
+            function exportToCSV() {
+                var data = tabla.rows().data().toArray();
+                var csv = "ID,Tipo de Impuesto,Código AFIP,Aplica Compra,Aplica Venta,Retención,Percepción,Cuenta Contable,Estado\n";
+                
+                data.forEach(row => {
+                    csv += `"${row.impuesto_tipo_id}","${escapeCsv(row.impuesto_tipo)}","${escapeCsv(row.codigo_afip || '')}","${row.aplica_compra == 1 ? 'Sí' : 'No'}","${row.aplica_venta == 1 ? 'Sí' : 'No'}","${row.es_retencion == 1 ? 'Sí' : 'No'}","${row.es_percepcion == 1 ? 'Sí' : 'No'}","${escapeCsv(row.cuenta_contable || '')}","${escapeCsv(row.estado_info?.estado_registro || '')}"\n`;
+                });
+                
+                var blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+                var link = document.createElement("a");
+                var url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `Tipos_Impuestos_${new Date().toISOString().slice(0,19)}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            function exportToPrint() {
+                window.print();
+            }
+
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/[&<>]/g, function(m) {
+                    if (m === '&') return '&amp;';
+                    if (m === '<') return '&lt;';
+                    if (m === '>') return '&gt;';
+                    return m;
+                });
+            }
+
+            function escapeCsv(str) {
+                if (!str) return '';
+                return str.replace(/"/g, '""');
+            }
+
             inicializarDataTable();
             cargarBotonAgregar();
-            cargarCuentasContables(); 
-            // Agregar tooltips
+            cargarCuentasContables();
+            
             $('[title]').tooltip({
                 trigger: 'hover',
                 placement: 'top'
             });
-
-            // Limpiar localStorage si tiene el bug del "-1"
-            $(window).on('load', function () {
-                setTimeout(function () {
-                    var savedData = localStorage.getItem('DataTables_tablaIvaAlicuotas');
-                    if (savedData) {
-                        var data = JSON.parse(savedData);
-                        if (data.search) {
-                            if (data.search.search === '-1' || data.search.search === '') {
-                                data.search.search = '';
-                                localStorage.setItem('DataTables_tablaIvaAlicuotas', JSON.stringify(data));
-                            }
-                        }
-                    }
-                }, 500);
-            });
         });
     </script>
 
-    <!-- Librerías necesarias para DataTables Buttons -->
+    <!-- Librerías necesarias -->
     <link rel="stylesheet" type="text/css"
         href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1107,5 +1000,4 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>
 </body>
-
 </html>

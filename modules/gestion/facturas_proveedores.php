@@ -81,6 +81,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="100">Tipo</th>
                                                     <th width="120">Número</th>
                                                     <th width="200">Proveedor</th>
+                                                    <th width="120">Sucursal</th>
+                                                    <th width="120">Depósito</th>
                                                     <th width="100">Emisión</th>
                                                     <th width="120">Vencimiento</th>
                                                     <th width="120">Total</th>
@@ -137,6 +139,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </select>
                                                 <div class="invalid-feedback small">Seleccione sucursal</div>
                                             </div>
+                                            <div class="col-md-2 mb-2">
+                                                <label for="deposito_id" class="form-label small mb-1">Depósito</label>
+                                                <select class="form-select form-select-sm" id="deposito_id" name="deposito_id" required>
+                                                    <option value="">Seleccionar depósito</option>
+                                                </select>
+                                                <div class="invalid-feedback small">Seleccione el depósito</div>
+                                            </div>
+                                            
                                             
                                             <!-- Campo unificado Proveedor/Sucursal en una sola línea -->
                                             <div class="col-md-4 mb-2">

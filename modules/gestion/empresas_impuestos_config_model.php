@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
 /**
- * Modelo para gestión de IVA alícuotas
+ * Modelo para gestión de Tipos de Impuestos
  * Toda la configuración se obtiene de conf__paginas_funciones
  */
 
@@ -14,7 +14,7 @@ function obtenerCuentasContables($conexion, $empresa_idx) {
     $sql = "SELECT cont_cuenta_id, codigo, nombre 
             FROM gestion__cont_cuentas 
             WHERE empresa_id = ? 
-            AND tabla_estado_registro_id = 1  -- Solo cuentas activas
+            AND tabla_estado_registro_id = 1
             ORDER BY codigo";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -35,7 +35,7 @@ function obtenerCuentasContables($conexion, $empresa_idx) {
     return $cuentas;
 }
 
-// ✅ Obtener funciones configuradas para la página desde conf__paginas_funciones
+// Obtener funciones configuradas para la página
 function obtenerFuncionesPagina($conexion, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
@@ -45,7 +45,7 @@ function obtenerFuncionesPagina($conexion, $pagina_id)
             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
             LEFT JOIN conf__colores c ON pf.color_id = c.color_id
             WHERE pf.pagina_id = ? 
-            AND pf.tabla_estado_registro_id = 1 -- Solo funciones activas
+            AND pf.tabla_estado_registro_id = 1
             ORDER BY pf.tabla_estado_registro_origen_id, pf.orden";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -65,7 +65,7 @@ function obtenerFuncionesPagina($conexion, $pagina_id)
     return $funciones;
 }
 
-// ✅ Obtener información de un estado específico
+// Obtener información de un estado específico
 function obtenerInfoEstado($conexion, $estado_registro_id)
 {
     $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
@@ -107,7 +107,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
     return $info;
 }
 
-// ✅ Obtener botones disponibles según el estado actual
+// Obtener botones disponibles según el estado actual
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
     $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
@@ -132,7 +132,7 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
     return $botones;
 }
 
-// ✅ Obtener botón "Agregar" específico para la página
+// Obtener botón "Agregar" específico para la página
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
     $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
@@ -152,7 +152,7 @@ function obtenerBotonAgregar($conexion, $pagina_id)
     }
 
     return [
-        'nombre_funcion' => 'Agregar Alícuota',
+        'nombre_funcion' => 'Agregar Tipo de Impuesto',
         'accion_js' => 'agregar',
         'icono_clase' => 'fas fa-plus',
         'color_clase' => 'btn-primary',
@@ -161,7 +161,7 @@ function obtenerBotonAgregar($conexion, $pagina_id)
     ];
 }
 
-// ✅ Obtener estado inicial para nuevas alícuotas
+// Obtener estado inicial para nuevos registros
 function obtenerEstadoInicial($conexion)
 {
     $sql = "SELECT estado_registro_id 
@@ -179,29 +179,29 @@ function obtenerEstadoInicial($conexion)
     return $fila ? $fila['estado_registro_id'] : 1;
 }
 
-// ✅ Ejecutar transición de estado basada en conf__paginas_funciones
-function ejecutarTransicionEstado($conexion, $iva_alicuota_id, $accion_js, $empresa_idx, $pagina_id)
+// Ejecutar transición de estado
+function ejecutarTransicionEstado($conexion, $impuesto_tipo_id, $accion_js, $empresa_idx, $pagina_id)
 {
-    $iva_alicuota_id = intval($iva_alicuota_id);
+    $impuesto_tipo_id = intval($impuesto_tipo_id);
     $pagina_id = intval($pagina_id);
 
-    $sql_check = "SELECT iva_alicuota_id, tabla_estado_registro_id 
-                  FROM gestion__impuestos__iva_alicuotas 
-                  WHERE iva_alicuota_id = ?";
+    $sql_check = "SELECT impuesto_tipo_id, tabla_estado_registro_id 
+                  FROM gestion__impuestos_tipos 
+                  WHERE impuesto_tipo_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "i", $iva_alicuota_id);
+    mysqli_stmt_bind_param($stmt, "i", $impuesto_tipo_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $alicuota = mysqli_fetch_assoc($result);
+    $tipo = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    if (!$alicuota)
+    if (!$tipo)
         return ['success' => false, 'error' => 'Registro no encontrado'];
 
-    $estado_actual_id = $alicuota['tabla_estado_registro_id'];
+    $estado_actual_id = $tipo['tabla_estado_registro_id'];
 
     $sql_funcion = "SELECT pf.* 
                     FROM conf__paginas_funciones pf
@@ -229,15 +229,15 @@ function ejecutarTransicionEstado($conexion, $iva_alicuota_id, $accion_js, $empr
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
 
-    $sql_update = "UPDATE gestion__impuestos__iva_alicuotas 
+    $sql_update = "UPDATE gestion__impuestos_tipos 
                    SET tabla_estado_registro_id = ? 
-                   WHERE iva_alicuota_id = ?";
+                   WHERE impuesto_tipo_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql_update);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $iva_alicuota_id);
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $impuesto_tipo_id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -248,11 +248,11 @@ function ejecutarTransicionEstado($conexion, $iva_alicuota_id, $accion_js, $empr
     }
 }
 
-// ✅ Obtener todas las alícuotas IVA (con información de cuenta contable)
-function obtenerIvaAlicuotas($conexion, $empresa_idx, $pagina_id)
+// Obtener todos los tipos de impuesto
+function obtenerTiposImpuesto($conexion, $empresa_idx, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
-    $empresa_idx = mysqli_real_escape_string($conexion, $empresa_idx);
+    $empresa_idx = intval($empresa_idx);
 
     $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
     $result = mysqli_query($conexion, $sql_check);
@@ -270,44 +270,32 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT ia.*, 
+    $sql = "SELECT it.*, 
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
                    cc.codigo as cuenta_codigo,
                    cc.nombre as cuenta_nombre
-            FROM gestion__impuestos__iva_alicuotas ia
-            LEFT JOIN conf__estados_registros er ON ia.tabla_estado_registro_id = er.estado_registro_id
+            FROM gestion__impuestos_tipos it
+            LEFT JOIN conf__estados_registros er ON it.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            LEFT JOIN gestion__cont_cuentas cc ON ia.cont_cuenta_id = cc.cont_cuenta_id
-            WHERE ia.empresa_id = ?
-            ORDER BY ia.codigo";
+            LEFT JOIN gestion__cont_cuentas cc ON it.cuenta_contable_id = cc.cont_cuenta_id AND cc.empresa_id = ?
+            ORDER BY it.impuesto_tipo";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return [];
 
-    mysqli_stmt_bind_param($stmt, "s", $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
     $data = [];
     while ($fila = mysqli_fetch_assoc($result)) {
-        // Determinar tipo de IVA para mostrar
-        $tipo_iva = 'Desconocido';
-        if ($fila['es_gravado'] == 1) {
-            $tipo_iva = 'Gravado';
-        } elseif ($fila['es_exento'] == 1) {
-            $tipo_iva = 'Exento';
-        } elseif ($fila['es_no_gravado'] == 1) {
-            $tipo_iva = 'No Gravado';
-        }
-
         $color_clase = $fila['color_clase'] ?? 'btn-dark';
         $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
         $text_clase = $fila['text_clase'] ?? 'text-white';
 
-        $fila['tipo_iva'] = $tipo_iva;
         $fila['estado_info'] = [
             'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
             'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
@@ -316,8 +304,7 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx, $pagina_id)
             'text_clase' => $text_clase
         ];
         
-        // Agregar información de la cuenta contable
-        $fila['cuenta_contable'] = $fila['cuenta_codigo'] ? $fila['cuenta_codigo'] . ' - ' . $fila['cuenta_nombre'] : 'Sin cuenta';
+        $fila['cuenta_contable'] = $fila['cuenta_codigo'] ? $fila['cuenta_codigo'] . ' - ' . $fila['cuenta_nombre'] : '';
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $data[] = $fila;
@@ -327,136 +314,80 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx, $pagina_id)
     return $data;
 }
 
-// ✅ Agregar nueva alícuota IVA (con cuenta contable)
-function agregarIvaAlicuota($conexion, $data)
+// Agregar nuevo tipo de impuesto
+function agregarTipoImpuesto($conexion, $data)
 {
-    $empresa_id = mysqli_real_escape_string($conexion, $data['empresa_id'] ?? '');
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $iva_alicuota = mysqli_real_escape_string($conexion, trim($data['iva_alicuota'] ?? ''));
-    $porcentaje = floatval($data['porcentaje'] ?? 0);
-    $cont_cuenta_id = intval($data['cont_cuenta_id'] ?? 0);
-    $es_gravado = intval($data['es_gravado'] ?? 1);
-    $es_exento = intval($data['es_exento'] ?? 0);
-    $es_no_gravado = intval($data['es_no_gravado'] ?? 0);
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $impuesto_tipo = mysqli_real_escape_string($conexion, trim($data['impuesto_tipo'] ?? ''));
+    $codigo_afip = mysqli_real_escape_string($conexion, trim($data['codigo_afip'] ?? ''));
+    $cuenta_contable_id = !empty($data['cuenta_contable_id']) ? intval($data['cuenta_contable_id']) : null;
+    $aplica_compra = intval($data['aplica_compra'] ?? 1);
+    $aplica_venta = intval($data['aplica_venta'] ?? 0);
+    $es_retencion = intval($data['es_retencion'] ?? 0);
+    $es_percepcion = intval($data['es_percepcion'] ?? 0);
 
-    if (empty($codigo)) {
-        return ['resultado' => false, 'error' => 'El código es obligatorio'];
+    if (empty($impuesto_tipo)) {
+        return ['resultado' => false, 'error' => 'El tipo de impuesto es obligatorio'];
     }
 
-    if (empty($iva_alicuota)) {
-        return ['resultado' => false, 'error' => 'La descripción es obligatoria'];
+    if (strlen($impuesto_tipo) > 100) {
+        return ['resultado' => false, 'error' => 'El tipo de impuesto no puede exceder los 100 caracteres'];
     }
 
-    if ($cont_cuenta_id <= 0) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar una cuenta contable válida'];
-    }
-
-    if (strlen($codigo) > 10) {
-        return ['resultado' => false, 'error' => 'El código no puede exceder los 10 caracteres'];
-    }
-
-    if (strlen($iva_alicuota) > 100) {
-        return ['resultado' => false, 'error' => 'La descripción no puede exceder los 100 caracteres'];
-    }
-
-    if ($porcentaje < 0 || $porcentaje > 100) {
-        return ['resultado' => false, 'error' => 'El porcentaje debe estar entre 0 y 100'];
-    }
-
-    // Verificar que solo un tipo esté activo
-    $tipos_activos = ($es_gravado ? 1 : 0) + ($es_exento ? 1 : 0) + ($es_no_gravado ? 1 : 0);
-    if ($tipos_activos != 1) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar exactamente un tipo de IVA'];
+    if (!empty($codigo_afip) && strlen($codigo_afip) > 20) {
+        return ['resultado' => false, 'error' => 'El código AFIP no puede exceder los 20 caracteres'];
     }
 
     $estado_inicial = obtenerEstadoInicial($conexion);
 
-    // Verificar duplicados (mismo código en la misma empresa)
-    $sql_check = "SELECT COUNT(*) as total FROM gestion__impuestos__iva_alicuotas 
-                  WHERE empresa_id = ? AND codigo = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "ss", $empresa_id, $codigo);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-
-    if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe una alícuota con este código en esta empresa'];
-    }
-
-    // Insertar nueva alícuota IVA
-    $sql = "INSERT INTO gestion__impuestos__iva_alicuotas 
-            (empresa_id, codigo, iva_alicuota, porcentaje, cont_cuenta_id, es_gravado, es_exento, es_no_gravado, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO gestion__impuestos_tipos 
+            (impuesto_tipo, codigo_afip, aplica_compra, aplica_venta, es_retencion, es_percepcion, cuenta_contable_id, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "sssdiidii", $empresa_id, $codigo, $iva_alicuota, $porcentaje, 
-                          $cont_cuenta_id, $es_gravado, $es_exento, $es_no_gravado, $estado_inicial);
+    mysqli_stmt_bind_param($stmt, "ssiiiiii", $impuesto_tipo, $codigo_afip, $aplica_compra, $aplica_venta, 
+                          $es_retencion, $es_percepcion, $cuenta_contable_id, $estado_inicial);
     $success = mysqli_stmt_execute($stmt);
 
     if ($success) {
-        $iva_alicuota_id = mysqli_insert_id($conexion);
+        $impuesto_tipo_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
-        return ['resultado' => true, 'iva_alicuota_id' => $iva_alicuota_id];
+        return ['resultado' => true, 'impuesto_tipo_id' => $impuesto_tipo_id];
     } else {
         mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al crear la alícuota IVA'];
+        return ['resultado' => false, 'error' => 'Error al crear el tipo de impuesto'];
     }
 }
 
-// ✅ Editar alícuota IVA existente (con cuenta contable)
-function editarIvaAlicuota($conexion, $id, $data)
+// Editar tipo de impuesto existente
+function editarTipoImpuesto($conexion, $id, $data)
 {
     $id = intval($id);
-    $empresa_id = mysqli_real_escape_string($conexion, $data['empresa_id'] ?? '');
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $iva_alicuota = mysqli_real_escape_string($conexion, trim($data['iva_alicuota'] ?? ''));
-    $porcentaje = floatval($data['porcentaje'] ?? 0);
-    $cont_cuenta_id = intval($data['cont_cuenta_id'] ?? 0);
-    $es_gravado = intval($data['es_gravado'] ?? 1);
-    $es_exento = intval($data['es_exento'] ?? 0);
-    $es_no_gravado = intval($data['es_no_gravado'] ?? 0);
+    $impuesto_tipo = mysqli_real_escape_string($conexion, trim($data['impuesto_tipo'] ?? ''));
+    $codigo_afip = mysqli_real_escape_string($conexion, trim($data['codigo_afip'] ?? ''));
+    $cuenta_contable_id = !empty($data['cuenta_contable_id']) ? intval($data['cuenta_contable_id']) : null;
+    $aplica_compra = intval($data['aplica_compra'] ?? 1);
+    $aplica_venta = intval($data['aplica_venta'] ?? 0);
+    $es_retencion = intval($data['es_retencion'] ?? 0);
+    $es_percepcion = intval($data['es_percepcion'] ?? 0);
 
-    if (empty($codigo)) {
-        return ['resultado' => false, 'error' => 'El código es obligatorio'];
+    if (empty($impuesto_tipo)) {
+        return ['resultado' => false, 'error' => 'El tipo de impuesto es obligatorio'];
     }
 
-    if (empty($iva_alicuota)) {
-        return ['resultado' => false, 'error' => 'La descripción es obligatoria'];
+    if (strlen($impuesto_tipo) > 100) {
+        return ['resultado' => false, 'error' => 'El tipo de impuesto no puede exceder los 100 caracteres'];
     }
 
-    if ($cont_cuenta_id <= 0) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar una cuenta contable válida'];
+    if (!empty($codigo_afip) && strlen($codigo_afip) > 20) {
+        return ['resultado' => false, 'error' => 'El código AFIP no puede exceder los 20 caracteres'];
     }
 
-    if (strlen($codigo) > 10) {
-        return ['resultado' => false, 'error' => 'El código no puede exceder los 10 caracteres'];
-    }
-
-    if (strlen($iva_alicuota) > 100) {
-        return ['resultado' => false, 'error' => 'La descripción no puede exceder los 100 caracteres'];
-    }
-
-    if ($porcentaje < 0 || $porcentaje > 100) {
-        return ['resultado' => false, 'error' => 'El porcentaje debe estar entre 0 y 100'];
-    }
-
-    // Verificar que solo un tipo esté activo
-    $tipos_activos = ($es_gravado ? 1 : 0) + ($es_exento ? 1 : 0) + ($es_no_gravado ? 1 : 0);
-    if ($tipos_activos != 1) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar exactamente un tipo de IVA'];
-    }
-
-    // Verificar que la alícuota exista
-    $sql_check = "SELECT iva_alicuota_id FROM gestion__impuestos__iva_alicuotas 
-                  WHERE iva_alicuota_id = ?";
+    $sql_check = "SELECT impuesto_tipo_id FROM gestion__impuestos_tipos 
+                  WHERE impuesto_tipo_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
@@ -470,84 +401,43 @@ function editarIvaAlicuota($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Registro no encontrado'];
     }
 
-    // Verificar duplicados (mismo código en la misma empresa, excluyendo registro actual)
-    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__impuestos__iva_alicuotas 
-                      WHERE empresa_id = ? AND codigo = ? AND iva_alicuota_id != ?";
-    $stmt = mysqli_prepare($conexion, $sql_duplicate);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "ssi", $empresa_id, $codigo, $id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-
-    if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe otra alícuota con este código en esta empresa'];
-    }
-
-    // Actualizar alícuota IVA
-    $sql = "UPDATE gestion__impuestos__iva_alicuotas 
-            SET codigo = ?, iva_alicuota = ?, porcentaje = ?, cont_cuenta_id = ?,
-                es_gravado = ?, es_exento = ?, es_no_gravado = ? 
-            WHERE iva_alicuota_id = ?";
+    $sql = "UPDATE gestion__impuestos_tipos 
+            SET impuesto_tipo = ?, codigo_afip = ?, aplica_compra = ?, aplica_venta = ?,
+                es_retencion = ?, es_percepcion = ?, cuenta_contable_id = ?
+            WHERE impuesto_tipo_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssdiidii", $codigo, $iva_alicuota, $porcentaje, 
-                          $cont_cuenta_id, $es_gravado, $es_exento, $es_no_gravado, $id);
+    mysqli_stmt_bind_param($stmt, "ssiiiiii", $impuesto_tipo, $codigo_afip, $aplica_compra, $aplica_venta, 
+                          $es_retencion, $es_percepcion, $cuenta_contable_id, $id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
     if ($success) {
         return ['resultado' => true];
     } else {
-        return ['resultado' => false, 'error' => 'Error al actualizar la alícuota IVA'];
+        return ['resultado' => false, 'error' => 'Error al actualizar el tipo de impuesto'];
     }
 }
 
-// ✅ Obtener alícuota IVA específica (con cuenta contable)
-function obtenerIvaAlicuotaPorId($conexion, $id, $empresa_idx)
+// Obtener tipo de impuesto específico
+function obtenerTipoImpuestoPorId($conexion, $id)
 {
     $id = intval($id);
-    $empresa_idx = mysqli_real_escape_string($conexion, $empresa_idx);
 
-    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
-    $result = mysqli_query($conexion, $sql_check);
-    $columns = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $columns[] = $row['Field'];
-    }
-
-    $estado_column = 'estado_registro';
-    if (!in_array('estado_registro', $columns)) {
-        if (in_array('nombre_estado', $columns)) {
-            $estado_column = 'nombre_estado';
-        } elseif (in_array('descripcion', $columns)) {
-            $estado_column = 'descripcion';
-        }
-    }
-
-    $sql = "SELECT ia.*, er.$estado_column as estado_registro, er.codigo_estandar,
-                   cc.codigo as cuenta_codigo, cc.nombre as cuenta_nombre
-            FROM gestion__impuestos__iva_alicuotas ia
-            LEFT JOIN conf__estados_registros er ON ia.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN gestion__cont_cuentas cc ON ia.cont_cuenta_id = cc.cont_cuenta_id
-            WHERE ia.iva_alicuota_id = ? AND ia.empresa_id = ?";
-
+    $sql = "SELECT * FROM gestion__impuestos_tipos WHERE impuesto_tipo_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return null;
 
-    mysqli_stmt_bind_param($stmt, "is", $id, $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $alicuota = mysqli_fetch_assoc($result);
+    $tipo = mysqli_fetch_assoc($result);
 
     mysqli_stmt_close($stmt);
-    return $alicuota;
+    return $tipo;
 }
 ?>
