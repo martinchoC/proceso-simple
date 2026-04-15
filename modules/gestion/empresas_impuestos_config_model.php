@@ -3,18 +3,77 @@ require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
 /**
- * Modelo para gestión de Tipos de Impuestos
+ * Modelo para gestión de Configuración de Impuestos por Empresa
  * Toda la configuración se obtiene de conf__paginas_funciones
  */
 
-// Obtener cuentas contables de la empresa
+// Obtener tipos de impuesto
+function obtenerTiposImpuesto($conexion) {
+    $sql = "SELECT impuesto_tipo_id, impuesto_tipo, codigo_afip, aplica_compra, aplica_venta, es_retencion, es_percepcion 
+            FROM gestion__impuestos_tipos 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY impuesto_tipo";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $tipos = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $tipos[] = $row;
+    }
+    
+    return $tipos;
+}
+
+// Obtener jurisdicciones
+function obtenerJurisdiccionesParaSelect($conexion) {
+    $sql = "SELECT jurisdiccion_id, jurisdiccion_codigo, jurisdiccion_nombre 
+            FROM gestion__jurisdicciones 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY jurisdiccion_nombre";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $jurisdicciones = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $jurisdicciones[] = $row;
+    }
+    
+    return $jurisdicciones;
+}
+
+// Obtener condiciones fiscales
+function obtenerCondicionesFiscales($conexion) {
+    $sql = "SELECT condicion_fiscal_id, condicion_fiscal, condicion_fiscal_codigo, condicion_fiscal_descripcion 
+            FROM gestion__condiciones_fiscales 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY condicion_fiscal";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $condiciones = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $condiciones[] = $row;
+    }
+    
+    return $condiciones;
+}
+
+// Obtener cuentas contables por empresa
 function obtenerCuentasContables($conexion, $empresa_idx) {
     $empresa_idx = intval($empresa_idx);
     
     $sql = "SELECT cont_cuenta_id, codigo, nombre 
             FROM gestion__cont_cuentas 
-            WHERE empresa_id = ? 
-            AND tabla_estado_registro_id = 1
+            WHERE empresa_id = ? AND tabla_estado_registro_id = 1 AND es_imputable = 1
             ORDER BY codigo";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -152,7 +211,7 @@ function obtenerBotonAgregar($conexion, $pagina_id)
     }
 
     return [
-        'nombre_funcion' => 'Agregar Tipo de Impuesto',
+        'nombre_funcion' => 'Agregar Configuración',
         'accion_js' => 'agregar',
         'icono_clase' => 'fas fa-plus',
         'color_clase' => 'btn-primary',
@@ -180,28 +239,28 @@ function obtenerEstadoInicial($conexion)
 }
 
 // Ejecutar transición de estado
-function ejecutarTransicionEstado($conexion, $impuesto_tipo_id, $accion_js, $empresa_idx, $pagina_id)
+function ejecutarTransicionEstado($conexion, $empresa_impuesto_config_id, $accion_js, $empresa_idx, $pagina_id)
 {
-    $impuesto_tipo_id = intval($impuesto_tipo_id);
+    $empresa_impuesto_config_id = intval($empresa_impuesto_config_id);
     $pagina_id = intval($pagina_id);
 
-    $sql_check = "SELECT impuesto_tipo_id, tabla_estado_registro_id 
-                  FROM gestion__impuestos_tipos 
-                  WHERE impuesto_tipo_id = ?";
+    $sql_check = "SELECT empresa_impuesto_config_id, tabla_estado_registro_id 
+                  FROM gestion__empresas_impuestos_config 
+                  WHERE empresa_impuesto_config_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "i", $impuesto_tipo_id);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_impuesto_config_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $tipo = mysqli_fetch_assoc($result);
+    $config = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    if (!$tipo)
+    if (!$config)
         return ['success' => false, 'error' => 'Registro no encontrado'];
 
-    $estado_actual_id = $tipo['tabla_estado_registro_id'];
+    $estado_actual_id = $config['tabla_estado_registro_id'];
 
     $sql_funcion = "SELECT pf.* 
                     FROM conf__paginas_funciones pf
@@ -229,15 +288,15 @@ function ejecutarTransicionEstado($conexion, $impuesto_tipo_id, $accion_js, $emp
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
 
-    $sql_update = "UPDATE gestion__impuestos_tipos 
+    $sql_update = "UPDATE gestion__empresas_impuestos_config 
                    SET tabla_estado_registro_id = ? 
-                   WHERE impuesto_tipo_id = ?";
+                   WHERE empresa_impuesto_config_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql_update);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $impuesto_tipo_id);
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $empresa_impuesto_config_id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -248,11 +307,11 @@ function ejecutarTransicionEstado($conexion, $impuesto_tipo_id, $accion_js, $emp
     }
 }
 
-// Obtener todos los tipos de impuesto
-function obtenerTiposImpuesto($conexion, $empresa_idx, $pagina_id)
+// Obtener todas las configuraciones de impuestos
+function obtenerConfiguracionesImpuestos($conexion, $empresa_idx, $pagina_id)
 {
-    $pagina_id = intval($pagina_id);
     $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
 
     $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
     $result = mysqli_query($conexion, $sql_check);
@@ -270,17 +329,25 @@ function obtenerTiposImpuesto($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT it.*, 
+    $sql = "SELECT eic.*, 
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
-                   cc.codigo as cuenta_codigo,
-                   cc.nombre as cuenta_nombre
-            FROM gestion__impuestos_tipos it
-            LEFT JOIN conf__estados_registros er ON it.tabla_estado_registro_id = er.estado_registro_id
+                   emp.empresa as empresa,
+                   it.impuesto_tipo, it.es_retencion, it.es_percepcion,
+                   j.jurisdiccion_nombre,
+                   cf.condicion_fiscal,
+                   CONCAT(cc.codigo, ' - ', cc.nombre) as cuenta_contable
+            FROM gestion__empresas_impuestos_config eic
+            LEFT JOIN conf__estados_registros er ON eic.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            LEFT JOIN gestion__cont_cuentas cc ON it.cuenta_contable_id = cc.cont_cuenta_id AND cc.empresa_id = ?
-            ORDER BY it.impuesto_tipo";
+            LEFT JOIN conf__empresas emp ON eic.empresa_id = emp.empresa_id
+            LEFT JOIN gestion__impuestos_tipos it ON eic.impuesto_tipo_id = it.impuesto_tipo_id
+            LEFT JOIN gestion__jurisdicciones j ON eic.jurisdiccion_id = j.jurisdiccion_id
+            LEFT JOIN gestion__condiciones_fiscales cf ON eic.condicion_fiscal_id = cf.condicion_fiscal_id
+            LEFT JOIN gestion__cont_cuentas cc ON eic.cont_cuenta_id = cc.cont_cuenta_id
+            WHERE eic.empresa_id = ?
+            ORDER BY eic.prioridad, eic.f_desde DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -303,8 +370,6 @@ function obtenerTiposImpuesto($conexion, $empresa_idx, $pagina_id)
             'bg_clase' => $bg_clase,
             'text_clase' => $text_clase
         ];
-        
-        $fila['cuenta_contable'] = $fila['cuenta_codigo'] ? $fila['cuenta_codigo'] . ' - ' . $fila['cuenta_nombre'] : '';
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $data[] = $fila;
@@ -314,130 +379,148 @@ function obtenerTiposImpuesto($conexion, $empresa_idx, $pagina_id)
     return $data;
 }
 
-// Agregar nuevo tipo de impuesto
-function agregarTipoImpuesto($conexion, $data)
+// Agregar nueva configuración de impuesto
+function agregarConfiguracionImpuesto($conexion, $data)
 {
     $empresa_id = intval($data['empresa_id'] ?? 0);
-    $impuesto_tipo = mysqli_real_escape_string($conexion, trim($data['impuesto_tipo'] ?? ''));
-    $codigo_afip = mysqli_real_escape_string($conexion, trim($data['codigo_afip'] ?? ''));
-    $cuenta_contable_id = !empty($data['cuenta_contable_id']) ? intval($data['cuenta_contable_id']) : null;
-    $aplica_compra = intval($data['aplica_compra'] ?? 1);
-    $aplica_venta = intval($data['aplica_venta'] ?? 0);
-    $es_retencion = intval($data['es_retencion'] ?? 0);
-    $es_percepcion = intval($data['es_percepcion'] ?? 0);
+    $impuesto_tipo_id = intval($data['impuesto_tipo_id'] ?? 0);
+    $jurisdiccion_id = !empty($data['jurisdiccion_id']) ? intval($data['jurisdiccion_id']) : null;
+    $condicion_fiscal_id = !empty($data['condicion_fiscal_id']) ? intval($data['condicion_fiscal_id']) : null;
+    $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
+    $tipo_calculo = mysqli_real_escape_string($conexion, trim($data['tipo_calculo'] ?? 'manual'));
+    $base_calculo = !empty($data['base_calculo']) ? mysqli_real_escape_string($conexion, trim($data['base_calculo'])) : null;
+    $alicuota = floatval($data['alicuota'] ?? 0);
+    $minimo_imponible = floatval($data['minimo_imponible'] ?? 0);
+    $monto_fijo = floatval($data['monto_fijo'] ?? 0);
+    $prioridad = intval($data['prioridad'] ?? 1);
+    $f_desde = mysqli_real_escape_string($conexion, trim($data['f_desde'] ?? ''));
+    $f_hasta = !empty($data['f_hasta']) ? mysqli_real_escape_string($conexion, trim($data['f_hasta'])) : null;
+    $aplica_siempre = intval($data['aplica_siempre'] ?? 1);
 
-    if (empty($impuesto_tipo)) {
-        return ['resultado' => false, 'error' => 'El tipo de impuesto es obligatorio'];
+    if ($empresa_id <= 0) {
+        return ['resultado' => false, 'error' => 'Empresa no válida'];
     }
 
-    if (strlen($impuesto_tipo) > 100) {
-        return ['resultado' => false, 'error' => 'El tipo de impuesto no puede exceder los 100 caracteres'];
+    if ($impuesto_tipo_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de impuesto'];
     }
 
-    if (!empty($codigo_afip) && strlen($codigo_afip) > 20) {
-        return ['resultado' => false, 'error' => 'El código AFIP no puede exceder los 20 caracteres'];
+    if (empty($tipo_calculo)) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de cálculo'];
+    }
+
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha de inicio es obligatoria'];
     }
 
     $estado_inicial = obtenerEstadoInicial($conexion);
 
-    $sql = "INSERT INTO gestion__impuestos_tipos 
-            (impuesto_tipo, codigo_afip, aplica_compra, aplica_venta, es_retencion, es_percepcion, cuenta_contable_id, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO gestion__empresas_impuestos_config 
+            (empresa_id, impuesto_tipo_id, jurisdiccion_id, condicion_fiscal_id, cont_cuenta_id,
+             tipo_calculo, base_calculo, alicuota, minimo_imponible, monto_fijo, prioridad, 
+             f_desde, f_hasta, aplica_siempre, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+        return ['resultado' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
 
-    mysqli_stmt_bind_param($stmt, "ssiiiiii", $impuesto_tipo, $codigo_afip, $aplica_compra, $aplica_venta, 
-                          $es_retencion, $es_percepcion, $cuenta_contable_id, $estado_inicial);
+    mysqli_stmt_bind_param($stmt, "iiiiissdddiisii", $empresa_id, $impuesto_tipo_id, 
+                          $jurisdiccion_id, $condicion_fiscal_id, $cont_cuenta_id,
+                          $tipo_calculo, $base_calculo, $alicuota, $minimo_imponible, 
+                          $monto_fijo, $prioridad, $f_desde, $f_hasta, $aplica_siempre, $estado_inicial);
     $success = mysqli_stmt_execute($stmt);
 
     if ($success) {
-        $impuesto_tipo_id = mysqli_insert_id($conexion);
+        $config_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
-        return ['resultado' => true, 'impuesto_tipo_id' => $impuesto_tipo_id];
+        return ['resultado' => true, 'empresa_impuesto_config_id' => $config_id];
     } else {
+        $error = mysqli_error($conexion);
         mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al crear el tipo de impuesto'];
+        return ['resultado' => false, 'error' => 'Error al crear la configuración: ' . $error];
     }
 }
 
-// Editar tipo de impuesto existente
-function editarTipoImpuesto($conexion, $id, $data)
+// Editar configuración de impuesto existente
+function editarConfiguracionImpuesto($conexion, $id, $data)
 {
     $id = intval($id);
-    $impuesto_tipo = mysqli_real_escape_string($conexion, trim($data['impuesto_tipo'] ?? ''));
-    $codigo_afip = mysqli_real_escape_string($conexion, trim($data['codigo_afip'] ?? ''));
-    $cuenta_contable_id = !empty($data['cuenta_contable_id']) ? intval($data['cuenta_contable_id']) : null;
-    $aplica_compra = intval($data['aplica_compra'] ?? 1);
-    $aplica_venta = intval($data['aplica_venta'] ?? 0);
-    $es_retencion = intval($data['es_retencion'] ?? 0);
-    $es_percepcion = intval($data['es_percepcion'] ?? 0);
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $impuesto_tipo_id = intval($data['impuesto_tipo_id'] ?? 0);
+    $jurisdiccion_id = !empty($data['jurisdiccion_id']) ? intval($data['jurisdiccion_id']) : null;
+    $condicion_fiscal_id = !empty($data['condicion_fiscal_id']) ? intval($data['condicion_fiscal_id']) : null;
+    $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
+    $tipo_calculo = mysqli_real_escape_string($conexion, trim($data['tipo_calculo'] ?? 'manual'));
+    $base_calculo = !empty($data['base_calculo']) ? mysqli_real_escape_string($conexion, trim($data['base_calculo'])) : null;
+    $alicuota = floatval($data['alicuota'] ?? 0);
+    $minimo_imponible = floatval($data['minimo_imponible'] ?? 0);
+    $monto_fijo = floatval($data['monto_fijo'] ?? 0);
+    $prioridad = intval($data['prioridad'] ?? 1);
+    $f_desde = mysqli_real_escape_string($conexion, trim($data['f_desde'] ?? ''));
+    $f_hasta = !empty($data['f_hasta']) ? mysqli_real_escape_string($conexion, trim($data['f_hasta'])) : null;
+    $aplica_siempre = intval($data['aplica_siempre'] ?? 1);
 
-    if (empty($impuesto_tipo)) {
-        return ['resultado' => false, 'error' => 'El tipo de impuesto es obligatorio'];
+    if ($empresa_id <= 0) {
+        return ['resultado' => false, 'error' => 'Empresa no válida'];
     }
 
-    if (strlen($impuesto_tipo) > 100) {
-        return ['resultado' => false, 'error' => 'El tipo de impuesto no puede exceder los 100 caracteres'];
+    if ($impuesto_tipo_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de impuesto'];
     }
 
-    if (!empty($codigo_afip) && strlen($codigo_afip) > 20) {
-        return ['resultado' => false, 'error' => 'El código AFIP no puede exceder los 20 caracteres'];
+    if (empty($tipo_calculo)) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de cálculo'];
     }
 
-    $sql_check = "SELECT impuesto_tipo_id FROM gestion__impuestos_tipos 
-                  WHERE impuesto_tipo_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    mysqli_stmt_close($stmt);
-
-    if (mysqli_num_rows($result) == 0) {
-        return ['resultado' => false, 'error' => 'Registro no encontrado'];
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha de inicio es obligatoria'];
     }
 
-    $sql = "UPDATE gestion__impuestos_tipos 
-            SET impuesto_tipo = ?, codigo_afip = ?, aplica_compra = ?, aplica_venta = ?,
-                es_retencion = ?, es_percepcion = ?, cuenta_contable_id = ?
-            WHERE impuesto_tipo_id = ?";
+    $sql = "UPDATE gestion__empresas_impuestos_config 
+            SET impuesto_tipo_id = ?, jurisdiccion_id = ?, condicion_fiscal_id = ?, cont_cuenta_id = ?,
+                tipo_calculo = ?, base_calculo = ?, alicuota = ?, minimo_imponible = ?, 
+                monto_fijo = ?, prioridad = ?, f_desde = ?, f_hasta = ?, aplica_siempre = ?
+            WHERE empresa_impuesto_config_id = ? AND empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
+    }
 
-    mysqli_stmt_bind_param($stmt, "ssiiiiii", $impuesto_tipo, $codigo_afip, $aplica_compra, $aplica_venta, 
-                          $es_retencion, $es_percepcion, $cuenta_contable_id, $id);
+    mysqli_stmt_bind_param($stmt, "iiiissdddissiii", $impuesto_tipo_id, 
+                          $jurisdiccion_id, $condicion_fiscal_id, $cont_cuenta_id,
+                          $tipo_calculo, $base_calculo, $alicuota, $minimo_imponible, 
+                          $monto_fijo, $prioridad, $f_desde, $f_hasta, $aplica_siempre, $id, $empresa_id);
     $success = mysqli_stmt_execute($stmt);
+    $error = mysqli_error($conexion);
     mysqli_stmt_close($stmt);
 
     if ($success) {
         return ['resultado' => true];
     } else {
-        return ['resultado' => false, 'error' => 'Error al actualizar el tipo de impuesto'];
+        return ['resultado' => false, 'error' => 'Error al actualizar la configuración: ' . $error];
     }
 }
 
-// Obtener tipo de impuesto específico
-function obtenerTipoImpuestoPorId($conexion, $id)
+// Obtener configuración específica
+function obtenerConfiguracionPorId($conexion, $id, $empresa_idx)
 {
     $id = intval($id);
+    $empresa_idx = intval($empresa_idx);
 
-    $sql = "SELECT * FROM gestion__impuestos_tipos WHERE impuesto_tipo_id = ?";
+    $sql = "SELECT * FROM gestion__empresas_impuestos_config 
+            WHERE empresa_impuesto_config_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return null;
 
-    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $tipo = mysqli_fetch_assoc($result);
+    $config = mysqli_fetch_assoc($result);
 
     mysqli_stmt_close($stmt);
-    return $tipo;
+    return $config;
 }
 ?>

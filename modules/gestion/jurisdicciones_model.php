@@ -3,9 +3,103 @@ require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
 /**
- * Modelo para gestión de Tipos de Jurisdicciones
+ * Modelo para gestión de Jurisdicciones
  * Toda la configuración se obtiene de conf__paginas_funciones
  */
+
+// Obtener tipos de jurisdicción
+function obtenerTiposJurisdiccion($conexion) {
+    $sql = "SELECT jurisdiccion_tipo_id, jurisdiccion_tipo 
+            FROM gestion__jurisdicciones_tipos 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY jurisdiccion_tipo";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $tipos = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $tipos[] = $row;
+    }
+    
+    return $tipos;
+}
+
+// Obtener países
+function obtenerPaises($conexion) {
+    $sql = "SELECT pais_id, pais 
+            FROM conf__paises 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY pais";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $paises = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $paises[] = $row;
+    }
+    
+    return $paises;
+}
+
+// Obtener provincias por país
+function obtenerProvincias($conexion, $pais_id) {
+    $pais_id = intval($pais_id);
+    
+    $sql = "SELECT provincia_id, provincia 
+            FROM conf__provincias 
+            WHERE pais_id = ? AND tabla_estado_registro_id = 1
+            ORDER BY provincia";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $pais_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $provincias = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $provincias[] = $row;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $provincias;
+}
+
+// Obtener localidades por provincia
+function obtenerLocalidades($conexion, $provincia_id) {
+    $provincia_id = intval($provincia_id);
+    
+    $sql = "SELECT localidad_id, localidad 
+            FROM conf__localidades 
+            WHERE provincia_id = ? AND tabla_estado_registro_id = 1
+            ORDER BY localidad";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $provincia_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $localidades = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $localidades[] = $row;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $localidades;
+}
 
 // Obtener funciones configuradas para la página
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -124,7 +218,7 @@ function obtenerBotonAgregar($conexion, $pagina_id)
     }
 
     return [
-        'nombre_funcion' => 'Agregar Tipo de Jurisdicción',
+        'nombre_funcion' => 'Agregar Jurisdicción',
         'accion_js' => 'agregar',
         'icono_clase' => 'fas fa-plus',
         'color_clase' => 'btn-primary',
@@ -152,28 +246,28 @@ function obtenerEstadoInicial($conexion)
 }
 
 // Ejecutar transición de estado
-function ejecutarTransicionEstado($conexion, $jurisdiccion_tipo_id, $accion_js, $empresa_idx, $pagina_id)
+function ejecutarTransicionEstado($conexion, $jurisdiccion_id, $accion_js, $empresa_idx, $pagina_id)
 {
-    $jurisdiccion_tipo_id = intval($jurisdiccion_tipo_id);
+    $jurisdiccion_id = intval($jurisdiccion_id);
     $pagina_id = intval($pagina_id);
 
-    $sql_check = "SELECT jurisdiccion_tipo_id, tabla_estado_registro_id 
-                  FROM gestion__jurisdicciones_tipos 
-                  WHERE jurisdiccion_tipo_id = ?";
+    $sql_check = "SELECT jurisdiccion_id, tabla_estado_registro_id 
+                  FROM gestion__jurisdicciones 
+                  WHERE jurisdiccion_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "i", $jurisdiccion_tipo_id);
+    mysqli_stmt_bind_param($stmt, "i", $jurisdiccion_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $tipo = mysqli_fetch_assoc($result);
+    $jurisdiccion = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    if (!$tipo)
+    if (!$jurisdiccion)
         return ['success' => false, 'error' => 'Registro no encontrado'];
 
-    $estado_actual_id = $tipo['tabla_estado_registro_id'];
+    $estado_actual_id = $jurisdiccion['tabla_estado_registro_id'];
 
     $sql_funcion = "SELECT pf.* 
                     FROM conf__paginas_funciones pf
@@ -201,15 +295,15 @@ function ejecutarTransicionEstado($conexion, $jurisdiccion_tipo_id, $accion_js, 
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
 
-    $sql_update = "UPDATE gestion__jurisdicciones_tipos 
+    $sql_update = "UPDATE gestion__jurisdicciones 
                    SET tabla_estado_registro_id = ? 
-                   WHERE jurisdiccion_tipo_id = ?";
+                   WHERE jurisdiccion_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql_update);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $jurisdiccion_tipo_id);
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $jurisdiccion_id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -220,11 +314,10 @@ function ejecutarTransicionEstado($conexion, $jurisdiccion_tipo_id, $accion_js, 
     }
 }
 
-// Obtener todos los tipos de jurisdicción
-function obtenerTiposJurisdiccion($conexion, $empresa_idx, $pagina_id)
+// Obtener todas las jurisdicciones
+function obtenerJurisdicciones($conexion, $empresa_idx, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
-    $empresa_idx = intval($empresa_idx);
 
     $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
     $result = mysqli_query($conexion, $sql_check);
@@ -242,14 +335,22 @@ function obtenerTiposJurisdiccion($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT jt.*, 
+    $sql = "SELECT j.*, 
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
-                   c.color_clase, c.bg_clase, c.text_clase
-            FROM gestion__jurisdicciones_tipos jt
-            LEFT JOIN conf__estados_registros er ON jt.tabla_estado_registro_id = er.estado_registro_id
+                   c.color_clase, c.bg_clase, c.text_clase,
+                   jt.jurisdiccion_tipo,
+                   p.pais,
+                   pr.provincia,
+                   l.localidad
+            FROM gestion__jurisdicciones j
+            LEFT JOIN conf__estados_registros er ON j.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            ORDER BY jt.orden ASC, jt.jurisdiccion_tipo ASC";
+            LEFT JOIN gestion__jurisdicciones_tipos jt ON j.jurisdiccion_tipo_id = jt.jurisdiccion_tipo_id
+            LEFT JOIN conf__paises p ON j.pais_id = p.pais_id
+            LEFT JOIN conf__provincias pr ON j.provincia_id = pr.provincia_id
+            LEFT JOIN conf__localidades l ON j.localidad_id = l.localidad_id
+            ORDER BY j.orden, j.jurisdiccion_nombre";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -271,6 +372,11 @@ function obtenerTiposJurisdiccion($conexion, $empresa_idx, $pagina_id)
             'bg_clase' => $bg_clase,
             'text_clase' => $text_clase
         ];
+        
+        // CORREGIDO: usar los nombres correctos de columnas
+        $fila['pais_nombre'] = $fila['pais'] ?? null;
+        $fila['provincia_nombre'] = $fila['provincia'] ?? null;
+        $fila['localidad_nombre'] = $fila['localidad'] ?? null;
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $data[] = $fila;
@@ -280,155 +386,162 @@ function obtenerTiposJurisdiccion($conexion, $empresa_idx, $pagina_id)
     return $data;
 }
 
-// Agregar nuevo tipo de jurisdicción
-function agregarTipoJurisdiccion($conexion, $data)
+// Agregar nueva jurisdicción
+function agregarJurisdiccion($conexion, $data)
 {
-    $empresa_id = intval($data['empresa_id'] ?? 0);
-    $jurisdiccion_tipo = mysqli_real_escape_string($conexion, trim($data['jurisdiccion_tipo'] ?? ''));
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
+    $jurisdiccion_codigo = mysqli_real_escape_string($conexion, trim($data['jurisdiccion_codigo'] ?? ''));
+    $jurisdiccion_nombre = mysqli_real_escape_string($conexion, trim($data['jurisdiccion_nombre'] ?? ''));
+    $pais_id = !empty($data['pais_id']) ? intval($data['pais_id']) : null;
+    $provincia_id = !empty($data['provincia_id']) ? intval($data['provincia_id']) : null;
+    $localidad_id = !empty($data['localidad_id']) ? intval($data['localidad_id']) : null;
+    $jurisdiccion_tipo_id = intval($data['jurisdiccion_tipo_id'] ?? 0);
+    $organismo_recaudador = mysqli_real_escape_string($conexion, trim($data['organismo_recaudador'] ?? ''));
+    $requiere_padron = intval($data['requiere_padron'] ?? 0);
+    $codigo_externo = mysqli_real_escape_string($conexion, trim($data['codigo_externo'] ?? ''));
     $orden = intval($data['orden'] ?? 1);
 
-    if (empty($jurisdiccion_tipo)) {
-        return ['resultado' => false, 'error' => 'El tipo de jurisdicción es obligatorio'];
+    if (empty($jurisdiccion_codigo)) {
+        return ['resultado' => false, 'error' => 'El código de jurisdicción es obligatorio'];
     }
 
-    if (strlen($jurisdiccion_tipo) > 50) {
-        return ['resultado' => false, 'error' => 'El tipo de jurisdicción no puede exceder los 50 caracteres'];
+    if (strlen($jurisdiccion_codigo) > 10) {
+        return ['resultado' => false, 'error' => 'El código no puede exceder los 10 caracteres'];
     }
 
-    if (empty($codigo)) {
-        return ['resultado' => false, 'error' => 'El código es obligatorio'];
+    if (empty($jurisdiccion_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre de jurisdicción es obligatorio'];
     }
 
-    if (strlen($codigo) > 20) {
-        return ['resultado' => false, 'error' => 'El código no puede exceder los 20 caracteres'];
+    if (strlen($jurisdiccion_nombre) > 100) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 100 caracteres'];
     }
 
-    if (!empty($descripcion) && strlen($descripcion) > 255) {
-        return ['resultado' => false, 'error' => 'La descripción no puede exceder los 255 caracteres'];
+    if ($jurisdiccion_tipo_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de jurisdicción'];
     }
 
     // Verificar código único
-    $sql_check = "SELECT jurisdiccion_tipo_id FROM gestion__jurisdicciones_tipos WHERE codigo = ?";
+    $sql_check = "SELECT jurisdiccion_id FROM gestion__jurisdicciones WHERE jurisdiccion_codigo = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if ($stmt) {
-        mysqli_stmt_bind_param($stmt, "s", $codigo);
+        mysqli_stmt_bind_param($stmt, "s", $jurisdiccion_codigo);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_store_result($stmt);
         if (mysqli_stmt_num_rows($stmt) > 0) {
             mysqli_stmt_close($stmt);
-            return ['resultado' => false, 'error' => 'El código ya existe. Debe ser único'];
+            return ['resultado' => false, 'error' => 'El código de jurisdicción ya existe'];
         }
         mysqli_stmt_close($stmt);
     }
 
     $estado_inicial = obtenerEstadoInicial($conexion);
 
-    $sql = "INSERT INTO gestion__jurisdicciones_tipos 
-            (jurisdiccion_tipo, codigo, descripcion, orden, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO gestion__jurisdicciones 
+            (jurisdiccion_codigo, jurisdiccion_nombre, pais_id, provincia_id, localidad_id, 
+             jurisdiccion_tipo_id, organismo_recaudador, requiere_padron, codigo_externo, 
+             orden, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "sssii", $jurisdiccion_tipo, $codigo, $descripcion, $orden, $estado_inicial);
+    mysqli_stmt_bind_param($stmt, "ssiiisssiii", $jurisdiccion_codigo, $jurisdiccion_nombre, 
+                          $pais_id, $provincia_id, $localidad_id, $jurisdiccion_tipo_id,
+                          $organismo_recaudador, $requiere_padron, $codigo_externo, 
+                          $orden, $estado_inicial);
     $success = mysqli_stmt_execute($stmt);
 
     if ($success) {
-        $jurisdiccion_tipo_id = mysqli_insert_id($conexion);
+        $jurisdiccion_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
-        return ['resultado' => true, 'jurisdiccion_tipo_id' => $jurisdiccion_tipo_id];
+        return ['resultado' => true, 'jurisdiccion_id' => $jurisdiccion_id];
     } else {
         mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al crear el tipo de jurisdicción'];
+        return ['resultado' => false, 'error' => 'Error al crear la jurisdicción: ' . mysqli_error($conexion)];
     }
 }
 
-// Editar tipo de jurisdicción existente
-function editarTipoJurisdiccion($conexion, $id, $data)
+// Editar jurisdicción existente
+function editarJurisdiccion($conexion, $id, $data)
 {
     $id = intval($id);
-    $jurisdiccion_tipo = mysqli_real_escape_string($conexion, trim($data['jurisdiccion_tipo'] ?? ''));
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
+    $jurisdiccion_codigo = mysqli_real_escape_string($conexion, trim($data['jurisdiccion_codigo'] ?? ''));
+    $jurisdiccion_nombre = mysqli_real_escape_string($conexion, trim($data['jurisdiccion_nombre'] ?? ''));
+    $pais_id = !empty($data['pais_id']) ? intval($data['pais_id']) : null;
+    $provincia_id = !empty($data['provincia_id']) ? intval($data['provincia_id']) : null;
+    $localidad_id = !empty($data['localidad_id']) ? intval($data['localidad_id']) : null;
+    $jurisdiccion_tipo_id = intval($data['jurisdiccion_tipo_id'] ?? 0);
+    $organismo_recaudador = mysqli_real_escape_string($conexion, trim($data['organismo_recaudador'] ?? ''));
+    $requiere_padron = intval($data['requiere_padron'] ?? 0);
+    $codigo_externo = mysqli_real_escape_string($conexion, trim($data['codigo_externo'] ?? ''));
     $orden = intval($data['orden'] ?? 1);
 
-    if (empty($jurisdiccion_tipo)) {
-        return ['resultado' => false, 'error' => 'El tipo de jurisdicción es obligatorio'];
+    if (empty($jurisdiccion_codigo)) {
+        return ['resultado' => false, 'error' => 'El código de jurisdicción es obligatorio'];
     }
 
-    if (strlen($jurisdiccion_tipo) > 50) {
-        return ['resultado' => false, 'error' => 'El tipo de jurisdicción no puede exceder los 50 caracteres'];
+    if (strlen($jurisdiccion_codigo) > 10) {
+        return ['resultado' => false, 'error' => 'El código no puede exceder los 10 caracteres'];
     }
 
-    if (empty($codigo)) {
-        return ['resultado' => false, 'error' => 'El código es obligatorio'];
+    if (empty($jurisdiccion_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre de jurisdicción es obligatorio'];
     }
 
-    if (strlen($codigo) > 20) {
-        return ['resultado' => false, 'error' => 'El código no puede exceder los 20 caracteres'];
+    if (strlen($jurisdiccion_nombre) > 100) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 100 caracteres'];
     }
 
-    if (!empty($descripcion) && strlen($descripcion) > 255) {
-        return ['resultado' => false, 'error' => 'La descripción no puede exceder los 255 caracteres'];
-    }
-
-    $sql_check = "SELECT jurisdiccion_tipo_id FROM gestion__jurisdicciones_tipos 
-                  WHERE jurisdiccion_tipo_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    mysqli_stmt_close($stmt);
-
-    if (mysqli_num_rows($result) == 0) {
-        return ['resultado' => false, 'error' => 'Registro no encontrado'];
+    if ($jurisdiccion_tipo_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de jurisdicción'];
     }
 
     // Verificar código único (excluyendo el registro actual)
-    $sql_check_code = "SELECT jurisdiccion_tipo_id FROM gestion__jurisdicciones_tipos WHERE codigo = ? AND jurisdiccion_tipo_id != ?";
-    $stmt = mysqli_prepare($conexion, $sql_check_code);
+    $sql_check = "SELECT jurisdiccion_id FROM gestion__jurisdicciones 
+                  WHERE jurisdiccion_codigo = ? AND jurisdiccion_id != ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
     if ($stmt) {
-        mysqli_stmt_bind_param($stmt, "si", $codigo, $id);
+        mysqli_stmt_bind_param($stmt, "si", $jurisdiccion_codigo, $id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_store_result($stmt);
         if (mysqli_stmt_num_rows($stmt) > 0) {
             mysqli_stmt_close($stmt);
-            return ['resultado' => false, 'error' => 'El código ya existe. Debe ser único'];
+            return ['resultado' => false, 'error' => 'El código de jurisdicción ya existe'];
         }
         mysqli_stmt_close($stmt);
     }
 
-    $sql = "UPDATE gestion__jurisdicciones_tipos 
-            SET jurisdiccion_tipo = ?, codigo = ?, descripcion = ?, orden = ?
-            WHERE jurisdiccion_tipo_id = ?";
+    $sql = "UPDATE gestion__jurisdicciones 
+            SET jurisdiccion_codigo = ?, jurisdiccion_nombre = ?, pais_id = ?, provincia_id = ?, 
+                localidad_id = ?, jurisdiccion_tipo_id = ?, organismo_recaudador = ?, 
+                requiere_padron = ?, codigo_externo = ?, orden = ?
+            WHERE jurisdiccion_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "sssii", $jurisdiccion_tipo, $codigo, $descripcion, $orden, $id);
+    mysqli_stmt_bind_param($stmt, "ssiiissssii", $jurisdiccion_codigo, $jurisdiccion_nombre, 
+                          $pais_id, $provincia_id, $localidad_id, $jurisdiccion_tipo_id,
+                          $organismo_recaudador, $requiere_padron, $codigo_externo, 
+                          $orden, $id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
     if ($success) {
         return ['resultado' => true];
     } else {
-        return ['resultado' => false, 'error' => 'Error al actualizar el tipo de jurisdicción'];
+        return ['resultado' => false, 'error' => 'Error al actualizar la jurisdicción: ' . mysqli_error($conexion)];
     }
 }
 
-// Obtener tipo de jurisdicción específico
-function obtenerTipoJurisdiccionPorId($conexion, $id)
+// Obtener jurisdicción específica
+function obtenerJurisdiccionPorId($conexion, $id)
 {
     $id = intval($id);
 
-    $sql = "SELECT * FROM gestion__jurisdicciones_tipos WHERE jurisdiccion_tipo_id = ?";
+    $sql = "SELECT * FROM gestion__jurisdicciones WHERE jurisdiccion_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return null;
@@ -436,9 +549,9 @@ function obtenerTipoJurisdiccionPorId($conexion, $id)
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $tipo = mysqli_fetch_assoc($result);
+    $jurisdiccion = mysqli_fetch_assoc($result);
 
     mysqli_stmt_close($stmt);
-    return $tipo;
+    return $jurisdiccion;
 }
 ?>

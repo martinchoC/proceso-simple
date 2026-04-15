@@ -2,10 +2,10 @@
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
 
-$pageTitle = "Configuración de Impuestos por Empresa";
-$currentPage = 'empresas_impuestos_config';
+$pageTitle = "Jurisdicciones";
+$currentPage = 'jurisdicciones';
 $modudo_idx = 2;
-$pagina_idx = 73; // ID de página para Empresas Impuestos Config
+$pagina_idx = 74; // ID de página para Jurisdicciones
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -17,7 +17,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="row">
                 <div class="col-sm-6">
                     <h3 class="mb-0">
-                        <i class="fas fa-percent me-2"></i>Configuración de Impuestos por Empresa
+                        <i class="fas fa-map-marker-alt me-2"></i>Jurisdicciones
                     </h3>
                     <small class="text-muted">Sistema Declarativo Multiempresa</small>
                 </div>
@@ -26,7 +26,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <li class="breadcrumb-item"><a href="#">Home</a></li>
                         <li class="breadcrumb-item"><a href="#">Gestión</a></li>
                         <li class="breadcrumb-item"><a href="#">Configuración</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Impuestos por Empresa</li>
+                        <li class="breadcrumb-item active" aria-current="page">Jurisdicciones</li>
                     </ol>
                 </div>
             </div>
@@ -77,25 +77,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                     <div class="card-body">
                                         <!-- DataTable -->
-                                        <table id="tablaImpuestosConfig" class="table table-striped table-bordered"
+                                        <table id="tablaJurisdicciones" class="table table-striped table-bordered"
                                             style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="50">ID</th>
-                                                    
-                                                    <th width="120">Tipo de Impuesto</th>
-                                                    <th width="120">Jurisdicción</th>
-                                                    <th width="120">Condición Fiscal</th>
-                                                    <th width="120">Cuenta Contable</th>
-                                                    <th width="100">Tipo Cálculo</th>
-                                                    <th width="100">Base Cálculo</th>
-                                                    <th width="100">Alícuota (%)</th>
-                                                    <th width="100">Mínimo Imponible</th>
-                                                    <th width="100">Monto Fijo</th>
-                                                    <th width="80" class="text-center">Aplica Siempre</th>
-                                                    <th width="100">Prioridad</th>
-                                                    <th width="100">Vigencia Desde</th>
-                                                    <th width="100">Vigencia Hasta</th>
+                                                    <th width="100">Código</th>
+                                                    <th width="200">Nombre</th>
+                                                    <th width="120">Tipo</th>
+                                                    <th width="120">País</th>
+                                                    <th width="120">Provincia</th>
+                                                    <th width="120">Localidad</th>
+                                                    <th width="150">Organismo Recaudador</th>
+                                                    <th width="80" class="text-center">Requiere Padrón</th>
                                                     <th width="100">Estado</th>
                                                     <th width="150" class="text-center">Acciones</th>
                                                 </tr>
@@ -110,34 +104,49 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </section>
             </div>
 
-            <!-- Modal para crear/editar Configuración de Impuesto -->
-            <div class="modal fade" id="modalImpuestoConfig" tabindex="-1" aria-labelledby="modalLabel"
+            <!-- Modal para crear/editar Jurisdicción -->
+            <div class="modal fade" id="modalJurisdiccion" tabindex="-1" aria-labelledby="modalLabel"
                 aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="modalLabel">Configuración de Impuesto</h5>
+                            <h5 class="modal-title" id="modalLabel">Jurisdicción</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"
                                 aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body">
-                            <form id="formImpuestoConfig" class="needs-validation" novalidate>
-                                <input type="hidden" id="empresa_impuesto_config_id" name="empresa_impuesto_config_id" />
-                                <input type="hidden" id="empresa_id" name="empresa_id" />
+                            <form id="formJurisdiccion" class="needs-validation" novalidate>
+                                <input type="hidden" id="jurisdiccion_id" name="jurisdiccion_id" />
                                 
                                 <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="jurisdiccion_codigo" class="form-label">Código *</label>
+                                        <input type="text" class="form-control" id="jurisdiccion_codigo" 
+                                            name="jurisdiccion_codigo" maxlength="10" required>
+                                        <div class="invalid-feedback">El código es obligatorio (máx. 10 caracteres)</div>
+                                    </div>
+                                    
+                                    <div class="col-md-8 mb-3">
+                                        <label for="jurisdiccion_nombre" class="form-label">Nombre *</label>
+                                        <input type="text" class="form-control" id="jurisdiccion_nombre" 
+                                            name="jurisdiccion_nombre" maxlength="100" required>
+                                        <div class="invalid-feedback">El nombre es obligatorio (máx. 100 caracteres)</div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="impuesto_tipo_id" class="form-label">Tipo de Impuesto *</label>
-                                        <select class="form-select" id="impuesto_tipo_id" name="impuesto_tipo_id" required>
-                                            <option value="">Seleccione un tipo de impuesto...</option>
+                                        <label for="jurisdiccion_tipo_id" class="form-label">Tipo de Jurisdicción *</label>
+                                        <select class="form-select" id="jurisdiccion_tipo_id" name="jurisdiccion_tipo_id" required>
+                                            <option value="">Seleccione un tipo...</option>
                                         </select>
-                                        <div class="invalid-feedback">Seleccione un tipo de impuesto</div>
+                                        <div class="invalid-feedback">Seleccione un tipo de jurisdicción</div>
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="jurisdiccion_id" class="form-label">Jurisdicción</label>
-                                        <select class="form-select" id="jurisdiccion_id" name="jurisdiccion_id">
-                                            <option value="">Seleccione una jurisdicción...</option>
+                                        <label for="pais_id" class="form-label">País</label>
+                                        <select class="form-select" id="pais_id" name="pais_id">
+                                            <option value="">Seleccione un país...</option>
                                         </select>
                                         <div class="form-text">Opcional</div>
                                     </div>
@@ -145,101 +154,55 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="condicion_fiscal_id" class="form-label">Condición Fiscal</label>
-                                        <select class="form-select" id="condicion_fiscal_id" name="condicion_fiscal_id">
-                                            <option value="">Seleccione una condición fiscal...</option>
+                                        <label for="provincia_id" class="form-label">Provincia</label>
+                                        <select class="form-select" id="provincia_id" name="provincia_id">
+                                            <option value="">Seleccione una provincia...</option>
                                         </select>
                                         <div class="form-text">Opcional</div>
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="cont_cuenta_id" class="form-label">Cuenta Contable</label>
-                                        <select class="form-select" id="cont_cuenta_id" name="cont_cuenta_id">
-                                            <option value="">Seleccione una cuenta contable...</option>
+                                        <label for="localidad_id" class="form-label">Localidad</label>
+                                        <select class="form-select" id="localidad_id" name="localidad_id">
+                                            <option value="">Seleccione una localidad...</option>
                                         </select>
+                                        <div class="form-text">Opcional</div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-8 mb-3">
+                                        <label for="organismo_recaudador" class="form-label">Organismo Recaudador</label>
+                                        <input type="text" class="form-control" id="organismo_recaudador" 
+                                            name="organismo_recaudador" maxlength="100">
+                                        <div class="form-text">Opcional</div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label for="codigo_externo" class="form-label">Código Externo</label>
+                                        <input type="text" class="form-control" id="codigo_externo" 
+                                            name="codigo_externo" maxlength="20">
                                         <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="tipo_calculo" class="form-label">Tipo de Cálculo *</label>
-                                        <select class="form-select" id="tipo_calculo" name="tipo_calculo" required>
-                                            <option value="">Seleccione un tipo de cálculo...</option>
-                                            <option value="manual">Manual (alícuota fija)</option>
-                                            <option value="padron">Padrón (desde jurisdicción)</option>
-                                            <option value="regla">Regla (fórmula personalizada)</option>
-                                        </select>
-                                        <div class="invalid-feedback">Seleccione un tipo de cálculo</div>
-                                    </div>
-                                    
-                                    <div class="col-md-6 mb-3">
-                                        <label for="base_calculo" class="form-label">Base de Cálculo</label>
-                                        <select class="form-select" id="base_calculo" name="base_calculo">
-                                            <option value="">Seleccione una base...</option>
-                                            <option value="NETO_GRAVADO">NETO GRAVADO</option>
-                                            <option value="TOTAL">TOTAL FACTURA</option>
-                                            <option value="IMPORTE_EXENTO">IMPORTE EXENTO</option>
-                                            <option value="MONTO_FIJO">MONTO FIJO</option>
-                                        </select>
-                                        <div class="form-text">Opcional</div>
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-md-4 mb-3">
-                                        <label for="alicuota" class="form-label">Alícuota (%)</label>
-                                        <input type="number" step="0.1" class="form-control" id="alicuota" 
-                                            name="alicuota" value="0">
-                                        <div class="form-text">Opcional</div>
-                                    </div>
-                                    
-                                    <div class="col-md-4 mb-3">
-                                        <label for="minimo_imponible" class="form-label">Mínimo Imponible</label>
-                                        <input type="number" step="1" class="form-control" id="minimo_imponible" 
-                                            name="minimo_imponible" value="0">
-                                        <div class="form-text">Opcional</div>
-                                    </div>
-                                    
-                                    <div class="col-md-4 mb-3">
-                                        <label for="monto_fijo" class="form-label">Monto Fijo</label>
-                                        <input type="number" step="1" class="form-control" id="monto_fijo" 
-                                            name="monto_fijo" value="0">
-                                        <div class="form-text">Opcional</div>
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-md-4 mb-3">
-                                        <label for="prioridad" class="form-label">Prioridad</label>
-                                        <input type="number" class="form-control" id="prioridad" 
-                                            name="prioridad" value="1" min="1">
-                                        <div class="form-text">Orden de aplicación</div>
-                                    </div>
-                                    
-                                    <div class="col-md-4 mb-3">
-                                        <label for="f_desde" class="form-label">Vigencia Desde *</label>
-                                        <input type="date" class="form-control" id="f_desde" 
-                                            name="f_desde" required>
-                                        <div class="invalid-feedback">La fecha de inicio es obligatoria</div>
-                                    </div>
-                                    
-                                    <div class="col-md-4 mb-3">
-                                        <label for="f_hasta" class="form-label">Vigencia Hasta</label>
-                                        <input type="date" class="form-control" id="f_hasta" 
-                                            name="f_hasta">
-                                        <div class="form-text">Opcional</div>
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-md-12 mb-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" 
-                                                id="aplica_siempre" name="aplica_siempre" value="1" checked>
-                                            <label class="form-check-label" for="aplica_siempre">
-                                                <i class="fas fa-check-circle text-primary me-1"></i>Aplica siempre (sin validación adicional)
-                                            </label>
+                                        <label class="form-label">Configuración</label>
+                                        <div class="border rounded p-3 bg-light">
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" 
+                                                    id="requiere_padron" name="requiere_padron" value="1">
+                                                <label class="form-check-label" for="requiere_padron">
+                                                    <i class="fas fa-id-card text-primary me-1"></i>Requiere Padrón
+                                                </label>
+                                            </div>
+                                            <div class="form-group mt-2">
+                                                <label for="orden" class="form-label">Orden</label>
+                                                <input type="number" class="form-control" id="orden" 
+                                                    name="orden" value="1" min="1">
+                                                <div class="form-text">Orden de visualización</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -259,132 +222,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <!-- Estilos personalizados -->
     <style>
-        
-/* Para móviles muy pequeños */
-@media (max-width: 640px) {
-    .dataTables_wrapper .dataTable {
-        font-size: 10px;
-    }
-    
-    .dataTables_wrapper .dataTable td,
-    .dataTables_wrapper .dataTable th {
-        padding: 6px 3px;
-    }
-    
-    .btn-group .btn-sm {
-        padding: 2px 4px;
-        font-size: 10px;
-    }
-}
-
-/* Tooltip para ver texto completo */
-[title] {
-    cursor: help;
-}
-        /* Estilos responsive para DataTable */
-@media (max-width: 768px) {
-    .dataTables_wrapper .dataTables_length,
-    .dataTables_wrapper .dataTables_filter {
-        float: none !important;
-        text-align: left !important;
-        margin-bottom: 10px;
-    }
-    
-    .dataTables_wrapper .dataTables_filter input {
-        width: 100%;
-    }
-    
-    .btn-group {
-        display: inline-flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-    
-    .btn-group .btn {
-        margin-bottom: 4px;
-    }
-    
-    /* Mejorar visualización en móviles */
-    table.dataTable {
-        font-size: 12px;
-    }
-    
-    table.dataTable thead th,
-    table.dataTable tbody td {
-        padding: 8px 6px;
-    }
-    
-    /* Botones más pequeños en móviles */
-    .btn-group .btn-sm {
-        padding: 4px 6px;
-        font-size: 11px;
-    }
-}
-
-@media (max-width: 480px) {
-    table.dataTable {
-        font-size: 10px;
-    }
-    
-    .btn-group .btn-sm {
-        padding: 3px 5px;
-        font-size: 10px;
-    }
-    
-    .badge {
-        font-size: 9px;
-        padding: 3px 5px;
-    }
-}
-
-/* Estilo para el botón de expandir en responsive */
-td.dtr-control:before {
-    content: '▶';
-    font-size: 14px;
-    line-height: 1;
-}
-
-tr.dtr-expanded td.dtr-control:before {
-    content: '▼';
-}
-
-/* Mejorar visualización de detalles responsive */
-.dtr-details {
-    width: 100%;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    padding: 8px;
-}
-
-.dtr-details li {
-    padding: 4px 8px;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.dtr-details li:last-child {
-    border-bottom: none;
-}
-
-.dtr-details .dtr-title {
-    font-weight: bold;
-    width: 40%;
-    display: inline-block;
-}
-
-.dtr-details .dtr-data {
-    width: 55%;
-    display: inline-block;
-}
-
-/* Scroll horizontal para tablas muy anchas en desktop */
-.dataTables_scroll {
-    overflow-x: auto;
-}
-
-.table-responsive-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
         .dt-buttons .btn {
             margin-right: 5px;
             margin-bottom: 5px;
@@ -428,148 +265,150 @@ tr.dtr-expanded td.dtr-control:before {
             var currentOrder = [[0, 'asc']];
             var currentSearch = '';
             
-            // Establecer empresa_id automáticamente desde el contexto
-            $('#empresa_id').val(empresa_idx);
-            
-            function cargarTiposImpuesto() {
+            function cargarTiposJurisdiccion() {
                 $.ajax({
-                    url: 'empresas_impuestos_config_ajax.php',
+                    url: 'jurisdicciones_ajax.php',
                     type: 'GET',
                     data: {
-                        accion: 'listar_tipos_impuesto'
+                        accion: 'listar_tipos_jurisdiccion'
                     },
                     dataType: 'json',
                     success: function(response) {
-                        var select = $('#impuesto_tipo_id');
+                        var select = $('#jurisdiccion_tipo_id');
                         select.empty();
-                        select.append('<option value="">Seleccione un tipo de impuesto...</option>');
+                        select.append('<option value="">Seleccione un tipo...</option>');
                         
                         if (response && response.length > 0) {
                             $.each(response, function(index, tipo) {
-                                var texto = tipo.impuesto_tipo;
-                                if (tipo.es_retencion) texto += ' (Retención)';
-                                if (tipo.es_percepcion) texto += ' (Percepción)';
-                                select.append('<option value="' + tipo.impuesto_tipo_id + '">' + 
-                                    escapeHtml(texto) + '</option>');
+                                select.append('<option value="' + tipo.jurisdiccion_tipo_id + '">' + 
+                                    escapeHtml(tipo.jurisdiccion_tipo) + '</option>');
                             });
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error al cargar tipos de impuesto:', error);
+                        console.error('Error al cargar tipos de jurisdicción:', error);
                     }
                 });
             }
 
-            function cargarJurisdicciones() {
+            function cargarPaises() {
                 $.ajax({
-                    url: 'empresas_impuestos_config_ajax.php',
+                    url: 'jurisdicciones_ajax.php',
                     type: 'GET',
                     data: {
-                        accion: 'listar_jurisdicciones'
+                        accion: 'listar_paises'
                     },
                     dataType: 'json',
                     success: function(response) {
-                        var select = $('#jurisdiccion_id');
+                        var select = $('#pais_id');
                         select.empty();
-                        select.append('<option value="">Seleccione una jurisdicción...</option>');
+                        select.append('<option value="">Seleccione un país...</option>');
                         
                         if (response && response.length > 0) {
-                            $.each(response, function(index, jurisdiccion) {
-                                select.append('<option value="' + jurisdiccion.jurisdiccion_id + '">' + 
-                                    escapeHtml(jurisdiccion.jurisdiccion_nombre) + ' (' + escapeHtml(jurisdiccion.jurisdiccion_codigo) + ')</option>');
+                            $.each(response, function(index, pais) {
+                                select.append('<option value="' + pais.pais_id + '">' + 
+                                    escapeHtml(pais.pais) + '</option>');
                             });
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error al cargar jurisdicciones:', error);
+                        console.error('Error al cargar países:', error);
                     }
                 });
             }
 
-            function cargarCondicionesFiscales() {
+            function cargarProvincias(pais_id) {
                 $.ajax({
-                    url: 'empresas_impuestos_config_ajax.php',
+                    url: 'jurisdicciones_ajax.php',
                     type: 'GET',
                     data: {
-                        accion: 'listar_condiciones_fiscales'
+                        accion: 'listar_provincias',
+                        pais_id: pais_id
                     },
                     dataType: 'json',
                     success: function(response) {
-                        var select = $('#condicion_fiscal_id');
+                        var select = $('#provincia_id');
                         select.empty();
-                        select.append('<option value="">Seleccione una condición fiscal...</option>');
+                        select.append('<option value="">Seleccione una provincia...</option>');
                         
                         if (response && response.length > 0) {
-                            $.each(response, function(index, condicion) {
-                                var texto = condicion.condicion_fiscal;
-                                if (condicion.condicion_fiscal_codigo) {
-                                    texto += ' (' + condicion.condicion_fiscal_codigo + ')';
-                                }
-                                select.append('<option value="' + condicion.condicion_fiscal_id + '">' + 
-                                    escapeHtml(texto) + '</option>');
+                            $.each(response, function(index, provincia) {
+                                select.append('<option value="' + provincia.provincia_id + '">' + 
+                                    escapeHtml(provincia.provincia) + '</option>');
                             });
                         }
+                        
+                        // Resetear localidades cuando cambia provincia
+                        cargarLocalidades(null);
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error al cargar condiciones fiscales:', error);
+                        console.error('Error al cargar provincias:', error);
                     }
                 });
             }
 
-            function cargarCuentasContables() {
+            function cargarLocalidades(provincia_id) {
                 $.ajax({
-                    url: 'empresas_impuestos_config_ajax.php',
+                    url: 'jurisdicciones_ajax.php',
                     type: 'GET',
                     data: {
-                        accion: 'listar_cuentas_contables',
-                        empresa_idx: empresa_idx
+                        accion: 'listar_localidades',
+                        provincia_id: provincia_id
                     },
                     dataType: 'json',
                     success: function(response) {
-                        var select = $('#cont_cuenta_id');
+                        var select = $('#localidad_id');
                         select.empty();
-                        select.append('<option value="">Seleccione una cuenta contable...</option>');
+                        select.append('<option value="">Seleccione una localidad...</option>');
                         
                         if (response && response.length > 0) {
-                            $.each(response, function(index, cuenta) {
-                                var texto = cuenta.codigo + ' - ' + cuenta.nombre;
-                                select.append('<option value="' + cuenta.cont_cuenta_id + '">' + 
-                                    escapeHtml(texto) + '</option>');
+                            $.each(response, function(index, localidad) {
+                                select.append('<option value="' + localidad.localidad_id + '">' + 
+                                    escapeHtml(localidad.localidad) + '</option>');
                             });
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error al cargar cuentas contables:', error);
+                        console.error('Error al cargar localidades:', error);
                     }
                 });
             }
+
+            // Evento para cargar provincias cuando cambia el país
+            $('#pais_id').change(function() {
+                var pais_id = $(this).val();
+                if (pais_id) {
+                    cargarProvincias(pais_id);
+                } else {
+                    $('#provincia_id').empty().append('<option value="">Seleccione una provincia...</option>');
+                    $('#localidad_id').empty().append('<option value="">Seleccione una localidad...</option>');
+                }
+            });
+
+            // Evento para cargar localidades cuando cambia la provincia
+            $('#provincia_id').change(function() {
+                var provincia_id = $(this).val();
+                cargarLocalidades(provincia_id);
+            });
 
             // Función para inicializar DataTable
-            // Función para inicializar DataTable con responsive
             function inicializarDataTable() {
-                if ($.fn.DataTable.isDataTable('#tablaImpuestosConfig')) {
-                    $('#tablaImpuestosConfig').DataTable().destroy();
-                    $('#tablaImpuestosConfig tbody').empty();
+                if ($.fn.DataTable.isDataTable('#tablaJurisdicciones')) {
+                    $('#tablaJurisdicciones').DataTable().destroy();
+                    $('#tablaJurisdicciones tbody').empty();
                 }
 
-                    tabla = $('#tablaImpuestosConfig').DataTable({
-                        ajax: {
-                            url: 'empresas_impuestos_config_ajax.php',
-                            type: 'GET',
-                            data: {
-                                accion: 'listar',
-                                empresa_idx: empresa_idx,
-                                pagina_idx: pagina_idx
-                            },
-                            dataSrc: ''
+                tabla = $('#tablaJurisdicciones').DataTable({
+                    ajax: {
+                        url: 'jurisdicciones_ajax.php',
+                        type: 'GET',
+                        data: {
+                            accion: 'listar',
+                            empresa_idx: empresa_idx,
+                            pagina_idx: pagina_idx
                         },
-                        responsive: {
-                            details: {
-                                display: $.fn.dataTable.Responsive.display.childRowImmediate,
-                                type: 'column',
-                                target: 0
-                            }
-                        },
+                        dataSrc: ''
+                    },
                     stateSave: true,
                     stateSaveParams: function (settings, data) {
                         data.page = currentPage;
@@ -602,151 +441,87 @@ tr.dtr-expanded td.dtr-control:before {
                         data.search = { search: currentSearch };
                     },
                     dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                        '<"row"<"col-sm-12"tr>>' +
-                        '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
-                        '<"clear">',
-                    pageLength: 10,
+                         '<"row"<"col-sm-12"tr>>' +
+                         '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                         '<"clear">',
+                    pageLength: 50,
                     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-                    columnDefs: [
-                        { responsivePriority: 1, targets: 0 },  // ID - siempre visible
-                        { responsivePriority: 2, targets: 1 },  // Empresa - prioridad alta
-                        { responsivePriority: 3, targets: 2 },  // Tipo Impuesto
-                        { responsivePriority: 4, targets: 15 }, // Acciones - siempre visible
-                        { responsivePriority: 5, targets: 14 }, // Estado
-                        { className: 'text-center', targets: [0, 11, 14, 15] },
-                        { className: 'text-end', targets: [8, 9, 10] }
-                    ],
                     columns: [
                         {
-                            data: 'empresa_impuesto_config_id',
+                            data: 'jurisdiccion_id',
                             className: 'text-center fw-bold'
                         },
-                        
                         {
-                            data: 'impuesto_tipo',
+                            data: 'jurisdiccion_codigo',
                             render: function (data, type, row) {
                                 if (type === 'export') {
-                                    return data || '';
+                                    return data;
                                 }
-                                var badgeClass = 'bg-secondary';
-                                if (row.es_retencion) badgeClass = 'bg-warning';
-                                if (row.es_percepcion) badgeClass = 'bg-info';
-                                return data ? `<span class="badge ${badgeClass}">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>';
+                                return `<span class="badge bg-info">${escapeHtml(data)}</span>`;
                             }
                         },
                         {
                             data: 'jurisdiccion_nombre',
                             render: function (data, type, row) {
                                 if (type === 'export') {
+                                    return data;
+                                }
+                                return `<div class="fw-medium">${escapeHtml(data)}</div>`;
+                            }
+                        },
+                        {
+                            data: 'jurisdiccion_tipo',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data || '';
+                                }
+                                return data ? `<span class="badge bg-secondary">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>';
+                            }
+                        },
+                        {
+                            data: 'pais',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
                                     return data || '';
                                 }
                                 return data ? escapeHtml(data) : '<span class="text-muted">-</span>';
                             }
                         },
                         {
-                            data: 'condicion_fiscal',
+                            data: 'provincia_nombre',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return data || '';
                                 }
-                                return data ? `<span class="badge bg-secondary">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>';
+                                return data ? escapeHtml(data) : '<span class="text-muted">-</span>';
                             }
                         },
                         {
-                            data: 'cuenta_contable',
+                            data: 'localidad_nombre',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return data || '';
                                 }
-                                return data ? `<span class="badge bg-info">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>';
+                                return data ? escapeHtml(data) : '<span class="text-muted">-</span>';
                             }
                         },
                         {
-                            data: 'tipo_calculo',
+                            data: 'organismo_recaudador',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return data || '';
                                 }
-                                var badgeClass = 'bg-primary';
-                                if (data === 'manual') badgeClass = 'bg-success';
-                                if (data === 'padron') badgeClass = 'bg-info';
-                                if (data === 'regla') badgeClass = 'bg-warning';
-                                var texto = data === 'manual' ? 'Manual' : (data === 'padron' ? 'Padrón' : 'Regla');
-                                return data ? `<span class="badge ${badgeClass}">${texto}</span>` : '<span class="text-muted">-</span>';
+                                return data ? `<span class="text-info">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>';
                             }
                         },
                         {
-                            data: 'base_calculo',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data || '';
-                                }
-                                return data ? `<span class="badge bg-secondary">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>';
-                            }
-                        },
-                        {
-                            data: 'alicuota',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data || '0';
-                                }
-                                return data && parseFloat(data) > 0 ? `${parseFloat(data || 0).toFixed(2)}%` : '<span class="text-muted">-</span>';
-                            }
-                        },
-                        {
-                            data: 'minimo_imponible',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data || '0';
-                                }
-                                return parseFloat(data || 0).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                            }
-                        },
-                        {
-                            data: 'monto_fijo',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data || '0';
-                                }
-                                return parseFloat(data || 0).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                            }
-                        },
-                        {
-                            data: 'aplica_siempre',
+                            data: 'requiere_padron',
                             className: 'text-center',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return data == 1 ? 'Sí' : 'No';
                                 }
-                                return data == 1 ? '<i class="fas fa-check-circle text-success fa-lg" title="Aplica siempre"></i>' : '<i class="fas fa-times-circle text-danger fa-lg" title="No aplica siempre"></i>';
-                            }
-                        },
-                        {
-                            data: 'prioridad',
-                            className: 'text-center',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data || '';
-                                }
-                                return data ? `<span class="badge bg-secondary">${data}</span>` : '<span class="text-muted">-</span>';
-                            }
-                        },
-                        {
-                            data: 'f_desde',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data || '';
-                                }
-                                return data ? escapeHtml(data) : '<span class="text-muted">-</span>';
-                            }
-                        },
-                        {
-                            data: 'f_hasta',
-                            render: function (data, type, row) {
-                                if (type === 'export') {
-                                    return data || '';
-                                }
-                                return data ? escapeHtml(data) : '<span class="text-muted">-</span>';
+                                return data == 1 ? '<i class="fas fa-check-circle text-success fa-lg" title="Requiere padrón"></i>' : '<i class="fas fa-times-circle text-danger fa-lg" title="No requiere padrón"></i>';
                             }
                         },
                         {
@@ -775,7 +550,7 @@ tr.dtr-expanded td.dtr-control:before {
                             orderable: false,
                             searchable: false,
                             className: "text-center",
-                            width: '120px',
+                            width: '150px',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return '';
@@ -803,13 +578,13 @@ tr.dtr-expanded td.dtr-control:before {
                                         var esConfirmable = boton.es_confirmable || 0;
 
                                         var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
-                                                    title="${titulo}" 
-                                                    data-id="${row.empresa_impuesto_config_id}" 
-                                                    data-accion="${accionJs}"
-                                                    data-confirmable="${esConfirmable}"
-                                                    data-tipo="${escapeHtml(row.impuesto_tipo || 'Configuración')}">
-                                                    ${icono}
-                                                </button>`;
+                                       title="${titulo}" 
+                                       data-id="${row.jurisdiccion_id}" 
+                                       data-accion="${accionJs}"
+                                       data-confirmable="${esConfirmable}"
+                                       data-tipo="${escapeHtml(row.jurisdiccion_nombre)}">
+                                    ${icono}
+                                </button>`;
 
                                         if (accionJs === 'editar') {
                                             editarBoton = botonHtml;
@@ -823,7 +598,7 @@ tr.dtr-expanded td.dtr-control:before {
                                     botones = '<span class="text-muted small">Sin acciones</span>';
                                 }
 
-                                return `<div class="btn-group" role="group" style="flex-wrap: wrap; gap: 4px;">${botones}</div>`;
+                                return `<div class="btn-group" role="group">${botones}</div>`;
                             }
                         }
                     ],
@@ -832,7 +607,6 @@ tr.dtr-expanded td.dtr-control:before {
                     },
                     order: currentOrder,
                     responsive: true,
-                    autoWidth: false,
                     createdRow: function (row, data, dataIndex) {
                         if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
                             $(row).addClass('table-secondary');
@@ -890,7 +664,7 @@ tr.dtr-expanded td.dtr-control:before {
             }
 
             function cargarBotonAgregar() {
-                $.get('empresas_impuestos_config_ajax.php', {
+                $.get('jurisdicciones_ajax.php', {
                     accion: 'obtener_boton_agregar',
                     pagina_idx: pagina_idx
                 }, function (botonAgregar) {
@@ -912,7 +686,7 @@ tr.dtr-expanded td.dtr-control:before {
                     } else {
                         $('#contenedor-boton-agregar').html(
                             '<button type="button" class="btn btn-primary" id="btnNuevo">' +
-                            '<i class="fas fa-plus me-1"></i>Agregar Configuración</button>'
+                            '<i class="fas fa-plus me-1"></i>Agregar Jurisdicción</button>'
                         );
                     }
                 }, 'json');
@@ -920,23 +694,15 @@ tr.dtr-expanded td.dtr-control:before {
 
             $(document).on('click', '#btnNuevo', function () {
                 resetModal();
-                $('#modalLabel').text('Nueva Configuración de Impuesto');
+                $('#modalLabel').text('Nueva Jurisdicción');
                 
                 // Valores por defecto
-                $('#aplica_siempre').prop('checked', true);
-                $('#prioridad').val(1);
-                $('#minimo_imponible').val(0);
-                $('#monto_fijo').val(0);
-                $('#tipo_calculo').val('manual');
-                $('#alicuota').val(0);
+                $('#requiere_padron').prop('checked', false);
+                $('#orden').val(1);
                 
-                // Fecha por defecto: hoy
-                var today = new Date().toISOString().split('T')[0];
-                $('#f_desde').val(today);
-                
-                var modal = new bootstrap.Modal(document.getElementById('modalImpuestoConfig'));
+                var modal = new bootstrap.Modal(document.getElementById('modalJurisdiccion'));
                 modal.show();
-                $('#impuesto_tipo_id').focus();
+                $('#jurisdiccion_codigo').focus();
             });
 
             $(document).on('click', '.btn-accion', function () {
@@ -946,11 +712,11 @@ tr.dtr-expanded td.dtr-control:before {
                 var nombre = $(this).data('tipo');
 
                 if (accionJs === 'editar') {
-                    cargarConfiguracionParaEditar(id);
+                    cargarJurisdiccionParaEditar(id);
                 } else if (confirmable == 1) {
                     Swal.fire({
                         title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
-                        html: `¿Está seguro de <strong>${accionJs}</strong> la configuración de impuesto <strong>"${nombre}"</strong>?`,
+                        html: `¿Está seguro de <strong>${accionJs}</strong> la jurisdicción <strong>"${nombre}"</strong>?`,
                         icon: 'question',
                         showCancelButton: true,
                         confirmButtonColor: '#3085d6',
@@ -976,9 +742,9 @@ tr.dtr-expanded td.dtr-control:before {
                     search: tabla.search()
                 };
 
-                $.post('empresas_impuestos_config_ajax.php', {
+                $.post('jurisdicciones_ajax.php', {
                     accion: 'ejecutar_accion',
-                    empresa_impuesto_config_id: id,
+                    jurisdiccion_id: id,
                     accion_js: accionJs,
                     empresa_idx: empresa_idx,
                     pagina_idx: pagina_idx
@@ -994,7 +760,7 @@ tr.dtr-expanded td.dtr-control:before {
 
                             tabla.rows().every(function (rowIdx, tableLoop, rowLoop) {
                                 var data = this.data();
-                                if (data.empresa_impuesto_config_id == id) {
+                                if (data.jurisdiccion_id == id) {
                                     $(this.node()).addClass('table-success');
                                     setTimeout(function () {
                                         $(this.node()).removeClass('table-success');
@@ -1005,7 +771,7 @@ tr.dtr-expanded td.dtr-control:before {
                             Swal.fire({
                                 icon: "success",
                                 title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
-                                text: res.message || `Configuración "${nombre}" actualizada correctamente`,
+                                text: res.message || `Jurisdicción "${nombre}" actualizada correctamente`,
                                 showConfirmButton: false,
                                 timer: 1500,
                                 toast: true,
@@ -1016,47 +782,60 @@ tr.dtr-expanded td.dtr-control:before {
                         Swal.fire({
                             icon: "error",
                             title: "Error",
-                            text: res.error || `Error al ${accionJs} la configuración`,
+                            text: res.error || `Error al ${accionJs} la jurisdicción`,
                             confirmButtonText: "Entendido"
                         });
                     }
                 }, 'json');
             }
 
-            function cargarConfiguracionParaEditar(id) {
-                $.get('empresas_impuestos_config_ajax.php', {
+            function cargarJurisdiccionParaEditar(id) {
+                $.get('jurisdicciones_ajax.php', {
                     accion: 'obtener',
-                    empresa_impuesto_config_id: id,
+                    jurisdiccion_id: id,
                     empresa_idx: empresa_idx
                 }, function (res) {
-                    if (res && res.empresa_impuesto_config_id) {
+                    if (res && res.jurisdiccion_id) {
                         resetModal();
                         
-                        $('#empresa_impuesto_config_id').val(res.empresa_impuesto_config_id);
-                        $('#empresa_id').val(empresa_idx);
-                        $('#impuesto_tipo_id').val(res.impuesto_tipo_id);
-                        $('#jurisdiccion_id').val(res.jurisdiccion_id || '');
-                        $('#condicion_fiscal_id').val(res.condicion_fiscal_id || '');
-                        $('#cont_cuenta_id').val(res.cont_cuenta_id || '');
-                        $('#tipo_calculo').val(res.tipo_calculo || 'manual');
-                        $('#base_calculo').val(res.base_calculo || '');
-                        $('#alicuota').val(res.alicuota || 0);
-                        $('#minimo_imponible').val(res.minimo_imponible || 0);
-                        $('#monto_fijo').val(res.monto_fijo || 0);
-                        $('#prioridad').val(res.prioridad || 1);
-                        $('#f_desde').val(res.f_desde);
-                        $('#f_hasta').val(res.f_hasta || '');
-                        $('#aplica_siempre').prop('checked', res.aplica_siempre == 1);
+                        $('#jurisdiccion_id').val(res.jurisdiccion_id);
+                        $('#jurisdiccion_codigo').val(res.jurisdiccion_codigo);
+                        $('#jurisdiccion_nombre').val(res.jurisdiccion_nombre);
+                        $('#jurisdiccion_tipo_id').val(res.jurisdiccion_tipo_id);
                         
-                        $('#modalLabel').text('Editar Configuración de Impuesto');
+                        if (res.pais_id) {
+                            $('#pais_id').val(res.pais_id);
+                            // Cargar provincias primero
+                            cargarProvincias(res.pais_id);
+                            // Esperar a que se carguen las provincias antes de seleccionar
+                            setTimeout(function() {
+                                if (res.provincia_id) {
+                                    $('#provincia_id').val(res.provincia_id);
+                                    // Cargar localidades después de seleccionar provincia
+                                    cargarLocalidades(res.provincia_id);
+                                    setTimeout(function() {
+                                        if (res.localidad_id) {
+                                            $('#localidad_id').val(res.localidad_id);
+                                        }
+                                    }, 300);
+                                }
+                            }, 300);
+                        }
+                        
+                        $('#organismo_recaudador').val(res.organismo_recaudador || '');
+                        $('#codigo_externo').val(res.codigo_externo || '');
+                        $('#requiere_padron').prop('checked', res.requiere_padron == 1);
+                        $('#orden').val(res.orden || 1);
+                        
+                        $('#modalLabel').text('Editar Jurisdicción');
 
-                        var modal = new bootstrap.Modal(document.getElementById('modalImpuestoConfig'));
+                        var modal = new bootstrap.Modal(document.getElementById('modalJurisdiccion'));
                         modal.show();
                     } else {
                         Swal.fire({
                             icon: "error",
                             title: "Error",
-                            text: "Error al obtener datos de la configuración",
+                            text: "Error al obtener datos de la jurisdicción",
                             confirmButtonText: "Entendido"
                         });
                     }
@@ -1064,73 +843,74 @@ tr.dtr-expanded td.dtr-control:before {
             }
 
             function resetModal() {
-                $('#formImpuestoConfig')[0].reset();
-                $('#empresa_impuesto_config_id').val('');
-                $('#formImpuestoConfig').removeClass('was-validated');
-                $('#empresa_id').val(empresa_idx);
+                $('#formJurisdiccion')[0].reset();
                 $('#jurisdiccion_id').val('');
-                $('#condicion_fiscal_id').val('');
-                $('#cont_cuenta_id').val('');
-                $('#tipo_calculo').val('manual');
-                $('#base_calculo').val('');
-                $('#alicuota').val(0);
-                $('#aplica_siempre').prop('checked', true);
-                $('#prioridad').val(1);
-                $('#minimo_imponible').val(0);
-                $('#monto_fijo').val(0);
+                $('#formJurisdiccion').removeClass('was-validated');
+                $('#pais_id').val('');
+                $('#provincia_id').empty().append('<option value="">Seleccione una provincia...</option>');
+                $('#localidad_id').empty().append('<option value="">Seleccione una localidad...</option>');
+                $('#requiere_padron').prop('checked', false);
+                $('#orden').val(1);
             }
 
             $('#btnGuardar').click(function () {
-                var form = document.getElementById('formImpuestoConfig');
+                var form = document.getElementById('formJurisdiccion');
 
                 if (!form.checkValidity()) {
                     form.classList.add('was-validated');
                     return false;
                 }
 
-                var id = $('#empresa_impuesto_config_id').val();
+                var id = $('#jurisdiccion_id').val();
                 var accionBackend = id ? 'editar' : 'agregar';
-                var impuesto_tipo_id = $('#impuesto_tipo_id').val();
-                var tipo_calculo = $('#tipo_calculo').val();
-                var f_desde = $('#f_desde').val();
+                var codigo = $('#jurisdiccion_codigo').val().trim();
+                var nombre = $('#jurisdiccion_nombre').val().trim();
+                var tipoId = $('#jurisdiccion_tipo_id').val();
+                var paisId = $('#pais_id').val();
+                var provinciaId = $('#provincia_id').val();
+                var localidadId = $('#localidad_id').val();
+                var organismo = $('#organismo_recaudador').val().trim();
+                var codigoExterno = $('#codigo_externo').val().trim();
+                var requierePadron = $('#requiere_padron').is(':checked') ? 1 : 0;
+                var orden = $('#orden').val();
 
-                if (!impuesto_tipo_id) {
-                    $('#impuesto_tipo_id').addClass('is-invalid');
+                if (!codigo || codigo.length > 10) {
+                    $('#jurisdiccion_codigo').addClass('is-invalid');
                     Swal.fire({
                         icon: "warning",
                         title: "Validación",
-                        text: "Debe seleccionar un tipo de impuesto",
+                        text: "El código es obligatorio y no puede exceder los 10 caracteres",
                         confirmButtonText: "Entendido"
                     });
                     return false;
                 } else {
-                    $('#impuesto_tipo_id').removeClass('is-invalid');
+                    $('#jurisdiccion_codigo').removeClass('is-invalid');
                 }
 
-                if (!tipo_calculo) {
-                    $('#tipo_calculo').addClass('is-invalid');
+                if (!nombre || nombre.length > 100) {
+                    $('#jurisdiccion_nombre').addClass('is-invalid');
                     Swal.fire({
                         icon: "warning",
                         title: "Validación",
-                        text: "Debe seleccionar un tipo de cálculo",
+                        text: "El nombre es obligatorio y no puede exceder los 100 caracteres",
                         confirmButtonText: "Entendido"
                     });
                     return false;
                 } else {
-                    $('#tipo_calculo').removeClass('is-invalid');
+                    $('#jurisdiccion_nombre').removeClass('is-invalid');
                 }
 
-                if (!f_desde) {
-                    $('#f_desde').addClass('is-invalid');
+                if (!tipoId) {
+                    $('#jurisdiccion_tipo_id').addClass('is-invalid');
                     Swal.fire({
                         icon: "warning",
                         title: "Validación",
-                        text: "La fecha de inicio es obligatoria",
+                        text: "Debe seleccionar un tipo de jurisdicción",
                         confirmButtonText: "Entendido"
                     });
                     return false;
                 } else {
-                    $('#f_desde').removeClass('is-invalid');
+                    $('#jurisdiccion_tipo_id').removeClass('is-invalid');
                 }
 
                 var btnGuardar = $(this);
@@ -1144,25 +924,21 @@ tr.dtr-expanded td.dtr-control:before {
                 };
 
                 $.ajax({
-                    url: 'empresas_impuestos_config_ajax.php',
+                    url: 'jurisdicciones_ajax.php',
                     type: 'POST',
                     data: {
                         accion: accionBackend,
-                        empresa_impuesto_config_id: id,
-                        empresa_id: empresa_idx,
-                        impuesto_tipo_id: impuesto_tipo_id,
-                        jurisdiccion_id: $('#jurisdiccion_id').val() || null,
-                        condicion_fiscal_id: $('#condicion_fiscal_id').val() || null,
-                        cont_cuenta_id: $('#cont_cuenta_id').val() || null,
-                        tipo_calculo: tipo_calculo,
-                        base_calculo: $('#base_calculo').val() || null,
-                        alicuota: $('#alicuota').val() || 0,
-                        minimo_imponible: $('#minimo_imponible').val() || 0,
-                        monto_fijo: $('#monto_fijo').val() || 0,
-                        prioridad: $('#prioridad').val() || 1,
-                        f_desde: f_desde,
-                        f_hasta: $('#f_hasta').val() || null,
-                        aplica_siempre: $('#aplica_siempre').is(':checked') ? 1 : 0,
+                        jurisdiccion_id: id,
+                        jurisdiccion_codigo: codigo,
+                        jurisdiccion_nombre: nombre,
+                        jurisdiccion_tipo_id: tipoId,
+                        pais_id: paisId,
+                        provincia_id: provinciaId,
+                        localidad_id: localidadId,
+                        organismo_recaudador: organismo,
+                        codigo_externo: codigoExterno,
+                        requiere_padron: requierePadron,
+                        orden: orden,
                         empresa_idx: empresa_idx,
                         pagina_idx: pagina_idx
                     },
@@ -1182,14 +958,14 @@ tr.dtr-expanded td.dtr-control:before {
                                 Swal.fire({
                                     icon: "success",
                                     title: "¡Guardado!",
-                                    text: "Configuración guardada correctamente",
+                                    text: "Jurisdicción guardada correctamente",
                                     showConfirmButton: false,
                                     timer: 1500,
                                     toast: true,
                                     position: 'top-end'
                                 });
 
-                                var modalEl = document.getElementById('modalImpuestoConfig');
+                                var modalEl = document.getElementById('modalJurisdiccion');
                                 var modal = bootstrap.Modal.getInstance(modalEl);
                                 modal.hide();
                             }, false);
@@ -1239,57 +1015,47 @@ tr.dtr-expanded td.dtr-control:before {
             function exportToExcel() {
                 var data = tabla.rows().data().toArray();
                 var exportData = data.map(row => ({
-                    'ID': row.empresa_impuesto_config_id,
-                    'Empresa': row.empresa || '',
-                    'Tipo Impuesto': row.impuesto_tipo || '',
-                    'Jurisdicción': row.jurisdiccion_nombre || '',
-                    'Condición Fiscal': row.condicion_fiscal || '',
-                    'Cuenta Contable': row.cuenta_contable || '',
-                    'Tipo Cálculo': row.tipo_calculo || '',
-                    'Base Cálculo': row.base_calculo || '',
-                    'Alícuota (%)': row.alicuota || '',
-                    'Mínimo Imponible': row.minimo_imponible || '',
-                    'Monto Fijo': row.monto_fijo || '',
-                    'Aplica Siempre': row.aplica_siempre == 1 ? 'Sí' : 'No',
-                    'Prioridad': row.prioridad || '',
-                    'Vigencia Desde': row.f_desde || '',
-                    'Vigencia Hasta': row.f_hasta || '',
+                    'ID': row.jurisdiccion_id,
+                    'Código': row.jurisdiccion_codigo,
+                    'Nombre': row.jurisdiccion_nombre,
+                    'Tipo': row.jurisdiccion_tipo || '',
+                    'País': row.pais || '',
+                    'Provincia': row.provincia_nombre || '',
+                    'Localidad': row.localidad_nombre || '',
+                    'Organismo Recaudador': row.organismo_recaudador || '',
+                    'Requiere Padrón': row.requiere_padron == 1 ? 'Sí' : 'No',
+                    'Orden': row.orden || '',
                     'Estado': row.estado_info?.estado_registro || ''
                 }));
                 
                 var ws = XLSX.utils.json_to_sheet(exportData);
                 var wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'ImpuestosConfig');
-                XLSX.writeFile(wb, `ImpuestosConfig_${new Date().toISOString().slice(0,19)}.xlsx`);
+                XLSX.utils.book_append_sheet(wb, ws, 'Jurisdicciones');
+                XLSX.writeFile(wb, `Jurisdicciones_${new Date().toISOString().slice(0,19)}.xlsx`);
             }
 
             function exportToPDF() {
                 var printWindow = window.open('', '_blank');
-                var content = '<html><head><title>Configuración de Impuestos</title>';
+                var content = '<html><head><title>Jurisdicciones</title>';
                 content += '<style>table {border-collapse: collapse; width: 100%;} th, td {border: 1px solid #ddd; padding: 8px; text-align: left;} th {background-color: #f2f2f2;}</style>';
                 content += '</head><body>';
-                content += '<h2>Configuración de Impuestos por Empresa</h2>';
+                content += '<h2>Jurisdicciones</h2>';
                 content += '<table>';
-                content += '<thead><tr><th>ID</th><th>Empresa</th><th>Tipo Impuesto</th><th>Jurisdicción</th><th>Condición Fiscal</th><th>Cuenta Contable</th><th>Tipo Cálculo</th><th>Base</th><th>Alícuota</th><th>Mínimo</th><th>Monto Fijo</th><th>Aplica</th><th>Prioridad</th><th>Desde</th><th>Hasta</th><th>Estado</th></thead><tbody>';
+                content += '<thead><tr><th>ID</th><th>Código</th><th>Nombre</th><th>Tipo</th><th>País</th><th>Provincia</th><th>Localidad</th><th>Organismo</th><th>Padrón</th><th>Orden</th><th>Estado</th></tr></thead><tbody>';
                 
                 var data = tabla.rows().data().toArray();
                 data.forEach(row => {
                     content += `<tr>
-                        <td>${row.empresa_impuesto_config_id}</td>
-                        <td>${escapeHtml(row.empresa || '')}</td>
-                        <td>${escapeHtml(row.impuesto_tipo || '')}</td>
-                        <td>${escapeHtml(row.jurisdiccion_nombre || '')}</td>
-                        <td>${escapeHtml(row.condicion_fiscal || '')}</td>
-                        <td>${escapeHtml(row.cuenta_contable || '')}</td>
-                        <td>${row.tipo_calculo || ''}</td>
-                        <td>${row.base_calculo || ''}</td>
-                        <td>${row.alicuota || ''}%</td>
-                        <td>${row.minimo_imponible || '0'}</td>
-                        <td>${row.monto_fijo || '0'}</td>
-                        <td>${row.aplica_siempre == 1 ? 'Sí' : 'No'}</td>
-                        <td>${row.prioridad || ''}</td>
-                        <td>${row.f_desde || ''}</td>
-                        <td>${row.f_hasta || ''}</td>
+                        <td>${row.jurisdiccion_id}</td>
+                        <td>${escapeHtml(row.jurisdiccion_codigo)}</td>
+                        <td>${escapeHtml(row.jurisdiccion_nombre)}</td>
+                        <td>${row.jurisdiccion_tipo || ''}</td>
+                        <td>${row.pais || ''}</td>
+                        <td>${row.provincia_nombre || ''}</td>
+                        <td>${row.localidad_nombre || ''}</td>
+                        <td>${row.organismo_recaudador || ''}</td>
+                        <td>${row.requiere_padron == 1 ? 'Sí' : 'No'}</td>
+                        <td>${row.orden || ''}</td>
                         <td>${row.estado_info?.estado_registro || ''}</td>
                     </tr>`;
                 });
@@ -1302,17 +1068,17 @@ tr.dtr-expanded td.dtr-control:before {
 
             function exportToCSV() {
                 var data = tabla.rows().data().toArray();
-                var csv = "ID,Empresa,Tipo Impuesto,Jurisdicción,Condición Fiscal,Cuenta Contable,Tipo Cálculo,Base Cálculo,Alícuota (%),Mínimo Imponible,Monto Fijo,Aplica Siempre,Prioridad,Vigencia Desde,Vigencia Hasta,Estado\n";
+                var csv = "ID,Código,Nombre,Tipo,País,Provincia,Localidad,Organismo Recaudador,Requiere Padrón,Orden,Estado\n";
                 
                 data.forEach(row => {
-                    csv += `"${row.empresa_impuesto_config_id}","${escapeCsv(row.empresa || '')}","${escapeCsv(row.impuesto_tipo || '')}","${escapeCsv(row.jurisdiccion_nombre || '')}","${escapeCsv(row.condicion_fiscal || '')}","${escapeCsv(row.cuenta_contable || '')}","${escapeCsv(row.tipo_calculo || '')}","${escapeCsv(row.base_calculo || '')}","${row.alicuota || '0'}","${row.minimo_imponible || '0'}","${row.monto_fijo || '0'}","${row.aplica_siempre == 1 ? 'Sí' : 'No'}","${row.prioridad || ''}","${row.f_desde || ''}","${row.f_hasta || ''}","${escapeCsv(row.estado_info?.estado_registro || '')}"\n`;
+                    csv += `"${row.jurisdiccion_id}","${escapeCsv(row.jurisdiccion_codigo)}","${escapeCsv(row.jurisdiccion_nombre)}","${escapeCsv(row.jurisdiccion_tipo || '')}","${escapeCsv(row.pais || '')}","${escapeCsv(row.provincia_nombre || '')}","${escapeCsv(row.localidad_nombre || '')}","${escapeCsv(row.organismo_recaudador || '')}","${row.requiere_padron == 1 ? 'Sí' : 'No'}","${row.orden || ''}","${escapeCsv(row.estado_info?.estado_registro || '')}"\n`;
                 });
                 
                 var blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
                 var link = document.createElement("a");
                 var url = URL.createObjectURL(blob);
                 link.setAttribute("href", url);
-                link.setAttribute("download", `ImpuestosConfig_${new Date().toISOString().slice(0,19)}.csv`);
+                link.setAttribute("download", `Jurisdicciones_${new Date().toISOString().slice(0,19)}.csv`);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
@@ -1340,10 +1106,8 @@ tr.dtr-expanded td.dtr-control:before {
 
             inicializarDataTable();
             cargarBotonAgregar();
-            cargarTiposImpuesto();
-            cargarJurisdicciones();
-            cargarCondicionesFiscales();
-            cargarCuentasContables();
+            cargarTiposJurisdiccion();
+            cargarPaises();
             
             $('[title]').tooltip({
                 trigger: 'hover',
@@ -1353,16 +1117,14 @@ tr.dtr-expanded td.dtr-control:before {
     </script>
 
     <!-- Librerías necesarias -->
-    <!-- Librerías necesarias -->
-        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-        <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-        <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-        <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-        <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" type="text/css"
+        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </main>
 
 <?php

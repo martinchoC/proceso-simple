@@ -3,9 +3,69 @@ require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
 /**
- * Modelo para gestión de Tipos de Jurisdicciones
+ * Modelo para gestión de Impuestos por Jurisdicción
  * Toda la configuración se obtiene de conf__paginas_funciones
  */
+
+// Obtener tipos de impuesto activos
+function obtenerTiposImpuesto($conexion) {
+    $sql = "SELECT impuesto_tipo_id, impuesto_tipo, codigo_afip, aplica_compra, aplica_venta, es_retencion, es_percepcion
+            FROM gestion__impuestos_tipos 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY impuesto_tipo";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $tipos = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $tipos[] = $row;
+    }
+    
+    return $tipos;
+}
+
+// Obtener jurisdicciones activas
+function obtenerJurisdiccionesParaSelect($conexion) {
+    $sql = "SELECT jurisdiccion_id, jurisdiccion_codigo, jurisdiccion_nombre 
+            FROM gestion__jurisdicciones 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY jurisdiccion_nombre";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $jurisdicciones = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $jurisdicciones[] = $row;
+    }
+    
+    return $jurisdicciones;
+}
+
+// Obtener cuentas contables
+function obtenerCuentasContables($conexion) {
+    $sql = "SELECT cuenta_contable_id, codigo, nombre 
+            FROM conf__cuentas_contables 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY codigo";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $cuentas = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $cuentas[] = $row;
+    }
+    
+    return $cuentas;
+}
 
 // Obtener funciones configuradas para la página
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -124,7 +184,7 @@ function obtenerBotonAgregar($conexion, $pagina_id)
     }
 
     return [
-        'nombre_funcion' => 'Agregar Tipo de Jurisdicción',
+        'nombre_funcion' => 'Agregar Impuesto por Jurisdicción',
         'accion_js' => 'agregar',
         'icono_clase' => 'fas fa-plus',
         'color_clase' => 'btn-primary',
@@ -152,28 +212,28 @@ function obtenerEstadoInicial($conexion)
 }
 
 // Ejecutar transición de estado
-function ejecutarTransicionEstado($conexion, $jurisdiccion_tipo_id, $accion_js, $empresa_idx, $pagina_id)
+function ejecutarTransicionEstado($conexion, $impuesto_jurisdiccion_id, $accion_js, $empresa_idx, $pagina_id)
 {
-    $jurisdiccion_tipo_id = intval($jurisdiccion_tipo_id);
+    $impuesto_jurisdiccion_id = intval($impuesto_jurisdiccion_id);
     $pagina_id = intval($pagina_id);
 
-    $sql_check = "SELECT jurisdiccion_tipo_id, tabla_estado_registro_id 
-                  FROM gestion__jurisdicciones_tipos 
-                  WHERE jurisdiccion_tipo_id = ?";
+    $sql_check = "SELECT impuesto_jurisdiccion_id, tabla_estado_registro_id 
+                  FROM gestion__impuestos_jurisdicciones 
+                  WHERE impuesto_jurisdiccion_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "i", $jurisdiccion_tipo_id);
+    mysqli_stmt_bind_param($stmt, "i", $impuesto_jurisdiccion_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $tipo = mysqli_fetch_assoc($result);
+    $registro = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    if (!$tipo)
+    if (!$registro)
         return ['success' => false, 'error' => 'Registro no encontrado'];
 
-    $estado_actual_id = $tipo['tabla_estado_registro_id'];
+    $estado_actual_id = $registro['tabla_estado_registro_id'];
 
     $sql_funcion = "SELECT pf.* 
                     FROM conf__paginas_funciones pf
@@ -201,15 +261,15 @@ function ejecutarTransicionEstado($conexion, $jurisdiccion_tipo_id, $accion_js, 
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
 
-    $sql_update = "UPDATE gestion__jurisdicciones_tipos 
+    $sql_update = "UPDATE gestion__impuestos_jurisdicciones 
                    SET tabla_estado_registro_id = ? 
-                   WHERE jurisdiccion_tipo_id = ?";
+                   WHERE impuesto_jurisdiccion_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql_update);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $jurisdiccion_tipo_id);
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $impuesto_jurisdiccion_id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -220,11 +280,10 @@ function ejecutarTransicionEstado($conexion, $jurisdiccion_tipo_id, $accion_js, 
     }
 }
 
-// Obtener todos los tipos de jurisdicción
-function obtenerTiposJurisdiccion($conexion, $empresa_idx, $pagina_id)
+// Obtener todos los impuestos por jurisdicción
+function obtenerImpuestosJurisdicciones($conexion, $empresa_idx, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
-    $empresa_idx = intval($empresa_idx);
 
     $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
     $result = mysqli_query($conexion, $sql_check);
@@ -242,14 +301,21 @@ function obtenerTiposJurisdiccion($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT jt.*, 
+    $sql = "SELECT ij.*, 
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
-                   c.color_clase, c.bg_clase, c.text_clase
-            FROM gestion__jurisdicciones_tipos jt
-            LEFT JOIN conf__estados_registros er ON jt.tabla_estado_registro_id = er.estado_registro_id
+                   c.color_clase, c.bg_clase, c.text_clase,
+                   it.impuesto_tipo,
+                   j.jurisdiccion_nombre, j.jurisdiccion_codigo,
+                   cc.codigo as cuenta_codigo, cc.nombre as cuenta_nombre,
+                   CONCAT(cc.codigo, ' - ', cc.nombre) as cuenta_contable
+            FROM gestion__impuestos_jurisdicciones ij
+            LEFT JOIN conf__estados_registros er ON ij.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            ORDER BY jt.orden ASC, jt.jurisdiccion_tipo ASC";
+            LEFT JOIN gestion__impuestos_tipos it ON ij.impuesto_tipo_id = it.impuesto_tipo_id
+            LEFT JOIN gestion__jurisdicciones j ON ij.jurisdiccion_id = j.jurisdiccion_id
+            LEFT JOIN conf__cuentas_contables cc ON ij.cuenta_contable_id = cc.cuenta_contable_id
+            ORDER BY ij.orden, it.impuesto_tipo, j.jurisdiccion_nombre";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -280,155 +346,145 @@ function obtenerTiposJurisdiccion($conexion, $empresa_idx, $pagina_id)
     return $data;
 }
 
-// Agregar nuevo tipo de jurisdicción
-function agregarTipoJurisdiccion($conexion, $data)
+// Agregar nuevo impuesto por jurisdicción
+function agregarImpuestoJurisdiccion($conexion, $data)
 {
-    $empresa_id = intval($data['empresa_id'] ?? 0);
-    $jurisdiccion_tipo = mysqli_real_escape_string($conexion, trim($data['jurisdiccion_tipo'] ?? ''));
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
+    $impuesto_tipo_id = intval($data['impuesto_tipo_id'] ?? 0);
+    $jurisdiccion_id = intval($data['jurisdiccion_id'] ?? 0);
+    $tipo_calculo = mysqli_real_escape_string($conexion, trim($data['tipo_calculo'] ?? ''));
+    $codigo_local = mysqli_real_escape_string($conexion, trim($data['codigo_local'] ?? ''));
+    $cuenta_contable_id = !empty($data['cuenta_contable_id']) ? intval($data['cuenta_contable_id']) : null;
+    $requiere_padron = intval($data['requiere_padron'] ?? 0);
     $orden = intval($data['orden'] ?? 1);
 
-    if (empty($jurisdiccion_tipo)) {
-        return ['resultado' => false, 'error' => 'El tipo de jurisdicción es obligatorio'];
+    if ($impuesto_tipo_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de impuesto'];
     }
 
-    if (strlen($jurisdiccion_tipo) > 50) {
-        return ['resultado' => false, 'error' => 'El tipo de jurisdicción no puede exceder los 50 caracteres'];
+    if ($jurisdiccion_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar una jurisdicción'];
     }
 
-    if (empty($codigo)) {
-        return ['resultado' => false, 'error' => 'El código es obligatorio'];
+    if (empty($tipo_calculo) || !in_array($tipo_calculo, ['manual', 'padron', 'regla'])) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de cálculo válido'];
     }
 
-    if (strlen($codigo) > 20) {
-        return ['resultado' => false, 'error' => 'El código no puede exceder los 20 caracteres'];
+    if (strlen($codigo_local) > 20) {
+        return ['resultado' => false, 'error' => 'El código local no puede exceder los 20 caracteres'];
     }
 
-    if (!empty($descripcion) && strlen($descripcion) > 255) {
-        return ['resultado' => false, 'error' => 'La descripción no puede exceder los 255 caracteres'];
-    }
-
-    // Verificar código único
-    $sql_check = "SELECT jurisdiccion_tipo_id FROM gestion__jurisdicciones_tipos WHERE codigo = ?";
+    // Verificar unicidad de la combinación impuesto + jurisdicción
+    $sql_check = "SELECT impuesto_jurisdiccion_id FROM gestion__impuestos_jurisdicciones 
+                  WHERE impuesto_tipo_id = ? AND jurisdiccion_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if ($stmt) {
-        mysqli_stmt_bind_param($stmt, "s", $codigo);
+        mysqli_stmt_bind_param($stmt, "ii", $impuesto_tipo_id, $jurisdiccion_id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_store_result($stmt);
         if (mysqli_stmt_num_rows($stmt) > 0) {
             mysqli_stmt_close($stmt);
-            return ['resultado' => false, 'error' => 'El código ya existe. Debe ser único'];
+            return ['resultado' => false, 'error' => 'Ya existe una configuración para este impuesto y jurisdicción'];
         }
         mysqli_stmt_close($stmt);
     }
 
     $estado_inicial = obtenerEstadoInicial($conexion);
 
-    $sql = "INSERT INTO gestion__jurisdicciones_tipos 
-            (jurisdiccion_tipo, codigo, descripcion, orden, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO gestion__impuestos_jurisdicciones 
+            (impuesto_tipo_id, jurisdiccion_id, tipo_calculo, codigo_local, 
+             cuenta_contable_id, requiere_padron, orden, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "sssii", $jurisdiccion_tipo, $codigo, $descripcion, $orden, $estado_inicial);
+    mysqli_stmt_bind_param($stmt, "iissiiii", $impuesto_tipo_id, $jurisdiccion_id, 
+                          $tipo_calculo, $codigo_local, $cuenta_contable_id, 
+                          $requiere_padron, $orden, $estado_inicial);
     $success = mysqli_stmt_execute($stmt);
 
     if ($success) {
-        $jurisdiccion_tipo_id = mysqli_insert_id($conexion);
+        $impuesto_jurisdiccion_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
-        return ['resultado' => true, 'jurisdiccion_tipo_id' => $jurisdiccion_tipo_id];
+        return ['resultado' => true, 'impuesto_jurisdiccion_id' => $impuesto_jurisdiccion_id];
     } else {
         mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al crear el tipo de jurisdicción'];
+        return ['resultado' => false, 'error' => 'Error al crear el registro: ' . mysqli_error($conexion)];
     }
 }
 
-// Editar tipo de jurisdicción existente
-function editarTipoJurisdiccion($conexion, $id, $data)
+// Editar impuesto por jurisdicción existente
+function editarImpuestoJurisdiccion($conexion, $id, $data)
 {
     $id = intval($id);
-    $jurisdiccion_tipo = mysqli_real_escape_string($conexion, trim($data['jurisdiccion_tipo'] ?? ''));
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
+    $impuesto_tipo_id = intval($data['impuesto_tipo_id'] ?? 0);
+    $jurisdiccion_id = intval($data['jurisdiccion_id'] ?? 0);
+    $tipo_calculo = mysqli_real_escape_string($conexion, trim($data['tipo_calculo'] ?? ''));
+    $codigo_local = mysqli_real_escape_string($conexion, trim($data['codigo_local'] ?? ''));
+    $cuenta_contable_id = !empty($data['cuenta_contable_id']) ? intval($data['cuenta_contable_id']) : null;
+    $requiere_padron = intval($data['requiere_padron'] ?? 0);
     $orden = intval($data['orden'] ?? 1);
 
-    if (empty($jurisdiccion_tipo)) {
-        return ['resultado' => false, 'error' => 'El tipo de jurisdicción es obligatorio'];
+    if ($impuesto_tipo_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de impuesto'];
     }
 
-    if (strlen($jurisdiccion_tipo) > 50) {
-        return ['resultado' => false, 'error' => 'El tipo de jurisdicción no puede exceder los 50 caracteres'];
+    if ($jurisdiccion_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar una jurisdicción'];
     }
 
-    if (empty($codigo)) {
-        return ['resultado' => false, 'error' => 'El código es obligatorio'];
+    if (empty($tipo_calculo) || !in_array($tipo_calculo, ['manual', 'padron', 'regla'])) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un tipo de cálculo válido'];
     }
 
-    if (strlen($codigo) > 20) {
-        return ['resultado' => false, 'error' => 'El código no puede exceder los 20 caracteres'];
+    if (strlen($codigo_local) > 20) {
+        return ['resultado' => false, 'error' => 'El código local no puede exceder los 20 caracteres'];
     }
 
-    if (!empty($descripcion) && strlen($descripcion) > 255) {
-        return ['resultado' => false, 'error' => 'La descripción no puede exceder los 255 caracteres'];
-    }
-
-    $sql_check = "SELECT jurisdiccion_tipo_id FROM gestion__jurisdicciones_tipos 
-                  WHERE jurisdiccion_tipo_id = ?";
+    // Verificar unicidad (excluyendo el registro actual)
+    $sql_check = "SELECT impuesto_jurisdiccion_id FROM gestion__impuestos_jurisdicciones 
+                  WHERE impuesto_tipo_id = ? AND jurisdiccion_id = ? AND impuesto_jurisdiccion_id != ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    mysqli_stmt_close($stmt);
-
-    if (mysqli_num_rows($result) == 0) {
-        return ['resultado' => false, 'error' => 'Registro no encontrado'];
-    }
-
-    // Verificar código único (excluyendo el registro actual)
-    $sql_check_code = "SELECT jurisdiccion_tipo_id FROM gestion__jurisdicciones_tipos WHERE codigo = ? AND jurisdiccion_tipo_id != ?";
-    $stmt = mysqli_prepare($conexion, $sql_check_code);
     if ($stmt) {
-        mysqli_stmt_bind_param($stmt, "si", $codigo, $id);
+        mysqli_stmt_bind_param($stmt, "iii", $impuesto_tipo_id, $jurisdiccion_id, $id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_store_result($stmt);
         if (mysqli_stmt_num_rows($stmt) > 0) {
             mysqli_stmt_close($stmt);
-            return ['resultado' => false, 'error' => 'El código ya existe. Debe ser único'];
+            return ['resultado' => false, 'error' => 'Ya existe una configuración para este impuesto y jurisdicción'];
         }
         mysqli_stmt_close($stmt);
     }
 
-    $sql = "UPDATE gestion__jurisdicciones_tipos 
-            SET jurisdiccion_tipo = ?, codigo = ?, descripcion = ?, orden = ?
-            WHERE jurisdiccion_tipo_id = ?";
+    $sql = "UPDATE gestion__impuestos_jurisdicciones 
+            SET impuesto_tipo_id = ?, jurisdiccion_id = ?, tipo_calculo = ?, codigo_local = ?, 
+                cuenta_contable_id = ?, requiere_padron = ?, orden = ?
+            WHERE impuesto_jurisdiccion_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "sssii", $jurisdiccion_tipo, $codigo, $descripcion, $orden, $id);
+    mysqli_stmt_bind_param($stmt, "iissiiii", $impuesto_tipo_id, $jurisdiccion_id, 
+                          $tipo_calculo, $codigo_local, $cuenta_contable_id, 
+                          $requiere_padron, $orden, $id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
     if ($success) {
         return ['resultado' => true];
     } else {
-        return ['resultado' => false, 'error' => 'Error al actualizar el tipo de jurisdicción'];
+        return ['resultado' => false, 'error' => 'Error al actualizar el registro: ' . mysqli_error($conexion)];
     }
 }
 
-// Obtener tipo de jurisdicción específico
-function obtenerTipoJurisdiccionPorId($conexion, $id)
+// Obtener impuesto por jurisdicción específico
+function obtenerImpuestoJurisdiccionPorId($conexion, $id)
 {
     $id = intval($id);
 
-    $sql = "SELECT * FROM gestion__jurisdicciones_tipos WHERE jurisdiccion_tipo_id = ?";
+    $sql = "SELECT * FROM gestion__impuestos_jurisdicciones WHERE impuesto_jurisdiccion_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return null;
@@ -436,9 +492,9 @@ function obtenerTipoJurisdiccionPorId($conexion, $id)
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $tipo = mysqli_fetch_assoc($result);
+    $registro = mysqli_fetch_assoc($result);
 
     mysqli_stmt_close($stmt);
-    return $tipo;
+    return $registro;
 }
 ?>
