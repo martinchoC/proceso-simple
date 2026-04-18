@@ -47,26 +47,6 @@ function obtenerJurisdiccionesParaSelect($conexion) {
     return $jurisdicciones;
 }
 
-// Obtener condiciones fiscales
-function obtenerCondicionesFiscales($conexion) {
-    $sql = "SELECT condicion_fiscal_id, condicion_fiscal, condicion_fiscal_codigo, condicion_fiscal_descripcion 
-            FROM gestion__condiciones_fiscales 
-            WHERE tabla_estado_registro_id = 1
-            ORDER BY condicion_fiscal";
-    
-    $result = mysqli_query($conexion, $sql);
-    if (!$result) {
-        return [];
-    }
-    
-    $condiciones = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $condiciones[] = $row;
-    }
-    
-    return $condiciones;
-}
-
 // Obtener cuentas contables por empresa
 function obtenerCuentasContables($conexion, $empresa_idx) {
     $empresa_idx = intval($empresa_idx);
@@ -333,18 +313,14 @@ function obtenerConfiguracionesImpuestos($conexion, $empresa_idx, $pagina_id)
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
-                   emp.empresa as empresa,
                    it.impuesto_tipo, it.es_retencion, it.es_percepcion,
                    j.jurisdiccion_nombre,
-                   cf.condicion_fiscal,
                    CONCAT(cc.codigo, ' - ', cc.nombre) as cuenta_contable
             FROM gestion__empresas_impuestos_config eic
             LEFT JOIN conf__estados_registros er ON eic.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            LEFT JOIN conf__empresas emp ON eic.empresa_id = emp.empresa_id
             LEFT JOIN gestion__impuestos_tipos it ON eic.impuesto_tipo_id = it.impuesto_tipo_id
             LEFT JOIN gestion__jurisdicciones j ON eic.jurisdiccion_id = j.jurisdiccion_id
-            LEFT JOIN gestion__condiciones_fiscales cf ON eic.condicion_fiscal_id = cf.condicion_fiscal_id
             LEFT JOIN gestion__cont_cuentas cc ON eic.cont_cuenta_id = cc.cont_cuenta_id
             WHERE eic.empresa_id = ?
             ORDER BY eic.prioridad, eic.f_desde DESC";
@@ -385,13 +361,8 @@ function agregarConfiguracionImpuesto($conexion, $data)
     $empresa_id = intval($data['empresa_id'] ?? 0);
     $impuesto_tipo_id = intval($data['impuesto_tipo_id'] ?? 0);
     $jurisdiccion_id = !empty($data['jurisdiccion_id']) ? intval($data['jurisdiccion_id']) : null;
-    $condicion_fiscal_id = !empty($data['condicion_fiscal_id']) ? intval($data['condicion_fiscal_id']) : null;
     $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
     $tipo_calculo = mysqli_real_escape_string($conexion, trim($data['tipo_calculo'] ?? 'manual'));
-    $base_calculo = !empty($data['base_calculo']) ? mysqli_real_escape_string($conexion, trim($data['base_calculo'])) : null;
-    $alicuota = floatval($data['alicuota'] ?? 0);
-    $minimo_imponible = floatval($data['minimo_imponible'] ?? 0);
-    $monto_fijo = floatval($data['monto_fijo'] ?? 0);
     $prioridad = intval($data['prioridad'] ?? 1);
     $f_desde = mysqli_real_escape_string($conexion, trim($data['f_desde'] ?? ''));
     $f_hasta = !empty($data['f_hasta']) ? mysqli_real_escape_string($conexion, trim($data['f_hasta'])) : null;
@@ -416,19 +387,17 @@ function agregarConfiguracionImpuesto($conexion, $data)
     $estado_inicial = obtenerEstadoInicial($conexion);
 
     $sql = "INSERT INTO gestion__empresas_impuestos_config 
-            (empresa_id, impuesto_tipo_id, jurisdiccion_id, condicion_fiscal_id, cont_cuenta_id,
-             tipo_calculo, base_calculo, alicuota, minimo_imponible, monto_fijo, prioridad, 
-             f_desde, f_hasta, aplica_siempre, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            (empresa_id, impuesto_tipo_id, jurisdiccion_id, cont_cuenta_id,
+             tipo_calculo, prioridad, f_desde, f_hasta, aplica_siempre, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
 
-    mysqli_stmt_bind_param($stmt, "iiiiissdddiisii", $empresa_id, $impuesto_tipo_id, 
-                          $jurisdiccion_id, $condicion_fiscal_id, $cont_cuenta_id,
-                          $tipo_calculo, $base_calculo, $alicuota, $minimo_imponible, 
-                          $monto_fijo, $prioridad, $f_desde, $f_hasta, $aplica_siempre, $estado_inicial);
+    mysqli_stmt_bind_param($stmt, "iiiiisissi", $empresa_id, $impuesto_tipo_id, 
+                          $jurisdiccion_id, $cont_cuenta_id,
+                          $tipo_calculo, $prioridad, $f_desde, $f_hasta, $aplica_siempre, $estado_inicial);
     $success = mysqli_stmt_execute($stmt);
 
     if ($success) {
@@ -449,13 +418,8 @@ function editarConfiguracionImpuesto($conexion, $id, $data)
     $empresa_id = intval($data['empresa_id'] ?? 0);
     $impuesto_tipo_id = intval($data['impuesto_tipo_id'] ?? 0);
     $jurisdiccion_id = !empty($data['jurisdiccion_id']) ? intval($data['jurisdiccion_id']) : null;
-    $condicion_fiscal_id = !empty($data['condicion_fiscal_id']) ? intval($data['condicion_fiscal_id']) : null;
     $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
     $tipo_calculo = mysqli_real_escape_string($conexion, trim($data['tipo_calculo'] ?? 'manual'));
-    $base_calculo = !empty($data['base_calculo']) ? mysqli_real_escape_string($conexion, trim($data['base_calculo'])) : null;
-    $alicuota = floatval($data['alicuota'] ?? 0);
-    $minimo_imponible = floatval($data['minimo_imponible'] ?? 0);
-    $monto_fijo = floatval($data['monto_fijo'] ?? 0);
     $prioridad = intval($data['prioridad'] ?? 1);
     $f_desde = mysqli_real_escape_string($conexion, trim($data['f_desde'] ?? ''));
     $f_hasta = !empty($data['f_hasta']) ? mysqli_real_escape_string($conexion, trim($data['f_hasta'])) : null;
@@ -478,9 +442,8 @@ function editarConfiguracionImpuesto($conexion, $id, $data)
     }
 
     $sql = "UPDATE gestion__empresas_impuestos_config 
-            SET impuesto_tipo_id = ?, jurisdiccion_id = ?, condicion_fiscal_id = ?, cont_cuenta_id = ?,
-                tipo_calculo = ?, base_calculo = ?, alicuota = ?, minimo_imponible = ?, 
-                monto_fijo = ?, prioridad = ?, f_desde = ?, f_hasta = ?, aplica_siempre = ?
+            SET impuesto_tipo_id = ?, jurisdiccion_id = ?, cont_cuenta_id = ?,
+                tipo_calculo = ?, prioridad = ?, f_desde = ?, f_hasta = ?, aplica_siempre = ?
             WHERE empresa_impuesto_config_id = ? AND empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -488,10 +451,9 @@ function editarConfiguracionImpuesto($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
     }
 
-    mysqli_stmt_bind_param($stmt, "iiiissdddissiii", $impuesto_tipo_id, 
-                          $jurisdiccion_id, $condicion_fiscal_id, $cont_cuenta_id,
-                          $tipo_calculo, $base_calculo, $alicuota, $minimo_imponible, 
-                          $monto_fijo, $prioridad, $f_desde, $f_hasta, $aplica_siempre, $id, $empresa_id);
+    mysqli_stmt_bind_param($stmt, "iiisissiii", $impuesto_tipo_id, 
+                          $jurisdiccion_id, $cont_cuenta_id,
+                          $tipo_calculo, $prioridad, $f_desde, $f_hasta, $aplica_siempre, $id, $empresa_id);
     $success = mysqli_stmt_execute($stmt);
     $error = mysqli_error($conexion);
     mysqli_stmt_close($stmt);
@@ -522,5 +484,534 @@ function obtenerConfiguracionPorId($conexion, $id, $empresa_idx)
 
     mysqli_stmt_close($stmt);
     return $config;
+}
+// ==================== FUNCIONES PARA OPERACIONES (Métodos por tipo de bien) ====================
+
+// Obtener tipos de bien (productos_tipos)
+function obtenerTiposBien($conexion) {
+    $sql = "SELECT producto_tipo_id, producto_tipo, producto_tipo_codigo, maneja_stock, es_compuesto 
+            FROM gestion__productos_tipos 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY producto_tipo";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $tipos = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $tipos[] = $row;
+    }
+    
+    return $tipos;
+}
+
+// Obtener configuraciones de impuestos para select (solo activas)
+function obtenerConfiguracionesParaSelect($conexion, $empresa_idx) {
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT eic.empresa_impuesto_config_id, it.impuesto_tipo, j.jurisdiccion_nombre
+            FROM gestion__empresas_impuestos_config eic
+            LEFT JOIN gestion__impuestos_tipos it ON eic.impuesto_tipo_id = it.impuesto_tipo_id
+            LEFT JOIN gestion__jurisdicciones j ON eic.jurisdiccion_id = j.jurisdiccion_id
+            WHERE eic.empresa_id = ? 
+            AND eic.tabla_estado_registro_id = 1  -- <-- Solo activas
+            ORDER BY it.impuesto_tipo";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $configs = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $row['impuesto_tipo'] = $row['impuesto_tipo'] ?? 'Sin tipo';
+        $configs[] = $row;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $configs;
+}
+
+// Obtener todas las operaciones (métodos de cálculo por tipo de bien)
+function obtenerOperaciones($conexion, $empresa_idx, $config_id = null, $producto_tipo_id = null) {
+    $empresa_idx = intval($empresa_idx);
+    $config_id = !empty($config_id) ? intval($config_id) : null;
+    $producto_tipo_id = !empty($producto_tipo_id) ? intval($producto_tipo_id) : null;
+    
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+    
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+    
+    $sql = "SELECT eico.*, 
+                   er.$estado_column as estado_registro, 
+                   er.codigo_estandar,
+                   c.color_clase, c.bg_clase, c.text_clase,
+                   CONCAT(it.impuesto_tipo, IFNULL(CONCAT(' - ', j.jurisdiccion_nombre), '')) as configuracion_descripcion,
+                   CASE 
+                       WHEN eico.producto_tipo_id = 0 THEN 'TODOS LOS BIENES'
+                       ELSE pt.producto_tipo 
+                   END as producto_tipo,
+                   cf.condicion_fiscal
+            FROM gestion__empresas_impuestos_config_operaciones eico
+            LEFT JOIN conf__estados_registros er ON eico.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores c ON er.color_id = c.color_id
+            LEFT JOIN gestion__empresas_impuestos_config eic ON eico.empresa_impuesto_config_id = eic.empresa_impuesto_config_id
+            LEFT JOIN gestion__impuestos_tipos it ON eic.impuesto_tipo_id = it.impuesto_tipo_id
+            LEFT JOIN gestion__jurisdicciones j ON eic.jurisdiccion_id = j.jurisdiccion_id
+            LEFT JOIN gestion__productos_tipos pt ON eico.producto_tipo_id = pt.producto_tipo_id
+            LEFT JOIN gestion__condiciones_fiscales cf ON eico.condicion_fiscal_id = cf.condicion_fiscal_id
+            WHERE eic.empresa_id = ?
+            AND eico.tabla_estado_registro_id = 1";  // <-- AGREGAR ESTO: Solo registros activos
+    
+    $params = [$empresa_idx];
+    $types = "i";
+    
+    if ($config_id) {
+        $sql .= " AND eico.empresa_impuesto_config_id = ?";
+        $params[] = $config_id;
+        $types .= "i";
+    }
+    
+    if ($producto_tipo_id) {
+        $sql .= " AND eico.producto_tipo_id = ?";
+        $params[] = $producto_tipo_id;
+        $types .= "i";
+    }
+    
+    $sql .= " ORDER BY CASE WHEN eico.producto_tipo_id = 0 THEN 0 ELSE 1 END, pt.producto_tipo, eico.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'ACTIVO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        // Botones para operaciones
+        $fila['botones'] = [];
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+// Agregar nueva operación
+function agregarOperacion($conexion, $data) {
+    $empresa_impuesto_config_id = intval($data['empresa_impuesto_config_id'] ?? 0);
+    $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
+    $condicion_fiscal_id = !empty($data['condicion_fiscal_id']) ? intval($data['condicion_fiscal_id']) : null;
+    $base_calculo = !empty($data['base_calculo']) ? mysqli_real_escape_string($conexion, trim($data['base_calculo'])) : null;
+    $alicuota = floatval($data['alicuota'] ?? 0);
+    $minimo_imponible = floatval($data['minimo_imponible'] ?? 0);
+    $monto_fijo = floatval($data['monto_fijo'] ?? 0);
+    $f_desde = mysqli_real_escape_string($conexion, trim($data['f_desde'] ?? ''));
+    $f_hasta = !empty($data['f_hasta']) ? mysqli_real_escape_string($conexion, trim($data['f_hasta'])) : null;
+    
+    if ($empresa_impuesto_config_id <= 0) {
+        return ['success' => false, 'error' => 'Configuración de impuesto no válida'];
+    }
+    
+    // CAMBIADO: permitir producto_tipo_id = 0 (todos los tipos)
+    if ($producto_tipo_id < 0) {  // Cambiado de <= 0 a < 0
+        return ['success' => false, 'error' => 'Debe seleccionar un tipo de bien'];
+    }
+    
+    // ELIMINADO: No validar condicion_fiscal_id porque es opcional
+    // La validación anterior era:
+    // if (empty($condicion_fiscal_id)) {
+    //     return ['success' => false, 'error' => 'Debe seleccionar una condición fiscal'];
+    // }
+    
+    if (empty($f_desde)) {
+        return ['success' => false, 'error' => 'La fecha de inicio es obligatoria'];
+    }
+    
+    // Verificar si ya existe una operación para esta combinación
+    $sql_check = "SELECT empresa_impuesto_config_operacion_id 
+              FROM gestion__empresas_impuestos_config_operaciones 
+              WHERE empresa_impuesto_config_id = ? 
+              AND producto_tipo_id = ? 
+              AND (condicion_fiscal_id = ? OR (condicion_fiscal_id IS NULL AND ? IS NULL))
+              AND tabla_estado_registro_id = 1";  // <-- Solo activas
+    $stmt_check = mysqli_prepare($conexion, $sql_check);
+    if ($stmt_check) {
+        mysqli_stmt_bind_param($stmt_check, "iiii", $empresa_impuesto_config_id, $producto_tipo_id, $condicion_fiscal_id, $condicion_fiscal_id);
+        mysqli_stmt_execute($stmt_check);
+        mysqli_stmt_store_result($stmt_check);
+        if (mysqli_stmt_num_rows($stmt_check) > 0) {
+            mysqli_stmt_close($stmt_check);
+            return ['success' => false, 'error' => 'Ya existe una configuración para este tipo de bien y condición fiscal'];
+        }
+        mysqli_stmt_close($stmt_check);
+    }
+    
+    $estado_inicial = obtenerEstadoInicial($conexion);
+    
+    $sql = "INSERT INTO gestion__empresas_impuestos_config_operaciones 
+            (empresa_impuesto_config_id, producto_tipo_id, condicion_fiscal_id, base_calculo, 
+             alicuota, minimo_imponible, monto_fijo, f_desde, f_hasta, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "iiisdddssi", $empresa_impuesto_config_id, $producto_tipo_id, 
+                          $condicion_fiscal_id, $base_calculo,
+                          $alicuota, $minimo_imponible, $monto_fijo, 
+                          $f_desde, $f_hasta, $estado_inicial);
+    $success = mysqli_stmt_execute($stmt);
+    
+    if ($success) {
+        $operacion_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['success' => true, 'empresa_impuesto_config_operacion_id' => $operacion_id];
+    } else {
+        $error = mysqli_error($conexion);
+        mysqli_stmt_close($stmt);
+        return ['success' => false, 'error' => 'Error al crear la operación: ' . $error];
+    }
+}
+
+// Editar operación existente
+// Editar operación existente
+function editarOperacion($conexion, $id, $data) {
+    $id = intval($id);
+    $empresa_impuesto_config_id = intval($data['empresa_impuesto_config_id'] ?? 0);
+    $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
+    $condicion_fiscal_id = !empty($data['condicion_fiscal_id']) ? intval($data['condicion_fiscal_id']) : null;
+    $base_calculo = !empty($data['base_calculo']) ? mysqli_real_escape_string($conexion, trim($data['base_calculo'])) : null;
+    $alicuota = floatval($data['alicuota'] ?? 0);
+    $minimo_imponible = floatval($data['minimo_imponible'] ?? 0);
+    $monto_fijo = floatval($data['monto_fijo'] ?? 0);
+    $f_desde = mysqli_real_escape_string($conexion, trim($data['f_desde'] ?? ''));
+    $f_hasta = !empty($data['f_hasta']) ? mysqli_real_escape_string($conexion, trim($data['f_hasta'])) : null;
+    
+    if ($empresa_impuesto_config_id <= 0) {
+        return ['success' => false, 'error' => 'Configuración de impuesto no válida'];
+    }
+    
+    // CAMBIADO: permitir producto_tipo_id = 0
+    if ($producto_tipo_id < 0) {  // Cambiado de <= 0 a < 0
+        return ['success' => false, 'error' => 'Debe seleccionar un tipo de bien'];
+    }
+    
+    // ELIMINADA la validación de condicion_fiscal_id (es opcional)
+    
+    if (empty($f_desde)) {
+        return ['success' => false, 'error' => 'La fecha de inicio es obligatoria'];
+    }
+    
+    // Verificar duplicado excluyendo el registro actual
+    $sql_check = "SELECT empresa_impuesto_config_operacion_id 
+              FROM gestion__empresas_impuestos_config_operaciones 
+              WHERE empresa_impuesto_config_id = ? 
+              AND producto_tipo_id = ? 
+              AND (condicion_fiscal_id = ? OR (condicion_fiscal_id IS NULL AND ? IS NULL))
+              AND tabla_estado_registro_id = 1
+              AND empresa_impuesto_config_operacion_id != ?";
+    $stmt_check = mysqli_prepare($conexion, $sql_check);
+    if ($stmt_check) {
+        mysqli_stmt_bind_param($stmt_check, "iiiii", $empresa_impuesto_config_id, $producto_tipo_id, $condicion_fiscal_id, $condicion_fiscal_id, $id);
+        mysqli_stmt_execute($stmt_check);
+        mysqli_stmt_store_result($stmt_check);
+        if (mysqli_stmt_num_rows($stmt_check) > 0) {
+            mysqli_stmt_close($stmt_check);
+            return ['success' => false, 'error' => 'Ya existe una configuración para este tipo de bien y condición fiscal'];
+        }
+        mysqli_stmt_close($stmt_check);
+    }
+    
+    $sql = "UPDATE gestion__empresas_impuestos_config_operaciones 
+            SET empresa_impuesto_config_id = ?, producto_tipo_id = ?, condicion_fiscal_id = ?, 
+                base_calculo = ?, alicuota = ?, minimo_imponible = ?, monto_fijo = ?, 
+                f_desde = ?, f_hasta = ?
+            WHERE empresa_impuesto_config_operacion_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "iiisdddssi", $empresa_impuesto_config_id, $producto_tipo_id, 
+                          $condicion_fiscal_id, $base_calculo,
+                          $alicuota, $minimo_imponible, $monto_fijo, 
+                          $f_desde, $f_hasta, $id);
+    $success = mysqli_stmt_execute($stmt);
+    $error = mysqli_error($conexion);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true];
+    } else {
+        return ['success' => false, 'error' => 'Error al actualizar la operación: ' . $error];
+    }
+}
+
+// Eliminar operación (cambiar estado a inactivo)
+function eliminarOperacion($conexion, $id) {
+    $id = intval($id);
+    
+    if ($id <= 0) {
+        return ['success' => false, 'error' => 'ID de operación no válido'];
+    }
+    
+    // Verificar que la operación existe
+    $sql_check = "SELECT empresa_impuesto_config_operacion_id FROM gestion__empresas_impuestos_config_operaciones WHERE empresa_impuesto_config_operacion_id = ?";
+    $stmt_check = mysqli_prepare($conexion, $sql_check);
+    if ($stmt_check) {
+        mysqli_stmt_bind_param($stmt_check, "i", $id);
+        mysqli_stmt_execute($stmt_check);
+        mysqli_stmt_store_result($stmt_check);
+        if (mysqli_stmt_num_rows($stmt_check) == 0) {
+            mysqli_stmt_close($stmt_check);
+            return ['success' => false, 'error' => 'La operación no existe'];
+        }
+        mysqli_stmt_close($stmt_check);
+    }
+    
+    // Obtener estado inactivo (generalmente 2)
+    $estado_inactivo = 2; // Por defecto
+    
+        
+    // Actualizar el estado a inactivo
+    $sql = "UPDATE gestion__empresas_impuestos_config_operaciones 
+            SET tabla_estado_registro_id = ? 
+            WHERE empresa_impuesto_config_operacion_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $estado_inactivo, $id);
+    $success = mysqli_stmt_execute($stmt);
+    $error = mysqli_error($conexion);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true, 'message' => 'Método de cálculo eliminado correctamente'];
+    } else {
+        return ['success' => false, 'error' => 'Error al eliminar: ' . $error];
+    }
+}
+
+// Obtener operación por ID
+function obtenerOperacionPorId($conexion, $id, $empresa_idx) {
+    $id = intval($id);
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT eico.* 
+            FROM gestion__empresas_impuestos_config_operaciones eico
+            INNER JOIN gestion__empresas_impuestos_config eic ON eico.empresa_impuesto_config_id = eic.empresa_impuesto_config_id
+            WHERE eico.empresa_impuesto_config_operacion_id = ? AND eic.empresa_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return null;
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $operacion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $operacion;
+}
+// Obtener condiciones fiscales
+function obtenerCondicionesFiscales($conexion) {
+    $sql = "SELECT condicion_fiscal_id, condicion_fiscal, condicion_fiscal_codigo 
+            FROM gestion__condiciones_fiscales 
+            WHERE tabla_estado_registro_id = 1
+            ORDER BY condicion_fiscal";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        error_log("Error en obtenerCondicionesFiscales: " . mysqli_error($conexion));
+        return [];
+    }
+    
+    $condiciones = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $condiciones[] = $row;
+    }
+    
+    return $condiciones;
+}
+// ==================== FUNCIONES PARA SUBGRUPOS DE COMPROBANTES ====================
+
+// Obtener subgrupos de comprobantes disponibles
+function obtenerSubgruposComprobantes($conexion) {
+    $sql = "SELECT cs.comprobante_subgrupo_id, cs.comprobante_subgrupo, cs.codigo,
+                   cg.comprobante_grupo
+            FROM gestion__comprobantes_subgrupos cs
+            LEFT JOIN gestion__comprobantes_grupos cg ON cs.comprobante_grupo_id = cg.comprobante_grupo_id
+            WHERE cs.tabla_estado_registro_id = 1
+            ORDER BY cg.comprobante_grupo, cs.comprobante_subgrupo";
+    
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return [];
+    }
+    
+    $subgrupos = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $subgrupos[] = $row;
+    }
+    
+    return $subgrupos;
+}
+
+// Obtener subgrupos asignados a una configuración
+function obtenerSubgruposAsignados($conexion, $empresa_impuesto_config_id) {
+    $empresa_impuesto_config_id = intval($empresa_impuesto_config_id);
+    
+    $sql = "SELECT eics.*, 
+                   cs.comprobante_subgrupo, 
+                   cs.codigo,
+                   cg.comprobante_grupo,
+                   er.estado_registro,
+                   c.color_clase, c.bg_clase, c.text_clase
+            FROM gestion__empresas_impuestos_config_subgrupos eics
+            INNER JOIN gestion__comprobantes_subgrupos cs ON eics.comprobante_subgrupo_id = cs.comprobante_subgrupo_id
+            LEFT JOIN gestion__comprobantes_grupos cg ON cs.comprobante_grupo_id = cg.comprobante_grupo_id
+            LEFT JOIN conf__estados_registros er ON eics.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores c ON er.color_id = c.color_id
+            WHERE eics.empresa_impuesto_config_id = ? 
+            AND eics.tabla_estado_registro_id = 1
+            ORDER BY cg.comprobante_grupo, cs.comprobante_subgrupo";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_impuesto_config_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $subgrupos = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $subgrupos[] = $row;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $subgrupos;
+}
+
+// Asignar subgrupo a una configuración
+function asignarSubgrupo($conexion, $empresa_impuesto_config_id, $comprobante_subgrupo_id) {
+    $empresa_impuesto_config_id = intval($empresa_impuesto_config_id);
+    $comprobante_subgrupo_id = intval($comprobante_subgrupo_id);
+    
+    if ($empresa_impuesto_config_id <= 0 || $comprobante_subgrupo_id <= 0) {
+        return ['success' => false, 'error' => 'Datos inválidos'];
+    }
+    
+    // Verificar si ya existe
+    $sql_check = "SELECT empresa_impuesto_config_subgrupo_id 
+                  FROM gestion__empresas_impuestos_config_subgrupos 
+                  WHERE empresa_impuesto_config_id = ? AND comprobante_subgrupo_id = ?";
+    $stmt_check = mysqli_prepare($conexion, $sql_check);
+    if ($stmt_check) {
+        mysqli_stmt_bind_param($stmt_check, "ii", $empresa_impuesto_config_id, $comprobante_subgrupo_id);
+        mysqli_stmt_execute($stmt_check);
+        mysqli_stmt_store_result($stmt_check);
+        if (mysqli_stmt_num_rows($stmt_check) > 0) {
+            mysqli_stmt_close($stmt_check);
+            return ['success' => false, 'error' => 'El subgrupo ya está asignado a esta configuración'];
+        }
+        mysqli_stmt_close($stmt_check);
+    }
+    
+    $estado_activo = 1;
+    
+    $sql = "INSERT INTO gestion__empresas_impuestos_config_subgrupos 
+            (empresa_impuesto_config_id, comprobante_subgrupo_id, tabla_estado_registro_id) 
+            VALUES (?, ?, ?)";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "iii", $empresa_impuesto_config_id, $comprobante_subgrupo_id, $estado_activo);
+    $success = mysqli_stmt_execute($stmt);
+    $error = mysqli_error($conexion);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true, 'message' => 'Subgrupo asignado correctamente'];
+    } else {
+        return ['success' => false, 'error' => 'Error al asignar: ' . $error];
+    }
+}
+
+// Desasignar subgrupo (cambiar estado a inactivo)
+function desasignarSubgrupo($conexion, $empresa_impuesto_config_subgrupo_id) {
+    $id = intval($empresa_impuesto_config_subgrupo_id);
+    
+    if ($id <= 0) {
+        return ['success' => false, 'error' => 'ID inválido'];
+    }
+    
+    $estado_inactivo = 2;
+    
+    $sql = "UPDATE gestion__empresas_impuestos_config_subgrupos 
+            SET tabla_estado_registro_id = ? 
+            WHERE empresa_impuesto_config_subgrupo_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $estado_inactivo, $id);
+    $success = mysqli_stmt_execute($stmt);
+    $error = mysqli_error($conexion);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['success' => true, 'message' => 'Subgrupo desasignado correctamente'];
+    } else {
+        return ['success' => false, 'error' => 'Error al desasignar: ' . $error];
+    }
 }
 ?>
