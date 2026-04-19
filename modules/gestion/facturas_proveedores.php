@@ -121,120 +121,221 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <input type="hidden" id="producto_iva_id" name="producto_iva_id" />
                                 <input type="hidden" id="entidad_id" name="entidad_id" />
                                 <input type="hidden" id="entidad_sucursal_id" name="entidad_sucursal_id" />
+                                <input type="hidden" id="otros_impuestos" name="otros_impuestos" value="0">
                                 
-                                <!-- SECCIÓN ENCABEZADO - Con fondo diferenciado -->
-                                <div class="card mb-3 border-primary" style="background-color: #f0f7ff;">
-                                    <div class="card-header py-2 bg-primary bg-opacity-10 border-bottom border-primary">
-                                        <h6 class="mb-0 text-primary">
-                                            <i class="fas fa-file-invoice me-2"></i>Datos de la Factura
-                                        </h6>
+                                <!-- PESTAÑAS -->
+                                <ul class="nav nav-tabs mb-3" id="facturaTabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="datos-tab" data-bs-toggle="tab" data-bs-target="#datos" type="button" role="tab">
+                                            <i class="fas fa-file-invoice me-1"></i>Datos
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="productos-tab" data-bs-toggle="tab" data-bs-target="#productos" type="button" role="tab">
+                                            <i class="fas fa-boxes me-1"></i>Productos
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="impuestos-tab" data-bs-toggle="tab" data-bs-target="#impuestos" type="button" role="tab">
+                                            <i class="fas fa-calculator me-1"></i>Otros Impuestos
+                                        </button>
+                                    </li>
+                                </ul>
+
+                                <div class="tab-content">
+                                    <!-- TAB 1: DATOS DE LA FACTURA -->
+                                    <div class="tab-pane fade show active" id="datos" role="tabpanel">
+                                        <div class="card mb-3 border-primary">
+                                            <div class="card-header py-2 bg-primary bg-opacity-10">
+                                                <h6 class="mb-0 text-primary"><i class="fas fa-file-invoice me-2"></i>Datos de la Factura</h6>
+                                            </div>
+                                            <div class="card-body py-2">
+                                                <!-- Fila 1: Sucursal, Depósito, Proveedor -->
+                                                <div class="row mb-2">
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small mb-1">Sucursal</label>
+                                                        <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
+                                                            <option value="">Seleccionar</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small mb-1">Depósito</label>
+                                                        <select class="form-select form-select-sm" id="deposito_id" name="deposito_id" required>
+                                                            <option value="">Seleccionar</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small mb-1">Proveedor / Sucursal</label>
+                                                        <select class="form-select form-select-sm" id="entidad_combo" required>
+                                                            <option value="">Seleccionar</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-1">
+                                                        <label class="form-label small mb-1">Tipo</label>
+                                                        <select class="form-select form-select-sm" id="comprobante_tipo_id" required>
+                                                            <option value="">Sel.</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-1">
+                                                        <label class="form-label small mb-1">PV</label>
+                                                        <input type="number" class="form-control form-control-sm no-spinner" id="comprobante_pv" value="0" min="0" required>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small mb-1">Número</label>
+                                                        <input type="number" class="form-control form-control-sm no-spinner" id="comprobante_nro" value="0" min="1" required>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Fila 2: Fechas y otros campos -->
+                                                <div class="row mb-2">
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small mb-1">Emisión</label>
+                                                        <input type="date" class="form-control form-control-sm" id="f_emision" required>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small mb-1">Contabilidad</label>
+                                                        <input type="date" class="form-control form-control-sm" id="f_contabilidad">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small mb-1">Vencimiento</label>
+                                                        <input type="date" class="form-control form-control-sm" id="f_vencimiento">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small mb-1">Moneda</label>
+                                                        <select class="form-select form-select-sm" id="moneda_id" required>
+                                                            <option value="">Sel.</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-1">
+                                                        <label class="form-label small mb-1">TC</label>
+                                                        <input type="number" class="form-control form-control-sm no-spinner" id="tipo_cambio" step="0.000001" value="1">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small mb-1">Cond. Pago</label>
+                                                        <select class="form-select form-select-sm" id="condicion_pago_id">
+                                                            <option value="">Seleccionar</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-1">
+                                                        <label class="form-label small mb-1">Dto.%</label>
+                                                        <input type="number" class="form-control form-control-sm no-spinner" id="descuento_general_pct" step="0.01" min="0" max="100" value="0">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Fila 3: Dirección y Observaciones (solo placeholders) -->
+                                                <div class="row mb-2">
+                                                    <div class="col-md-6">
+                                                        <textarea class="form-control form-control-sm" id="direccion" name="direccion" rows="1" placeholder="Dirección..."></textarea>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <textarea class="form-control form-control-sm" id="observaciones" name="observaciones" rows="1" placeholder="Observaciones..."></textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Totales -->
+                                        <div class="card bg-success bg-opacity-10 border-success mb-3">
+                                            <div class="card-body py-2">
+                                                <div class="row align-items-center small">
+                                                    <div class="col-md-2"><span class="fw-bold">Neto:</span> <span id="total_neto_display">0.00</span></div>
+                                                    <div class="col-md-2">Descuentos: <span id="descuentos_display">0.00</span></div>
+                                                    <div class="col-md-2">No Gravado: <span id="no_gravado_display">0.00</span></div>
+                                                    <div class="col-md-2">Exento: <span id="exento_display">0.00</span></div>
+                                                    <div class="col-md-2">IVA: <span id="impuestos_display">0.00</span></div>
+                                                    <div class="col-md-2">Otros Imp: <span id="otros_impuestos_display">0.00</span></div>
+                                                    <div class="col-md-2 fw-bold text-primary">TOTAL: <span id="total_display">0.00</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="card-body py-2">
-                                        <!-- Primera fila de cabecera -->
-                                        <div class="row mb-2">
-                                            <div class="col-md-3 mb-2">
-                                                <label for="sucursal_id" class="form-label small mb-1">Sucursal</label>
-                                                <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
-                                                    <option value="">Seleccionar sucursal</option>
-                                                </select>
-                                                <div class="invalid-feedback small">Seleccione sucursal</div>
+
+                                    <!-- TAB 2: PRODUCTOS -->
+                                    <div class="tab-pane fade" id="productos" role="tabpanel">
+                                        <div class="card border-warning">
+                                            <div class="card-header py-2 bg-warning bg-opacity-10 d-flex justify-content-between">
+                                                <h6 class="mb-0 text-warning"><i class="fas fa-boxes me-2"></i>Detalle de Productos</h6>
+                                                <button type="button" class="btn btn-sm btn-outline-warning" id="btnNuevoProductoRapido">
+                                                    <i class="fas fa-bolt me-1"></i>Nuevo Producto Rápido
+                                                </button>
                                             </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label for="deposito_id" class="form-label small mb-1">Depósito</label>
-                                                <select class="form-select form-select-sm" id="deposito_id" name="deposito_id" required>
-                                                    <option value="">Seleccionar depósito</option>
-                                                </select>
-                                                <div class="invalid-feedback small">Seleccione el depósito</div>
-                                            </div>
-                                            
-                                            
-                                            <!-- Campo unificado Proveedor/Sucursal en una sola línea -->
-                                            <div class="col-md-4 mb-2">
-                                                <label for="entidad_combo" class="form-label small mb-1">Proveedor / Sucursal</label>
-                                                <select class="form-select form-select-sm" id="entidad_combo" name="entidad_combo" required>
-                                                    <option value="">Seleccionar proveedor o sucursal</option>
-                                                </select>
-                                                <div class="invalid-feedback small">Seleccione proveedor o sucursal</div>
-                                            </div>
-                                            
-                                            <div class="col-md-2 mb-2">
-                                                <label for="comprobante_tipo_id" class="form-label small mb-1">Tipo</label>
-                                                <select class="form-select form-select-sm" id="comprobante_tipo_id" name="comprobante_tipo_id" required>
-                                                    <option value="">Seleccionar</option>
-                                                </select>
-                                                <div class="invalid-feedback small">Seleccione el tipo</div>
-                                            </div>
-                                            <div class="col-md-1 mb-2">
-                                                <label for="comprobante_pv" class="form-label small mb-1">PV</label>
-                                                <input type="number" class="form-control form-control-sm" id="comprobante_pv" name="comprobante_pv" value="0" min="0" required>
-                                                <div class="invalid-feedback small">Obligatorio</div>
-                                            </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label for="comprobante_nro" class="form-label small mb-1">Número</label>
-                                                <input type="number" class="form-control form-control-sm no-spinner"  id="comprobante_nro" name="comprobante_nro" value="0" min="1" required>
-                                                <div class="invalid-feedback small">Número obligatorio</div>
+                                            <div class="card-body p-2">
+                                                <!-- Agregar producto rápido -->
+                                                <div class="card card-info card-outline mb-3">
+                                                    <div class="card-header py-1 bg-info bg-opacity-10">
+                                                        <h6 class="mb-0 small"><i class="fas fa-plus-circle me-2"></i>Agregar Producto</h6>
+                                                    </div>
+                                                    <div class="card-body py-2">
+                                                        <div class="row g-1 align-items-end">
+                                                            <div class="col-md-4 position-relative">
+                                                                <input type="text" class="form-control form-control-sm" id="busqueda_producto" placeholder="Buscar producto..." autocomplete="off">
+                                                                <input type="hidden" id="producto_seleccionado_id">
+                                                                <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%; display: none;"></div>
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <input type="number" class="form-control form-control-sm no-spinner" id="producto_cantidad" step="0.01" min="0.01" value="1.00" placeholder="Cant.">
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <input type="number" class="form-control form-control-sm no-spinner" id="producto_precio" step="0.01" min="0" placeholder="Precio">
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <input type="number" class="form-control form-control-sm no-spinner" id="producto_descuento_item_pct" step="0.01" min="0" max="100" value="0" placeholder="Dto%">
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <select class="form-select form-select-sm" id="producto_iva">
+                                                                    <option value="21">21%</option><option value="10.5">10.5%</option>
+                                                                    <option value="27">27%</option><option value="0">0%</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <input type="number" class="form-control form-control-sm no-spinner" id="producto_no_gravado" step="0.01" value="0" placeholder="No Grav.">
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <input type="number" class="form-control form-control-sm no-spinner" id="producto_exento" step="0.01" value="0" placeholder="Exento">
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <button type="button" class="btn btn-sm btn-success w-100" id="btnAgregarProducto">
+                                                                    <i class="fas fa-plus"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Tabla de detalles -->
+                                                <div id="contenedor-detalles" class="table-responsive">
+                                                    <div class="detalles-vacio text-center p-4 border rounded bg-light">
+                                                        <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
+                                                        <p class="mb-0">No hay productos agregados</p>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <!-- Segunda fila de cabecera - Ultra compacta -->
-                                        <div class="row mb-2">
-                                            <div class="col-md-2 mb-2">
-                                                <label for="f_emision" class="form-label small mb-1">Emisión</label>
-                                                <input type="date" class="form-control form-control-sm" id="f_emision" name="f_emision" required>
-                                                <div class="invalid-feedback small">Fecha obligatoria</div>
+                                    </div>
+                                    <!-- TAB 3: OTROS IMPUESTOS -->
+                                    <div class="tab-pane fade" id="impuestos" role="tabpanel">
+                                        <div class="card border-info">
+                                            <div class="card-header py-2 bg-info bg-opacity-10 d-flex justify-content-between">
+                                                <h6 class="mb-0 text-info"><i class="fas fa-calculator me-2"></i>Otros Impuestos</h6>
+                                                <button type="button" class="btn btn-sm btn-outline-info" id="btnAgregarImpuesto">
+                                                    <i class="fas fa-plus me-1"></i>Agregar Impuesto
+                                                </button>
                                             </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label for="f_contabilidad" class="form-label small mb-1">Contabilidad</label>
-                                                <input type="date" class="form-control form-control-sm" id="f_contabilidad" name="f_contabilidad">
-                                            </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label for="f_vencimiento" class="form-label small mb-1">Vencimiento</label>
-                                                <input type="date" class="form-control form-control-sm" id="f_vencimiento" name="f_vencimiento">
-                                            </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label for="moneda_id" class="form-label small mb-1">Moneda</label>
-                                                <select class="form-select form-select-sm" id="moneda_id" name="moneda_id" required>
-                                                    <option value="">Seleccionar</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-1 mb-2">
-                                                <label for="tipo_cambio" class="form-label small mb-1">TC</label>
-                                                <input type="number" class="form-control form-control-sm no-spinner" id="tipo_cambio" name="tipo_cambio" step="0.000001" value="1">
-                                            </div>
-                                            <div class="col-md-2 mb-2">
-                                                <label for="condicion_pago_id" class="form-label small mb-1">Cond. Pago</label>
-                                                <select class="form-select form-select-sm" id="condicion_pago_id" name="condicion_pago_id">
-                                                    <option value="">Seleccionar</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-1 mb-2">
-                                                <label for="descuento_general_pct" class="form-label small mb-1">Dto.%</label>
-                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                    id="descuento_general_pct" 
-                                                    name="descuento_general_pct" 
-                                                    step="0.01" 
-                                                    min="0" 
-                                                    max="100" 
-                                                    value="0">
-                                            </div>
-                                        </div>
-
-                                        <!-- Dirección y observaciones -->
-                                        <div class="row mb-2">
-                                            <div class="col-md-8 mb-2">
-                                                <label for="direccion" class="form-label small mb-1">Dirección</label>
-                                                <textarea class="form-control form-control-sm" id="direccion" name="direccion" rows="1" maxlength="255"></textarea>
-                                            </div>
-                                            <div class="col-md-4 mb-2">
-                                                <label for="observaciones" class="form-label small mb-1">Observaciones</label>
-                                                <textarea class="form-control form-control-sm" id="observaciones" name="observaciones" rows="1" maxlength="255"></textarea>
+                                            <div class="card-body p-2">
+                                                <div id="contenedor-impuestos" class="table-responsive">
+                                                    <div class="impuestos-vacio text-center p-4 border rounded bg-light">
+                                                        <i class="fas fa-receipt fa-2x text-muted mb-2"></i>
+                                                        <p class="mb-0">No hay impuestos adicionales</p>
+                                                        <small class="text-muted">Haga clic en "Agregar Impuesto" para añadir</small>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- BOTONES SUPERIORES (Guardar/Cancelar) -->
-                                <div class="row mt-2 mb-3">
+                                <!-- Botones -->
+                                <div class="row mt-3">
                                     <div class="col-12 text-center">
                                         <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">
                                             <i class="fas fa-times me-1"></i>Cancelar
@@ -245,178 +346,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                 </div>
 
-                                <!-- Totales en formato horizontal -->
-                                <div class="row mb-3">
-                                    <div class="col-12">
-                                        <div class="card bg-success bg-opacity-10 border-success">
-                                            <div class="card-body py-2">
-                                                <div class="row align-items-center">
-                                                    <div class="col-md-3">
-                                                        <div class="d-flex justify-content-between">
-                                                            <span class="small text-success fw-bold">Total Neto:</span>
-                                                            <span class="fw-bold" id="total_neto_display">0.00</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-2">
-                                                        <div class="d-flex justify-content-between">
-                                                            <span class="small text-secondary">Descuentos:</span>
-                                                            <span id="descuentos_display">0.00</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-2">
-                                                        <div class="d-flex justify-content-between">
-                                                            <span class="small text-secondary">No Gravado:</span>
-                                                            <span id="no_gravado_display">0.00</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-2">
-                                                        <div class="d-flex justify-content-between">
-                                                            <span class="small text-secondary">Exento:</span>
-                                                            <span id="exento_display">0.00</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-3">
-                                                        <div class="d-flex justify-content-between fw-bold text-warning">
-                                                            <span class="small">Impuestos:</span>
-                                                            <span id="impuestos_display">0.00</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="row mt-1">
-                                                    <div class="col-12">
-                                                        <div class="d-flex justify-content-end fw-bold text-primary border-top pt-1">
-                                                            <span class="me-3">TOTAL:</span>
-                                                            <span id="total_display" class="text-primary fs-5">0.00</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <input type="hidden" id="subtotal" name="subtotal" value="0">
-                                        <input type="hidden" id="descuentos" name="descuentos" value="0">
-                                        <input type="hidden" id="no_gravado" name="no_gravado" value="0">
-                                        <input type="hidden" id="exento" name="exento" value="0">
-                                        <input type="hidden" id="impuestos" name="impuestos" value="0">
-                                        <input type="hidden" id="total" name="total" value="0">
-                                    </div>
-                                </div>
-
-                                <!-- SECCIÓN PRODUCTOS - Con estilo diferenciado -->
-                                <div class="card border-warning">
-                                    <div class="card-header py-2 bg-warning bg-opacity-10 border-bottom border-warning">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h6 class="mb-0 text-warning">
-                                                <i class="fas fa-boxes me-2"></i>Detalle de Productos
-                                            </h6>
-                                            <button type="button" class="btn btn-sm btn-outline-warning" id="btnNuevoProductoRapido">
-                                                <i class="fas fa-bolt me-1"></i>Nuevo Producto Rápido
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="card-body p-2">
-                                        <!-- Fila de agregado rápido de productos - Versión ultra compacta -->
-                                    <div class="row mb-3">
-                                        <div class="col-12">
-                                            <div class="card card-primary card-outline border-info">
-                                                <div class="card-header py-1 bg-info bg-opacity-10">
-                                                    <h6 class="mb-0 small text-info"><i class="fas fa-plus-circle me-2"></i>Agregar Producto</h6>
-                                                </div>
-                                                <div class="card-body py-2">
-                                                    <div class="row g-1 align-items-end">
-                                                        <!-- Producto -->
-                                                        <div class="col-md-3 position-relative">
-                                                            <label class="small mb-1">Producto</label>
-                                                            <input type="text" class="form-control form-control-sm" 
-                                                                id="busqueda_producto" 
-                                                                placeholder="Buscar producto..."
-                                                                autocomplete="off">
-                                                            <input type="hidden" id="producto_seleccionado_id">
-                                                            <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%; display: none;"></div>
-                                                        </div>
-                                                        
-                                                       <!-- Cantidad -->
-                                                        <div class="col-md-1">
-                                                            <label class="small mb-1">Cant.</label>
-                                                            <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                id="producto_cantidad" 
-                                                                step="0.01" min="0.01" value="1.00">
-                                                        </div>
-
-                                                        <!-- Precio -->
-                                                        <div class="col-md-1">
-                                                            <label class="small mb-1">Precio</label>
-                                                            <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                id="producto_precio" 
-                                                                step="0.01" min="0">
-                                                        </div>
-
-                                                        <!-- Dto % -->
-                                                        <div class="col-md-1">
-                                                            <label class="small mb-1">Dto %</label>
-                                                            <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                id="producto_descuento_item_pct" 
-                                                                step="0.01" min="0" max="100" value="0">
-                                                        </div>
-                                                        
-                                                        <!-- IVA % -->
-                                                        <div class="col-md-1">
-                                                            <label class="small mb-1">IVA %</label>
-                                                            <select class="form-select form-select-sm" id="producto_iva">
-                                                                <option value="21">21%</option>
-                                                                <option value="10.5">10.5%</option>
-                                                                <option value="27">27%</option>
-                                                                <option value="0">0%</option>
-                                                            </select>
-                                                        </div>
-                                                        
-                                                        <!-- No Gravado -->
-                                                        <div class="col-md-1">
-                                                            <label class="small mb-1">No Grav.</label>
-                                                            <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                id="producto_no_gravado" step="0.01" value="0">
-                                                        </div>
-                                                        
-                                                        <!-- Exento -->
-                                                        <div class="col-md-1">
-                                                            <label class="small mb-1">Exento</label>
-                                                            <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                id="producto_exento" step="0.01" value="0">
-                                                        </div>
-                                                        
-                                                        <!-- Dto $ (oculto, solo para cálculo) -->
-                                                        <input type="hidden" id="producto_descuento" value="0">
-                                                        
-                                                        <!-- IVA $ (oculto, solo para cálculo) -->
-                                                        <input type="hidden" id="producto_iva_importe" value="0">
-                                                        
-                                                        <!-- Botón Agregar -->
-                                                        <div class="col-md-1">
-                                                            <label class="small mb-1 invisible">Acción</label>
-                                                            <button type="button" class="btn btn-sm btn-success w-100" id="btnAgregarProducto">
-                                                                <i class="fas fa-plus"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                        <!-- Lista de detalles -->
-                                        <div class="row">
-                                            <div class="col-12">
-                                                <div id="contenedor-detalles" class="table-responsive">
-                                                    <!-- Los detalles se cargarán dinámicamente aquí -->
-                                                    <div class="detalles-vacio text-center p-4 border rounded bg-light" id="detalles-vacio">
-                                                        <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
-                                                        <p class="mb-0">No hay productos agregados</p>
-                                                        <small class="text-muted">Seleccione un producto para comenzar</small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <!-- Hidden fields para totales -->
+                                <input type="hidden" id="subtotal" name="subtotal" value="0">
+                                <input type="hidden" id="descuentos" name="descuentos" value="0">
+                                <input type="hidden" id="no_gravado" name="no_gravado" value="0">
+                                <input type="hidden" id="exento" name="exento" value="0">
+                                <input type="hidden" id="impuestos" name="impuestos" value="0">
+                                <input type="hidden" id="total" name="total" value="0">
                             </form>
                         </div>
                     </div>
@@ -570,7 +506,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             right: 0 !important;
             bottom: 0 !important;
         }
+        .modal-dialog {
+            max-width: 1400px;
+            width: 95%;
+            margin: 1.75rem auto;
+        }
 
+        .modal-body {
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .modal-fullscreen .modal-body {
+            max-height: calc(100vh - 120px) !important;
+        }
         .modal-fullscreen .modal-dialog {
             margin: 0 !important;
             width: 100% !important;

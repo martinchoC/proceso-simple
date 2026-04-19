@@ -352,6 +352,137 @@ try {
             $depositos = obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx_local);
             echo json_encode($depositos, JSON_UNESCAPED_UNICODE);
             break;
+        
+        case 'obtener_impuestos_config':
+            $comprobante_subgrupo_id = intval($_GET['comprobante_subgrupo_id'] ?? 5);
+            $impuestos = obtenerImpuestosConfig($conexion, $empresa_idx, $comprobante_subgrupo_id);
+            echo json_encode($impuestos, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_impuestos_factura':
+            $factura_proveedor_id = intval($_GET['factura_proveedor_id'] ?? 0);
+            $impuestos = obtenerImpuestosFactura($conexion, $factura_proveedor_id);
+            echo json_encode($impuestos, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'guardar_impuestos_factura':
+            $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
+            $impuestos = json_decode($_POST['impuestos'] ?? '[]', true);
+            $resultado = guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+       // En facturas_proveedores_ajax.php, reemplazar el case 'obtener_impuestos_config':
+
+        case 'obtener_impuestos_config':
+            $comprobante_subgrupo_id = intval($_GET['comprobante_subgrupo_id'] ?? 5);
+            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
+            
+            $sql = "SELECT 
+                        config.empresa_impuesto_config_id,
+                        config.empresa_id,
+                        -- Impuesto
+                        config.impuesto_tipo_id,
+                        it.impuesto_tipo,
+                        it.codigo_afip,
+                        -- Jurisdicción
+                        config.jurisdiccion_id,
+                        j.jurisdiccion_nombre,
+                        j.jurisdiccion_codigo,
+                        -- Condición fiscal
+                        config.condicion_fiscal_id,
+                        cf.condicion_fiscal,
+                        cf.condicion_fiscal_codigo,
+                        -- Configuración
+                        config.base_calculo,
+                        config.alicuota,
+                        config.minimo_imponible,
+                        config.monto_fijo,
+                        config.aplica_siempre,
+                        config.prioridad,
+                        config.tipo_calculo,
+                        config.f_desde,
+                        config.f_hasta
+                    FROM 
+                        gestion__empresas_impuestos_config AS config
+                    INNER JOIN 
+                        gestion__empresas_impuestos_config_subgrupos AS sub
+                        ON config.empresa_impuesto_config_id = sub.empresa_impuesto_config_id
+                    INNER JOIN 
+                        gestion__impuestos_tipos AS it
+                        ON config.impuesto_tipo_id = it.impuesto_tipo_id
+                    LEFT JOIN 
+                        gestion__jurisdicciones AS j
+                        ON config.jurisdiccion_id = j.jurisdiccion_id
+                    LEFT JOIN 
+                        gestion__condiciones_fiscales AS cf
+                        ON config.condicion_fiscal_id = cf.condicion_fiscal_id
+                    WHERE 
+                        config.empresa_id = ?
+                        AND sub.comprobante_subgrupo_id = ?
+                        -- Estados activos (motor de estados)
+                        AND config.tabla_estado_registro_id = 1
+                        AND sub.tabla_estado_registro_id = 1
+                        AND it.tabla_estado_registro_id = 1
+                        AND (j.tabla_estado_registro_id = 1 OR j.jurisdiccion_id IS NULL)
+                        AND (cf.tabla_estado_registro_id = 1 OR cf.condicion_fiscal_id IS NULL)
+                    ORDER BY config.prioridad, it.impuesto_tipo";
+            
+            $stmt = mysqli_prepare($conexion, $sql);
+            if (!$stmt) {
+                echo json_encode(['error' => 'Error al consultar impuestos config: ' . mysqli_error($conexion)], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            
+            mysqli_stmt_bind_param($stmt, "ii", $empresa_idx_local, $comprobante_subgrupo_id);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            
+            $impuestos = [];
+            while ($fila = mysqli_fetch_assoc($result)) {
+                $impuestos[] = $fila;
+            }
+            mysqli_stmt_close($stmt);
+            
+            echo json_encode($impuestos, JSON_UNESCAPED_UNICODE);
+            break;
+
+        // En facturas_proveedores_ajax.php, corregir el case 'obtener_tipos_impuesto':
+        case 'obtener_jurisdicciones':
+            $sql = "SELECT jurisdiccion_id, jurisdiccion_codigo, jurisdiccion_nombre 
+                    FROM gestion__jurisdicciones 
+                    WHERE tabla_estado_registro_id = 1
+                    ORDER BY jurisdiccion_nombre";
+            $result = mysqli_query($conexion, $sql);
+            if (!$result) {
+                echo json_encode(['error' => 'Error al consultar jurisdicciones'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $jurisdicciones = [];
+            while ($fila = mysqli_fetch_assoc($result)) {
+                $jurisdicciones[] = $fila;
+            }
+            echo json_encode($jurisdicciones, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_tipos_impuesto':
+            $sql = "SELECT impuesto_tipo_id, impuesto_tipo, es_retencion, es_percepcion 
+                    FROM gestion__impuestos_tipos 
+                    WHERE tabla_estado_registro_id = 1 
+                    ORDER BY impuesto_tipo";
+            $result = mysqli_query($conexion, $sql);
+            if (!$result) {
+                echo json_encode(['error' => 'Error al consultar tipos de impuesto: ' . mysqli_error($conexion)], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $tipos = [];
+            while ($fila = mysqli_fetch_assoc($result)) {
+                $tipos[] = $fila;
+            }
+            echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
+            break;
+        
+        
+        
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }

@@ -13,6 +13,7 @@ $(document).ready(function () {
     var proveedorSucursalActualId = null;
     var timeoutBusqueda = null;
     var selectedIndex = -1;
+    var impuestosFactura = [];
 
     // ========== FUNCIONES DE DATATABLE ==========
     function calcularFechaVencimiento(fechaEmision, condicionPagoId) {
@@ -34,7 +35,598 @@ $(document).ready(function () {
         
         return `${year}-${month}-${day}`;
     }
+    // ========== FUNCIONES DE OTROS IMPUESTOS ==========
+    // En facturas_proveedores.js, reemplazar la función cargarImpuestosConfig
 
+function cargarImpuestosConfig() {
+    console.log("Cargando configuración de impuestos para empresa:", empresa_idx);
+    
+    $.ajax({
+        url: 'facturas_proveedores_ajax.php',
+        type: 'GET',
+        data: {
+            accion: 'obtener_impuestos_config',
+            empresa_idx: empresa_idx,
+            comprobante_subgrupo_id: 5  // Compras/Proveedores
+        },
+        dataType: 'json',
+        success: function(data) {
+            console.log("Impuestos config cargados:", data);
+            window.impuestosConfig = data || [];
+            
+            // Si hay una factura cargada, mostrar los impuestos ya guardados
+            var facturaId = $('#factura_proveedor_id').val();
+            if (facturaId && facturaId > 0) {
+                cargarImpuestosFactura(facturaId);
+            } else {
+                // Para nueva factura, mostrar impuestos por defecto desde configuración
+                cargarImpuestosPorDefecto();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error("Error cargando configuración de impuestos:", error);
+            window.impuestosConfig = [];
+        }
+    });
+}
+
+
+
+// Reemplazar la función cargarImpuestosPorDefecto
+
+function cargarImpuestosPorDefecto() {
+    // Crear impuestos sugeridos desde la configuración
+    if (window.impuestosConfig && window.impuestosConfig.length > 0) {
+        impuestosFactura = [];
+        
+        window.impuestosConfig.forEach(function(config) {
+            // Verificar si ya existe un impuesto de este tipo
+            var existe = impuestosFactura.some(function(imp) {
+                return imp.impuesto_tipo_id === config.impuesto_tipo_id;
+            });
+            
+            if (!existe) {
+                // Crear descripción combinada: "Impuesto - Jurisdicción"
+                var descripcionCompleta = config.impuesto_tipo;
+                if (config.jurisdiccion_nombre) {
+                    descripcionCompleta += ' - ' + config.jurisdiccion_nombre;
+                }
+                
+                impuestosFactura.push({
+                    
+                    empresa_impuesto_config_id: config.empresa_impuesto_config_id,
+                    impuesto_tipo_id: config.impuesto_tipo_id,
+                    impuesto_tipo: config.impuesto_tipo,
+                    impuesto_tipo_descripcion: descripcionCompleta,
+                    impuesto_codigo_afip: config.codigo_afip,
+                    jurisdiccion_id: config.jurisdiccion_id,
+                    jurisdiccion_nombre: config.jurisdiccion_nombre || '',
+                    jurisdiccion_codigo: config.jurisdiccion_codigo || '',
+                    condicion_fiscal_id: config.condicion_fiscal_id,
+                    condicion_fiscal: config.condicion_fiscal,
+                    condicion_fiscal_codigo: config.condicion_fiscal_codigo,
+                    base_calculo: config.base_calculo || 'NETO_GRAVADO',
+                    base_imponible: 0,
+                    alicuota: parseFloat(config.alicuota || 0),
+                    minimo_imponible: parseFloat(config.minimo_imponible || 0),
+                    monto_fijo: parseFloat(config.monto_fijo || 0),
+                    importe: 0,
+                    aplica_siempre: config.aplica_siempre || 1,
+                    prioridad: config.prioridad || 1,
+                    tipo_calculo: config.tipo_calculo || 'manual',
+                    f_desde: config.f_desde,
+                    f_hasta: config.f_hasta,
+                    detalle_origen: 'auto',
+                    tipo_origen: 'manual'
+                });
+            }
+        });
+        
+        // Ordenar por prioridad
+        impuestosFactura.sort(function(a, b) {
+            return (a.prioridad || 999) - (b.prioridad || 999);
+        });
+        
+        renderizarImpuestos();
+        console.log("Impuestos cargados por defecto:", impuestosFactura.length);
+    } else {
+        console.log("No hay configuración de impuestos para cargar");
+        impuestosFactura = [];
+        renderizarImpuestos();
+    }
+}
+
+function cargarImpuestosFactura(facturaId) {
+    console.log("Cargando impuestos de factura ID:", facturaId);
+    
+    $.ajax({
+        url: 'facturas_proveedores_ajax.php',
+        type: 'GET',
+        data: {
+            accion: 'obtener_impuestos_factura',
+            factura_proveedor_id: facturaId
+        },
+        dataType: 'json',
+        success: function(data) {
+            console.log("Impuestos de factura cargados:", data);
+            
+            if (data && data.length > 0) {
+                impuestosFactura = data.map(function(imp) {
+                    // Crear descripción combinada
+                    var descripcionCompleta = imp.impuesto_tipo || '';
+                    if (imp.jurisdiccion_nombre) {
+                        descripcionCompleta += ' - ' + imp.jurisdiccion_nombre;
+                    }
+                    if (imp.condicion_fiscal) {
+                        descripcionCompleta += ' (' + imp.condicion_fiscal + ')';
+                    }
+                    
+                    return {
+                        empresa_impuesto_config_id: imp.empresa_impuesto_config_id,
+                        impuesto_tipo_id: imp.impuesto_tipo_id,
+                        impuesto_tipo: imp.impuesto_tipo,
+                        impuesto_tipo_descripcion: descripcionCompleta,
+                        jurisdiccion_id: imp.jurisdiccion_id || null,
+                        jurisdiccion_nombre: imp.jurisdiccion_nombre || '',
+                        condicion_fiscal: imp.condicion_fiscal || '',
+                        base_calculo: imp.base_calculo || 'NETO_GRAVADO',
+                        base_imponible: parseFloat(imp.base_imponible || 0),
+                        alicuota: parseFloat(imp.alicuota || 0),
+                        minimo_imponible: parseFloat(imp.minimo_imponible || 0),
+                        importe: parseFloat(imp.importe || 0),
+                        detalle_origen: imp.detalle_origen || '',
+                        tipo_origen: imp.tipo_origen || 'manual'
+                    };
+                });
+            } else {
+                cargarImpuestosPorDefecto();
+            }
+            
+            renderizarImpuestos();
+            actualizarTotalConImpuestos();
+        },
+        error: function(xhr, status, error) {
+            console.error("Error cargando impuestos de factura:", error);
+            cargarImpuestosPorDefecto();
+        }
+    });
+}
+// Actualizar renderizarImpuestos
+
+function renderizarImpuestos() {
+    $('#contenedor-impuestos').empty();
+    
+    if (!impuestosFactura || impuestosFactura.length === 0) {
+        var htmlVacio = `
+        <div class="impuestos-vacio text-center p-4 border rounded bg-light">
+            <i class="fas fa-receipt fa-2x text-muted mb-2"></i>
+            <p class="mb-0">No hay impuestos adicionales</p>
+            <small class="text-muted">Los impuestos se cargarán automáticamente desde la configuración</small>
+        </div>`;
+        $('#contenedor-impuestos').html(htmlVacio);
+        return;
+    }
+    
+    var html = `
+    <div style="overflow-x: auto;">
+        <table class="table table-sm table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Impuesto</th>
+                    <th class="text-end">Base Imponible</th>
+                    <th class="text-center">Alícuota %</th>
+                    <th class="text-end">Importe</th>
+                    <th class="text-center" width="80">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>`;
+    
+    impuestosFactura.forEach(function(impuesto, index) {
+        // Usar la descripción combinada o construirla
+        var descripcion = impuesto.impuesto_tipo_descripcion || impuesto.impuesto_tipo;
+        if (!impuesto.impuesto_tipo_descripcion && impuesto.jurisdiccion_nombre) {
+            descripcion += ' - ' + impuesto.jurisdiccion_nombre;
+        }
+        
+        html += `
+            <tr data-impuesto-idx="${index}" data-config-id="${impuesto.empresa_impuesto_config_id || ''}">
+                <td>
+                    <strong>${escapeHtml(descripcion)}</strong>
+                    ${impuesto.minimo_imponible > 0 ? `<br><small class="text-muted">Mínimo: ${formatNumber(impuesto.minimo_imponible, 2)}</small>` : ''}
+                    ${impuesto.base_calculo && impuesto.base_calculo !== 'NETO_GRAVADO' ? `<br><small class="text-muted">Base: ${escapeHtml(impuesto.base_calculo)}</small>` : ''}
+                </td>
+                <td class="text-end">
+                    <input type="number" step="0.01" class="form-control form-control-sm text-end impuesto-base" 
+                           data-idx="${index}" value="${(impuesto.base_imponible || 0).toFixed(2)}"
+                           style="min-width: 150px;">
+                </td>
+                <td class="text-center">
+                    <input type="number" step="0.01" class="form-control form-control-sm text-center impuesto-alicuota" 
+                           data-idx="${index}" value="${(impuesto.alicuota || 0).toFixed(2)}"
+                           style="min-width: 80px;">
+                </td>
+                <td class="text-end fw-bold text-info impuesto-importe-display">${formatNumber(impuesto.importe || 0, 2)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger btn-eliminar-impuesto" 
+                            data-idx="${index}" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+    });
+    
+    html += `
+            </tbody>
+            <tfoot class="table-secondary">
+                <tr>
+                    <th colspan="3" class="text-end">Total Otros Impuestos:</th>
+                    <th class="text-end text-info">${formatNumber(calcularTotalOtrosImpuestos(), 2)}</th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>`;
+    
+    $('#contenedor-impuestos').html(html);
+    
+    // Bind eventos para inputs dinámicos
+    $('.impuesto-base').off('input').on('input', function() {
+        var idx = $(this).data('idx');
+        var base = parseFloat($(this).val()) || 0;
+        if (impuestosFactura[idx]) {
+            // Verificar mínimo imponible
+            var minimo = impuestosFactura[idx].minimo_imponible || 0;
+            var baseCalculo = base;
+            if (minimo > 0 && baseCalculo < minimo) {
+                baseCalculo = minimo;
+                $(this).val(minimo.toFixed(2));
+            }
+            impuestosFactura[idx].base_imponible = baseCalculo;
+            var importe = baseCalculo * (impuestosFactura[idx].alicuota / 100);
+            impuestosFactura[idx].importe = importe;
+            $(this).closest('tr').find('.impuesto-importe-display').text(formatNumber(importe, 2));
+            actualizarTotalConImpuestos();
+        }
+    });
+    
+    $('.impuesto-alicuota').off('input').on('input', function() {
+        var idx = $(this).data('idx');
+        var alicuota = parseFloat($(this).val()) || 0;
+        if (impuestosFactura[idx]) {
+            impuestosFactura[idx].alicuota = alicuota;
+            var importe = impuestosFactura[idx].base_imponible * (alicuota / 100);
+            impuestosFactura[idx].importe = importe;
+            $(this).closest('tr').find('.impuesto-importe-display').text(formatNumber(importe, 2));
+            actualizarTotalConImpuestos();
+        }
+    });
+}
+
+
+// Agregar esta función para recalcular automáticamente los impuestos
+
+function recalcularImpuestosPorTotal() {
+    if (!impuestosFactura || impuestosFactura.length === 0) return;
+    
+    var totalNetoGravado = parseFloat($('#subtotal').val()) || 0;
+    var totalFactura = parseFloat($('#total').val()) || 0;
+    
+    impuestosFactura.forEach(function(impuesto, index) {
+        // Determinar base imponible según el tipo de cálculo
+        var baseImponible = 0;
+        var baseCalculo = impuesto.base_calculo || 'NETO_GRAVADO';
+        
+        switch (baseCalculo) {
+            case 'NETO_GRAVADO':
+                baseImponible = totalNetoGravado;
+                break;
+            case 'TOTAL':
+                baseImponible = totalFactura;
+                break;
+            case 'MONTO_FIJO':
+                baseImponible = impuesto.monto_fijo || 0;
+                break;
+            default:
+                baseImponible = totalNetoGravado;
+        }
+        
+        // Verificar mínimo imponible
+        if (impuesto.minimo_imponible > 0 && baseImponible < impuesto.minimo_imponible) {
+            baseImponible = impuesto.minimo_imponible;
+        }
+        
+        var importe = baseImponible * (impuesto.alicuota / 100);
+        
+        impuestosFactura[index].base_imponible = baseImponible;
+        impuestosFactura[index].importe = importe;
+    });
+    
+    renderizarImpuestos();
+    actualizarTotalConImpuestos();
+}
+
+// Llamar a recalcularImpuestosPorTotal cuando cambien los totales
+function actualizarTotales() {
+    var totalNeto = 0;
+    var totalDescuentoItem = 0;
+    var totalDescuentoGeneral = 0;
+    var totalNoGravado = 0;
+    var totalExento = 0;
+    var totalImpuestos = 0;
+    
+    detalles.forEach(function(detalle) {
+        totalNeto += detalle.neto_gravado || 0;
+        totalDescuentoItem += detalle.descuento_item || 0;
+        totalDescuentoGeneral += detalle.descuento_general || 0;
+        totalImpuestos += detalle.iva_importe || 0;
+        totalNoGravado += detalle.no_gravado || 0;
+        totalExento += detalle.exento || 0;
+    });
+    
+    var totalDescuentos = totalDescuentoItem + totalDescuentoGeneral;
+    var totalGeneral = totalNeto + totalImpuestos + totalNoGravado + totalExento;
+    
+    // Guardar valores originales en los inputs hidden
+    $('#subtotal').val(totalNeto.toFixed(2));
+    $('#descuentos').val(totalDescuentos.toFixed(2));
+    $('#no_gravado').val(totalNoGravado.toFixed(2));
+    $('#exento').val(totalExento.toFixed(2));
+    $('#impuestos').val(totalImpuestos.toFixed(2));
+    $('#total').val(totalGeneral.toFixed(2));
+    
+    // Mostrar valores formateados
+    $('#total_neto_display').text(formatNumber(totalNeto, 2));
+    $('#descuentos_display').text(formatNumber(totalDescuentos, 2));
+    $('#no_gravado_display').text(formatNumber(totalNoGravado, 2));
+    $('#exento_display').text(formatNumber(totalExento, 2));
+    $('#impuestos_display').text(formatNumber(totalImpuestos, 2));
+    $('#total_display').text(formatNumber(totalGeneral, 2));
+    
+    // Recalcular impuestos adicionales basados en los nuevos totales
+    recalcularImpuestosPorTotal();
+}
+    function calcularTotalOtrosImpuestos() {
+        var total = 0;
+        impuestosFactura.forEach(function(impuesto) {
+            total += parseFloat(impuesto.importe || 0);
+        });
+        return total;
+    }
+
+    function actualizarTotalConImpuestos() {
+        var otrosImpuestos = calcularTotalOtrosImpuestos();
+        $('#otros_impuestos').val(otrosImpuestos.toFixed(2));
+        $('#otros_impuestos_display').text(formatNumber(otrosImpuestos, 2));
+        
+        // Recalcular total general
+        var subtotal = parseFloat($('#subtotal').val()) || 0;
+        var descuentos = parseFloat($('#descuentos').val()) || 0;
+        var noGravado = parseFloat($('#no_gravado').val()) || 0;
+        var exento = parseFloat($('#exento').val()) || 0;
+        var impuestos = parseFloat($('#impuestos').val()) || 0;
+        var totalGeneral = subtotal - descuentos + noGravado + exento + impuestos + otrosImpuestos;
+        
+        $('#total').val(totalGeneral.toFixed(2));
+        $('#total_display').text(formatNumber(totalGeneral, 2));
+    }
+
+    // Actualizar mostrarModalImpuesto para usar los tipos disponibles
+
+function mostrarModalImpuesto(impuestoData, idx) {
+    if ($('#modalImpuesto').length) $('#modalImpuesto').remove();
+    
+    var modalHtml = `
+    <div class="modal fade" id="modalImpuesto" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">${idx !== undefined ? 'Editar' : 'Agregar'} Impuesto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formImpuesto">
+                        <input type="hidden" id="impuesto_idx" value="${idx !== undefined ? idx : ''}">
+                        <div class="mb-3">
+                            <label class="form-label">Configuración de Impuesto *</label>
+                            <select class="form-select" id="config_impuesto_id" required>
+                                <option value="">Seleccionar impuesto configurado...</option>
+                            </select>
+                            <div class="invalid-feedback">Seleccione una configuración de impuesto</div>
+                            <small class="form-text text-muted">Impuestos configurados en el sistema</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Base Imponible</label>
+                            <input type="number" step="0.01" class="form-control" id="base_imponible" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Alícuota %</label>
+                            <input type="number" step="0.01" class="form-control" id="alicuota" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Importe</label>
+                            <input type="number" step="0.01" class="form-control" id="importe" value="0" readonly>
+                            <small class="form-text text-muted">Se calcula automáticamente: Base × Alícuota ÷ 100</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Detalle/Origen</label>
+                            <input type="text" class="form-control" id="detalle_origen" placeholder="Opcional">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnGuardarImpuesto">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    
+    $('body').append(modalHtml);
+    
+    // Cargar configuraciones de impuestos desde la consulta SQL
+    $.ajax({
+        url: 'facturas_proveedores_ajax.php',
+        type: 'GET',
+        data: { 
+            accion: 'obtener_impuestos_config',
+            empresa_idx: empresa_idx,
+            comprobante_subgrupo_id: 5
+        },
+        dataType: 'json',
+        success: function(configuraciones) {
+            console.log("Configuraciones de impuestos para selector:", configuraciones);
+            var select = $('#config_impuesto_id');
+            select.empty();
+            
+            if (configuraciones && configuraciones.length > 0) {
+                select.append('<option value="">Seleccionar impuesto...</option>');
+                configuraciones.forEach(function(config) {
+                    var descripcion = config.impuesto_tipo;
+                    if (config.jurisdiccion_nombre) {
+                        descripcion += ' - ' + config.jurisdiccion_nombre;
+                    }
+                    if (config.condicion_fiscal) {
+                        descripcion += ' (' + config.condicion_fiscal + ')';
+                    }
+                    select.append(`<option value="${config.empresa_impuesto_config_id}" 
+                                        data-impuesto-tipo-id="${config.impuesto_tipo_id}"
+                                        data-impuesto-tipo="${config.impuesto_tipo}"
+                                        data-jurisdiccion-id="${config.jurisdiccion_id || ''}"
+                                        data-jurisdiccion-nombre="${config.jurisdiccion_nombre || ''}"
+                                        data-alicuota="${config.alicuota || 0}"
+                                        data-minimo="${config.minimo_imponible || 0}"
+                                        data-base-calculo="${config.base_calculo || 'NETO_GRAVADO'}">
+                                        ${escapeHtml(descripcion)} - Alícuota: ${config.alicuota || 0}%
+                                    </option>`);
+                });
+            } else {
+                select.append('<option value="">No hay configuraciones de impuestos disponibles</option>');
+            }
+            
+            if (impuestoData) {
+                $('#config_impuesto_id').val(impuestoData.empresa_impuesto_config_id);
+                $('#base_imponible').val(impuestoData.base_imponible || 0);
+                $('#alicuota').val(impuestoData.alicuota || 0);
+                $('#importe').val(impuestoData.importe || 0);
+                $('#detalle_origen').val(impuestoData.detalle_origen || '');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error("Error cargando configuraciones:", error);
+            $('#config_impuesto_id').html('<option value="">Error al cargar impuestos</option>');
+        }
+    });
+    
+    // Cuando se selecciona una configuración, cargar sus valores por defecto
+    $(document).on('change', '#config_impuesto_id', function() {
+        var selected = $(this).find('option:selected');
+        var alicuota = selected.data('alicuota') || 0;
+        var minimo = selected.data('minimo') || 0;
+        $('#alicuota').val(alicuota);
+        if (minimo > 0 && parseFloat($('#base_imponible').val()) < minimo) {
+            $('#base_imponible').val(minimo);
+        }
+        calcularImporteImpuesto();
+    });
+    
+    // Calcular importe automáticamente
+    $('#base_imponible, #alicuota').on('input', function() {
+        calcularImporteImpuesto();
+    });
+    
+    function calcularImporteImpuesto() {
+        var base = parseFloat($('#base_imponible').val()) || 0;
+        var alicuota = parseFloat($('#alicuota').val()) || 0;
+        var importe = base * (alicuota / 100);
+        $('#importe').val(importe.toFixed(2));
+    }
+    
+    var modal = new bootstrap.Modal(document.getElementById('modalImpuesto'));
+    modal.show();
+    
+    $('#btnGuardarImpuesto').off('click').on('click', function() {
+        var configId = $('#config_impuesto_id').val();
+        if (!configId) {
+            $('#config_impuesto_id').addClass('is-invalid');
+            Swal.fire({ icon: "warning", title: "Validación", text: "Debe seleccionar un impuesto", confirmButtonText: "Entendido" });
+            return false;
+        }
+        
+        var selectedOption = $('#config_impuesto_id option:selected');
+        var descripcionCompleta = selectedOption.text().split(' - Alícuota:')[0];
+        
+        var nuevoImpuesto = {
+            empresa_impuesto_config_id: parseInt(configId),
+            impuesto_tipo_id: selectedOption.data('impuesto-tipo-id'),
+            impuesto_tipo: selectedOption.data('impuesto-tipo'),
+            impuesto_tipo_descripcion: descripcionCompleta,
+            jurisdiccion_id: selectedOption.data('jurisdiccion-id') || null,
+            jurisdiccion_nombre: selectedOption.data('jurisdiccion-nombre') || '',
+            base_calculo: selectedOption.data('base-calculo') || 'NETO_GRAVADO',
+            base_imponible: parseFloat($('#base_imponible').val()) || 0,
+            alicuota: parseFloat($('#alicuota').val()) || 0,
+            minimo_imponible: selectedOption.data('minimo') || 0,
+            importe: parseFloat($('#importe').val()) || 0,
+            detalle_origen: $('#detalle_origen').val(),
+            tipo_origen: 'manual'
+        };
+        
+        var editIdx = $('#impuesto_idx').val();
+        if (editIdx !== '') {
+            impuestosFactura[parseInt(editIdx)] = nuevoImpuesto;
+        } else {
+            impuestosFactura.push(nuevoImpuesto);
+        }
+        
+        // Ordenar por prioridad
+        impuestosFactura.sort(function(a, b) {
+            return (a.prioridad || 999) - (b.prioridad || 999);
+        });
+        
+        renderizarImpuestos();
+        actualizarTotalConImpuestos();
+        
+        var modalInstance = bootstrap.Modal.getInstance(document.getElementById('modalImpuesto'));
+        modalInstance.hide();
+        
+        $('#modalImpuesto').on('hidden.bs.modal', function() {
+            $(this).remove();
+        });
+    });
+}
+    // Eventos de impuestos
+    $(document).on('click', '#btnAgregarImpuesto', function() {
+        if (!proveedorActualId) {
+            Swal.fire({ icon: "warning", title: "Seleccione proveedor", text: "Debe seleccionar un proveedor primero" });
+            return;
+        }
+        mostrarModalImpuesto(null);
+    });
+
+    $(document).on('click', '.btn-editar-impuesto', function() {
+        var idx = $(this).data('idx');
+        mostrarModalImpuesto(impuestosFactura[idx], idx);
+    });
+
+    $(document).on('click', '.btn-eliminar-impuesto', function() {
+        var idx = $(this).data('idx');
+        Swal.fire({
+            title: '¿Eliminar impuesto?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                impuestosFactura.splice(idx, 1);
+                renderizarImpuestos();
+                actualizarTotalConImpuestos();
+            }
+        });
+    });
+
+    
+    
     // ========== ACTUALIZAR FECHA DE CONTABILIDAD ==========
     function actualizarFechaContabilidad() {
         var fEmision = $('#f_emision').val();
@@ -1465,6 +2057,8 @@ $(document).ready(function () {
     }
 
     // ========== FUNCIONES DEL MODAL ==========
+    // En facturas_proveedores.js, modificar resetModal para recargar impuestos
+
     function resetModal() {
         $('#formFacturaProveedor')[0].reset();
         $('#factura_proveedor_id').val('');
@@ -1486,13 +2080,21 @@ $(document).ready(function () {
         renderizarDetalles();
         actualizarTotales();
         
+        // Limpiar impuestos y recargar configuración
+        impuestosFactura = [];
+        
+        // Recargar configuración de impuestos si hay proveedor seleccionado
+        if (proveedorActualId) {
+            cargarImpuestosConfig();
+        } else {
+            // Cargar configuración por defecto
+            cargarImpuestosConfig();
+        }
+        
         $('#entidad_combo').html('<option value="">Seleccionar proveedor o sucursal</option>');
         $('#proveedor_actual_nombre').text('No seleccionado');
         
-        // Limpiar cualquier variable temporal
         window.sucursalIdEditar = null;
-        
-        // Limpiar campos de fecha
         $('#f_contabilidad').val('');
     }
 
@@ -1716,6 +2318,10 @@ $(document).ready(function () {
         formData.append('detalles', JSON.stringify(detalles));
         formData.append('descuento_general_pct', $('#descuento_general_pct').val() || '0');
         formData.append('deposito_id', $('#deposito_id').val() || '');
+        formData.append('impuestos_adicionales', JSON.stringify(impuestosFactura));
+        
+        console.log("Impuestos a guardar:", impuestosFactura);
+        
 
         // Log para depuración
         console.log("=== DATOS ENVIADOS ===");
@@ -2031,6 +2637,8 @@ $(document).ready(function () {
             console.error("Respuesta:", jqXHR.responseText);
         });
     }
-    
+    $('#modalFacturaProveedor').on('shown.bs.modal', function () {
+    $('#datos-tab').tab('show');
+});
 
 });
