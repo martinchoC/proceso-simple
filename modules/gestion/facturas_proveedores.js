@@ -222,11 +222,14 @@ function renderizarImpuestos() {
             <tbody>`;
     
     impuestosFactura.forEach(function(impuesto, index) {
-        // Usar la descripción combinada o construirla
         var descripcion = impuesto.impuesto_tipo_descripcion || impuesto.impuesto_tipo;
         if (!impuesto.impuesto_tipo_descripcion && impuesto.jurisdiccion_nombre) {
             descripcion += ' - ' + impuesto.jurisdiccion_nombre;
         }
+        
+        var baseImponible = impuesto.base_imponible || 0;
+        var alicuota = impuesto.alicuota || 0;
+        var importe = impuesto.importe || 0;
         
         html += `
             <tr data-impuesto-idx="${index}" data-config-id="${impuesto.empresa_impuesto_config_id || ''}">
@@ -234,25 +237,29 @@ function renderizarImpuestos() {
                     <strong>${escapeHtml(descripcion)}</strong>
                     ${impuesto.minimo_imponible > 0 ? `<br><small class="text-muted">Mínimo: ${formatNumber(impuesto.minimo_imponible, 2)}</small>` : ''}
                     ${impuesto.base_calculo && impuesto.base_calculo !== 'NETO_GRAVADO' ? `<br><small class="text-muted">Base: ${escapeHtml(impuesto.base_calculo)}</small>` : ''}
-                </td>
+                 </td>
                 <td class="text-end">
                     <input type="number" step="0.01" class="form-control form-control-sm text-end impuesto-base" 
-                           data-idx="${index}" value="${(impuesto.base_imponible || 0).toFixed(2)}"
+                           data-idx="${index}" value="${baseImponible.toFixed(2)}"
                            style="min-width: 150px;">
-                </td>
+                 </td>
                 <td class="text-center">
                     <input type="number" step="0.01" class="form-control form-control-sm text-center impuesto-alicuota" 
-                           data-idx="${index}" value="${(impuesto.alicuota || 0).toFixed(2)}"
+                           data-idx="${index}" value="${alicuota.toFixed(2)}"
                            style="min-width: 80px;">
-                </td>
-                <td class="text-end fw-bold text-info impuesto-importe-display">${formatNumber(impuesto.importe || 0, 2)}</td>
+                 </td>
+                <td class="text-end">
+                    <input type="number" step="0.01" class="form-control form-control-sm text-end impuesto-importe" 
+                           data-idx="${index}" value="${importe.toFixed(2)}"
+                           style="min-width: 120px;">
+                 </td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-danger btn-eliminar-impuesto" 
                             data-idx="${index}" title="Eliminar">
                         <i class="fas fa-trash"></i>
                     </button>
-                </td>
-            </tr>`;
+                 </td>
+             </tr>`;
     });
     
     html += `
@@ -260,7 +267,7 @@ function renderizarImpuestos() {
             <tfoot class="table-secondary">
                 <tr>
                     <th colspan="3" class="text-end">Total Otros Impuestos:</th>
-                    <th class="text-end text-info">${formatNumber(calcularTotalOtrosImpuestos(), 2)}</th>
+                    <th class="text-end text-info" id="total-otros-impuestos-display">${formatNumber(calcularTotalOtrosImpuestos(), 2)}</th>
                     <th></th>
                 </tr>
             </tfoot>
@@ -269,34 +276,62 @@ function renderizarImpuestos() {
     
     $('#contenedor-impuestos').html(html);
     
-    // Bind eventos para inputs dinámicos
+    // Evento: cambio en BASE IMPONIBLE -> recalcula importe (solo si base > 0)
     $('.impuesto-base').off('input').on('input', function() {
         var idx = $(this).data('idx');
         var base = parseFloat($(this).val()) || 0;
         if (impuestosFactura[idx]) {
-            // Verificar mínimo imponible
-            var minimo = impuestosFactura[idx].minimo_imponible || 0;
-            var baseCalculo = base;
-            if (minimo > 0 && baseCalculo < minimo) {
-                baseCalculo = minimo;
-                $(this).val(minimo.toFixed(2));
+            impuestosFactura[idx].base_imponible = base;
+            
+            // Si base_imponible > 0, recalcular importe desde alicuota
+            if (base > 0) {
+                var alicuota = impuestosFactura[idx].alicuota || 0;
+                var importe = base * (alicuota / 100);
+                impuestosFactura[idx].importe = importe;
+                $(this).closest('tr').find('.impuesto-importe').val(importe.toFixed(2));
             }
-            impuestosFactura[idx].base_imponible = baseCalculo;
-            var importe = baseCalculo * (impuestosFactura[idx].alicuota / 100);
-            impuestosFactura[idx].importe = importe;
-            $(this).closest('tr').find('.impuesto-importe-display').text(formatNumber(importe, 2));
+            // Si base_imponible es 0, mantener el importe actual (no recalcular)
+            
             actualizarTotalConImpuestos();
         }
     });
     
+    // Evento: cambio en ALICUOTA -> recalcula importe (solo si base > 0)
     $('.impuesto-alicuota').off('input').on('input', function() {
         var idx = $(this).data('idx');
         var alicuota = parseFloat($(this).val()) || 0;
         if (impuestosFactura[idx]) {
             impuestosFactura[idx].alicuota = alicuota;
-            var importe = impuestosFactura[idx].base_imponible * (alicuota / 100);
+            var base = impuestosFactura[idx].base_imponible || 0;
+            
+            // Solo recalcular si base_imponible > 0
+            if (base > 0) {
+                var importe = base * (alicuota / 100);
+                impuestosFactura[idx].importe = importe;
+                $(this).closest('tr').find('.impuesto-importe').val(importe.toFixed(2));
+            }
+            // Si base_imponible es 0, NO recalcar el importe (dejar el que tiene)
+            
+            actualizarTotalConImpuestos();
+        }
+    });
+    
+    // Evento: cambio en IMPORTE -> recalcular alicuota (solo si base > 0)
+    $('.impuesto-importe').off('input').on('input', function() {
+        var idx = $(this).data('idx');
+        var importe = parseFloat($(this).val()) || 0;
+        if (impuestosFactura[idx]) {
             impuestosFactura[idx].importe = importe;
-            $(this).closest('tr').find('.impuesto-importe-display').text(formatNumber(importe, 2));
+            var base = impuestosFactura[idx].base_imponible || 0;
+            
+            // Solo recalcular alicuota si base > 0
+            if (base > 0 && importe > 0) {
+                var alicuota = (importe / base) * 100;
+                impuestosFactura[idx].alicuota = alicuota;
+                $(this).closest('tr').find('.impuesto-alicuota').val(alicuota.toFixed(2));
+            }
+            // Si base_imponible es 0, no podemos calcular alicuota
+            
             actualizarTotalConImpuestos();
         }
     });
@@ -386,12 +421,15 @@ function actualizarTotales() {
     recalcularImpuestosPorTotal();
 }
     function calcularTotalOtrosImpuestos() {
-        var total = 0;
+    var total = 0;
+    if (impuestosFactura && impuestosFactura.length > 0) {
         impuestosFactura.forEach(function(impuesto) {
-            total += parseFloat(impuesto.importe || 0);
+            var importe = parseFloat(impuesto.importe) || 0;
+            total += importe;
         });
-        return total;
     }
+    return total;
+}
 
     function actualizarTotalConImpuestos() {
         var otrosImpuestos = calcularTotalOtrosImpuestos();
@@ -444,7 +482,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Importe</label>
-                            <input type="number" step="0.01" class="form-control" id="importe" value="0" readonly>
+                            <input type="number" step="0.01" class="form-control" id="importe" value="0">
                             <small class="form-text text-muted">Se calcula automáticamente: Base × Alícuota ÷ 100</small>
                         </div>
                         <div class="mb-3">
@@ -540,7 +578,27 @@ function mostrarModalImpuesto(impuestoData, idx) {
         var importe = base * (alicuota / 100);
         $('#importe').val(importe.toFixed(2));
     }
-    
+    function calcularAlicuotaDesdeImporte() {
+        var base = parseFloat($('#base_imponible').val()) || 0;
+        var importe = parseFloat($('#importe').val()) || 0;
+        if (base > 0) {
+            var alicuota = (importe / base) * 100;
+            $('#alicuota').val(alicuota.toFixed(2));
+        }
+        }
+
+        // Modificar la función calcularImporteImpuesto para que también pueda calcular desde importe:
+        function calcularImporteImpuesto() {
+        var base = parseFloat($('#base_imponible').val()) || 0;
+        var alicuota = parseFloat($('#alicuota').val()) || 0;
+        var importe = base * (alicuota / 100);
+        $('#importe').val(importe.toFixed(2));
+        }
+
+        // Agregar evento para cuando cambia el importe
+        $('#importe').on('input', function() {
+        calcularAlicuotaDesdeImporte();
+        });
     var modal = new bootstrap.Modal(document.getElementById('modalImpuesto'));
     modal.show();
     
@@ -592,6 +650,29 @@ function mostrarModalImpuesto(impuestoData, idx) {
         $('#modalImpuesto').on('hidden.bs.modal', function() {
             $(this).remove();
         });
+        
+        
+
+        // Crear un array limpio para enviar - RESPETANDO LOS VALORES ORIGINALES
+        var impuestosParaEnviar = [];
+        if (impuestosFactura && impuestosFactura.length > 0) {
+            impuestosParaEnviar = impuestosFactura.map(function(imp) {
+                return {
+                    empresa_impuesto_config_id: imp.empresa_impuesto_config_id || 0,
+                    tipo_origen: imp.tipo_origen || 'manual',
+                    // Enviar los valores TAL CUAL están, sin modificar
+                    base_imponible: parseFloat(imp.base_imponible) || 0,
+                    alicuota: parseFloat(imp.alicuota) || 0,
+                    importe: parseFloat(imp.importe) || 0,
+                    detalle_origen: imp.detalle_origen || null
+                };
+            });
+        }
+        
+        formData.append('impuestos_adicionales', JSON.stringify(impuestosParaEnviar));
+        console.log("Impuestos a enviar (respetando valores originales):", impuestosParaEnviar);
+
+
     });
 }
     // Eventos de impuestos

@@ -483,16 +483,16 @@ function agregarFacturaProveedor($conexion, $data)
             'comprobante_nro' => $comprobante_nro_val,
             'f_emision' => $data['f_emision'],
             'f_vto' => $f_vencimiento,
-            'f_contabilidad' => $data['f_contabilidad'],
+            'f_contabilidad' => $data['f_contabilidad'] ?? $data['f_emision'],
             'entidad_id' => $entidad_id_val,
             'entidad_sucursal_id' => $entidad_sucursal_id,
-            'tabla_origen_id' => 'gestion__facturas_proveedores',
             'registro_origen_id' => $factura_proveedor_id,
             'tabla_estado_registro_id' => $estado_inicial_val,
             'usuario_id' => $_SESSION['usuario_id'] ?? 0,
             'total' => $data['total'],
             'observaciones' => $observaciones
         ]);
+
 
         // Insertar detalles
         $detalles_success = insertarDetallesFactura($conexion, $factura_proveedor_id, $data['empresa_idx'], $data['detalles']);
@@ -647,21 +647,20 @@ function editarFacturaProveedor($conexion, $id, $data)
         
         syncComprobante($conexion, [
             'empresa_id' => $empresa_idx_val,
-            'sucursal_id' => $data['sucursal_id'],
-            'comprobante_pv' => $data['comprobante_pv'],
-            'comprobante_tipo_id' => $data['comprobante_tipo_id'],
-            'comprobante_nro' => $data['comprobante_nro'],
+            'sucursal_id' => $sucursal_id_val,
+            'comprobante_pv' => $comprobante_pv_val,
+            'comprobante_tipo_id' => $comprobante_tipo_id_val,
+            'comprobante_nro' => $comprobante_nro_val,
             'f_emision' => $data['f_emision'],
             'f_vto' => $data['f_vencimiento'],
             'f_contabilidad' => $data['f_contabilidad'],
-            'entidad_id' => $data['entidad_id'],
-            'entidad_sucursal_id' => $data['entidad_sucursal_id'],
-            'tabla_origen_id' => 'gestion__facturas_proveedores',
+            'entidad_id' => $entidad_id_val,
+            'entidad_sucursal_id' => $entidad_sucursal_id,
             'registro_origen_id' => $id,
             'tabla_estado_registro_id' => 3,
             'usuario_id' => $_SESSION['usuario_id'] ?? 0,
             'total' => $data['total'],
-            'observaciones' => $data['observaciones']
+            'observaciones' => $observaciones
         ]);
 
 
@@ -1621,8 +1620,28 @@ function obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx) {
     mysqli_stmt_close($stmt);
     return $depositos;
 }
+// Reemplazar la función syncComprobante completa
 function syncComprobante($conexion, $data) {
-
+    // Asegurar tipos de datos correctos
+     $tabla_origen_id = 84; // ID numérico para gestion__facturas_proveedores
+    
+    // Sanitizar y preparar valores
+    $empresa_id = isset($data['empresa_id']) ? intval($data['empresa_id']) : 0;
+    $sucursal_id = isset($data['sucursal_id']) && !empty($data['sucursal_id']) ? intval($data['sucursal_id']) : null;
+    $comprobante_pv = isset($data['comprobante_pv']) ? intval($data['comprobante_pv']) : 0;
+    $comprobante_tipo_id = isset($data['comprobante_tipo_id']) ? intval($data['comprobante_tipo_id']) : 0;
+    $comprobante_nro = isset($data['comprobante_nro']) ? intval($data['comprobante_nro']) : 0;
+    $f_emision = isset($data['f_emision']) ? $data['f_emision'] : date('Y-m-d');
+    $f_vto = isset($data['f_vto']) && !empty($data['f_vto']) ? $data['f_vto'] : null;
+    $f_contabilidad = isset($data['f_contabilidad']) && !empty($data['f_contabilidad']) ? $data['f_contabilidad'] : $f_emision;
+    $entidad_id = isset($data['entidad_id']) ? intval($data['entidad_id']) : 0;
+    $entidad_sucursal_id = isset($data['entidad_sucursal_id']) && !empty($data['entidad_sucursal_id']) ? intval($data['entidad_sucursal_id']) : null;
+    $registro_origen_id = isset($data['registro_origen_id']) ? intval($data['registro_origen_id']) : 0;
+    $tabla_estado_registro_id = isset($data['tabla_estado_registro_id']) ? intval($data['tabla_estado_registro_id']) : 1;
+    $usuario_id = isset($data['usuario_id']) ? intval($data['usuario_id']) : 0;
+    $total = isset($data['total']) ? floatval($data['total']) : 0;
+    $observaciones = isset($data['observaciones']) ? trim($data['observaciones']) : '';
+    
     // 1. Verificar si ya existe
     $sql = "SELECT comprobante_id 
             FROM gestion__comprobantes 
@@ -1630,18 +1649,20 @@ function syncComprobante($conexion, $data) {
             AND registro_origen_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "si", 
-        $data['tabla_origen_id'], 
-        $data['registro_origen_id']
-    );
+    if (!$stmt) {
+        error_log("Error preparando SELECT: " . mysqli_error($conexion));
+        return;
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $tabla_origen_id, $registro_origen_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $existe = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
     if ($existe) {
-        // UPDATE
-        $sql = "UPDATE gestion__comprobantes SET
+        // UPDATE - usando variables directamente, no referencias
+        $sql_update = "UPDATE gestion__comprobantes SET
                     empresa_id = ?,
                     sucursal_id = ?,
                     comprobante_pv = ?,
@@ -1656,29 +1677,60 @@ function syncComprobante($conexion, $data) {
                     total = ?,
                     observaciones = ?
                 WHERE comprobante_id = ?";
-
-        $stmt = mysqli_prepare($conexion, $sql);
-
-        mysqli_stmt_bind_param($stmt, "iiiiisssiiidsi",
-            $data['empresa_id'],
-            $data['sucursal_id'],
-            $data['comprobante_pv'],
-            $data['comprobante_tipo_id'],
-            $data['comprobante_nro'],
-            $data['f_emision'],
-            $data['f_vto'],
-            $data['f_contabilidad'],
-            $data['entidad_id'],
-            $data['entidad_sucursal_id'],
-            $data['tabla_estado_registro_id'],
-            $data['total'],
-            $data['observaciones'],
-            $existe['comprobante_id']
+        
+        $stmt_update = mysqli_prepare($conexion, $sql_update);
+        if (!$stmt_update) {
+            error_log("Error preparando UPDATE: " . mysqli_error($conexion));
+            return;
+        }
+        
+        $comprobante_id = $existe['comprobante_id'];
+        
+        // Asignar valores a variables individuales para bind_param
+        $empresa_id_val = $empresa_id;
+        $sucursal_id_val = $sucursal_id;
+        $comprobante_pv_val = $comprobante_pv;
+        $comprobante_tipo_id_val = $comprobante_tipo_id;
+        $comprobante_nro_val = $comprobante_nro;
+        $f_emision_val = $f_emision;
+        $f_vto_val = $f_vto;
+        $f_contabilidad_val = $f_contabilidad;
+        $entidad_id_val = $entidad_id;
+        $entidad_sucursal_id_val = $entidad_sucursal_id;
+        $tabla_estado_registro_id_val = $tabla_estado_registro_id;
+        $total_val = $total;
+        $observaciones_val = $observaciones;
+        $comprobante_id_val = $comprobante_id;
+        
+        mysqli_stmt_bind_param($stmt_update, 
+            "iiiiisssiiidsi",
+            $empresa_id_val,
+            $sucursal_id_val,
+            $comprobante_pv_val,
+            $comprobante_tipo_id_val,
+            $comprobante_nro_val,
+            $f_emision_val,
+            $f_vto_val,
+            $f_contabilidad_val,
+            $entidad_id_val,
+            $entidad_sucursal_id_val,
+            $tabla_estado_registro_id_val,
+            $total_val,
+            $observaciones_val,
+            $comprobante_id_val
         );
-
+        
+        if (!mysqli_stmt_execute($stmt_update)) {
+            error_log("Error ejecutando UPDATE: " . mysqli_stmt_error($stmt_update));
+            throw new Exception("Error sync comprobante (UPDATE): " . mysqli_stmt_error($stmt_update));
+        }
+        
+        mysqli_stmt_close($stmt_update);
+        error_log("Comprobante actualizado ID: " . $comprobante_id);
+        
     } else {
         // INSERT
-        $sql = "INSERT INTO gestion__comprobantes (
+        $sql_insert = "INSERT INTO gestion__comprobantes (
                     empresa_id, sucursal_id, comprobante_pv,
                     comprobante_tipo_id, comprobante_nro,
                     f_emision, f_vto, f_contabilidad,
@@ -1688,34 +1740,60 @@ function syncComprobante($conexion, $data) {
                     usuario_id,
                     total, observaciones
                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-
-        $stmt = mysqli_prepare($conexion, $sql);
-
-        mysqli_stmt_bind_param($stmt, "iiiiisssiisiiids",
-            $data['empresa_id'],
-            $data['sucursal_id'],
-            $data['comprobante_pv'],
-            $data['comprobante_tipo_id'],
-            $data['comprobante_nro'],
-            $data['f_emision'],
-            $data['f_vto'],
-            $data['f_contabilidad'],
-            $data['entidad_id'],
-            $data['entidad_sucursal_id'],
-            $data['tabla_origen_id'],
-            $data['registro_origen_id'],
-            $data['tabla_estado_registro_id'],
-            $data['usuario_id'],
-            $data['total'],
-            $data['observaciones']
+        
+        $stmt_insert = mysqli_prepare($conexion, $sql_insert);
+        if (!$stmt_insert) {
+            error_log("Error preparando INSERT: " . mysqli_error($conexion));
+            return;
+        }
+        
+        // Asignar valores a variables individuales para bind_param
+        $empresa_id_val = $empresa_id;
+        $sucursal_id_val = $sucursal_id;
+        $comprobante_pv_val = $comprobante_pv;
+        $comprobante_tipo_id_val = $comprobante_tipo_id;
+        $comprobante_nro_val = $comprobante_nro;
+        $f_emision_val = $f_emision;
+        $f_vto_val = $f_vto;
+        $f_contabilidad_val = $f_contabilidad;
+        $entidad_id_val = $entidad_id;
+        $entidad_sucursal_id_val = $entidad_sucursal_id;
+        $tabla_origen_id_val = $tabla_origen_id;
+        $registro_origen_id_val = $registro_origen_id;
+        $tabla_estado_registro_id_val = $tabla_estado_registro_id;
+        $usuario_id_val = $usuario_id;
+        $total_val = $total;
+        $observaciones_val = $observaciones;
+        
+        mysqli_stmt_bind_param($stmt_insert, 
+            "iiiiisssiisiiids",
+            $empresa_id_val,
+            $sucursal_id_val,
+            $comprobante_pv_val,
+            $comprobante_tipo_id_val,
+            $comprobante_nro_val,
+            $f_emision_val,
+            $f_vto_val,
+            $f_contabilidad_val,
+            $entidad_id_val,
+            $entidad_sucursal_id_val,
+            $tabla_origen_id_val,
+            $registro_origen_id_val,
+            $tabla_estado_registro_id_val,
+            $usuario_id_val,
+            $total_val,
+            $observaciones_val
         );
+        
+        if (!mysqli_stmt_execute($stmt_insert)) {
+            error_log("Error ejecutando INSERT: " . mysqli_stmt_error($stmt_insert));
+            throw new Exception("Error sync comprobante (INSERT): " . mysqli_stmt_error($stmt_insert));
+        }
+        
+        $nuevo_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt_insert);
+        error_log("Comprobante creado ID: " . $nuevo_id);
     }
-
-    if (!mysqli_stmt_execute($stmt)) {
-        throw new Exception("Error sync comprobante: " . mysqli_error($conexion));
-    }
-
-    mysqli_stmt_close($stmt);
 }
 
 // Reemplazar la función obtenerImpuestosConfig en facturas_proveedores_model.php
@@ -1835,13 +1913,16 @@ function obtenerImpuestosConfig($conexion, $empresa_idx, $comprobante_subgrupo_i
 }
 function obtenerImpuestosFactura($conexion, $factura_proveedor_id) {
     // Primero obtener el comprobante_id
-    $sql_comprobante = "SELECT comprobante_id FROM gestion__comprobantes 
-                        WHERE tabla_origen_id = 'gestion__facturas_proveedores' 
+    $tabla_origen_id = 84;
+    
+    $sql_comprobante = "SELECT comprobante_id 
+                        FROM gestion__comprobantes 
+                        WHERE tabla_origen_id = ? 
                         AND registro_origen_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_comprobante);
     if (!$stmt) return [];
     
-    mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
+    mysqli_stmt_bind_param($stmt, "ii", $tabla_origen_id, $factura_proveedor_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $comprobante = mysqli_fetch_assoc($result);
@@ -1889,135 +1970,6 @@ function obtenerImpuestosFactura($conexion, $factura_proveedor_id) {
     mysqli_stmt_close($stmt);
     return $impuestos;
 }
-function guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_idx)
-{
-    // Obtener el comprobante_id
-    $sql_comprobante = "SELECT comprobante_id FROM gestion__comprobantes 
-                        WHERE tabla_origen_id = 'gestion__facturas_proveedores' 
-                        AND registro_origen_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_comprobante);
-    if (!$stmt) {
-        error_log("Error preparando consulta comprobante: " . mysqli_error($conexion));
-        return ['success' => false, 'error' => 'Error al obtener comprobante'];
-    }
-    
-    mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $comprobante = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    
-    if (!$comprobante) {
-        error_log("Comprobante no encontrado para factura ID: " . $factura_proveedor_id);
-        return ['success' => false, 'error' => 'Comprobante no encontrado'];
-    }
-    
-    $comprobante_id = $comprobante['comprobante_id'];
-    $total_otros_impuestos = 0;
-    
-    mysqli_begin_transaction($conexion);
-    
-    try {
-        // Eliminar impuestos existentes (borrado lógico)
-        $sql_delete = "UPDATE gestion__comprobantes_impuestos 
-                       SET tabla_estado_registro_id = 2 
-                       WHERE comprobante_id = ?";
-        $stmt = mysqli_prepare($conexion, $sql_delete);
-        if (!$stmt) {
-            throw new Exception("Error preparando delete: " . mysqli_error($conexion));
-        }
-        mysqli_stmt_bind_param($stmt, "i", $comprobante_id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-        
-        // Insertar nuevos impuestos
-        if (is_array($impuestos) && count($impuestos) > 0) {
-            $sql_insert = "INSERT INTO gestion__comprobantes_impuestos 
-                          (comprobante_id, empresa_impuesto_config_id, tipo_origen, 
-                           base_imponible, alicuota, importe, 
-                           detalle_origen, tabla_estado_registro_id) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, 1)";
-            
-            $stmt = mysqli_prepare($conexion, $sql_insert);
-            if (!$stmt) {
-                throw new Exception("Error preparando insert: " . mysqli_error($conexion));
-            }
-            
-            foreach ($impuestos as $impuesto) {
-                // Validar campos requeridos
-                if (empty($impuesto['empresa_impuesto_config_id'])) {
-                    error_log("Impuesto sin empresa_impuesto_config_id, omitiendo: " . print_r($impuesto, true));
-                    continue;
-                }
-                // Dentro del foreach, antes de bind_param:
-                $tipo_origen = isset($impuesto['tipo_origen']) ? $impuesto['tipo_origen'] : 'manual';
-                if (!in_array($tipo_origen, ['manual', 'padron', 'regla'])) {
-                    $tipo_origen = 'manual';
-                    error_log("tipo_origen inválido corregido a 'manual' para impuesto: " . print_r($impuesto, true));
-                }
-                
-                $empresa_impuesto_config_id = intval($impuesto['empresa_impuesto_config_id']);
-                $tipo_origen = isset($impuesto['tipo_origen']) ? $impuesto['tipo_origen'] : 'manual';
-                $base_imponible = floatval($impuesto['base_imponible'] ?? 0);
-                $alicuota = floatval($impuesto['alicuota'] ?? 0);
-                $importe = floatval($impuesto['importe'] ?? 0);
-                $detalle_origen = isset($impuesto['detalle_origen']) ? trim($impuesto['detalle_origen']) : null;
-                
-                $total_otros_impuestos += $importe;
-                
-                mysqli_stmt_bind_param($stmt, "iisddsd", 
-                    $comprobante_id,
-                    $empresa_impuesto_config_id,
-                    $tipo_origen,
-                    $base_imponible,
-                    $alicuota,
-                    $importe,
-                    $detalle_origen
-                );
-                
-                if (!mysqli_stmt_execute($stmt)) {
-                    $error = mysqli_stmt_error($stmt);
-                    error_log("Error ejecutando insert impuesto: " . $error);
-                    error_log("Datos del impuesto: " . print_r($impuesto, true));
-                    throw new Exception("Error al guardar impuesto: " . $error);
-                }
-                error_log("Impuesto insertado correctamente: config_id=" . $empresa_impuesto_config_id . ", base=" . $base_imponible . ", alicuota=" . $alicuota . ", importe=" . $importe);
-            }
-            mysqli_stmt_close($stmt);
-        }
-        
-        // Actualizar el campo otros_impuestos en la factura
-        $sql_update = "UPDATE gestion__facturas_proveedores 
-                       SET otros_impuestos = ? 
-                       WHERE factura_proveedor_id = ?";
-        $stmt = mysqli_prepare($conexion, $sql_update);
-        if (!$stmt) {
-            throw new Exception("Error preparando update otros_impuestos: " . mysqli_error($conexion));
-        }
-        mysqli_stmt_bind_param($stmt, "di", $total_otros_impuestos, $factura_proveedor_id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-        
-        // Actualizar el total general
-        $sql_total = "UPDATE gestion__facturas_proveedores 
-                      SET total = subtotal - descuentos + no_gravado + exento + impuestos + otros_impuestos 
-                      WHERE factura_proveedor_id = ?";
-        $stmt = mysqli_prepare($conexion, $sql_total);
-        if (!$stmt) {
-            throw new Exception("Error preparando update total: " . mysqli_error($conexion));
-        }
-        mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-        
-        mysqli_commit($conexion);
-        error_log("Impuestos guardados correctamente. Total otros impuestos: " . $total_otros_impuestos);
-        return ['success' => true, 'total_otros_impuestos' => $total_otros_impuestos];
-        
-    } catch (Exception $e) {
-        mysqli_rollback($conexion);
-        error_log("Error en guardarImpuestosFactura: " . $e->getMessage());
-        return ['success' => false, 'error' => $e->getMessage()];
-    }
-}
+
+
 ?>
