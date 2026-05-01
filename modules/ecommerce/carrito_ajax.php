@@ -42,9 +42,18 @@ switch ($accion) {
                            SELECT lpp.precio
                            FROM gestion__listas_precios_productos lpp
                            WHERE lpp.producto_id = p.producto_id
-                           ORDER BY lpp.lista_precio_producto_id DESC
                            LIMIT 1
-                       ), 0) AS precio
+                       ), 0) AS precio,
+                       (
+                           SELECT ci.imagen_id
+                           FROM gestion__productos_imagenes pi
+                           INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
+                           WHERE pi.producto_id = p.producto_id
+                             AND pi.empresa_id = p.empresa_id
+                             AND pi.es_principal = 1
+                             AND pi.tabla_estado_registro_id = 1
+                           LIMIT 1
+                       ) AS imagen_id
                 FROM gestion__productos p
                 WHERE p.tabla_estado_registro_id = 1
                 $where_empresa
@@ -60,11 +69,16 @@ switch ($accion) {
 
         $productos = [];
         while ($row = mysqli_fetch_assoc($res)) {
+            $imagen_url = !empty($row['imagen_id'])
+                ? BASE_URL . '/modules/gestion/get_imagen.php?id=' . intval($row['imagen_id'])
+                : null;
+
             $productos[] = [
-                'id'     => intval($row['id']),
-                'codigo' => $row['codigo'],
-                'nombre' => $row['nombre'],
-                'precio' => floatval($row['precio']),
+                'id'         => intval($row['id']),
+                'codigo'     => $row['codigo'],
+                'nombre'     => $row['nombre'],
+                'precio'     => floatval($row['precio']),
+                'imagen_url' => $imagen_url,
             ];
         }
 
