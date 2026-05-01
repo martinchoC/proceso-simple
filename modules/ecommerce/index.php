@@ -23,8 +23,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         box-shadow: 0 1px 2px rgba(0,0,0,.12);
         padding: 1rem;
         position: sticky;
-        top: var(--panels-top, 130px);
-        max-height: calc(100vh - var(--panels-top, 130px) - 1rem);
+        top: var(--panels-top, 80px);
+        max-height: calc(100vh - var(--panels-top, 80px) - 0.5rem);
         overflow-y: auto;
     }
     .filters-panel::-webkit-scrollbar { width: 4px; }
@@ -132,18 +132,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     /* ── Barra de búsqueda sticky ── */
     .sticky-search-bar {
         position: sticky;
-        top: var(--navbar-h, 57px);
-        z-index: 99;
+        top: 0;                          /* top:0 relativo al scroll container (.app-main) */
+        z-index: 200;
         background: #ededed;
-        padding: 0.6rem 0 0.4rem;
-        margin-bottom: 0.5rem;
+        padding: 0.75rem 0 0.4rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,.07);
+        margin-bottom: 0.75rem;
     }
 
     /* ── Carrito ── */
     .cart-sidebar {
         position: sticky;
-        top: var(--panels-top, 130px);
-        height: calc(100vh - var(--panels-top, 130px) - 1rem);
+        top: var(--panels-top, 80px);
+        height: calc(100vh - var(--panels-top, 80px) - 0.5rem);
         display: flex;
         flex-direction: column;
     }
@@ -245,6 +246,28 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="filter-section-title">Material</div>
                                 <div id="filtro-materiales"></div>
                             </div>
+
+                            <div class="filter-section" id="seccion-lados" style="display:none">
+                                <div class="filter-section-title">Lado</div>
+                                <div id="filtro-lados"></div>
+                            </div>
+
+                            <div class="filter-section" id="seccion-garantias" style="display:none">
+                                <div class="filter-section-title">Garantía</div>
+                                <div id="filtro-garantias"></div>
+                            </div>
+
+                            <div class="filter-section">
+                                <div class="filter-section-title">Tipo</div>
+                                <div class="filter-item">
+                                    <input type="checkbox" id="filtro-es-servicio" class="filtro-tipo">
+                                    <label for="filtro-es-servicio">Solo servicios</label>
+                                </div>
+                                <div class="filter-item">
+                                    <input type="checkbox" id="filtro-con-stock" class="filtro-tipo">
+                                    <label for="filtro-con-stock">Con control de stock</label>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Grilla de productos -->
@@ -321,7 +344,11 @@ const CarritoApp = {
         precioMin:  null,
         precioMax:  null,
         colores:    [],
-        materiales: []
+        materiales: [],
+        lados:      [],
+        garantias:  [],
+        esServicio: null,   // null=todos, true=solo servicios
+        conStock:   null    // null=todos, true=solo con control de stock
     },
 
     fmt: num => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(num),
@@ -347,6 +374,14 @@ const CarritoApp = {
         });
         document.getElementById('btnLimpiarFiltros').addEventListener('click', () => this.limpiarFiltros());
         document.getElementById('btnProcesarCompra').addEventListener('click', () => this.procesarCompra());
+        document.getElementById('filtro-es-servicio').addEventListener('change', e => {
+            this.filtrosActivos.esServicio = e.target.checked ? true : null;
+            this.aplicarFiltrosLocales(); this.renderActiveTags();
+        });
+        document.getElementById('filtro-con-stock').addEventListener('change', e => {
+            this.filtrosActivos.conStock = e.target.checked ? true : null;
+            this.aplicarFiltrosLocales(); this.renderActiveTags();
+        });
     },
 
     aplicarBusqueda() {
@@ -397,8 +432,10 @@ const CarritoApp = {
     cargarFiltros() {
         $.getJSON(CARRITO_AJAX_URL, { accion: 'obtener_filtros', empresa_id: EMPRESA_ID }, data => {
             this.renderFiltrosCategorias(data.categorias || []);
-            this.renderFiltrosCheckbox('filtro-colores',    'seccion-colores',    data.colores    || [], 'color');
-            this.renderFiltrosCheckbox('filtro-materiales', 'seccion-materiales', data.materiales || [], 'material');
+            this.renderFiltrosCheckbox('filtro-colores',    'seccion-colores',    data.colores    || [], 'color',    'colores');
+            this.renderFiltrosCheckbox('filtro-materiales', 'seccion-materiales', data.materiales || [], 'material', 'materiales');
+            this.renderFiltrosCheckbox('filtro-lados',      'seccion-lados',      data.lados      || [], 'lado',     'lados');
+            this.renderFiltrosCheckbox('filtro-garantias',  'seccion-garantias',  data.garantias  || [], 'garantia', 'garantias');
         });
     },
 
@@ -420,7 +457,7 @@ const CarritoApp = {
         });
     },
 
-    renderFiltrosCheckbox(contId, secId, items, tipo) {
+    renderFiltrosCheckbox(contId, secId, items, tipo, fieldKey) {
         if (!items.length) return;
         document.getElementById(secId).style.display = '';
         const cont = document.getElementById(contId);
@@ -428,12 +465,11 @@ const CarritoApp = {
         items.forEach(val => {
             const div = document.createElement('div');
             div.className = 'filter-item';
-            const safeId = `${tipo}_${val.replace(/\s+/g, '_')}`;
+            const safeId = `${tipo}_${String(val).replace(/\s+/g, '_')}`;
             div.innerHTML = `<input type="checkbox" id="${safeId}" value="${val}" class="filtro-${tipo}"><label for="${safeId}">${val}</label>`;
             div.querySelector('input').addEventListener('change', e => {
-                const key = tipo === 'color' ? 'colores' : 'materiales';
-                if (e.target.checked) { if (!this.filtrosActivos[key].includes(val)) this.filtrosActivos[key].push(val); }
-                else this.filtrosActivos[key] = this.filtrosActivos[key].filter(v => v !== val);
+                if (e.target.checked) { if (!this.filtrosActivos[fieldKey].includes(val)) this.filtrosActivos[fieldKey].push(val); }
+                else this.filtrosActivos[fieldKey] = this.filtrosActivos[fieldKey].filter(v => v !== val);
                 this.aplicarFiltrosLocales(); this.renderActiveTags();
             });
             cont.appendChild(div);
@@ -454,6 +490,10 @@ const CarritoApp = {
         if (f.precioMax !== null) lista = lista.filter(p => p.precio <= f.precioMax);
         if (f.colores.length)     lista = lista.filter(p => f.colores.includes(p.color));
         if (f.materiales.length)  lista = lista.filter(p => f.materiales.includes(p.material));
+        if (f.lados.length)       lista = lista.filter(p => f.lados.includes(p.lado));
+        if (f.garantias.length)   lista = lista.filter(p => f.garantias.includes(p.garantia));
+        if (f.esServicio !== null) lista = lista.filter(p => p.es_servicio === (f.esServicio ? 1 : 0));
+        if (f.conStock !== null)   lista = lista.filter(p => p.controla_stock === (f.conStock ? 1 : 0));
 
         this.productosFiltrados = lista;
         this.renderProductos(lista);
@@ -498,27 +538,46 @@ const CarritoApp = {
             });
         }
 
-        f.colores.forEach(val => addTag(`Color: ${val}`, () => {
-            f.colores = f.colores.filter(c => c !== val);
-            const el = document.getElementById(`color_${val.replace(/\s+/g,'_')}`);
-            el && (el.checked = false);
-            this.aplicarFiltrosLocales(); this.renderActiveTags();
-        }));
+        // Tags genéricos para filtros de checkbox
+        [
+            { key: 'colores',   tipo: 'color',    label: 'Color' },
+            { key: 'materiales', tipo: 'material', label: 'Material' },
+            { key: 'lados',     tipo: 'lado',     label: 'Lado' },
+            { key: 'garantias', tipo: 'garantia', label: 'Garantía' },
+        ].forEach(({ key, tipo, label }) => {
+            f[key].forEach(val => addTag(`${label}: ${val}`, () => {
+                f[key] = f[key].filter(v => v !== val);
+                const el = document.getElementById(`${tipo}_${String(val).replace(/\s+/g,'_')}`);
+                el && (el.checked = false);
+                this.aplicarFiltrosLocales(); this.renderActiveTags();
+            }));
+        });
 
-        f.materiales.forEach(val => addTag(`Material: ${val}`, () => {
-            f.materiales = f.materiales.filter(m => m !== val);
-            const el = document.getElementById(`material_${val.replace(/\s+/g,'_')}`);
-            el && (el.checked = false);
+        if (f.esServicio !== null) addTag('Solo servicios', () => {
+            f.esServicio = null;
+            document.getElementById('filtro-es-servicio').checked = false;
             this.aplicarFiltrosLocales(); this.renderActiveTags();
-        }));
+        });
+        if (f.conStock !== null) addTag('Con control de stock', () => {
+            f.conStock = null;
+            document.getElementById('filtro-con-stock').checked = false;
+            this.aplicarFiltrosLocales(); this.renderActiveTags();
+        });
     },
 
     limpiarFiltros() {
-        this.filtrosActivos = { q: '', categorias: [], precioMin: null, precioMax: null, colores: [], materiales: [] };
+        this.filtrosActivos = {
+            q: '', categorias: [], precioMin: null, precioMax: null,
+            colores: [], materiales: [], lados: [], garantias: [],
+            esServicio: null, conStock: null
+        };
         document.getElementById('buscarProducto').value = '';
         document.getElementById('precioMin').value      = '';
         document.getElementById('precioMax').value      = '';
-        document.querySelectorAll('.filtro-categoria, .filtro-color, .filtro-material').forEach(el => el.checked = false);
+        document.getElementById('filtro-es-servicio').checked = false;
+        document.getElementById('filtro-con-stock').checked   = false;
+        document.querySelectorAll('.filtro-categoria, .filtro-color, .filtro-material, .filtro-lado, .filtro-garantia')
+            .forEach(el => el.checked = false);
         this.renderProductos(this.todosProductos);
         this.renderActiveTags();
     },
@@ -689,19 +748,22 @@ const CarritoApp = {
     }
 };
 
-function actualizarOffsets() {
-    const navbar    = document.querySelector('.app-header');
+function actualizarPanelsTop() {
     const searchBar = document.getElementById('stickySearchBar');
-    const navH      = navbar    ? navbar.getBoundingClientRect().height    : 57;
-    const sbH       = searchBar ? searchBar.getBoundingClientRect().height : 60;
-    const panelsTop = Math.round(navH + sbH + 8); // 8px gap
-    document.documentElement.style.setProperty('--navbar-h',   navH + 'px');
-    document.documentElement.style.setProperty('--panels-top', panelsTop + 'px');
+    if (!searchBar) return;
+    // --panels-top = altura de la sticky bar + gap pequeño
+    const sbH = Math.ceil(searchBar.getBoundingClientRect().height) + 4;
+    document.documentElement.style.setProperty('--panels-top', sbH + 'px');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    actualizarOffsets();
-    window.addEventListener('resize', actualizarOffsets);
+    actualizarPanelsTop();
+
+    // Re-calcula cuando la sticky bar cambia de alto (tags de filtros activos)
+    new ResizeObserver(actualizarPanelsTop)
+        .observe(document.getElementById('stickySearchBar'));
+
+    window.addEventListener('resize', actualizarPanelsTop);
     CarritoApp.init();
 });
 </script>

@@ -91,6 +91,10 @@ switch ($accion) {
                        c.producto_categoria_nombre AS categoria_nombre,
                        p.color,
                        p.material,
+                       p.lado,
+                       p.garantia,
+                       p.es_servicio,
+                       p.controla_stock,
                        COALESCE($subquery_precio, 0) AS precio,
                        (
                            SELECT GROUP_CONCAT(ci.imagen_id ORDER BY pi.es_principal DESC, pi.orden ASC SEPARATOR ',')
@@ -123,15 +127,19 @@ switch ($accion) {
             }
 
             $productos[] = [
-                'id'           => intval($row['id']),
-                'codigo'       => $row['codigo'],
-                'nombre'       => $row['nombre'],
-                'categoria_id' => intval($row['categoria_id']),
-                'categoria'    => $row['categoria_nombre'] ?? '',
-                'color'        => $row['color'] ?? '',
-                'material'     => $row['material'] ?? '',
-                'precio'       => floatval($row['precio']),
-                'imagenes'     => $imagenes,
+                'id'            => intval($row['id']),
+                'codigo'        => $row['codigo'],
+                'nombre'        => $row['nombre'],
+                'categoria_id'  => intval($row['categoria_id']),
+                'categoria'     => $row['categoria_nombre'] ?? '',
+                'color'         => $row['color'] ?? '',
+                'material'      => $row['material'] ?? '',
+                'lado'          => $row['lado'] ?? '',
+                'garantia'      => $row['garantia'] ?? '',
+                'es_servicio'   => intval($row['es_servicio']),
+                'controla_stock'=> intval($row['controla_stock']),
+                'precio'        => floatval($row['precio']),
+                'imagenes'      => $imagenes,
             ];
         }
 
@@ -257,10 +265,30 @@ switch ($accion) {
             $materiales[] = $row['material'];
         }
 
+        $sql_lados = "SELECT DISTINCT lado FROM gestion__productos
+                      WHERE lado IS NOT NULL AND lado <> '' AND tabla_estado_registro_id = 1 $where_empresa
+                      ORDER BY lado";
+        $res_lados = mysqli_query($conexion, $sql_lados);
+        $lados = [];
+        while ($row = mysqli_fetch_assoc($res_lados)) {
+            $lados[] = $row['lado'];
+        }
+
+        $sql_gars = "SELECT DISTINCT garantia FROM gestion__productos
+                     WHERE garantia IS NOT NULL AND garantia <> '' AND tabla_estado_registro_id = 1 $where_empresa
+                     ORDER BY garantia";
+        $res_gars = mysqli_query($conexion, $sql_gars);
+        $garantias = [];
+        while ($row = mysqli_fetch_assoc($res_gars)) {
+            $garantias[] = $row['garantia'];
+        }
+
         echo json_encode([
             'categorias' => $categorias,
             'colores'    => $colores,
             'materiales' => $materiales,
+            'lados'      => $lados,
+            'garantias'  => $garantias,
         ]);
         break;
 
