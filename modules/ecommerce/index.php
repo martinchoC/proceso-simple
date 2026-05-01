@@ -1,8 +1,7 @@
 <?php
 $pageTitle = "Punto de Venta - Carrito";
 $currentPage = 'carrito';
-$modudo_idx = 2;
-$empresa_idx = 2;
+$empresa_idx = intval($_GET['empresa_id'] ?? 0);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 
@@ -309,6 +308,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    const CARRITO_AJAX_URL = '<?= BASE_URL ?>/modules/ecommerce/carrito_ajax.php';
+    const EMPRESA_ID = <?= $empresa_idx ?>;
+</script>
+<script>
     const CarritoApp = {
         productos: [],
         carrito: [],
@@ -331,9 +334,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         cargarProductos: function () {
             const self = this;
             $.ajax({
-                url: 'carrito_ajax.php',
+                url: CARRITO_AJAX_URL,
                 type: 'GET',
-                data: { accion: 'obtener_catalogo' },
+                data: { accion: 'obtener_catalogo', empresa_id: EMPRESA_ID },
                 dataType: 'json',
                 success: function (response) {
                     document.getElementById('cargandoProductos').style.display = 'none';
@@ -341,20 +344,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         self.productos = response;
                         self.renderProductos(self.productos);
                     } else {
-                        document.getElementById('contenedorProductos').innerHTML = '<div class="col-12"><div class="alert alert-info">No hay productos disponibles en el catálogo.</div></div>';
+                        document.getElementById('contenedorProductos').innerHTML =
+                            '<div class="col-12"><div class="alert alert-info">No hay productos disponibles en el catálogo.</div></div>';
                     }
                 },
-                error: function () {
+                error: function (xhr) {
                     document.getElementById('cargandoProductos').style.display = 'none';
-                    self.productos = [
-                        { id: 1, codigo: 'PROD-001', nombre: 'Notebook Profesional 15.6" 16GB RAM 512GB SSD', precio: 1250000 },
-                        { id: 2, codigo: 'PROD-002', nombre: 'Monitor LED 24" Full HD IPS', precio: 245000 },
-                        { id: 3, codigo: 'PROD-003', nombre: 'Teclado Mecánico Inalámbrico RGB', precio: 85000 },
-                        { id: 4, codigo: 'PROD-004', nombre: 'Mouse Ergonómico Vertical Inalámbrico', precio: 42000 },
-                        { id: 5, codigo: 'PROD-005', nombre: 'Silla Gamer Ergonómica Premium', precio: 380000 },
-                        { id: 6, codigo: 'PROD-006', nombre: 'Auriculares con Cancelación de Ruido', precio: 110000 }
-                    ];
-                    self.renderProductos(self.productos);
+                    document.getElementById('contenedorProductos').innerHTML =
+                        '<div class="col-12"><div class="alert alert-danger">Error al cargar el catálogo. Por favor recargue la página.</div></div>';
+                    console.error('Error AJAX carrito:', xhr.status, xhr.responseText);
                 }
             });
         },
@@ -519,6 +517,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 if (result.isConfirmed) {
                     const data = {
                         accion: 'guardar_pedido_carrito',
+                        empresa_id: EMPRESA_ID,
                         detalles: JSON.stringify(this.carrito)
                     };
 
@@ -529,7 +528,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     });
 
                     $.ajax({
-                        url: 'carrito_ajax.php',
+                        url: CARRITO_AJAX_URL,
                         type: 'POST',
                         data: data,
                         dataType: 'json',

@@ -1,7 +1,4 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 require_once __DIR__ . '/../../config.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -11,7 +8,11 @@ $accion = $_REQUEST['accion'] ?? '';
 switch ($accion) {
 
     case 'obtener_catalogo':
-        $empresa_id = intval($_SESSION['empresa_idx'] ?? 1);
+        $empresa_id = intval($_REQUEST['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
+        if ($empresa_id <= 0) {
+            echo json_encode(['error' => 'empresa_id no válida']);
+            exit;
+        }
 
         $sql = "SELECT p.producto_id as id, p.producto_codigo as codigo, p.producto_nombre as nombre,
                 COALESCE((SELECT lpp.precio_unitario
@@ -107,4 +108,3 @@ switch ($accion) {
         echo json_encode(['resultado' => false, 'error' => 'Acción no válida']);
         break;
 }
-?>
