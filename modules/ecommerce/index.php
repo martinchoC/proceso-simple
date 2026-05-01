@@ -23,8 +23,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         box-shadow: 0 1px 2px rgba(0,0,0,.12);
         padding: 1rem;
         position: sticky;
-        top: 70px;
-        max-height: calc(100vh - 90px);
+        top: var(--panels-top, 130px);
+        max-height: calc(100vh - var(--panels-top, 130px) - 1rem);
         overflow-y: auto;
     }
     .filters-panel::-webkit-scrollbar { width: 4px; }
@@ -129,8 +129,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     .btn-add-cart:hover { background-color: rgba(65,137,230,.25); }
     .btn-add-cart:disabled { opacity: .5; cursor: not-allowed; }
 
+    /* ── Barra de búsqueda sticky ── */
+    .sticky-search-bar {
+        position: sticky;
+        top: var(--navbar-h, 57px);
+        z-index: 99;
+        background: #ededed;
+        padding: 0.6rem 0 0.4rem;
+        margin-bottom: 0.5rem;
+    }
+
     /* ── Carrito ── */
-    .cart-sidebar { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; }
+    .cart-sidebar {
+        position: sticky;
+        top: var(--panels-top, 130px);
+        height: calc(100vh - var(--panels-top, 130px) - 1rem);
+        display: flex;
+        flex-direction: column;
+    }
     .cart-card {
         background: #fff; border: none; border-radius: 8px;
         box-shadow: 0 1px 2px rgba(0,0,0,.12);
@@ -166,29 +182,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 </style>
 
 <main class="app-main">
-    <div class="app-content pt-4">
+    <div class="app-content pt-3">
         <div class="container-fluid">
 
-            <!-- Barra de búsqueda -->
-            <div class="row mb-3">
-                <div class="col-md-8">
-                    <div class="input-group shadow-sm">
-                        <span class="input-group-text bg-white border-end-0">
-                            <i class="bi bi-search text-muted"></i>
-                        </span>
-                        <input type="text" class="form-control border-start-0 py-2"
-                               id="buscarProducto"
-                               placeholder="Buscar productos, marcas y más...">
-                        <button class="btn btn-primary px-3" id="btnBuscar">Buscar</button>
+            <!-- Barra de búsqueda + tags: sticky debajo del navbar -->
+            <div class="sticky-search-bar" id="stickySearchBar">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-8">
+                        <div class="input-group shadow-sm">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="bi bi-search text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control border-start-0 py-2"
+                                   id="buscarProducto"
+                                   placeholder="Buscar productos, marcas y más...">
+                            <button class="btn btn-primary px-3" id="btnBuscar">Buscar</button>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-center">
+                        <small class="text-muted" id="txtResultados"></small>
                     </div>
                 </div>
-                <div class="col-md-4 d-flex align-items-center">
-                    <small class="text-muted" id="txtResultados"></small>
-                </div>
+                <!-- Tags de filtros activos -->
+                <div class="active-filters mt-1" id="activeFilterTags"></div>
             </div>
-
-            <!-- Tags de filtros activos -->
-            <div class="active-filters" id="activeFilterTags"></div>
 
             <div class="row">
                 <!-- Catálogo + filtros -->
@@ -255,13 +272,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </h5>
                                 <span class="badge bg-primary rounded-pill" id="badgeCantidadGlobal">0</span>
                             </div>
-                            <div class="cart-items-container" id="contenedorCarrito">
-                                <div class="text-center text-muted py-5" id="carritoVacio">
-                                    <i class="bi bi-bag-x fs-1 mb-2 d-block"></i>
-                                    <p class="mb-0">El carrito está vacío</p>
-                                    <small>Agrega productos para comenzar</small>
-                                </div>
+                            <!-- Mensaje vacío: FUERA del contenedor de items para no ser destruido por innerHTML='' -->
+                            <div class="text-center text-muted py-5" id="carritoVacio">
+                                <i class="bi bi-bag-x fs-1 mb-2 d-block"></i>
+                                <p class="mb-0">El carrito está vacío</p>
+                                <small>Agrega productos para comenzar</small>
                             </div>
+                            <div class="cart-items-container" id="contenedorCarrito" style="display:none"></div>
                             <div class="cart-summary">
                                 <div class="summary-row">
                                     <span>Subtotal</span>
@@ -600,18 +617,19 @@ const CarritoApp = {
         const vacio      = document.getElementById('carritoVacio');
 
         if (!this.carrito.length) {
-            contenedor.innerHTML = '';
-            contenedor.appendChild(vacio);
-            vacio.style.display = 'block';
-            document.getElementById('btnProcesarCompra').disabled = true;
-            document.getElementById('badgeCantidadGlobal').innerText = '0';
-            document.getElementById('txtSubtotal').innerText = this.fmt(0);
-            document.getElementById('txtTotal').innerText    = this.fmt(0);
+            contenedor.style.display = 'none';
+            contenedor.innerHTML     = '';
+            vacio.style.display      = '';
+            document.getElementById('btnProcesarCompra').disabled      = true;
+            document.getElementById('badgeCantidadGlobal').innerText   = '0';
+            document.getElementById('txtSubtotal').innerText           = this.fmt(0);
+            document.getElementById('txtTotal').innerText              = this.fmt(0);
             return;
         }
 
-        vacio.style.display = 'none';
-        contenedor.innerHTML = '';
+        vacio.style.display      = 'none';
+        contenedor.style.display = '';
+        contenedor.innerHTML     = '';
         document.getElementById('btnProcesarCompra').disabled = false;
 
         let totalItems = 0, subtotal = 0;
@@ -638,8 +656,8 @@ const CarritoApp = {
         });
 
         document.getElementById('badgeCantidadGlobal').innerText = totalItems;
-        document.getElementById('txtSubtotal').innerText = this.fmt(subtotal);
-        document.getElementById('txtTotal').innerText    = this.fmt(subtotal);
+        document.getElementById('txtSubtotal').innerText         = this.fmt(subtotal);
+        document.getElementById('txtTotal').innerText            = this.fmt(subtotal);
     },
 
     procesarCompra() {
@@ -671,7 +689,21 @@ const CarritoApp = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => CarritoApp.init());
+function actualizarOffsets() {
+    const navbar    = document.querySelector('.app-header');
+    const searchBar = document.getElementById('stickySearchBar');
+    const navH      = navbar    ? navbar.getBoundingClientRect().height    : 57;
+    const sbH       = searchBar ? searchBar.getBoundingClientRect().height : 60;
+    const panelsTop = Math.round(navH + sbH + 8); // 8px gap
+    document.documentElement.style.setProperty('--navbar-h',   navH + 'px');
+    document.documentElement.style.setProperty('--panels-top', panelsTop + 'px');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    actualizarOffsets();
+    window.addEventListener('resize', actualizarOffsets);
+    CarritoApp.init();
+});
 </script>
 
 <?php
