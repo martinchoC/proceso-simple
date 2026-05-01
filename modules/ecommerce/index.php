@@ -857,34 +857,41 @@ const CarritoApp = {
 };
 
 function actualizarPanelsTop() {
-    const navbar    = document.querySelector('.app-header');
     const searchBar = document.getElementById('stickySearchBar');
     if (!searchBar) return;
 
-    // navH: alto del navbar (AdminLTE layout-fixed usa .app-main como scroll container,
-    //        que empieza justo debajo del navbar — hay que restarlo de 100vh)
-    const navH    = navbar ? Math.ceil(navbar.getBoundingClientRect().height) : 57;
-    const sbH     = Math.ceil(searchBar.getBoundingClientRect().height);
+    const sbH = Math.ceil(searchBar.getBoundingClientRect().height);
 
-    // --panels-top : top del sticky dentro de .app-main (= solo la search bar)
-    // --panels-h   : alto disponible exacto = viewport - navbar - search bar
-    const panelsH = Math.max(200, window.innerHeight - navH - sbH);
+    // Usamos .app-main como referencia directa: es el scroll container de AdminLTE.
+    // getBoundingClientRect().top devuelve su posición real en el viewport
+    // (no cambia al hacer scroll interno, ya que .app-main en sí no se mueve).
+    const appMain    = document.querySelector('.app-main');
+    const appMainTop = appMain
+        ? Math.max(0, Math.ceil(appMain.getBoundingClientRect().top))
+        : Math.ceil((document.querySelector('.app-header') || {offsetHeight:57}).offsetHeight || 57);
 
-    document.documentElement.style.setProperty('--navbar-h',   navH    + 'px');
+    // Cuando la search bar está pegada (top:0 dentro de .app-main):
+    //   su bottom en viewport = appMainTop + sbH
+    // Alto disponible para los paneles = desde ese bottom hasta el borde inferior
+    const panelsH = Math.max(200, window.innerHeight - appMainTop - sbH);
+
     document.documentElement.style.setProperty('--panels-top', sbH     + 'px');
     document.documentElement.style.setProperty('--panels-h',   panelsH + 'px');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    actualizarPanelsTop();
+    // doble rAF: espera que AdminLTE termine su layout antes de medir
+    requestAnimationFrame(() => requestAnimationFrame(actualizarPanelsTop));
 
-    // Re-calcula cuando la sticky bar cambia de alto (tags de filtros activos)
     new ResizeObserver(actualizarPanelsTop)
         .observe(document.getElementById('stickySearchBar'));
 
     window.addEventListener('resize', actualizarPanelsTop);
     CarritoApp.init();
 });
+
+// Por si AdminLTE termina de renderizar después del DOMContentLoaded
+window.addEventListener('load', actualizarPanelsTop);
 </script>
 
 <?php
