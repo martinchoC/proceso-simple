@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "Punto de Venta - Carrito";
+$pageTitle   = "Punto de Venta - Carrito";
 $currentPage = 'carrito';
 $empresa_idx = intval($_GET['empresa_id'] ?? 0);
 
@@ -346,18 +346,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         self.productos = response.data;
                         self.renderProductos(self.productos);
                     } else {
-                        const msg = response && response.error
-                            ? 'Error: ' + response.error
-                            : 'No hay productos disponibles en el catálogo. (empresa_id=' + (response && response.empresa_id) + ', total=' + (response && response.total) + ')';
+                        const info = response
+                            ? ' (empresa_id=' + response.empresa_id + ', total=' + response.total + ')'
+                            : '';
                         document.getElementById('contenedorProductos').innerHTML =
-                            '<div class="col-12"><div class="alert alert-info">' + msg + '</div></div>';
+                            '<div class="col-12"><div class="alert alert-warning">No se encontraron productos activos' + info + '.</div></div>';
                     }
                 },
                 error: function (xhr) {
                     document.getElementById('cargandoProductos').style.display = 'none';
                     document.getElementById('contenedorProductos').innerHTML =
-                        '<div class="col-12"><div class="alert alert-danger">Error al cargar el catálogo. Por favor recargue la página.</div></div>';
-                    console.error('Error AJAX carrito:', xhr.status, xhr.responseText);
+                        '<div class="col-12"><div class="alert alert-danger">Error al conectar con el servidor. Revisá la consola (F12).</div></div>';
+                    console.error('Error AJAX catálogo:', xhr.status, xhr.responseText);
                 }
             });
         },
@@ -381,8 +381,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 col.className = 'col-12 col-sm-6 col-md-4 col-xl-3';
                 col.innerHTML = `
                 <div class="product-card">
-                    <div class="product-img-wrapper">
-                        ${imgHtml}</div>
+                    <div class="product-img-wrapper">${imgHtml}</div>
                     <div class="product-info">
                         <div class="product-price">${precioFormat}</div>
                         <div class="product-title" title="${prod.nombre}">${prod.nombre}</div>
@@ -390,8 +389,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             Agregar al carrito
                         </button>
                     </div>
-                </div>
-            `;
+                </div>`;
                 contenedor.appendChild(col);
             });
         },
@@ -410,7 +408,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             if (!producto) return;
 
             const itemExistente = this.carrito.find(item => item.id === id);
-
             if (itemExistente) {
                 itemExistente.cantidad++;
             } else {
@@ -424,17 +421,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             this.actualizarUI();
 
-            const Toast = Swal.mixin({
+            Swal.mixin({
                 toast: true,
                 position: 'bottom-end',
                 showConfirmButton: false,
                 timer: 1500,
                 timerProgressBar: true,
-            });
-            Toast.fire({
-                icon: 'success',
-                title: 'Agregado al carrito'
-            });
+            }).fire({ icon: 'success', title: 'Agregado al carrito' });
         },
 
         modificarCantidad: function (id, delta) {
@@ -468,7 +461,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                 this.carrito.forEach(item => {
                     totalItems += item.cantidad;
-                    subtotal += (item.precio * item.cantidad);
+                    subtotal += item.precio * item.cantidad;
 
                     const precioFormat = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(item.precio * item.cantidad);
 
@@ -492,14 +485,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </button>
                             </div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
                     contenedor.appendChild(div);
                 });
 
                 document.getElementById('badgeCantidadGlobal').innerText = totalItems;
 
-                // Actualizar totales
                 const formtTotal = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(subtotal);
                 document.getElementById('txtSubtotal').innerText = formtTotal;
                 document.getElementById('txtTotal').innerText = formtTotal;
@@ -511,7 +502,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             Swal.fire({
                 title: '¿Confirmar Pedido?',
-                text: "Se generará un comprobante con los productos del carrito.",
+                text: 'Se generará un comprobante con los productos del carrito.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3483fa',
@@ -520,33 +511,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    const data = {
-                        accion: 'guardar_pedido_carrito',
-                        empresa_id: EMPRESA_ID,
-                        detalles: JSON.stringify(this.carrito)
-                    };
-
-                    Swal.fire({
-                        title: 'Procesando...',
-                        allowOutsideClick: false,
-                        didOpen: () => { Swal.showLoading(); }
-                    });
+                    Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
                     $.ajax({
                         url: CARRITO_AJAX_URL,
                         type: 'POST',
-                        data: data,
+                        data: {
+                            accion: 'guardar_pedido_carrito',
+                            empresa_id: EMPRESA_ID,
+                            detalles: JSON.stringify(this.carrito)
+                        },
                         dataType: 'json',
                         success: function (res) {
                             if (res.resultado) {
-                                Swal.fire(
-                                    '¡Completado!',
-                                    'Tu pedido ha sido registrado con éxito.',
-                                    'success'
-                                ).then(() => {
-                                    CarritoApp.carrito = [];
-                                    CarritoApp.actualizarUI();
-                                });
+                                Swal.fire('¡Completado!', 'Tu pedido ha sido registrado con éxito.', 'success')
+                                    .then(() => { CarritoApp.carrito = []; CarritoApp.actualizarUI(); });
                             } else {
                                 Swal.fire('Error', res.error || 'Ocurrió un problema al guardar', 'error');
                             }
