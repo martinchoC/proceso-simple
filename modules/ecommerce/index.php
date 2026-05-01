@@ -370,13 +370,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             lista.forEach(prod => {
                 const precioFormat = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(prod.precio);
+                const imgHtml = prod.imagen_url
+                    ? `<img src="${prod.imagen_url}" alt="${prod.nombre}">`
+                    : `<i class="bi bi-box-seam"></i>`;
 
                 const col = document.createElement('div');
                 col.className = 'col-12 col-sm-6 col-md-4 col-xl-3';
                 col.innerHTML = `
                 <div class="product-card">
                     <div class="product-img-wrapper">
-                        <i class="bi bi-box-seam"></i> </div>
+                        ${imgHtml}</div>
                     <div class="product-info">
                         <div class="product-price">${precioFormat}</div>
                         <div class="product-title" title="${prod.nombre}">${prod.nombre}</div>
