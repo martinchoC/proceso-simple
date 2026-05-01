@@ -1,9 +1,30 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ob_start();
+
+function json_fatal($msg) {
+    ob_clean();
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode(['fatal' => $msg]);
+    exit;
+}
+
+set_exception_handler(function ($e) {
+    json_fatal($e->getMessage() . ' [' . $e->getFile() . ':' . $e->getLine() . ']');
+});
+
+register_shutdown_function(function () {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        json_fatal($err['message'] . ' [' . $err['file'] . ':' . $err['line'] . ']');
+    }
+});
 
 require_once __DIR__ . '/../../config.php';
 
+ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 
 $accion = $_REQUEST['accion'] ?? '';
@@ -11,14 +32,86 @@ $accion = $_REQUEST['accion'] ?? '';
 switch ($accion) {
 
     case 'obtener_catalogo':
-        $sql = "SELECT p.producto_id as id, p.producto_codigo as codigo, p.producto_nombre as nombre, 
-                COALESCE((SELECT lpp.precio 
-                          FROM gestion__listas_precios_productos lpp 
-                          WHERE lpp.producto_id = p.producto_id 
-                          ORDER BY lpp.lista_precio_producto_id DESC LIMIT 1), 0) as precio
+        $empresa_id    = intval($_REQUEST['empresa_id'] ?? 0);
+        $where_parts   = ['p.tabla_estado_registro_id = 1'];
+
+        if ($empresa_id > 0) {
+            $where_parts[] = "p.empresa_id = $empresa_id";
+        }
+
+        // Filtros opcionales (para búsqueda server-side si se necesita)
+        if (!empty($_REQUEST['categoria_id'])) {
+            $where_parts[] = "p.producto_categoria_id = " . intval($_REQUEST['categoria_id']);
+        }
+        if (!empty($_REQUEST['q'])) {
+            $q = mysqli_real_escape_string($conexion, $_REQUEST['q']);
+            $where_parts[] = "(p.producto_nombre LIKE '%$q%' OR p.producto_codigo LIKE '%$q%')";
+        }
+
+        $where_sql = implode(' AND ', $where_parts);
+
+        /*
+         * Cascada de precio (3 fuentes en orden de prioridad):
+         * 1. gestion__listas_precios_productos   → tabla nueva, actualmente vacía, se irá poblando
+         * 2. gestion__listas_precios_productos_historial → registros activos (f_baja IS NULL)
+         * 3. xxx_gestion__listas_precios_productos       → tabla legacy con precios vigentes
+         */
+        $subquery_precio = "COALESCE(
+            (
+                SELECT lpp.precio
+                FROM gestion__listas_precios_productos lpp
+                WHERE lpp.producto_id = p.producto_id
+                  AND lpp.tabla_estado_registro_id = 1
+                  AND lpp.f_desde <= CURDATE()
+                  AND (lpp.f_hasta IS NULL OR lpp.f_hasta >= CURDATE())
+                ORDER BY lpp.lista_precio_producto_id DESC
+                LIMIT 1
+            ),
+            (
+                SELECT h.precio_unitario
+                FROM gestion__listas_precios_productos_historial h
+                WHERE h.producto_id = p.producto_id
+                  AND h.f_baja IS NULL
+                ORDER BY h.lista_precio_producto_historial_id DESC
+                LIMIT 1
+            ),
+            (
+                SELECT x.precio_unitario
+                FROM xxx_gestion__listas_precios_productos x
+                WHERE x.producto_id = p.producto_id
+                ORDER BY x.lista_precio_producto_id DESC
+                LIMIT 1
+            )
+        )";
+
+        $sql = "SELECT p.producto_id AS id,
+                       p.producto_codigo AS codigo,
+                       p.producto_nombre AS nombre,
+                       p.producto_categoria_id AS categoria_id,
+                       c.producto_categoria_nombre AS categoria_nombre,
+                       p.producto_tipo_id AS tipo_id,
+                       t.producto_tipo AS tipo_nombre,
+                       p.color,
+                       p.material,
+                       p.lado,
+                       p.garantia,
+                       p.es_servicio,
+                       p.controla_stock,
+                       COALESCE($subquery_precio, 0) AS precio,
+                       (
+                           SELECT GROUP_CONCAT(ci.imagen_id ORDER BY pi.es_principal DESC, pi.orden ASC SEPARATOR ',')
+                           FROM gestion__productos_imagenes pi
+                           INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
+                           WHERE pi.producto_id = p.producto_id
+                             AND pi.empresa_id = p.empresa_id
+                             AND pi.tabla_estado_registro_id = 1
+                       ) AS imagen_ids
                 FROM gestion__productos p
-                WHERE p.tabla_estado_registro_id = 1 
-                LIMIT 200";
+                LEFT JOIN gestion__productos_categorias c ON c.producto_categoria_id = p.producto_categoria_id
+                LEFT JOIN gestion__productos_tipos t ON t.producto_tipo_id = p.producto_tipo_id
+                WHERE $where_sql
+                ORDER BY p.producto_nombre
+                LIMIT 300";
 
         $res = mysqli_query($conexion, $sql);
 
@@ -29,21 +122,75 @@ switch ($accion) {
 
         $productos = [];
         while ($row = mysqli_fetch_assoc($res)) {
+            $imagenes = [];
+            if (!empty($row['imagen_ids'])) {
+                foreach (explode(',', $row['imagen_ids']) as $img_id) {
+                    $imagenes[] = BASE_URL . '/modules/gestion/get_imagen.php?id=' . intval($img_id);
+                }
+            }
+
             $productos[] = [
-                'id' => intval($row['id']),
-                'codigo' => $row['codigo'],
-                'nombre' => $row['nombre'],
-                'precio' => floatval($row['precio'])
+                'id'             => intval($row['id']),
+                'codigo'         => $row['codigo'],
+                'nombre'         => $row['nombre'],
+                'categoria_id'   => intval($row['categoria_id']),
+                'categoria'      => $row['categoria_nombre'] ?? '',
+                'tipo_id'        => intval($row['tipo_id']),
+                'tipo'           => $row['tipo_nombre'] ?? '',
+                'color'          => $row['color'] ?? '',
+                'material'       => $row['material'] ?? '',
+                'lado'           => $row['lado'] ?? '',
+                'garantia'       => $row['garantia'] ?? '',
+                'es_servicio'    => intval($row['es_servicio']),
+                'controla_stock' => intval($row['controla_stock']),
+                'precio'         => floatval($row['precio']),
+                'imagenes'       => $imagenes,
             ];
         }
 
-        echo json_encode($productos);
+        echo json_encode([
+            'data'       => $productos,
+            'empresa_id' => $empresa_id,
+            'total'      => count($productos),
+        ]);
+        break;
+
+    case 'debug_precios':
+        $cols   = [];
+        $r      = mysqli_query($conexion, 'SHOW COLUMNS FROM gestion__listas_precios_productos');
+        while ($row = mysqli_fetch_assoc($r)) {
+            $cols[] = $row['Field'];
+        }
+        $sample = [];
+        $r2     = mysqli_query($conexion, 'SELECT * FROM gestion__listas_precios_productos LIMIT 3');
+        if ($r2) {
+            while ($row = mysqli_fetch_assoc($r2)) {
+                $sample[] = $row;
+            }
+        }
+        echo json_encode(['columnas' => $cols, 'muestra' => $sample]);
+        break;
+
+    case 'debug_productos':
+        $rows = [];
+        $r    = mysqli_query($conexion,
+            'SELECT empresa_id, tabla_estado_registro_id, COUNT(*) AS total
+             FROM gestion__productos
+             GROUP BY empresa_id, tabla_estado_registro_id
+             ORDER BY empresa_id');
+        while ($row = mysqli_fetch_assoc($r)) {
+            $rows[] = $row;
+        }
+        echo json_encode([
+            'distribucion'        => $rows,
+            'empresa_id_recibido' => intval($_REQUEST['empresa_id'] ?? 0),
+        ]);
         break;
 
     case 'guardar_pedido_carrito':
         $detalles_json = $_POST['detalles'] ?? '[]';
-        $detalles = json_decode($detalles_json, true);
-        $usuario_id = $_SESSION['usuario_id'] ?? 1;
+        $detalles      = json_decode($detalles_json, true);
+        $usuario_id    = intval($_SESSION['usuario_id'] ?? 1);
 
         if (empty($detalles)) {
             echo json_encode(['resultado' => false, 'error' => 'El carrito está vacío.']);
@@ -51,35 +198,38 @@ switch ($accion) {
         }
 
         mysqli_begin_transaction($conexion);
-
         try {
-            $fecha = date('Y-m-d H:i:s');
-            $sql_cabecera = "INSERT INTO gestion__comprobantes 
+            $fecha        = date('Y-m-d H:i:s');
+            $sql_cabecera = "INSERT INTO gestion__comprobantes
                              (comprobante_tipo_id, sucursal_id, f_comprobante, estado, creado_por, f_creacion)
                              VALUES (1, 1, '$fecha', 1, $usuario_id, '$fecha')";
 
             if (!mysqli_query($conexion, $sql_cabecera)) {
-                throw new Exception("Error al crear la cabecera: " . mysqli_error($conexion));
+                throw new Exception('Error al crear la cabecera: ' . mysqli_error($conexion));
             }
             $comprobante_id = mysqli_insert_id($conexion);
 
             foreach ($detalles as $item) {
-                $prod_id = intval($item['id']);
-                $cant = floatval($item['cantidad']);
-                $precio = floatval($item['precio']);
+                $prod_id  = intval($item['id']);
+                $cant     = floatval($item['cantidad']);
+                $precio   = floatval($item['precio']);
                 $subtotal = $cant * $precio;
 
-                $sql_detalle = "INSERT INTO gestion__comprobantes_detalles 
-                                (comprobante_id, producto_id, cantidad, precio_unitario, subtotal)
-                                VALUES ($comprobante_id, $prod_id, $cant, $precio, $subtotal)";
+                $sql_det = "INSERT INTO gestion__comprobantes_detalles
+                            (comprobante_id, producto_id, cantidad, precio_unitario, subtotal)
+                            VALUES ($comprobante_id, $prod_id, $cant, $precio, $subtotal)";
 
-                if (!mysqli_query($conexion, $sql_detalle)) {
+                if (!mysqli_query($conexion, $sql_det)) {
                     throw new Exception("Error en detalle ID $prod_id: " . mysqli_error($conexion));
                 }
             }
 
             mysqli_commit($conexion);
-            echo json_encode(['resultado' => true, 'mensaje' => 'Pedido generado con éxito.', 'comprobante_id' => $comprobante_id]);
+            echo json_encode([
+                'resultado'      => true,
+                'mensaje'        => 'Pedido generado con éxito.',
+                'comprobante_id' => $comprobante_id,
+            ]);
 
         } catch (Exception $e) {
             mysqli_rollback($conexion);
@@ -87,8 +237,67 @@ switch ($accion) {
         }
         break;
 
+    case 'obtener_filtros':
+        $empresa_id    = intval($_REQUEST['empresa_id'] ?? 0);
+        $where_empresa = $empresa_id > 0 ? "AND p.empresa_id = $empresa_id" : '';
+
+        $sql_cats = "SELECT DISTINCT c.producto_categoria_id AS id, c.producto_categoria_nombre AS nombre
+                     FROM gestion__productos_categorias c
+                     INNER JOIN gestion__productos p ON p.producto_categoria_id = c.producto_categoria_id
+                     WHERE p.tabla_estado_registro_id = 1 $where_empresa
+                     ORDER BY c.producto_categoria_nombre";
+        $res_cats  = mysqli_query($conexion, $sql_cats);
+        $categorias = [];
+        while ($row = mysqli_fetch_assoc($res_cats)) {
+            $categorias[] = ['id' => intval($row['id']), 'nombre' => $row['nombre']];
+        }
+
+        $sql_colors = "SELECT DISTINCT color FROM gestion__productos
+                       WHERE color IS NOT NULL AND color <> '' AND tabla_estado_registro_id = 1 $where_empresa
+                       ORDER BY color";
+        $res_colors = mysqli_query($conexion, $sql_colors);
+        $colores = [];
+        while ($row = mysqli_fetch_assoc($res_colors)) {
+            $colores[] = $row['color'];
+        }
+
+        $sql_mats = "SELECT DISTINCT material FROM gestion__productos
+                     WHERE material IS NOT NULL AND material <> '' AND tabla_estado_registro_id = 1 $where_empresa
+                     ORDER BY material";
+        $res_mats = mysqli_query($conexion, $sql_mats);
+        $materiales = [];
+        while ($row = mysqli_fetch_assoc($res_mats)) {
+            $materiales[] = $row['material'];
+        }
+
+        $sql_lados = "SELECT DISTINCT lado FROM gestion__productos
+                      WHERE lado IS NOT NULL AND lado <> '' AND tabla_estado_registro_id = 1 $where_empresa
+                      ORDER BY lado";
+        $res_lados = mysqli_query($conexion, $sql_lados);
+        $lados = [];
+        while ($row = mysqli_fetch_assoc($res_lados)) {
+            $lados[] = $row['lado'];
+        }
+
+        $sql_gars = "SELECT DISTINCT garantia FROM gestion__productos
+                     WHERE garantia IS NOT NULL AND garantia <> '' AND tabla_estado_registro_id = 1 $where_empresa
+                     ORDER BY garantia";
+        $res_gars = mysqli_query($conexion, $sql_gars);
+        $garantias = [];
+        while ($row = mysqli_fetch_assoc($res_gars)) {
+            $garantias[] = $row['garantia'];
+        }
+
+        echo json_encode([
+            'categorias' => $categorias,
+            'colores'    => $colores,
+            'materiales' => $materiales,
+            'lados'      => $lados,
+            'garantias'  => $garantias,
+        ]);
+        break;
+
     default:
         echo json_encode(['resultado' => false, 'error' => 'Acción no válida']);
         break;
 }
-?>
