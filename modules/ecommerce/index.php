@@ -144,16 +144,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     .cart-sidebar {
         position: sticky;
         top: var(--panels-top, 80px);
-        height: calc(100vh - var(--panels-top, 80px) - 0.5rem);
+        height: calc(100vh - var(--panels-top, 80px));
         display: flex;
         flex-direction: column;
+        overflow: hidden;         /* contiene cualquier desborde */
     }
     .cart-card {
+        flex: 1 1 0;              /* crece para llenar .cart-sidebar */
+        min-height: 0;            /* permite comprimirse; reemplaza height:100% */
         background: #fff; border: none; border-radius: 8px;
         box-shadow: 0 1px 2px rgba(0,0,0,.12);
-        display: flex; flex-direction: column; height: 100%;
+        display: flex; flex-direction: column;
+        overflow: hidden;
     }
-    .cart-items-container { flex-grow: 1; min-height: 0; overflow-y: auto; padding: 1rem; }
+    .cart-header { flex-shrink: 0; }   /* encabezado nunca se comprime */
+    .cart-items-container { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 1rem; }
     .cart-items-container::-webkit-scrollbar { width: 6px; }
     .cart-items-container::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
     .cart-item { display: flex; align-items: center; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #eee; }
@@ -294,7 +299,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 <div class="col-lg-4 col-xl-3">
                     <div class="cart-sidebar">
                         <div class="cart-card">
-                            <div class="p-3 border-bottom border-light d-flex justify-content-between align-items-center">
+                            <div class="cart-header p-3 border-bottom border-light d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0 fw-bold">
                                     <i class="bi bi-cart3 me-2 text-primary"></i>Tu Pedido
                                 </h5>
