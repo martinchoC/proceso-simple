@@ -227,6 +227,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </div>
                             </div>
 
+                            <div class="filter-section" id="seccion-tipos" style="display:none">
+                                <div class="filter-section-title">Tipo de producto</div>
+                                <div id="filtro-tipos"></div>
+                            </div>
+
                             <div class="filter-section">
                                 <div class="filter-section-title">Precio</div>
                                 <div class="price-range-inputs">
@@ -341,20 +346,20 @@ const CarritoApp = {
     filtrosActivos: {
         q:          '',
         categorias: [],
+        tipos:      [],
         precioMin:  null,
         precioMax:  null,
         colores:    [],
         materiales: [],
         lados:      [],
         garantias:  [],
-        esServicio: null,   // null=todos, true=solo servicios
-        conStock:   null    // null=todos, true=solo con control de stock
+        esServicio: null,
+        conStock:   null
     },
 
     fmt: num => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(num),
 
     init() {
-        this.cargarFiltros();
         this.cargarProductos();
         this.bindEvents();
     },
@@ -441,32 +446,94 @@ const CarritoApp = {
 
     /* ── Construye filtros de atributos desde los productos ya cargados ── */
     computarFiltrosDesdeProductos(productos) {
-        const unique = field => [...new Set(
+
+        /* ── Filtros de ID+Nombre (categoria, tipo) ── */
+        const buildIdNombre = (idField, nameField) => {
+            const map = {};
+            productos.forEach(p => {
+                const id = p[idField]; const name = (p[nameField] ?? '').trim();
+                if (id && name) map[id] = name;
+            });
+            return Object.entries(map)
+                .map(([id, nombre]) => ({ id: parseInt(id), nombre }))
+                .sort((a, b) => a.nombre.localeCompare(b.nombre));
+        };
+
+        const renderIdNombre = (contId, secId, items, idKey, fieldKey) => {
+            const sec = document.getElementById(secId);
+            if (sec) sec.style.display = '';
+            const cont = document.getElementById(contId);
+            if (!cont) return;
+            cont.innerHTML = '';
+            if (!items.length) {
+                cont.innerHTML = '<span class="text-muted" style="font-size:.78rem">Sin datos</span>';
+                return;
+            }
+            items.forEach(({ id, nombre }) => {
+                const div = document.createElement('div');
+                div.className = 'filter-item';
+                div.innerHTML = `<input type="checkbox" id="${idKey}_${id}" value="${id}" class="filtro-${idKey}">
+                                 <label for="${idKey}_${id}">${nombre}</label>`;
+                div.querySelector('input').addEventListener('change', e => {
+                    const val = parseInt(e.target.value);
+                    if (e.target.checked) { if (!this.filtrosActivos[fieldKey].includes(val)) this.filtrosActivos[fieldKey].push(val); }
+                    else this.filtrosActivos[fieldKey] = this.filtrosActivos[fieldKey].filter(v => v !== val);
+                    this.aplicarFiltrosLocales(); this.renderActiveTags();
+                });
+                cont.appendChild(div);
+            });
+        };
+
+        // Categorías: la sección ya está visible en el HTML, solo poblamos el contenedor
+        const catItems = buildIdNombre('categoria_id', 'categoria');
+        const catCont  = document.getElementById('filtro-categorias');
+        catCont.innerHTML = '';
+        if (!catItems.length) {
+            catCont.innerHTML = '<span class="text-muted" style="font-size:.78rem">Sin datos</span>';
+        } else {
+            catItems.forEach(({ id, nombre }) => {
+                const div = document.createElement('div');
+                div.className = 'filter-item';
+                div.innerHTML = `<input type="checkbox" id="cat_${id}" value="${id}" class="filtro-cat">
+                                 <label for="cat_${id}">${nombre}</label>`;
+                div.querySelector('input').addEventListener('change', e => {
+                    const val = parseInt(e.target.value);
+                    if (e.target.checked) { if (!this.filtrosActivos.categorias.includes(val)) this.filtrosActivos.categorias.push(val); }
+                    else this.filtrosActivos.categorias = this.filtrosActivos.categorias.filter(v => v !== val);
+                    this.aplicarFiltrosLocales(); this.renderActiveTags();
+                });
+                catCont.appendChild(div);
+            });
+        }
+
+        // Tipos: sección inicialmente hidden, se muestra si hay datos
+        renderIdNombre('filtro-tipos', 'seccion-tipos',
+            buildIdNombre('tipo_id', 'tipo'), 'tipo', 'tipos');
+
+        /* ── Filtros de texto libre (color, material, lado, garantia) ── */
+        const uniqueStr = field => [...new Set(
             productos.map(p => (p[field] ?? '').toString().trim()).filter(v => v !== '' && v !== '0')
         )].sort();
 
-        const configs = [
+        const strConfigs = [
             { contId: 'filtro-colores',    secId: 'seccion-colores',    field: 'color',    tipo: 'color',    key: 'colores'    },
             { contId: 'filtro-materiales', secId: 'seccion-materiales', field: 'material', tipo: 'material', key: 'materiales' },
             { contId: 'filtro-lados',      secId: 'seccion-lados',      field: 'lado',     tipo: 'lado',     key: 'lados'      },
             { contId: 'filtro-garantias',  secId: 'seccion-garantias',  field: 'garantia', tipo: 'garantia', key: 'garantias'  },
         ];
 
-        configs.forEach(({ contId, secId, field, tipo, key }) => {
-            const vals = unique(field);
-            // Muestra la sección siempre, con o sin valores
+        strConfigs.forEach(({ contId, secId, field, tipo, key }) => {
+            const vals = uniqueStr(field);
             const sec  = document.getElementById(secId);
             sec.style.display = '';
             const cont = document.getElementById(contId);
             cont.innerHTML = '';
-
             if (!vals.length) {
-                cont.innerHTML = '<span class="text-muted" style="font-size:.78rem">Sin datos en productos</span>';
+                cont.innerHTML = '<span class="text-muted" style="font-size:.78rem">Sin datos</span>';
                 return;
             }
-
             vals.forEach(val => {
-                const div    = document.createElement('div');
+                const div = document.createElement('div');
                 div.className = 'filter-item';
                 const safeId = `${tipo}_${String(val).replace(/\s+/g, '_')}`;
                 div.innerHTML = `<input type="checkbox" id="${safeId}" value="${val}" class="filtro-${tipo}">
@@ -511,6 +578,7 @@ const CarritoApp = {
             lista = lista.filter(p => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q));
         }
         if (f.categorias.length)  lista = lista.filter(p => f.categorias.includes(p.categoria_id));
+        if (f.tipos.length)       lista = lista.filter(p => f.tipos.includes(p.tipo_id));
         if (f.precioMin !== null) lista = lista.filter(p => p.precio >= f.precioMin);
         if (f.precioMax !== null) lista = lista.filter(p => p.precio <= f.precioMax);
         if (f.colores.length)     lista = lista.filter(p => f.colores.includes(p.color));
@@ -544,10 +612,20 @@ const CarritoApp = {
 
         f.categorias.forEach(id => {
             const el = document.getElementById(`cat_${id}`);
-            const lbl = el ? el.nextElementSibling.textContent : id;
+            const lbl = el ? el.nextElementSibling.textContent : `Cat. ${id}`;
             addTag(lbl, () => {
                 el && (el.checked = false);
                 f.categorias = f.categorias.filter(c => c !== id);
+                this.aplicarFiltrosLocales(); this.renderActiveTags();
+            });
+        });
+
+        f.tipos.forEach(id => {
+            const el = document.getElementById(`tipo_${id}`);
+            const lbl = el ? el.nextElementSibling.textContent : `Tipo ${id}`;
+            addTag(`Tipo: ${lbl}`, () => {
+                el && (el.checked = false);
+                f.tipos = f.tipos.filter(t => t !== id);
                 this.aplicarFiltrosLocales(); this.renderActiveTags();
             });
         });
@@ -592,7 +670,7 @@ const CarritoApp = {
 
     limpiarFiltros() {
         this.filtrosActivos = {
-            q: '', categorias: [], precioMin: null, precioMax: null,
+            q: '', categorias: [], tipos: [], precioMin: null, precioMax: null,
             colores: [], materiales: [], lados: [], garantias: [],
             esServicio: null, conStock: null
         };
@@ -601,7 +679,7 @@ const CarritoApp = {
         document.getElementById('precioMax').value      = '';
         document.getElementById('filtro-es-servicio').checked = false;
         document.getElementById('filtro-con-stock').checked   = false;
-        document.querySelectorAll('.filtro-categoria, .filtro-color, .filtro-material, .filtro-lado, .filtro-garantia')
+        document.querySelectorAll('.filtro-cat, .filtro-tipo, .filtro-color, .filtro-material, .filtro-lado, .filtro-garantia')
             .forEach(el => el.checked = false);
         this.renderProductos(this.todosProductos);
         this.renderActiveTags();

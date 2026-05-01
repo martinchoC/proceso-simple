@@ -89,6 +89,8 @@ switch ($accion) {
                        p.producto_nombre AS nombre,
                        p.producto_categoria_id AS categoria_id,
                        c.producto_categoria_nombre AS categoria_nombre,
+                       p.producto_tipo_id AS tipo_id,
+                       t.producto_tipo AS tipo_nombre,
                        p.color,
                        p.material,
                        p.lado,
@@ -106,6 +108,7 @@ switch ($accion) {
                        ) AS imagen_ids
                 FROM gestion__productos p
                 LEFT JOIN gestion__productos_categorias c ON c.producto_categoria_id = p.producto_categoria_id
+                LEFT JOIN gestion__productos_tipos t ON t.producto_tipo_id = p.producto_tipo_id
                 WHERE $where_sql
                 ORDER BY p.producto_nombre
                 LIMIT 300";
@@ -127,19 +130,21 @@ switch ($accion) {
             }
 
             $productos[] = [
-                'id'            => intval($row['id']),
-                'codigo'        => $row['codigo'],
-                'nombre'        => $row['nombre'],
-                'categoria_id'  => intval($row['categoria_id']),
-                'categoria'     => $row['categoria_nombre'] ?? '',
-                'color'         => $row['color'] ?? '',
-                'material'      => $row['material'] ?? '',
-                'lado'          => $row['lado'] ?? '',
-                'garantia'      => $row['garantia'] ?? '',
-                'es_servicio'   => intval($row['es_servicio']),
-                'controla_stock'=> intval($row['controla_stock']),
-                'precio'        => floatval($row['precio']),
-                'imagenes'      => $imagenes,
+                'id'             => intval($row['id']),
+                'codigo'         => $row['codigo'],
+                'nombre'         => $row['nombre'],
+                'categoria_id'   => intval($row['categoria_id']),
+                'categoria'      => $row['categoria_nombre'] ?? '',
+                'tipo_id'        => intval($row['tipo_id']),
+                'tipo'           => $row['tipo_nombre'] ?? '',
+                'color'          => $row['color'] ?? '',
+                'material'       => $row['material'] ?? '',
+                'lado'           => $row['lado'] ?? '',
+                'garantia'       => $row['garantia'] ?? '',
+                'es_servicio'    => intval($row['es_servicio']),
+                'controla_stock' => intval($row['controla_stock']),
+                'precio'         => floatval($row['precio']),
+                'imagenes'       => $imagenes,
             ];
         }
 
