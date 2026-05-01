@@ -50,6 +50,64 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         object-fit: contain;
     }
 
+    .carousel-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255, 255, 255, 0.85);
+        border: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+        opacity: 0;
+        transition: opacity 0.2s;
+        box-shadow: 0 1px 4px rgba(0,0,0,.2);
+        color: #333;
+        padding: 0;
+    }
+
+    .product-img-wrapper:hover .carousel-btn {
+        opacity: 1;
+    }
+
+    .carousel-btn:hover {
+        background: #fff;
+    }
+
+    .carousel-prev { left: 6px; }
+    .carousel-next { right: 6px; }
+
+    .carousel-dots {
+        position: absolute;
+        bottom: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 4px;
+        z-index: 2;
+    }
+
+    .carousel-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .carousel-dot.active {
+        background: #3483fa;
+    }
+
     .product-info {
         padding: 1rem;
         flex-grow: 1;
@@ -373,15 +431,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             lista.forEach(prod => {
                 const precioFormat = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(prod.precio);
-                const imgHtml = prod.imagen_url
-                    ? `<img src="${prod.imagen_url}" alt="${prod.nombre}">`
-                    : `<i class="bi bi-box-seam"></i>`;
+                const imgs = prod.imagenes || [];
+                const imgsJson = JSON.stringify(imgs).replace(/'/g, '&#39;');
+
+                let wrapperContent = '';
+                if (imgs.length === 0) {
+                    wrapperContent = `<i class="bi bi-box-seam"></i>`;
+                } else {
+                    const arrows = imgs.length > 1
+                        ? `<button class="carousel-btn carousel-prev" onclick="event.stopPropagation();CarritoApp.moverImagen(this,-1)">&#8249;</button>
+                           <button class="carousel-btn carousel-next" onclick="event.stopPropagation();CarritoApp.moverImagen(this,1)">&#8250;</button>`
+                        : '';
+                    const dots = imgs.length > 1
+                        ? `<div class="carousel-dots">${imgs.map((_, i) => `<span class="carousel-dot${i === 0 ? ' active' : ''}"></span>`).join('')}</div>`
+                        : '';
+                    wrapperContent = `${arrows}<img src="${imgs[0]}" alt="${prod.nombre}">${dots}`;
+                }
 
                 const col = document.createElement('div');
                 col.className = 'col-12 col-sm-6 col-md-4 col-xl-3';
                 col.innerHTML = `
                 <div class="product-card">
-                    <div class="product-img-wrapper">${imgHtml}</div>
+                    <div class="product-img-wrapper" data-images='${imgsJson}' data-current="0">
+                        ${wrapperContent}
+                    </div>
                     <div class="product-info">
                         <div class="product-price">${precioFormat}</div>
                         <div class="product-title" title="${prod.nombre}">${prod.nombre}</div>
@@ -392,6 +465,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>`;
                 contenedor.appendChild(col);
             });
+        },
+
+        moverImagen: function (btn, delta) {
+            const wrapper = btn.closest('.product-img-wrapper');
+            const images  = JSON.parse(wrapper.dataset.images);
+            let current   = parseInt(wrapper.dataset.current);
+            current       = (current + delta + images.length) % images.length;
+            wrapper.dataset.current = current;
+            wrapper.querySelector('img').src = images[current];
+            wrapper.querySelectorAll('.carousel-dot').forEach((dot, i) =>
+                dot.classList.toggle('active', i === current)
+            );
         },
 
         filtrarProductos: function (termino) {

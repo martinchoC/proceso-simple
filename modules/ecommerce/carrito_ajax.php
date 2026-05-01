@@ -45,15 +45,13 @@ switch ($accion) {
                            LIMIT 1
                        ), 0) AS precio,
                        (
-                           SELECT ci.imagen_id
+                           SELECT GROUP_CONCAT(ci.imagen_id ORDER BY pi.es_principal DESC, pi.orden ASC SEPARATOR ',')
                            FROM gestion__productos_imagenes pi
                            INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
                            WHERE pi.producto_id = p.producto_id
                              AND pi.empresa_id = p.empresa_id
-                             AND pi.es_principal = 1
                              AND pi.tabla_estado_registro_id = 1
-                           LIMIT 1
-                       ) AS imagen_id
+                       ) AS imagen_ids
                 FROM gestion__productos p
                 WHERE p.tabla_estado_registro_id = 1
                 $where_empresa
@@ -63,22 +61,25 @@ switch ($accion) {
         $res = mysqli_query($conexion, $sql);
 
         if (!$res) {
-            echo json_encode(['error_bd' => mysqli_error($conexion), 'sql' => $sql]);
+            echo json_encode(['error_bd' => mysqli_error($conexion)]);
             exit;
         }
 
         $productos = [];
         while ($row = mysqli_fetch_assoc($res)) {
-            $imagen_url = !empty($row['imagen_id'])
-                ? BASE_URL . '/modules/gestion/get_imagen.php?id=' . intval($row['imagen_id'])
-                : null;
+            $imagenes = [];
+            if (!empty($row['imagen_ids'])) {
+                foreach (explode(',', $row['imagen_ids']) as $img_id) {
+                    $imagenes[] = BASE_URL . '/modules/gestion/get_imagen.php?id=' . intval($img_id);
+                }
+            }
 
             $productos[] = [
-                'id'         => intval($row['id']),
-                'codigo'     => $row['codigo'],
-                'nombre'     => $row['nombre'],
-                'precio'     => floatval($row['precio']),
-                'imagen_url' => $imagen_url,
+                'id'       => intval($row['id']),
+                'codigo'   => $row['codigo'],
+                'nombre'   => $row['nombre'],
+                'precio'   => floatval($row['precio']),
+                'imagenes' => $imagenes,
             ];
         }
 
@@ -87,6 +88,22 @@ switch ($accion) {
             'empresa_id' => $empresa_id,
             'total'      => count($productos),
         ]);
+        break;
+
+    case 'debug_precios':
+        $cols   = [];
+        $r      = mysqli_query($conexion, 'SHOW COLUMNS FROM gestion__listas_precios_productos');
+        while ($row = mysqli_fetch_assoc($r)) {
+            $cols[] = $row['Field'];
+        }
+        $sample = [];
+        $r2     = mysqli_query($conexion, 'SELECT * FROM gestion__listas_precios_productos LIMIT 3');
+        if ($r2) {
+            while ($row = mysqli_fetch_assoc($r2)) {
+                $sample[] = $row;
+            }
+        }
+        echo json_encode(['columnas' => $cols, 'muestra' => $sample]);
         break;
 
     case 'debug_productos':
