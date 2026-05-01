@@ -39,7 +39,7 @@ switch ($accion) {
                        p.producto_codigo AS codigo,
                        p.producto_nombre AS nombre,
                        COALESCE((
-                           SELECT lpp.precio_unitario
+                           SELECT lpp.precio
                            FROM gestion__listas_precios_productos lpp
                            WHERE lpp.producto_id = p.producto_id
                            ORDER BY lpp.lista_precio_producto_id DESC
