@@ -1,5 +1,26 @@
 <?php
+ini_set('display_errors', 0);
 ob_start();
+
+function json_fatal($msg) {
+    ob_clean();
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode(['fatal' => $msg]);
+    exit;
+}
+
+set_exception_handler(function ($e) {
+    json_fatal($e->getMessage() . ' [' . $e->getFile() . ':' . $e->getLine() . ']');
+});
+
+register_shutdown_function(function () {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        json_fatal($err['message'] . ' [' . $err['file'] . ':' . $err['line'] . ']');
+    }
+});
 
 require_once __DIR__ . '/../../config.php';
 
@@ -11,13 +32,12 @@ $accion = $_REQUEST['accion'] ?? '';
 switch ($accion) {
 
     case 'obtener_catalogo':
-        $empresa_id    = intval($_REQUEST['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
+        $empresa_id    = intval($_REQUEST['empresa_id'] ?? 0);
         $where_empresa = $empresa_id > 0 ? "AND p.empresa_id = $empresa_id" : '';
 
         $sql = "SELECT p.producto_id AS id,
                        p.producto_codigo AS codigo,
                        p.producto_nombre AS nombre,
-                       p.empresa_id,
                        COALESCE((
                            SELECT lpp.precio_unitario
                            FROM gestion__listas_precios_productos lpp
@@ -34,8 +54,7 @@ switch ($accion) {
         $res = mysqli_query($conexion, $sql);
 
         if (!$res) {
-            ob_clean();
-            echo json_encode(['error_bd' => mysqli_error($conexion)]);
+            echo json_encode(['error_bd' => mysqli_error($conexion), 'sql' => $sql]);
             exit;
         }
 
@@ -49,7 +68,6 @@ switch ($accion) {
             ];
         }
 
-        ob_clean();
         echo json_encode([
             'data'       => $productos,
             'empresa_id' => $empresa_id,
@@ -67,7 +85,6 @@ switch ($accion) {
         while ($row = mysqli_fetch_assoc($r)) {
             $rows[] = $row;
         }
-        ob_clean();
         echo json_encode([
             'distribucion'        => $rows,
             'empresa_id_recibido' => intval($_REQUEST['empresa_id'] ?? 0),
@@ -77,16 +94,14 @@ switch ($accion) {
     case 'guardar_pedido_carrito':
         $detalles_json = $_POST['detalles'] ?? '[]';
         $detalles      = json_decode($detalles_json, true);
-        $usuario_id    = $_SESSION['usuario_id'] ?? 1;
+        $usuario_id    = intval($_SESSION['usuario_id'] ?? 1);
 
         if (empty($detalles)) {
-            ob_clean();
             echo json_encode(['resultado' => false, 'error' => 'El carrito está vacío.']);
             break;
         }
 
         mysqli_begin_transaction($conexion);
-
         try {
             $fecha        = date('Y-m-d H:i:s');
             $sql_cabecera = "INSERT INTO gestion__comprobantes
@@ -104,17 +119,16 @@ switch ($accion) {
                 $precio   = floatval($item['precio']);
                 $subtotal = $cant * $precio;
 
-                $sql_detalle = "INSERT INTO gestion__comprobantes_detalles
-                                (comprobante_id, producto_id, cantidad, precio_unitario, subtotal)
-                                VALUES ($comprobante_id, $prod_id, $cant, $precio, $subtotal)";
+                $sql_det = "INSERT INTO gestion__comprobantes_detalles
+                            (comprobante_id, producto_id, cantidad, precio_unitario, subtotal)
+                            VALUES ($comprobante_id, $prod_id, $cant, $precio, $subtotal)";
 
-                if (!mysqli_query($conexion, $sql_detalle)) {
+                if (!mysqli_query($conexion, $sql_det)) {
                     throw new Exception("Error en detalle ID $prod_id: " . mysqli_error($conexion));
                 }
             }
 
             mysqli_commit($conexion);
-            ob_clean();
             echo json_encode([
                 'resultado'      => true,
                 'mensaje'        => 'Pedido generado con éxito.',
@@ -123,13 +137,11 @@ switch ($accion) {
 
         } catch (Exception $e) {
             mysqli_rollback($conexion);
-            ob_clean();
             echo json_encode(['resultado' => false, 'error' => $e->getMessage()]);
         }
         break;
 
     default:
-        ob_clean();
         echo json_encode(['resultado' => false, 'error' => 'Acción no válida']);
         break;
 }
