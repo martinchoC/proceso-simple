@@ -366,12 +366,7 @@ try {
             echo json_encode($impuestos, JSON_UNESCAPED_UNICODE);
             break;
 
-        case 'guardar_impuestos_factura':
-            $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
-            $impuestos = json_decode($_POST['impuestos'] ?? '[]', true);
-            $resultado = guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_idx);
-            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-            break;
+        
        // En facturas_proveedores_ajax.php, reemplazar el case 'obtener_impuestos_config':
 
         case 'obtener_impuestos_config':
@@ -482,46 +477,26 @@ try {
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
         
-      case 'guardar_impuestos_factura':
-        $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
-        // Cambiar de 'impuestos' a 'impuestos_adicionales' para coincidir con el JS
-        $impuestos_json = $_POST['impuestos_adicionales'] ?? $_POST['impuestos'] ?? '';
-        
-        if (empty($impuestos_json)) {
-            echo json_encode(['success' => false, 'error' => 'No se recibieron impuestos']);
+      
+        case 'guardar_impuestos_factura':
+            $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
+            // Cambiar de 'impuestos' a 'impuestos_adicionales' para coincidir con el JS
+            $impuestos_json = $_POST['impuestos_adicionales'] ?? $_POST['impuestos'] ?? '';
+            
+            if (empty($impuestos_json)) {
+                echo json_encode(['success' => false, 'error' => 'No se recibieron impuestos']);
+                break;
+            }
+            
+            $impuestos = json_decode($impuestos_json, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                echo json_encode(['success' => false, 'error' => 'Error al decodificar impuestos: ' . json_last_error_msg()]);
+                break;
+            }
+            
+            $resultado = guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
-        }
-        
-        $impuestos = json_decode($impuestos_json, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            echo json_encode(['success' => false, 'error' => 'Error al decodificar impuestos: ' . json_last_error_msg()]);
-            break;
-        }
-        
-        $resultado = guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_idx);
-        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-        break;
-        
-        $impuestos = json_decode($impuestos_json, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            fwrite($debug_log, "ERROR JSON: " . json_last_error_msg() . "\n");
-            fclose($debug_log);
-            echo json_encode(['success' => false, 'error' => 'Error al decodificar impuestos: ' . json_last_error_msg()]);
-            break;
-        }
-        
-        fwrite($debug_log, "impuestos decodificados: " . print_r($impuestos, true) . "\n");
-        fclose($debug_log);
-        
-        $resultado = guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_idx);
-        
-        // Log del resultado
-        $debug_log = fopen(__DIR__ . '/impuestos_debug.log', 'a');
-        fwrite($debug_log, "Resultado: " . print_r($resultado, true) . "\n");
-        fclose($debug_log);
-        
-        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
-        break;
         
         
         

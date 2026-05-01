@@ -1819,6 +1819,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
     var descuentoTotal = descuentoItem + descuentoGeneral;
     var netoGravado = netoBase - descuentoTotal;
     var totalLinea = netoGravado + ivaImporte + noGravado + exento;
+    var netoGravado = netoBase - descuentoTotal; 
     
     var nuevoDetalle = {
         detalle_idx: 'temp_' + new Date().getTime(),
@@ -1840,6 +1841,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
         iva_importe: ivaImporte,
         total_linea: totalLinea
     };
+    
     
     detalles.push(nuevoDetalle);
     renderizarDetalles();

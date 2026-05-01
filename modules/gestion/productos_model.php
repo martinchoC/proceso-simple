@@ -629,6 +629,7 @@ function agregarProducto($conexion, $data)
     $garantia = mysqli_real_escape_string($conexion, trim($data['garantia'] ?? ''));
     $empresa_id = intval($data['empresa_id'] ?? 0);
     $iva_alicuota_id = (!empty($data['iva_alicuota_id']) && $data['iva_alicuota_id'] > 0) ? intval($data['iva_alicuota_id']) : null;
+    $controla_stock = isset($data['controla_stock']) ? $data['controla_stock'] : 1;  // <--- AGREGAR
 
     if (empty($producto_codigo)) {
         return ['resultado' => false, 'error' => 'El código del producto es obligatorio'];
@@ -677,8 +678,8 @@ function agregarProducto($conexion, $data)
    $sql = "INSERT INTO gestion__productos 
         (empresa_id, producto_codigo, producto_nombre, codigo_barras, producto_descripcion, 
          producto_categoria_id, producto_tipo_id, unidad_medida_id, cont_cuenta_id, iva_alicuota_id, lado, material, color, 
-         peso, dimensiones, garantia, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+         peso, dimensiones, garantia, controla_stock, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -686,7 +687,7 @@ function agregarProducto($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "issssiiiiiisssdsi",
+        "issssiiiiiisssdsii",
         $empresa_id,
         $producto_codigo,
         $producto_nombre,
@@ -703,6 +704,7 @@ function agregarProducto($conexion, $data)
         $peso,
         $dimensiones,
         $garantia,
+        $controla_stock,
         $estado_inicial
     );
 
@@ -736,6 +738,7 @@ function editarProducto($conexion, $id, $data)
     $peso = !empty($data['peso']) ? floatval($data['peso']) : null;
     $dimensiones = mysqli_real_escape_string($conexion, trim($data['dimensiones'] ?? ''));
     $garantia = mysqli_real_escape_string($conexion, trim($data['garantia'] ?? ''));
+    $controla_stock = isset($data['controla_stock']) ? $data['controla_stock'] : 1;  // <--- AGREGAR
     
     $iva_alicuota_id = (!empty($data['iva_alicuota_id']) && $data['iva_alicuota_id'] > 0) ? intval($data['iva_alicuota_id']) : null;
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
@@ -807,7 +810,7 @@ function editarProducto($conexion, $id, $data)
         SET producto_codigo = ?, producto_nombre = ?, codigo_barras = ?, 
             producto_descripcion = ?, producto_categoria_id = ?, producto_tipo_id = ?, 
             unidad_medida_id = ?, cont_cuenta_id = ?, iva_alicuota_id = ?, lado = ?, material = ?, color = ?, peso = ?, 
-            dimensiones = ?, garantia = ?
+            dimensiones = ?, garantia = ?, controla_stock = ?
         WHERE producto_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -816,7 +819,7 @@ function editarProducto($conexion, $id, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssiiiiiisssdsi",
+        "ssssiiiiiisssdsii",
         $producto_codigo,
         $producto_nombre,
         $codigo_barras,
@@ -832,6 +835,7 @@ function editarProducto($conexion, $id, $data)
         $peso,
         $dimensiones,
         $garantia,
+        $controla_stock,
         $id
     );
 
