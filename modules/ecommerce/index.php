@@ -23,8 +23,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         box-shadow: 0 1px 2px rgba(0,0,0,.12);
         padding: 1rem;
         position: sticky;
-        top: var(--panels-top, 80px);
-        max-height: calc(100vh - var(--panels-top, 80px) - 0.5rem);
+        top: var(--panels-top, 70px);
+        max-height: var(--panels-h, 680px);
         overflow-y: auto;
     }
     .filters-panel::-webkit-scrollbar { width: 4px; }
@@ -143,11 +143,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     /* ── Carrito ── */
     .cart-sidebar {
         position: sticky;
-        top: var(--panels-top, 80px);
-        height: calc(100vh - var(--panels-top, 80px));
+        top: var(--panels-top, 70px);
+        height: var(--panels-h, 680px);
         display: flex;
         flex-direction: column;
-        overflow: hidden;         /* contiene cualquier desborde */
+        overflow: hidden;
     }
     .cart-card {
         flex: 1 1 0;              /* crece para llenar .cart-sidebar */
@@ -857,11 +857,22 @@ const CarritoApp = {
 };
 
 function actualizarPanelsTop() {
+    const navbar    = document.querySelector('.app-header');
     const searchBar = document.getElementById('stickySearchBar');
     if (!searchBar) return;
-    // --panels-top = altura de la sticky bar + gap pequeño
-    const sbH = Math.ceil(searchBar.getBoundingClientRect().height) + 4;
-    document.documentElement.style.setProperty('--panels-top', sbH + 'px');
+
+    // navH: alto del navbar (AdminLTE layout-fixed usa .app-main como scroll container,
+    //        que empieza justo debajo del navbar — hay que restarlo de 100vh)
+    const navH    = navbar ? Math.ceil(navbar.getBoundingClientRect().height) : 57;
+    const sbH     = Math.ceil(searchBar.getBoundingClientRect().height);
+
+    // --panels-top : top del sticky dentro de .app-main (= solo la search bar)
+    // --panels-h   : alto disponible exacto = viewport - navbar - search bar
+    const panelsH = Math.max(200, window.innerHeight - navH - sbH);
+
+    document.documentElement.style.setProperty('--navbar-h',   navH    + 'px');
+    document.documentElement.style.setProperty('--panels-top', sbH     + 'px');
+    document.documentElement.style.setProperty('--panels-h',   panelsH + 'px');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
