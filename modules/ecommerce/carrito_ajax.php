@@ -50,16 +50,38 @@ switch ($accion) {
 
         $where_sql = implode(' AND ', $where_parts);
 
-        // Subquery de precio: solo registros activos y con fechas vigentes
-        $subquery_precio = "(
-            SELECT lpp.precio
-            FROM gestion__listas_precios_productos lpp
-            WHERE lpp.producto_id = p.producto_id
-              AND lpp.tabla_estado_registro_id = 1
-              AND lpp.f_desde <= CURDATE()
-              AND (lpp.f_hasta IS NULL OR lpp.f_hasta >= CURDATE())
-            ORDER BY lpp.lista_precio_producto_id DESC
-            LIMIT 1
+        /*
+         * Cascada de precio (3 fuentes en orden de prioridad):
+         * 1. gestion__listas_precios_productos   → tabla nueva, actualmente vacía, se irá poblando
+         * 2. gestion__listas_precios_productos_historial → registros activos (f_baja IS NULL)
+         * 3. xxx_gestion__listas_precios_productos       → tabla legacy con precios vigentes
+         */
+        $subquery_precio = "COALESCE(
+            (
+                SELECT lpp.precio
+                FROM gestion__listas_precios_productos lpp
+                WHERE lpp.producto_id = p.producto_id
+                  AND lpp.tabla_estado_registro_id = 1
+                  AND lpp.f_desde <= CURDATE()
+                  AND (lpp.f_hasta IS NULL OR lpp.f_hasta >= CURDATE())
+                ORDER BY lpp.lista_precio_producto_id DESC
+                LIMIT 1
+            ),
+            (
+                SELECT h.precio_unitario
+                FROM gestion__listas_precios_productos_historial h
+                WHERE h.producto_id = p.producto_id
+                  AND h.f_baja IS NULL
+                ORDER BY h.lista_precio_producto_historial_id DESC
+                LIMIT 1
+            ),
+            (
+                SELECT x.precio_unitario
+                FROM xxx_gestion__listas_precios_productos x
+                WHERE x.producto_id = p.producto_id
+                ORDER BY x.lista_precio_producto_id DESC
+                LIMIT 1
+            )
         )";
 
         $sql = "SELECT p.producto_id AS id,
