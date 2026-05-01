@@ -340,12 +340,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 dataType: 'json',
                 success: function (response) {
                     document.getElementById('cargandoProductos').style.display = 'none';
-                    if (response && response.length > 0) {
-                        self.productos = response;
+                    console.log('Catálogo response:', response);
+
+                    if (response && response.data && response.data.length > 0) {
+                        self.productos = response.data;
                         self.renderProductos(self.productos);
                     } else {
+                        const msg = response && response.error
+                            ? 'Error: ' + response.error
+                            : 'No hay productos disponibles en el catálogo. (empresa_id=' + (response && response.empresa_id) + ', total=' + (response && response.total) + ')';
                         document.getElementById('contenedorProductos').innerHTML =
-                            '<div class="col-12"><div class="alert alert-info">No hay productos disponibles en el catálogo.</div></div>';
+                            '<div class="col-12"><div class="alert alert-info">' + msg + '</div></div>';
                     }
                 },
                 error: function (xhr) {

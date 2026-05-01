@@ -9,12 +9,11 @@ switch ($accion) {
 
     case 'obtener_catalogo':
         $empresa_id = intval($_REQUEST['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
-        if ($empresa_id <= 0) {
-            echo json_encode(['error' => 'empresa_id no válida']);
-            exit;
-        }
+
+        $where_empresa = $empresa_id > 0 ? "AND p.empresa_id = $empresa_id" : '';
 
         $sql = "SELECT p.producto_id as id, p.producto_codigo as codigo, p.producto_nombre as nombre,
+                p.empresa_id,
                 COALESCE((SELECT lpp.precio_unitario
                           FROM gestion__listas_precios_productos lpp
                           WHERE lpp.producto_id = p.producto_id
@@ -29,7 +28,7 @@ switch ($accion) {
                  LIMIT 1) as imagen_id
                 FROM gestion__productos p
                 WHERE p.tabla_estado_registro_id = 1
-                AND p.empresa_id = $empresa_id
+                $where_empresa
                 LIMIT 200";
 
         $res = mysqli_query($conexion, $sql);
@@ -54,7 +53,11 @@ switch ($accion) {
             ];
         }
 
-        echo json_encode($productos);
+        echo json_encode([
+            'data'       => $productos,
+            'empresa_id' => $empresa_id,
+            'total'      => count($productos)
+        ]);
         break;
 
     case 'guardar_pedido_carrito':
