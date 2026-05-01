@@ -408,9 +408,10 @@ const CarritoApp = {
 
                 const lista = response?.data ?? [];
                 if (lista.length > 0) {
-                    this.todosProductos    = lista;
+                    this.todosProductos     = lista;
                     this.productosFiltrados = lista;
                     this.renderProductos(lista);
+                    this.computarFiltrosDesdeProductos(lista);
                 } else {
                     const info = response
                         ? ` (empresa_id=${response.empresa_id}, total=${response.total})`
@@ -428,14 +429,55 @@ const CarritoApp = {
         });
     },
 
-    /* ── Carga opciones de filtros ── */
+    /* ── Carga categorías (necesita JOIN, se pide al servidor) ── */
     cargarFiltros() {
         $.getJSON(CARRITO_AJAX_URL, { accion: 'obtener_filtros', empresa_id: EMPRESA_ID }, data => {
             this.renderFiltrosCategorias(data.categorias || []);
-            this.renderFiltrosCheckbox('filtro-colores',    'seccion-colores',    data.colores    || [], 'color',    'colores');
-            this.renderFiltrosCheckbox('filtro-materiales', 'seccion-materiales', data.materiales || [], 'material', 'materiales');
-            this.renderFiltrosCheckbox('filtro-lados',      'seccion-lados',      data.lados      || [], 'lado',     'lados');
-            this.renderFiltrosCheckbox('filtro-garantias',  'seccion-garantias',  data.garantias  || [], 'garantia', 'garantias');
+        }).fail(() => {
+            document.getElementById('filtro-categorias').innerHTML =
+                '<span class="text-muted" style="font-size:.8rem">No disponible</span>';
+        });
+    },
+
+    /* ── Construye filtros de atributos desde los productos ya cargados ── */
+    computarFiltrosDesdeProductos(productos) {
+        const unique = field => [...new Set(
+            productos.map(p => (p[field] ?? '').toString().trim()).filter(v => v !== '' && v !== '0')
+        )].sort();
+
+        const configs = [
+            { contId: 'filtro-colores',    secId: 'seccion-colores',    field: 'color',    tipo: 'color',    key: 'colores'    },
+            { contId: 'filtro-materiales', secId: 'seccion-materiales', field: 'material', tipo: 'material', key: 'materiales' },
+            { contId: 'filtro-lados',      secId: 'seccion-lados',      field: 'lado',     tipo: 'lado',     key: 'lados'      },
+            { contId: 'filtro-garantias',  secId: 'seccion-garantias',  field: 'garantia', tipo: 'garantia', key: 'garantias'  },
+        ];
+
+        configs.forEach(({ contId, secId, field, tipo, key }) => {
+            const vals = unique(field);
+            // Muestra la sección siempre, con o sin valores
+            const sec  = document.getElementById(secId);
+            sec.style.display = '';
+            const cont = document.getElementById(contId);
+            cont.innerHTML = '';
+
+            if (!vals.length) {
+                cont.innerHTML = '<span class="text-muted" style="font-size:.78rem">Sin datos en productos</span>';
+                return;
+            }
+
+            vals.forEach(val => {
+                const div    = document.createElement('div');
+                div.className = 'filter-item';
+                const safeId = `${tipo}_${String(val).replace(/\s+/g, '_')}`;
+                div.innerHTML = `<input type="checkbox" id="${safeId}" value="${val}" class="filtro-${tipo}">
+                                 <label for="${safeId}">${val}</label>`;
+                div.querySelector('input').addEventListener('change', e => {
+                    if (e.target.checked) { if (!this.filtrosActivos[key].includes(val)) this.filtrosActivos[key].push(val); }
+                    else this.filtrosActivos[key] = this.filtrosActivos[key].filter(v => v !== val);
+                    this.aplicarFiltrosLocales(); this.renderActiveTags();
+                });
+                cont.appendChild(div);
+            });
         });
     },
 
@@ -457,24 +499,7 @@ const CarritoApp = {
         });
     },
 
-    renderFiltrosCheckbox(contId, secId, items, tipo, fieldKey) {
-        if (!items.length) return;
-        document.getElementById(secId).style.display = '';
-        const cont = document.getElementById(contId);
-        cont.innerHTML = '';
-        items.forEach(val => {
-            const div = document.createElement('div');
-            div.className = 'filter-item';
-            const safeId = `${tipo}_${String(val).replace(/\s+/g, '_')}`;
-            div.innerHTML = `<input type="checkbox" id="${safeId}" value="${val}" class="filtro-${tipo}"><label for="${safeId}">${val}</label>`;
-            div.querySelector('input').addEventListener('change', e => {
-                if (e.target.checked) { if (!this.filtrosActivos[fieldKey].includes(val)) this.filtrosActivos[fieldKey].push(val); }
-                else this.filtrosActivos[fieldKey] = this.filtrosActivos[fieldKey].filter(v => v !== val);
-                this.aplicarFiltrosLocales(); this.renderActiveTags();
-            });
-            cont.appendChild(div);
-        });
-    },
+    // renderFiltrosCheckbox ya no se usa; la lógica está en computarFiltrosDesdeProductos
 
     /* ── Filtrado local (sobre los datos ya cargados) ── */
     aplicarFiltrosLocales() {
