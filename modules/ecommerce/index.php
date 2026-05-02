@@ -22,10 +22,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         border-radius: 8px;
         box-shadow: 0 1px 2px rgba(0,0,0,.12);
         padding: 1rem;
-        position: sticky;
-        top: var(--panels-top, 70px);
-        max-height: var(--panels-h, 680px);
+        /* posición y tamaño los setea JS con position:fixed */
         overflow-y: auto;
+        box-sizing: border-box;
     }
     .filters-panel::-webkit-scrollbar { width: 4px; }
     .filters-panel::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
@@ -142,12 +141,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     /* ── Carrito ── */
     .cart-sidebar {
-        position: sticky;
-        top: var(--panels-top, 70px);
-        height: var(--panels-h, 680px);
+        /* posición y tamaño los setea JS con position:fixed */
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        box-sizing: border-box;
     }
     .cart-card {
         flex: 1 1 0;              /* crece para llenar .cart-sidebar */
@@ -181,9 +179,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     .btn-checkout:hover { background-color: #2968c8; }
     .btn-checkout:disabled { background-color: #a2c6fa; cursor: not-allowed; }
 
-    @media (max-width: 768px) {
-        .filters-panel { width: 100%; position: static; max-height: none; }
+    @media (max-width: 991px) {
+        .filters-panel { width: 100% !important; position: static !important;
+                         max-height: none !important; height: auto !important; }
         .catalog-layout { flex-direction: column; }
+        .catalog-main   { margin-left: 0 !important; }
+        .cart-sidebar   { position: static !important; height: auto !important;
+                          min-height: 300px; }
     }
 </style>
 
@@ -215,7 +217,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <div class="row">
                 <!-- Catálogo + filtros -->
-                <div class="col-lg-8 col-xl-9 mb-4">
+                <div class="col-lg-8 col-xl-9 mb-4" id="colCatalog">
                     <div class="catalog-layout">
 
                         <!-- Panel de filtros -->
@@ -296,7 +298,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
 
                 <!-- Carrito -->
-                <div class="col-lg-4 col-xl-3">
+                <div class="col-lg-4 col-xl-3" id="colCart">
                     <div class="cart-sidebar">
                         <div class="cart-card">
                             <div class="cart-header p-3 border-bottom border-light d-flex justify-content-between align-items-center">
@@ -856,42 +858,103 @@ const CarritoApp = {
     }
 };
 
-function actualizarPanelsTop() {
-    const searchBar = document.getElementById('stickySearchBar');
-    if (!searchBar) return;
+// ── Posicionamiento fijo de los paneles ──────────────────────────────────────
+// position:sticky no funciona porque AdminLTE pone overflow:auto en .app-content,
+// lo que rompe el contexto de sticky. Usamos position:fixed con coordenadas reales.
 
-    const sbH = Math.ceil(searchBar.getBoundingClientRect().height);
+function fijarPaneles() {
+    const FILTROS_W = 220;   // ancho fijo del panel de filtros (px)
+    const GAP       = 16;    // gap entre panel de filtros y catálogo (1rem)
+    const MARGEN_B  = 16;    // margen inferior (1rem)
+    const MOBILE_BP = 992;   // debajo de lg → no fijar, flujo normal
 
-    // Usamos .app-main como referencia directa: es el scroll container de AdminLTE.
-    // getBoundingClientRect().top devuelve su posición real en el viewport
-    // (no cambia al hacer scroll interno, ya que .app-main en sí no se mueve).
-    const appMain    = document.querySelector('.app-main');
-    const appMainTop = appMain
-        ? Math.max(0, Math.ceil(appMain.getBoundingClientRect().top))
-        : Math.ceil((document.querySelector('.app-header') || {offsetHeight:57}).offsetHeight || 57);
+    const sb        = document.getElementById('stickySearchBar');
+    const fp        = document.getElementById('filtersPanel');
+    const catMain   = document.querySelector('.catalog-main');
+    const cs        = document.querySelector('.cart-sidebar');
+    const colCart   = document.getElementById('colCart');
+    const colCat    = document.getElementById('colCatalog');
 
-    // Cuando la search bar está pegada (top:0 dentro de .app-main):
-    //   su bottom en viewport = appMainTop + sbH
-    // Alto disponible para los paneles = desde ese bottom hasta el borde inferior
-    const panelsH = Math.max(200, window.innerHeight - appMainTop - sbH);
+    if (!sb || !fp || !cs) return;
 
-    document.documentElement.style.setProperty('--panels-top', sbH     + 'px');
-    document.documentElement.style.setProperty('--panels-h',   panelsH + 'px');
+    // ── Modo móvil: restablecer flujo normal ──
+    if (window.innerWidth < MOBILE_BP) {
+        fp.removeAttribute('style');
+        if (catMain) catMain.style.marginLeft = '';
+        cs.removeAttribute('style');
+        return;
+    }
+
+    // ── Paso 1: resetear a flujo normal para medir posiciones reales ──
+    fp.style.cssText = '';
+    if (catMain) catMain.style.marginLeft = '';
+    cs.style.cssText = '';
+
+    // ── Paso 2: medir (sin layout contaminado por fixed anterior) ──
+    const sbBottom   = sb.getBoundingClientRect().bottom;
+    const panelTop   = sbBottom;
+    const panelH     = Math.max(200, window.innerHeight - sbBottom - MARGEN_B);
+
+    // Izquierda del panel de filtros = izquierda de la columna de catálogo
+    const catLeft    = colCat
+        ? colCat.getBoundingClientRect().left
+        : fp.getBoundingClientRect().left;
+
+    // Posición del carrito = izquierda y ancho de su columna
+    const cartRect   = colCart ? colCart.getBoundingClientRect() : null;
+
+    // ── Paso 3: aplicar position:fixed ──
+    fp.style.cssText = [
+        'position:fixed',
+        `top:${panelTop}px`,
+        `left:${catLeft}px`,
+        `width:${FILTROS_W}px`,
+        `height:${panelH}px`,
+        'overflow-y:auto',
+        'z-index:50',
+        'background:#fff',
+        'border-radius:8px',
+        'box-shadow:0 1px 2px rgba(0,0,0,.12)',
+        'padding:1rem',
+        'box-sizing:border-box',
+    ].join(';');
+
+    // Empujar el catálogo para que no quede debajo del panel fijo
+    if (catMain) {
+        catMain.style.marginLeft = (FILTROS_W + GAP) + 'px';
+    }
+
+    if (cartRect) {
+        cs.style.cssText = [
+            'position:fixed',
+            `top:${panelTop}px`,
+            `left:${cartRect.left}px`,
+            `width:${cartRect.width}px`,
+            `height:${panelH}px`,
+            'display:flex',
+            'flex-direction:column',
+            'overflow:hidden',
+            'z-index:50',
+        ].join(';');
+    }
 }
 
+// ── Inicialización ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    // doble rAF: espera que AdminLTE termine su layout antes de medir
-    requestAnimationFrame(() => requestAnimationFrame(actualizarPanelsTop));
-
-    new ResizeObserver(actualizarPanelsTop)
-        .observe(document.getElementById('stickySearchBar'));
-
-    window.addEventListener('resize', actualizarPanelsTop);
     CarritoApp.init();
+
+    // doble rAF: espera que AdminLTE termine su layout inicial antes de medir
+    requestAnimationFrame(() => requestAnimationFrame(fijarPaneles));
+
+    // Recalcular cuando cambia el alto de la search bar (tags de filtros)
+    new ResizeObserver(fijarPaneles).observe(document.getElementById('stickySearchBar'));
+
+    // Recalcular en resize de ventana
+    window.addEventListener('resize', fijarPaneles);
 });
 
-// Por si AdminLTE termina de renderizar después del DOMContentLoaded
-window.addEventListener('load', actualizarPanelsTop);
+// Recalcular después de que carguen todos los recursos (AdminLTE puede terminar tarde)
+window.addEventListener('load', fijarPaneles);
 </script>
 
 <?php
