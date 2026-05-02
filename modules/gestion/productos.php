@@ -287,6 +287,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <input type="text" class="form-control form-control-sm" id="garantia"
                                                     name="garantia" maxlength="50">
                                             </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check form-switch mt-4">
+                                                    <input class="form-check-input" type="checkbox" role="switch" 
+                                                        id="controla_stock" name="controla_stock" value="1" checked>
+                                                    <label class="form-check-label" for="controla_stock">
+                                                        <i class="fas fa-boxes me-1"></i>Controla Stock
+                                                    </label>
+                                                    <div class="form-text">Si está activado, el producto controlará inventario</div>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="row g-2 mt-1">
                                             <div class="col-md-6">
@@ -2949,6 +2959,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#peso').val(res.peso || '');
                     $('#dimensiones').val(res.dimensiones || '');
                     $('#garantia').val(res.garantia || '');
+                    $('#controla_stock').prop('checked', res.controla_stock == 1);  // <--- AGREGAR
 
                     cargarTiposProducto();
                     cargarCategoriasProducto();
@@ -2990,6 +3001,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
             $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
             $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
+            $('#controla_stock').prop('checked', true);  // <--- AGREGAR
 
             if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
                 $('#tablaCompatibilidad').DataTable().destroy();
@@ -3059,6 +3071,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     peso: $('#peso').val(),
                     dimensiones: $('#dimensiones').val(),
                     garantia: $('#garantia').val(),
+                    controla_stock: $('#controla_stock').is(':checked') ? 1 : 0,  // <--- AGREGAR ESTA LÍNEA
                     empresa_idx: empresa_idx,
                     pagina_idx: pagina_idx
                 },

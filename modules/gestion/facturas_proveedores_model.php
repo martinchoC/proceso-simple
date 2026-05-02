@@ -154,6 +154,10 @@ function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, 
 {
     $factura_proveedor_id = intval($factura_proveedor_id);
     $pagina_id = intval($pagina_id);
+    
+    // LOG: Inicio de ejecución
+    error_log("=== ejecutarTransicionEstado INICIO ===");
+    error_log("factura_proveedor_id: $factura_proveedor_id, accion_js: $accion_js");
 
     $sql_check = "SELECT factura_proveedor_id, tabla_estado_registro_id 
                   FROM gestion__facturas_proveedores 
@@ -172,6 +176,7 @@ function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, 
         return ['success' => false, 'error' => 'Registro no encontrado'];
 
     $estado_actual_id = $factura['tabla_estado_registro_id'];
+    error_log("Estado actual ID: $estado_actual_id");
 
     $sql_funcion = "SELECT pf.* 
                     FROM conf__paginas_funciones pf
@@ -194,6 +199,7 @@ function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, 
         return ['success' => false, 'error' => 'Acción no permitida para este estado'];
 
     $estado_destino_id = $funcion['tabla_estado_registro_destino_id'];
+    error_log("Estado destino ID: $estado_destino_id");
 
     if ($estado_destino_id == $estado_actual_id) {
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
@@ -204,37 +210,41 @@ function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, 
     
     try {
         // Actualizar estado
-        $sql_update = "UPDATE gestion__facturas_proveedores 
-                       SET tabla_estado_registro_id = ? 
-                       WHERE factura_proveedor_id = ?";
-
+        $sql_update = "UPDATE gestion__facturas_proveedores SET tabla_estado_registro_id = ? WHERE factura_proveedor_id = ?";
         $stmt = mysqli_prepare($conexion, $sql_update);
-        if (!$stmt) {
-            throw new Exception('Error en la consulta de actualización');
-        }
-
         mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $factura_proveedor_id);
-        $success = mysqli_stmt_execute($stmt);
+        mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
 
-        if (!$success) {
-            throw new Exception('Error al actualizar el estado');
-        }
-        
-        // Registrar movimiento de stock si corresponde
-        $stock_result = registrarStockPorConfirmacion($conexion, $factura_proveedor_id, $estado_destino_id, $estado_actual_id);
-        
-        if (!$stock_result['success']) {
-            throw new Exception('Error al registrar stock: ' . $stock_result['message']);
-        }
-        
-        syncComprobante($conexion, [
-            'tabla_origen_id' => '84',
+        // Primero obtener/crear el comprobante asociado
+        $comprobante_id = syncComprobante($conexion, [
+            'tabla_origen_id' => 84,
             'registro_origen_id' => $factura_proveedor_id,
             'tabla_estado_registro_id' => $estado_destino_id
         ]);
 
+        if (!$comprobante_id) {
+            throw new Exception('No se pudo obtener/crear el comprobante');
+        }
 
+        // Obtener el tipo de comprobante desde la factura o desde la tabla de comprobantes
+        $sql_tipo = "SELECT comprobante_tipo_id FROM gestion__facturas_proveedores WHERE factura_proveedor_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_tipo);
+        mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+        $comprobante_tipo_id = $row['comprobante_tipo_id'] ?? 84;
+
+        // Verificar si el estado destino es CONFIRMADO (o el que corresponda)
+        $estado_info = obtenerInfoEstado($conexion, $estado_destino_id);
+        if ($estado_info && $estado_info['codigo_estandar'] === 'CONFIRMADO') {            
+            $stock_result = registrarStockPorConfirmacion($conexion, $factura_proveedor_id, $comprobante_id, $comprobante_tipo_id);
+            if (!$stock_result['success']) {
+                throw new Exception('Error al registrar stock: ' . $stock_result['message']);
+            }
+        }
 
         mysqli_commit($conexion);
         return ['success' => true, 'message' => 'Estado actualizado y stock registrado correctamente'];
@@ -712,9 +722,30 @@ function editarFacturaProveedor($conexion, $id, $data)
     }
 }
 
-function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx)
-{
+function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx = null){
     $id = intval($id);
+    
+    // Si no se pasa empresa_idx, obtenerlo de la factura primero
+    if ($empresa_idx === null) {
+        $sql_get_empresa = "SELECT empresa_id FROM gestion__facturas_proveedores WHERE factura_proveedor_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_get_empresa);
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "i", $id);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $row = mysqli_fetch_assoc($result);
+            mysqli_stmt_close($stmt);
+            if ($row) {
+                $empresa_idx = $row['empresa_id'];
+            } else {
+                error_log("Factura ID $id no encontrada para obtener empresa_idx");
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+    
     $empresa_idx = intval($empresa_idx);
 
     $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
@@ -759,12 +790,11 @@ function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_close($stmt);
 
     if (!$factura) {
+        error_log("Factura no encontrada para ID: $id, empresa: $empresa_idx");
         return null;
     }
     
-    error_log("Factura cargada - ID: $id, descuento_general_pct: " . ($factura['descuento_general_pct'] ?? 'null'));
-    
-    // Consulta para obtener los detalles con todos los campos
+    // Consulta para obtener los detalles
     $sql_detalles = "SELECT d.*, p.producto_codigo, p.producto_nombre,
                             p.iva_alicuota_id as producto_iva_id,
                             pp.codigo_proveedor
@@ -787,17 +817,13 @@ function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx)
 
     $detalles = [];
     while ($detalle = mysqli_fetch_assoc($result)) {
-        // Log para depuración
-        error_log("Detalle cargado - ID: " . $detalle['factura_proveedor_detalle_id'] . 
-                  ", descuento_item_pct: " . ($detalle['descuento_item_pct'] ?? 0) .
-                  ", descuento_general_pct: " . ($detalle['descuento_general_pct'] ?? 0));
-        
         $detalles[] = [
             'factura_proveedor_detalle_id' => intval($detalle['factura_proveedor_detalle_id']),
             'producto_id' => intval($detalle['producto_id']),
             'producto_nombre' => $detalle['producto_nombre'] . ' (' . $detalle['producto_codigo'] . ')',
             'cantidad' => floatval($detalle['cantidad']),
             'precio_unitario' => floatval($detalle['precio_unitario']),
+            'precio_unitario_neto' => floatval($detalle['precio_unitario_neto'] ?? 0),  // NUEVO
             'descuento_item_pct' => floatval($detalle['descuento_item_pct'] ?? 0),
             'descuento_general_pct' => floatval($detalle['descuento_general_pct'] ?? 0),
             'descuento_item' => floatval($detalle['descuento_item'] ?? 0),
@@ -817,8 +843,6 @@ function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_close($stmt);
 
     $factura['detalles'] = $detalles;
-    error_log("Total detalles cargados: " . count($detalles));
-    
     return $factura;
 }
 
@@ -1283,7 +1307,7 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         $descuento_item_pct = floatval($detalle['descuento_item_pct'] ?? 0);
         $descuento_general_pct = floatval($detalle['descuento_general_pct'] ?? 0);
         
-        $precio_unitario_bruto = $precio_unitario; // Precio sin descuentos
+        $precio_unitario_bruto = $precio_unitario;
         $descuento_item = $cantidad * $precio_unitario * ($descuento_item_pct / 100);
         $descuento_general = ($cantidad * $precio_unitario - $descuento_item) * ($descuento_general_pct / 100);
         $descuento_total = $descuento_item + $descuento_general;
@@ -1291,45 +1315,58 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         $neto_gravado = ($cantidad * $precio_unitario) - $descuento_total;
         $no_gravado = floatval($detalle['no_gravado'] ?? 0);
         $exento = floatval($detalle['exento'] ?? 0);
+        
+        // CALCULAR PRECIO UNITARIO NETO (valor final por unidad)
+        // precio_unitario_neto = (neto_gravado + no_gravado + exento) / cantidad
+        $precio_unitario_neto = ($neto_gravado + $no_gravado + $exento) / $cantidad;
+        
         $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 0;
         $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
         $iva_importe = $neto_gravado * ($iva_porcentaje / 100);
         $total_linea = $neto_gravado + $iva_importe + $no_gravado + $exento;
         
-        // Insertar detalle con todos los campos
+        // Insertar detalle con todos los campos (incluyendo precio_unitario_neto)
         $sql = "INSERT INTO gestion__facturas_proveedores_detalle 
-                (factura_proveedor_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
-                 precio_unitario, descuento_item_pct, descuento_general_pct, 
-                 precio_unitario_bruto, descuento, descuento_general, descuento_item,
-                 neto_gravado, no_gravado, exento, 
-                 iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
-                VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            (factura_proveedor_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
+            precio_unitario, precio_unitario_neto, descuento_item_pct, descuento_general_pct, 
+            precio_unitario_bruto, descuento, descuento_general, descuento_item,
+            neto_gravado, no_gravado, exento, 
+            iva_alicuota_id, iva_porcentaje, iva_importe, total_linea) 
+            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
-        $stmt = mysqli_prepare($conexion, $sql);
+         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
             error_log("Error preparando insert detalle: " . mysqli_error($conexion));
             return false;
         }
-        //9, 2, 5470, 1.0, 100.0, 0.0, 20.0, 100.0, 20.0, 20.0, 0.0, 80.0, 0.0, 0.0, 1, 21.0, 16.8, 96.8
-        mysqli_stmt_bind_param($stmt, "iiidddddddddddiddd",
-            $factura_proveedor_id,
-            $empresa_id,
-            $detalle['producto_id'],
-            $cantidad,
-            $precio_unitario,
-            $descuento_item_pct,
-            $descuento_general_pct,
-            $precio_unitario_bruto,
-            $descuento_total,        // descuento total (item + general)
-            $descuento_general,       // descuento general monto
-            $descuento_item,          // descuento item monto
-            $neto_gravado,
-            $no_gravado,
-            $exento,
-            $iva_alicuota_id,
-            $iva_porcentaje,
-            $iva_importe,
-            $total_linea
+
+        // Tipos: 3 integers + 16 doubles = 19 caracteres
+        // "i i d d d d d d d d d d d d d i d d d"
+        // "i i d d d d d d d d d d d d d i d d d" = 19
+        $types = "iiidddddddddddddddd";
+        // Posiciones: 1,2,3 = i, luego 4-16 = d? No, revisemos...
+        // Mejor usar la forma explícita:
+
+        mysqli_stmt_bind_param($stmt, "iiidddddddddddddddd", 
+            $factura_proveedor_id,  // 1 - i
+            $empresa_id,            // 2 - i
+            $detalle['producto_id'], // 3 - i
+            $cantidad,              // 4 - d
+            $precio_unitario,       // 5 - d (corresponde a posición 6 en VALUES)
+            $precio_unitario_neto,  // 6 - d (posición 7)
+            $descuento_item_pct,    // 7 - d (posición 8)
+            $descuento_general_pct, // 8 - d (posición 9)
+            $precio_unitario_bruto, // 9 - d (posición 10)
+            $descuento_total,       // 10 - d (posición 11)
+            $descuento_general,     // 11 - d (posición 12)
+            $descuento_item,        // 12 - d (posición 13)
+            $neto_gravado,          // 13 - d (posición 14)
+            $no_gravado,            // 14 - d (posición 15)
+            $exento,                // 15 - d (posición 16)
+            $iva_alicuota_id,       // 16 - i (posición 17)
+            $iva_porcentaje,        // 17 - d (posición 18)
+            $iva_importe,           // 18 - d (posición 19)
+            $total_linea            // 19 - d (posición 20)
         );
         
         if (!mysqli_stmt_execute($stmt)) {
@@ -1340,7 +1377,7 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         }
         
         $detalle_id = mysqli_insert_id($conexion);
-        error_log("Detalle $index insertado con ID: " . $detalle_id);
+        error_log("Detalle $index insertado con ID: $detalle_id, precio_unitario_neto: $precio_unitario_neto");
         $insertados++;
         mysqli_stmt_close($stmt);
     }
@@ -1404,46 +1441,41 @@ function obtenerCondicionesProveedor($conexion, $entidad_id, $empresa_idx) {
 }
 // Agregar al final del archivo, antes del último 
 
-function registrarStockPorConfirmacion($conexion, $factura_proveedor_id, $estado_nuevo_id, $estado_anterior_id) {
-    // Verificar si es un estado de confirmación (CERRADO o similar)
-    // Buscar el estado con codigo_estandar = 'CERRADO'
-    $sql_estado = "SELECT estado_registro_id, codigo_estandar 
-                   FROM conf__estados_registros 
-                   WHERE estado_registro_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_estado);
-    if (!$stmt) {
-        return ['success' => false, 'message' => 'Error al consultar estado'];
-    }
-    mysqli_stmt_bind_param($stmt, "i", $estado_nuevo_id);
+function registrarStockPorConfirmacion($conexion, $factura_proveedor_id, $comprobante_id, $comprobante_tipo_id) {
+    error_log("=== registrarStockPorConfirmacion INICIO ===");
+    error_log("factura_id: $factura_proveedor_id, comprobante_id: $comprobante_id, comprobante_tipo_id: $comprobante_tipo_id");
+    
+    // 1. Obtener datos de la factura
+    $sql_factura = "SELECT fp.empresa_id, fp.sucursal_id, fp.deposito_id,
+                           fp.comprobante_pv, fp.comprobante_nro
+                    FROM gestion__facturas_proveedores fp
+                    WHERE fp.factura_proveedor_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_factura);
+    mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $estado_info = mysqli_fetch_assoc($result);
+    $factura = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
     
-    // Si el estado nuevo NO es CERRADO, no hacer nada
-    if (!$estado_info || $estado_info['codigo_estandar'] !== 'CERRADO') {
-        return ['success' => true, 'message' => 'No se requiere registro de stock'];
-    }
-    
-    // Obtener datos de la factura
-    $factura = obtenerFacturaProveedorPorId($conexion, $factura_proveedor_id, null);
     if (!$factura) {
+        error_log("Factura no encontrada");
         return ['success' => false, 'message' => 'Factura no encontrada'];
     }
     
-    // Verificar que tenga depósito asignado
     if (empty($factura['deposito_id'])) {
+        error_log("La factura no tiene depósito asignado");
         return ['success' => false, 'message' => 'La factura no tiene un depósito asignado'];
     }
     
-    // Obtener los detalles de la factura
-    $sql_detalles = "SELECT d.*, p.iva_alicuota_id
+    $empresa_id = intval($factura['empresa_id']);
+    $sucursal_id = intval($factura['sucursal_id']);
+    $deposito_id = intval($factura['deposito_id']);
+    
+    // 2. Obtener detalles de la factura (incluyendo precio_unitario_neto)
+    $sql_detalles = "SELECT d.producto_id, d.cantidad, d.precio_unitario_neto
                      FROM gestion__facturas_proveedores_detalle d
                      WHERE d.factura_proveedor_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_detalles);
-    if (!$stmt) {
-        return ['success' => false, 'message' => 'Error al obtener detalles'];
-    }
     mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
@@ -1454,70 +1486,64 @@ function registrarStockPorConfirmacion($conexion, $factura_proveedor_id, $estado
     mysqli_stmt_close($stmt);
     
     if (empty($detalles)) {
-        return ['success' => false, 'message' => 'La factura no tiene productos para ingresar a stock'];
+        error_log("La factura no tiene productos");
+        return ['success' => false, 'message' => 'La factura no tiene productos'];
     }
     
-    // Iniciar transacción
+    // INICIAR TRANSACCIÓN
     mysqli_begin_transaction($conexion);
     
     try {
-        // 1. Crear movimiento de stock cabecera
-        $sql_movimiento = "INSERT INTO gestion__stock_movimientos 
-                           (empresa_id, sucursal_id, comprobante_tipo_id, comprobante_id, 
-                            stock_movimiento_tipo_id, fecha, descripcion, tabla_estado_registro_id) 
-                           VALUES (?, ?, ?, ?, 1, ?, ?, 1)";
-        // stock_movimiento_tipo_id = 1 (Ingreso por compra)
-        
-        $stmt = mysqli_prepare($conexion, $sql_movimiento);
-        if (!$stmt) {
-            throw new Exception("Error preparando insert movimiento: " . mysqli_error($conexion));
-        }
-        
-        $empresa_id = intval($factura['empresa_id'] ?? 0);
-        $sucursal_id = intval($factura['sucursal_id'] ?? 0);
-        $comprobante_tipo_id = intval($factura['comprobante_tipo_id'] ?? 0);
-        $comprobante_id = $factura_proveedor_id;
         $fecha = date('Y-m-d H:i:s');
         $descripcion = "Ingreso por compra - Factura N° " . ($factura['comprobante_pv'] ?? '') . '-' . ($factura['comprobante_nro'] ?? '');
         
-        mysqli_stmt_bind_param($stmt, "iiiiss", 
+        // ============================================================
+        // 3. INSERTAR CABECERA DEL MOVIMIENTO DE STOCK
+        // ============================================================
+        $sql_movimiento = "INSERT INTO gestion__stock_movimientos 
+                           (empresa_id, sucursal_id, deposito_id, comprobante_tipo_id, comprobante_id, 
+                            stock_movimiento_tipo_id, fecha, descripcion, tabla_estado_registro_id) 
+                           VALUES (?, ?, ?, ?, ?, 1, ?, ?, 1)";
+        
+        $stmt = mysqli_prepare($conexion, $sql_movimiento);
+        mysqli_stmt_bind_param($stmt, "iiiiiss", 
             $empresa_id, 
             $sucursal_id, 
+            $deposito_id, 
             $comprobante_tipo_id, 
             $comprobante_id, 
             $fecha, 
             $descripcion
         );
-        
-        if (!mysqli_stmt_execute($stmt)) {
-            throw new Exception("Error insertando movimiento: " . mysqli_stmt_error($stmt));
-        }
-        
+        mysqli_stmt_execute($stmt);
         $stock_movimiento_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
+        error_log("Movimiento de stock creado ID: $stock_movimiento_id");
         
-        // 2. Procesar cada detalle
+        // ============================================================
+        // 4. PROCESAR CADA DETALLE
+        // ============================================================
         foreach ($detalles as $detalle) {
             $producto_id = intval($detalle['producto_id']);
             $cantidad = floatval($detalle['cantidad']);
-            $costo_unitario = floatval($detalle['precio_unitario']);
+            
+            // USAR precio_unitario_neto como costo_unitario
+            $costo_unitario = floatval($detalle['precio_unitario_neto'] ?? 0);
             $costo_total = $cantidad * $costo_unitario;
-            $deposito_id = intval($factura['deposito_id']);
             
             if ($cantidad <= 0) {
+                error_log("Cantidad inválida para producto $producto_id, saltando...");
                 continue;
             }
             
-            // Insertar detalle de movimiento
+            error_log("Producto $producto_id: cantidad=$cantidad, costo_unitario (precio_unitario_neto)=$costo_unitario, costo_total=$costo_total");
+            
+            // 4a. Insertar DETALLE del movimiento de stock
             $sql_detalle_mov = "INSERT INTO gestion__stock_movimientos_detalles 
                                 (stock_movimiento_id, producto_id, cantidad, costo_unitario, costo_total, deposito_id, tabla_estado_registro_id) 
                                 VALUES (?, ?, ?, ?, ?, ?, 1)";
             
             $stmt = mysqli_prepare($conexion, $sql_detalle_mov);
-            if (!$stmt) {
-                throw new Exception("Error preparando insert detalle movimiento: " . mysqli_error($conexion));
-            }
-            
             mysqli_stmt_bind_param($stmt, "iidddi", 
                 $stock_movimiento_id, 
                 $producto_id, 
@@ -1526,73 +1552,80 @@ function registrarStockPorConfirmacion($conexion, $factura_proveedor_id, $estado
                 $costo_total, 
                 $deposito_id
             );
-            
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Error insertando detalle movimiento: " . mysqli_stmt_error($stmt));
-            }
+            mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
+            error_log("Detalle movimiento insertado para producto $producto_id");
             
-            // 3. Actualizar tabla de stock
-            $sql_stock = "INSERT INTO gestion__stock 
-                          (empresa_id, sucursal_id, producto_id, deposito_id, cantidad, costo_promedio) 
-                          VALUES (?, ?, ?, ?, ?, ?)
-                          ON DUPLICATE KEY UPDATE 
-                          cantidad = cantidad + VALUES(cantidad),
-                          costo_promedio = (costo_promedio * (cantidad - VALUES(cantidad)) + VALUES(costo_total)) / (cantidad)";
-            
-            $stmt = mysqli_prepare($conexion, $sql_stock);
-            if (!$stmt) {
-                throw new Exception("Error preparando update stock: " . mysqli_error($conexion));
-            }
-            
-            // Calcular nuevo costo promedio
-            // Primero obtener stock actual
+            // 4b. ACTUALIZAR TABLA DE STOCK (gestion__stock)
+            // Primero obtener el stock actual si existe
             $sql_stock_actual = "SELECT cantidad, costo_promedio 
                                  FROM gestion__stock 
-                                 WHERE empresa_id = ? AND sucursal_id = ? AND producto_id = ? AND deposito_id = ?";
-            $stmt_actual = mysqli_prepare($conexion, $sql_stock_actual);
-            mysqli_stmt_bind_param($stmt_actual, "iiii", $empresa_id, $sucursal_id, $producto_id, $deposito_id);
-            mysqli_stmt_execute($stmt_actual);
-            $result_actual = mysqli_stmt_get_result($stmt_actual);
-            $stock_actual = mysqli_fetch_assoc($result_actual);
-            mysqli_stmt_close($stmt_actual);
-            
-            $nuevo_costo_promedio = $costo_unitario;
-            
-            if ($stock_actual && $stock_actual['cantidad'] > 0) {
-                $stock_anterior_cantidad = floatval($stock_actual['cantidad']);
-                $stock_anterior_costo_promedio = floatval($stock_actual['costo_promedio']);
-                $valor_total_anterior = $stock_anterior_cantidad * $stock_anterior_costo_promedio;
-                $valor_total_nuevo = $costo_total;
-                $nueva_cantidad_total = $stock_anterior_cantidad + $cantidad;
-                $nuevo_costo_promedio = ($valor_total_anterior + $valor_total_nuevo) / $nueva_cantidad_total;
-            }
-            
-            mysqli_stmt_bind_param($stmt, "iiiiidd", 
-                $empresa_id, 
-                $sucursal_id, 
-                $producto_id, 
-                $deposito_id, 
-                $cantidad, 
-                $nuevo_costo_promedio
-            );
-            
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Error actualizando stock: " . mysqli_stmt_error($stmt));
-            }
+                                 WHERE empresa_id = ? AND sucursal_id = ? AND deposito_id = ? AND producto_id = ?";
+            $stmt = mysqli_prepare($conexion, $sql_stock_actual);
+            mysqli_stmt_bind_param($stmt, "iiii", $empresa_id, $sucursal_id, $deposito_id, $producto_id);
+            mysqli_stmt_execute($stmt);
+            $result_stock = mysqli_stmt_get_result($stmt);
+            $stock_actual = mysqli_fetch_assoc($result_stock);
             mysqli_stmt_close($stmt);
+            
+            if ($stock_actual) {
+                // Existe stock previo - actualizar
+                $cantidad_anterior = floatval($stock_actual['cantidad']);
+                $costo_promedio_anterior = floatval($stock_actual['costo_promedio']);
+                
+                $nueva_cantidad = $cantidad_anterior + $cantidad;
+                // Nuevo costo promedio = (stock_anterior * costo_promedio_anterior + costo_total_entrada) / nueva_cantidad
+                $nuevo_costo_promedio = ($cantidad_anterior * $costo_promedio_anterior + $costo_total) / $nueva_cantidad;
+                
+                $sql_update_stock = "UPDATE gestion__stock 
+                                     SET cantidad = ?,
+                                         costo_promedio = ?,
+                                         costo_ultima_compra = ?
+                                     WHERE empresa_id = ? AND sucursal_id = ? AND deposito_id = ? AND producto_id = ?";
+                $stmt = mysqli_prepare($conexion, $sql_update_stock);
+                mysqli_stmt_bind_param($stmt, "dddiiii", 
+                    $nueva_cantidad, 
+                    $nuevo_costo_promedio, 
+                    $costo_unitario,
+                    $empresa_id, 
+                    $sucursal_id, 
+                    $deposito_id, 
+                    $producto_id
+                );
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+                error_log("Stock actualizado para producto $producto_id: nueva_cantidad=$nueva_cantidad, nuevo_promedio=$nuevo_costo_promedio");
+            } else {
+                // No existe stock previo - insertar nuevo registro
+                $sql_insert_stock = "INSERT INTO gestion__stock 
+                                    (empresa_id, sucursal_id, deposito_id, producto_id, cantidad, costo_promedio, costo_ultima_compra) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)";
+                $stmt = mysqli_prepare($conexion, $sql_insert_stock);
+                mysqli_stmt_bind_param($stmt, "iiiiddd", 
+                    $empresa_id, 
+                    $sucursal_id, 
+                    $deposito_id, 
+                    $producto_id, 
+                    $cantidad, 
+                    $costo_unitario, 
+                    $costo_unitario
+                );
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+                error_log("Nuevo registro de stock para producto $producto_id: cantidad=$cantidad, costo=$costo_unitario");
+            }
         }
         
         mysqli_commit($conexion);
+        error_log("=== registrarStockPorConfirmacion EXITO ===");
         return ['success' => true, 'message' => 'Stock registrado correctamente', 'movimiento_id' => $stock_movimiento_id];
         
     } catch (Exception $e) {
         mysqli_rollback($conexion);
-        error_log("Error en registrarStockPorConfirmacion: " . $e->getMessage());
+        error_log("ERROR en registrarStockPorConfirmacion: " . $e->getMessage());
         return ['success' => false, 'message' => $e->getMessage()];
     }
 }
-
 function obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx) {
     $sql = "SELECT deposito_id, deposito_nombre, codigo, es_principal, permite_ingresos
             FROM gestion__depositos 
@@ -1685,6 +1718,7 @@ function syncComprobante($conexion, $data) {
         }
         
         $comprobante_id = $existe['comprobante_id'];
+         
         
         // Asignar valores a variables individuales para bind_param
         $empresa_id_val = $empresa_id;
@@ -1727,6 +1761,7 @@ function syncComprobante($conexion, $data) {
         
         mysqli_stmt_close($stmt_update);
         error_log("Comprobante actualizado ID: " . $comprobante_id);
+        return $comprobante_id;  // RETORNAR EL ID
         
     } else {
         // INSERT
@@ -1793,6 +1828,7 @@ function syncComprobante($conexion, $data) {
         $nuevo_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt_insert);
         error_log("Comprobante creado ID: " . $nuevo_id);
+        return $nuevo_id;  // RETORNAR EL ID
     }
 }
 

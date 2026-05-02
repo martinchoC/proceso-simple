@@ -98,6 +98,7 @@ try {
                 'garantia' => trim($_POST['garantia'] ?? ''),
                 'cont_cuenta_id' => !empty($_POST['cont_cuenta_id']) ? intval($_POST['cont_cuenta_id']) : null,
                 'iva_alicuota_id' => $_POST['iva_alicuota_id'] !== '' ? $_POST['iva_alicuota_id'] : null,
+                'controla_stock' => isset($_POST['controla_stock']) ? 1 : 0,  // <--- AGREGAR
                 'pagina_idx' => $pagina_idx
             ];
 
@@ -123,6 +124,7 @@ try {
                 'garantia' => trim($_POST['garantia'] ?? ''),
                 'cont_cuenta_id' => !empty($_POST['cont_cuenta_id']) ? intval($_POST['cont_cuenta_id']) : null,
                 'iva_alicuota_id' => $_POST['iva_alicuota_id'] !== '' ? $_POST['iva_alicuota_id'] : null,
+                'controla_stock' => isset($_POST['controla_stock']) ? 1 : 0,  // <--- AGREGAR
                 'empresa_idx' => $empresa_idx
             ];
 
