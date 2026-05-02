@@ -187,94 +187,16 @@ switch ($accion) {
         ]);
         break;
 
-    case 'obtener_destinatarios':
-        $empresa_id = intval($_REQUEST['empresa_id'] ?? 0);
-        if ($empresa_id <= 0) {
-            echo json_encode(['resultado' => false, 'error' => 'empresa_id inválido.']);
-            break;
-        }
-
-        $sucursales = [];
-        $sql_suc = "SELECT sucursal_id, sucursal_nombre
-                    FROM gestion__sucursales
-                    WHERE empresa_id = $empresa_id
-                      AND tabla_estado_registro_id = 1
-                    ORDER BY sucursal_nombre";
-        $res_suc = mysqli_query($conexion, $sql_suc);
-        while ($row = mysqli_fetch_assoc($res_suc)) {
-            $sucursales[] = [
-                'id'     => intval($row['sucursal_id']),
-                'nombre' => $row['sucursal_nombre'],
-            ];
-        }
-
-        $clientes = [];
-        $sql_cli = "SELECT entidad_id, entidad_nombre
-                    FROM gestion__entidades
-                    WHERE empresa_id = $empresa_id
-                      AND es_cliente = 1
-                      AND tabla_estado_registro_id = 1
-                    ORDER BY entidad_nombre";
-        $res_cli = mysqli_query($conexion, $sql_cli);
-        while ($row = mysqli_fetch_assoc($res_cli)) {
-            $clientes[] = [
-                'id'     => intval($row['entidad_id']),
-                'nombre' => $row['entidad_nombre'],
-            ];
-        }
-
-        echo json_encode([
-            'resultado'  => true,
-            'sucursales' => $sucursales,
-            'clientes'   => $clientes,
-        ]);
-        break;
-
     case 'guardar_pedido_carrito':
         $detalles_json = $_POST['detalles'] ?? '[]';
         $detalles      = json_decode($detalles_json, true);
-        $usuario_id    = intval($_SESSION['usuario_id'] ?? 0);
+        $usuario_id    = intval($_SESSION['usuario_id'] ?? 1);
         $empresa_id    = intval($_POST['empresa_id'] ?? 0);
-        $sucursal_id   = intval($_POST['sucursal_id'] ?? 0);
-        $entidad_id    = intval($_POST['entidad_id'] ?? 0);
+        $sucursal_id   = 1;
         $moneda_id     = 1;
 
-        if ($usuario_id <= 0) {
-            echo json_encode(['resultado' => false, 'error' => 'Sesión expirada. Iniciá sesión nuevamente.']);
-            break;
-        }
-        if ($empresa_id <= 0) {
-            echo json_encode(['resultado' => false, 'error' => 'Empresa inválida.']);
-            break;
-        }
         if (empty($detalles)) {
             echo json_encode(['resultado' => false, 'error' => 'El carrito está vacío.']);
-            break;
-        }
-        if ($sucursal_id <= 0) {
-            echo json_encode(['resultado' => false, 'error' => 'Seleccioná una sucursal.']);
-            break;
-        }
-        if ($entidad_id <= 0) {
-            echo json_encode(['resultado' => false, 'error' => 'Seleccioná un cliente.']);
-            break;
-        }
-
-        // Validar que sucursal y cliente pertenezcan a la empresa
-        $chk_suc = mysqli_query($conexion,
-            "SELECT 1 FROM gestion__sucursales
-             WHERE sucursal_id = $sucursal_id AND empresa_id = $empresa_id
-               AND tabla_estado_registro_id = 1 LIMIT 1");
-        if (!$chk_suc || !mysqli_num_rows($chk_suc)) {
-            echo json_encode(['resultado' => false, 'error' => 'La sucursal no pertenece a la empresa.']);
-            break;
-        }
-        $chk_cli = mysqli_query($conexion,
-            "SELECT 1 FROM gestion__entidades
-             WHERE entidad_id = $entidad_id AND empresa_id = $empresa_id
-               AND es_cliente = 1 AND tabla_estado_registro_id = 1 LIMIT 1");
-        if (!$chk_cli || !mysqli_num_rows($chk_cli)) {
-            echo json_encode(['resultado' => false, 'error' => 'El cliente no pertenece a la empresa.']);
             break;
         }
 
@@ -332,7 +254,7 @@ switch ($accion) {
                                 subtotal, total_impuestos, total,
                                 usuario_id, tabla_estado_registro_id)
                            VALUES
-                               ($empresa_id, $sucursal_id, 0, $entidad_id,
+                               ($empresa_id, $sucursal_id, 0, 0,
                                 '$fecha_pedido', $moneda_id, 1.000000,
                                 $subtotal_total, $total_impuestos, $total_general,
                                 $usuario_id, 1)";

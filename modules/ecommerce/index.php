@@ -314,20 +314,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <small>Agrega productos para comenzar</small>
                             </div>
                             <div class="cart-items-container" id="contenedorCarrito" style="display:none"></div>
-                            <div class="cart-destinatarios px-3 pt-2">
-                                <div class="mb-2">
-                                    <label for="selSucursal" class="form-label small mb-1 fw-semibold text-muted">Sucursal</label>
-                                    <select id="selSucursal" class="form-select form-select-sm">
-                                        <option value="">Cargando…</option>
-                                    </select>
-                                </div>
-                                <div class="mb-2">
-                                    <label for="selCliente" class="form-label small mb-1 fw-semibold text-muted">Cliente</label>
-                                    <select id="selCliente" class="form-select form-select-sm">
-                                        <option value="">Cargando…</option>
-                                    </select>
-                                </div>
-                            </div>
                             <div class="cart-summary">
                                 <div class="summary-row">
                                     <span>Subtotal</span>
@@ -382,24 +368,7 @@ const CarritoApp = {
 
     init() {
         this.cargarProductos();
-        this.cargarDestinatarios();
         this.bindEvents();
-    },
-
-    cargarDestinatarios() {
-        $.getJSON(CARRITO_AJAX_URL, { accion: 'obtener_destinatarios', empresa_id: EMPRESA_ID }, res => {
-            const selSuc = document.getElementById('selSucursal');
-            const selCli = document.getElementById('selCliente');
-            if (!res || !res.resultado) {
-                selSuc.innerHTML = '<option value="">Sin sucursales</option>';
-                selCli.innerHTML = '<option value="">Sin clientes</option>';
-                return;
-            }
-            selSuc.innerHTML = '<option value="">Seleccionar sucursal…</option>' +
-                res.sucursales.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
-            selCli.innerHTML = '<option value="">Seleccionar cliente…</option>' +
-                res.clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-        });
     },
 
     bindEvents() {
@@ -862,12 +831,6 @@ const CarritoApp = {
 
     procesarCompra() {
         if (!this.carrito.length) return;
-
-        const sucursalId = parseInt(document.getElementById('selSucursal').value, 10) || 0;
-        const entidadId  = parseInt(document.getElementById('selCliente').value,  10) || 0;
-        if (!sucursalId) { Swal.fire('Falta sucursal', 'Seleccioná una sucursal.', 'warning'); return; }
-        if (!entidadId)  { Swal.fire('Falta cliente',  'Seleccioná un cliente.',  'warning'); return; }
-
         Swal.fire({
             title: '¿Confirmar Pedido?',
             text: 'Se generará un comprobante con los productos del carrito.',
@@ -879,13 +842,7 @@ const CarritoApp = {
             Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             $.ajax({
                 url: CARRITO_AJAX_URL, type: 'POST',
-                data: {
-                    accion:       'guardar_pedido_carrito',
-                    empresa_id:   EMPRESA_ID,
-                    sucursal_id:  sucursalId,
-                    entidad_id:   entidadId,
-                    detalles:     JSON.stringify(this.carrito)
-                },
+                data: { accion: 'guardar_pedido_carrito', empresa_id: EMPRESA_ID, detalles: JSON.stringify(this.carrito) },
                 dataType: 'json',
                 success: res => {
                     if (res.resultado) {
