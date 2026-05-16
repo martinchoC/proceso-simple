@@ -1614,6 +1614,51 @@ function registrarStockPorConfirmacion($conexion, $factura_proveedor_id, $compro
                 mysqli_stmt_close($stmt);
                 error_log("Nuevo registro de stock para producto $producto_id: cantidad=$cantidad, costo=$costo_unitario");
             }
+            // USAR precio_unitario_neto como costo_unitario
+            $costo_unitario = floatval($detalle['precio_unitario_neto'] ?? 0);
+            $costo_total = $cantidad * $costo_unitario;
+            
+            if ($cantidad <= 0) {
+                error_log("Cantidad inválida para producto $producto_id, saltando...");
+                continue;
+            }
+            
+            error_log("Producto $producto_id: cantidad=$cantidad, costo_unitario (precio_unitario_neto)=$costo_unitario, costo_total=$costo_total");
+            
+            // 4a. Insertar DETALLE del movimiento de stock
+            $sql_detalle_mov = "INSERT INTO gestion__stock_movimientos_detalles 
+                                (stock_movimiento_id, producto_id, cantidad, costo_unitario, costo_total, deposito_id, tabla_estado_registro_id) 
+                                VALUES (?, ?, ?, ?, ?, ?, 1)";
+            
+            $stmt = mysqli_prepare($conexion, $sql_detalle_mov);
+            mysqli_stmt_bind_param($stmt, "iidddi", 
+                $stock_movimiento_id, 
+                $producto_id, 
+                $cantidad, 
+                $costo_unitario, 
+                $costo_total, 
+                $deposito_id
+            );
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+            error_log("Detalle movimiento insertado para producto $producto_id");
+            
+            // 4c. ACTUALIZAR COSTO DEL PRODUCTO
+            $usuario_id_actual = isset($_SESSION['usuario_id']) ? intval($_SESSION['usuario_id']) : 0;
+            
+            $costo_result = actualizarCostosProducto(
+                $conexion, 
+                $producto_id,    // producto_id
+                $empresa_id,     // empresa_id
+                $costo_unitario, // nuevo_costo_unitario
+                $comprobante_id, // comprobante_id
+                $usuario_id_actual  // usuario_id (entero, no string)
+            );
+            
+            if (!$costo_result['success']) {
+                throw new Exception('Error al actualizar costo del producto: ' . $costo_result['message']);
+            }
+            
         }
         
         mysqli_commit($conexion);
@@ -2007,5 +2052,158 @@ function obtenerImpuestosFactura($conexion, $factura_proveedor_id) {
     return $impuestos;
 }
 
-
-?>
+function actualizarCostosProducto($conexion, $producto_id, $empresa_id, $nuevo_costo_unitario, $comprobante_id, $usuario_id = null) {
+    error_log("=== actualizarCostosProducto INICIO ===");
+    error_log("Producto ID: $producto_id, Nuevo costo: $nuevo_costo_unitario, Comprobante ID: $comprobante_id");
+    
+    if ($nuevo_costo_unitario <= 0) {
+        error_log("Costo inválido, no se actualiza");
+        return ['success' => false, 'message' => 'Costo inválido'];
+    }
+    
+    // Origen ID para compras (ajustar según tu BD)
+    $origen_compra_id = 1;
+    
+    // Obtener el costo actual si existe
+    $sql_select = "SELECT costo_actual FROM gestion__productos_costos 
+                   WHERE empresa_id = ? AND producto_id = ? 
+                   AND tabla_estado_registro_id = 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_select);
+    if (!$stmt) {
+        error_log("Error preparando SELECT: " . mysqli_error($conexion));
+        return ['success' => false, 'message' => 'Error en consulta'];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $producto_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    $costo_anterior = $row ? floatval($row['costo_actual']) : null;
+    mysqli_stmt_close($stmt);
+    
+    $fecha_actual = date('Y-m-d');
+    $moneda_id = 1;
+    $creado_por = $usuario_id ?? 0;
+    $estado_registro_id = 1;
+    
+    // INICIAR TRANSACCIÓN
+    mysqli_begin_transaction($conexion);
+    
+    try {
+        // 1. INSERTAR EN HISTORIAL
+        $sql_historial = "INSERT INTO gestion__productos_costos_historial 
+                          (empresa_id, producto_id, costo_anterior, costo_nuevo, moneda_id, 
+                           producto_costo_origen_id, comprobante_id, f_desde, 
+                           tabla_estado_registro_id, creado_por) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt_hist = mysqli_prepare($conexion, $sql_historial);
+        if (!$stmt_hist) {
+            throw new Exception("Error preparando INSERT historial: " . mysqli_error($conexion));
+        }
+        
+        // TODOS los valores deben ser variables, NO literales
+        mysqli_stmt_bind_param($stmt_hist, "iiddiiisii", 
+            $empresa_id,           // i
+            $producto_id,          // i
+            $costo_anterior,       // d (puede ser NULL)
+            $nuevo_costo_unitario, // d
+            $moneda_id,            // i
+            $origen_compra_id,     // i
+            $comprobante_id,       // i
+            $fecha_actual,         // s
+            $estado_registro_id,   // i (variable, no literal 1)
+            $creado_por            // i
+        );
+        
+        if (!mysqli_stmt_execute($stmt_hist)) {
+            throw new Exception("Error ejecutando INSERT historial: " . mysqli_stmt_error($stmt_hist));
+        }
+        mysqli_stmt_close($stmt_hist);
+        error_log("Historial insertado para producto $producto_id");
+        
+        // 2. ACTUALIZAR O INSERTAR EN gestion__productos_costos
+        if ($row) {
+            // Actualizar costo existente
+            $sql_update = "UPDATE gestion__productos_costos 
+                           SET costo_actual = ?, 
+                               moneda_id = ?,
+                               producto_costo_origen_id = ?,
+                               comprobante_id = ?,
+                               f_actualizacion = ?,
+                               observaciones = ?
+                           WHERE empresa_id = ? AND producto_id = ? 
+                           AND tabla_estado_registro_id = 1";
+            
+            $stmt_update = mysqli_prepare($conexion, $sql_update);
+            if (!$stmt_update) {
+                throw new Exception("Error preparando UPDATE costos: " . mysqli_error($conexion));
+            }
+            
+            $observaciones = "Actualizado por compra (comprobante ID: $comprobante_id)";
+            
+            // TODOS los valores como variables
+            mysqli_stmt_bind_param($stmt_update, "diiissii", 
+                $nuevo_costo_unitario,  // d
+                $moneda_id,             // i
+                $origen_compra_id,      // i
+                $comprobante_id,        // i
+                $fecha_actual,          // s
+                $observaciones,         // s
+                $empresa_id,            // i
+                $producto_id            // i
+            );
+            
+            if (!mysqli_stmt_execute($stmt_update)) {
+                throw new Exception("Error ejecutando UPDATE costos: " . mysqli_stmt_error($stmt_update));
+            }
+            mysqli_stmt_close($stmt_update);
+            error_log("Costo actualizado para producto $producto_id: " . ($costo_anterior ?? 'NULL') . " -> $nuevo_costo_unitario");
+            
+        } else {
+            // Insertar nuevo registro de costo
+            $sql_insert = "INSERT INTO gestion__productos_costos 
+                          (empresa_id, producto_id, costo_actual, moneda_id, 
+                           producto_costo_origen_id, comprobante_id, f_actualizacion, 
+                           observaciones, tabla_estado_registro_id, creado_por) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $stmt_insert = mysqli_prepare($conexion, $sql_insert);
+            if (!$stmt_insert) {
+                throw new Exception("Error preparando INSERT costos: " . mysqli_error($conexion));
+            }
+            
+            $observaciones = "Creado (comprobante ID: $comprobante_id)";
+            
+            // TODOS los valores como variables
+            mysqli_stmt_bind_param($stmt_insert, "iidiiissii", 
+                $empresa_id,            // i
+                $producto_id,           // i
+                $nuevo_costo_unitario,  // d
+                $moneda_id,             // i
+                $origen_compra_id,      // i
+                $comprobante_id,        // i
+                $fecha_actual,          // s
+                $observaciones,         // s
+                $estado_registro_id,    // i (variable)
+                $creado_por             // i
+            );
+            
+            if (!mysqli_stmt_execute($stmt_insert)) {
+                throw new Exception("Error ejecutando INSERT costos: " . mysqli_stmt_error($stmt_insert));
+            }
+            mysqli_stmt_close($stmt_insert);
+            error_log("Nuevo registro de costo insertado para producto $producto_id: $nuevo_costo_unitario");
+        }
+        
+        mysqli_commit($conexion);
+        error_log("=== actualizarCostosProducto EXITO ===");
+        return ['success' => true, 'message' => 'Costo actualizado correctamente'];
+        
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        error_log("ERROR en actualizarCostosProducto: " . $e->getMessage());
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}?>
