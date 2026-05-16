@@ -191,6 +191,9 @@ switch ($accion) {
         $detalles_json = $_POST['detalles'] ?? '[]';
         $detalles      = json_decode($detalles_json, true);
         $usuario_id    = intval($_SESSION['usuario_id'] ?? 1);
+        $empresa_id    = intval($_POST['empresa_id'] ?? 0);
+        $sucursal_id   = 1;
+        $moneda_id     = 1;
 
         if (empty($detalles)) {
             echo json_encode(['resultado' => false, 'error' => 'El carrito está vacío.']);
@@ -199,36 +202,91 @@ switch ($accion) {
 
         mysqli_begin_transaction($conexion);
         try {
-            $fecha        = date('Y-m-d H:i:s');
-            $sql_cabecera = "INSERT INTO gestion__comprobantes
-                             (comprobante_tipo_id, sucursal_id, f_comprobante, estado, creado_por, f_creacion)
-                             VALUES (1, 1, '$fecha', 1, $usuario_id, '$fecha')";
+            $fecha_pedido    = date('Y-m-d');
+            $subtotal_total  = 0.0;
+            $total_impuestos = 0.0;
+            $total_general   = 0.0;
+            $items_calc      = [];
 
-            if (!mysqli_query($conexion, $sql_cabecera)) {
-                throw new Exception('Error al crear la cabecera: ' . mysqli_error($conexion));
-            }
-            $comprobante_id = mysqli_insert_id($conexion);
-
+            // ── Calcular importes por ítem (con IVA) ──────────────────────────
             foreach ($detalles as $item) {
-                $prod_id  = intval($item['id']);
-                $cant     = floatval($item['cantidad']);
-                $precio   = floatval($item['precio']);
-                $subtotal = $cant * $precio;
+                $prod_id = intval($item['id']);
+                $cant    = floatval($item['cantidad']);
+                $precio  = floatval($item['precio']);
 
-                $sql_det = "INSERT INTO gestion__comprobantes_detalles
-                            (comprobante_id, producto_id, cantidad, precio_unitario, subtotal)
-                            VALUES ($comprobante_id, $prod_id, $cant, $precio, $subtotal)";
+                // Obtener alícuota IVA del producto
+                $sql_iva = "SELECT p.iva_alicuota_id,
+                                   COALESCE(iva.porcentaje, 0) AS iva_pct
+                            FROM gestion__productos p
+                            LEFT JOIN gestion__impuestos__iva_alicuotas iva
+                                   ON iva.iva_alicuota_id = p.iva_alicuota_id
+                                  AND iva.empresa_id      = p.empresa_id
+                            WHERE p.producto_id = $prod_id
+                            LIMIT 1";
+                $res_iva        = mysqli_query($conexion, $sql_iva);
+                $iva_row        = $res_iva ? mysqli_fetch_assoc($res_iva) : null;
+                $iva_alicuota   = $iva_row ? intval($iva_row['iva_alicuota_id']) : 1;
+                $iva_pct        = $iva_row ? floatval($iva_row['iva_pct'])       : 0.0;
+
+                $importe_neto   = round($cant * $precio, 2);
+                $importe_iva    = round($importe_neto * ($iva_pct / 100), 2);
+                $importe_total  = round($importe_neto + $importe_iva, 2);
+
+                $subtotal_total  += $importe_neto;
+                $total_impuestos += $importe_iva;
+                $total_general   += $importe_total;
+
+                $items_calc[] = compact(
+                    'prod_id', 'cant', 'precio',
+                    'iva_alicuota', 'iva_pct',
+                    'importe_neto', 'importe_iva', 'importe_total'
+                );
+            }
+
+            $subtotal_total  = round($subtotal_total,  2);
+            $total_impuestos = round($total_impuestos, 2);
+            $total_general   = round($total_general,   2);
+
+            // ── Insertar cabecera del pedido ──────────────────────────────────
+            $sql_pedido = "INSERT INTO gestion__ventas_pedidos
+                               (empresa_id, sucursal_id, comprobante_id, entidad_id,
+                                fecha_pedido, moneda_id, tipo_cambio,
+                                subtotal, total_impuestos, total,
+                                usuario_id, tabla_estado_registro_id)
+                           VALUES
+                               ($empresa_id, $sucursal_id, 0, 0,
+                                '$fecha_pedido', $moneda_id, 1.000000,
+                                $subtotal_total, $total_impuestos, $total_general,
+                                $usuario_id, 1)";
+
+            if (!mysqli_query($conexion, $sql_pedido)) {
+                throw new Exception('Error al crear el pedido: ' . mysqli_error($conexion));
+            }
+            $pedido_id = mysqli_insert_id($conexion);
+
+            // ── Insertar detalles ─────────────────────────────────────────────
+            foreach ($items_calc as $it) {
+                $sql_det = "INSERT INTO gestion__ventas_pedidos_detalles
+                                (venta_pedido_id, producto_id, cantidad, precio_unitario,
+                                 iva_alicuota_id, porcentaje_iva,
+                                 importe_iva, importe_neto, importe_total,
+                                 tabla_estado_registro_id)
+                            VALUES
+                                ($pedido_id, {$it['prod_id']}, {$it['cant']}, {$it['precio']},
+                                 {$it['iva_alicuota']}, {$it['iva_pct']},
+                                 {$it['importe_iva']}, {$it['importe_neto']}, {$it['importe_total']},
+                                 1)";
 
                 if (!mysqli_query($conexion, $sql_det)) {
-                    throw new Exception("Error en detalle ID $prod_id: " . mysqli_error($conexion));
+                    throw new Exception("Error en detalle producto {$it['prod_id']}: " . mysqli_error($conexion));
                 }
             }
 
             mysqli_commit($conexion);
             echo json_encode([
-                'resultado'      => true,
-                'mensaje'        => 'Pedido generado con éxito.',
-                'comprobante_id' => $comprobante_id,
+                'resultado' => true,
+                'mensaje'   => 'Pedido generado con éxito.',
+                'pedido_id' => $pedido_id,
             ]);
 
         } catch (Exception $e) {
