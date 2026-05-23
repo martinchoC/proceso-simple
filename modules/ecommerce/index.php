@@ -641,6 +641,38 @@ const CarritoApp = {
         this.fetchCatalogo();
     },
 
+    // ── Clientes y sucursales ─────────────────────────────────────────────────
+    cargarClientes() {
+        $.getJSON('carrito_ajax.php', { accion: 'obtener_clientes' }, data => {
+            const sel = document.getElementById('selectCliente');
+            data.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nombre;
+                sel.appendChild(opt);
+            });
+        });
+    },
+
+    cargarSucursales() {
+        $.getJSON('carrito_ajax.php', { accion: 'obtener_sucursales_empresa' }, data => {
+            const sel = document.getElementById('selectSucursal');
+            data.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.nombre;
+                sel.appendChild(opt);
+            });
+            if (data.length > 0) sel.value = data[0].id;
+        });
+    },
+
+    validarCheckout() {
+        const clienteOk = document.getElementById('selectCliente').value !== '';
+        const carritoOk = this.carrito.length > 0;
+        document.getElementById('btnProcesarCompra').disabled = !(clienteOk && carritoOk);
+    },
+
     renderProductos(lista) {
         const contenedor = document.getElementById('contenedorProductos');
         contenedor.innerHTML = '';
