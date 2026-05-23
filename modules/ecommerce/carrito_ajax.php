@@ -73,14 +73,18 @@ function buildWhere($conexion, $empresa_id, $excluir = null) {
     return implode(' AND ', $where);
 }
 
-$subquery_precio = "(SELECT lpp.precio
-                     FROM gestion__listas_precios_productos lpp
-                     WHERE lpp.producto_id = p.producto_id
-                       AND lpp.tabla_estado_registro_id = 1
-                       AND lpp.f_desde <= CURDATE()
-                       AND (lpp.f_hasta IS NULL OR lpp.f_hasta >= CURDATE())
-                     ORDER BY lpp.lista_precio_producto_id DESC
-                     LIMIT 1)";
+// La tabla de precios puede no existir en todos los entornos
+$_tbl_precios = mysqli_query($conexion, "SHOW TABLES LIKE 'gestion__listas_precios_productos'");
+$subquery_precio = ($_tbl_precios && mysqli_num_rows($_tbl_precios) > 0)
+    ? "(SELECT lpp.precio
+        FROM gestion__listas_precios_productos lpp
+        WHERE lpp.producto_id = p.producto_id
+          AND lpp.tabla_estado_registro_id = 1
+          AND lpp.f_desde <= CURDATE()
+          AND (lpp.f_hasta IS NULL OR lpp.f_hasta >= CURDATE())
+        ORDER BY lpp.lista_precio_producto_id DESC
+        LIMIT 1)"
+    : "NULL";
 
 // ── Switch de acciones ────────────────────────────────────────────────────────
 
