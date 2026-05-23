@@ -1,281 +1,408 @@
 <?php
-ini_set('display_errors', 0);
-ob_start();
-
-function json_fatal($msg) {
-    ob_clean();
-    if (!headers_sent()) {
-        header('Content-Type: application/json; charset=utf-8');
-    }
-    echo json_encode(['fatal' => $msg]);
-    exit;
-}
-
-set_exception_handler(function ($e) {
-    json_fatal($e->getMessage() . ' [' . $e->getFile() . ':' . $e->getLine() . ']');
-});
-
-register_shutdown_function(function () {
-    $err = error_get_last();
-    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-        json_fatal($err['message'] . ' [' . $err['file'] . ':' . $err['line'] . ']');
-    }
-});
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 require_once __DIR__ . '/../../config.php';
 
-ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 
-$accion = $_REQUEST['accion'] ?? '';
+$accion     = $_REQUEST['accion'] ?? '';
+$empresa_id = 2;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Construye las condiciones WHERE y los parámetros comunes para búsqueda de productos.
+ * Soporta: q (texto), categorias[] (IDs), marca_id, modelo_id, precio_min, precio_max.
+ * El parámetro $excluir permite omitir uno de los grupos para el cálculo de facets.
+ */
+function buildWhere($conexion, $empresa_id, $excluir = null) {
+    $where = ["p.tabla_estado_registro_id = 1", "p.empresa_id = $empresa_id"];
+
+    // Búsqueda de texto: nombre, código, descripción y marca (vía compatibilidad)
+    if (!empty($_GET['q'])) {
+        $q = mysqli_real_escape_string($conexion, trim($_GET['q']));
+        if ($excluir !== 'q') {
+            $where[] = "(
+                p.producto_nombre        LIKE '%$q%'
+                OR p.producto_codigo     LIKE '%$q%'
+                OR p.producto_descripcion LIKE '%$q%'
+                OR EXISTS (
+                    SELECT 1
+                    FROM gestion__productos_compatibilidad pc2
+                    INNER JOIN gestion__marcas m2 ON m2.marca_id = pc2.marca_id
+                    WHERE pc2.producto_id = p.producto_id
+                      AND m2.marca_nombre LIKE '%$q%'
+                )
+            )";
+        }
+    }
+
+    // Categorías (múltiples)
+    $cat_ids = [];
+    if (!empty($_GET['categorias'])) {
+        foreach ((array)$_GET['categorias'] as $c) {
+            $v = intval($c);
+            if ($v > 0) $cat_ids[] = $v;
+        }
+    }
+    if ($cat_ids && $excluir !== 'categorias') {
+        $where[] = "p.producto_categoria_id IN (" . implode(',', $cat_ids) . ")";
+    }
+
+    // Marca (vía tabla de compatibilidad)
+    $marca_id = intval($_GET['marca_id'] ?? 0);
+    if ($marca_id > 0 && $excluir !== 'marca') {
+        $where[] = "EXISTS (
+            SELECT 1 FROM gestion__productos_compatibilidad pc3
+            WHERE pc3.producto_id = p.producto_id
+              AND pc3.marca_id = $marca_id
+        )";
+    }
+
+    // Modelo (vía tabla de compatibilidad)
+    $modelo_id = intval($_GET['modelo_id'] ?? 0);
+    if ($modelo_id > 0 && $excluir !== 'modelo') {
+        $where[] = "EXISTS (
+            SELECT 1 FROM gestion__productos_compatibilidad pc4
+            WHERE pc4.producto_id = p.producto_id
+              AND pc4.modelo_id = $modelo_id
+        )";
+    }
+
+    return implode(' AND ', $where);
+}
+
+$subquery_precio = "(SELECT lpp.precio
+                     FROM gestion__listas_precios_productos lpp
+                     WHERE lpp.producto_id = p.producto_id
+                       AND lpp.tabla_estado_registro_id = 1
+                       AND lpp.f_desde <= CURDATE()
+                       AND (lpp.f_hasta IS NULL OR lpp.f_hasta >= CURDATE())
+                     ORDER BY lpp.lista_precio_producto_id DESC
+                     LIMIT 1)";
+
+// ── Switch de acciones ────────────────────────────────────────────────────────
 
 switch ($accion) {
 
+    // ── Catálogo + facets ─────────────────────────────────────────────────────
     case 'obtener_catalogo':
-        $empresa_id    = intval($_REQUEST['empresa_id'] ?? 0);
-        $where_parts   = ['p.tabla_estado_registro_id = 1'];
 
-        if ($empresa_id > 0) {
-            $where_parts[] = "p.empresa_id = $empresa_id";
+        $where_all = buildWhere($conexion, $empresa_id);
+
+        // Aplicar precio sobre la subquery (requiere envolver)
+        $having = [];
+        if (isset($_GET['precio_min']) && $_GET['precio_min'] !== '') {
+            $having[] = "precio_vigente >= " . floatval($_GET['precio_min']);
         }
-
-        // Filtros opcionales (para búsqueda server-side si se necesita)
-        if (!empty($_REQUEST['categoria_id'])) {
-            $where_parts[] = "p.producto_categoria_id = " . intval($_REQUEST['categoria_id']);
+        if (isset($_GET['precio_max']) && $_GET['precio_max'] !== '') {
+            $having[] = "precio_vigente <= " . floatval($_GET['precio_max']);
         }
-        if (!empty($_REQUEST['q'])) {
-            $q = mysqli_real_escape_string($conexion, $_REQUEST['q']);
-            $where_parts[] = "(p.producto_nombre LIKE '%$q%' OR p.producto_codigo LIKE '%$q%')";
-        }
+        $having_sql = $having ? ('HAVING ' . implode(' AND ', $having)) : '';
 
-        $where_sql = implode(' AND ', $where_parts);
+        // ── Productos ──
+        $sql_prod = "SELECT p.producto_id              AS id,
+                            p.producto_codigo           AS codigo,
+                            p.producto_nombre           AS nombre,
+                            p.producto_descripcion      AS descripcion,
+                            p.producto_categoria_id     AS categoria_id,
+                            c.producto_categoria_nombre AS categoria_nombre,
+                            p.iva_alicuota_id,
+                            COALESCE(iva.porcentaje, 0) AS iva_porcentaje,
+                            COALESCE($subquery_precio, 0) AS precio_vigente
+                     FROM gestion__productos p
+                     LEFT JOIN gestion__productos_categorias c
+                            ON c.producto_categoria_id = p.producto_categoria_id
+                     LEFT JOIN gestion__impuestos__iva_alicuotas iva
+                            ON iva.iva_alicuota_id = p.iva_alicuota_id
+                     WHERE $where_all
+                     $having_sql
+                     ORDER BY p.producto_nombre
+                     LIMIT 500";
 
-        /*
-         * Cascada de precio (3 fuentes en orden de prioridad):
-         * 1. gestion__listas_precios_productos   → tabla nueva, actualmente vacía, se irá poblando
-         * 2. gestion__listas_precios_productos_historial → registros activos (f_baja IS NULL)
-         * 3. xxx_gestion__listas_precios_productos       → tabla legacy con precios vigentes
-         */
-        $subquery_precio = "COALESCE(
-            (
-                SELECT lpp.precio
-                FROM gestion__listas_precios_productos lpp
-                WHERE lpp.producto_id = p.producto_id
-                  AND lpp.tabla_estado_registro_id = 1
-                  AND lpp.f_desde <= CURDATE()
-                  AND (lpp.f_hasta IS NULL OR lpp.f_hasta >= CURDATE())
-                ORDER BY lpp.lista_precio_producto_id DESC
-                LIMIT 1
-            ),
-            (
-                SELECT h.precio_unitario
-                FROM gestion__listas_precios_productos_historial h
-                WHERE h.producto_id = p.producto_id
-                  AND h.f_baja IS NULL
-                ORDER BY h.lista_precio_producto_historial_id DESC
-                LIMIT 1
-            ),
-            (
-                SELECT x.precio_unitario
-                FROM xxx_gestion__listas_precios_productos x
-                WHERE x.producto_id = p.producto_id
-                ORDER BY x.lista_precio_producto_id DESC
-                LIMIT 1
-            )
-        )";
-
-        $sql = "SELECT p.producto_id AS id,
-                       p.producto_codigo AS codigo,
-                       p.producto_nombre AS nombre,
-                       p.producto_categoria_id AS categoria_id,
-                       c.producto_categoria_nombre AS categoria_nombre,
-                       p.producto_tipo_id AS tipo_id,
-                       t.producto_tipo AS tipo_nombre,
-                       p.color,
-                       p.material,
-                       p.lado,
-                       p.garantia,
-                       p.es_servicio,
-                       p.controla_stock,
-                       COALESCE($subquery_precio, 0) AS precio,
-                       (
-                           SELECT GROUP_CONCAT(ci.imagen_id ORDER BY pi.es_principal DESC, pi.orden ASC SEPARATOR ',')
-                           FROM gestion__productos_imagenes pi
-                           INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
-                           WHERE pi.producto_id = p.producto_id
-                             AND pi.empresa_id = p.empresa_id
-                             AND pi.tabla_estado_registro_id = 1
-                       ) AS imagen_ids
-                FROM gestion__productos p
-                LEFT JOIN gestion__productos_categorias c ON c.producto_categoria_id = p.producto_categoria_id
-                LEFT JOIN gestion__productos_tipos t ON t.producto_tipo_id = p.producto_tipo_id
-                WHERE $where_sql
-                ORDER BY p.producto_nombre
-                LIMIT 300";
-
-        $res = mysqli_query($conexion, $sql);
-
+        $res = mysqli_query($conexion, $sql_prod);
         if (!$res) {
-            echo json_encode(['error_bd' => mysqli_error($conexion)]);
+            echo json_encode(['error_bd' => mysqli_error($conexion), 'sql_debug' => $sql_prod]);
             exit;
         }
 
         $productos = [];
         while ($row = mysqli_fetch_assoc($res)) {
-            $imagenes = [];
-            if (!empty($row['imagen_ids'])) {
-                foreach (explode(',', $row['imagen_ids']) as $img_id) {
-                    $imagenes[] = BASE_URL . '/modules/gestion/get_imagen.php?id=' . intval($img_id);
-                }
-            }
-
             $productos[] = [
                 'id'             => intval($row['id']),
                 'codigo'         => $row['codigo'],
                 'nombre'         => $row['nombre'],
+                'descripcion'    => $row['descripcion'] ?? '',
                 'categoria_id'   => intval($row['categoria_id']),
                 'categoria'      => $row['categoria_nombre'] ?? '',
-                'tipo_id'        => intval($row['tipo_id']),
-                'tipo'           => $row['tipo_nombre'] ?? '',
-                'color'          => $row['color'] ?? '',
-                'material'       => $row['material'] ?? '',
-                'lado'           => $row['lado'] ?? '',
-                'garantia'       => $row['garantia'] ?? '',
-                'es_servicio'    => intval($row['es_servicio']),
-                'controla_stock' => intval($row['controla_stock']),
-                'precio'         => floatval($row['precio']),
-                'imagenes'       => $imagenes,
+                'iva_alicuota_id'=> intval($row['iva_alicuota_id']),
+                'iva_porcentaje' => floatval($row['iva_porcentaje']),
+                'precio'         => floatval($row['precio_vigente']),
             ];
         }
 
-        echo json_encode([
-            'data'       => $productos,
-            'empresa_id' => $empresa_id,
-            'total'      => count($productos),
-        ]);
-        break;
+        // ── Facet: Categorías (excluye filtro de categoría propio para mostrar todas las relevantes) ──
+        $where_sin_cat = buildWhere($conexion, $empresa_id, 'categorias');
+        $sql_cats = "SELECT c.producto_categoria_id AS id,
+                            c.producto_categoria_nombre AS nombre,
+                            COUNT(DISTINCT p.producto_id) AS total
+                     FROM gestion__productos p
+                     INNER JOIN gestion__productos_categorias c
+                             ON c.producto_categoria_id = p.producto_categoria_id
+                     WHERE $where_sin_cat
+                     GROUP BY c.producto_categoria_id, c.producto_categoria_nombre
+                     ORDER BY c.producto_categoria_nombre";
 
-    case 'debug_precios':
-        $cols   = [];
-        $r      = mysqli_query($conexion, 'SHOW COLUMNS FROM gestion__listas_precios_productos');
-        while ($row = mysqli_fetch_assoc($r)) {
-            $cols[] = $row['Field'];
-        }
-        $sample = [];
-        $r2     = mysqli_query($conexion, 'SELECT * FROM gestion__listas_precios_productos LIMIT 3');
-        if ($r2) {
-            while ($row = mysqli_fetch_assoc($r2)) {
-                $sample[] = $row;
+        $facet_cats = [];
+        $res = mysqli_query($conexion, $sql_cats);
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                $facet_cats[] = ['id' => intval($row['id']), 'nombre' => $row['nombre'], 'count' => intval($row['total'])];
             }
         }
-        echo json_encode(['columnas' => $cols, 'muestra' => $sample]);
-        break;
 
-    case 'debug_productos':
-        $rows = [];
-        $r    = mysqli_query($conexion,
-            'SELECT empresa_id, tabla_estado_registro_id, COUNT(*) AS total
-             FROM gestion__productos
-             GROUP BY empresa_id, tabla_estado_registro_id
-             ORDER BY empresa_id');
-        while ($row = mysqli_fetch_assoc($r)) {
-            $rows[] = $row;
+        // ── Facet: Marcas (excluye filtro de marca para mostrar alternativas) ──
+        $where_sin_marca = buildWhere($conexion, $empresa_id, 'marca');
+        $sql_marcas = "SELECT m.marca_id AS id, m.marca_nombre AS nombre,
+                              COUNT(DISTINCT p.producto_id) AS total
+                       FROM gestion__marcas m
+                       INNER JOIN gestion__productos_compatibilidad pc
+                               ON pc.marca_id = m.marca_id
+                       INNER JOIN gestion__productos p
+                               ON p.producto_id = pc.producto_id
+                       WHERE $where_sin_marca
+                         AND m.empresa_id = $empresa_id
+                         AND m.tabla_estado_registro_id = 1
+                       GROUP BY m.marca_id, m.marca_nombre
+                       ORDER BY m.marca_nombre";
+
+        $facet_marcas = [];
+        $res = mysqli_query($conexion, $sql_marcas);
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                $facet_marcas[] = ['id' => intval($row['id']), 'nombre' => $row['nombre'], 'count' => intval($row['total'])];
+            }
         }
+
+        // ── Facet: Modelos (solo si hay una marca seleccionada) ──
+        $facet_modelos = [];
+        $marca_id_sel = intval($_GET['marca_id'] ?? 0);
+        if ($marca_id_sel > 0) {
+            $where_sin_modelo = buildWhere($conexion, $empresa_id, 'modelo');
+            $sql_modelos = "SELECT mo.modelo_id AS id, mo.modelo_nombre AS nombre,
+                                   COUNT(DISTINCT p.producto_id) AS total
+                            FROM gestion__modelos mo
+                            INNER JOIN gestion__productos_compatibilidad pc
+                                    ON pc.modelo_id = mo.modelo_id AND pc.marca_id = $marca_id_sel
+                            INNER JOIN gestion__productos p
+                                    ON p.producto_id = pc.producto_id
+                            WHERE $where_sin_modelo
+                              AND mo.empresa_id = $empresa_id
+                              AND mo.tabla_estado_registro_id = 1
+                              AND mo.marca_id = $marca_id_sel
+                            GROUP BY mo.modelo_id, mo.modelo_nombre
+                            ORDER BY mo.modelo_nombre";
+
+            $res = mysqli_query($conexion, $sql_modelos);
+            if ($res) {
+                while ($row = mysqli_fetch_assoc($res)) {
+                    $facet_modelos[] = ['id' => intval($row['id']), 'nombre' => $row['nombre'], 'count' => intval($row['total'])];
+                }
+            }
+        }
+
         echo json_encode([
-            'distribucion'        => $rows,
-            'empresa_id_recibido' => intval($_REQUEST['empresa_id'] ?? 0),
+            'productos' => $productos,
+            'facets'    => [
+                'categorias' => $facet_cats,
+                'marcas'     => $facet_marcas,
+                'modelos'    => $facet_modelos,
+            ],
         ]);
         break;
 
+    // ── Clientes (entidades) ──────────────────────────────────────────────────
+    case 'obtener_clientes':
+        $sql = "SELECT entidad_id AS id, entidad_nombre AS nombre
+                FROM gestion__entidades
+                WHERE empresa_id = $empresa_id
+                  AND es_cliente = 1
+                  AND tabla_estado_registro_id = 1
+                ORDER BY entidad_nombre";
+
+        $clientes = [];
+        $res = mysqli_query($conexion, $sql);
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                $clientes[] = ['id' => intval($row['id']), 'nombre' => $row['nombre']];
+            }
+        }
+        echo json_encode($clientes);
+        break;
+
+    // ── Sucursales de la empresa ──────────────────────────────────────────────
+    case 'obtener_sucursales_empresa':
+        $sql = "SELECT sucursal_id AS id, sucursal_nombre AS nombre
+                FROM gestion__sucursales
+                WHERE empresa_id = $empresa_id
+                  AND tabla_estado_registro_id = 1
+                ORDER BY sucursal_nombre";
+
+        $sucursales = [];
+        $res = mysqli_query($conexion, $sql);
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                $sucursales[] = ['id' => intval($row['id']), 'nombre' => $row['nombre']];
+            }
+        }
+        echo json_encode($sucursales);
+        break;
+
+    // ── Guardar pedido → gestion__ordenes_compra ─────────────────────────────
     case 'guardar_pedido_carrito':
-        $detalles_json = $_POST['detalles'] ?? '[]';
-        $detalles      = json_decode($detalles_json, true);
-        $usuario_id    = intval($_SESSION['usuario_id'] ?? 1);
-        $empresa_id    = intval($_POST['empresa_id'] ?? 0);
-        $sucursal_id   = 1;
-        $moneda_id     = 1;
+        $detalles_json = $_POST['detalles']   ?? '[]';
+        $entidad_id    = intval($_POST['entidad_id']  ?? 0);
+        $sucursal_id   = intval($_POST['sucursal_id'] ?? 1);
+        $usuario_id    = intval($_SESSION['usuario_id'] ?? 0) ?: null;
+
+        $detalles = json_decode($detalles_json, true);
 
         if (empty($detalles)) {
             echo json_encode(['resultado' => false, 'error' => 'El carrito está vacío.']);
             break;
         }
+        if ($entidad_id <= 0) {
+            echo json_encode(['resultado' => false, 'error' => 'Debe seleccionar un cliente.']);
+            break;
+        }
+
+        $res = mysqli_query($conexion, "SELECT entidad_id FROM gestion__entidades
+                                        WHERE entidad_id = $entidad_id
+                                          AND empresa_id = $empresa_id
+                                          AND es_cliente = 1
+                                          AND tabla_estado_registro_id = 1");
+        if (!$res || mysqli_num_rows($res) === 0) {
+            echo json_encode(['resultado' => false, 'error' => 'Cliente no válido.']);
+            break;
+        }
+
+        $comprobante_tipo_id = 17;
+        $moneda_id           = 1;
+        $tipo_cambio         = 1.000000;
+        $condicion_pago_id   = 1;
+        $f_emision           = date('Y-m-d');
 
         mysqli_begin_transaction($conexion);
+
         try {
-            $fecha_pedido    = date('Y-m-d');
-            $subtotal_total  = 0.0;
-            $total_impuestos = 0.0;
-            $total_general   = 0.0;
-            $items_calc      = [];
+            $res_pv = mysqli_query($conexion,
+                "SELECT punto_venta_id FROM gestion__puntos_venta
+                 WHERE empresa_id = $empresa_id
+                   AND sucursal_id = $sucursal_id
+                   AND tabla_estado_registro_id = 1
+                 ORDER BY punto_venta_id ASC LIMIT 1");
 
-            // ── Calcular importes por ítem (con IVA) ──────────────────────────
+            if (!$res_pv || mysqli_num_rows($res_pv) === 0) {
+                throw new Exception("No se encontró punto de venta para la sucursal seleccionada.");
+            }
+            $punto_venta_id = intval(mysqli_fetch_assoc($res_pv)['punto_venta_id']);
+
+            $res_num = mysqli_query($conexion,
+                "SELECT numerador_id, ultimo_numero
+                 FROM gestion__comprobantes_numeradores
+                 WHERE empresa_id = $empresa_id
+                   AND punto_venta_id = $punto_venta_id
+                   AND comprobante_tipo_id = $comprobante_tipo_id
+                 FOR UPDATE");
+
+            if ($res_num && mysqli_num_rows($res_num) > 0) {
+                $row_num      = mysqli_fetch_assoc($res_num);
+                $nuevo_numero = intval($row_num['ultimo_numero']) + 1;
+                $numerador_id = intval($row_num['numerador_id']);
+                mysqli_query($conexion,
+                    "UPDATE gestion__comprobantes_numeradores
+                     SET ultimo_numero = $nuevo_numero, updated_at = NOW()
+                     WHERE numerador_id = $numerador_id");
+            } else {
+                $nuevo_numero = 1;
+                mysqli_query($conexion,
+                    "INSERT INTO gestion__comprobantes_numeradores
+                     (empresa_id, punto_venta_id, comprobante_tipo_id, ultimo_numero, created_at, updated_at)
+                     VALUES ($empresa_id, $punto_venta_id, $comprobante_tipo_id, 1, NOW(), NOW())");
+            }
+            $comprobante_nro = (string) $nuevo_numero;
+
+            $subtotal_neto = 0;
+            $total_iva     = 0;
+            $items_enriquecidos = [];
+
             foreach ($detalles as $item) {
-                $prod_id = intval($item['id']);
-                $cant    = floatval($item['cantidad']);
-                $precio  = floatval($item['precio']);
+                $prod_id  = intval($item['id']);
+                $res_prod = mysqli_query($conexion,
+                    "SELECT p.iva_alicuota_id, COALESCE(iva.porcentaje, 0) AS iva_porcentaje
+                     FROM gestion__productos p
+                     LEFT JOIN gestion__impuestos__iva_alicuotas iva
+                            ON iva.iva_alicuota_id = p.iva_alicuota_id
+                     WHERE p.producto_id = $prod_id AND p.empresa_id = $empresa_id");
 
-                // Obtener alícuota IVA del producto
-                $sql_iva = "SELECT p.iva_alicuota_id,
-                                   COALESCE(iva.porcentaje, 0) AS iva_pct
-                            FROM gestion__productos p
-                            LEFT JOIN gestion__impuestos__iva_alicuotas iva
-                                   ON iva.iva_alicuota_id = p.iva_alicuota_id
-                                  AND iva.empresa_id      = p.empresa_id
-                            WHERE p.producto_id = $prod_id
-                            LIMIT 1";
-                $res_iva        = mysqli_query($conexion, $sql_iva);
-                $iva_row        = $res_iva ? mysqli_fetch_assoc($res_iva) : null;
-                $iva_alicuota   = $iva_row ? intval($iva_row['iva_alicuota_id']) : 1;
-                $iva_pct        = $iva_row ? floatval($iva_row['iva_pct'])       : 0.0;
+                if (!$res_prod || mysqli_num_rows($res_prod) === 0) {
+                    throw new Exception("Producto ID $prod_id no encontrado.");
+                }
+                $prod_data       = mysqli_fetch_assoc($res_prod);
+                $iva_alicuota_id = intval($prod_data['iva_alicuota_id']);
+                $iva_porcentaje  = floatval($prod_data['iva_porcentaje']);
 
-                $importe_neto   = round($cant * $precio, 2);
-                $importe_iva    = round($importe_neto * ($iva_pct / 100), 2);
-                $importe_total  = round($importe_neto + $importe_iva, 2);
+                $cantidad        = floatval($item['cantidad']);
+                $precio_unitario = floatval($item['precio']);
+                $neto_gravado    = round($cantidad * $precio_unitario, 4);
+                $iva_importe     = round($neto_gravado * $iva_porcentaje / 100, 4);
+                $total_linea     = round($neto_gravado + $iva_importe, 4);
 
-                $subtotal_total  += $importe_neto;
-                $total_impuestos += $importe_iva;
-                $total_general   += $importe_total;
+                $subtotal_neto += $neto_gravado;
+                $total_iva     += $iva_importe;
 
-                $items_calc[] = compact(
-                    'prod_id', 'cant', 'precio',
-                    'iva_alicuota', 'iva_pct',
-                    'importe_neto', 'importe_iva', 'importe_total'
+                $items_enriquecidos[] = compact(
+                    'prod_id', 'cantidad', 'precio_unitario', 'neto_gravado',
+                    'iva_alicuota_id', 'iva_porcentaje', 'iva_importe', 'total_linea'
                 );
             }
 
-            $subtotal_total  = round($subtotal_total,  2);
-            $total_impuestos = round($total_impuestos, 2);
-            $total_general   = round($total_general,   2);
+            $subtotal_neto = round($subtotal_neto, 2);
+            $total_iva     = round($total_iva, 2);
+            $total_orden   = round($subtotal_neto + $total_iva, 2);
+            $usuario_sql   = $usuario_id !== null ? $usuario_id : 'NULL';
 
-            // ── Insertar cabecera del pedido ──────────────────────────────────
-            $sql_pedido = "INSERT INTO gestion__ventas_pedidos
-                               (empresa_id, sucursal_id, comprobante_id, entidad_id,
-                                fecha_pedido, moneda_id, tipo_cambio,
-                                subtotal, total_impuestos, total,
-                                usuario_id, tabla_estado_registro_id)
-                           VALUES
-                               ($empresa_id, $sucursal_id, 0, 0,
-                                '$fecha_pedido', $moneda_id, 1.000000,
-                                $subtotal_total, $total_impuestos, $total_general,
-                                $usuario_id, 1)";
+            $sql_cab = "INSERT INTO gestion__ordenes_compra
+                        (empresa_id, sucursal_id, comprobante_tipo_id, punto_venta_id,
+                         comprobante_nro, entidad_id, f_emision,
+                         condicion_pago_id, moneda_id, tipo_cambio,
+                         subtotal, descuentos, impuestos, total,
+                         tabla_estado_registro_id, fecha_creacion, fecha_modificacion,
+                         usuario_creacion_id, usuario_modificacion_id)
+                        VALUES
+                        ($empresa_id, $sucursal_id, $comprobante_tipo_id, $punto_venta_id,
+                         '$comprobante_nro', $entidad_id, '$f_emision',
+                         $condicion_pago_id, $moneda_id, $tipo_cambio,
+                         $subtotal_neto, 0, $total_iva, $total_orden,
+                         3, NOW(), NOW(),
+                         $usuario_sql, $usuario_sql)";
 
-            if (!mysqli_query($conexion, $sql_pedido)) {
-                throw new Exception('Error al crear el pedido: ' . mysqli_error($conexion));
+            if (!mysqli_query($conexion, $sql_cab)) {
+                throw new Exception("Error al crear la orden: " . mysqli_error($conexion));
             }
-            $pedido_id = mysqli_insert_id($conexion);
+            $orden_id = mysqli_insert_id($conexion);
 
-            // ── Insertar detalles ─────────────────────────────────────────────
-            foreach ($items_calc as $it) {
-                $sql_det = "INSERT INTO gestion__ventas_pedidos_detalles
-                                (venta_pedido_id, producto_id, cantidad, precio_unitario,
-                                 iva_alicuota_id, porcentaje_iva,
-                                 importe_iva, importe_neto, importe_total,
-                                 tabla_estado_registro_id)
+            foreach ($items_enriquecidos as $it) {
+                $sql_det = "INSERT INTO gestion__ordenes_compra_detalle
+                            (orden_compra_id, empresa_id, producto_id, cantidad,
+                             precio_unitario, no_gravado, exento, neto_gravado,
+                             iva_alicuota_id, iva_porcentaje, iva_importe, total_linea)
                             VALUES
-                                ($pedido_id, {$it['prod_id']}, {$it['cant']}, {$it['precio']},
-                                 {$it['iva_alicuota']}, {$it['iva_pct']},
-                                 {$it['importe_iva']}, {$it['importe_neto']}, {$it['importe_total']},
-                                 1)";
+                            ($orden_id, $empresa_id, {$it['prod_id']}, {$it['cantidad']},
+                             {$it['precio_unitario']}, 0, 0, {$it['neto_gravado']},
+                             {$it['iva_alicuota_id']}, {$it['iva_porcentaje']},
+                             {$it['iva_importe']}, {$it['total_linea']})";
 
                 if (!mysqli_query($conexion, $sql_det)) {
                     throw new Exception("Error en detalle producto {$it['prod_id']}: " . mysqli_error($conexion));
@@ -284,9 +411,11 @@ switch ($accion) {
 
             mysqli_commit($conexion);
             echo json_encode([
-                'resultado' => true,
-                'mensaje'   => 'Pedido generado con éxito.',
-                'pedido_id' => $pedido_id,
+                'resultado'      => true,
+                'mensaje'        => 'Pedido registrado con éxito.',
+                'orden_id'       => $orden_id,
+                'comprobante_nro'=> $comprobante_nro,
+                'total'          => $total_orden,
             ]);
 
         } catch (Exception $e) {
@@ -295,67 +424,8 @@ switch ($accion) {
         }
         break;
 
-    case 'obtener_filtros':
-        $empresa_id    = intval($_REQUEST['empresa_id'] ?? 0);
-        $where_empresa = $empresa_id > 0 ? "AND p.empresa_id = $empresa_id" : '';
-
-        $sql_cats = "SELECT DISTINCT c.producto_categoria_id AS id, c.producto_categoria_nombre AS nombre
-                     FROM gestion__productos_categorias c
-                     INNER JOIN gestion__productos p ON p.producto_categoria_id = c.producto_categoria_id
-                     WHERE p.tabla_estado_registro_id = 1 $where_empresa
-                     ORDER BY c.producto_categoria_nombre";
-        $res_cats  = mysqli_query($conexion, $sql_cats);
-        $categorias = [];
-        while ($row = mysqli_fetch_assoc($res_cats)) {
-            $categorias[] = ['id' => intval($row['id']), 'nombre' => $row['nombre']];
-        }
-
-        $sql_colors = "SELECT DISTINCT color FROM gestion__productos
-                       WHERE color IS NOT NULL AND color <> '' AND tabla_estado_registro_id = 1 $where_empresa
-                       ORDER BY color";
-        $res_colors = mysqli_query($conexion, $sql_colors);
-        $colores = [];
-        while ($row = mysqli_fetch_assoc($res_colors)) {
-            $colores[] = $row['color'];
-        }
-
-        $sql_mats = "SELECT DISTINCT material FROM gestion__productos
-                     WHERE material IS NOT NULL AND material <> '' AND tabla_estado_registro_id = 1 $where_empresa
-                     ORDER BY material";
-        $res_mats = mysqli_query($conexion, $sql_mats);
-        $materiales = [];
-        while ($row = mysqli_fetch_assoc($res_mats)) {
-            $materiales[] = $row['material'];
-        }
-
-        $sql_lados = "SELECT DISTINCT lado FROM gestion__productos
-                      WHERE lado IS NOT NULL AND lado <> '' AND tabla_estado_registro_id = 1 $where_empresa
-                      ORDER BY lado";
-        $res_lados = mysqli_query($conexion, $sql_lados);
-        $lados = [];
-        while ($row = mysqli_fetch_assoc($res_lados)) {
-            $lados[] = $row['lado'];
-        }
-
-        $sql_gars = "SELECT DISTINCT garantia FROM gestion__productos
-                     WHERE garantia IS NOT NULL AND garantia <> '' AND tabla_estado_registro_id = 1 $where_empresa
-                     ORDER BY garantia";
-        $res_gars = mysqli_query($conexion, $sql_gars);
-        $garantias = [];
-        while ($row = mysqli_fetch_assoc($res_gars)) {
-            $garantias[] = $row['garantia'];
-        }
-
-        echo json_encode([
-            'categorias' => $categorias,
-            'colores'    => $colores,
-            'materiales' => $materiales,
-            'lados'      => $lados,
-            'garantias'  => $garantias,
-        ]);
-        break;
-
     default:
         echo json_encode(['resultado' => false, 'error' => 'Acción no válida']);
         break;
 }
+?>
