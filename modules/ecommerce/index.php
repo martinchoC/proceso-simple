@@ -718,13 +718,15 @@ const CarritoApp = {
                         ${ivaHtml}
                         <div class="product-title" title="${prod.nombre}">${prod.nombre}</div>
                         <button class="btn-add-cart w-100"
-                                onclick="CarritoApp.agregarAlCarrito(${prod.id})"
                                 ${!tienePrecio ? 'disabled title="Sin precio disponible"' : ''}>
                             <i class="bi bi-cart-plus me-1"></i> Agregar
                         </button>
                     </div>
                 </div>
             `;
+            if (tienePrecio) {
+                col.querySelector('.btn-add-cart').addEventListener('click', () => this.agregarAlCarrito(prod.id));
+            }
             contenedor.appendChild(col);
         });
     },
@@ -813,17 +815,19 @@ const CarritoApp = {
                     <div class="d-flex justify-content-between align-items-center mt-1">
                         <div class="cart-item-price">${this.fmt(neto)}${ivaLabel}</div>
                         <div class="qty-controls shadow-sm">
-                            <button class="qty-btn" onclick="CarritoApp.modificarCantidad(${item.id}, -1)">
+                            <button class="qty-btn btn-decrement">
                                 <i class="bi bi-dash"></i>
                             </button>
                             <input type="text" class="qty-input" value="${item.cantidad}" readonly>
-                            <button class="qty-btn" onclick="CarritoApp.modificarCantidad(${item.id}, 1)">
+                            <button class="qty-btn btn-increment">
                                 <i class="bi bi-plus"></i>
                             </button>
                         </div>
                     </div>
                 </div>
             `;
+            div.querySelector('.btn-decrement').addEventListener('click', () => this.modificarCantidad(item.id, -1));
+            div.querySelector('.btn-increment').addEventListener('click', () => this.modificarCantidad(item.id, 1));
             contenedor.appendChild(div);
         });
 
