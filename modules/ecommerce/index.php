@@ -176,7 +176,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     .btn-add-cart:disabled { opacity: .5; cursor: not-allowed; }
 
     /* ── Sidebar carrito ── */
-    .cart-sidebar { position: sticky; top: 70px; height: calc(100vh - 90px); display: flex; flex-direction: column; }
+    .cart-sidebar { position: sticky; top: 75px; height: 78vh; display: flex; flex-direction: column; }
     .cart-card {
         background: #fff;
         border: none;
@@ -187,8 +187,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         height: 100%;
         overflow: hidden;
     }
-    /* min-height:0 es el fix crítico: sin él el flex child no puede encogerse
-       por debajo de su contenido, lo que empuja selectores y botón fuera de pantalla */
+    /* min-height:0 permite que el área de ítems se encoja y el scroll sea interno,
+       manteniendo selectores y botón siempre visibles en la parte inferior */
     .cart-items-container { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 1rem; }
     .cart-items-container::-webkit-scrollbar { width: 6px; }
     .cart-items-container::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
