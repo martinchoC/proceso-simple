@@ -774,9 +774,10 @@ const CarritoApp = {
         const contenedor = document.getElementById('contenedorCarrito');
         const vacio      = document.getElementById('carritoVacio');
 
+        // Remove only cart-item rows, preserving #carritoVacio in the DOM
+        contenedor.querySelectorAll('.cart-item').forEach(el => el.remove());
+
         if (this.carrito.length === 0) {
-            contenedor.innerHTML = '';
-            contenedor.appendChild(vacio);
             vacio.style.display = 'block';
             document.getElementById('badgeCantidadGlobal').innerText = '0';
             document.getElementById('txtSubtotal').innerText = '$ 0,00';
@@ -787,7 +788,6 @@ const CarritoApp = {
         }
 
         vacio.style.display = 'none';
-        contenedor.innerHTML = '';
 
         let totalItems  = 0;
         let subtotalNeto = 0;
