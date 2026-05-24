@@ -185,8 +185,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         display: flex;
         flex-direction: column;
         height: 100%;
+        overflow: hidden;
     }
-    .cart-items-container { flex-grow: 1; overflow-y: auto; padding: 1rem; }
+    /* min-height:0 es el fix crítico: sin él el flex child no puede encogerse
+       por debajo de su contenido, lo que empuja selectores y botón fuera de pantalla */
+    .cart-items-container { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 1rem; }
     .cart-items-container::-webkit-scrollbar { width: 6px; }
     .cart-items-container::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
     .cart-item {
