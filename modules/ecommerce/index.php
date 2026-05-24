@@ -697,12 +697,17 @@ const CarritoApp = {
                 ? `<small class="text-muted" style="font-size:.7rem">+IVA ${prod.iva_porcentaje}%</small>`
                 : '';
 
+            const imgHtml = prod.imagen_id > 0
+                ? `<img src="../gestion/get_imagen.php?id=${prod.imagen_id}" alt="${prod.nombre}"
+                        loading="lazy" onerror="this.parentElement.innerHTML='<i class=\\'bi bi-box-seam\\'></i>'">`
+                : `<i class="bi bi-box-seam"></i>`;
+
             const col = document.createElement('div');
             col.className = 'col-12 col-sm-6 col-xl-4';
             col.innerHTML = `
                 <div class="product-card">
                     <div class="product-img-wrapper">
-                        <i class="bi bi-box-seam"></i>
+                        ${imgHtml}
                     </div>
                     <div class="product-info">
                         ${prod.categoria ? `<span class="product-badge">${prod.categoria}</span>` : ''}

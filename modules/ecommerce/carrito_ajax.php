@@ -114,10 +114,18 @@ switch ($accion) {
                             c.producto_categoria_nombre AS categoria_nombre,
                             p.iva_alicuota_id,
                             COALESCE(iva.porcentaje, 0) AS iva_porcentaje,
-                            COALESCE($subquery_precio, 0) AS precio_vigente
+                            COALESCE($subquery_precio, 0) AS precio_vigente,
+                            (SELECT pi.imagen_id
+                             FROM gestion__productos_imagenes pi
+                             WHERE pi.producto_id = p.producto_id
+                               AND pi.empresa_id  = p.empresa_id
+                               AND pi.tabla_estado_registro_id = 1
+                             ORDER BY pi.es_principal DESC, pi.orden ASC, pi.producto_imagen_id ASC
+                             LIMIT 1) AS imagen_id
                      FROM gestion__productos p
                      LEFT JOIN gestion__productos_categorias c
                             ON c.producto_categoria_id = p.producto_categoria_id
+                            AND p.producto_categoria_id > 0
                      LEFT JOIN gestion__impuestos__iva_alicuotas iva
                             ON iva.iva_alicuota_id = p.iva_alicuota_id
                      WHERE $where_all
@@ -143,20 +151,23 @@ switch ($accion) {
                 'iva_alicuota_id'=> intval($row['iva_alicuota_id']),
                 'iva_porcentaje' => floatval($row['iva_porcentaje']),
                 'precio'         => floatval($row['precio_vigente']),
+                'imagen_id'      => $row['imagen_id'] ? intval($row['imagen_id']) : 0,
             ];
         }
 
-        // ── Facet: Categorías (excluye filtro de categoría propio para mostrar todas las relevantes) ──
+        // ── Facet: Categorías — incluye "Sin categoría" para productos sin categoría asignada ──
         $where_sin_cat = buildWhere($conexion, $empresa_id, 'categorias');
-        $sql_cats = "SELECT c.producto_categoria_id AS id,
-                            c.producto_categoria_nombre AS nombre,
+        $sql_cats = "SELECT COALESCE(c.producto_categoria_id, 0) AS id,
+                            COALESCE(c.producto_categoria_nombre, 'Sin categoría') AS nombre,
                             COUNT(DISTINCT p.producto_id) AS total
                      FROM gestion__productos p
-                     INNER JOIN gestion__productos_categorias c
+                     LEFT JOIN gestion__productos_categorias c
                              ON c.producto_categoria_id = p.producto_categoria_id
+                             AND p.producto_categoria_id > 0
                      WHERE $where_sin_cat
-                     GROUP BY c.producto_categoria_id, c.producto_categoria_nombre
-                     ORDER BY c.producto_categoria_nombre";
+                     GROUP BY COALESCE(c.producto_categoria_id, 0),
+                              COALESCE(c.producto_categoria_nombre, 'Sin categoría')
+                     ORDER BY nombre ASC";
 
         $facet_cats = [];
         $res = mysqli_query($conexion, $sql_cats);
