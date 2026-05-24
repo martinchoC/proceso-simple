@@ -410,6 +410,7 @@ const CarritoApp = {
     fmt: n => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n),
 
     init() {
+        this._vacio = document.getElementById('carritoVacio');
         this.cargarClientes();
         this.cargarSucursales();
         this.bindEvents();
@@ -772,13 +773,15 @@ const CarritoApp = {
 
     actualizarUI: function () {
         const contenedor = document.getElementById('contenedorCarrito');
-        const vacio      = document.getElementById('carritoVacio');
+        const vacio      = this._vacio;
 
         // Remove only cart-item rows, preserving #carritoVacio in the DOM
         contenedor.querySelectorAll('.cart-item').forEach(el => el.remove());
+        // Ensure vacio is inside the container (guard against stale DOM state)
+        if (vacio && !contenedor.contains(vacio)) contenedor.prepend(vacio);
 
         if (this.carrito.length === 0) {
-            vacio.style.display = 'block';
+            if (vacio) vacio.style.display = 'block';
             document.getElementById('badgeCantidadGlobal').innerText = '0';
             document.getElementById('txtSubtotal').innerText = '$ 0,00';
             document.getElementById('txtIva').innerText      = '$ 0,00';
@@ -787,7 +790,7 @@ const CarritoApp = {
             return;
         }
 
-        vacio.style.display = 'none';
+        if (vacio) vacio.style.display = 'none';
 
         let totalItems  = 0;
         let subtotalNeto = 0;
