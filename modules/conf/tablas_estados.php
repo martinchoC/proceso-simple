@@ -452,9 +452,9 @@ $(document).ready(function(){
                 className: "text-center",
                 render: function(data, type, row) {
                     if (row.es_inicial == 1) {
-                        return '<span class="badge badge-success">Sí</span>';
+                        return 'Sí';
                     } else {
-                        return '<span class="badge badge-secondary">No</span>';
+                        return 'No';
                     }
                 }
             },
@@ -464,10 +464,8 @@ $(document).ready(function(){
             },
             { 
                 data: 'estado_nombre',
-                className: "text-center",
-                render: function(data, type, row) {
-                    var badgeClass = row.tabla_estado_registro_id == 1 ? 'badge-success' : 'badge-danger';
-                    return `<span class="badge ${badgeClass}">${data}</span>`;
+                 render: function(data) {
+                    return data || '<span class="text-muted">-</span>';
                 }
             },
             {

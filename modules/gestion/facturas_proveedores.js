@@ -834,10 +834,9 @@ function mostrarModalImpuesto(impuestoData, idx) {
                     className: 'text-center',
                     render: function(data) {
                         if (!data || !data.estado_registro) {
-                            return '<span class="badge bg-secondary">Sin estado</span>';
-                        }
-                        var badgeClass = data.bg_clase || 'bg-secondary';
-                        return `<span class="badge ${badgeClass}">${data.estado_registro}</span>`;
+                            return '<span>Sin estado</span>';
+                        }                        
+                        return `<span>${data.estado_registro}</span>`;
                     }
                 },
                 { 
