@@ -784,62 +784,10 @@ function mostrarModalImpuesto(impuestoData, idx) {
                 type: 'GET',
                 data: {
                     accion: 'listar',
-                    empresa_idx: empresa_idx,
+                    empresa_idx: empresa_id,
                     pagina_idx: pagina_idx
                 },
                 dataSrc: ''
-            },
-            stateSave: true,
-            stateSaveParams: function (settings, data) {
-                data.page = currentPage;
-                data.order = currentOrder;
-
-                if (currentSearch !== '-1' && currentSearch !== '') {
-                    data.search = { search: currentSearch };
-                } else {
-                    data.search = { search: '' };
-                }
-
-                delete data.columns;
-                return data;
-            },
-            stateLoadParams: function (settings, data) {
-                if (data.page !== undefined) currentPage = data.page;
-                if (data.order !== undefined && data.order.length > 0) currentOrder = data.order;
-
-                if (data.search && data.search.search !== undefined) {
-                    var searchValue = data.search.search;
-                    if (searchValue === '-1' || searchValue === '-1' || searchValue === '') {
-                        currentSearch = '';
-                    } else {
-                        currentSearch = searchValue;
-                    }
-                } else {
-                    currentSearch = '';
-                }
-
-                data.search = { search: currentSearch };
-            },
-            stateLoadCallback: function (settings) {
-                var savedData = localStorage.getItem('DataTables_' + settings.sInstance);
-                if (savedData) {
-                    var data = JSON.parse(savedData);
-
-                    if (data.search && (data.search.search === '-1' || data.search.search === '')) {
-                        data.search.search = '';
-                    }
-
-                    if (data.columns) {
-                        $.each(data.columns, function (i, col) {
-                            if (col.search && col.search.search === '-1') {
-                                col.search.search = '';
-                            }
-                        });
-                    }
-
-                    return data;
-                }
-                return null;
             },
             dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                 '<"row"<"col-sm-12"tr>>' +
@@ -847,234 +795,119 @@ function mostrarModalImpuesto(impuestoData, idx) {
                 '<"clear">',
             pageLength: 50,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-            buttons: [
-                {
-                    extend: 'excelHtml5',
-                    text: '<i class="fas fa-file-excel"></i> Excel',
-                    className: 'btn btn-success btn-sm',
-                    title: 'Facturas de Proveedores',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10],
-                        orthogonal: 'export'
+            columns: [
+                { data: 'factura_proveedor_id', className: 'text-center fw-bold' },
+                { data: 'comprobante_tipo', defaultContent: '-' },
+                { 
+                    data: null,
+                    render: function(data) {
+                        var pv = data.comprobante_pv ? data.comprobante_pv + '-' : '';
+                        return pv + (data.comprobante_nro || '-');
                     }
                 },
-                {
-                    extend: 'pdfHtml5',
-                    text: '<i class="fas fa-file-pdf"></i> PDF',
-                    className: 'btn btn-danger btn-sm',
-                    title: 'Facturas de Proveedores',
-                    orientation: 'portrait',
-                    pageSize: 'A4',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10],
-                        orthogonal: 'export'
+                { data: 'entidad_nombre', defaultContent: '-' },
+                { data: 'sucursal_nombre', defaultContent: '-' },
+                { data: 'deposito_nombre', defaultContent: '-' },
+                { 
+                    data: 'f_emision',
+                    render: function(data) {
+                        if (!data) return '-';
+                        var parts = data.split('-');
+                        return parts.length === 3 ? parts[2] + '/' + parts[1] + '/' + parts[0] : data;
                     }
                 },
-                {
-                    extend: 'csvHtml5',
-                    text: '<i class="fas fa-file-csv"></i> CSV',
-                    className: 'btn btn-primary btn-sm',
-                    title: 'Facturas_Proveedores',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7,8, 9,10]
+                { 
+                    data: 'f_vencimiento',
+                    render: function(data) {
+                        if (!data) return '-';
+                        var parts = data.split('-');
+                        return parts.length === 3 ? parts[2] + '/' + parts[1] + '/' + parts[0] : data;
                     }
                 },
-                {
-                    extend: 'print',
-                    text: '<i class="fas fa-print"></i> Imprimir',
-                    className: 'btn btn-secondary btn-sm',
-                    title: 'Facturas de Proveedores',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10],
-                        stripHtml: false
+                { 
+                    data: 'total',
+                    className: 'text-end',
+                    render: function(data) { return formatNumber(data, 2); }
+                },
+                { 
+                    data: 'estado_info',
+                    className: 'text-center',
+                    render: function(data) {
+                        if (!data || !data.estado_registro) {
+                            return '<span class="badge bg-secondary">Sin estado</span>';
+                        }
+                        var badgeClass = data.bg_clase || 'bg-secondary';
+                        return `<span class="badge ${badgeClass}">${data.estado_registro}</span>`;
+                    }
+                },
+                { 
+                    data: 'botones',
+                    orderable: false,
+                    searchable: false,
+                    className: "text-center",
+                    render: function(data, type, row) {
+                        if (type === 'export') return '';
+                        if (!data || data.length === 0) return '<span class="text-muted small">-</span>';
+                        
+                        var botonesHtml = '';
+                        data.forEach(function(boton) {
+                            var colorClase = '';
+                            if (boton.bg_clase && boton.text_clase) {
+                                colorClase = boton.bg_clase + ' ' + boton.text_clase;
+                            } else if (boton.color_clase) {
+                                colorClase = boton.color_clase;
+                            } else {
+                                colorClase = 'btn-outline-primary';
+                            }
+                            
+                            var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
+                            var titulo = boton.descripcion || boton.nombre_funcion;
+                            var accion = boton.accion_js;
+                            
+                            botonesHtml += `<button type="button" class="btn btn-sm ${colorClase} me-1 btn-accion" 
+                                                    title="${titulo}" 
+                                                    data-id="${row.factura_proveedor_id}" 
+                                                    data-accion="${accion}"
+                                                    data-confirmable="${boton.es_confirmable || 0}">
+                                                ${icono}
+                                            </button>`;
+                        });
+                        
+                        return `<div class="btn-group" role="group">${botonesHtml}</div>`;
+                    }
+                },
+                { 
+                    data: null,
+                    orderable: false,
+                    searchable: false,
+                    className: "text-center",
+                    render: function(data, type, row) {
+                        if (type === 'export') return '';
+                        
+                        // Solo mostrar botón de generar asiento si la factura está confirmada
+                        var estadoConfirmado = row.estado_info && row.estado_info.codigo_estandar === 'CONFIRMADO';
+                        var tieneAsiento = row.comprobante_id ? true : false;
+                        
+                        if (estadoConfirmado) {
+                            return `<button type="button" class="btn btn-sm btn-info btn-generar-asiento" 
+                                            title="Generar/Actualizar Asiento Contable" 
+                                            data-id="${row.factura_proveedor_id}">
+                                        <i class="fas fa-book"></i> Asiento
+                                    </button>`;
+                        } else {
+                            return `<span class="badge bg-secondary" title="La factura debe estar confirmada para generar el asiento">
+                                        <i class="fas fa-clock"></i> Pendiente
+                                    </span>`;
+                        }
                     }
                 }
             ],
-            columns: [
-            { data: 'factura_proveedor_id', className: 'text-center' },
-            { data: 'comprobante_tipo', className: 'text-center' },
-            { 
-                data: null, 
-                className: 'text-center',
-                render: function(data, type, row) {
-                    let numero = '';
-                    if (row.comprobante_pv && row.comprobante_pv != 0) {
-                        numero = row.comprobante_pv + '-';
-                    }
-                    numero += row.comprobante_nro || '';
-                    if (type === 'export') return numero;
-                    return `<span>${numero}</span>`;
-                }
-            },
-            { 
-                data: null, 
-                render: function(data, type, row) {
-                    if (type === 'export') return data.entidad_nombre || '';
-                    return `<div>${data.entidad_nombre || ''}</div>
-                            <small class="text-muted">${data.entidad_fantasia || ''}</small>`;
-                }
-            },
-            { 
-                data: 'sucursal_nombre', 
-                className: 'text-center',
-                defaultContent: '',
-                render: function(data, type, row) {
-                    if (type === 'export') return data || '';
-                    return data || '<span class="text-muted">-</span>';
-                }
-            },
-            { 
-                data: 'deposito_nombre', 
-                className: 'text-center',
-                defaultContent: '',
-                render: function(data, type, row) {
-                    if (type === 'export') return data || '';
-                    return data || '<span class="text-muted">-</span>';
-                }
-            },
-            { 
-                data: 'f_emision', 
-                className: 'text-center',
-                render: function(data, type, row) {
-                    if (type === 'export') return data;
-                    if (!data) return '';
-                    let parts = data.split('-');
-                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    return data;
-                }
-            },
-            { 
-                data: 'f_vencimiento', 
-                className: 'text-center',
-                render: function(data, type, row) {
-                    if (type === 'export' || !data) return data || '';
-                    let parts = data.split('-');
-                    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    return data;
-                }
-            },
-            { 
-                data: 'total', 
-                className: 'text-end',
-                render: function(data, type, row) {
-                    if (type === 'export') return parseFloat(data).toFixed(2);
-                    return `<span class="text-primary">${formatNumber(data, 2)}</span>`;
-                }
-            },
-            { 
-                data: 'estado_info',   // ← Importante: debe ser 'estado_info'
-                className: 'text-center',
-                render: function(data, type, row) {
-                    if (!data || !data.estado_registro) {
-                        if (type === 'export') return 'Sin estado';
-                        return '<span class="text-dark">Sin estado</span>';
-                    }
-                    var estado = data.estado_registro;
-                    var colorClass = data.bg_clase || 'bg-secondary';
-                    var textClass = data.text_clase || 'text-white';
-                    if (type === 'export') return estado;
-                    return estado;
-                }
-            },
-            { 
-                data: 'botones', 
-                orderable: false, 
-                searchable: false, 
-                className: "text-center", 
-                width: '250px',
-                render: function(data, type, row) {
-                    var botones = '';
-                    if (data && data.length > 0) {
-                        var editarBoton = '';
-                        var otrosBotones = '';
-                        data.forEach(function(boton) {
-                            var claseBoton = 'btn-sm me-1 ';
-                            if (boton.bg_clase && boton.text_clase) {
-                                claseBoton += boton.bg_clase + ' ' + boton.text_clase;
-                            } else if (boton.color_clase) {
-                                claseBoton += boton.color_clase;
-                            } else {
-                                claseBoton += 'btn-outline-primary';
-                            }
-                            var titulo = boton.descripcion || boton.nombre_funcion;
-                            var accionJs = boton.accion_js;
-                            var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
-                            var esConfirmable = boton.es_confirmable || 0;
-                            var comprobanteInfo = `${row.comprobante_tipo || ''} ${row.comprobante_pv || ''}-${row.comprobante_nro || ''}`;
-                            var proveedorInfo = row.entidad_nombre || row.entidad_fantasia || '';
-                            var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
-                                                title="${titulo}" 
-                                                data-id="${row.factura_proveedor_id}" 
-                                                data-accion="${accionJs}"
-                                                data-confirmable="${esConfirmable}"
-                                                data-comprobante="${comprobanteInfo}"
-                                                data-proveedor="${proveedorInfo}">
-                                                ${icono}
-                                            </button>`;
-                            if (accionJs === 'editar') {
-                                editarBoton = botonHtml;
-                            } else {
-                                otrosBotones += botonHtml;
-                            }
-                        });
-                        botones = editarBoton + otrosBotones;
-                    } else {
-                        botones = '<span class="text-muted small">Sin acciones</span>';
-                    }
-                    return `<div class="btn-group" role="group">${botones}</div>`;
-                }
-            }
-        ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
             },
-            order: currentOrder,
-            responsive: true,
-            createdRow: function (row, data, dataIndex) {
-                if (data.estado_info && data.estado_info.codigo_estandar === 'CERRADO') {
-                    $(row).addClass('table-success');
-                } else if (data.estado_info && data.estado_info.codigo_estandar === 'CANCELADO') {
-                    $(row).addClass('table-danger');
-                } else if (data.estado_info && data.estado_info.codigo_estandar === 'PENDIENTE') {
-                    $(row).addClass('table-warning');
-                }
-            },
-            initComplete: function () {
-                var buttons = new $.fn.dataTable.Buttons(tabla, {
-                    buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
-                }).container().appendTo($('#tablaFacturasProveedor_wrapper .col-md-6:eq(1)'));
-
-                $(tabla.table().container()).on('page.dt', function (e) {
-                    currentPage = tabla.page();
-                });
-
-                $(tabla.table().container()).on('order.dt', function (e, settings, details) {
-                    currentOrder = tabla.order();
-                });
-
-                $(tabla.table().container()).on('search.dt', function (e, settings) {
-                    currentSearch = tabla.search();
-                });
-
-                setTimeout(function () {
-                    var searchInput = $('.dataTables_filter input');
-                    if (searchInput.val() === '-1' || searchInput.val() === '') {
-                        searchInput.val('');
-                        currentSearch = '';
-
-                        var savedData = localStorage.getItem('DataTables_' + tabla.settings()[0].sInstance);
-                        if (savedData) {
-                            var data = JSON.parse(savedData);
-                            if (data.search && (data.search.search === '-1' || data.search.search === '')) {
-                                data.search.search = '';
-                                localStorage.setItem('DataTables_' + tabla.settings()[0].sInstance, JSON.stringify(data));
-                            }
-                        }
-                    }
-                }, 100);
-            }
+            responsive: true
         });
-
+        
         inicializarEventos();
     }
     
@@ -1529,7 +1362,88 @@ function mostrarModalImpuesto(impuestoData, idx) {
             ejecutarAccion(facturaId, accionJs, comprobanteInfo);
         }
     });
-
+    
+    $(document).on('click', '.btn-generar-asiento', function() {
+        var facturaId = $(this).data('id');
+        var $btn = $(this);
+        
+        console.log("Generar asiento para factura ID:", facturaId);
+        
+        Swal.fire({
+            title: '¿Generar asiento contable?',
+            html: `Se generará o actualizará el asiento contable para esta factura.<br><br>
+                <strong>El asiento se creará con los siguientes movimientos:</strong><br>
+                <ul class="text-start">
+                    <li><span class="text-primary">DEBE</span> - Cuenta de Producto (Compra)</li>
+                    <li><span class="text-primary">DEBE</span> - Cuenta de IVA (Crédito Fiscal)</li>
+                    <li><span class="text-danger">HABER</span> - Cuenta del Proveedor (Acreedor)</li>
+                </ul>
+                <small class="text-muted">Si ya existe un asiento, se actualizará automáticamente.</small>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#d33',
+            confirmButtonText: '<i class="fas fa-book me-1"></i>Sí, generar asiento',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Generando asiento...',
+                    text: 'Por favor espere',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                $.ajax({
+                    url: 'facturas_proveedores_ajax.php',
+                    type: 'POST',
+                    data: {
+                        accion: 'generar_asiento_contable',
+                        factura_proveedor_id: facturaId,
+                        empresa_idx: empresa_id
+                    },
+                    dataType: 'json',
+                    success: function(res) {
+                        console.log("Respuesta generar asiento:", res);
+                        Swal.close();
+                        
+                        if (res.success) {
+                            Swal.fire({
+                                icon: "success",
+                                title: "¡Asiento generado!",
+                                html: `${res.message}<br><br>
+                                    <strong>ID del Asiento:</strong> ${res.asiento_id}<br>
+                                    <small class="text-muted">Puede verlo en el módulo de Asientos Contables</small>`,
+                                confirmButtonText: "Entendido"
+                            });
+                            
+                            // Opcional: recargar la tabla para mostrar cambios
+                            tabla.ajax.reload(null, false);
+                        } else {
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error",
+                                html: res.message || "Error al generar el asiento contable",
+                                confirmButtonText: "Entendido"
+                            });
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("Error AJAX:", error);
+                        Swal.close();
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error de conexión",
+                            text: "Error al comunicarse con el servidor: " + error,
+                            confirmButtonText: "Entendido"
+                        });
+                    }
+                });
+            }
+        });
+    });
     // Función para ejecutar cualquier acción del backend
     function ejecutarAccion(facturaId, accionJs, comprobanteInfo) {
         var savedState = {
@@ -1741,7 +1655,6 @@ function mostrarModalImpuesto(impuestoData, idx) {
         $('#producto_descuento').val(descuentoCalculado.toFixed(2));
         $('#producto_iva_importe').val(ivaImporte.toFixed(2));
     }
-
     $('#producto_cantidad, #producto_precio, #producto_iva, #producto_descuento_item_pct, #producto_descuento').on('input', function() {
         calcularDescuentos();
     });
@@ -1757,7 +1670,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
         }
     }
 
-    $('#btnAgregarProducto').click(function() {
+   $('#btnAgregarProducto').click(function() {
     if (!proveedorActualId) {
         Swal.fire({
             icon: "warning",
@@ -1779,13 +1692,12 @@ function mostrarModalImpuesto(impuestoData, idx) {
         return;
     }
     
-    var cantidad = parseFloat($('#producto_cantidad').val());
-    var precio = parseFloat($('#producto_precio').val());
+    var cantidad = parseFloat($('#producto_cantidad').val()) || 0;
+    var precio = parseFloat($('#producto_precio').val()) || 0;
     var descuentoItemPct = parseFloat($('#producto_descuento_item_pct').val()) || 0;
     var descuentoGeneralPct = parseFloat($('#descuento_general_pct').val()) || 0;
-    var iva = parseFloat($('#producto_iva').val());
+    var iva = parseFloat($('#producto_iva').val()) || 0;
     var ivaId = $('#producto_iva_id').val() || obtenerIdIva(iva);
-    var ivaImporte = parseFloat($('#producto_iva_importe').val()) || 0;
     var noGravado = parseFloat($('#producto_no_gravado').val()) || 0;
     var exento = parseFloat($('#producto_exento').val()) || 0;
     
@@ -1809,17 +1721,17 @@ function mostrarModalImpuesto(impuestoData, idx) {
         return;
     }
     
-    var productoText = $('#busqueda_producto').val();
-    
-    // Calcular valores
+    // Calcular todos los valores del detalle
     var netoBase = cantidad * precio;
     var descuentoItem = netoBase * (descuentoItemPct / 100);
     var netoDespuesItem = netoBase - descuentoItem;
     var descuentoGeneral = netoDespuesItem * (descuentoGeneralPct / 100);
     var descuentoTotal = descuentoItem + descuentoGeneral;
     var netoGravado = netoBase - descuentoTotal;
+    var ivaImporte = netoGravado * (iva / 100);
     var totalLinea = netoGravado + ivaImporte + noGravado + exento;
-    var netoGravado = netoBase - descuentoTotal; 
+    
+    var productoText = $('#busqueda_producto').val();
     
     var nuevoDetalle = {
         detalle_idx: 'temp_' + new Date().getTime(),
@@ -1842,7 +1754,6 @@ function mostrarModalImpuesto(impuestoData, idx) {
         total_linea: totalLinea
     };
     
-    
     detalles.push(nuevoDetalle);
     renderizarDetalles();
     actualizarTotales();
@@ -1854,7 +1765,6 @@ function mostrarModalImpuesto(impuestoData, idx) {
     $('#producto_cantidad').val('1.00');
     $('#producto_precio').val('');
     $('#producto_descuento_item_pct').val('0');
-    $('#producto_descuento').val('0.00');
     $('#producto_iva').val('21');
     $('#producto_iva_importe').val('0.00');
     $('#producto_no_gravado').val('0.00');
@@ -2074,6 +1984,67 @@ function mostrarModalImpuesto(impuestoData, idx) {
             
             $('#busqueda_producto').focus();
         }
+    });
+
+    // En facturas_proveedores.js, agregar evento para botón de prueba
+    $(document).on('click', '.btn-generar-asiento', function() {
+        var facturaId = $(this).data('id');
+        var $btn = $(this);
+        
+        console.log("Botón clickeado - facturaId:", facturaId);
+        
+        Swal.fire({
+            title: 'Generando asiento...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        $.ajax({
+            url: 'facturas_proveedores_ajax.php',
+            type: 'POST',
+            timeout: 30000,
+            data: {
+                accion: 'generar_asiento_contable',
+                factura_proveedor_id: facturaId,
+                empresa_idx: empresa_id
+            },
+            dataType: 'json',
+            success: function(res) {
+                console.log("Respuesta recibida:", res);
+                Swal.close();
+                
+                if (res.success) {
+                    Swal.fire({
+                        icon: "success",
+                        title: "¡Asiento generado!",
+                        html: `${res.message}<br><br><strong>ID del Asiento:</strong> ${res.asiento_id}`,
+                        confirmButtonText: "Entendido"
+                    });
+                    tabla.ajax.reload(null, false);
+                } else {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        html: res.message || "Error al generar el asiento",
+                        confirmButtonText: "Entendido"
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error("Error AJAX:", status, error);
+                console.error("Respuesta:", xhr.responseText);
+                Swal.close();
+                Swal.fire({
+                    icon: "error",
+                    title: "Error de conexión",
+                    html: `Error: ${status}<br>${xhr.responseText ? xhr.responseText.substring(0, 200) : 'Sin respuesta'}`,
+                    confirmButtonText: "Entendido"
+                });
+            }
+        });
     });
 
     // ========== FUNCIONES DE CARGA DE COMBOS ==========

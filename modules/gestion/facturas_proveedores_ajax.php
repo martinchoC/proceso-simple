@@ -476,6 +476,20 @@ try {
             }
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
+
+        case 'generar_asiento_contable':
+            error_log("=== CASE generar_asiento_contable ===");
+            $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
+            $empresa_idx_local = intval($_POST['empresa_idx'] ?? $empresa_idx);
+            
+            error_log("factura_proveedor_id: $factura_proveedor_id");
+            error_log("empresa_idx_local: $empresa_idx_local");
+            
+            $resultado = generarAsientoContableFactura($conexion, $factura_proveedor_id, $empresa_idx_local);
+            error_log("Resultado: " . print_r($resultado, true));
+            
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
         
       
         case 'guardar_impuestos_factura':

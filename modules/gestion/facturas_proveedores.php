@@ -4,8 +4,11 @@ require_once __DIR__ . '/../../db.php';
 
 $pageTitle = "Facturas de Proveedores";
 $currentPage = 'facturas_proveedores';
+
 $modudo_idx = 2;
-$pagina_idx = 57; // Nuevo ID para facturas proveedor
+$pagina_idx = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 57;
+$empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -88,6 +91,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="120">Total</th>
                                                     <th width="120">Estado</th>
                                                     <th width="250" class="text-center">Acciones</th>
+                                                    <th width="120" class="text-center">Asiento</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -659,7 +663,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
+    <script>
+        const empresa_id = <?php echo json_encode($empresa_id); ?>;
+        const pagina_idx = <?php echo json_encode($pagina_idx); ?>;
+        const modulo_id = <?php echo json_encode($modulo_id); ?>;
+    </script>
     <script src="facturas_proveedores.js?v=<?= filemtime(__DIR__.'/facturas_proveedores.js') ?>"></script>
+    
+
+
 </main>
 
 <?php

@@ -720,7 +720,8 @@ function agregarProducto($conexion, $data)
     }
 }
 
-// ✅ Editar producto existente
+
+// ✅ Editar producto existente - VERSIÓN CORREGIDA
 function editarProducto($conexion, $id, $data)
 {
     $id = intval($id);
@@ -738,11 +739,11 @@ function editarProducto($conexion, $id, $data)
     $peso = !empty($data['peso']) ? floatval($data['peso']) : null;
     $dimensiones = mysqli_real_escape_string($conexion, trim($data['dimensiones'] ?? ''));
     $garantia = mysqli_real_escape_string($conexion, trim($data['garantia'] ?? ''));
-    $controla_stock = isset($data['controla_stock']) ? $data['controla_stock'] : 1;  // <--- AGREGAR
-    
+    $controla_stock = isset($data['controla_stock']) ? intval($data['controla_stock']) : 1;  // FORZAR INT
     $iva_alicuota_id = (!empty($data['iva_alicuota_id']) && $data['iva_alicuota_id'] > 0) ? intval($data['iva_alicuota_id']) : null;
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
 
+    // Validaciones básicas
     if (empty($producto_codigo)) {
         return ['resultado' => false, 'error' => 'El código del producto es obligatorio'];
     }
@@ -805,21 +806,36 @@ function editarProducto($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Ya existe otro producto con este código'];
     }
 
-    // Actualizar producto
+    // ACTUALIZAR producto - INCLUYENDO controla_stock
     $sql = "UPDATE gestion__productos 
-        SET producto_codigo = ?, producto_nombre = ?, codigo_barras = ?, 
-            producto_descripcion = ?, producto_categoria_id = ?, producto_tipo_id = ?, 
-            unidad_medida_id = ?, cont_cuenta_id = ?, iva_alicuota_id = ?, lado = ?, material = ?, color = ?, peso = ?, 
-            dimensiones = ?, garantia = ?, controla_stock = ?
+        SET producto_codigo = ?, 
+            producto_nombre = ?, 
+            codigo_barras = ?, 
+            producto_descripcion = ?, 
+            producto_categoria_id = ?, 
+            producto_tipo_id = ?, 
+            unidad_medida_id = ?, 
+            cont_cuenta_id = ?, 
+            iva_alicuota_id = ?, 
+            lado = ?, 
+            material = ?, 
+            color = ?, 
+            peso = ?, 
+            dimensiones = ?, 
+            garantia = ?,
+            controla_stock = ?
         WHERE producto_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
+    if (!$stmt) {
+        error_log("Error preparando UPDATE: " . mysqli_error($conexion));
         return ['resultado' => false, 'error' => 'Error en la consulta'];
+    }
 
+    // Bind parameters - AHORA CON 16 SET + 1 WHERE = 17 PARÁMETROS
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssiiiiiisssdsii",
+        "ssssiiiiiisssdsii",  // 17 caracteres: ssssiiiiiisssdsii
         $producto_codigo,
         $producto_nombre,
         $codigo_barras,
@@ -835,11 +851,16 @@ function editarProducto($conexion, $id, $data)
         $peso,
         $dimensiones,
         $garantia,
-        $controla_stock,
-        $id
+        $controla_stock,  // <--- PARÁMETRO 16
+        $id               // <--- PARÁMETRO 17
     );
 
     $success = mysqli_stmt_execute($stmt);
+    
+    if (!$success) {
+        error_log("Error ejecutando UPDATE: " . mysqli_stmt_error($stmt));
+    }
+    
     mysqli_stmt_close($stmt);
 
     if ($success) {
