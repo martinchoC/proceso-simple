@@ -17,7 +17,24 @@ $empresa_id = 2;
  * El parámetro $excluir permite omitir uno de los grupos para el cálculo de facets.
  */
 function buildWhere($conexion, $empresa_id, $excluir = null) {
-    $where = ["p.tabla_estado_registro_id = 1", "p.empresa_id = $empresa_id"];
+    $where = [
+        "p.tabla_estado_registro_id = 1",
+        "p.empresa_id = $empresa_id",
+        "EXISTS (
+            SELECT 1
+            FROM gestion__listas_precios_productos_historial h
+            INNER JOIN gestion__listas_precios lp
+                    ON lp.lista_precio_id = h.lista_precio_id
+                   AND lp.empresa_id = $empresa_id
+                   AND lp.tabla_estado_registro_id = 1
+            WHERE h.producto_id = p.producto_id
+              AND h.empresa_id = $empresa_id
+              AND h.tabla_estado_registro_id = 1
+              AND h.precio_final > 0
+              AND h.f_desde <= CURDATE()
+              AND (h.f_hasta IS NULL OR h.f_hasta >= CURDATE())
+        )"
+    ];
 
     // Búsqueda de texto: nombre, código, descripción y marca (vía compatibilidad)
     if (!empty($_GET['q'])) {
@@ -73,12 +90,19 @@ function buildWhere($conexion, $empresa_id, $excluir = null) {
     return implode(' AND ', $where);
 }
 
-$subquery_precio = "(SELECT pc.costo_actual
-                     FROM gestion__productos_costos pc
-                     WHERE pc.producto_id = p.producto_id
-                       AND pc.empresa_id  = p.empresa_id
-                       AND pc.tabla_estado_registro_id = 1
-                     ORDER BY pc.actualizado_en DESC
+$subquery_precio = "(SELECT h.precio_final
+                     FROM gestion__listas_precios_productos_historial h
+                     INNER JOIN gestion__listas_precios lp
+                             ON lp.lista_precio_id = h.lista_precio_id
+                            AND lp.empresa_id = $empresa_id
+                            AND lp.tabla_estado_registro_id = 1
+                     WHERE h.producto_id = p.producto_id
+                       AND h.empresa_id  = $empresa_id
+                       AND h.tabla_estado_registro_id = 1
+                       AND h.precio_final > 0
+                       AND h.f_desde <= CURDATE()
+                       AND (h.f_hasta IS NULL OR h.f_hasta >= CURDATE())
+                     ORDER BY lp.lista_precio_id ASC, h.fecha_historial DESC
                      LIMIT 1)";
 
 // ── Switch de acciones ────────────────────────────────────────────────────────
@@ -91,14 +115,14 @@ switch ($accion) {
         $where_all = buildWhere($conexion, $empresa_id);
 
         // Aplicar precio sobre la subquery (requiere envolver)
-        $having = [];
+        $having = ["precio_vigente > 0"];
         if (isset($_GET['precio_min']) && $_GET['precio_min'] !== '') {
             $having[] = "precio_vigente >= " . floatval($_GET['precio_min']);
         }
         if (isset($_GET['precio_max']) && $_GET['precio_max'] !== '') {
             $having[] = "precio_vigente <= " . floatval($_GET['precio_max']);
         }
-        $having_sql = $having ? ('HAVING ' . implode(' AND ', $having)) : '';
+        $having_sql = 'HAVING ' . implode(' AND ', $having);
 
         // ── Productos ──
         $sql_prod = "SELECT p.producto_id              AS id,
@@ -123,6 +147,7 @@ switch ($accion) {
                             AND p.producto_categoria_id > 0
                      LEFT JOIN gestion__impuestos__iva_alicuotas iva
                             ON iva.iva_alicuota_id = p.iva_alicuota_id
+                           AND iva.empresa_id = p.empresa_id
                      WHERE $where_all
                      $having_sql
                      ORDER BY p.producto_nombre
@@ -354,6 +379,7 @@ switch ($accion) {
                      FROM gestion__productos p
                      LEFT JOIN gestion__impuestos__iva_alicuotas iva
                             ON iva.iva_alicuota_id = p.iva_alicuota_id
+                           AND iva.empresa_id = p.empresa_id
                      WHERE p.producto_id = $prod_id AND p.empresa_id = $empresa_id");
 
                 if (!$res_prod || mysqli_num_rows($res_prod) === 0) {
