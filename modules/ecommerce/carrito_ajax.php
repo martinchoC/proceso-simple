@@ -441,7 +441,7 @@ switch ($accion) {
                           1, $usuario_id)";
 
             if (!mysqli_query($conexion, $sql_comp)) {
-                throw new Exception("Error al crear comprobante: " . mysqli_error($conexion));
+                throw new Exception("Error al crear comprobante: " . mysqli_error($conexion) . " | SQL: $sql_comp");
             }
             $comprobante_id = mysqli_insert_id($conexion);
 
@@ -460,7 +460,7 @@ switch ($accion) {
                          $usuario_id, 1)";
 
             if (!mysqli_query($conexion, $sql_ped)) {
-                throw new Exception("Error al crear el pedido: " . mysqli_error($conexion));
+                throw new Exception("Error al crear el pedido: " . mysqli_error($conexion) . " | SQL: $sql_ped");
             }
             $venta_pedido_id = mysqli_insert_id($conexion);
 
