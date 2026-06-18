@@ -107,21 +107,6 @@ $subquery_precio = "(SELECT h.precio_final
 
 // ── Switch de acciones ────────────────────────────────────────────────────────
 
-if ($accion === 'debug_tablas') {
-    $tablas = ['gestion__comprobantes', 'gestion__ventas_pedidos', 'gestion__ventas_pedidos_detalles'];
-    $info = [];
-    foreach ($tablas as $t) {
-        $r = mysqli_query($conexion, "DESCRIBE `$t`");
-        if ($r) {
-            while ($row = mysqli_fetch_assoc($r)) $info[$t][] = $row['Field'];
-        } else {
-            $info[$t] = 'NO EXISTE: ' . mysqli_error($conexion);
-        }
-    }
-    echo json_encode($info, JSON_PRETTY_PRINT);
-    exit;
-}
-
 switch ($accion) {
 
     // ── Catálogo + facets ─────────────────────────────────────────────────────
@@ -442,40 +427,50 @@ switch ($accion) {
                           comprobante_pv, comprobante_nro,
                           entidad_id, f_emision,
                           moneda_id, tipo_cambio,
-                          subtotal, descuentos, no_gravado, exento, impuestos, total,
-                          signo, impacta_stock, impacta_contabilidad, impacta_ctacte,
-                          tabla_estado_registro_id, usuario_id)
+                          importe_bruto, descuento_general,
+                          importe_neto, importe_exento, importe_no_gravado,
+                          importe_iva, importe_otros_impuestos,
+                          importe_total, importe_pendiente,
+                          signo, tabla_estado_registro_id, usuario_id)
                          VALUES
                          ($tabla_origen_id, 0, 'ecommerce',
                           $empresa_id, $sucursal_id, $comprobante_tipo_id,
                           $punto_venta_id, $comprobante_nro,
                           $entidad_id, '$f_emision',
                           $moneda_id, $tipo_cambio,
-                          $subtotal_neto, 0, 0, 0, $total_iva, $total_pedido,
-                          1, 0, 0, 0,
-                          1, $usuario_id)";
+                          $subtotal_neto, 0,
+                          $subtotal_neto, 0, 0,
+                          $total_iva, 0,
+                          $total_pedido, $total_pedido,
+                          1, 1, $usuario_id)";
 
             if (!mysqli_query($conexion, $sql_comp)) {
-                throw new Exception("Error al crear comprobante: " . mysqli_error($conexion) . " | SQL: $sql_comp");
+                throw new Exception("Error al crear comprobante: " . mysqli_error($conexion));
             }
             $comprobante_id = mysqli_insert_id($conexion);
 
             // 2. Insertar pedido de venta
             $sql_ped = "INSERT INTO gestion__ventas_pedidos
-                        (empresa_id, sucursal_id, comprobante_id,
-                         entidad_id, fecha_pedido,
+                        (empresa_id, sucursal_id, comprobante_tipo_id,
+                         comprobante_id, comprobante_pv, comprobante_nro,
+                         entidad_id, f_emision,
                          moneda_id, tipo_cambio,
-                         subtotal, total_impuestos, total,
+                         importe_bruto, descuento_general_pct, descuento_general,
+                         importe_neto, importe_exento, importe_no_gravado,
+                         importe_iva, importe_otros_impuestos, importe_total,
                          usuario_id, tabla_estado_registro_id)
                         VALUES
-                        ($empresa_id, $sucursal_id, $comprobante_id,
+                        ($empresa_id, $sucursal_id, $comprobante_tipo_id,
+                         $comprobante_id, $punto_venta_id, $comprobante_nro,
                          $entidad_id, '$f_emision',
                          $moneda_id, $tipo_cambio,
-                         $subtotal_neto, $total_iva, $total_pedido,
+                         $subtotal_neto, 0, 0,
+                         $subtotal_neto, 0, 0,
+                         $total_iva, 0, $total_pedido,
                          $usuario_id, 1)";
 
             if (!mysqli_query($conexion, $sql_ped)) {
-                throw new Exception("Error al crear el pedido: " . mysqli_error($conexion) . " | SQL: $sql_ped");
+                throw new Exception("Error al crear el pedido: " . mysqli_error($conexion));
             }
             $venta_pedido_id = mysqli_insert_id($conexion);
 
@@ -489,14 +484,17 @@ switch ($accion) {
             foreach ($items_enriquecidos as $it) {
                 $sql_det = "INSERT INTO gestion__ventas_pedidos_detalles
                             (venta_pedido_id, producto_id, cantidad,
-                             precio_unitario, iva_alicuota_id, porcentaje_iva,
-                             importe_iva, importe_neto, importe_total,
+                             precio_unitario, descuento_general_pct, descuento_general,
+                             precio_unitario_neto, importe_neto,
+                             iva_alicuota_id, porcentaje_iva, importe_iva,
+                             importe_no_gravado, importe_exento, importe_linea,
                              tabla_estado_registro_id)
                             VALUES
                             ($venta_pedido_id, {$it['prod_id']}, {$it['cantidad']},
-                             {$it['precio_unitario']}, {$it['iva_alicuota_id']},
-                             {$it['iva_porcentaje']}, {$it['importe_iva']},
-                             {$it['importe_neto']}, {$it['importe_total']},
+                             {$it['precio_unitario']}, 0, 0,
+                             {$it['precio_unitario']}, {$it['importe_neto']},
+                             {$it['iva_alicuota_id']}, {$it['iva_porcentaje']}, {$it['importe_iva']},
+                             0, 0, {$it['importe_total']},
                              1)";
 
                 if (!mysqli_query($conexion, $sql_det)) {
@@ -517,26 +515,6 @@ switch ($accion) {
             mysqli_rollback($conexion);
             echo json_encode(['resultado' => false, 'error' => $e->getMessage()]);
         }
-        break;
-
-    case 'debug_tablas':
-        $tablas = [
-            'gestion__comprobantes',
-            'gestion__ventas_pedidos',
-            'gestion__ventas_pedidos_detalles',
-        ];
-        $info = [];
-        foreach ($tablas as $t) {
-            $cols = [];
-            $r = mysqli_query($conexion, "DESCRIBE `$t`");
-            if ($r) {
-                while ($row = mysqli_fetch_assoc($r)) $cols[] = $row['Field'];
-                $info[$t] = $cols;
-            } else {
-                $info[$t] = 'NO EXISTE: ' . mysqli_error($conexion);
-            }
-        }
-        echo json_encode($info, JSON_PRETTY_PRINT);
         break;
 
     default:
