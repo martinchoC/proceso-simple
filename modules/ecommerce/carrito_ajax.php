@@ -107,6 +107,21 @@ $subquery_precio = "(SELECT h.precio_final
 
 // ── Switch de acciones ────────────────────────────────────────────────────────
 
+if ($accion === 'debug_tablas') {
+    $tablas = ['gestion__comprobantes', 'gestion__ventas_pedidos', 'gestion__ventas_pedidos_detalles'];
+    $info = [];
+    foreach ($tablas as $t) {
+        $r = mysqli_query($conexion, "DESCRIBE `$t`");
+        if ($r) {
+            while ($row = mysqli_fetch_assoc($r)) $info[$t][] = $row['Field'];
+        } else {
+            $info[$t] = 'NO EXISTE: ' . mysqli_error($conexion);
+        }
+    }
+    echo json_encode($info, JSON_PRETTY_PRINT);
+    exit;
+}
+
 switch ($accion) {
 
     // ── Catálogo + facets ─────────────────────────────────────────────────────
@@ -502,6 +517,26 @@ switch ($accion) {
             mysqli_rollback($conexion);
             echo json_encode(['resultado' => false, 'error' => $e->getMessage()]);
         }
+        break;
+
+    case 'debug_tablas':
+        $tablas = [
+            'gestion__comprobantes',
+            'gestion__ventas_pedidos',
+            'gestion__ventas_pedidos_detalles',
+        ];
+        $info = [];
+        foreach ($tablas as $t) {
+            $cols = [];
+            $r = mysqli_query($conexion, "DESCRIBE `$t`");
+            if ($r) {
+                while ($row = mysqli_fetch_assoc($r)) $cols[] = $row['Field'];
+                $info[$t] = $cols;
+            } else {
+                $info[$t] = 'NO EXISTE: ' . mysqli_error($conexion);
+            }
+        }
+        echo json_encode($info, JSON_PRETTY_PRINT);
         break;
 
     default:
