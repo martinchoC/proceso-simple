@@ -260,7 +260,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         </span>
                         <input type="text" class="form-control border-start-0 py-2"
                                id="buscarProducto"
-                               placeholder="Buscar productos, marcas y más...">
+                               placeholder="Buscar por nombre, código, descripción, categoría, marca o modelo...">
                         <button class="btn btn-primary px-3" id="btnBuscar">Buscar</button>
                     </div>
                 </div>

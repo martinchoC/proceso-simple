@@ -36,20 +36,34 @@ function buildWhere($conexion, $empresa_id, $excluir = null) {
         )"
     ];
 
-    // Búsqueda de texto: nombre, código, descripción y marca (vía compatibilidad)
+    // Búsqueda de texto: todos los campos visibles (nombre, código, descripción, categoría, marca, modelo)
+    // COLLATE utf8mb4_general_ci garantiza búsqueda sin distinguir mayúsculas ni tildes
     if (!empty($_GET['q'])) {
         $q = mysqli_real_escape_string($conexion, trim($_GET['q']));
         if ($excluir !== 'q') {
             $where[] = "(
-                p.producto_nombre        LIKE '%$q%'
-                OR p.producto_codigo     LIKE '%$q%'
-                OR p.producto_descripcion LIKE '%$q%'
+                CONVERT(p.producto_nombre        USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                OR CONVERT(p.producto_codigo     USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                OR CONVERT(p.producto_descripcion USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                OR EXISTS (
+                    SELECT 1
+                    FROM gestion__productos_categorias cat_q
+                    WHERE cat_q.producto_categoria_id = p.producto_categoria_id
+                      AND CONVERT(cat_q.producto_categoria_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                )
                 OR EXISTS (
                     SELECT 1
                     FROM gestion__productos_compatibilidad pc2
                     INNER JOIN gestion__marcas m2 ON m2.marca_id = pc2.marca_id
                     WHERE pc2.producto_id = p.producto_id
-                      AND m2.marca_nombre LIKE '%$q%'
+                      AND CONVERT(m2.marca_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM gestion__productos_compatibilidad pc3
+                    INNER JOIN gestion__modelos mo2 ON mo2.modelo_id = pc3.modelo_id
+                    WHERE pc3.producto_id = p.producto_id
+                      AND CONVERT(mo2.modelo_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
                 )
             )";
         }
