@@ -36,14 +36,15 @@ function buildWhere($conexion, $empresa_id, $excluir = null) {
         )"
     ];
 
-    // Búsqueda multi-término: cada palabra del input debe aparecer en al menos un campo visible.
-    // Ejemplo: "acce amort" → busca productos que contengan "acce" en algún campo Y "amort" en algún campo.
+    // Búsqueda multi-término: el producto aparece si CUALQUIER término coincide en CUALQUIER campo visible.
+    // Ejemplo: "cierr amort" → devuelve productos donde algún campo contiene "cierr" O "amort".
     // COLLATE utf8mb4_general_ci: sin distinción de mayúsculas ni tildes.
     if (!empty($_GET['q']) && $excluir !== 'q') {
         $terminos = array_filter(array_map('trim', explode(' ', trim($_GET['q']))));
+        $bloques = [];
         foreach ($terminos as $termino) {
             $t = mysqli_real_escape_string($conexion, $termino);
-            $where[] = "(
+            $bloques[] = "(
                 CONVERT(p.producto_nombre         USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
                 OR CONVERT(p.producto_codigo      USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
                 OR CONVERT(p.producto_descripcion USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
@@ -65,6 +66,9 @@ function buildWhere($conexion, $empresa_id, $excluir = null) {
                       AND CONVERT(mo2.modelo_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
                 )
             )";
+        }
+        if ($bloques) {
+            $where[] = '(' . implode(' OR ', $bloques) . ')';
         }
     }
 
