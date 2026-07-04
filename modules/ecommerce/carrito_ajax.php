@@ -37,35 +37,36 @@ function buildWhere($conexion, $empresa_id, $excluir = null) {
     ];
 
     // Búsqueda multi-término: el producto aparece si CUALQUIER término coincide en CUALQUIER campo visible.
-    // Cada término se escapa para SQL y también se escapan los comodines LIKE (%, _, \).
-    // COLLATE utf8mb4_general_ci: sin distinción de mayúsculas ni tildes.
-    if (!empty($_GET['q']) && $excluir !== 'q') {
-        $terminos = array_values(array_filter(preg_split('/\s+/', trim($_GET['q']))));
+    // Se reciben los términos ya separados como q[] desde el frontend.
+    // LOWER() en ambos lados asegura búsqueda sin distinción de mayúsculas.
+    // La insensibilidad a tildes depende del collation de la BD (utf8_general_ci la maneja nativamente).
+    if ($excluir !== 'q' && !empty($_GET['q'])) {
+        $raw = (array) $_GET['q'];
         $bloques = [];
-        foreach ($terminos as $termino) {
-            $t = mysqli_real_escape_string($conexion, $termino);
-            // Escapar comodines LIKE para búsqueda literal
-            $t = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $t);
+        foreach ($raw as $termino) {
+            $termino = trim($termino);
+            if ($termino === '') continue;
+            $t = mysqli_real_escape_string($conexion, mb_strtolower($termino, 'UTF-8'));
             $bloques[] = "(
-                CONVERT(p.producto_nombre         USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%' ESCAPE '\\\\'
-                OR CONVERT(p.producto_codigo      USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%' ESCAPE '\\\\'
-                OR CONVERT(p.producto_descripcion USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%' ESCAPE '\\\\'
+                LOWER(p.producto_nombre)         LIKE '%$t%'
+                OR LOWER(p.producto_codigo)      LIKE '%$t%'
+                OR LOWER(p.producto_descripcion) LIKE '%$t%'
                 OR EXISTS (
                     SELECT 1 FROM gestion__productos_categorias cat_q
                     WHERE cat_q.producto_categoria_id = p.producto_categoria_id
-                      AND CONVERT(cat_q.producto_categoria_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%' ESCAPE '\\\\'
+                      AND LOWER(cat_q.producto_categoria_nombre) LIKE '%$t%'
                 )
                 OR EXISTS (
                     SELECT 1 FROM gestion__productos_compatibilidad pc2
                     INNER JOIN gestion__marcas m2 ON m2.marca_id = pc2.marca_id
                     WHERE pc2.producto_id = p.producto_id
-                      AND CONVERT(m2.marca_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%' ESCAPE '\\\\'
+                      AND LOWER(m2.marca_nombre) LIKE '%$t%'
                 )
                 OR EXISTS (
                     SELECT 1 FROM gestion__productos_compatibilidad pc3
                     INNER JOIN gestion__modelos mo2 ON mo2.modelo_id = pc3.modelo_id
                     WHERE pc3.producto_id = p.producto_id
-                      AND CONVERT(mo2.modelo_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%' ESCAPE '\\\\'
+                      AND LOWER(mo2.modelo_nombre) LIKE '%$t%'
                 )
             )";
         }

@@ -462,7 +462,11 @@ const CarritoApp = {
     // ── Fetch catálogo + facets ───────────────────────────────────────────────
     fetchCatalogo() {
         const params = { accion: 'obtener_catalogo' };
-        if (this.filtros.q)          params.q          = this.filtros.q;
+        // Dividir el texto en términos y enviarlos como q[] para que PHP los trate individualmente
+        if (this.filtros.q) {
+            const terminos = this.filtros.q.trim().split(/\s+/).filter(t => t.length > 0);
+            if (terminos.length > 0) params['q[]'] = terminos;
+        }
         if (this.filtros.marca_id)   params.marca_id   = this.filtros.marca_id;
         if (this.filtros.modelo_id)  params.modelo_id  = this.filtros.modelo_id;
         if (this.filtros.precio_min) params.precio_min = this.filtros.precio_min;
