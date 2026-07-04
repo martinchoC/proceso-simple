@@ -476,6 +476,7 @@ const CarritoApp = {
         $.ajax({
             url: 'carrito_ajax.php',
             type: 'GET',
+            cache: false,
             data: params,
             dataType: 'json',
             success: resp => {
