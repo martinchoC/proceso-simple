@@ -36,34 +36,33 @@ function buildWhere($conexion, $empresa_id, $excluir = null) {
         )"
     ];
 
-    // Búsqueda de texto: todos los campos visibles (nombre, código, descripción, categoría, marca, modelo)
-    // COLLATE utf8mb4_general_ci garantiza búsqueda sin distinguir mayúsculas ni tildes
-    if (!empty($_GET['q'])) {
-        $q = mysqli_real_escape_string($conexion, trim($_GET['q']));
-        if ($excluir !== 'q') {
+    // Búsqueda multi-término: cada palabra del input debe aparecer en al menos un campo visible.
+    // Ejemplo: "acce amort" → busca productos que contengan "acce" en algún campo Y "amort" en algún campo.
+    // COLLATE utf8mb4_general_ci: sin distinción de mayúsculas ni tildes.
+    if (!empty($_GET['q']) && $excluir !== 'q') {
+        $terminos = array_filter(array_map('trim', explode(' ', trim($_GET['q']))));
+        foreach ($terminos as $termino) {
+            $t = mysqli_real_escape_string($conexion, $termino);
             $where[] = "(
-                CONVERT(p.producto_nombre        USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
-                OR CONVERT(p.producto_codigo     USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
-                OR CONVERT(p.producto_descripcion USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                CONVERT(p.producto_nombre         USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
+                OR CONVERT(p.producto_codigo      USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
+                OR CONVERT(p.producto_descripcion USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
                 OR EXISTS (
-                    SELECT 1
-                    FROM gestion__productos_categorias cat_q
+                    SELECT 1 FROM gestion__productos_categorias cat_q
                     WHERE cat_q.producto_categoria_id = p.producto_categoria_id
-                      AND CONVERT(cat_q.producto_categoria_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                      AND CONVERT(cat_q.producto_categoria_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
                 )
                 OR EXISTS (
-                    SELECT 1
-                    FROM gestion__productos_compatibilidad pc2
+                    SELECT 1 FROM gestion__productos_compatibilidad pc2
                     INNER JOIN gestion__marcas m2 ON m2.marca_id = pc2.marca_id
                     WHERE pc2.producto_id = p.producto_id
-                      AND CONVERT(m2.marca_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                      AND CONVERT(m2.marca_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
                 )
                 OR EXISTS (
-                    SELECT 1
-                    FROM gestion__productos_compatibilidad pc3
+                    SELECT 1 FROM gestion__productos_compatibilidad pc3
                     INNER JOIN gestion__modelos mo2 ON mo2.modelo_id = pc3.modelo_id
                     WHERE pc3.producto_id = p.producto_id
-                      AND CONVERT(mo2.modelo_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$q%'
+                      AND CONVERT(mo2.modelo_nombre USING utf8mb4) COLLATE utf8mb4_general_ci LIKE '%$t%'
                 )
             )";
         }
