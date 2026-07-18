@@ -657,6 +657,10 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                         },
                         pagina: {
                             icon: 'fas fa-file-alt text-primary',
+                            valid_children: ['grupo', 'pagina'] // Puede tener subpáginas y grupos
+                        },
+                        grupo: {
+                            icon: 'fas fa-layer-group text-info',
                             valid_children: ['activa', 'inactiva']
                         },
                         activa: {
@@ -668,7 +672,7 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                             valid_children: []
                         }
                     },
-                    contextmenu: {
+                   contextmenu: {
                         items: function(node) {
                             var items = {};
                             
@@ -684,6 +688,7 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                                 };
                             } else if (node.type === 'pagina') {
                                 var paginaId = node.id.replace('pagina_', '');
+                                var paginaNombre = node.text;
                                 items = {
                                     addFunction: {
                                         label: 'Agregar función',
@@ -695,23 +700,48 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                                             $('#tabla_estado_registro_origen_id').val('0');
                                             updateButtonPreviews('btn-primary', 'fa-cog', 'Función');
                                             updateColorPreview('btn-primary');
-                                            $('#modalLabel').text('Nueva Función');
+                                            $('#modalLabel').text('Nueva Función en ' + paginaNombre);
                                             var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
                                             modal.show();
                                         },
                                         icon: 'fas fa-plus'
                                     },
+                                    addSubpage: {
+                                        label: 'Agregar subpágina',
+                                        action: function() {
+                                            // Redirigir a páginas con padre preseleccionado
+                                            window.location.href = 'paginas.php?padre_id=' + paginaId;
+                                        },
+                                        icon: 'fas fa-sitemap'
+                                    },
                                     viewPage: {
                                         label: 'Ver página',
                                         action: function() {
-                                            // Mostrar información de la página
-                                            var paginaNombre = node.text;
                                             var paginaData = node.data || {};
                                             Swal.fire({
                                                 title: paginaNombre,
                                                 html: `
                                                     <p><strong>URL:</strong> ${paginaData.url || '-'}</p>
                                                     <p><strong>Descripción:</strong> ${paginaData.descripcion || '-'}</p>
+                                                `,
+                                                icon: 'info'
+                                            });
+                                        },
+                                        icon: 'fas fa-info-circle'
+                                    }
+                                };
+                            } else if (node.type === 'grupo') {
+                                var grupoData = node.data || {};
+                                var totalFunciones = grupoData.total_funciones || 0;
+                                items = {
+                                    viewGroup: {
+                                        label: 'Ver grupo (' + totalFunciones + ' funciones)',
+                                        action: function() {
+                                            Swal.fire({
+                                                title: 'Grupo de funciones',
+                                                html: `
+                                                    <p><strong>Estado Origen ID:</strong> ${grupoData.estado_origen_id || '0'}</p>
+                                                    <p><strong>Total funciones:</strong> ${totalFunciones}</p>
                                                 `,
                                                 icon: 'info'
                                             });

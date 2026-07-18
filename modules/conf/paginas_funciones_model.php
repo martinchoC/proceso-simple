@@ -72,55 +72,77 @@ function obtenerModulosParaFiltro($conexion)
     return $data;
 }
 
-// FUNCIÓN CORREGIDA: Obtener árbol de funciones por módulo → página → función
+// FUNCIÓN PRINCIPAL: Obtener árbol de funciones (similar a obtenerArbolPaginas)
 function obtenerArbolFunciones($conexion, $modulo_id = null, $pagina_id = null, $busqueda = null)
 {
-    // Obtener todos los módulos activos
-    $sqlModulos = "SELECT * FROM conf__modulos WHERE tabla_estado_registro_id = 1 ORDER BY modulo";
+    // Obtener todos los módulos
+    $modulosData = obtenerModulosParaFiltro($conexion);
+    
+    // Obtener todas las páginas con sus datos
+    $sql = "SELECT p.*, m.modulo, i.icono_clase
+            FROM conf__paginas p
+            LEFT JOIN conf__modulos m ON p.modulo_id = m.modulo_id
+            LEFT JOIN conf__iconos i ON p.icono_id = i.icono_id
+            WHERE p.tabla_estado_registro_id = 1";
+    
     if ($modulo_id) {
         $modulo_id = intval($modulo_id);
-        $sqlModulos .= " AND modulo_id = $modulo_id";
+        $sql .= " AND p.modulo_id = $modulo_id";
     }
-    $resModulos = mysqli_query($conexion, $sqlModulos);
-    $modulos = [];
-    while ($fila = mysqli_fetch_assoc($resModulos)) {
-        $modulos[] = $fila;
-    }
-    
-    // Obtener todas las páginas
-    $sqlPaginas = "SELECT p.*, i.icono_clase, i.icono_nombre
-                   FROM conf__paginas p
-                   LEFT JOIN conf__iconos i ON p.icono_id = i.icono_id
-                   WHERE p.tabla_estado_registro_id = 1";
     
     if ($pagina_id) {
         $pagina_id = intval($pagina_id);
-        $sqlPaginas .= " AND p.pagina_id = $pagina_id";
+        $sql .= " AND p.pagina_id = $pagina_id";
     }
     
-    $sqlPaginas .= " ORDER BY p.modulo_id, p.orden, p.pagina";
+    $sql .= " ORDER BY p.modulo_id, p.orden, p.pagina";
     
-    $resPaginas = mysqli_query($conexion, $sqlPaginas);
+    $res = mysqli_query($conexion, $sql);
     $paginas = [];
-    while ($fila = mysqli_fetch_assoc($resPaginas)) {
+    while ($fila = mysqli_fetch_assoc($res)) {
         $paginas[] = $fila;
     }
     
-    // Construir el árbol
+    // Obtener todas las funciones agrupadas por página_id
+    $sqlFunciones = "SELECT pf.*, 
+                            i.icono_clase, i.icono_nombre,
+                            c.nombre_color, c.color_clase,
+                            eor.estado_registro as estado_origen,
+                            ede.estado_registro as estado_destino
+                     FROM conf__paginas_funciones pf
+                     LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
+                     LEFT JOIN conf__colores c ON pf.color_id = c.color_id
+                     LEFT JOIN conf__estados_registros eor ON pf.tabla_estado_registro_origen_id = eor.estado_registro_id
+                     LEFT JOIN conf__estados_registros ede ON pf.tabla_estado_registro_destino_id = ede.estado_registro_id
+                     WHERE pf.tabla_estado_registro_id = 1";
+    
+    if ($busqueda && strlen($busqueda) > 2) {
+        $busqueda = mysqli_real_escape_string($conexion, $busqueda);
+        $sqlFunciones .= " AND (pf.nombre_funcion LIKE '%$busqueda%' OR pf.descripcion LIKE '%$busqueda%' OR pf.accion_js LIKE '%$busqueda%')";
+    }
+    
+    $sqlFunciones .= " ORDER BY pf.tabla_estado_registro_origen_id, pf.orden, pf.nombre_funcion";
+    
+    $resFunciones = mysqli_query($conexion, $sqlFunciones);
+    $funcionesPorPagina = [];
+    while ($fila = mysqli_fetch_assoc($resFunciones)) {
+        $paginaId = $fila['pagina_id'];
+        if (!isset($funcionesPorPagina[$paginaId])) {
+            $funcionesPorPagina[$paginaId] = [];
+        }
+        $funcionesPorPagina[$paginaId][] = $fila;
+    }
+    
+    // Construir el árbol - similar a obtenerArbolPaginas
     $arbol = [];
     
-    foreach ($modulos as $modulo) {
-        // Filtrar páginas de este módulo
-        $paginasModulo = array_filter($paginas, function($pagina) use ($modulo) {
-            return $pagina['modulo_id'] == $modulo['modulo_id'];
-        });
-        
-        // Si no hay páginas en este módulo, saltar
-        if (empty($paginasModulo)) {
+    foreach ($modulosData as $modulo) {
+        // Si hay filtro de módulo, solo incluir el módulo seleccionado
+        if ($modulo_id && $modulo['modulo_id'] != $modulo_id) {
             continue;
         }
         
-        // Nodo del módulo - SIN icono en el texto
+        // Construir el nodo del módulo
         $moduloNode = [
             'id' => 'modulo_' . $modulo['modulo_id'],
             'text' => $modulo['modulo'],
@@ -132,118 +154,156 @@ function obtenerArbolFunciones($conexion, $modulo_id = null, $pagina_id = null, 
             ]
         ];
         
-        // Construir páginas del módulo
-        foreach ($paginasModulo as $pagina) {
-            // Obtener funciones de esta página
-            $sqlFunciones = "SELECT pf.*, 
-                                    i.icono_clase, i.icono_nombre,
-                                    c.nombre_color, c.color_clase,
-                                    eor.estado_registro as estado_origen,
-                                    ede.estado_registro as estado_destino
-                             FROM conf__paginas_funciones pf
-                             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
-                             LEFT JOIN conf__colores c ON pf.color_id = c.color_id
-                             LEFT JOIN conf__estados_registros eor ON pf.tabla_estado_registro_origen_id = eor.estado_registro_id
-                             LEFT JOIN conf__estados_registros ede ON pf.tabla_estado_registro_destino_id = ede.estado_registro_id
-                             WHERE pf.pagina_id = " . $pagina['pagina_id'] . "
-                             AND pf.tabla_estado_registro_id = 1";
-            
-            if ($busqueda && strlen($busqueda) > 2) {
-                $busqueda = mysqli_real_escape_string($conexion, $busqueda);
-                $sqlFunciones .= " AND (pf.nombre_funcion LIKE '%$busqueda%' OR pf.descripcion LIKE '%$busqueda%' OR pf.accion_js LIKE '%$busqueda%')";
-            }
-            
-            // ORDEN CORREGIDO: Primero por tabla_estado_registro_origen_id, luego por orden
-            $sqlFunciones .= " ORDER BY pf.tabla_estado_registro_origen_id, pf.orden, pf.nombre_funcion";
-            
-            $resFunciones = mysqli_query($conexion, $sqlFunciones);
-            $funciones = [];
-            while ($fila = mysqli_fetch_assoc($resFunciones)) {
-                $funciones[] = $fila;
-            }
-            
-            // Solo mostrar la página si tiene funciones o no hay búsqueda
-            if (empty($funciones) && $busqueda) {
-                continue;
-            }
-            
-            // Nodo de la página - SOLO texto sin icono HTML
-            $paginaNode = [
-                'id' => 'pagina_' . $pagina['pagina_id'],
-                'text' => $pagina['pagina'], // Solo el nombre
-                'type' => 'pagina',
-                'icon' => !empty($pagina['icono_clase']) ? $pagina['icono_clase'] : 'fas fa-file-alt',
-                'children' => [],
-                'state' => [
-                    'opened' => true
-                ],
-                'data' => [
-                    'url' => $pagina['url'],
-                    'descripcion' => $pagina['pagina_descripcion']
-                ]
-            ];
-            
-            // Agregar funciones como hijos - CORREGIDO: No duplicar iconos
-            foreach ($funciones as $funcion) {
-                // Determinar el tipo según el estado
-                $tipo = $funcion['tabla_estado_registro_id'] == 1 ? 'activa' : 'inactiva';
-                
-                // Construir el texto de la función - EL ICONO SE MANEJA CON LA PROPIEDAD 'icon' DE JSTREE
-                $textoFuncion = $funcion['nombre_funcion'];
-                
-                // Agregar color como badge (si tiene)
-                if (!empty($funcion['color_clase'])) {
-                    $textoFuncion .= ' <span class="badge ' . $funcion['color_clase'] . '">' . $funcion['nombre_color'] . '</span>';
-                }
-                
-                // Agregar estados (origen → destino)
-                if ($funcion['estado_origen'] || $funcion['estado_destino']) {
-                    $origen = $funcion['estado_origen'] ?: '0';
-                    $destino = $funcion['estado_destino'] ?: '-';
-                    $textoFuncion .= ' <span class="funcion-estado badge bg-light text-dark">' . $origen . ' → ' . $destino . '</span>';
-                }
-                
-                // Agregar acción JS
-                if (!empty($funcion['accion_js'])) {
-                    $textoFuncion .= ' <span class="funcion-accion"><code>' . $funcion['accion_js'] . '</code></span>';
-                }
-                
-                // Determinar el icono para jstree
-                $iconoFuncion = !empty($funcion['icono_clase']) ? $funcion['icono_clase'] : 'fas fa-cog';
-                
-                $funcionNode = [
-                    'id' => 'funcion_' . $funcion['pagina_funcion_id'],
-                    'text' => $textoFuncion, // Solo texto, sin icono HTML
-                    'type' => $tipo,
-                    'icon' => $iconoFuncion, // El icono se maneja aquí
-                    'data' => [
-                        'nombre' => $funcion['nombre_funcion'],
-                        'accion_js' => $funcion['accion_js'],
-                        'descripcion' => $funcion['descripcion'],
-                        'orden' => $funcion['orden'],
-                        'color' => $funcion['nombre_color'],
-                        'estado_origen' => $funcion['estado_origen'],
-                        'estado_destino' => $funcion['estado_destino'],
-                        'estado_origen_id' => $funcion['tabla_estado_registro_origen_id']
-                    ]
-                ];
-                
-                $paginaNode['children'][] = $funcionNode;
-            }
-            
-            // Solo agregar la página si tiene funciones
-            if (!empty($paginaNode['children'])) {
-                $moduloNode['children'][] = $paginaNode;
-            }
-        }
+        // Construir páginas de este módulo de forma recursiva
+        $moduloNode['children'] = construirArbolFuncionesRecursivo(
+            $paginas, 
+            $funcionesPorPagina, 
+            $modulo['modulo_id'], 
+            null
+        );
         
-        // Solo agregar el módulo si tiene páginas con funciones
+        // Solo agregar el módulo si tiene páginas con contenido
         if (!empty($moduloNode['children'])) {
             $arbol[] = $moduloNode;
         }
     }
     
     return $arbol;
+}
+
+// FUNCIÓN RECURSIVA: Construir el árbol de páginas y funciones (similar a construirArbolPaginasRecursivo)
+function construirArbolFuncionesRecursivo($paginas, $funcionesPorPagina, $modulo_id, $padre_id = null)
+{
+    $result = [];
+    
+    foreach ($paginas as $pagina) {
+        // Verificar si la página pertenece al módulo y tiene el padre correcto
+        $padreActual = $pagina['padre_id'];
+        if ($padreActual === null || $padreActual == 0) {
+            $padreActual = null;
+        }
+        
+        if ($pagina['modulo_id'] == $modulo_id && $padreActual == $padre_id) {
+            // Determinar el icono de la página
+            $icono = !empty($pagina['icono_clase']) ? $pagina['icono_clase'] : 'fas fa-file-alt';
+            $colorClass = $pagina['tabla_estado_registro_id'] == 1 ? 'text-success' : 'text-danger';
+            
+            // Nodo de la página
+            $paginaNode = [
+                'id' => 'pagina_' . $pagina['pagina_id'],
+                'text' => $pagina['pagina'],
+                'type' => 'pagina',
+                'icon' => $icono . ' ' . $colorClass,
+                'children' => [],
+                'state' => [
+                    'opened' => true
+                ],
+                'data' => [
+                    'descripcion' => $pagina['pagina_descripcion'],
+                    'url' => $pagina['url'],
+                    'orden' => $pagina['orden']
+                ]
+            ];
+            
+            // Agregar subpáginas (hijos) recursivamente
+            $hijos = construirArbolFuncionesRecursivo($paginas, $funcionesPorPagina, $modulo_id, $pagina['pagina_id']);
+            if (!empty($hijos)) {
+                $paginaNode['children'] = array_merge($paginaNode['children'], $hijos);
+            }
+            
+            // Agregar funciones de esta página
+            $paginaId = $pagina['pagina_id'];
+            if (isset($funcionesPorPagina[$paginaId]) && !empty($funcionesPorPagina[$paginaId])) {
+                $funcionesPagina = $funcionesPorPagina[$paginaId];
+                
+                // Agrupar funciones por tabla_estado_registro_origen_id
+                $funcionesAgrupadas = [];
+                foreach ($funcionesPagina as $funcion) {
+                    $origenId = intval($funcion['tabla_estado_registro_origen_id']);
+                    if (!isset($funcionesAgrupadas[$origenId])) {
+                        $funcionesAgrupadas[$origenId] = [];
+                    }
+                    $funcionesAgrupadas[$origenId][] = $funcion;
+                }
+                
+                // Crear nodos de grupo por estado origen
+                foreach ($funcionesAgrupadas as $origenId => $funcionesGrupo) {
+                    // Obtener nombre del estado origen
+                    $nombreOrigen = '0';
+                    if (!empty($funcionesGrupo[0]['estado_origen'])) {
+                        $nombreOrigen = $funcionesGrupo[0]['estado_origen'];
+                    }
+                    
+                    // Crear nodo de grupo
+                    $grupoNode = [
+                        'id' => 'grupo_' . $pagina['pagina_id'] . '_' . $origenId,
+                        'text' => 'Estado Origen: ' . $nombreOrigen . ' (' . count($funcionesGrupo) . ' funciones)',
+                        'type' => 'grupo',
+                        'icon' => 'fas fa-layer-group text-info',
+                        'children' => [],
+                        'state' => [
+                            'opened' => true
+                        ],
+                        'data' => [
+                            'estado_origen_id' => $origenId,
+                            'total_funciones' => count($funcionesGrupo)
+                        ]
+                    ];
+                    
+                    // Agregar funciones al grupo
+                    foreach ($funcionesGrupo as $funcion) {
+                        $tipo = $funcion['tabla_estado_registro_id'] == 1 ? 'activa' : 'inactiva';
+                        
+                        $textoFuncion = $funcion['nombre_funcion'];
+                        
+                        if (!empty($funcion['color_clase'])) {
+                            $textoFuncion .= ' <span class="badge ' . $funcion['color_clase'] . '">' . $funcion['nombre_color'] . '</span>';
+                        }
+                        
+                        if ($funcion['estado_destino']) {
+                            $textoFuncion .= ' <span class="funcion-estado badge bg-light text-dark">→ ' . $funcion['estado_destino'] . '</span>';
+                        }
+                        
+                        if (!empty($funcion['accion_js'])) {
+                            $textoFuncion .= ' <span class="funcion-accion"><code>' . $funcion['accion_js'] . '</code></span>';
+                        }
+                        
+                        $funcionNode = [
+                            'id' => 'funcion_' . $funcion['pagina_funcion_id'],
+                            'text' => $textoFuncion,
+                            'type' => $tipo,
+                            'icon' => !empty($funcion['icono_clase']) ? $funcion['icono_clase'] : 'fas fa-cog',
+                            'data' => [
+                                'nombre' => $funcion['nombre_funcion'],
+                                'accion_js' => $funcion['accion_js'],
+                                'descripcion' => $funcion['descripcion'],
+                                'orden' => $funcion['orden'],
+                                'color' => $funcion['nombre_color'],
+                                'estado_origen' => $funcion['estado_origen'],
+                                'estado_origen_id' => $funcion['tabla_estado_registro_origen_id'],
+                                'estado_destino' => $funcion['estado_destino'],
+                                'estado_destino_id' => $funcion['tabla_estado_registro_destino_id']
+                            ]
+                        ];
+                        
+                        $grupoNode['children'][] = $funcionNode;
+                    }
+                    
+                    // Solo agregar el grupo si tiene funciones
+                    if (!empty($grupoNode['children'])) {
+                        $paginaNode['children'][] = $grupoNode;
+                    }
+                }
+            }
+            
+            // Solo agregar la página si tiene hijos o funciones
+            if (!empty($paginaNode['children'])) {
+                $result[] = $paginaNode;
+            }
+        }
+    }
+    
+    return $result;
 }
 
 function obtenerPaginasFunciones($conexion)
