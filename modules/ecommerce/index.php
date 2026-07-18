@@ -260,7 +260,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         </span>
                         <input type="text" class="form-control border-start-0 py-2"
                                id="buscarProducto"
-                               placeholder="Buscar productos, marcas y más...">
+                               placeholder="Buscar por nombre, código, descripción, categoría, marca o modelo...">
                         <button class="btn btn-primary px-3" id="btnBuscar">Buscar</button>
                     </div>
                 </div>
@@ -366,14 +366,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>
 
                             <div class="cart-summary">
-                                <div class="summary-row">
-                                    <span>Subtotal neto</span>
-                                    <span id="txtSubtotal">$ 0,00</span>
-                                </div>
-                                <div class="summary-row iva">
-                                    <span>IVA</span>
-                                    <span id="txtIva">$ 0,00</span>
-                                </div>
                                 <div class="summary-total">
                                     <span>Total</span>
                                     <span id="txtTotal">$ 0,00</span>
@@ -470,7 +462,11 @@ const CarritoApp = {
     // ── Fetch catálogo + facets ───────────────────────────────────────────────
     fetchCatalogo() {
         const params = { accion: 'obtener_catalogo' };
-        if (this.filtros.q)          params.q          = this.filtros.q;
+        // Dividir el texto en términos y enviarlos como q[] para que PHP los trate individualmente
+        if (this.filtros.q) {
+            const terminos = this.filtros.q.trim().split(/\s+/).filter(t => t.length > 0);
+            if (terminos.length > 0) params['q[]'] = terminos;
+        }
         if (this.filtros.marca_id)   params.marca_id   = this.filtros.marca_id;
         if (this.filtros.modelo_id)  params.modelo_id  = this.filtros.modelo_id;
         if (this.filtros.precio_min) params.precio_min = this.filtros.precio_min;
@@ -484,6 +480,7 @@ const CarritoApp = {
         $.ajax({
             url: 'carrito_ajax.php',
             type: 'GET',
+            cache: false,
             data: params,
             dataType: 'json',
             success: resp => {
@@ -697,9 +694,7 @@ const CarritoApp = {
             const precioHtml  = tienePrecio
                 ? `<div class="product-price">${this.fmt(prod.precio)}</div>`
                 : `<div class="product-price sin-precio">Sin precio asignado</div>`;
-            const ivaHtml = tienePrecio && prod.iva_porcentaje > 0
-                ? `<small class="text-muted" style="font-size:.7rem">+IVA ${prod.iva_porcentaje}%</small>`
-                : '';
+            const ivaHtml = '';
 
             const imgHtml = prod.imagen_id > 0
                 ? `<img src="../gestion/get_imagen.php?id=${prod.imagen_id}" alt="${prod.nombre}"
@@ -744,6 +739,7 @@ const CarritoApp = {
                 id:             producto.id,
                 nombre:         producto.nombre,
                 precio:         parseFloat(producto.precio),
+                precio_neto:    parseFloat(producto.precio_neto),
                 iva_porcentaje: parseFloat(producto.iva_porcentaje || 0),
                 cantidad:       1
             });
@@ -783,29 +779,20 @@ const CarritoApp = {
         if (this.carrito.length === 0) {
             if (vacio) vacio.style.display = 'block';
             document.getElementById('badgeCantidadGlobal').innerText = '0';
-            document.getElementById('txtSubtotal').innerText = '$ 0,00';
-            document.getElementById('txtIva').innerText      = '$ 0,00';
-            document.getElementById('txtTotal').innerText    = '$ 0,00';
+            document.getElementById('txtTotal').innerText = '$ 0,00';
             this.validarCheckout();
             return;
         }
 
         if (vacio) vacio.style.display = 'none';
 
-        let totalItems  = 0;
-        let subtotalNeto = 0;
-        let totalIva    = 0;
+        let totalItems = 0;
+        let totalConIva = 0;
 
         this.carrito.forEach(item => {
-            totalItems   += item.cantidad;
-            const neto    = item.precio * item.cantidad;
-            const iva     = neto * (item.iva_porcentaje / 100);
-            subtotalNeto += neto;
-            totalIva     += iva;
-
-            const ivaLabel = item.iva_porcentaje > 0
-                ? `<small class="text-muted ms-1">+IVA ${item.iva_porcentaje}%</small>`
-                : '';
+            totalItems  += item.cantidad;
+            const linea  = item.precio * item.cantidad;
+            totalConIva += linea;
 
             const div = document.createElement('div');
             div.className = 'cart-item';
@@ -816,7 +803,7 @@ const CarritoApp = {
                 <div class="cart-item-details">
                     <div class="cart-item-title">${item.nombre}</div>
                     <div class="d-flex justify-content-between align-items-center mt-1">
-                        <div class="cart-item-price">${this.fmt(neto)}${ivaLabel}</div>
+                        <div class="cart-item-price">${this.fmt(linea)}</div>
                         <div class="qty-controls shadow-sm">
                             <button class="qty-btn btn-decrement">
                                 <i class="bi bi-dash"></i>
@@ -834,11 +821,8 @@ const CarritoApp = {
             contenedor.appendChild(div);
         });
 
-        const total = subtotalNeto + totalIva;
         document.getElementById('badgeCantidadGlobal').innerText = totalItems;
-        document.getElementById('txtSubtotal').innerText = this.fmt(subtotalNeto);
-        document.getElementById('txtIva').innerText      = this.fmt(totalIva);
-        document.getElementById('txtTotal').innerText    = this.fmt(total);
+        document.getElementById('txtTotal').innerText = this.fmt(totalConIva);
         this.validarCheckout();
     },
 

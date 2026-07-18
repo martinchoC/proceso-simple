@@ -17,24 +17,61 @@ $empresa_id = 2;
  * El parámetro $excluir permite omitir uno de los grupos para el cálculo de facets.
  */
 function buildWhere($conexion, $empresa_id, $excluir = null) {
-    $where = ["p.tabla_estado_registro_id = 1", "p.empresa_id = $empresa_id"];
+    $where = [
+        "p.tabla_estado_registro_id = 1",
+        "p.empresa_id = $empresa_id",
+        "EXISTS (
+            SELECT 1
+            FROM gestion__listas_precios_productos_historial h
+            INNER JOIN gestion__listas_precios lp
+                    ON lp.lista_precio_id = h.lista_precio_id
+                   AND lp.empresa_id = $empresa_id
+                   AND lp.tabla_estado_registro_id = 1
+            WHERE h.producto_id = p.producto_id
+              AND h.empresa_id = $empresa_id
+              AND h.tabla_estado_registro_id = 1
+              AND h.precio_final > 0
+              AND h.f_desde <= CURDATE()
+              AND (h.f_hasta IS NULL OR h.f_hasta >= CURDATE())
+        )"
+    ];
 
-    // Búsqueda de texto: nombre, código, descripción y marca (vía compatibilidad)
-    if (!empty($_GET['q'])) {
-        $q = mysqli_real_escape_string($conexion, trim($_GET['q']));
-        if ($excluir !== 'q') {
-            $where[] = "(
-                p.producto_nombre        LIKE '%$q%'
-                OR p.producto_codigo     LIKE '%$q%'
-                OR p.producto_descripcion LIKE '%$q%'
+    // Búsqueda multi-término: el producto aparece si CUALQUIER término coincide en CUALQUIER campo visible.
+    // Se reciben los términos ya separados como q[] desde el frontend.
+    // LOWER() en ambos lados asegura búsqueda sin distinción de mayúsculas.
+    // La insensibilidad a tildes depende del collation de la BD (utf8_general_ci la maneja nativamente).
+    if ($excluir !== 'q' && !empty($_GET['q'])) {
+        $raw = (array) $_GET['q'];
+        $bloques = [];
+        foreach ($raw as $termino) {
+            $termino = trim($termino);
+            if ($termino === '') continue;
+            $t = mysqli_real_escape_string($conexion, mb_strtolower($termino, 'UTF-8'));
+            $bloques[] = "(
+                LOWER(p.producto_nombre)         LIKE '%$t%'
+                OR LOWER(p.producto_codigo)      LIKE '%$t%'
+                OR LOWER(p.producto_descripcion) LIKE '%$t%'
                 OR EXISTS (
-                    SELECT 1
-                    FROM gestion__productos_compatibilidad pc2
+                    SELECT 1 FROM gestion__productos_categorias cat_q
+                    WHERE cat_q.producto_categoria_id = p.producto_categoria_id
+                      AND LOWER(cat_q.producto_categoria_nombre) LIKE '%$t%'
+                )
+                OR EXISTS (
+                    SELECT 1 FROM gestion__productos_compatibilidad pc2
                     INNER JOIN gestion__marcas m2 ON m2.marca_id = pc2.marca_id
                     WHERE pc2.producto_id = p.producto_id
-                      AND m2.marca_nombre LIKE '%$q%'
+                      AND LOWER(m2.marca_nombre) LIKE '%$t%'
+                )
+                OR EXISTS (
+                    SELECT 1 FROM gestion__productos_compatibilidad pc3
+                    INNER JOIN gestion__modelos mo2 ON mo2.modelo_id = pc3.modelo_id
+                    WHERE pc3.producto_id = p.producto_id
+                      AND LOWER(mo2.modelo_nombre) LIKE '%$t%'
                 )
             )";
+        }
+        if ($bloques) {
+            $where[] = '(' . implode(' OR ', $bloques) . ')';
         }
     }
 
@@ -73,12 +110,19 @@ function buildWhere($conexion, $empresa_id, $excluir = null) {
     return implode(' AND ', $where);
 }
 
-$subquery_precio = "(SELECT pc.costo_actual
-                     FROM gestion__productos_costos pc
-                     WHERE pc.producto_id = p.producto_id
-                       AND pc.empresa_id  = p.empresa_id
-                       AND pc.tabla_estado_registro_id = 1
-                     ORDER BY pc.actualizado_en DESC
+$subquery_precio = "(SELECT h.precio_final
+                     FROM gestion__listas_precios_productos_historial h
+                     INNER JOIN gestion__listas_precios lp
+                             ON lp.lista_precio_id = h.lista_precio_id
+                            AND lp.empresa_id = $empresa_id
+                            AND lp.tabla_estado_registro_id = 1
+                     WHERE h.producto_id = p.producto_id
+                       AND h.empresa_id  = $empresa_id
+                       AND h.tabla_estado_registro_id = 1
+                       AND h.precio_final > 0
+                       AND h.f_desde <= CURDATE()
+                       AND (h.f_hasta IS NULL OR h.f_hasta >= CURDATE())
+                     ORDER BY lp.lista_precio_id ASC, h.fecha_historial DESC
                      LIMIT 1)";
 
 // ── Switch de acciones ────────────────────────────────────────────────────────
@@ -91,14 +135,14 @@ switch ($accion) {
         $where_all = buildWhere($conexion, $empresa_id);
 
         // Aplicar precio sobre la subquery (requiere envolver)
-        $having = [];
+        $having = ["precio_vigente > 0"];
         if (isset($_GET['precio_min']) && $_GET['precio_min'] !== '') {
             $having[] = "precio_vigente >= " . floatval($_GET['precio_min']);
         }
         if (isset($_GET['precio_max']) && $_GET['precio_max'] !== '') {
             $having[] = "precio_vigente <= " . floatval($_GET['precio_max']);
         }
-        $having_sql = $having ? ('HAVING ' . implode(' AND ', $having)) : '';
+        $having_sql = 'HAVING ' . implode(' AND ', $having);
 
         // ── Productos ──
         $sql_prod = "SELECT p.producto_id              AS id,
@@ -123,6 +167,7 @@ switch ($accion) {
                             AND p.producto_categoria_id > 0
                      LEFT JOIN gestion__impuestos__iva_alicuotas iva
                             ON iva.iva_alicuota_id = p.iva_alicuota_id
+                           AND iva.empresa_id = p.empresa_id
                      WHERE $where_all
                      $having_sql
                      ORDER BY p.producto_nombre
@@ -136,6 +181,8 @@ switch ($accion) {
 
         $productos = [];
         while ($row = mysqli_fetch_assoc($res)) {
+            $precio_neto    = floatval($row['precio_vigente']);
+            $iva_porcentaje = floatval($row['iva_porcentaje']);
             $productos[] = [
                 'id'             => intval($row['id']),
                 'codigo'         => $row['codigo'],
@@ -144,8 +191,9 @@ switch ($accion) {
                 'categoria_id'   => intval($row['categoria_id']),
                 'categoria'      => $row['categoria_nombre'] ?? '',
                 'iva_alicuota_id'=> intval($row['iva_alicuota_id']),
-                'iva_porcentaje' => floatval($row['iva_porcentaje']),
-                'precio'         => floatval($row['precio_vigente']),
+                'iva_porcentaje' => $iva_porcentaje,
+                'precio_neto'    => $precio_neto,
+                'precio'         => round($precio_neto * (1 + $iva_porcentaje / 100), 2),
                 'imagen_id'      => $row['imagen_id'] ? intval($row['imagen_id']) : 0,
             ];
         }
@@ -269,12 +317,12 @@ switch ($accion) {
         echo json_encode($sucursales);
         break;
 
-    // ── Guardar pedido → gestion__ordenes_compra ─────────────────────────────
+    // ── Guardar pedido → gestion__ventas_pedidos ─────────────────────────────
     case 'guardar_pedido_carrito':
         $detalles_json = $_POST['detalles']   ?? '[]';
         $entidad_id    = intval($_POST['entidad_id']  ?? 0);
         $sucursal_id   = intval($_POST['sucursal_id'] ?? 1);
-        $usuario_id    = intval($_SESSION['usuario_id'] ?? 0) ?: null;
+        $usuario_id    = intval($_SESSION['usuario_id'] ?? 0) ?: 1;
 
         $detalles = json_decode($detalles_json, true);
 
@@ -297,15 +345,16 @@ switch ($accion) {
             break;
         }
 
-        $comprobante_tipo_id = 17;
+        $comprobante_tipo_id = 1;   // Pedido de Cliente
+        $tabla_origen_id     = 82;  // conf__tablas: gestion__ventas_pedidos
         $moneda_id           = 1;
         $tipo_cambio         = 1.000000;
-        $condicion_pago_id   = 1;
         $f_emision           = date('Y-m-d');
 
         mysqli_begin_transaction($conexion);
 
         try {
+            // Punto de venta de la sucursal
             $res_pv = mysqli_query($conexion,
                 "SELECT punto_venta_id FROM gestion__puntos_venta
                  WHERE empresa_id = $empresa_id
@@ -318,6 +367,7 @@ switch ($accion) {
             }
             $punto_venta_id = intval(mysqli_fetch_assoc($res_pv)['punto_venta_id']);
 
+            // Numerador del comprobante
             $res_num = mysqli_query($conexion,
                 "SELECT numerador_id, ultimo_numero
                  FROM gestion__comprobantes_numeradores
@@ -341,8 +391,9 @@ switch ($accion) {
                      (empresa_id, punto_venta_id, comprobante_tipo_id, ultimo_numero, created_at, updated_at)
                      VALUES ($empresa_id, $punto_venta_id, $comprobante_tipo_id, 1, NOW(), NOW())");
             }
-            $comprobante_nro = (string) $nuevo_numero;
+            $comprobante_nro = intval($nuevo_numero);
 
+            // Calcular totales y enriquecer ítems con IVA verificado desde BD
             $subtotal_neto = 0;
             $total_iva     = 0;
             $items_enriquecidos = [];
@@ -354,6 +405,7 @@ switch ($accion) {
                      FROM gestion__productos p
                      LEFT JOIN gestion__impuestos__iva_alicuotas iva
                             ON iva.iva_alicuota_id = p.iva_alicuota_id
+                           AND iva.empresa_id = p.empresa_id
                      WHERE p.producto_id = $prod_id AND p.empresa_id = $empresa_id");
 
                 if (!$res_prod || mysqli_num_rows($res_prod) === 0) {
@@ -364,55 +416,106 @@ switch ($accion) {
                 $iva_porcentaje  = floatval($prod_data['iva_porcentaje']);
 
                 $cantidad        = floatval($item['cantidad']);
-                $precio_unitario = floatval($item['precio']);
-                $neto_gravado    = round($cantidad * $precio_unitario, 4);
-                $iva_importe     = round($neto_gravado * $iva_porcentaje / 100, 4);
-                $total_linea     = round($neto_gravado + $iva_importe, 4);
+                $precio_neto     = floatval($item['precio_neto']);
+                $importe_neto    = round($cantidad * $precio_neto, 2);
+                $importe_iva     = round($importe_neto * $iva_porcentaje / 100, 2);
+                $importe_total   = round($importe_neto + $importe_iva, 2);
 
-                $subtotal_neto += $neto_gravado;
-                $total_iva     += $iva_importe;
+                $subtotal_neto += $importe_neto;
+                $total_iva     += $importe_iva;
 
-                $items_enriquecidos[] = compact(
-                    'prod_id', 'cantidad', 'precio_unitario', 'neto_gravado',
-                    'iva_alicuota_id', 'iva_porcentaje', 'iva_importe', 'total_linea'
-                );
+                $items_enriquecidos[] = [
+                    'prod_id'         => $prod_id,
+                    'cantidad'        => $cantidad,
+                    'precio_unitario' => $precio_neto,
+                    'iva_alicuota_id' => $iva_alicuota_id,
+                    'iva_porcentaje'  => $iva_porcentaje,
+                    'importe_neto'    => $importe_neto,
+                    'importe_iva'     => $importe_iva,
+                    'importe_total'   => $importe_total,
+                ];
             }
 
             $subtotal_neto = round($subtotal_neto, 2);
             $total_iva     = round($total_iva, 2);
-            $total_orden   = round($subtotal_neto + $total_iva, 2);
-            $usuario_sql   = $usuario_id !== null ? $usuario_id : 'NULL';
+            $total_pedido  = round($subtotal_neto + $total_iva, 2);
 
-            $sql_cab = "INSERT INTO gestion__ordenes_compra
-                        (empresa_id, sucursal_id, comprobante_tipo_id, punto_venta_id,
-                         comprobante_nro, entidad_id, f_emision,
-                         condicion_pago_id, moneda_id, tipo_cambio,
-                         subtotal, descuentos, impuestos, total,
-                         tabla_estado_registro_id, fecha_creacion, fecha_modificacion,
-                         usuario_creacion_id, usuario_modificacion_id)
-                        VALUES
-                        ($empresa_id, $sucursal_id, $comprobante_tipo_id, $punto_venta_id,
-                         '$comprobante_nro', $entidad_id, '$f_emision',
-                         $condicion_pago_id, $moneda_id, $tipo_cambio,
-                         $subtotal_neto, 0, $total_iva, $total_orden,
-                         3, NOW(), NOW(),
-                         $usuario_sql, $usuario_sql)";
+            // 1. Insertar comprobante (registro_origen_id se actualiza tras conocer el pedido_id)
+            $sql_comp = "INSERT INTO gestion__comprobantes
+                         (tabla_origen_id, registro_origen_id, modulo,
+                          empresa_id, sucursal_id, comprobante_tipo_id,
+                          comprobante_pv, comprobante_nro,
+                          entidad_id, f_emision,
+                          moneda_id, tipo_cambio,
+                          importe_bruto, descuento_general,
+                          importe_neto, importe_exento, importe_no_gravado,
+                          importe_iva, importe_otros_impuestos,
+                          importe_total, importe_pendiente,
+                          signo, tabla_estado_registro_id, usuario_id)
+                         VALUES
+                         ($tabla_origen_id, 0, 'ecommerce',
+                          $empresa_id, $sucursal_id, $comprobante_tipo_id,
+                          $punto_venta_id, $comprobante_nro,
+                          $entidad_id, '$f_emision',
+                          $moneda_id, $tipo_cambio,
+                          $subtotal_neto, 0,
+                          $subtotal_neto, 0, 0,
+                          $total_iva, 0,
+                          $total_pedido, $total_pedido,
+                          1, 1, $usuario_id)";
 
-            if (!mysqli_query($conexion, $sql_cab)) {
-                throw new Exception("Error al crear la orden: " . mysqli_error($conexion));
+            if (!mysqli_query($conexion, $sql_comp)) {
+                throw new Exception("Error al crear comprobante: " . mysqli_error($conexion));
             }
-            $orden_id = mysqli_insert_id($conexion);
+            $comprobante_id = mysqli_insert_id($conexion);
 
+            // 2. Insertar pedido de venta
+            $sql_ped = "INSERT INTO gestion__ventas_pedidos
+                        (empresa_id, sucursal_id, comprobante_tipo_id,
+                         comprobante_id, comprobante_pv, comprobante_nro,
+                         entidad_id, f_emision,
+                         moneda_id, tipo_cambio,
+                         importe_bruto, descuento_general_pct, descuento_general,
+                         importe_neto, importe_exento, importe_no_gravado,
+                         importe_iva, importe_otros_impuestos, importe_total,
+                         usuario_id, tabla_estado_registro_id)
+                        VALUES
+                        ($empresa_id, $sucursal_id, $comprobante_tipo_id,
+                         $comprobante_id, $punto_venta_id, $comprobante_nro,
+                         $entidad_id, '$f_emision',
+                         $moneda_id, $tipo_cambio,
+                         $subtotal_neto, 0, 0,
+                         $subtotal_neto, 0, 0,
+                         $total_iva, 0, $total_pedido,
+                         $usuario_id, 1)";
+
+            if (!mysqli_query($conexion, $sql_ped)) {
+                throw new Exception("Error al crear el pedido: " . mysqli_error($conexion));
+            }
+            $venta_pedido_id = mysqli_insert_id($conexion);
+
+            // 3. Actualizar comprobante con el ID real del pedido
+            mysqli_query($conexion,
+                "UPDATE gestion__comprobantes
+                 SET registro_origen_id = $venta_pedido_id
+                 WHERE comprobante_id = $comprobante_id");
+
+            // 4. Insertar detalles
             foreach ($items_enriquecidos as $it) {
-                $sql_det = "INSERT INTO gestion__ordenes_compra_detalle
-                            (orden_compra_id, empresa_id, producto_id, cantidad,
-                             precio_unitario, no_gravado, exento, neto_gravado,
-                             iva_alicuota_id, iva_porcentaje, iva_importe, total_linea)
+                $sql_det = "INSERT INTO gestion__ventas_pedidos_detalles
+                            (venta_pedido_id, producto_id, cantidad,
+                             precio_unitario, descuento_general_pct, descuento_general,
+                             precio_unitario_neto, importe_neto,
+                             iva_alicuota_id, porcentaje_iva, importe_iva,
+                             importe_no_gravado, importe_exento, importe_linea,
+                             tabla_estado_registro_id)
                             VALUES
-                            ($orden_id, $empresa_id, {$it['prod_id']}, {$it['cantidad']},
-                             {$it['precio_unitario']}, 0, 0, {$it['neto_gravado']},
-                             {$it['iva_alicuota_id']}, {$it['iva_porcentaje']},
-                             {$it['iva_importe']}, {$it['total_linea']})";
+                            ($venta_pedido_id, {$it['prod_id']}, {$it['cantidad']},
+                             {$it['precio_unitario']}, 0, 0,
+                             {$it['precio_unitario']}, {$it['importe_neto']},
+                             {$it['iva_alicuota_id']}, {$it['iva_porcentaje']}, {$it['importe_iva']},
+                             0, 0, {$it['importe_total']},
+                             1)";
 
                 if (!mysqli_query($conexion, $sql_det)) {
                     throw new Exception("Error en detalle producto {$it['prod_id']}: " . mysqli_error($conexion));
@@ -421,11 +524,11 @@ switch ($accion) {
 
             mysqli_commit($conexion);
             echo json_encode([
-                'resultado'      => true,
-                'mensaje'        => 'Pedido registrado con éxito.',
-                'orden_id'       => $orden_id,
-                'comprobante_nro'=> $comprobante_nro,
-                'total'          => $total_orden,
+                'resultado'       => true,
+                'mensaje'         => 'Pedido registrado con éxito.',
+                'venta_pedido_id' => $venta_pedido_id,
+                'comprobante_nro' => $comprobante_nro,
+                'total'           => $total_pedido,
             ]);
 
         } catch (Exception $e) {
