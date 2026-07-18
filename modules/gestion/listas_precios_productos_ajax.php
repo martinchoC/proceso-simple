@@ -11,7 +11,10 @@ switch ($accion) {
     case 'listar':
         $filtro_lista = $_GET['filtro_lista'] ?? '';
         $filtro_producto = $_GET['filtro_producto'] ?? '';
-        $precios = obtenerListasPreciosProductos($conexion, $filtro_lista, $filtro_producto);
+        $filtro_marca = $_GET['filtro_marca'] ?? '';
+        $filtro_modelo = $_GET['filtro_modelo'] ?? '';
+        $filtro_submodelo = $_GET['filtro_submodelo'] ?? '';
+        $precios = obtenerListasPreciosProductos($conexion, $filtro_lista, $filtro_producto, $filtro_marca, $filtro_modelo, $filtro_submodelo);
         echo json_encode($precios);
         break;
     

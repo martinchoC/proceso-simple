@@ -38,6 +38,21 @@ switch ($accion) {
         echo json_encode($estados);
         break;
     
+    // NUEVA ACCIÓN: Obtener módulos para el filtro
+    case 'obtenerModulos':
+        $modulos = obtenerModulosParaFiltro($conexion);
+        echo json_encode($modulos);
+        break;
+    
+    // NUEVA ACCIÓN CORREGIDA: Obtener árbol de funciones
+    case 'obtenerArbolFunciones':
+        $modulo_id = $_GET['modulo_id'] ?? null;
+        $pagina_id = $_GET['pagina_id'] ?? null;
+        $busqueda = $_GET['busqueda'] ?? null;
+        $arbol = obtenerArbolFunciones($conexion, $modulo_id, $pagina_id, $busqueda);
+        echo json_encode($arbol);
+        break;
+    
     case 'agregar':
         $data = [
             'nombre_funcion' => $_GET['nombre_funcion'] ?? '',
@@ -53,7 +68,6 @@ switch ($accion) {
             'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
-        // Validación de campos obligatorios
         if (empty($data['nombre_funcion']) || 
             empty($data['pagina_id']) ||
             empty($data['tabla_estado_registro_destino_id'])) {
@@ -81,7 +95,6 @@ switch ($accion) {
             'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
-        // Validación de campos obligatorios
         if (empty($data['nombre_funcion']) || 
             empty($data['pagina_id']) ||
             empty($data['tabla_estado_registro_destino_id'])) {

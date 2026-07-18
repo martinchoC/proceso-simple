@@ -13,223 +13,303 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 <main class="app-main">
     <!--begin::App Content Header-->
     <div class="app-content-header">
-        <!--begin::Container-->
         <div class="container-fluid">
-        <!--begin::Row-->
-        <div class="row">
-            <div class="col-sm-6"><h3 class="mb-0">paginas</h3></div>
-            <div class="col-sm-6">
-            <ol class="breadcrumb float-sm-end">
-                <li class="breadcrumb-item"><a href="#">Home</a></li>
-                <li class="breadcrumb-item active" aria-current="page">paginas</li>
-            </ol>
+            <div class="row">
+                <div class="col-sm-6"><h3 class="mb-0">Gestión de Páginas</h3></div>
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-end">
+                        <li class="breadcrumb-item"><a href="#">Home</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Páginas</li>
+                    </ol>
+                </div>
             </div>
         </div>
-        <!--end::Row-->
-        </div>
-        <!--end::Container-->
     </div>
     <!--end::App Content Header-->
+    
     <!--begin::App Content-->
     <div class="app-content">
-        <!--begin::Container-->
         <div class="container-fluid">
-<!-- Content Wrapper -->
-        <div class="content-wrapper">
-        
-            <!-- Main content -->
-            <section class="content">
-                <div class="container-fluid">                      
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="card">                                
-                                <div class="card-body">
-                                    <button class="btn btn-primary mb-3" id="btnNuevo">Nueva pagina</button>
-                                    <table id="tablapaginas" class="table table-striped table-bordered">
-                                        <thead>
-                                            <tr>
-                                                <th>Id</th>
-                                                <th>Modulo</th>
-                                                <th>Pagina</th>
-                                                <th>URL</th>
-                                                <th>Icono</th>
-                                                <th>Descripcion</th>
-                                                <th>Padre</th>
-                                                <th>Tabla</th>
-                                                <th>Orden</th>
-                                                <th>Estado</th>
-                                                <th>Funciones</th>
-                                                <th>Acciones</th>
-                                            </tr>                                            
-                                        </thead>
-                                    </table>
+            <!-- Content Wrapper -->
+            <div class="content-wrapper">
+                <section class="content">
+                    <div class="container-fluid">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h4 class="card-title">Estructura de Páginas</h4>
+                                            <div>
+                                                <button class="btn btn-primary btn-sm" id="btnNuevo">
+                                                    <i class="fas fa-plus"></i> Nueva Página
+                                                </button>
+                                                <button class="btn btn-success btn-sm" id="btnExpandirTodo">
+                                                    <i class="fas fa-expand"></i> Expandir Todo
+                                                </button>
+                                                <button class="btn btn-warning btn-sm" id="btnColapsarTodo">
+                                                    <i class="fas fa-compress"></i> Colapsar Todo
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Filtro por módulo -->
+                                        <div class="row mb-3">
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label>Filtrar por Módulo:</label>
+                                                    <select class="form-control form-control-sm" id="filtroModulo">
+                                                        <option value="">Todos los módulos</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label>Buscar página:</label>
+                                                    <input type="text" class="form-control form-control-sm" id="buscarPagina" placeholder="Escriba para buscar...">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 d-flex align-items-end">
+                                                <div class="btn-group">
+                                                    <button class="btn btn-outline-info btn-sm" id="vistaArbol">
+                                                        <i class="fas fa-sitemap"></i> Vista Árbol
+                                                    </button>
+                                                    <button class="btn btn-outline-secondary btn-sm" id="vistaTabla">
+                                                        <i class="fas fa-table"></i> Vista Tabla
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Vista de Árbol -->
+                                        <div id="vistaArbolContainer">
+                                            <div id="arbolPaginas" class="jstree">
+                                                <!-- El árbol se cargará vía AJAX -->
+                                                <div class="text-center py-4">
+                                                    <div class="spinner-border text-primary" role="status">
+                                                        <span class="visually-hidden">Cargando...</span>
+                                                    </div>
+                                                    <p class="mt-2 text-muted">Cargando estructura de páginas...</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Vista de Tabla (oculta por defecto) -->
+                                        <div id="vistaTablaContainer" style="display: none;">
+                                            <table id="tablapaginas" class="table table-striped table-bordered">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Id</th>
+                                                        <th>Módulo</th>
+                                                        <th>Página</th>
+                                                        <th>URL</th>
+                                                        <th>Icono</th>
+                                                        <th>Descripción</th>
+                                                        <th>Padre</th>
+                                                        <th>Tabla</th>
+                                                        <th>Orden</th>
+                                                        <th>Estado</th>
+                                                        <th>Funciones</th>
+                                                        <th>Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            </div>
         </div>
+    </div>
+</main>
 
 <!-- Modal página -->
 <div class="modal fade" id="modalpagina" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalLabel">pagina</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <form id="formpagina">
-            <input type="hidden" id="pagina_id" name="pagina_id" />
-             
-            <div class="row g-3">
-                
-                <div class="col-md-6">
-                    <label>Nombre</label>
-                    <input type="text" class="form-control" id="pagina" name="pagina" required/>                    
-                </div>
-                <div class="col-md-6">
-                    <label>Modulo</label>
-                    <select class="form-control" id="modulo_id" name="modulo_id" required>
-                        <option value="">Seleccionar Modulo</option>
-                        <!-- Options will be populated by JavaScript -->
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label>Url</label>
-                    <input type="text" class="form-control" id="url" name="url" />
-                </div>
-                <div class="col-md-6">
-                    <label>Descripcion</label>
-                    <input type="text" class="form-control" id="pagina_descripcion" name="pagina_descripcion"/>
-                </div>
-                 
-                <div class="col-md-6">
-                    <label>Icono</label>
-                    <select class="form-control" id="icono_id" name="icono_id">
-                        <option value="">Seleccionar Icono</option>
-                        <!-- Options will be populated by JavaScript -->
-                    </select>
-                </div> 
-                <div class="col-md-6">
-                    <label>Orden</label>
-                    <input type="text" class="form-control" id="orden" name="orden" />
-                </div>
-                <div class="col-md-6">
-                    <label>Tabla</label>
-                    <select class="form-control" id="tabla_id" name="tabla_id">
-                        <option value="">Seleccionar Tabla</option>
-                        <!-- Options will be populated by JavaScript -->
-                    </select>
-                </div>   
-               <div class="col-md-6">
-                <label>Padre</label>
-                <select class="form-control" id="padre_id" name="padre_id">
-                    <option value="">Ninguno (página principal)</option>
-                    <!-- Options will be populated by JavaScript -->
-                </select>
-            </div>             
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabel">Página</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button id="btnGuardar" class="btn btn-success">Guardar</button>
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-      </div>
+            <div class="modal-body">
+                <form id="formpagina">
+                    <input type="hidden" id="pagina_id" name="pagina_id" />
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label>Módulo <span class="text-danger">*</span></label>
+                            <select class="form-control" id="modulo_id" name="modulo_id" required>
+                                <option value="">Seleccionar Módulo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Nombre de la Página <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="pagina" name="pagina" required/>
+                        </div>
+                        <div class="col-md-6">
+                            <label>URL</label>
+                            <input type="text" class="form-control" id="url" name="url" placeholder="ej: modulo/pagina"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Descripción</label>
+                            <input type="text" class="form-control" id="pagina_descripcion" name="pagina_descripcion"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Icono</label>
+                            <select class="form-control" id="icono_id" name="icono_id">
+                                <option value="">Seleccionar Icono</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Orden</label>
+                            <input type="number" class="form-control" id="orden" name="orden" value="0"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Tabla Asociada</label>
+                            <select class="form-control" id="tabla_id" name="tabla_id">
+                                <option value="">Seleccionar Tabla</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Página Padre</label>
+                            <select class="form-control" id="padre_id" name="padre_id">
+                                <option value="">Ninguno (página principal)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label>Estado</label>
+                            <select class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id">
+                                <option value="1">Activo</option>
+                                <option value="2">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="btnGuardar" class="btn btn-success">Guardar</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 <!-- Modal para copiar funciones -->
 <div class="modal fade" id="modalCopiarFunciones" tabindex="-1" aria-labelledby="modalCopiarFuncionesLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalCopiarFuncionesLabel">Copiar Funciones de Tipo de Tabla</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <div id="mensajeCopiarFunciones">
-            <p>Esta página está asociada a una tabla con tipo de funciones predefinidas.</p>
-            <p>¿Desea copiar las funciones estándar para esta página?</p>
-            <div class="alert alert-info mt-3">
-                <small>Nota: Solo se agregarán las funciones nuevas. Las que ya existen no se duplicarán.</small>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCopiarFuncionesLabel">Copiar Funciones de Tipo de Tabla</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="mensajeCopiarFunciones">
+                    <p>Esta página está asociada a una tabla con tipo de funciones predefinidas.</p>
+                    <p>¿Desea copiar las funciones estándar para esta página?</p>
+                    <div class="alert alert-info mt-3">
+                        <small>Nota: Solo se agregarán las funciones nuevas. Las que ya existen no se duplicarán.</small>
+                    </div>
+                </div>
+                <div id="listaFunciones" style="display: none;">
+                    <h6>Funciones disponibles:</h6>
+                    <ul id="listaFuncionesItems" class="list-group"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btnCopiarFunciones" class="btn btn-primary">Sí, copiar funciones</button>
+                <button id="btnNoCopiarFunciones" class="btn btn-secondary">No, dejar como está</button>
+                <button id="btnCancelarCopiar" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
-        <div id="listaFunciones" style="display: none;">
-            <h6>Funciones disponibles:</h6>
-            <ul id="listaFuncionesItems" class="list-group"></ul>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="btnCopiarFunciones" class="btn btn-primary">Sí, copiar funciones</button>
-        <button id="btnNoCopiarFunciones" class="btn btn-secondary">No, dejar como está</button>
-        <button id="btnCancelarCopiar" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-      </div>
     </div>
-  </div>
 </div>
 
 <!-- Modal para visualizar funciones de una página -->
 <div class="modal fade" id="modalVerFunciones" tabindex="-1" aria-labelledby="modalVerFuncionesLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalVerFuncionesLabel">Funciones de la Página</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <div id="infoPagina" class="mb-3">
-            <h6 id="nombrePagina"></h6>
-            <p id="descripcionPagina" class="text-muted"></p>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalVerFuncionesLabel">Funciones de la Página</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="infoPagina" class="mb-3">
+                    <h6 id="nombrePagina"></h6>
+                    <p id="descripcionPagina" class="text-muted"></p>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered table-sm" id="tablaFunciones">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="50">#</th>
+                                <th>Nombre</th>
+                                <th>Icono</th>
+                                <th>Acción JS</th>
+                                <th>Estados</th>
+                                <th>Descripción</th>
+                                <th width="80">Orden</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaFunciones">
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="sinFunciones" class="text-center py-5" style="display: none;">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No hay funciones asignadas</h5>
+                    <p class="text-muted">Esta página no tiene funciones asignadas.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
         </div>
-        
-        <div class="table-responsive">
-            <table class="table table-striped table-bordered table-sm" id="tablaFunciones">
-                <thead class="table-light">
-                    <tr>
-                        <th width="50">#</th>
-                        <th>Nombre</th>
-                        <th>Icono</th>
-                        <th>Acción JS</th>
-                        <th>Estados</th>
-                        <th>Descripción</th>
-                        <th width="80">Orden</th>
-                    </tr>
-                </thead>
-                <tbody id="cuerpoTablaFunciones">
-                    <!-- Las funciones se cargarán aquí -->
-                </tbody>
-            </table>
-        </div>
-        
-        <div id="sinFunciones" class="text-center py-5" style="display: none;">
-            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">No hay funciones asignadas</h5>
-            <p class="text-muted">Esta página no tiene funciones asignadas.</p>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-      </div>
     </div>
-  </div>
 </div>
 
+<!-- Modal para arrastrar y reordenar en el árbol -->
+<div class="modal fade" id="modalMoverPagina" tabindex="-1" aria-labelledby="modalMoverPaginaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalMoverPaginaLabel">Mover Página</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Desea mover la página <strong id="moverPaginaNombre"></strong> a la posición indicada?</p>
+                <p class="text-muted small">El orden se actualizará automáticamente.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="btnConfirmarMover" class="btn btn-primary">Confirmar</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
-// Variables globales para el modal de copiar funciones
+// Variables globales
+var tabla;
+var arbolInstance = null;
 var paginaIdParaCopiar = null;
 var tablaTipoIdParaCopiar = null;
-var tabla;
+var vistaActual = 'arbol'; // 'arbol' o 'tabla'
 
 // Función para mostrar el modal de visualizar funciones
 function mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion) {
-    // Configurar información de la página
     $('#nombrePagina').text(pagina_nombre);
     $('#descripcionPagina').text(pagina_descripcion || 'Sin descripción');
     
-    // Mostrar loading
     $('#cuerpoTablaFunciones').html(`
         <tr>
             <td colspan="7" class="text-center">
@@ -243,7 +323,6 @@ function mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion) 
     $('#sinFunciones').hide();
     $('#tablaFunciones').show();
     
-    // Obtener funciones de la página
     $.ajax({
         url: 'paginas_ajax.php',
         type: 'GET',
@@ -253,10 +332,7 @@ function mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion) 
             if(funciones && funciones.length > 0) {
                 var html = '';
                 $.each(funciones, function(index, funcion) {
-                    // Determinar clase de color para el badge
                     var colorClass = funcion.color_clase ? funcion.color_clase : 'bg-secondary';
-                    
-                    // Obtener icono si existe
                     var iconoHtml = '';
                     if (funcion.icono_clase) {
                         iconoHtml = `<i class="${funcion.icono_clase}"></i>`;
@@ -264,7 +340,6 @@ function mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion) 
                         iconoHtml = `<span class="badge bg-light text-dark">${funcion.icono_nombre}</span>`;
                     }
                     
-                    // Mostrar estados de origen y destino
                     var estadosHtml = '';
                     if (funcion.origen_nombre && funcion.destino_nombre) {
                         estadosHtml = `
@@ -319,18 +394,15 @@ function mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion) 
         }
     });
     
-    // Mostrar el modal
     var modal = new bootstrap.Modal(document.getElementById('modalVerFunciones'));
     modal.show();
 }
 
 // Función para mostrar el modal de copiar funciones
-// Función para mostrar el modal de copiar funciones (actualizar)
 function mostrarModalCopiarFunciones(pagina_id, tabla_tipo_id) {
     paginaIdParaCopiar = pagina_id;
     tablaTipoIdParaCopiar = tabla_tipo_id;
     
-    // Verificar si la página ya tiene funciones
     $.ajax({
         url: 'paginas_ajax.php',
         type: 'GET',
@@ -338,12 +410,10 @@ function mostrarModalCopiarFunciones(pagina_id, tabla_tipo_id) {
         dataType: 'json',
         success: function(res) {
             if (res.tiene_funciones) {
-                // Modificar el mensaje si ya tiene funciones
                 $('#mensajeCopiarFunciones p:first').html('Esta página ya tiene algunas funciones asignadas.');
                 $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones adicionales del tipo de tabla?');
                 $('.alert-info small').text('Nota: Solo se agregarán las funciones nuevas. Las existentes no se duplicarán.');
             } else {
-                // Mensaje original si no tiene funciones
                 $('#mensajeCopiarFunciones p:first').html('Esta página está asociada a una tabla con tipo de funciones predefinidas.');
                 $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones estándar para esta página?');
                 $('.alert-info small').text('Nota: Solo se agregarán las funciones. No se crearán duplicados.');
@@ -351,17 +421,14 @@ function mostrarModalCopiarFunciones(pagina_id, tabla_tipo_id) {
         }
     });
     
-    // Mostrar el modal
     var modal = new bootstrap.Modal(document.getElementById('modalCopiarFunciones'));
     modal.show();
     
-    // Obtener y mostrar las funciones disponibles
     if (tabla_tipo_id) {
         obtenerFuncionesPorTipo(tabla_tipo_id);
     }
 }
 
-// Función para obtener funciones por tipo (mejorada)
 function obtenerFuncionesPorTipo(tabla_tipo_id) {
     $.ajax({
         url: 'paginas_ajax.php',
@@ -397,17 +464,12 @@ function obtenerFuncionesPorTipo(tabla_tipo_id) {
     });
 }
 
-
-// Función para copiar funciones (versión mejorada)
 function copiarFunciones() {
     if (!paginaIdParaCopiar || !tablaTipoIdParaCopiar) {
         Swal.fire('Error', 'Datos incompletos', 'error');
         return;
     }
     
-    console.log('Copiando funciones - Página ID:', paginaIdParaCopiar, 'Tipo ID:', tablaTipoIdParaCopiar);
-    
-    // Mostrar loading
     Swal.fire({
         title: 'Copiando funciones...',
         text: 'Por favor espere',
@@ -428,19 +490,14 @@ function copiarFunciones() {
         dataType: 'json',
         timeout: 30000,
         success: function(res) {
-            console.log('Respuesta de copia:', res);
-            
-            // Cerrar el modal de copiar funciones
             var modal = bootstrap.Modal.getInstance(document.getElementById('modalCopiarFunciones'));
             if (modal) {
                 modal.hide();
             }
             
             if(res && res.resultado) {
-                // Recargar la tabla y luego mostrar el resultado
                 if (typeof tabla !== 'undefined' && tabla) {
                     tabla.ajax.reload(function() {
-                        // Una vez recargada la tabla, obtener resultado detallado
                         $.ajax({
                             url: 'paginas_ajax.php',
                             type: 'GET',
@@ -449,7 +506,7 @@ function copiarFunciones() {
                             timeout: 10000,
                             success: function(resultado) {
                                 Swal.close();
-                                console.log('Resultado detallado:', resultado);
+                                cargarArbol();
                                 
                                 if (resultado) {
                                     let mensaje = '';
@@ -473,16 +530,15 @@ function copiarFunciones() {
                                     Swal.fire({
                                         icon: "success",
                                         title: "Funciones copiadas",
-                                        text: res.mensaje || "Las funciones se han procesado exitosamente",
+                                        text: "Las funciones se han procesado exitosamente",
                                         showConfirmButton: false,
                                         timer: 1500
                                     });
                                 }
                             },
-                            error: function(xhr, status, error) {
+                            error: function() {
                                 Swal.close();
-                                console.error('Error al obtener resultado:', status, error);
-                                
+                                cargarArbol();
                                 Swal.fire({
                                     icon: "success",
                                     title: "Funciones copiadas",
@@ -492,41 +548,30 @@ function copiarFunciones() {
                                 });
                             }
                         });
-                    }, false); // false = no resetear el paginado
+                    }, false);
                 } else {
-                    // Si tabla no está definida, recargar la página
                     Swal.close();
+                    cargarArbol();
                     Swal.fire({
                         icon: "success",
                         title: "Funciones copiadas",
-                        text: "Las funciones se han copiado exitosamente. Recargando página...",
+                        text: "Las funciones se han copiado exitosamente",
                         showConfirmButton: false,
                         timer: 1500
-                    }).then(() => {
-                        location.reload();
                     });
                 }
             } else {
                 Swal.close();
-                console.error('Error en respuesta:', res);
                 Swal.fire('Error', res?.error || 'Error al copiar funciones', 'error');
             }
         },
-        error: function(xhr, status, error) {
+        error: function() {
             Swal.close();
-            console.error('Error en la copia:', status, error);
-            
-            // Cerrar el modal
             var modal = bootstrap.Modal.getInstance(document.getElementById('modalCopiarFunciones'));
             if (modal) {
                 modal.hide();
             }
-            
-            // Intentar recargar la tabla de todas formas
-            if (typeof tabla !== 'undefined' && tabla) {
-                tabla.ajax.reload(null, false);
-            }
-            
+            cargarArbol();
             Swal.fire({
                 icon: "warning",
                 title: "Proceso completado",
@@ -537,7 +582,7 @@ function copiarFunciones() {
     });
 }
 
-// Función mejorada para cargar Modulos
+// Cargar módulos para el filtro y el formulario
 function cargarModulos(selectedId = null, callback = null) {
     $.ajax({
         url: 'paginas_ajax.php',
@@ -546,54 +591,53 @@ function cargarModulos(selectedId = null, callback = null) {
         dataType: 'json',
         success: function(res) {
             if(res && res.length > 0) {
-                var options = '<option value="">Seleccionar modulo</option>';
+                var options = '<option value="">Seleccionar Módulo</option>';
+                var filtroOptions = '<option value="">Todos los módulos</option>';
                 $.each(res, function(index, modulo) {
                     var selected = (selectedId == modulo.modulo_id) ? 'selected' : '';
                     options += `<option value="${modulo.modulo_id}" ${selected}>${modulo.modulo}</option>`;
+                    filtroOptions += `<option value="${modulo.modulo_id}">${modulo.modulo}</option>`;
                 });
                 $('#modulo_id').html(options);
+                $('#filtroModulo').html(filtroOptions);
                 
-                // Ejecutar callback si existe
                 if (typeof callback === 'function') {
                     callback();
                 }
             }
         },
         error: function() {
-            console.error('Error al cargar Modulos');
-            $('#modulo_id').html('<option value="">Error al cargar Modulos</option>');
+            $('#modulo_id').html('<option value="">Error al cargar Módulos</option>');
+            $('#filtroModulo').html('<option value="">Error al cargar Módulos</option>');
         }
     });
 }
 
-function cargarPaginasPadre(selectedId = null) {
+function cargarPaginasPadre(selectedId = null, moduloId = null) {
     $.ajax({
         url: 'paginas_ajax.php',
         type: 'GET',
-        data: {accion: 'obtenerPadre'},
+        data: {accion: 'obtenerPadre', modulo_id: moduloId},
         dataType: 'json',
         success: function(res) {
             if(res && res.length > 0) {
                 var options = '<option value="">Ninguno (página principal)</option>';
+                var currentPageId = $('#pagina_id').val();
                 $.each(res, function(index, pagina) {
-                    // Excluir la página actual si estamos editando
-                    var currentPageId = $('#pagina_id').val();
                     if (!currentPageId || pagina.pagina_id != currentPageId) {
                         var selected = (selectedId == pagina.pagina_id) ? 'selected' : '';
-                        options += `<option value="${pagina.pagina_id}" ${selected}>${pagina.pagina}</option>`;
+                        options += `<option value="${pagina.pagina_id}" ${selected}>${'&nbsp;'.repeat(pagina.nivel * 4)}${pagina.pagina}</option>`;
                     }
                 });
                 $('#padre_id').html(options);
             }
         },
         error: function() {
-            console.error('Error al cargar páginas padre');
             $('#padre_id').html('<option value="">Error al cargar páginas padre</option>');
         }
     });
 }
 
-// Función para cargar tablas
 function cargarTablas(selectedId = null) {
     $.ajax({
         url: 'paginas_ajax.php',
@@ -611,13 +655,11 @@ function cargarTablas(selectedId = null) {
             }
         },
         error: function() {
-            console.error('Error al cargar tablas');
             $('#tabla_id').html('<option value="">Error al cargar tablas</option>');
         }
     });
 }
 
-// Función para cargar iconos
 function cargarIconos(selectedId = null) {
     $.ajax({
         url: 'paginas_ajax.php',
@@ -627,29 +669,326 @@ function cargarIconos(selectedId = null) {
         success: function(res) {
             if(res && res.length > 0) {
                 var options = '<option value="">Seleccionar Icono</option>';
-                $.each(res, function(index, tabla) {
-                    var selected = (selectedId == tabla.icono_id) ? 'selected' : '';
-                    options += `<option value="${tabla.icono_id}" ${selected}>${tabla.icono_nombre}</option>`;
+                $.each(res, function(index, icono) {
+                    var selected = (selectedId == icono.icono_id) ? 'selected' : '';
+                    var iconPreview = icono.icono_clase ? `<i class="${icono.icono_clase}"></i> ` : '';
+                    options += `<option value="${icono.icono_id}" ${selected}>${iconPreview}${icono.icono_nombre}</option>`;
                 });
                 $('#icono_id').html(options);
             }
         },
         error: function() {
-            console.error('Error al cargar iconos');
             $('#icono_id').html('<option value="">Error al cargar iconos</option>');
         }
     });
 }
 
+// Función para cargar el árbol de páginas (reemplazar la existente)
+function cargarArbol(filtroModulo = null, textoBusqueda = null) {
+    console.log('Cargando árbol con filtro:', filtroModulo, 'búsqueda:', textoBusqueda);
+    
+    $.ajax({
+        url: 'paginas_ajax.php',
+        type: 'GET',
+        data: {
+            accion: 'obtenerArbol',
+            modulo_id: filtroModulo || '',
+            busqueda: textoBusqueda || ''
+        },
+        dataType: 'json',
+        success: function(data) {
+            console.log('Datos del árbol recibidos:', data);
+            
+            if ($('#arbolPaginas').length) {
+                var container = $('#arbolPaginas');
+                
+                // Si ya existe una instancia de jstree, destruirla
+                if (container.hasClass('jstree')) {
+                    container.jstree('destroy');
+                    container.empty();
+                }
+                
+                // Si no hay datos, mostrar mensaje
+                if (!data || data.length === 0) {
+                    container.html('<div class="text-center py-4 text-muted">No hay páginas disponibles</div>');
+                    return;
+                }
+                
+                // Inicializar jstree
+                container.jstree({
+                    core: {
+                        data: data,
+                        animation: 200,
+                        check_callback: true,
+                        themes: {
+                            name: 'default',
+                            responsive: true,
+                            variant: 'large'
+                        },
+                        multiple: false
+                    },
+                    plugins: ['dnd', 'search', 'state', 'types', 'contextmenu'],
+                    dnd: {
+                        is_draggable: function(node) {
+                            return node.type !== 'modulo';
+                        },
+                        drop_finish: function(data) {
+                            var node = data.node;
+                            var parent = data.parent;
+                            var position = data.position;
+                            
+                            if (node && parent && node.type !== 'modulo') {
+                                actualizarOrdenArbol(node.id, parent, position);
+                            }
+                        }
+                    },
+                    search: {
+                        case_insensitive: true,
+                        show_only_matches: true
+                    },
+                    types: {
+                        modulo: {
+                            icon: 'fas fa-folder-open text-warning',
+                            valid_children: ['activo', 'inactivo', 'pagina']
+                        },
+                        pagina: {
+                            icon: 'fas fa-file-alt',
+                            valid_children: ['activo', 'inactivo', 'pagina']
+                        },
+                        activo: {
+                            icon: 'fas fa-file-alt text-success',
+                            valid_children: ['activo', 'inactivo', 'pagina']
+                        },
+                        inactivo: {
+                            icon: 'fas fa-file-alt text-danger',
+                            valid_children: ['activo', 'inactivo', 'pagina']
+                        }
+                    },
+                    contextmenu: {
+                        items: function(node) {
+                            var items = {};
+                            
+                            if (node.type === 'modulo') {
+                                var moduloId = node.id.replace('modulo_', '');
+                                items = {
+                                    addPage: {
+                                        label: 'Agregar página',
+                                        action: function() {
+                                            $('#modulo_id').val(moduloId);
+                                            $('#padre_id').val('');
+                                            $('#pagina_id').val('');
+                                            $('#formpagina')[0].reset();
+                                            $('#modalLabel').text('Nueva Página');
+                                            var modal = new bootstrap.Modal(document.getElementById('modalpagina'));
+                                            modal.show();
+                                        },
+                                        icon: 'fas fa-plus'
+                                    }
+                                };
+                            } else if (node.type === 'pagina' || node.type === 'activo' || node.type === 'inactivo') {
+                                var paginaId = node.id.replace('pagina_', '');
+                                items = {
+                                    addChild: {
+                                        label: 'Agregar subpágina',
+                                        action: function() {
+                                            $('#pagina_id').val('');
+                                            $('#padre_id').val(paginaId);
+                                            $('#formpagina')[0].reset();
+                                            $('#modalLabel').text('Nueva Subpágina');
+                                            var modal = new bootstrap.Modal(document.getElementById('modalpagina'));
+                                            modal.show();
+                                        },
+                                        icon: 'fas fa-plus'
+                                    },
+                                    edit: {
+                                        label: 'Editar',
+                                        action: function() {
+                                            editarPagina(paginaId);
+                                        },
+                                        icon: 'fas fa-edit'
+                                    },
+                                    viewFunctions: {
+                                        label: 'Ver funciones',
+                                        action: function() {
+                                            var nombre = node.text.replace(/<[^>]*>/g, '').trim();
+                                            var descripcion = node.data ? node.data.descripcion : '';
+                                            mostrarModalVerFunciones(paginaId, nombre, descripcion);
+                                        },
+                                        icon: 'fas fa-eye'
+                                    },
+                                    delete: {
+                                        label: 'Eliminar',
+                                        action: function() {
+                                            eliminarPagina(paginaId);
+                                        },
+                                        icon: 'fas fa-trash'
+                                    }
+                                };
+                            }
+                            
+                            return items;
+                        }
+                    }
+                });
+                
+                // Evento cuando se selecciona un nodo (doble click o click)
+                container.on('select_node.jstree', function(e, data) {
+                    console.log('Nodo seleccionado:', data.node);
+                    var node = data.node;
+                    
+                    if (node.type === 'pagina' || node.type === 'activo' || node.type === 'inactivo') {
+                        var paginaId = node.id.replace('pagina_', '');
+                        console.log('Editando página ID:', paginaId);
+                        editarPagina(paginaId);
+                    }
+                });
+                
+                // Evento cuando se cambia un nodo (movido)
+                container.on('move_node.jstree', function(e, data) {
+                    var node = data.node;
+                    var parent = data.parent;
+                    var position = data.position;
+                    
+                    if (node && parent && node.type !== 'modulo') {
+                        actualizarOrdenArbol(node.id, parent, position);
+                    }
+                });
+                
+                // Abrir el primer nivel por defecto
+                container.on('loaded.jstree', function() {
+                    container.jstree('open_all');
+                });
+                
+                arbolInstance = container;
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error cargando árbol:', error);
+            console.error('Respuesta:', xhr.responseText);
+            $('#arbolPaginas').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Error al cargar la estructura de páginas: ${error}
+                    <br><small>Revise la consola para más detalles</small>
+                </div>
+            `);
+        }
+    });
+}
+
+// Función para actualizar el orden en el árbol
+function actualizarOrdenArbol(nodeId, parentId, position) {
+    var paginaId = nodeId.replace('pagina_', '');
+    var parentPaginaId = null;
+    
+    if (parentId && parentId !== '#') {
+        parentPaginaId = parentId.replace('pagina_', '');
+        if (parentId.startsWith('modulo_')) {
+            // Es un módulo, no se puede establecer como padre
+            parentPaginaId = null;
+        }
+    }
+    
+    $.ajax({
+        url: 'paginas_ajax.php',
+        type: 'POST',
+        data: {
+            accion: 'actualizarOrden',
+            pagina_id: paginaId,
+            padre_id: parentPaginaId,
+            posicion: position
+        },
+        dataType: 'json',
+        success: function(res) {
+            if (res.resultado) {
+                // Recargar el árbol para reflejar los cambios
+                cargarArbol();
+                if (typeof tabla !== 'undefined' && tabla) {
+                    tabla.ajax.reload(null, false);
+                }
+            } else {
+                Swal.fire('Error', res.error || 'Error al actualizar el orden', 'error');
+                cargarArbol();
+            }
+        },
+        error: function() {
+            Swal.fire('Error', 'Error de conexión al actualizar el orden', 'error');
+            cargarArbol();
+        }
+    });
+}
+
+// Función para editar una página
+function editarPagina(paginaId) {
+    $.get('paginas_ajax.php', {accion: 'obtener', pagina_id: paginaId}, function(res){
+        if(res){
+            $('#pagina_id').val(res.pagina_id);
+            $('#pagina').val(res.pagina);
+            $('#url').val(res.url);
+            $('#pagina_descripcion').val(res.pagina_descripcion);
+            $('#orden').val(res.orden);
+            $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id || 1);
+            
+            cargarModulos(res.modulo_id, function() {
+                cargarTablas(res.tabla_id);
+                cargarIconos(res.icono_id);
+                cargarPaginasPadre(res.padre_id, res.modulo_id);
+            });
+            
+            $('#modalLabel').text('Editar Página');
+            var modal = new bootstrap.Modal(document.getElementById('modalpagina'));
+            modal.show();
+        } else {
+            alert('Error al obtener datos');
+        }
+    }, 'json');
+}
+
+// Función para eliminar una página
+function eliminarPagina(paginaId) {
+    Swal.fire({
+        title: "¿Estás seguro?",
+        text: "¡No podrás revertir esto! Se eliminarán también las subpáginas.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Sí, eliminar",
+        cancelButtonText: "Cancelar"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.get('paginas_ajax.php', {accion: 'eliminar', pagina_id: paginaId}, function(res){
+                if(res.resultado){
+                    cargarArbol();
+                    if (typeof tabla !== 'undefined' && tabla) {
+                        tabla.ajax.reload();
+                    }
+                    Swal.fire({
+                        icon: "success",
+                        title: "¡Eliminado!",
+                        text: "La página ha sido eliminada.",
+                        showConfirmButton: false,
+                        timer: 1000
+                    });
+                } else {
+                    Swal.fire('Error', 'Error al eliminar la página', 'error');
+                }
+            }, 'json');
+        }
+    });
+}
+
 $(document).ready(function(){
+    // Inicializar selects
     cargarModulos();
-    cargarPaginasPadre();
     cargarTablas();
     cargarIconos();
+    cargarPaginasPadre();
     
+    // Cargar el árbol inicial
+    cargarArbol();
     
-    // Configuración de DataTable
-    var tabla = $('#tablapaginas').DataTable({
+    // Configurar DataTable para vista de tabla
+    tabla = $('#tablapaginas').DataTable({
         pageLength: 25,
         lengthMenu: [25, 50, 100, 200],
         dom: '<"row"<"col-md-6"l><"col-md-6"fB>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
@@ -659,9 +998,7 @@ $(document).ready(function(){
                 text: '<i class="fas fa-file-excel"></i> Excel',
                 titleAttr: 'Exportar a Excel',
                 className: 'btn btn-success btn-sm me-2',
-                exportOptions: {
-                    columns: ':visible'
-                }
+                exportOptions: { columns: ':visible' }
             },
             {
                 extend: 'pdfHtml5',
@@ -670,23 +1007,16 @@ $(document).ready(function(){
                 className: 'btn btn-danger btn-sm',
                 orientation: 'landscape',
                 pageSize: 'A4',
-                exportOptions: {
-                    columns: ':visible'
-                }
+                exportOptions: { columns: ':visible' }
             }
         ],
         initComplete: function() {
-            // Mover los botones al contenedor del buscador
             $('.dt-buttons').appendTo($('.dataTables_filter'));
-            
-            // Aplicar estilos al contenedor
             $('.dataTables_filter').css({
                 'display': 'flex',
                 'align-items': 'center',
                 'gap': '10px'
             });
-            
-            // Estilo para el input de búsqueda
             $('.dataTables_filter input').addClass('form-control form-control-sm');
         },
         ajax: {
@@ -718,18 +1048,14 @@ $(document).ready(function(){
             { 
                 data: 'icono_clase',
                 className: "text-center",
-                render: function(data, type, row) {
-                    if (data) {
-                        return `<div class="text-center"><i class="${data}" title="${data}" style="font-size: 1.2em;"></i></div>`;
-                    } else {
-                        return '<div class="text-center"><span class="text-muted">-</span></div>';
-                    }
+                render: function(data) {
+                    return data ? `<div class="text-center"><i class="${data}" style="font-size: 1.2em;"></i></div>` : '<div class="text-center"><span class="text-muted">-</span></div>';
                 }
-            },            
+            },
             { data: 'pagina_descripcion' },
             { data: 'padre_nombre' },
-            { data: 'tabla_nombre' },            
-            { data: 'orden' },            
+            { data: 'tabla_nombre' },
+            { data: 'orden' },
             { 
                 data: 'tabla_estado_registro_id',
                 render: function(data) {
@@ -758,230 +1084,210 @@ $(document).ready(function(){
                 searchable: false,
                 className: "text-center",
                 render: function(data, type, row){
-                return `
-                    <button class="btn btn-sm btn-primary btnEditar me-1" title="Editar">
-                    <i class="fa fa-pencil-alt"></i>
-                    </button>
-                    <button class="btn btn-sm btn-info btnCopiarFunciones me-1" title="Copiar Funciones">
-                    <i class="fa fa-copy"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
-                    <i class="fa fa-trash"></i>
-                    </button>
-                `;
+                    return `
+                        <button class="btn btn-sm btn-primary btnEditar me-1" title="Editar">
+                            <i class="fa fa-pencil-alt"></i>
+                        </button>
+                        <button class="btn btn-sm btn-info btnCopiarFunciones me-1" title="Copiar Funciones">
+                            <i class="fa fa-copy"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    `;
                 }
             }
         ]
     });
-
+    
+    // Cambiar entre vista árbol y tabla
+    $('#vistaArbol').click(function() {
+        vistaActual = 'arbol';
+        $('#vistaArbolContainer').show();
+        $('#vistaTablaContainer').hide();
+        $(this).removeClass('btn-outline-secondary').addClass('btn-outline-info');
+        $('#vistaTabla').removeClass('btn-outline-info').addClass('btn-outline-secondary');
+        cargarArbol($('#filtroModulo').val(), $('#buscarPagina').val());
+    });
+    
+    $('#vistaTabla').click(function() {
+        vistaActual = 'tabla';
+        $('#vistaArbolContainer').hide();
+        $('#vistaTablaContainer').show();
+        $(this).removeClass('btn-outline-secondary').addClass('btn-outline-info');
+        $('#vistaArbol').removeClass('btn-outline-info').addClass('btn-outline-secondary');
+        tabla.ajax.reload();
+    });
+    
+    // Filtro por módulo para el árbol
+    $('#filtroModulo').change(function() {
+        if (vistaActual === 'arbol') {
+            cargarArbol($(this).val(), $('#buscarPagina').val());
+        } else {
+            tabla.ajax.reload();
+        }
+    });
+    
+    // Búsqueda en el árbol
+    $('#buscarPagina').on('keyup', function() {
+        if (vistaActual === 'arbol') {
+            var texto = $(this).val();
+            if (texto.length > 2) {
+                cargarArbol($('#filtroModulo').val(), texto);
+            } else if (texto.length === 0) {
+                cargarArbol($('#filtroModulo').val());
+            }
+        }
+    });
+    
+    // Botón expandir todo
+    $('#btnExpandirTodo').click(function() {
+        if (arbolInstance) {
+            arbolInstance.jstree('open_all');
+        }
+    });
+    
+    // Botón colapsar todo
+    $('#btnColapsarTodo').click(function() {
+        if (arbolInstance) {
+            arbolInstance.jstree('close_all');
+        }
+    });
+    
+    // Botón nueva página
     $('#btnNuevo').click(function(){
         $('#formpagina')[0].reset();
         $('#pagina_id').val('');
-        $('#modalLabel').text('Nueva Pagina');
+        $('#modalLabel').text('Nueva Página');
+        
+        cargarModulos();
+        cargarTablas();
+        cargarIconos();
+        cargarPaginasPadre();
+        
         var modal = new bootstrap.Modal(document.getElementById('modalpagina'));
         modal.show();
     });
-
-    // Evento para botón de ver funciones
+    
+    // Eventos de la tabla
     $('#tablapaginas tbody').on('click', '.btnVerFunciones', function(){
         var pagina_id = $(this).data('pagina-id');
         var pagina_nombre = $(this).data('pagina-nombre');
         var pagina_descripcion = $(this).data('pagina-descripcion');
-        
         mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion);
     });
-
-    // Evento para botón de copiar funciones
-    // Actualizar el evento para botón de copiar funciones
-    // Actualizar el evento para botón de copiar funciones
-$('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
-    var data = tabla.row($(this).parents('tr')).data();
     
-    // Verificar si tiene tabla asociada
-    if (!data.tabla_id) {
-        Swal.fire('Información', 'Esta página no tiene una tabla asociada', 'info');
-        return;
-    }
-    
-    // Mostrar loading
-    Swal.fire({
-        title: 'Verificando...',
-        text: 'Obteniendo información de la tabla',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
-    var timeoutId = setTimeout(function() {
-        Swal.close();
-        Swal.fire({
-            icon: 'warning',
-            title: 'Tiempo de espera agotado',
-            text: 'La operación está tomando más tiempo de lo normal. ¿Desea continuar esperando?',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, esperar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // El usuario quiere seguir esperando, reiniciar el timeout
-                copiarFunciones(); // Reintentar
-            } else {
-                // El usuario canceló, recargar la tabla
-                if (typeof tabla !== 'undefined' && tabla) {
-                    tabla.ajax.reload(null, false);
-                }
-            }
-        });
-    }, 15000); // 15 segundos de timeout
-
-    
-    // Obtener el tipo de tabla
-    $.ajax({
-        url: 'paginas_ajax.php',
-        type: 'GET',
-        data: {accion: 'obtenerTablaTipo', tabla_id: data.tabla_id},
-        dataType: 'json',
-        success: function(res) {
-            Swal.close();
-            
-            if(res.tabla_tipo_id) {
-                // Primero verificar cuántas funciones tiene el tipo
-                $.ajax({
-                    url: 'paginas_ajax.php',
-                    type: 'GET',
-                    data: {accion: 'obtenerFuncionesPorTipo', tabla_tipo_id: res.tabla_tipo_id},
-                    dataType: 'json',
-                    success: function(funciones) {
-                        if (funciones && funciones.length > 0) {
-                            // Guardar los datos en variables globales
-                            paginaIdParaCopiar = data.pagina_id;
-                            tablaTipoIdParaCopiar = res.tabla_tipo_id;
-                            
-                            // Verificar si la página ya tiene funciones
-                            $.ajax({
-                                url: 'paginas_ajax.php',
-                                type: 'GET',
-                                data: {accion: 'verificarFunciones', pagina_id: data.pagina_id},
-                                dataType: 'json',
-                                success: function(resFunciones) {
-                                    if (resFunciones.tiene_funciones) {
-                                        $('#mensajeCopiarFunciones p:first').html('Esta página ya tiene algunas funciones asignadas.');
-                                        $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones adicionales del tipo de tabla?');
-                                        $('.alert-info small').text('Nota: Solo se agregarán las funciones nuevas. Las existentes no se duplicarán.');
-                                    } else {
-                                        $('#mensajeCopiarFunciones p:first').html('Esta página está asociada a una tabla con tipo de funciones predefinidas.');
-                                        $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones estándar para esta página?');
-                                        $('.alert-info small').text('Nota: Se copiarán todas las funciones del tipo de tabla.');
-                                    }
-                                    
-                                    // Mostrar la lista de funciones disponibles
-                                    var listaHtml = '<h6>Funciones disponibles:</h6><ul class="list-group">';
-                                    $.each(funciones, function(index, funcion) {
-                                        listaHtml += `<li class="list-group-item">
-                                            <strong>${funcion.nombre_funcion}</strong>
-                                            ${funcion.descripcion ? `<br><small class="text-muted">${funcion.descripcion}</small>` : ''}
-                                        </li>`;
-                                    });
-                                    listaHtml += '</ul>';
-                                    $('#listaFuncionesItems').html(listaHtml);
-                                    $('#listaFunciones').show();
-                                    
-                                    // Mostrar el modal
-                                    var modal = new bootstrap.Modal(document.getElementById('modalCopiarFunciones'));
-                                    modal.show();
-                                },
-                                error: function() {
-                                    Swal.fire('Error', 'Error al verificar funciones existentes', 'error');
-                                }
-                            });
-                        } else {
-                            Swal.fire('Información', 'No hay funciones predefinidas para este tipo de tabla', 'info');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        Swal.close();
-                        console.error('Error al obtener funciones del tipo:', error);
-                        Swal.fire('Error', 'Error al obtener funciones del tipo', 'error');
-                    }
-                });
-            } else {
-                Swal.fire('Información', 'La tabla asociada no tiene tipo definido', 'info');
-            }
-        },
-        error: function(xhr, status, error) {
-            Swal.close();
-            console.error('Error al obtener tipo de tabla:', error);
-            Swal.fire('Error', 'Error al obtener información de la tabla', 'error');
-        }
-    });
-});
-
     $('#tablapaginas tbody').on('click', '.btnEditar', function(){
         var data = tabla.row($(this).parents('tr')).data();
-        $.get('paginas_ajax.php', {accion: 'obtener', pagina_id: data.pagina_id}, function(res){
-            if(res){
-                $('#pagina_id').val(res.pagina_id);
-                $('#pagina').val(res.pagina);
-                $('#url').val(res.url);
-                $('#pagina_descripcion').val(res.pagina_descripcion);
-                $('#orden').val(res.orden);
-                $('#tabla_id').val(res.tabla_id);
-                $('#modulo_id').val(res.modulo_id);                
-                $('#icono_id').val(res.icono_id);                
-                $('#padre_id').val(res.padre_id);                
-                $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
-
-                // Cargar selects con valores actuales
-                cargarTablas(res.tabla_id);
-                cargarIconos(res.icono_id);
-                cargarPaginasPadre(res.padre_id);
-
-                $('#modalLabel').text('Editar pagina');
-                var modal = new bootstrap.Modal(document.getElementById('modalpagina'));
-                modal.show();
-                
-            } else {
-                alert('Error al obtener datos');
-            }
-        }, 'json');
+        editarPagina(data.pagina_id);
     });
-
-    $('#tablapaginas tbody').on('click', '.btnEliminar', function(){
+    
+    $('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
+        var data = tabla.row($(this).parents('tr')).data();
+        
+        if (!data.tabla_id) {
+            Swal.fire('Información', 'Esta página no tiene una tabla asociada', 'info');
+            return;
+        }
+        
         Swal.fire({
-            title: "¿Estás seguro?",
-            text: "¡No podrás revertir esto!",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#3085d6",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Sí, eliminar",
-            cancelButtonText: "Cancelar"
-        }).then((result) => {
-            if (result.isConfirmed) {
-                var data = tabla.row($(this).parents('tr')).data();
-                $.get('paginas_ajax.php', {accion: 'eliminar', pagina_id: data.pagina_id}, function(res){
-                    if(res.resultado){
-                        tabla.ajax.reload();
-                        Swal.fire({
-                            icon: "success",
-                            title: "¡Eliminado!",
-                            text: "La página ha sido eliminada.",
-                            showConfirmButton: false,
-                            timer: 1000
-                        });
-                    } else {
-                        Swal.fire('Error', 'Error al eliminar la página', 'error');
-                    }
-                }, 'json');
+            title: 'Verificando...',
+            text: 'Obteniendo información de la tabla',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        $.ajax({
+            url: 'paginas_ajax.php',
+            type: 'GET',
+            data: {accion: 'obtenerTablaTipo', tabla_id: data.tabla_id},
+            dataType: 'json',
+            success: function(res) {
+                Swal.close();
+                
+                if(res.tabla_tipo_id) {
+                    $.ajax({
+                        url: 'paginas_ajax.php',
+                        type: 'GET',
+                        data: {accion: 'obtenerFuncionesPorTipo', tabla_tipo_id: res.tabla_tipo_id},
+                        dataType: 'json',
+                        success: function(funciones) {
+                            if (funciones && funciones.length > 0) {
+                                paginaIdParaCopiar = data.pagina_id;
+                                tablaTipoIdParaCopiar = res.tabla_tipo_id;
+                                
+                                $.ajax({
+                                    url: 'paginas_ajax.php',
+                                    type: 'GET',
+                                    data: {accion: 'verificarFunciones', pagina_id: data.pagina_id},
+                                    dataType: 'json',
+                                    success: function(resFunciones) {
+                                        if (resFunciones.tiene_funciones) {
+                                            $('#mensajeCopiarFunciones p:first').html('Esta página ya tiene algunas funciones asignadas.');
+                                            $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones adicionales del tipo de tabla?');
+                                            $('.alert-info small').text('Nota: Solo se agregarán las funciones nuevas. Las existentes no se duplicarán.');
+                                        } else {
+                                            $('#mensajeCopiarFunciones p:first').html('Esta página está asociada a una tabla con tipo de funciones predefinidas.');
+                                            $('#mensajeCopiarFunciones p:eq(1)').html('¿Desea copiar las funciones estándar para esta página?');
+                                            $('.alert-info small').text('Nota: Se copiarán todas las funciones del tipo de tabla.');
+                                        }
+                                        
+                                        var listaHtml = '<h6>Funciones disponibles:</h6><ul class="list-group">';
+                                        $.each(funciones, function(index, funcion) {
+                                            listaHtml += `<li class="list-group-item">
+                                                <strong>${funcion.nombre_funcion}</strong>
+                                                ${funcion.descripcion ? `<br><small class="text-muted">${funcion.descripcion}</small>` : ''}
+                                            </li>`;
+                                        });
+                                        listaHtml += '</ul>';
+                                        $('#listaFuncionesItems').html(listaHtml);
+                                        $('#listaFunciones').show();
+                                        
+                                        var modal = new bootstrap.Modal(document.getElementById('modalCopiarFunciones'));
+                                        modal.show();
+                                    },
+                                    error: function() {
+                                        Swal.fire('Error', 'Error al verificar funciones existentes', 'error');
+                                    }
+                                });
+                            } else {
+                                Swal.fire('Información', 'No hay funciones predefinidas para este tipo de tabla', 'info');
+                            }
+                        },
+                        error: function() {
+                            Swal.close();
+                            Swal.fire('Error', 'Error al obtener funciones del tipo', 'error');
+                        }
+                    });
+                } else {
+                    Swal.fire('Información', 'La tabla asociada no tiene tipo definido', 'info');
+                }
+            },
+            error: function() {
+                Swal.close();
+                Swal.fire('Error', 'Error al obtener información de la tabla', 'error');
             }
         });
     });
-
+    
+    $('#tablapaginas tbody').on('click', '.btnEliminar', function(){
+        var data = tabla.row($(this).parents('tr')).data();
+        eliminarPagina(data.pagina_id);
+    });
+    
+    // Evento para cambiar módulo y actualizar páginas padre
+    $('#modulo_id').change(function() {
+        var moduloId = $(this).val();
+        cargarPaginasPadre(null, moduloId);
+    });
+    
+    // Guardar página
     $('#btnGuardar').click(function(){
-        // Validar solo campos obligatorios
         if ($('#pagina').val().trim() === '' || $('#modulo_id').val() === '') {
             $('#formpagina').addClass('was-validated');
+            Swal.fire('Error', 'Nombre de página y módulo son obligatorios', 'error');
             return false;
         }
         
@@ -1000,7 +1306,7 @@ $('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
             modulo_id: $('#modulo_id').val(),
             tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1
         };
-
+        
         $.ajax({
             url: 'paginas_ajax.php',
             type: 'GET',
@@ -1008,21 +1314,21 @@ $('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
             dataType: 'json',
             success: function(res) {
                 if(res.resultado) {
-                    // Cerrar el modal
                     var modal = bootstrap.Modal.getInstance(document.getElementById('modalpagina'));
                     modal.hide();
                     
-                    // Resetear el formulario
                     $('#formpagina')[0].reset();
                     $('#formpagina').removeClass('was-validated');
                     
-                    // Si es una nueva página o edición sin funciones y tiene tabla_tipo_id, mostrar modal para copiar funciones
+                    cargarArbol($('#filtroModulo').val(), $('#buscarPagina').val());
+                    
+                    if (typeof tabla !== 'undefined' && tabla) {
+                        tabla.ajax.reload(null, false);
+                    }
+                    
                     if (res.tabla_tipo_id && !res.tiene_funciones) {
                         mostrarModalCopiarFunciones(res.pagina_id || id, res.tabla_tipo_id);
                     } else {
-                        // Recargar la tabla
-                        tabla.ajax.reload(null, false);
-                        
                         Swal.fire({
                             icon: "success",
                             title: "¡Operación exitosa!",
@@ -1048,19 +1354,19 @@ $('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
             }
         });
     });
-
+    
     // Eventos para el modal de copiar funciones
     $('#btnCopiarFunciones').click(function(){
         copiarFunciones();
     });
-
+    
     $('#btnNoCopiarFunciones').click(function(){
         var modal = bootstrap.Modal.getInstance(document.getElementById('modalCopiarFunciones'));
         modal.hide();
-        
-        // Recargar la tabla
-        tabla.ajax.reload(null, false);
-        
+        cargarArbol($('#filtroModulo').val(), $('#buscarPagina').val());
+        if (typeof tabla !== 'undefined' && tabla) {
+            tabla.ajax.reload(null, false);
+        }
         Swal.fire({
             icon: "info",
             title: "Funciones no copiadas",
@@ -1072,7 +1378,7 @@ $('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
 });
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>

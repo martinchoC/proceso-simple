@@ -30,11 +30,11 @@ switch ($accion) {
         break;
 
     case 'obtenerPadre':
-        $padres = obtenerPadre($conexion);
+        $modulo_id = $_GET['modulo_id'] ?? null;
+        $padres = obtenerPadre($conexion, $modulo_id);
         echo json_encode($padres);
         break;
     
-    // Nueva acción: Obtener tabla tipo por tabla_id
     case 'obtenerTablaTipo':
         $tabla_id = $_GET['tabla_id'] ?? null;
         if ($tabla_id) {
@@ -45,7 +45,6 @@ switch ($accion) {
         }
         break;
     
-    // Nueva acción: Verificar si página tiene funciones
     case 'verificarFunciones':
         $pagina_id = $_GET['pagina_id'] ?? null;
         if ($pagina_id) {
@@ -56,7 +55,6 @@ switch ($accion) {
         }
         break;
     
-    // Nueva acción: Obtener funciones por tipo (para mostrar en modal de copia)
     case 'obtenerFuncionesPorTipo':
         $tabla_tipo_id = $_GET['tabla_tipo_id'] ?? null;
         if ($tabla_tipo_id) {
@@ -67,7 +65,6 @@ switch ($accion) {
         }
         break;
     
-    // Nueva acción: Obtener funciones de una página específica
     case 'obtenerFuncionesPorPagina':
         $pagina_id = $_GET['pagina_id'] ?? null;
         if ($pagina_id) {
@@ -78,7 +75,6 @@ switch ($accion) {
         }
         break;
     
-    // Nueva acción: Copiar funciones de tipo
     case 'copiarFunciones':
         $pagina_id = $_GET['pagina_id'] ?? null;
         $tabla_tipo_id = $_GET['tabla_tipo_id'] ?? null;
@@ -92,10 +88,30 @@ switch ($accion) {
         } else {
             echo json_encode([
                 'resultado' => false, 
-                'error' => 'Datos incompletos',
-                'pagina_id' => $pagina_id,
-                'tabla_tipo_id' => $tabla_tipo_id
+                'error' => 'Datos incompletos'
             ]);
+        }
+        break;
+    
+    // NUEVA ACCIÓN: Obtener árbol de páginas
+    case 'obtenerArbol':
+        $modulo_id = $_GET['modulo_id'] ?? null;
+        $busqueda = $_GET['busqueda'] ?? null;
+        $arbol = obtenerArbolPaginas($conexion, $modulo_id, $busqueda);
+        echo json_encode($arbol);
+        break;
+    
+    // NUEVA ACCIÓN: Actualizar orden de página en el árbol
+    case 'actualizarOrden':
+        $pagina_id = $_GET['pagina_id'] ?? null;
+        $padre_id = $_GET['padre_id'] ?? null;
+        $posicion = $_GET['posicion'] ?? null;
+        
+        if ($pagina_id !== null) {
+            $resultado = actualizarOrdenPagina($conexion, $pagina_id, $padre_id, $posicion);
+            echo json_encode(['resultado' => $resultado]);
+        } else {
+            echo json_encode(['resultado' => false, 'error' => 'Datos incompletos']);
         }
         break;
     
@@ -112,7 +128,6 @@ switch ($accion) {
             'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
-        // Validación solo para campos obligatorios
         if (empty($data['pagina']) || empty($data['modulo_id'])) {
             echo json_encode(['resultado' => false, 'error' => 'Nombre de página y módulo son obligatorios']);
             break;
@@ -120,7 +135,6 @@ switch ($accion) {
         
         $resultado = agregarpagina($conexion, $data);
         
-        // Si se agregó exitosamente y tiene tabla_id, preguntar por copiar funciones
         if ($resultado && !empty($data['tabla_id'])) {
             $ultimo_id = mysqli_insert_id($conexion);
             $tabla_tipo_id = obtenerTablaTipoPorTablaId($conexion, $data['tabla_id']);
@@ -152,9 +166,7 @@ switch ($accion) {
         
         $resultado = editarpagina($conexion, $id, $data);
         
-        // Si se editó exitosamente y cambió la tabla, verificar si se deben copiar funciones
         if ($resultado && !empty($data['tabla_id'])) {
-            // Verificar si la página ya tiene funciones
             $tiene_funciones = paginaTieneFunciones($conexion, $id);
             if (!$tiene_funciones) {
                 $tabla_tipo_id = obtenerTablaTipoPorTablaId($conexion, $data['tabla_id']);
@@ -184,25 +196,10 @@ switch ($accion) {
         $pagina = obtenerpaginaPorId($conexion, $id);
         echo json_encode($pagina);
         break;
-        // Nueva acción: Obtener resultado de la última copia
+    
     case 'obtenerResultadoCopia':
         $resultado = $_SESSION['resultado_copia_funciones'] ?? null;
-        // No eliminar inmediatamente para permitir múltiples lecturas si es necesario
         echo json_encode($resultado);
-        break;
-    case 'depurar':
-        $pagina_id = $_GET['pagina_id'] ?? 0;
-        $tabla_tipo_id = $_GET['tabla_tipo_id'] ?? 0;
-        
-        $funciones_tipo = obtenerFuncionesPorTipoTabla($conexion, $tabla_tipo_id);
-        $funciones_existentes = obtenerFuncionesPorPagina($conexion, $pagina_id);
-        
-        echo json_encode([
-            'funciones_tipo' => $funciones_tipo,
-            'funciones_existentes' => $funciones_existentes,
-            'count_tipo' => count($funciones_tipo),
-            'count_existentes' => count($funciones_existentes)
-        ]);
         break;
 
     default:
