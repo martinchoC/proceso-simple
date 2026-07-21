@@ -1982,7 +1982,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
             error_log("Error preparando INSERT: " . mysqli_error($conexion));
             return null;
         }
-        mysqli_stmt_bind_param($stmt, "iiiiiiisssidddddddddi i i i s",
+        mysqli_stmt_bind_param($stmt, "iiiiiiisssidddddddddiiiis",
             $empresa_id, $sucursal_id, $comprobante_pv,
             $comprobante_tipo_id, $comprobante_nro,
             $entidad_id, $entidad_sucursal_id,

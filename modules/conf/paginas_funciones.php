@@ -99,6 +99,39 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     font-size: 1.1em;
 }
 
+/* Estilos para botones de acción rápida */
+.accion-rapida {
+    display: none;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    border: none;
+    background: #28a745;
+    color: white;
+    transition: all 0.2s;
+    line-height: 1.5;
+}
+
+.jstree-anchor:hover .accion-rapida {
+    display: inline-block;
+}
+
+.accion-rapida:hover {
+    background: #218838;
+    transform: scale(1.05);
+}
+
+.accion-rapida.rapida-estados {
+    background: #17a2b8;
+    margin-left: 4px;
+}
+
+.accion-rapida.rapida-estados:hover {
+    background: #138496;
+}
+
 /* Estilos específicos para colores de Bootstrap */
 .bg-primary { background-color: #007bff !important; color: white !important; }
 .bg-secondary { background-color: #6c757d !important; color: white !important; }
@@ -229,6 +262,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <thead>
                                                     <tr>
                                                         <th>ID</th>
+                                                        <th>Módulo</th>
                                                         <th>Página</th>
                                                         <th>Icono</th>
                                                         <th>Color</th>
@@ -379,7 +413,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-// Variables globales
+// ============================================================
+// VARIABLES GLOBALES
+// ============================================================
+
 var tabla;
 var arbolInstance = null;
 var vistaActual = 'arbol';
@@ -398,7 +435,10 @@ const bootstrapColors = {
     'btn-outline-secondary': { bg: 'outline-secondary', text: 'secondary', outline: true, hex: '#6c757d' }
 };
 
-// Función para aplicar clase de color
+// ============================================================
+// FUNCIONES DE VISTA PREVIA
+// ============================================================
+
 function applyColorClass(element, colorClass, isOutline = false) {
     element.removeClass('btn-primary btn-secondary btn-success btn-danger btn-warning btn-info btn-light btn-dark btn-outline-primary btn-outline-secondary');
     if (isOutline) {
@@ -408,7 +448,6 @@ function applyColorClass(element, colorClass, isOutline = false) {
     }
 }
 
-// Función para actualizar la vista previa del color
 function updateColorPreview(colorClass) {
     if (!colorClass) return;
     var colorInfo = bootstrapColors[colorClass] || bootstrapColors['btn-primary'];
@@ -417,7 +456,6 @@ function updateColorPreview(colorClass) {
     $('#colorName').text(colorClass.replace('btn-', '').replace('outline-', 'Outline '));
 }
 
-// Función para actualizar la vista previa de botones
 function updateButtonPreviews(colorClass, iconoClase, funcionNombre) {
     if (!colorClass) colorClass = 'btn-primary';
     if (!iconoClase) iconoClase = 'fa-cog';
@@ -437,8 +475,11 @@ function updateButtonPreviews(colorClass, iconoClase, funcionNombre) {
     $('#previewTextButton').text(funcionNombre);
 }
 
-// Cargar páginas para el filtro y el formulario
-function cargarPaginas(selectedId = null) {
+// ============================================================
+// FUNCIONES DE CARGA DE DATOS
+// ============================================================
+
+function cargarPaginas(selectedId = null, callback = null) {
     $.ajax({
         url: 'paginas_funciones_ajax.php',
         type: 'GET',
@@ -455,6 +496,8 @@ function cargarPaginas(selectedId = null) {
                 });
                 $('#pagina_id').html(options);
                 $('#filtroPagina').html(filtroOptions);
+                
+                if (typeof callback === 'function') callback();
             }
         },
         error: function() {
@@ -464,7 +507,6 @@ function cargarPaginas(selectedId = null) {
     });
 }
 
-// Cargar iconos
 function cargarIconos(selectedId = null) {
     $.ajax({
         url: 'paginas_funciones_ajax.php',
@@ -488,7 +530,6 @@ function cargarIconos(selectedId = null) {
     });
 }
 
-// Cargar colores
 function cargarColores(selectedId = null) {
     $.ajax({
         url: 'paginas_funciones_ajax.php',
@@ -532,7 +573,6 @@ function cargarColores(selectedId = null) {
     });
 }
 
-// Cargar funciones estándar
 function cargarFuncionesEstandar(selectedId = null) {
     $.ajax({
         url: 'paginas_funciones_ajax.php',
@@ -555,7 +595,6 @@ function cargarFuncionesEstandar(selectedId = null) {
     });
 }
 
-// Cargar estados de registro
 function cargarEstadosRegistro(selectedOrigen = null, selectedDestino = null) {
     $.ajax({
         url: 'paginas_funciones_ajax.php',
@@ -584,7 +623,7 @@ function cargarEstadosRegistro(selectedOrigen = null, selectedDestino = null) {
         }
     });
 }
-// Cargar módulos para el filtro
+
 function cargarModulosFiltro(selectedId = null) {
     $.ajax({
         url: 'paginas_funciones_ajax.php',
@@ -606,8 +645,118 @@ function cargarModulosFiltro(selectedId = null) {
         }
     });
 }
-// Función para cargar el árbol de funciones
-// Función para cargar el árbol de funciones - CORREGIDA (sin duplicación de iconos)
+
+function cargarPaginasFiltro(moduloId = null) {
+    $.ajax({
+        url: 'paginas_funciones_ajax.php',
+        type: 'GET',
+        data: {accion: 'obtenerPaginas', modulo_id: moduloId},
+        dataType: 'json',
+        success: function(res) {
+            if(res && res.length > 0) {
+                var options = '<option value="">Todas las páginas</option>';
+                $.each(res, function(index, pagina) {
+                    options += `<option value="${pagina.pagina_id}">${pagina.pagina}</option>`;
+                });
+                $('#filtroPagina').html(options);
+            } else {
+                $('#filtroPagina').html('<option value="">No hay páginas</option>');
+            }
+        },
+        error: function() {
+            $('#filtroPagina').html('<option value="">Error al cargar páginas</option>');
+        }
+    });
+}
+
+// ============================================================
+// FUNCIÓN PARA ABRIR MODAL CON DATOS PRECARGADOS
+// ============================================================
+
+function abrirModalNuevaFuncion(paginaId, paginaNombre, conEstadosPredefinidos = false) {
+    // Resetear formulario
+    $('#formPaginaFuncion')[0].reset();
+    $('#formPaginaFuncion').removeClass('was-validated');
+    $('#pagina_funcion_id').val('');
+    $('#tabla_estado_registro_id').val('1');
+    $('#tabla_estado_registro_origen_id').val('0');
+    
+    // Preseleccionar página
+    if (paginaId) {
+        $('#pagina_id').val(paginaId);
+    }
+    
+    // Cargar selects
+    cargarIconos();
+    cargarColores();
+    cargarFuncionesEstandar();
+    cargarEstadosRegistro();
+    
+    // Si tiene estados predefinidos
+    if (conEstadosPredefinidos) {
+        setTimeout(function() {
+            // Estado origen: 0 (sin estado)
+            $('#tabla_estado_registro_origen_id').val('0');
+            
+            // Estado destino: primer estado disponible
+            var destinoSelect = $('#tabla_estado_registro_destino_id');
+            destinoSelect.find('option').each(function() {
+                if ($(this).val() !== '') {
+                    destinoSelect.val($(this).val());
+                    return false;
+                }
+            });
+            
+            // Icono: primero disponible
+            var iconoSelect = $('#icono_id');
+            iconoSelect.find('option').each(function() {
+                if ($(this).val() !== '') {
+                    iconoSelect.val($(this).val());
+                    return false;
+                }
+            });
+            
+            // Color: primero disponible
+            var colorSelect = $('#color_id');
+            colorSelect.find('option').each(function() {
+                if ($(this).val() !== '') {
+                    colorSelect.val($(this).val());
+                    var selectedText = $(this).text().toLowerCase();
+                    var colorClass = selectedText.includes('outline')
+                        ? 'btn-' + selectedText.replace('outline ', 'outline-').replace(' primario', '-primary').replace(' secundario', '-secondary')
+                        : 'btn-' + selectedText;
+                    updateColorPreview(colorClass);
+                    return false;
+                }
+            });
+            
+            // Actualizar vista previa
+            var iconoClase = $('#icono_id option:selected').text().match(/fa-[\w-]+/)?.[0] || 'fa-cog';
+            var funcionNombre = 'Nueva Función';
+            var colorClass = $('#color_id option:selected').text().toLowerCase().includes('outline')
+                ? 'btn-' + $('#color_id option:selected').text().toLowerCase().replace('outline ', 'outline-').replace(' primario', '-primary').replace(' secundario', '-secondary')
+                : 'btn-' + $('#color_id option:selected').text().toLowerCase();
+            updateButtonPreviews(colorClass, iconoClase, funcionNombre);
+            
+            // Sugerir nombre basado en estado destino
+            var estadoDestinoText = destinoSelect.find('option:selected').text();
+            if (estadoDestinoText && estadoDestinoText !== 'Seleccionar Estado') {
+                $('#nombre_funcion').val('Cambiar a ' + estadoDestinoText);
+            } else {
+                $('#nombre_funcion').val('Nueva Función');
+            }
+        }, 500);
+    }
+    
+    $('#modalLabel').text('Nueva Función en ' + (paginaNombre || 'Página'));
+    var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
+    modal.show();
+}
+
+// ============================================================
+// FUNCIÓN PARA CARGAR EL ÁRBOL
+// ============================================================
+
 function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = null) {
     $.ajax({
         url: 'paginas_funciones_ajax.php',
@@ -657,7 +806,7 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                         },
                         pagina: {
                             icon: 'fas fa-file-alt text-primary',
-                            valid_children: ['grupo', 'pagina'] // Puede tener subpáginas y grupos
+                            valid_children: ['grupo', 'pagina']
                         },
                         grupo: {
                             icon: 'fas fa-layer-group text-info',
@@ -672,14 +821,14 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                             valid_children: []
                         }
                     },
-                   contextmenu: {
+                    contextmenu: {
                         items: function(node) {
                             var items = {};
                             
                             if (node.type === 'modulo') {
                                 items = {
                                     addPage: {
-                                        label: 'Agregar página',
+                                        label: '📄 Agregar página',
                                         action: function() {
                                             window.location.href = 'paginas.php';
                                         },
@@ -691,31 +840,28 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                                 var paginaNombre = node.text;
                                 items = {
                                     addFunction: {
-                                        label: 'Agregar función',
+                                        label: '➕ Agregar función',
                                         action: function() {
-                                            $('#pagina_id').val(paginaId);
-                                            $('#pagina_funcion_id').val('');
-                                            $('#formPaginaFuncion')[0].reset();
-                                            $('#tabla_estado_registro_id').val('1');
-                                            $('#tabla_estado_registro_origen_id').val('0');
-                                            updateButtonPreviews('btn-primary', 'fa-cog', 'Función');
-                                            updateColorPreview('btn-primary');
-                                            $('#modalLabel').text('Nueva Función en ' + paginaNombre);
-                                            var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
-                                            modal.show();
+                                            abrirModalNuevaFuncion(paginaId, paginaNombre, false);
                                         },
                                         icon: 'fas fa-plus'
                                     },
-                                    addSubpage: {
-                                        label: 'Agregar subpágina',
+                                    addFunctionWithStates: {
+                                        label: '⚡ Agregar función (con estados)',
                                         action: function() {
-                                            // Redirigir a páginas con padre preseleccionado
+                                            abrirModalNuevaFuncion(paginaId, paginaNombre, true);
+                                        },
+                                        icon: 'fas fa-bolt'
+                                    },
+                                    addSubpage: {
+                                        label: '📁 Agregar subpágina',
+                                        action: function() {
                                             window.location.href = 'paginas.php?padre_id=' + paginaId;
                                         },
                                         icon: 'fas fa-sitemap'
                                     },
                                     viewPage: {
-                                        label: 'Ver página',
+                                        label: '👁️ Ver página',
                                         action: function() {
                                             var paginaData = node.data || {};
                                             Swal.fire({
@@ -735,7 +881,7 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                                 var totalFunciones = grupoData.total_funciones || 0;
                                 items = {
                                     viewGroup: {
-                                        label: 'Ver grupo (' + totalFunciones + ' funciones)',
+                                        label: '👁️ Ver grupo (' + totalFunciones + ' funciones)',
                                         action: function() {
                                             Swal.fire({
                                                 title: 'Grupo de funciones',
@@ -753,21 +899,28 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                                 var funcionId = node.id.replace('funcion_', '');
                                 items = {
                                     edit: {
-                                        label: 'Editar',
+                                        label: '✏️ Editar',
                                         action: function() {
                                             editarFuncion(funcionId);
                                         },
                                         icon: 'fas fa-edit'
                                     },
+                                    copy: {
+                                        label: '📋 Copiar función',
+                                        action: function() {
+                                            copiarFuncion(funcionId);
+                                        },
+                                        icon: 'fas fa-copy'
+                                    },
                                     delete: {
-                                        label: 'Eliminar',
+                                        label: '🗑️ Eliminar',
                                         action: function() {
                                             eliminarFuncion(funcionId);
                                         },
                                         icon: 'fas fa-trash'
                                     },
                                     viewFunction: {
-                                        label: 'Ver detalles',
+                                        label: '👁️ Ver detalles',
                                         action: function() {
                                             var funcionData = node.data || {};
                                             var funcionNombre = funcionData.nombre || node.text;
@@ -788,7 +941,6 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                                     }
                                 };
                             }
-                            
                             return items;
                         }
                     }
@@ -800,6 +952,36 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                         var funcionId = node.id.replace('funcion_', '');
                         editarFuncion(funcionId);
                     }
+                });
+                
+                container.on('ready.jstree', function() {
+                    // Agregar botones de acción rápida
+                    container.find('.jstree-node[data-jstree]').each(function() {
+                        var node = $(this);
+                        var nodeId = node.attr('id');
+                        if (nodeId && nodeId.startsWith('pagina_')) {
+                            var paginaId = nodeId.replace('pagina_', '');
+                            var anchor = node.find('.jstree-anchor');
+                            
+                            var btnRapido = $('<button class="accion-rapida" title="Agregar función rápida">+ Función</button>');
+                            btnRapido.on('click', function(e) {
+                                e.stopPropagation();
+                                var paginaNombre = anchor.text().trim();
+                                abrirModalNuevaFuncion(paginaId, paginaNombre, false);
+                            });
+                            
+                            var btnRapidoEstados = $('<button class="accion-rapida rapida-estados" title="Agregar función con estados">⚡ Estados</button>');
+                            btnRapidoEstados.on('click', function(e) {
+                                e.stopPropagation();
+                                var paginaNombre = anchor.text().trim();
+                                abrirModalNuevaFuncion(paginaId, paginaNombre, true);
+                            });
+                            
+                            anchor.append(' ');
+                            anchor.append(btnRapido);
+                            anchor.append(btnRapidoEstados);
+                        }
+                    });
                 });
                 
                 container.on('loaded.jstree', function() {
@@ -820,7 +1002,10 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
     });
 }
 
-// Función para editar una función
+// ============================================================
+// FUNCIONES CRUD
+// ============================================================
+
 function editarFuncion(funcionId) {
     $.get('paginas_funciones_ajax.php', {accion: 'obtener', pagina_funcion_id: funcionId}, function(res){
         if(res){
@@ -845,16 +1030,11 @@ function editarFuncion(funcionId) {
             var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
             modal.show();
         } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'No se pudieron obtener los datos'
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron obtener los datos' });
         }
     }, 'json');
 }
 
-// Función para eliminar una función
 function eliminarFuncion(funcionId) {
     Swal.fire({
         title: "¿Estás seguro?",
@@ -869,28 +1049,49 @@ function eliminarFuncion(funcionId) {
         if (result.isConfirmed) {
             $.get('paginas_funciones_ajax.php', {accion: 'eliminar', pagina_funcion_id: funcionId}, function(res){
                 if(res.resultado){
-                    cargarArbol($('#filtroPagina').val(), $('#buscarFuncion').val());
+                    cargarArbol($('#filtroModulo').val(), $('#filtroPagina').val(), $('#buscarFuncion').val());
                     if (typeof tabla !== 'undefined' && tabla) {
                         tabla.ajax.reload();
                     }
-                    Swal.fire({
-                        icon: "success",
-                        title: "¡Eliminado!",
-                        text: "El registro ha sido eliminado",
-                        showConfirmButton: false,
-                        timer: 1000
-                    });
+                    Swal.fire({ icon: "success", title: "¡Eliminado!", showConfirmButton: false, timer: 1000 });
                 } else {
-                    Swal.fire({
-                        icon: "error",
-                        title: "Error",
-                        text: res.error || "Error al eliminar el registro"
-                    });
+                    Swal.fire({ icon: "error", title: "Error", text: res.error || "Error al eliminar el registro" });
                 }
             }, 'json');
         }
     });
 }
+
+function copiarFuncion(funcionId) {
+    Swal.fire({
+        title: "¿Copiar función?",
+        text: "Se creará una copia de esta función",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Sí, copiar",
+        cancelButtonText: "Cancelar"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.get('paginas_funciones_ajax.php', {accion: 'copiar', pagina_funcion_id: funcionId}, function(res){
+                if(res.resultado){
+                    cargarArbol($('#filtroModulo').val(), $('#filtroPagina').val(), $('#buscarFuncion').val());
+                    if (typeof tabla !== 'undefined' && tabla) {
+                        tabla.ajax.reload();
+                    }
+                    Swal.fire({ icon: "success", title: "¡Copiado!", text: "La función ha sido copiada exitosamente", showConfirmButton: false, timer: 1500 });
+                } else {
+                    Swal.fire({ icon: "error", title: "Error", text: "Error al copiar la función" });
+                }
+            }, 'json');
+        }
+    });
+}
+
+// ============================================================
+// DOCUMENT READY
+// ============================================================
 
 $(document).ready(function(){
     // Inicializar selects
@@ -899,66 +1100,111 @@ $(document).ready(function(){
     cargarColores();
     cargarFuncionesEstandar();
     cargarEstadosRegistro();
+    cargarModulosFiltro();
     
-    // Cargar el árbol inicial
-    // Cargar módulos para el filtro
-cargarModulosFiltro();
-
-// Cargar el árbol inicial
-cargarArbol();
-
-// Eventos de filtro
-$('#filtroModulo').change(function() {
-    if (vistaActual === 'arbol') {
-        // Al cambiar el módulo, actualizar las páginas disponibles
-        var moduloId = $(this).val();
-        cargarPaginasFiltro(moduloId);
-        cargarArbol(moduloId, $('#filtroPagina').val(), $('#buscarFuncion').val());
-    } else {
-        tabla.ajax.reload();
-    }
-});
-
-$('#filtroPagina').change(function() {
-    if (vistaActual === 'arbol') {
-        cargarArbol($('#filtroModulo').val(), $(this).val(), $('#buscarFuncion').val());
-    } else {
-        tabla.ajax.reload();
-    }
-});
-
-$('#buscarFuncion').on('keyup', function() {
-    if (vistaActual === 'arbol') {
-        var texto = $(this).val();
-        if (texto.length > 2 || texto.length === 0) {
-            cargarArbol($('#filtroModulo').val(), $('#filtroPagina').val(), texto);
-        }
-    }
-});
-
-// Función para cargar páginas según el módulo seleccionado
-function cargarPaginasFiltro(moduloId = null) {
-    $.ajax({
-        url: 'paginas_funciones_ajax.php',
-        type: 'GET',
-        data: {accion: 'obtenerPaginas', modulo_id: moduloId},
-        dataType: 'json',
-        success: function(res) {
-            if(res && res.length > 0) {
-                var options = '<option value="">Todas las páginas</option>';
-                $.each(res, function(index, pagina) {
-                    options += `<option value="${pagina.pagina_id}">${pagina.pagina}</option>`;
-                });
-                $('#filtroPagina').html(options);
-            } else {
-                $('#filtroPagina').html('<option value="">No hay páginas</option>');
-            }
-        },
-        error: function() {
-            $('#filtroPagina').html('<option value="">Error al cargar páginas</option>');
+    // Cargar árbol inicial
+    cargarArbol();
+    
+    // Evento: Botón Nueva Función
+    $(document).on('click', '#btnNuevo', function(){
+        var paginaSeleccionada = $('#filtroPagina').val();
+        var paginaNombre = $('#filtroPagina option:selected').text();
+        
+        if (paginaSeleccionada && paginaSeleccionada !== '') {
+            abrirModalNuevaFuncion(paginaSeleccionada, paginaNombre, true);
+        } else {
+            $('#formPaginaFuncion')[0].reset();
+            $('#pagina_funcion_id').val('');
+            $('#tabla_estado_registro_id').val('1');
+            $('#tabla_estado_registro_origen_id').val('0');
+            updateButtonPreviews('btn-primary', 'fa-cog', 'Función');
+            updateColorPreview('btn-primary');
+            $('#modalLabel').text('Nueva Función de Página');
+            
+            cargarPaginas();
+            cargarIconos();
+            cargarColores();
+            cargarFuncionesEstandar();
+            cargarEstadosRegistro();
+            
+            var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
+            modal.show();
         }
     });
-}
+    
+    // Evento: Guardar función
+    $(document).on('click', '#btnGuardar', function(){
+        if ($('#nombre_funcion').val().trim() === '' || 
+            $('#pagina_id').val() === '' ||
+            $('#tabla_estado_registro_destino_id').val() === '') {
+            $('#formPaginaFuncion').addClass('was-validated');
+            Swal.fire({ icon: 'warning', title: 'Campos obligatorios', text: 'Los campos marcados con * son obligatorios' });
+            return false;
+        }
+        
+        var id = $('#pagina_funcion_id').val();
+        var accion = id ? 'editar' : 'agregar';
+        var formData = {
+            accion: accion,
+            pagina_funcion_id: id,
+            nombre_funcion: $('#nombre_funcion').val(),
+            pagina_id: $('#pagina_id').val(),
+            accion_js: $('#accion_js').val(),
+            descripcion: $('#descripcion').val(),
+            orden: $('#orden').val(),
+            icono_id: $('#icono_id').val() || null,
+            color_id: $('#color_id').val() || null,
+            funcion_estandar_id: $('#funcion_estandar_id').val() || null,
+            tabla_estado_registro_origen_id: $('#tabla_estado_registro_origen_id').val(),
+            tabla_estado_registro_destino_id: $('#tabla_estado_registro_destino_id').val(),
+            tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1
+        };
+
+        $.ajax({
+            url: 'paginas_funciones_ajax.php',
+            type: 'GET',
+            data: formData,
+            dataType: 'json',
+            success: function(res) {
+                if(res.resultado) {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('modalPaginaFuncion'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    $('#formPaginaFuncion')[0].reset();
+                    $('#formPaginaFuncion').removeClass('was-validated');
+                    $('#tabla_estado_registro_id').val('1');
+                    $('#tabla_estado_registro_origen_id').val('0');
+                    updateButtonPreviews('btn-primary', 'fa-cog', 'Función');
+                    updateColorPreview('btn-primary');
+                    
+                    cargarArbol($('#filtroModulo').val(), $('#filtroPagina').val(), $('#buscarFuncion').val());
+                    if (typeof tabla !== 'undefined' && tabla) {
+                        tabla.ajax.reload(null, false);
+                    }
+                    
+                    Swal.fire({ icon: "success", title: "¡Operación exitosa!", showConfirmButton: false, timer: 1500 });
+                } else {
+                    Swal.fire({ icon: "error", title: "Error", text: res.error || "Error al guardar los datos" });
+                }
+            },
+            error: function() {
+                Swal.fire({ icon: "error", title: "Error", text: "Error de conexión con el servidor" });
+            }
+        });
+    });
+    
+    // Evento: Modal closed - resetear formulario
+    $('#modalPaginaFuncion').on('hidden.bs.modal', function() {
+        $('#formPaginaFuncion')[0].reset();
+        $('#formPaginaFuncion').removeClass('was-validated');
+        $('#pagina_funcion_id').val('');
+        $('#tabla_estado_registro_id').val('1');
+        $('#tabla_estado_registro_origen_id').val('0');
+        updateButtonPreviews('btn-primary', 'fa-cog', 'Función');
+        updateColorPreview('btn-primary');
+    });
     
     // Event listeners para vista previa
     $('#color_id').change(function() {
@@ -974,7 +1220,6 @@ function cargarPaginasFiltro(moduloId = null) {
         var colorClass = $('#color_id option:selected').text().toLowerCase().includes('outline')
             ? 'btn-' + $('#color_id option:selected').text().toLowerCase().replace('outline ', 'outline-').replace(' primario', '-primary').replace(' secundario', '-secondary')
             : 'btn-' + $('#color_id option:selected').text().toLowerCase();
-        
         updateButtonPreviews(colorClass, iconoClase, funcionNombre);
     });
     
@@ -1035,6 +1280,12 @@ function cargarPaginasFiltro(moduloId = null) {
         },
         columns: [
             { data: 'pagina_funcion_id' },
+            { 
+                data: 'nombre_modulo',
+                render: function(data) {
+                    return data || '<span class="text-muted">-</span>';
+                }
+            },
             { 
                 data: 'nombre_pagina',
                 render: function(data, type, row) {
@@ -1134,6 +1385,9 @@ function cargarPaginasFiltro(moduloId = null) {
                         <button class="btn btn-sm btn-primary btnEditar me-1" title="Editar">
                             <i class="fa fa-pencil-alt"></i>
                         </button>
+                        <button class="btn btn-sm btn-info btnCopiar me-1" title="Copiar">
+                            <i class="fa fa-copy"></i>
+                        </button>
                         <button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
                             <i class="fa fa-trash"></i>
                         </button>
@@ -1150,7 +1404,7 @@ function cargarPaginasFiltro(moduloId = null) {
         $('#vistaTablaContainer').hide();
         $(this).removeClass('btn-outline-secondary').addClass('btn-outline-info');
         $('#vistaTabla').removeClass('btn-outline-info').addClass('btn-outline-secondary');
-        cargarArbol($('#filtroPagina').val(), $('#buscarFuncion').val());
+        cargarArbol($('#filtroModulo').val(), $('#filtroPagina').val(), $('#buscarFuncion').val());
     });
     
     $('#vistaTabla').click(function() {
@@ -1162,10 +1416,20 @@ function cargarPaginasFiltro(moduloId = null) {
         tabla.ajax.reload();
     });
 
-    // Filtros
+    // Eventos de filtro
+    $('#filtroModulo').change(function() {
+        if (vistaActual === 'arbol') {
+            var moduloId = $(this).val();
+            cargarPaginasFiltro(moduloId);
+            cargarArbol(moduloId, $('#filtroPagina').val(), $('#buscarFuncion').val());
+        } else {
+            tabla.ajax.reload();
+        }
+    });
+
     $('#filtroPagina').change(function() {
         if (vistaActual === 'arbol') {
-            cargarArbol($(this).val(), $('#buscarFuncion').val());
+            cargarArbol($('#filtroModulo').val(), $(this).val(), $('#buscarFuncion').val());
         } else {
             tabla.ajax.reload();
         }
@@ -1174,10 +1438,8 @@ function cargarPaginasFiltro(moduloId = null) {
     $('#buscarFuncion').on('keyup', function() {
         if (vistaActual === 'arbol') {
             var texto = $(this).val();
-            if (texto.length > 2) {
-                cargarArbol($('#filtroPagina').val(), texto);
-            } else if (texto.length === 0) {
-                cargarArbol($('#filtroPagina').val());
+            if (texto.length > 2 || texto.length === 0) {
+                cargarArbol($('#filtroModulo').val(), $('#filtroPagina').val(), texto);
             }
         }
     });
@@ -1194,26 +1456,6 @@ function cargarPaginasFiltro(moduloId = null) {
             arbolInstance.jstree('close_all');
         }
     });
-    
-    // Botón nueva función
-    $('#btnNuevo').click(function(){
-        $('#formPaginaFuncion')[0].reset();
-        $('#pagina_funcion_id').val('');
-        $('#tabla_estado_registro_id').val('1');
-        $('#tabla_estado_registro_origen_id').val('0');
-        updateButtonPreviews('btn-primary', 'fa-cog', 'Función');
-        updateColorPreview('btn-primary');
-        $('#modalLabel').text('Nueva Función de Página');
-        
-        cargarPaginas();
-        cargarIconos();
-        cargarColores();
-        cargarFuncionesEstandar();
-        cargarEstadosRegistro();
-        
-        var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
-        modal.show();
-    });
 
     // Eventos de la tabla
     $('#tablaPaginasFunciones tbody').on('click', '.btnEditar', function(){
@@ -1221,87 +1463,14 @@ function cargarPaginasFiltro(moduloId = null) {
         editarFuncion(data.pagina_funcion_id);
     });
 
+    $('#tablaPaginasFunciones tbody').on('click', '.btnCopiar', function(){
+        var data = tabla.row($(this).parents('tr')).data();
+        copiarFuncion(data.pagina_funcion_id);
+    });
+
     $('#tablaPaginasFunciones tbody').on('click', '.btnEliminar', function(){
         var data = tabla.row($(this).parents('tr')).data();
         eliminarFuncion(data.pagina_funcion_id);
-    });
-
-    // Guardar función
-    $('#btnGuardar').click(function(){
-        if ($('#nombre_funcion').val().trim() === '' || 
-            $('#pagina_id').val() === '' ||
-            $('#tabla_estado_registro_destino_id').val() === '') {
-            $('#formPaginaFuncion').addClass('was-validated');
-            Swal.fire({
-                icon: 'warning',
-                title: 'Campos obligatorios',
-                text: 'Los campos marcados con * son obligatorios'
-            });
-            return false;
-        }
-        
-        var id = $('#pagina_funcion_id').val();
-        var accion = id ? 'editar' : 'agregar';
-        var formData = {
-            accion: accion,
-            pagina_funcion_id: id,
-            nombre_funcion: $('#nombre_funcion').val(),
-            pagina_id: $('#pagina_id').val(),
-            accion_js: $('#accion_js').val(),
-            descripcion: $('#descripcion').val(),
-            orden: $('#orden').val(),
-            icono_id: $('#icono_id').val() || null,
-            color_id: $('#color_id').val() || null,
-            funcion_estandar_id: $('#funcion_estandar_id').val() || null,
-            tabla_estado_registro_origen_id: $('#tabla_estado_registro_origen_id').val(),
-            tabla_estado_registro_destino_id: $('#tabla_estado_registro_destino_id').val(),
-            tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1
-        };
-
-        $.ajax({
-            url: 'paginas_funciones_ajax.php',
-            type: 'GET',
-            data: formData,
-            dataType: 'json',
-            success: function(res) {
-                if(res.resultado) {
-                    var modal = bootstrap.Modal.getInstance(document.getElementById('modalPaginaFuncion'));
-                    modal.hide();
-                    
-                    $('#formPaginaFuncion')[0].reset();
-                    $('#tabla_estado_registro_id').val('1');
-                    $('#tabla_estado_registro_origen_id').val('0');
-                    updateButtonPreviews('btn-primary', 'fa-cog', 'Función');
-                    updateColorPreview('btn-primary');
-                    $('#formPaginaFuncion').removeClass('was-validated');
-                    
-                    cargarArbol($('#filtroPagina').val(), $('#buscarFuncion').val());
-                    if (typeof tabla !== 'undefined' && tabla) {
-                        tabla.ajax.reload(null, false);
-                    }
-                    
-                    Swal.fire({
-                        icon: "success",
-                        title: "¡Operación exitosa!",
-                        showConfirmButton: false,
-                        timer: 1500
-                    });
-                } else {
-                    Swal.fire({
-                        icon: "error",
-                        title: "Error",
-                        text: res.error || "Error al guardar los datos"
-                    });
-                }
-            },
-            error: function() {
-                Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: "Error de conexión con el servidor"
-                });
-            }
-        });
     });
 });
 </script>

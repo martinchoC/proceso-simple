@@ -8,6 +8,10 @@ $accion = $_GET['accion'] ?? '';
 header('Content-Type: application/json; charset=utf-8');
 
 switch ($accion) {
+    // ============================================================
+    // OBTENER DATOS PARA SELECTS
+    // ============================================================
+    
     case 'listar':
         $funciones = obtenerPaginasFunciones($conexion);
         echo json_encode($funciones);
@@ -38,13 +42,15 @@ switch ($accion) {
         echo json_encode($estados);
         break;
     
-    // NUEVA ACCIÓN: Obtener módulos para el filtro
     case 'obtenerModulos':
         $modulos = obtenerModulosParaFiltro($conexion);
         echo json_encode($modulos);
         break;
     
-    // NUEVA ACCIÓN CORREGIDA: Obtener árbol de funciones
+    // ============================================================
+    // ÁRBOL
+    // ============================================================
+    
     case 'obtenerArbolFunciones':
         $modulo_id = $_GET['modulo_id'] ?? null;
         $pagina_id = $_GET['pagina_id'] ?? null;
@@ -52,6 +58,10 @@ switch ($accion) {
         $arbol = obtenerArbolFunciones($conexion, $modulo_id, $pagina_id, $busqueda);
         echo json_encode($arbol);
         break;
+    
+    // ============================================================
+    // CRUD
+    // ============================================================
     
     case 'agregar':
         $data = [
@@ -68,9 +78,7 @@ switch ($accion) {
             'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
-        if (empty($data['nombre_funcion']) || 
-            empty($data['pagina_id']) ||
-            empty($data['tabla_estado_registro_destino_id'])) {
+        if (empty($data['nombre_funcion']) || empty($data['pagina_id']) || empty($data['tabla_estado_registro_destino_id'])) {
             echo json_encode(['resultado' => false, 'error' => 'Nombre de función, página y estado destino son obligatorios']);
             break;
         }
@@ -95,9 +103,7 @@ switch ($accion) {
             'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
         ];
         
-        if (empty($data['nombre_funcion']) || 
-            empty($data['pagina_id']) ||
-            empty($data['tabla_estado_registro_destino_id'])) {
+        if (empty($data['nombre_funcion']) || empty($data['pagina_id']) || empty($data['tabla_estado_registro_destino_id'])) {
             echo json_encode(['resultado' => false, 'error' => 'Nombre de función, página y estado destino son obligatorios']);
             break;
         }
@@ -116,6 +122,16 @@ switch ($accion) {
         $id = intval($_GET['pagina_funcion_id']);
         $funcion = obtenerPaginaFuncionPorId($conexion, $id);
         echo json_encode($funcion);
+        break;
+    
+    // ============================================================
+    // COPIAR FUNCIÓN
+    // ============================================================
+    
+    case 'copiar':
+        $id = intval($_GET['pagina_funcion_id']);
+        $resultado = copiarPaginaFuncion($conexion, $id);
+        echo json_encode(['resultado' => $resultado]);
         break;
 
     default:
