@@ -1144,161 +1144,174 @@ function mostrarModalImpuesto(impuestoData, idx) {
         window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
     }
 
+    
     // ========== VISUALIZAR FACTURA (SOLO LECTURA) ==========
-    function cargarFacturaParaVisualizar(facturaId) {
-        $.get('facturas_proveedores_ajax.php', {
-            accion: 'obtener',
-            factura_proveedor_id: facturaId,
-            empresa_idx: empresa_idx
-        }, function (res) {
-            console.log("Factura recibida para visualizar:", res);
+function cargarFacturaParaVisualizar(facturaId) {
+    $.get('facturas_proveedores_ajax.php', {
+        accion: 'obtener',
+        factura_proveedor_id: facturaId,
+        empresa_idx: empresa_idx
+    }, function (res) {
+        console.log("Factura recibida para visualizar:", res);
+        
+        if (res && res.factura_proveedor_id) {
+            resetModal();
             
-            if (res && res.factura_proveedor_id) {
-                resetModal();
-                
-                // Guardar el ID de sucursal para asignarlo después de cargar los combos
-                var sucursalIdParaEditar = res.sucursal_id || null;
-                
-                cargarCombosFormulario();
-                cargarProveedoresYSucursales(); // Cargar combo unificado
-                
-                $('#factura_proveedor_id').val(res.factura_proveedor_id);
-                $('#comprobante_nro').val(res.comprobante_nro);
-                $('#comprobante_pv').val(res.comprobante_pv || '0');
-                $('#f_emision').val(res.f_emision);
-                $('#f_vencimiento').val(res.f_vencimiento);
-                $('#f_contabilidad').val(res.f_contabilidad || res.f_emision);
-                $('#direccion').val(res.direccion);
-                $('#observaciones').val(res.observaciones);
-                $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
-                $('#subtotal').val(res.subtotal || 0);
-                $('#descuentos').val(res.descuentos || 0);
-                $('#no_gravado').val(res.no_gravado || 0);
-                $('#exento').val(res.exento || 0);
-                $('#impuestos').val(res.impuestos || 0);
-                $('#total').val(res.total || 0);
-                
-                $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
-                $('#descuentos_display').text(parseFloat(res.descuentos || 0).toFixed(2));
-                $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
-                $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
-                $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
-                $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
+            // Guardar el ID de sucursal para asignarlo después de cargar los combos
+            var sucursalIdParaEditar = res.sucursal_id || null;
+            
+            cargarCombosFormulario();
+            cargarProveedoresYSucursales(); // Cargar combo unificado
+            
+            $('#factura_proveedor_id').val(res.factura_proveedor_id);
+            $('#comprobante_nro').val(res.comprobante_nro);
+            $('#comprobante_pv').val(res.comprobante_pv || '0');
+            $('#f_emision').val(res.f_emision);
+            $('#f_vencimiento').val(res.f_vencimiento);
+            $('#f_contabilidad').val(res.f_contabilidad || res.f_emision);
+            $('#direccion').val(res.direccion);
+            $('#observaciones').val(res.observaciones);
+            $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
+            $('#subtotal').val(res.subtotal || 0);
+            $('#descuentos').val(res.descuentos || 0);
+            $('#no_gravado').val(res.no_gravado || 0);
+            $('#exento').val(res.exento || 0);
+            $('#impuestos').val(res.impuestos || 0);
+            $('#total').val(res.total || 0);
+            
+            $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
+            $('#descuentos_display').text(parseFloat(res.descuentos || 0).toFixed(2));
+            $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
+            $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
+            $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
+            $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
 
-                $('#modalLabel').text('Visualizar Factura de Proveedor');
+            $('#modalLabel').text('Visualizar Factura de Proveedor');
 
-                // Asignar valores después de que los combos se hayan cargado
-                setTimeout(function() {
-                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
-                    $('#moneda_id').val(res.moneda_id);
-                    $('#condicion_pago_id').val(res.condicion_pago_id);
-                    
-                    // ASIGNAR SUCURSAL_ID DESPUÉS DE CARGAR EL COMBO
-                    if (sucursalIdParaEditar) {
-                        $('#sucursal_id').val(sucursalIdParaEditar);
-                        // Cargar depósitos y luego asignar el depósito guardado
-                        cargarDepositosPorSucursal(sucursalIdParaEditar, function() {
-                            if (res.deposito_id) {
-                                $('#deposito_id').val(res.deposito_id);
-                            }
-                        });
-                    } else {
-                        // Si no hay sucursal, limpiar depósitos
-                        cargarDepositosPorSucursal(null);
-                    }
-                    
-                    // Seleccionar el valor correcto en el combo unificado
-                    if (res.entidad_id) {
-                        proveedorActualId = res.entidad_id;
-                        
-                        if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
-                            // Tiene sucursal específica
-                            $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
-                            proveedorSucursalActualId = parseInt(res.entidad_sucursal_id);
-                        } else {
-                            // Solo proveedor principal
-                            $('#entidad_combo').val('P-' + res.entidad_id);
-                            proveedorSucursalActualId = null;
+            // Asignar valores después de que los combos se hayan cargado
+            setTimeout(function() {
+                $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                $('#moneda_id').val(res.moneda_id);
+                $('#condicion_pago_id').val(res.condicion_pago_id);
+                
+                // ASIGNAR SUCURSAL_ID DESPUÉS DE CARGAR EL COMBO
+                if (sucursalIdParaEditar) {
+                    $('#sucursal_id').val(sucursalIdParaEditar);
+                    // Cargar depósitos y luego asignar el depósito guardado
+                    cargarDepositosPorSucursal(sucursalIdParaEditar, function() {
+                        if (res.deposito_id) {
+                            $('#deposito_id').val(res.deposito_id);
                         }
-                        
-                        // Obtener el texto de la opción seleccionada para mostrarlo
-                        var textoSeleccionado = $('#entidad_combo option:selected').text();
-                        $('#proveedor_actual_nombre').text(textoSeleccionado || 'No seleccionado');
-                        
-                        console.log("Proveedor cargado para edición:", proveedorActualId, "Sucursal:", proveedorSucursalActualId);
+                    });
+                } else {
+                    // Si no hay sucursal, limpiar depósitos
+                    cargarDepositosPorSucursal(null);
+                }
+                
+                // Seleccionar el valor correcto en el combo unificado
+                if (res.entidad_id) {
+                    proveedorActualId = res.entidad_id;
+                    
+                    if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
+                        // Tiene sucursal específica
+                        $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
+                        proveedorSucursalActualId = parseInt(res.entidad_sucursal_id);
+                    } else {
+                        // Solo proveedor principal
+                        $('#entidad_combo').val('P-' + res.entidad_id);
+                        proveedorSucursalActualId = null;
                     }
-                    if (res.deposito_id) {
-                        $('#deposito_id').val(res.deposito_id);
-                    }
-                    // Cargar detalles si existen
-                    if (res.detalles && res.detalles.length > 0) {
-                        detalles = res.detalles.map(function(detalle, index) {
-                            return {
-                                detalle_idx: index,
-                                factura_proveedor_detalle_id: detalle.factura_proveedor_detalle_id,
-                                producto_id: detalle.producto_id,
-                                producto_nombre: detalle.producto_nombre,
-                                cantidad: detalle.cantidad,
-                                precio_unitario: detalle.precio_unitario,
-                                descuento_item_pct: detalle.descuento_item_pct || 0,
-                                descuento: detalle.descuento || 0,
-                                no_gravado: detalle.no_gravado || 0,
-                                exento: detalle.exento || 0,
-                                iva_alicuota_id: detalle.iva_alicuota_id,
-                                iva_porcentaje: detalle.iva_porcentaje,
-                                neto_gravado: detalle.neto_gravado,
-                                iva_importe: detalle.iva_importe,
-                                total_linea: detalle.total_linea
-                            };
-                        });
-                        renderizarDetalles();
-                        actualizarTotales();
-                    }
+                    
+                    // Obtener el texto de la opción seleccionada para mostrarlo
+                    var textoSeleccionado = $('#entidad_combo option:selected').text();
+                    $('#proveedor_actual_nombre').text(textoSeleccionado || 'No seleccionado');
+                    
+                    console.log("Proveedor cargado para edición:", proveedorActualId, "Sucursal:", proveedorSucursalActualId);
+                }
+                if (res.deposito_id) {
+                    $('#deposito_id').val(res.deposito_id);
+                }
+                // Cargar detalles si existen
+                if (res.detalles && res.detalles.length > 0) {
+                    detalles = res.detalles.map(function(detalle, index) {
+                        return {
+                            detalle_idx: index,
+                            factura_proveedor_detalle_id: detalle.factura_proveedor_detalle_id,
+                            producto_id: detalle.producto_id,
+                            producto_nombre: detalle.producto_nombre,
+                            cantidad: detalle.cantidad,
+                            precio_unitario: detalle.precio_unitario,
+                            descuento_item_pct: detalle.descuento_item_pct || 0,
+                            descuento: detalle.descuento || 0,
+                            no_gravado: detalle.no_gravado || 0,
+                            exento: detalle.exento || 0,
+                            iva_alicuota_id: detalle.iva_alicuota_id,
+                            iva_porcentaje: detalle.iva_porcentaje,
+                            neto_gravado: detalle.neto_gravado,
+                            iva_importe: detalle.iva_importe,
+                            total_linea: detalle.total_linea
+                        };
+                    });
+                    renderizarDetalles();
+                    actualizarTotales();
+                }
+                
+                // Cargar impuestos de la factura si existen
+                if (res.factura_proveedor_id) {
+                    cargarImpuestosFactura(res.factura_proveedor_id);
+                }
 
-                    // --- MODO SOLO LECTURA ---
-                    // Deshabilitar todos los inputs, selects y botones de acción dentro del modal
-                    $('#formFacturaProveedor :input').prop('disabled', true);
-                    $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoProveedor').prop('disabled', true);
-                    
-                    // Ocultar secciones completas en modo visualizar
-                    $('.card-primary').hide(); // Oculta la sección de Agregar Producto
-                    $('#btnNuevoProductoRapido').hide(); // Oculta el botón de Nuevo Producto Rápido
-                    
-                    // Ocultar el botón guardar y el botón cancelar del footer
-                    $('#btnGuardar').hide();
-                    $('.modal-footer .btn-secondary').hide(); // Oculta el botón Cancelar del footer
-                    
-                    // Mantener habilitado el fullscreen
-                    $('#btnToggleFullscreen').prop('disabled', false);
-                    
-                }, 500);
+                // --- MODO SOLO LECTURA ---
+                // Deshabilitar todos los inputs, selects y botones de acción dentro del modal
+                $('#formFacturaProveedor :input').prop('disabled', true);
+                $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoProveedor').prop('disabled', true);
+                
+                // OCULTAR botones de acción (en lugar de ocultar secciones enteras)
+                $('#btnAgregarProducto').hide();
+                $('#btnNuevoProductoRapido').hide();
+                $('#btnAgregarImpuesto').hide();
+                $('#btnNuevoProductoRapido').hide();
+                
+                // Ocultar el botón guardar
+                $('#btnGuardar').hide();
+                // Cambiar texto del botón Cancelar a "Cerrar"
+                $('.modal-footer .btn-secondary').text('Cerrar');
+                
+                // Mantener habilitado el fullscreen
+                $('#btnToggleFullscreen').prop('disabled', false);
+                
+                // --- PERMITIR NAVEGAR ENTRE PESTAÑAS ---
+                // Las pestañas ya están habilitadas por defecto, solo deshabilitamos interacciones dentro de ellas
+                
+            }, 500);
 
-                var modal = new bootstrap.Modal(document.getElementById('modalFacturaProveedor'));
-                modal.show();
+            var modal = new bootstrap.Modal(document.getElementById('modalFacturaProveedor'));
+            modal.show();
 
-                // Al cerrar el modal, restaurar estado (para próximas aperturas)
-                $('#modalFacturaProveedor').off('hidden.bs.modal').on('hidden.bs.modal', function () {
-                    // Restaurar habilitación y mostrar botones
-                    $('#formFacturaProveedor :input').prop('disabled', false);
-                    $('#btnGuardar').show();
-                    $('.modal-footer .btn-secondary').show(); // Restaurar botón Cancelar
-                    $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoProveedor').prop('disabled', false);
-                    
-                    // Restaurar secciones visibles
-                    $('.card-primary').show();
-                    $('#btnNuevoProductoRapido').show();
-                });
+            // Al cerrar el modal, restaurar estado (para próximas aperturas)
+            $('#modalFacturaProveedor').off('hidden.bs.modal').on('hidden.bs.modal', function () {
+                // Restaurar habilitación y mostrar botones
+                $('#formFacturaProveedor :input').prop('disabled', false);
+                $('#btnGuardar').show();
+                $('.modal-footer .btn-secondary').text('Cancelar');
+                $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoProveedor').prop('disabled', false);
+                
+                // Restaurar visibilidad de botones
+                $('#btnAgregarProducto').show();
+                $('#btnNuevoProductoRapido').show();
+                $('#btnAgregarImpuesto').show();
+            });
 
-            } else {
-                Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: "Error al obtener datos de la factura",
-                    confirmButtonText: "Entendido"
-                });
-            }
-        }, 'json');
-    }
+        } else {
+            Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: "Error al obtener datos de la factura",
+                confirmButtonText: "Entendido"
+            });
+        }
+    }, 'json');
+}
 
     // ========== MANEJADOR DE ACCIONES DE BOTONES ==========
     $(document).on('change', '#descuento_general_pct', function() {

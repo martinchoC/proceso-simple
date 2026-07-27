@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <b>Gestión</b>Multipyme
         </h1>
         <div class="mt-2">
-          <img src="<?= asset('img/developsam_logo.png') ?>" alt="Logo" class="brand-image opacity-75 shadow"
+          <img src="<?= asset('img/logo.png') ?>" alt="Logo" class="brand-image opacity-75 shadow"
             style="max-height: 80px; width: auto;" />
         </div>
       </div>

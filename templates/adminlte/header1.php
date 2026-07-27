@@ -224,7 +224,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
     <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
       <div class="sidebar-brand">
         <a href="#" class="brand-link">
-          <img src="<?= asset('img/developsam_logo.png') ?>" alt="Logo" class="brand-image opacity-75 shadow" />
+          <img src="<?= asset('img/logo.png') ?>" alt="Logo" class="brand-image opacity-75 shadow" />
           <span class="brand-text fw-light">Multigestion</span>
         </a>
       </div>

@@ -913,13 +913,13 @@ function obtenerCondicionesPago($conexion) {
 
 // Obtener listas de precios
 function obtenerListasPrecios($conexion) {
-    $sql = "SELECT lista_precio_id, lista_precio, descripcion, empresa_id, es_principal, 
-                   metodo_calculo, margen_ganancia, tipo, estado, f_vigencia_desde, f_vigencia_hasta
-            FROM gestion__listas_precios 
-            WHERE estado = 'activa' 
-            AND (f_vigencia_desde IS NULL OR f_vigencia_desde <= CURDATE())
-            AND (f_vigencia_hasta IS NULL OR f_vigencia_hasta >= CURDATE())
-            ORDER BY lista_precio";
+    $sql = "SELECT lp.lista_precio_id, lp.lista_precio_nombre AS lista_precio, 
+                   lp.descripcion, lp.empresa_id, lp.lista_precio_codigo,
+                   lp.tabla_estado_registro_id, er.estado_registro
+            FROM gestion__listas_precios lp
+            LEFT JOIN conf__estados_registros er ON lp.tabla_estado_registro_id = er.estado_registro_id
+            WHERE lp.tabla_estado_registro_id IN (1, 2)  -- Estados activos
+            ORDER BY lp.lista_precio_nombre";
     
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
@@ -1323,16 +1323,34 @@ function obtenerCondicionProveedorPorId($conexion, $id) {
 function obtenerCondicionClienteVigente($conexion, $entidad_id) {
     $entidad_id = intval($entidad_id);
     
+    // Verificar columnas de conf__estados_registros
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+    
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+    
     $sql = "SELECT cc.*, 
                    cp.condicion_pago,
-                   lp.lista_precio,
-                   er.estado_registro,
-                   ec.color_clase, ec.bg_clase, ec.text_clase
+                   cp.condicion_pago_id,
+                   lp.lista_precio_nombre AS lista_precio,
+                   lp.lista_precio_id,
+                   er.$estado_column as estado_registro,
+                   er.codigo_estandar
             FROM gestion__entidades_condiciones_clientes cc
             LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
             LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
             LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
             WHERE cc.entidad_id = ? 
             AND cc.tabla_estado_registro_id = 1 -- Solo activas
             AND (cc.f_hasta IS NULL OR cc.f_hasta >= CURDATE())
@@ -1351,16 +1369,11 @@ function obtenerCondicionClienteVigente($conexion, $entidad_id) {
     mysqli_stmt_close($stmt);
     
     if ($condicion) {
-        $color_clase = $condicion['color_clase'] ?? 'btn-dark';
-        $bg_clase = $condicion['bg_clase'] ?? 'bg-dark';
-        $text_clase = $condicion['text_clase'] ?? 'text-white';
-        
         $condicion['estado_info'] = [
             'estado_registro' => $condicion['estado_registro'] ?? 'Activo',
             'codigo_estandar' => $condicion['codigo_estandar'] ?? 'ACTIVO',
-            'color_clase' => $color_clase,
-            'bg_clase' => $bg_clase,
-            'text_clase' => $text_clase
+            'bg_clase' => 'bg-success',
+            'text_clase' => 'text-white'
         ];
     }
     
@@ -1416,19 +1429,36 @@ function obtenerCondicionProveedorVigente($conexion, $entidad_id) {
 }
 
 // Obtener HISTÓRICO de condiciones de cliente
+// Obtener HISTÓRICO de condiciones de cliente - CORREGIDO
 function obtenerHistorialCondicionesCliente($conexion, $entidad_id) {
     $entidad_id = intval($entidad_id);
     
+    // Verificar columnas de conf__estados_registros
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+    
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+    
     $sql = "SELECT cc.*, 
                    cp.condicion_pago,
-                   lp.lista_precio,
-                   er.estado_registro,
-                   ec.color_clase, ec.bg_clase, ec.text_clase
+                   lp.lista_precio_nombre AS lista_precio,  -- <-- CAMBIO IMPORTANTE
+                   er.$estado_column as estado_registro,
+                   er.codigo_estandar
             FROM gestion__entidades_condiciones_clientes cc
             LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
             LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
             LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
             WHERE cc.entidad_id = ? 
             ORDER BY cc.f_desde DESC";
     
@@ -1441,14 +1471,19 @@ function obtenerHistorialCondicionesCliente($conexion, $entidad_id) {
     
     $data = [];
     while ($fila = mysqli_fetch_assoc($result)) {
-        $color_clase = $fila['color_clase'] ?? 'btn-dark';
-        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
-        $text_clase = $fila['text_clase'] ?? 'text-white';
+        // Determinar clases de badge según el estado
+        $bg_clase = 'bg-secondary';
+        $text_clase = 'text-white';
+        
+        if ($fila['tabla_estado_registro_id'] == 1) {
+            $bg_clase = 'bg-success';
+        } elseif ($fila['tabla_estado_registro_id'] == 2) {
+            $bg_clase = 'bg-danger';
+        }
         
         $fila['estado_info'] = [
             'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
             'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
-            'color_clase' => $color_clase,
             'bg_clase' => $bg_clase,
             'text_clase' => $text_clase
         ];
@@ -1459,7 +1494,6 @@ function obtenerHistorialCondicionesCliente($conexion, $entidad_id) {
     mysqli_stmt_close($stmt);
     return $data;
 }
-
 // Obtener HISTÓRICO de condiciones de proveedor
 function obtenerHistorialCondicionesProveedor($conexion, $entidad_id) {
     $entidad_id = intval($entidad_id);

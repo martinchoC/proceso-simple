@@ -1908,7 +1908,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
     $comprobante_id = null;
     
     if ($existe) {
-        // UPDATE
+        // UPDATE - Ahora incluye importe_pendiente
         $comprobante_id = $existe['comprobante_id'];
         $sql_update = "UPDATE gestion__comprobantes SET
                             empresa_id = ?,
@@ -1931,6 +1931,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
                             importe_iva = ?,
                             importe_otros_impuestos = ?,
                             importe_total = ?,
+                            importe_pendiente = ?,
                             tabla_estado_registro_id = ?,
                             observaciones = ?,
                             usuario_modificacion_id = ?
@@ -1940,7 +1941,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
             error_log("Error preparando UPDATE: " . mysqli_error($conexion));
             return null;
         }
-        mysqli_stmt_bind_param($stmt, "iiiiiiisssidddddddddiisi",
+        mysqli_stmt_bind_param($stmt, "iiiiiiisssiddddddddddiisi",
             $empresa_id, $sucursal_id, $comprobante_pv,
             $comprobante_tipo_id, $comprobante_nro,
             $entidad_id, $entidad_sucursal_id,
@@ -1950,6 +1951,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
             $importe_no_gravado, $importe_exento,
             $importe_neto, $importe_iva, $importe_otros_impuestos,
             $importe_total,
+            $importe_total, // importe_pendiente = importe_total
             $tabla_estado_registro_id, $observaciones,
             $usuario_id,
             $comprobante_id
@@ -1961,7 +1963,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
         mysqli_stmt_close($stmt);
         error_log("Comprobante actualizado ID: $comprobante_id");
     } else {
-        // INSERT
+        // INSERT - Ahora incluye importe_pendiente
         $sql_insert = "INSERT INTO gestion__comprobantes (
                             empresa_id, sucursal_id, comprobante_pv,
                             comprobante_tipo_id, comprobante_nro,
@@ -1971,18 +1973,18 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
                             importe_bruto, descuento_general,
                             importe_no_gravado, importe_exento,
                             importe_neto, importe_iva, importe_otros_impuestos,
-                            importe_total,
+                            importe_total, importe_pendiente,
                             tabla_origen_id, registro_origen_id,
                             tabla_estado_registro_id,
                             usuario_id,
                             observaciones
-                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         $stmt = mysqli_prepare($conexion, $sql_insert);
         if (!$stmt) {
             error_log("Error preparando INSERT: " . mysqli_error($conexion));
             return null;
         }
-        mysqli_stmt_bind_param($stmt, "iiiiiiisssidddddddddiiiis",
+        mysqli_stmt_bind_param($stmt, "iiiiiiisssiddddddddddiiiis",
             $empresa_id, $sucursal_id, $comprobante_pv,
             $comprobante_tipo_id, $comprobante_nro,
             $entidad_id, $entidad_sucursal_id,
@@ -1992,6 +1994,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
             $importe_no_gravado, $importe_exento,
             $importe_neto, $importe_iva, $importe_otros_impuestos,
             $importe_total,
+            $importe_total, // importe_pendiente = importe_total
             $tabla_origen_id, $registro_origen_id,
             $tabla_estado_registro_id,
             $usuario_id,
@@ -2008,7 +2011,6 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
     
     return $comprobante_id;
 }
-
 function obtenerImpuestosConfig($conexion, $empresa_idx, $comprobante_subgrupo_id = 5)
 {
     $empresa_idx = intval($empresa_idx);
@@ -2389,7 +2391,6 @@ function buildExecutableSQL($sql, $types, $params) {
     }
     return $result;
 }
-
 function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empresa_id)
 {
     error_log("=== generarAsientoContableFactura INICIO ===");
@@ -2397,7 +2398,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
     
     try {
         // Obtener datos de la factura (incluyendo tipo de comprobante y proveedor)
-        $sql_factura = "SELECT fp.*, fp.total, fp.impuestos, fp.subtotal,
+        $sql_factura = "SELECT fp.*, fp.total, fp.impuestos, fp.subtotal, fp.no_gravado,
                                fp.comprobante_pv, fp.comprobante_nro,
                                ct.comprobante_tipo,
                                e.entidad_nombre
@@ -2486,6 +2487,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
         $total_debe = 0;
         $total_haber = 0;
         
+        // 1. MOVIMIENTO POR CADA PRODUCTO (NETO GRAVADO)
         foreach ($detalles as $detalle) {
             $importe = floatval($detalle['neto_gravado'] ?? 0);
             if ($importe > 0 && $detalle['cont_cuenta_id']) {
@@ -2498,6 +2500,31 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
             }
         }
         
+        // 2. MOVIMIENTO POR NO GRAVADO
+        $no_gravado = floatval($factura['no_gravado'] ?? 0);
+        if ($no_gravado > 0) {
+            // Buscar cuenta contable para no gravado (puedes configurar una cuenta específica)
+            // Por ahora usamos la misma cuenta del producto o una cuenta genérica de compras
+            $cuenta_no_gravado = null;
+            
+            // Intentar obtener la cuenta del primer producto
+            if (!empty($detalles) && !empty($detalles[0]['cont_cuenta_id'])) {
+                $cuenta_no_gravado = $detalles[0]['cont_cuenta_id'];
+            }
+            
+            if ($cuenta_no_gravado) {
+                $detalles_asiento[] = [
+                    'cuenta_id' => $cuenta_no_gravado,
+                    'importe' => $no_gravado,
+                    'descripcion' => 'Compra No Gravado'
+                ];
+                $total_debe += $no_gravado;
+            } else {
+                error_log("ADVERTENCIA: No se encontró cuenta contable para No Gravado (importe: $no_gravado)");
+            }
+        }
+        
+        // 3. MOVIMIENTO POR IVA
         $iva_importe = floatval($factura['impuestos'] ?? 0);
         if ($iva_importe > 0 && $cuenta_iva_id) {
             $detalles_asiento[] = [
@@ -2508,6 +2535,25 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
             $total_debe += $iva_importe;
         }
         
+        // 4. MOVIMIENTO POR EXENTO (opcional)
+        $exento = floatval($factura['exento'] ?? 0);
+        if ($exento > 0) {
+            // Buscar cuenta contable para exento
+            $cuenta_exento = null;
+            if (!empty($detalles) && !empty($detalles[0]['cont_cuenta_id'])) {
+                $cuenta_exento = $detalles[0]['cont_cuenta_id'];
+            }
+            if ($cuenta_exento) {
+                $detalles_asiento[] = [
+                    'cuenta_id' => $cuenta_exento,
+                    'importe' => $exento,
+                    'descripcion' => 'Compra Exento'
+                ];
+                $total_debe += $exento;
+            }
+        }
+        
+        // 5. MOVIMIENTO POR PROVEEDOR (HABER)
         $total_factura = floatval($factura['total']);
         $detalles_asiento[] = [
             'cuenta_id' => $cuenta_proveedor_id,
@@ -2516,8 +2562,10 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
         ];
         $total_haber += $total_factura;
         
+        error_log("Total DEBE: $total_debe, Total HABER: $total_haber, Diferencia: " . ($total_debe - $total_haber));
+        
         if (abs($total_debe - $total_haber) > 0.01) {
-            return ['success' => false, 'message' => "Asiento no balanceado: Debe=$total_debe, Haber=$total_haber"];
+            return ['success' => false, 'message' => "Asiento no balanceado: Debe=$total_debe, Haber=$total_haber, diferencia=" . ($total_debe - $total_haber)];
         }
         
         $comprobante_id = $factura['comprobante_id'];
@@ -2556,7 +2604,8 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
                                    moneda_id = ?, tipo_cambio = ?, tabla_estado_registro_id = ?
                                WHERE cont_asiento_id = ?";
                 
-                $params = [
+                $stmt = mysqli_prepare($conexion, $sql_update);
+                mysqli_stmt_bind_param($stmt, "iiisiisidii", 
                     $factura['sucursal_id'],
                     $factura['deposito_id'],
                     $factura['entidad_id'],
@@ -2568,17 +2617,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
                     $factura['tipo_cambio'],
                     $estado_asiento,
                     $asiento_id
-                ];
-                
-                $types = "iiisiisidii";
-                $sql_executable = buildExecutableSQL($sql_update, $types, $params);
-                error_log("=== SQL ACTUALIZACIÓN ASIENTO (ejecutar en HeidiSQL) ===");
-                error_log($sql_executable);
-                
-                $stmt = mysqli_prepare($conexion, $sql_update);
-                mysqli_stmt_bind_param($stmt, $types, 
-                    $params[0], $params[1], $params[2], $params[3], $params[4], 
-                    $params[5], $params[6], $params[7], $params[8], $params[9], $params[10]);
+                );
             } else {
                 // INSERT
                 $sql_insert = "INSERT INTO gestion__cont_asientos 
@@ -2588,7 +2627,8 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
                                VALUES (?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 $usuario_id = $_SESSION['usuario_id'] ?? 0;
-                $params = [
+                $stmt = mysqli_prepare($conexion, $sql_insert);
+                mysqli_stmt_bind_param($stmt, "iiiiisiisidii", 
                     $empresa_id,
                     $factura['sucursal_id'],
                     $factura['deposito_id'],
@@ -2602,18 +2642,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
                     $factura['tipo_cambio'],
                     $usuario_id,
                     $estado_asiento
-                ];
-                
-                $types = "iiiiisiisidii";
-                $sql_executable = buildExecutableSQL($sql_insert, $types, $params);
-                error_log("=== SQL INSERCIÓN NUEVO ASIENTO (ejecutar en HeidiSQL) ===");
-                error_log($sql_executable);
-                
-                $stmt = mysqli_prepare($conexion, $sql_insert);
-                mysqli_stmt_bind_param($stmt, $types, 
-                    $params[0], $params[1], $params[2], $params[3], $params[4],
-                    $params[5], $params[6], $params[7], $params[8], $params[9],
-                    $params[10], $params[11], $params[12]);
+                );
             }
             
             if (!mysqli_stmt_execute($stmt)) {
@@ -2622,8 +2651,6 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
                 throw new Exception("Error guardando asiento: " . $error_msg);
             }
             
-            $affected = mysqli_stmt_affected_rows($stmt);
-            error_log("Filas afectadas por la consulta: $affected");
             mysqli_stmt_close($stmt);
             
             if (!$existe_asiento) {
@@ -2655,7 +2682,8 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
                     $factura['moneda_id'], 
                     $factura['tipo_cambio'], 
                     $det['descripcion'], 
-                    $comprobante_id);
+                    $comprobante_id
+                );
                 if (!mysqli_stmt_execute($stmt)) {
                     throw new Exception("Error insertando detalle: " . mysqli_stmt_error($stmt));
                 }
