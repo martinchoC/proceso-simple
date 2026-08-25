@@ -2,478 +2,174 @@
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
-/**
- * Modelo para gestión de ubicaciones de sucursales con depósitos
- * Toda la configuración se obtiene de conf__paginas_funciones
- */
-
-// ✅ Obtener funciones configuradas para la página desde conf__paginas_funciones
+// Funciones de utilidad - más eficientes
 function obtenerFuncionesPagina($conexion, $pagina_id)
 {
-    $pagina_id = intval($pagina_id);
-
     $sql = "SELECT pf.*, i.icono_clase, c.color_clase, c.bg_clase, c.text_clase
             FROM conf__paginas_funciones pf
             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
             LEFT JOIN conf__colores c ON pf.color_id = c.color_id
-            WHERE pf.pagina_id = ? 
-            AND pf.tabla_estado_registro_id = 1 -- Solo funciones activas
+            WHERE pf.pagina_id = ? AND pf.tabla_estado_registro_id = 1
             ORDER BY pf.tabla_estado_registro_origen_id, pf.orden";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return [];
+    if (!$stmt) return [];
 
     mysqli_stmt_bind_param($stmt, "i", $pagina_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-
-    $funciones = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        $funciones[] = $fila;
-    }
-
+    $funciones = mysqli_fetch_all($result, MYSQLI_ASSOC);
     mysqli_stmt_close($stmt);
     return $funciones;
 }
 
-// ✅ Obtener información de un estado específico
-function obtenerInfoEstado($conexion, $estado_registro_id)
-{
-    $sql = "SELECT estado_registro, codigo_estandar 
-            FROM conf__estados_registros 
-            WHERE estado_registro_id = ?";
-
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return null;
-
-    mysqli_stmt_bind_param($stmt, "i", $estado_registro_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $info = mysqli_fetch_assoc($result);
-
-    mysqli_stmt_close($stmt);
-    return $info;
-}
-
-// ✅ Obtener todos los estados disponibles
 function obtenerEstadosRegistro($conexion)
 {
     $sql = "SELECT estado_registro_id, estado_registro, codigo_estandar 
-            FROM conf__estados_registros 
-            WHERE tabla_estado_registro_id = 1
-            ORDER BY estado_registro";
-
+            FROM conf__estados_registros WHERE tabla_estado_registro_id = 1 ORDER BY estado_registro";
     $result = mysqli_query($conexion, $sql);
-    $estados = [];
-
-    if ($result) {
-        while ($fila = mysqli_fetch_assoc($result)) {
-            $estados[] = $fila;
-        }
-    }
-
-    return $estados;
+    return $result ? mysqli_fetch_all($result, MYSQLI_ASSOC) : [];
 }
 
-// ✅ Obtener botones disponibles según el estado actual
-function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
-{
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
-    $botones = [];
-
-    foreach ($funciones as $funcion) {
-        if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
-            $botones[] = [
-                'nombre_funcion' => $funcion['nombre_funcion'],
-                'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
-                'icono_clase' => $funcion['icono_clase'],
-                'color_clase' => $funcion['color_clase'] ?? 'btn-outline-primary',
-                'bg_clase' => $funcion['bg_clase'] ?? '',
-                'text_clase' => $funcion['text_clase'] ?? '',
-                'descripcion' => $funcion['descripcion'],
-                'estado_destino_id' => $funcion['tabla_estado_registro_destino_id'],
-                'es_confirmable' => ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0
-            ];
-        }
-    }
-
-    return $botones;
-}
-
-// ✅ Obtener botón "Agregar" específico para la página
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
     $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
-
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
             return [
                 'nombre_funcion' => $funcion['nombre_funcion'],
-                'accion_js' => $funcion['accion_js'] ?? 'agregar',
-                'icono_clase' => $funcion['icono_clase'],
-                'color_clase' => $funcion['color_clase'] ?? 'btn-primary',
-                'bg_clase' => $funcion['bg_clase'] ?? '',
-                'text_clase' => $funcion['text_clase'] ?? '',
-                'descripcion' => $funcion['descripcion']
+                'icono_clase' => $funcion['icono_clase'] ?? 'fas fa-plus',
+                'color_clase' => $funcion['color_clase'] ?? 'btn-primary'
             ];
         }
     }
-
-    // Si no hay configuración, usar valores por defecto
-    return [
-        'nombre_funcion' => 'Agregar Ubicación',
-        'accion_js' => 'agregar',
-        'icono_clase' => 'fas fa-plus',
-        'color_clase' => 'btn-primary',
-        'bg_clase' => 'btn-primary',
-        'text_clase' => 'text-white'
-    ];
+    return ['nombre_funcion' => 'Agregar Ubicación', 'icono_clase' => 'fas fa-plus', 'color_clase' => 'btn-primary'];
 }
 
-// ✅ Obtener estado inicial para nuevas ubicaciones
-function obtenerEstadoInicial($conexion)
-{
-    $sql = "SELECT estado_registro_id 
-            FROM conf__estados_registros 
-            WHERE valor_estandar IS NOT NULL
-            ORDER BY valor_estandar ASC 
-            LIMIT 1";
-
-    $result = mysqli_query($conexion, $sql);
-    if (!$result)
-        return 1;
-
-    $fila = mysqli_fetch_assoc($result);
-    return $fila ? $fila['estado_registro_id'] : 1;
-}
-
-// ✅ Ejecutar transición de estado basada en conf__paginas_funciones
-function ejecutarTransicionEstado($conexion, $sucursal_ubicacion_id, $accion_js, $empresa_idx, $pagina_id)
-{
-    $sucursal_ubicacion_id = intval($sucursal_ubicacion_id);
-    $empresa_idx = intval($empresa_idx);
-    $pagina_id = intval($pagina_id);
-
-    // Verificar que la ubicación pertenezca a la empresa
-    $sql_check = "SELECT gu.sucursal_ubicacion_id, gu.tabla_estado_registro_id 
-                  FROM gestion__sucursales_ubicaciones gu
-                  INNER JOIN gestion__sucursales gs ON gu.sucursal_id = gs.sucursal_id
-                  WHERE gu.sucursal_ubicacion_id = ? AND gs.empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['success' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "ii", $sucursal_ubicacion_id, $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $ubicacion = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-
-    if (!$ubicacion)
-        return ['success' => false, 'error' => 'Acceso denegado o registro no encontrado'];
-
-    $estado_actual_id = $ubicacion['tabla_estado_registro_id'];
-
-    // Buscar la función correspondiente en conf__paginas_funciones
-    $sql_funcion = "SELECT pf.* 
-                    FROM conf__paginas_funciones pf
-                    WHERE pf.pagina_id = ? 
-                    AND pf.tabla_estado_registro_origen_id = ? 
-                    AND pf.accion_js = ?
-                    LIMIT 1";
-
-    $stmt = mysqli_prepare($conexion, $sql_funcion);
-    if (!$stmt)
-        return ['success' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "iis", $pagina_id, $estado_actual_id, $accion_js);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $funcion = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-
-    if (!$funcion)
-        return ['success' => false, 'error' => 'Acción no permitida para este estado'];
-
-    $estado_destino_id = $funcion['tabla_estado_registro_destino_id'];
-
-    if ($estado_destino_id == $estado_actual_id) {
-        return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
-    }
-
-    // Actualizar el estado
-    $sql_update = "UPDATE gestion__sucursales_ubicaciones 
-                   SET tabla_estado_registro_id = ? 
-                   WHERE sucursal_ubicacion_id = ?";
-
-    $stmt = mysqli_prepare($conexion, $sql_update);
-    if (!$stmt)
-        return ['success' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $sucursal_ubicacion_id);
-    $success = mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
-
-    if ($success) {
-        return ['success' => true, 'message' => 'Estado actualizado correctamente'];
-    } else {
-        return ['success' => false, 'error' => 'Error al actualizar el estado'];
-    }
-}
-
-// ✅ Obtener sucursales activas para el select
 function obtenerSucursalesActivas($conexion, $empresa_idx)
 {
-    $empresa_idx = intval($empresa_idx);
-
     $sql = "SELECT s.sucursal_id, s.sucursal_nombre, l.localidad
             FROM gestion__sucursales s
             LEFT JOIN conf__localidades l ON s.localidad_id = l.localidad_id
-            WHERE s.empresa_id = ? 
-            AND s.tabla_estado_registro_id = 1
+            WHERE s.empresa_id = ? AND s.tabla_estado_registro_id = 1
             ORDER BY s.sucursal_nombre";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return [];
-
+    if (!$stmt) return [];
     mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-
-    $sucursales = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        $sucursales[] = $fila;
-    }
-
+    $data = mysqli_fetch_all($result, MYSQLI_ASSOC);
     mysqli_stmt_close($stmt);
-    return $sucursales;
+    return $data;
 }
 
-// ✅ Obtener depósitos por sucursal
 function obtenerDepositosPorSucursal($conexion, $sucursal_id)
 {
-    $sucursal_id = intval($sucursal_id);
-
     $sql = "SELECT deposito_id, deposito_nombre, codigo, es_principal
             FROM gestion__depositos
-            WHERE sucursal_id = ? 
-            AND tabla_estado_registro_id = 1
+            WHERE sucursal_id = ? AND tabla_estado_registro_id = 1
             ORDER BY es_principal DESC, orden ASC, deposito_nombre ASC";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return [];
-
+    if (!$stmt) return [];
     mysqli_stmt_bind_param($stmt, "i", $sucursal_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-
-    $depositos = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        $depositos[] = $fila;
-    }
-
+    $data = mysqli_fetch_all($result, MYSQLI_ASSOC);
     mysqli_stmt_close($stmt);
-    return $depositos;
+    return $data;
 }
 
-// ✅ Obtener todas las ubicaciones con filtros (ORDENADO con depósito)
 function obtenerSucursalesUbicaciones($conexion, $empresa_idx, $pagina_id, $filters = [])
 {
-    $empresa_idx = intval($empresa_idx);
-    $pagina_id = intval($pagina_id);
-
-    $sql = "SELECT gu.*, 
-                   gs.sucursal_nombre,
-                   gs.localidad_id,
+    // Query optimizada con LEFT JOINs y solo campos necesarios
+    $sql = "SELECT gu.sucursal_ubicacion_id, gu.sucursal_id, gu.deposito_id, gu.seccion, gu.estanteria, gu.estante, gu.posicion, gu.descripcion, gu.tabla_estado_registro_id,
+                   gs.sucursal_nombre, gs.localidad_id,
                    cl.localidad,
-                   gd.deposito_nombre,
-                   gd.codigo AS deposito_codigo,
-                   er.estado_registro, er.codigo_estandar,
-                   c.color_clase, c.bg_clase, c.text_clase
+                   gd.deposito_nombre, gd.codigo AS deposito_codigo,
+                   er.estado_registro, er.codigo_estandar
             FROM gestion__sucursales_ubicaciones gu
             INNER JOIN gestion__sucursales gs ON gu.sucursal_id = gs.sucursal_id
             INNER JOIN gestion__depositos gd ON gu.deposito_id = gd.deposito_id
             LEFT JOIN conf__localidades cl ON gs.localidad_id = cl.localidad_id
             LEFT JOIN conf__estados_registros er ON gu.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN conf__colores c ON er.color_id = c.color_id
             WHERE gs.empresa_id = ?";
 
     $params = [$empresa_idx];
     $types = "i";
 
-    // Aplicar filtros
     if (!empty($filters['sucursal'])) {
         $sql .= " AND gu.sucursal_id = ?";
         $params[] = intval($filters['sucursal']);
         $types .= "i";
     }
 
-    if (!empty($filters['deposito'])) {
-        $sql .= " AND gu.deposito_id = ?";
-        $params[] = intval($filters['deposito']);
-        $types .= "i";
-    }
-
-    if (!empty($filters['estado'])) {
-        $sql .= " AND gu.tabla_estado_registro_id = ?";
-        $params[] = intval($filters['estado']);
-        $types .= "i";
-    }
-
     if (!empty($filters['busqueda'])) {
+        $search = '%' . $filters['busqueda'] . '%';
         $sql .= " AND (gu.seccion LIKE ? OR gu.estanteria LIKE ? OR gu.estante LIKE ? OR gu.posicion LIKE ? OR gu.descripcion LIKE ?)";
-        $search_term = '%' . $filters['busqueda'] . '%';
-        $params[] = $search_term;
-        $params[] = $search_term;
-        $params[] = $search_term;
-        $params[] = $search_term;
-        $params[] = $search_term;
+        $params[] = $search; $params[] = $search; $params[] = $search; $params[] = $search; $params[] = $search;
         $types .= "sssss";
     }
 
-    // ✅ ORDENAR POR: sucursal, depósito, sección, estantería, estante y posición
-    $sql .= " ORDER BY gs.sucursal_nombre ASC, gd.deposito_nombre ASC, gu.seccion ASC, gu.estanteria ASC, gu.estante ASC, gu.posicion ASC";
+    $sql .= " ORDER BY gs.sucursal_nombre, gd.deposito_nombre, gu.seccion, gu.estanteria, gu.estante, gu.posicion";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return [];
+    if (!$stmt) return [];
 
     mysqli_stmt_bind_param($stmt, $types, ...$params);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-
     $data = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        // Si no hay color configurado, usar black por defecto
-        $color_clase = $fila['color_clase'] ?? '';
-        $bg_clase = $fila['bg_clase'] ?? '';
-        $text_clase = $fila['text_clase'] ?? '';
 
-        $fila['estado_info'] = [
-            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
-            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
-            'color_clase' => $color_clase,
-            'bg_clase' => $bg_clase,
-            'text_clase' => $text_clase
+    // Cache de botones por estado para evitar múltiples consultas
+    $botonesCache = [];
+    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    foreach ($funciones as $f) {
+        $botonesCache[$f['tabla_estado_registro_origen_id']][] = [
+            'nombre_funcion' => $f['nombre_funcion'],
+            'accion_js' => $f['accion_js'] ?? strtolower($f['nombre_funcion']),
+            'icono_clase' => $f['icono_clase'],
+            'color_clase' => $f['color_clase'] ?? 'btn-outline-primary',
+            'descripcion' => $f['descripcion']
         ];
+    }
 
-        $fila['sucursal_info'] = [
-            'sucursal_nombre' => $fila['sucursal_nombre'],
-            'localidad' => $fila['localidad']
+    while ($row = mysqli_fetch_assoc($result)) {
+        $row['estado_info'] = [
+            'estado_registro' => $row['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $row['codigo_estandar'] ?? 'DESCONOCIDO'
         ];
-        
-        $fila['deposito_info'] = [
-            'deposito_nombre' => $fila['deposito_nombre'],
-            'deposito_codigo' => $fila['deposito_codigo']
-        ];
-
-        $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
-        $data[] = $fila;
+        $row['botones'] = $botonesCache[$row['tabla_estado_registro_id']] ?? [];
+        $data[] = $row;
     }
 
     mysqli_stmt_close($stmt);
     return $data;
 }
 
-// ✅ Agregar nueva ubicación (con estado inicial y depósito)
 function agregarSucursalUbicacion($conexion, $data)
 {
     $sucursal_id = intval($data['sucursal_id'] ?? 0);
     $deposito_id = intval($data['deposito_id'] ?? 0);
-    $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
-    $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
-    $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
-    $posicion = mysqli_real_escape_string($conexion, trim($data['posicion'] ?? ''));
-    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
-    $estado_registro_id = isset($data['estado_registro_id']) ? intval($data['estado_registro_id']) : obtenerEstadoInicial($conexion);
+    $seccion = trim($data['seccion'] ?? '');
+    $estanteria = trim($data['estanteria'] ?? '');
+    $estante = trim($data['estante'] ?? '');
+    $posicion = trim($data['posicion'] ?? '');
+    $descripcion = trim($data['descripcion'] ?? '');
+    $estado_registro_id = intval($data['estado_registro_id'] ?? 1);
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
 
     // Validaciones básicas
-    if ($sucursal_id <= 0) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar una sucursal válida'];
-    }
-    
-    if ($deposito_id <= 0) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar un depósito válido'];
+    if ($sucursal_id <= 0 || $deposito_id <= 0 || empty($seccion) || empty($estanteria) || empty($estante) || empty($posicion)) {
+        return ['resultado' => false, 'error' => 'Todos los campos obligatorios deben estar completos'];
     }
 
-    if (empty($seccion)) {
-        return ['resultado' => false, 'error' => 'La sección es obligatoria'];
-    }
-
-    if (empty($estanteria)) {
-        return ['resultado' => false, 'error' => 'La estantería es obligatoria'];
-    }
-
-    if (empty($estante)) {
-        return ['resultado' => false, 'error' => 'El estante es obligatorio'];
-    }
-
-    if (empty($posicion)) {
-        return ['resultado' => false, 'error' => 'La posición es obligatoria'];
-    }
-
-    // Validar longitudes
-    $campos = [
-        'seccion' => ['value' => $seccion, 'max' => 50, 'label' => 'La sección'],
-        'estanteria' => ['value' => $estanteria, 'max' => 50, 'label' => 'La estantería'],
-        'estante' => ['value' => $estante, 'max' => 50, 'label' => 'El estante'],
-        'posicion' => ['value' => $posicion, 'max' => 50, 'label' => 'La posición']
-    ];
-
-    foreach ($campos as $campo) {
-        if (strlen($campo['value']) > $campo['max']) {
-            return ['resultado' => false, 'error' => $campo['label'] . ' no puede exceder los ' . $campo['max'] . ' caracteres'];
-        }
-    }
-
-    if (strlen($descripcion) > 255) {
-        return ['resultado' => false, 'error' => 'La descripción no puede exceder los 255 caracteres'];
-    }
-
-    // Verificar que la sucursal pertenezca a la empresa
-    $sql_check_sucursal = "SELECT sucursal_id FROM gestion__sucursales 
-                           WHERE sucursal_id = ? AND empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check_sucursal);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "ii", $sucursal_id, $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    mysqli_stmt_close($stmt);
-
-    if (mysqli_num_rows($result) == 0) {
-        return ['resultado' => false, 'error' => 'La sucursal seleccionada no pertenece a esta empresa'];
-    }
-    
-    // Verificar que el depósito pertenezca a la sucursal y empresa
-    $sql_check_deposito = "SELECT deposito_id FROM gestion__depositos 
-                           WHERE deposito_id = ? AND sucursal_id = ? AND empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check_deposito);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "iii", $deposito_id, $sucursal_id, $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    mysqli_stmt_close($stmt);
-
-    if (mysqli_num_rows($result) == 0) {
-        return ['resultado' => false, 'error' => 'El depósito seleccionado no pertenece a esta sucursal/empresa'];
-    }
-
-    // Verificar duplicados (misma sucursal + mismo depósito + misma sección + misma estantería + mismo estante + misma posición)
+    // Verificar duplicado
     $sql_check = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
                   WHERE sucursal_id = ? AND deposito_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
     mysqli_stmt_bind_param($stmt, "iissss", $sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
@@ -481,158 +177,48 @@ function agregarSucursalUbicacion($conexion, $data)
     mysqli_stmt_close($stmt);
 
     if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe una ubicación con esta combinación completa en la sucursal/depósito seleccionado'];
+        return ['resultado' => false, 'error' => 'Ya existe esta ubicación'];
     }
 
-    // Insertar nueva ubicación
+    // Insertar
     $sql = "INSERT INTO gestion__sucursales_ubicaciones 
             (empresa_id, sucursal_id, deposito_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        "iiisssssi",
-        $empresa_idx,
-        $sucursal_id,
-        $deposito_id,
-        $seccion,
-        $estanteria,
-        $estante,
-        $posicion,
-        $descripcion,
-        $estado_registro_id
-    );
+    mysqli_stmt_bind_param($stmt, "iiisssssi", $empresa_idx, $sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion, $descripcion, $estado_registro_id);
     $success = mysqli_stmt_execute($stmt);
+    $id = mysqli_insert_id($conexion);
+    mysqli_stmt_close($stmt);
 
-    if ($success) {
-        $sucursal_ubicacion_id = mysqli_insert_id($conexion);
-        mysqli_stmt_close($stmt);
-        return ['resultado' => true, 'sucursal_ubicacion_id' => $sucursal_ubicacion_id];
-    } else {
-        mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al crear la ubicación: ' . mysqli_error($conexion)];
-    }
+    return $success ? ['resultado' => true, 'sucursal_ubicacion_id' => $id] : ['resultado' => false, 'error' => 'Error al guardar'];
 }
 
-// ✅ Editar ubicación existente (con depósito)
 function editarSucursalUbicacion($conexion, $id, $data)
 {
     $id = intval($id);
     $sucursal_id = intval($data['sucursal_id'] ?? 0);
     $deposito_id = intval($data['deposito_id'] ?? 0);
-    $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
-    $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
-    $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
-    $posicion = mysqli_real_escape_string($conexion, trim($data['posicion'] ?? ''));
-    $descripcion = mysqli_real_escape_string($conexion, trim($data['descripcion'] ?? ''));
-    $estado_registro_id = isset($data['estado_registro_id']) ? intval($data['estado_registro_id']) : null;
+    $seccion = trim($data['seccion'] ?? '');
+    $estanteria = trim($data['estanteria'] ?? '');
+    $estante = trim($data['estante'] ?? '');
+    $posicion = trim($data['posicion'] ?? '');
+    $descripcion = trim($data['descripcion'] ?? '');
+    $estado_registro_id = intval($data['estado_registro_id'] ?? 1);
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
 
-    // Validaciones básicas
-    if ($sucursal_id <= 0) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar una sucursal válida'];
-    }
-    
-    if ($deposito_id <= 0) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar un depósito válido'];
+    if ($id <= 0 || $sucursal_id <= 0 || $deposito_id <= 0 || empty($seccion) || empty($estanteria) || empty($estante) || empty($posicion)) {
+        return ['resultado' => false, 'error' => 'Todos los campos obligatorios deben estar completos'];
     }
 
-    if (empty($seccion)) {
-        return ['resultado' => false, 'error' => 'La sección es obligatoria'];
-    }
-
-    if (empty($estanteria)) {
-        return ['resultado' => false, 'error' => 'La estantería es obligatoria'];
-    }
-
-    if (empty($estante)) {
-        return ['resultado' => false, 'error' => 'El estante es obligatorio'];
-    }
-
-    if (empty($posicion)) {
-        return ['resultado' => false, 'error' => 'La posición es obligatoria'];
-    }
-
-    // Validar longitudes
-    $campos = [
-        'seccion' => ['value' => $seccion, 'max' => 50, 'label' => 'La sección'],
-        'estanteria' => ['value' => $estanteria, 'max' => 50, 'label' => 'La estantería'],
-        'estante' => ['value' => $estante, 'max' => 50, 'label' => 'El estante'],
-        'posicion' => ['value' => $posicion, 'max' => 50, 'label' => 'La posición']
-    ];
-
-    foreach ($campos as $campo) {
-        if (strlen($campo['value']) > $campo['max']) {
-            return ['resultado' => false, 'error' => $campo['label'] . ' no puede exceder los ' . $campo['max'] . ' caracteres'];
-        }
-    }
-
-    if (strlen($descripcion) > 255) {
-        return ['resultado' => false, 'error' => 'La descripción no puede exceder los 255 caracteres'];
-    }
-
-    // Verificar que la ubicación exista y pertenezca a la empresa
-    $sql_check = "SELECT gu.sucursal_ubicacion_id 
-                  FROM gestion__sucursales_ubicaciones gu
-                  INNER JOIN gestion__sucursales gs ON gu.sucursal_id = gs.sucursal_id
-                  WHERE gu.sucursal_ubicacion_id = ? AND gs.empresa_id = ?";
+    // Verificar duplicado (excluyendo el actual)
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
+                  WHERE sucursal_id = ? AND deposito_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?
+                  AND sucursal_ubicacion_id != ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    mysqli_stmt_close($stmt);
-
-    if (mysqli_num_rows($result) == 0) {
-        return ['resultado' => false, 'error' => 'Acceso denegado o registro no encontrado'];
-    }
-
-    // Verificar que la sucursal pertenezca a la empresa
-    $sql_check_sucursal = "SELECT sucursal_id FROM gestion__sucursales 
-                           WHERE sucursal_id = ? AND empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check_sucursal);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "ii", $sucursal_id, $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    mysqli_stmt_close($stmt);
-
-    if (mysqli_num_rows($result) == 0) {
-        return ['resultado' => false, 'error' => 'La sucursal seleccionada no pertenece a esta empresa'];
-    }
-    
-    // Verificar que el depósito pertenezca a la sucursal y empresa
-    $sql_check_deposito = "SELECT deposito_id FROM gestion__depositos 
-                           WHERE deposito_id = ? AND sucursal_id = ? AND empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check_deposito);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, "iii", $deposito_id, $sucursal_id, $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    mysqli_stmt_close($stmt);
-
-    if (mysqli_num_rows($result) == 0) {
-        return ['resultado' => false, 'error' => 'El depósito seleccionado no pertenece a esta sucursal/empresa'];
-    }
-
-    // Verificar duplicados (excluyendo registro actual) - AHORA CON DEPÓSITO Y POSICIÓN
-    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
-                      WHERE sucursal_id = ? AND deposito_id = ? AND seccion = ? AND estanteria = ? AND estante = ? AND posicion = ?
-                      AND sucursal_ubicacion_id != ?";
-    $stmt = mysqli_prepare($conexion, $sql_duplicate);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
     mysqli_stmt_bind_param($stmt, "iissssi", $sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion, $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
@@ -640,47 +226,24 @@ function editarSucursalUbicacion($conexion, $id, $data)
     mysqli_stmt_close($stmt);
 
     if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe otra ubicación con esta combinación completa en la sucursal/depósito seleccionado'];
+        return ['resultado' => false, 'error' => 'Ya existe otra ubicación con estos datos'];
     }
 
-    // Construir consulta de actualización - AHORA CON DEPÓSITO Y POSICIÓN
     $sql = "UPDATE gestion__sucursales_ubicaciones 
-            SET sucursal_id = ?, deposito_id = ?, seccion = ?, estanteria = ?, estante = ?, posicion = ?, descripcion = ?";
-
-    $params = [$sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion, $descripcion];
-    $types = "iisssss";
-
-    if ($estado_registro_id) {
-        $sql .= ", tabla_estado_registro_id = ?";
-        $params[] = $estado_registro_id;
-        $types .= "i";
-    }
-
-    $sql .= " WHERE sucursal_ubicacion_id = ?";
-    $params[] = $id;
-    $types .= "i";
+            SET sucursal_id = ?, deposito_id = ?, seccion = ?, estanteria = ?, estante = ?, posicion = ?, descripcion = ?, tabla_estado_registro_id = ?
+            WHERE sucursal_ubicacion_id = ? AND empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-
-    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    mysqli_stmt_bind_param($stmt, "iisssssiii", $sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion, $descripcion, $estado_registro_id, $id, $empresa_idx);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
-    if ($success) {
-        return ['resultado' => true];
-    } else {
-        return ['resultado' => false, 'error' => 'Error al actualizar la ubicación: ' . mysqli_error($conexion)];
-    }
+    return $success ? ['resultado' => true] : ['resultado' => false, 'error' => 'Error al actualizar'];
 }
 
-// ✅ Obtener ubicación específica
 function obtenerSucursalUbicacionPorId($conexion, $id, $empresa_idx)
 {
-    $id = intval($id);
-    $empresa_idx = intval($empresa_idx);
-
     $sql = "SELECT gu.*, gs.sucursal_nombre, er.estado_registro, er.codigo_estandar,
                    gd.deposito_nombre, gd.codigo AS deposito_codigo
             FROM gestion__sucursales_ubicaciones gu
@@ -690,160 +253,120 @@ function obtenerSucursalUbicacionPorId($conexion, $id, $empresa_idx)
             WHERE gu.sucursal_ubicacion_id = ? AND gs.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return null;
-
+    if (!$stmt) return null;
     mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    $sucursal_ubicacion = mysqli_fetch_assoc($result);
-
+    $data = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
-    return $sucursal_ubicacion;
+    return $data;
 }
 
-// ✅ Obtener valores por defecto según tipo de padre (con depósito)
 function obtenerValoresPorDefecto($conexion, $parent_type, $parent_id, $empresa_idx)
 {
-    $parent_type = mysqli_real_escape_string($conexion, trim($parent_type));
-    $parent_id = mysqli_real_escape_string($conexion, trim($parent_id));
-    $empresa_idx = intval($empresa_idx);
+    $valores = ['sucursal_id' => 0, 'deposito_id' => 0, 'seccion' => '', 'estanteria' => '', 'estante' => '', 'posicion' => '1A'];
     
-    $valores = [
-        'sucursal_id' => 0,
-        'deposito_id' => 0,
-        'seccion' => '',
-        'estanteria' => '',
-        'estante' => '',
-        'posicion' => '1A' // Valor por defecto para posición
-    ];
+    $parts = explode('_', $parent_id);
     
     switch ($parent_type) {
         case 'sucursal':
-            // El parent_id ES el ID de la sucursal
             $valores['sucursal_id'] = intval($parent_id);
-            // Obtener depósito principal por defecto
             $depositos = obtenerDepositosPorSucursal($conexion, $valores['sucursal_id']);
             if (!empty($depositos)) {
-                // Buscar el depósito principal
-                foreach ($depositos as $deposito) {
-                    if ($deposito['es_principal']) {
-                        $valores['deposito_id'] = $deposito['deposito_id'];
-                        break;
-                    }
+                foreach ($depositos as $d) {
+                    if ($d['es_principal']) { $valores['deposito_id'] = $d['deposito_id']; break; }
                 }
-                // Si no hay principal, tomar el primero
-                if ($valores['deposito_id'] == 0 && !empty($depositos)) {
-                    $valores['deposito_id'] = $depositos[0]['deposito_id'];
-                }
+                if ($valores['deposito_id'] == 0) $valores['deposito_id'] = $depositos[0]['deposito_id'];
             }
             break;
-            
         case 'deposito':
-            // El parent_id tiene formato: sucursalId_depositoId
-            // Ejemplo: "2_1" (sucursal 2, depósito 1)
-            $partes = explode('_', $parent_id);
-            if (count($partes) >= 2) {
-                $valores['sucursal_id'] = intval($partes[0]);
-                $valores['deposito_id'] = intval($partes[1]);
-            }
+            $valores['sucursal_id'] = intval($parts[0] ?? 0);
+            $valores['deposito_id'] = intval($parts[1] ?? 0);
             break;
-            
         case 'seccion':
-            // El parent_id tiene formato: sucursalId_depositoId_seccion
-            // Ejemplo: "2_1_A" (sucursal 2, depósito 1, sección A)
-            $partes = explode('_', $parent_id);
-            if (count($partes) >= 3) {
-                $valores['sucursal_id'] = intval($partes[0]);
-                $valores['deposito_id'] = intval($partes[1]);
-                $valores['seccion'] = $partes[2];
-            }
+            $valores['sucursal_id'] = intval($parts[0] ?? 0);
+            $valores['deposito_id'] = intval($parts[1] ?? 0);
+            $valores['seccion'] = $parts[2] ?? '';
             break;
-            
         case 'estanteria':
-            // El parent_id tiene formato: sucursalId_depositoId_seccion_estanteria
-            // Ejemplo: "2_1_A_01"
-            $partes = explode('_', $parent_id);
-            if (count($partes) >= 4) {
-                $valores['sucursal_id'] = intval($partes[0]);
-                $valores['deposito_id'] = intval($partes[1]);
-                $valores['seccion'] = $partes[2];
-                $valores['estanteria'] = $partes[3];
-            }
+            $valores['sucursal_id'] = intval($parts[0] ?? 0);
+            $valores['deposito_id'] = intval($parts[1] ?? 0);
+            $valores['seccion'] = $parts[2] ?? '';
+            $valores['estanteria'] = $parts[3] ?? '';
             break;
-            
         case 'estante':
-            // El parent_id tiene formato: sucursalId_depositoId_seccion_estanteria_estante
-            // Ejemplo: "2_1_A_01_01"
-            $partes = explode('_', $parent_id);
-            if (count($partes) >= 5) {
-                $valores['sucursal_id'] = intval($partes[0]);
-                $valores['deposito_id'] = intval($partes[1]);
-                $valores['seccion'] = $partes[2];
-                $valores['estanteria'] = $partes[3];
-                $valores['estante'] = $partes[4];
-                
-                // Buscar la próxima posición disponible en este estante
-                $sql = "SELECT MAX(posicion) as max_posicion 
-                        FROM gestion__sucursales_ubicaciones 
-                        WHERE sucursal_id = ? 
-                        AND deposito_id = ?
-                        AND seccion = ? 
-                        AND estanteria = ? 
-                        AND estante = ?";
-                
-                $stmt = mysqli_prepare($conexion, $sql);
-                if ($stmt) {
-                    mysqli_stmt_bind_param($stmt, "iisss", 
-                        $valores['sucursal_id'], 
-                        $valores['deposito_id'],
-                        $valores['seccion'], 
-                        $valores['estanteria'], 
-                        $valores['estante']
-                    );
-                    mysqli_stmt_execute($stmt);
-                    $result = mysqli_stmt_get_result($stmt);
-                    $fila = mysqli_fetch_assoc($result);
-                    if ($fila && $fila['max_posicion']) {
-                        // Determinar próxima posición
-                        $valores['posicion'] = obtenerProximaPosicion($fila['max_posicion']);
+            $valores['sucursal_id'] = intval($parts[0] ?? 0);
+            $valores['deposito_id'] = intval($parts[1] ?? 0);
+            $valores['seccion'] = $parts[2] ?? '';
+            $valores['estanteria'] = $parts[3] ?? '';
+            $valores['estante'] = $parts[4] ?? '';
+            // Calcular próxima posición
+            $sql = "SELECT MAX(posicion) as max_pos FROM gestion__sucursales_ubicaciones 
+                    WHERE sucursal_id = ? AND deposito_id = ? AND seccion = ? AND estanteria = ? AND estante = ?";
+            $stmt = mysqli_prepare($conexion, $sql);
+            if ($stmt) {
+                mysqli_stmt_bind_param($stmt, "iisss", $valores['sucursal_id'], $valores['deposito_id'], $valores['seccion'], $valores['estanteria'], $valores['estante']);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                $row = mysqli_fetch_assoc($result);
+                mysqli_stmt_close($stmt);
+                if ($row && $row['max_pos']) {
+                    preg_match('/(\d+)([A-D])/i', $row['max_pos'], $m);
+                    if (count($m) >= 3) {
+                        $num = intval($m[1]);
+                        $letra = strtoupper($m[2]);
+                        $letras = ['A', 'B', 'C', 'D'];
+                        $idx = array_search($letra, $letras);
+                        if ($idx < 3) $valores['posicion'] = $num . $letras[$idx + 1];
+                        else $valores['posicion'] = ($num + 1) . 'A';
                     }
-                    mysqli_stmt_close($stmt);
                 }
             }
             break;
     }
-    
     return $valores;
 }
 
-// ✅ Función auxiliar para obtener próxima posición
-function obtenerProximaPosicion($posicion_actual)
+function ejecutarTransicionEstado($conexion, $sucursal_ubicacion_id, $accion_js, $empresa_idx, $pagina_id)
 {
-    // Ejemplo: Si posición actual es "1D", siguiente sería "2A"
-    // Si posición actual es "4C", siguiente sería "4D"
-    // Si posición actual es "4D", siguiente sería "5A"
-    
-    if (empty($posicion_actual)) return '1A';
-    
-    // Extraer número y letra
-    preg_match('/(\d+)([A-D])/i', $posicion_actual, $matches);
-    if (count($matches) < 3) return '1A';
-    
-    $numero = intval($matches[1]);
-    $letra = strtoupper($matches[2]);
-    
-    // Determinar siguiente letra
-    $letras = ['A', 'B', 'C', 'D'];
-    $indice_letra = array_search($letra, $letras);
-    
-    if ($indice_letra < 3) {
-        // Misma fila, siguiente columna
-        $nueva_letra = $letras[$indice_letra + 1];
-        return $numero . $nueva_letra;
-    } else {
-        // Siguiente fila, primera columna
-        return ($numero + 1) . 'A';
-    }
+    // Verificar permiso y obtener estado actual
+    $sql = "SELECT gu.tabla_estado_registro_id FROM gestion__sucursales_ubicaciones gu
+            INNER JOIN gestion__sucursales gs ON gu.sucursal_id = gs.sucursal_id
+            WHERE gu.sucursal_ubicacion_id = ? AND gs.empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
+    mysqli_stmt_bind_param($stmt, "ii", $sucursal_ubicacion_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    if (!$row) return ['success' => false, 'error' => 'Acceso denegado'];
+
+    $estado_actual = $row['tabla_estado_registro_id'];
+
+    // Buscar la función
+    $sql = "SELECT tabla_estado_registro_destino_id FROM conf__paginas_funciones
+            WHERE pagina_id = ? AND tabla_estado_registro_origen_id = ? AND accion_js = ? LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
+    mysqli_stmt_bind_param($stmt, "iis", $pagina_id, $estado_actual, $accion_js);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $funcion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    if (!$funcion) return ['success' => false, 'error' => 'Acción no permitida'];
+
+    $estado_destino = $funcion['tabla_estado_registro_destino_id'];
+    if ($estado_destino == $estado_actual) return ['success' => true, 'message' => 'Acción ejecutada'];
+
+    // Actualizar estado
+    $sql = "UPDATE gestion__sucursales_ubicaciones SET tabla_estado_registro_id = ? WHERE sucursal_ubicacion_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino, $sucursal_ubicacion_id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    return $success ? ['success' => true, 'message' => 'Estado actualizado'] : ['success' => false, 'error' => 'Error al actualizar'];
 }
 ?>

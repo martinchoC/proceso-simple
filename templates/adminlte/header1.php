@@ -55,8 +55,9 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <meta name="author" content="Developsam" />
   <meta name="description" content="Developsam" />
 
-  <meta name="supported-color-schemes" content="light dark" />
-
+  <meta name="supported-color-schemes" content="light dark" />  
+  <link rel="icon" type="image/png" href="<?= asset('img/logo.png') ?>">
+  <link rel="shortcut icon" href="<?= asset('img/logo.png') ?>">
   <link href="<?= asset_local('css/dataTables.bootstrap5.min.css') ?>" rel="stylesheet" />
   <link rel="stylesheet" href="<?= asset_local('css/all.min.css') ?>" />
   <link href="<?= asset_local('css/sweetalert2-bootstrap-4.min.css') ?>" rel="stylesheet" />

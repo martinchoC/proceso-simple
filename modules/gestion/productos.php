@@ -34,7 +34,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <div class="app-content">
         <div class="container-fluid">
-
             <div class="content-wrapper">
                 <section class="content">
                     <div class="container-fluid">
@@ -79,14 +78,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="row mb-3">
                                             <div class="col-md-3">
                                                 <div class="input-group input-group-sm">
-                                                    <span class="input-group-text">Código</span>
-                                                    <input type="text" class="form-control" id="filtroCodigo"
-                                                        placeholder="Buscar código">
+                                                    <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                                                    <input type="text" class="form-control" id="filtroCodigo" placeholder="Código...">
+                                                    <span class="input-group-text" id="codigoSearchIcon" style="display:none;"><i class="fas fa-search text-primary"></i></span>
                                                 </div>
                                             </div>
                                             <div class="col-md-3">
                                                 <div class="input-group input-group-sm">
-                                                    <span class="input-group-text">Marca</span>
+                                                    <span class="input-group-text"><i class="fas fa-trademark"></i></span>
                                                     <select class="form-select" id="filtroMarca">
                                                         <option value="">Todas las marcas</option>
                                                     </select>
@@ -94,7 +93,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                             <div class="col-md-3">
                                                 <div class="input-group input-group-sm">
-                                                    <span class="input-group-text">Modelo</span>
+                                                    <span class="input-group-text"><i class="fas fa-car"></i></span>
                                                     <select class="form-select" id="filtroModelo" disabled>
                                                         <option value="">Todos los modelos</option>
                                                     </select>
@@ -102,7 +101,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                             <div class="col-md-3">
                                                 <div class="input-group input-group-sm">
-                                                    <span class="input-group-text">Submodelo</span>
+                                                    <span class="input-group-text"><i class="fas fa-cube"></i></span>
                                                     <select class="form-select" id="filtroSubmodelo" disabled>
                                                         <option value="">Todos los submodelos</option>
                                                     </select>
@@ -110,16 +109,29 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
 
+                                        <!-- Botón Limpiar - Ahora debajo de los filtros -->
                                         <div class="row mb-3">
                                             <div class="col-md-12">
-                                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                                    id="btnAplicarFiltros">
-                                                    <i class="fas fa-filter me-1"></i>Filtrar
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltros">
+                                                    <i class="fas fa-times me-1"></i>Limpiar filtros
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    id="btnLimpiarFiltros">
-                                                    <i class="fas fa-times me-1"></i>Limpiar
-                                                </button>
+                                                <span id="infoFiltros" class="badge bg-light text-dark p-2 ms-2" style="display:none;"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Buscador por etiquetas (tags) -->
+                                        <div class="row mb-3">
+                                            <div class="col-md-12">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                                    <div class="form-control p-1" id="buscadorTagsContainer" style="min-height: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; cursor: text;">
+                                                        <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Escribe palabras y presiona espacio...">
+                                                    </div>
+                                                    <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTags" title="Limpiar todas las etiquetas">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                                <small class="text-muted">Presiona <kbd>Espacio</kbd> para agregar una etiqueta y buscar automáticamente. Las búsquedas son combinadas.</small>
                                             </div>
                                         </div>
 
@@ -128,9 +140,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="80">ID</th>
                                                     <th width="100">Código</th>
-                                                    <th width="200">Nombre</th>
+                                                    <th>Nombre</th>
                                                     <th width="150">Marcas</th>
                                                     <th width="150">Modelos</th>
                                                     <th width="150">Submodelos</th>
@@ -150,7 +161,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </section>
             </div>
 
-            <!-- Modal para crear/editar producto - CON PESTAÑA DE IMÁGENES -->
+            <!-- ========== MODALES ========== -->
+            <!-- Modal para crear/editar producto -->
             <div class="modal fade" id="modalProducto" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true"
                 data-bs-backdrop="static">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -163,7 +175,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body p-0">
-                            <!-- Navegación por pestañas -->
                             <nav>
                                 <div class="nav nav-tabs border-0" id="nav-tab" role="tablist">
                                     <button class="nav-link active" id="nav-info-tab" data-bs-toggle="tab"
@@ -338,8 +349,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <i class="fas fa-plus me-1"></i>Agregar
                                         </button>
                                     </div>
-
-                                    <!-- Tabla de compatibilidad más compacta -->
                                     <div class="table-responsive" style="max-height: 300px;">
                                         <table id="tablaCompatibilidad" class="table table-sm table-hover mb-0">
                                             <thead class="table-light">
@@ -367,26 +376,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <i class="fas fa-plus me-1"></i>Agregar Imagen
                                         </button>
                                     </div>
-
-                                    <!-- Contenedor de imágenes -->
                                     <div id="galeriaImagenes" class="row g-2">
-                                        <!-- Las imágenes se cargarán dinámicamente aquí -->
                                         <div class="col-12 text-center py-5" id="sinImagenes">
                                             <i class="fas fa-image fa-3x text-muted mb-3"></i>
                                             <p class="text-muted">No hay imágenes para este producto</p>
                                         </div>
                                     </div>
-
                                     <div class="alert alert-info mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         Puedes arrastrar y soltar imágenes para cambiar su orden. La primera imagen será
                                         la principal.
                                     </div>
                                 </div>
+
                                 <!-- Pestaña de Ubicaciones -->
                                 <div class="tab-pane fade" id="nav-ubicaciones" role="tabpanel"
                                     aria-labelledby="nav-ubicaciones-tab">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <input type="hidden" id="producto_ubicacion_id_editar" name="producto_ubicacion_id_editar" value="" />
                                         <h6 class="mb-0">
                                             <i class="fas fa-map-marker-alt me-2 text-warning"></i>Ubicaciones del
                                             Producto
@@ -402,31 +409,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </button>
                                         </div>
                                     </div>
-                                     
-
-                                    <!-- Tabla de ubicaciones -->
-                                    <div class="table-responsive" style="max-height: 300px;">
-                                        <table id="tablaUbicaciones" class="table table-sm table-hover mb-0">
-                                            <thead class="table-light">
+                                    <!-- Tabla de ubicaciones - VERSIÓN MEJORADA CON SCROLL -->
+                                    <div class="tabla-ubicaciones-container">
+                                        <table id="tablaUbicaciones" class="table table-hover mb-0" style="width: 100%;">
+                                            <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
                                                 <tr>
-                                                    <th width="20%" class="py-1">Sucursal</th>
-                                                    <th width="15%" class="py-1">Depósito</th>
-                                                    <th width="15%" class="py-1">Sección</th>
-                                                    <th width="15%" class="py-1">Estantería</th>
-                                                    <th width="15%" class="py-1">Estante</th>
-                                                    <th width="15%" class="py-1">Posición</th>
-                                                    <th width="5%" class="py-1 text-center">Acciones</th>
+                                                    <th style="width: 10%;">Sucursal</th>
+                                                    <th style="width: 10%;">Depósito</th>
+                                                    <th style="width: 15%;">Sección</th>
+                                                    <th style="width: 15%;">Estantería</th>
+                                                    <th style="width: 10%;">Estante</th>
+                                                    <th style="width: 10%;">Posición</th>
+                                                    <th style="width: 20%;">Descripción</th>
+                                                    <th style="width: 10%;" class="text-center">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
                                         </table>
                                     </div>
-
                                     <div class="alert alert-warning mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         Un producto puede tener múltiples ubicaciones en diferentes sucursales.
                                     </div>
                                 </div>
+
                                 <!-- Pestaña de Proveedores -->
                                 <div class="tab-pane fade" id="nav-proveedores" role="tabpanel"
                                     aria-labelledby="nav-proveedores-tab">
@@ -438,8 +444,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <i class="fas fa-plus me-1"></i>Agregar Proveedor
                                         </button>
                                     </div>
-
-                                    <!-- Tabla de proveedores -->
                                     <div class="table-responsive" style="max-height: 300px;">
                                         <table id="tablaProveedores" class="table table-sm table-hover mb-0">
                                             <thead class="table-light">
@@ -453,7 +457,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <tbody></tbody>
                                         </table>
                                     </div>
-
                                     <div class="alert alert-info mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         Puede asignar múltiples proveedores a un mismo producto con diferentes códigos.
@@ -473,7 +476,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
 
-            <!-- Modal para agregar/editar compatibilidad -->
+            <!-- Modal para compatibilidad -->
             <div class="modal fade" id="modalCompatibilidad" tabindex="-1" aria-labelledby="modalCompatibilidadLabel"
                 aria-hidden="true" data-bs-backdrop="static">
                 <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -550,7 +553,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
 
-            <!-- Modal para subir/editar imagen -->
+            <!-- Modal para imagen -->
             <div class="modal fade" id="modalImagen" tabindex="-1" aria-labelledby="modalImagenLabel" aria-hidden="true"
                 data-bs-backdrop="static">
                 <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -607,7 +610,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                 </div>
 
-                                <!-- Vista previa de imagen -->
                                 <div class="row mt-3" id="vistaPreviaContainer" style="display: none;">
                                     <div class="col-md-12">
                                         <label class="form-label form-label-sm">Vista previa:</label>
@@ -630,33 +632,83 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
-            <!-- Modal para agregar ubicación existente -->
-            <div class="modal fade" id="modalUbicacion" tabindex="-1" aria-labelledby="modalUbicacionLabel"
-                aria-hidden="true" data-bs-backdrop="static">
-                <div class="modal-dialog modal-lg modal-dialog-centered">
+
+            <!-- Modal para ubicación -->
+            <div class="modal fade" id="modalUbicacion" tabindex="-1" aria-labelledby="modalUbicacionLabel" aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-xl modal-dialog-centered">
                     <div class="modal-content border-0 shadow-lg">
                         <div class="modal-header bg-gradient-warning text-white border-0">
                             <h5 class="modal-title" id="modalUbicacionLabel">
                                 <i class="fas fa-map-marker-alt me-2"></i>Agregar Ubicación
                             </h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                aria-label="Cerrar"></button>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body p-4">
                             <form id="formUbicacion" class="needs-validation" novalidate>
                                 <input type="hidden" id="ubicacion_producto_id" name="producto_id" />
-
-                                <div class="row">
-                                    <div class="col-md-12 mb-3">
-                                        <label for="sucursal_ubicacion_id" class="form-label form-label-sm">Ubicación
-                                            *</label>
-                                        <select class="form-select form-select-sm" id="sucursal_ubicacion_id"
-                                            name="sucursal_ubicacion_id" required>
-                                            <option value="">Seleccionar ubicación...</option>
+                                <input type="hidden" id="sucursal_ubicacion_id" name="sucursal_ubicacion_id" />
+                                
+                                <div class="row mb-3" id="ubicacionSeleccionadaPanel" style="display: none;">
+                                    <div class="col-12">
+                                        <div class="alert alert-success">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <strong>Ubicación seleccionada:</strong>
+                                            <span id="ubicacionSeleccionadaTexto"></span>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary float-end" onclick="limpiarSeleccionUbicacion()">
+                                                <i class="fas fa-times"></i> Cambiar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3" id="selectsUbicacion">
+                                    <div class="col-md-3">
+                                        <label for="select_sucursal" class="form-label fw-bold">
+                                            <i class="fas fa-store text-primary me-1"></i>Sucursal
+                                        </label>
+                                        <select class="form-select" id="select_sucursal">
+                                            <option value="">Seleccione sucursal...</option>
                                         </select>
-                                        <div class="invalid-feedback">Seleccione una ubicación</div>
-                                        <div class="form-text">Seleccione una ubicación existente para asignarla al
-                                            producto</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="select_deposito" class="form-label fw-bold">
+                                            <i class="fas fa-warehouse text-info me-1"></i>Depósito
+                                        </label>
+                                        <select class="form-select" id="select_deposito" disabled>
+                                            <option value="">Primero seleccione sucursal</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="select_seccion" class="form-label fw-bold">
+                                            <i class="fas fa-layer-group text-secondary me-1"></i>Sección
+                                        </label>
+                                        <select class="form-select" id="select_seccion" disabled>
+                                            <option value="">Primero seleccione depósito</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="select_estanteria" class="form-label fw-bold">
+                                            <i class="fas fa-arrow-up text-warning me-1"></i>Estantería
+                                        </label>
+                                        <select class="form-select" id="select_estanteria" disabled>
+                                            <option value="">Primero seleccione sección</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="select_estante" class="form-label fw-bold">
+                                            <i class="fas fa-arrow-right text-success me-1"></i>Estante
+                                        </label>
+                                        <select class="form-select" id="select_estante" disabled>
+                                            <option value="">Primero seleccione estantería</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="select_posicion" class="form-label fw-bold">
+                                            <i class="fas fa-arrows-alt text-danger me-1"></i>Posición
+                                        </label>
+                                        <select class="form-select" id="select_posicion" disabled>
+                                            <option value="">Primero seleccione estante</option>
+                                        </select>
                                     </div>
                                 </div>
                             </form>
@@ -665,7 +717,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
                                 <i class="fas fa-times me-1"></i>Cancelar
                             </button>
-                            <button type="button" class="btn btn-sm btn-warning px-3" id="btnGuardarUbicacion">
+                            <button type="button" class="btn btn-sm btn-warning px-3" id="btnGuardarUbicacion" disabled>
                                 <i class="fas fa-save me-1"></i>Guardar
                             </button>
                         </div>
@@ -673,7 +725,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
 
-            <!-- Modal para crear nueva ubicación -->
+            <!-- Modal para nueva ubicación -->
             <div class="modal fade" id="modalNuevaUbicacion" tabindex="-1" aria-labelledby="modalNuevaUbicacionLabel"
                 aria-hidden="true" data-bs-backdrop="static">
                 <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -757,7 +809,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
-            <!-- Modal para agregar/editar proveedor -->
+
+            <!-- Modal para proveedor -->
             <div class="modal fade" id="modalProveedor" tabindex="-1" aria-labelledby="modalProveedorLabel"
                 aria-hidden="true" data-bs-backdrop="static">
                 <div class="modal-dialog modal-dialog-centered">
@@ -801,8 +854,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
-           
-            <!-- Modal para dar de alta un producto -->
+
+            <!-- Modal para dar de alta -->
             <div class="modal fade" id="modalAltaProducto" tabindex="-1" aria-labelledby="modalAltaLabel"
                 aria-hidden="true" data-bs-backdrop="static">
                 <div class="modal-dialog modal-dialog-centered">
@@ -843,2292 +896,2629 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         </div>
     </div>
 
-    <!-- Estilos personalizados -->
+    <!-- Modal para carrusel de imágenes -->
+    <div class="modal fade" id="modalCarrusel" tabindex="-1" aria-labelledby="modalCarruselLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-gradient-primary text-white">
+                    <h5 class="modal-title" id="modalCarruselLabel">
+                        <i class="fas fa-images me-2"></i>Galería de Imágenes
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4" id="contenidoCarrusel">
+                    <div class="text-center py-5">
+                        <i class="fas fa-spinner fa-spin fa-3x text-primary mb-3"></i>
+                        <p class="text-muted">Cargando imágenes...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== ESTILOS ========== -->
     <style>
-        /* Reducir tamaño del modal */
-        .modal-xl {
-            max-width: 1100px;
+        /* Estilos para el buscador de etiquetas */
+        .tag-item {
+            display: inline-flex;
+            align-items: center;
+            background-color: #e9ecef;
+            border-radius: 16px;
+            padding: 2px 8px 2px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #212529;
+            transition: all 0.2s;
+            margin: 2px 2px;
+            white-space: nowrap;
+            max-width: 200px;
+            border: 1px solid #dee2e6;
         }
 
-        /* Hacer más compacto el contenido del modal */
-        .modal-body .form-label-sm {
-            font-size: 0.85rem;
-            margin-bottom: 0.2rem;
+        .tag-item:hover {
+            background-color: #dee2e6;
         }
 
-        .modal-body .form-control-sm,
-        .modal-body .form-select-sm {
+        .tag-item .tag-remove {
+            cursor: pointer;
+            margin-left: 6px;
+            font-size: 14px;
+            color: #6c757d;
+            transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            line-height: 1;
+        }
+
+        .tag-item .tag-remove:hover {
+            color: #dc3545;
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+
+        .tag-item .tag-text {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #buscadorTagsContainer {
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            min-height: 38px;
+            padding: 4px 8px;
+            cursor: text;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        #buscadorTagsContainer:focus-within {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        #buscadorTagsInput {
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 4px 0;
+            font-size: 14px;
+            min-width: 80px;
+            flex: 1;
+        }
+
+        /* Resto de estilos existentes... */
+        .modal-xl { max-width: 1100px; }
+        .modal-body .form-label-sm { font-size: 0.85rem; margin-bottom: 0.2rem; }
+        .modal-body .form-control-sm, .modal-body .form-select-sm {
             font-size: 0.85rem;
             padding: 0.25rem 0.5rem;
             height: calc(1.5em + 0.5rem + 2px);
         }
-
-        .modal-footer {
-            padding: 0.5rem 1rem;
+        .modal-footer { padding: 0.5rem 1rem; }
+        #tablaCompatibilidad { font-size: 0.8rem; }
+        #tablaCompatibilidad th, #tablaCompatibilidad td { padding: 0.25rem 0.5rem; }
+        .tab-content { min-height: 450px; background-color: white; transition: min-height 0.3s ease; }
+        .tab-pane { height: 100%; overflow-y: auto; }
+        .tab-pane .table-responsive { max-height: 300px; overflow-y: auto; }
+        #nav-info { min-height: 400px; }
+        #nav-imagenes { min-height: 400px; }
+        .tab-pane { max-height: 500px; overflow-y: auto; padding-right: 5px; }
+        .tab-pane::-webkit-scrollbar { width: 5px; }
+        .tab-pane::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .tab-pane::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        .tab-pane::-webkit-scrollbar-thumb:hover { background: #555; }
+        .nav-tabs { background-color: #f8f9fa; padding: 0.5rem 1.5rem 0; }
+        .nav-tabs .nav-link { border: none; color: #6c757d; font-weight: 500; padding: 0.75rem 1.5rem; margin-right: 0.5rem; border-radius: 0.5rem 0.5rem 0 0; }
+        .nav-tabs .nav-link.active { background-color: white; color: #0d6efd; border-bottom: 3px solid #0d6efd; }
+        .nav-tabs .nav-link:hover:not(.active) { background-color: rgba(0, 0, 0, 0.05); }
+        .tab-content { background-color: white; }
+        .btn-accion-alta { background-color: #28a745; color: white; border-color: #28a745; }
+        .btn-accion-baja { background-color: #dc3545; color: white; border-color: #dc3545; }
+        .btn-accion-suspender { background-color: #ffc107; color: #212529; border-color: #ffc107; }
+        .badge-estado-activo { background-color: #28a745; color: white; }
+        .badge-estado-inactivo { background-color: #6c757d; color: white; }
+        .modal-content { border-radius: 0.5rem; }
+        .modal-header { border-radius: 0.5rem 0.5rem 0 0; }
+        .btn-close-white { filter: invert(1) grayscale(100%) brightness(200%); }
+        .bg-gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .bg-gradient-success { background: linear-gradient(135deg, #42e695 0%, #3bb2b8 100%); }
+        .bg-gradient-info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .badge-compatibilidad { font-size: 0.75rem; padding: 0.25rem 0.5rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+        .card-imagen { transition: transform 0.2s; cursor: move; }
+        .card-imagen:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); }
+        .card-imagen-principal { border: 2px solid #28a745; }
+        .imagen-miniatura { height: 120px; object-fit: cover; background-color: #f8f9fa; }
+        .badge-imagen-principal { position: absolute; top: 10px; right: 10px; z-index: 1; }
+        .sortable-ghost { opacity: 0.4; }
+        .sortable-chosen { background-color: #f8f9fa; }
+        .img-thumbnail { transition: transform 0.2s; border: 2px solid #dee2e6; }
+        .img-thumbnail:hover { transform: scale(1.1); border-color: #0d6efd; box-shadow: 0 0 10px rgba(13, 110, 253, 0.5); }
+        .badge-compatibilidad { font-size: 0.75rem; padding: 0.25rem 0.5rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+        .badge-ubicacion { font-size: 0.7rem; padding: 0.2rem 0.4rem; margin-bottom: 0.1rem; display: block; text-align: left; border-radius: 0.25rem; }
+        .rounded-circle { border-radius: 50% !important; }
+        .carousel-container { position: relative; background: #f8f9fa; border-radius: 8px; padding: 20px; }
+        .carousel-imagen-principal { max-height: 500px; object-fit: contain; background: white; }
+        .carousel-thumbnails { display: flex; justify-content: center; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+        .thumbnail-item { width: 80px; height: 80px; cursor: pointer; border: 2px solid transparent; border-radius: 8px; overflow: hidden; transition: all 0.3s; }
+        .thumbnail-item:hover { transform: scale(1.1); }
+        .thumbnail-item.active { border-color: #007bff; box-shadow: 0 0 10px rgba(0,123,255,0.5); }
+        .thumbnail-img { width: 100%; height: 100%; object-fit: cover; }
+        .carousel-control-prev, .carousel-control-next { width: 10%; background: rgba(0,0,0,0.2); border-radius: 50%; height: 50px; top: 50%; transform: translateY(-50%); }
+        .carousel-indicators { position: static; margin: 10px 0 0; }
+        .carousel-indicators button { width: 12px; height: 12px; border-radius: 50%; background-color: #007bff; margin: 0 5px; }
+        #carruselProducto .carousel-control-prev, #carruselProducto .carousel-control-next { opacity: 0.8; transition: opacity 0.3s; }
+        #carruselProducto .carousel-control-prev:hover, #carruselProducto .carousel-control-next:hover { opacity: 1; }
+        #carruselProducto .carousel-control-prev-icon, #carruselProducto .carousel-control-next-icon { background-size: 1.5rem; }
+        #carruselProducto .carousel-indicators { margin-bottom: 0.5rem; }
+        #carruselProducto .carousel-indicators button { width: 12px; height: 12px; border-radius: 50%; background-color: #007bff; opacity: 0.5; margin: 0 5px; border: none; }
+        #carruselProducto .carousel-indicators button.active { opacity: 1; }
+        .carousel-fade .carousel-item { opacity: 0; transition: opacity 0.5s ease; }
+        .carousel-fade .carousel-item.active { opacity: 1; }
+        .thumbnail-wrapper:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .imagen-contador { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.9rem; z-index: 10; }
+        .badge-seccion { background-color: #dc3545 !important; color: #ffffff !important; }
+        .badge-estanteria { background-color: #ffc107 !important; color: #000000 !important; }
+        .badge-estante { background-color: #198754 !important; color: #ffffff !important; }
+        .badge-posicion { background-color: #6c757d !important; color: #ffffff !important; }
+        #tablaProductos td.ubicacion-columna { padding: 4px 6px; vertical-align: middle; min-width: 140px; max-width: 180px; }
+        /* Estilos mejorados para la tabla de ubicaciones en el modal */
+        #tablaUbicaciones {
+            width: 100% !important;
+            font-size: 0.85rem;
         }
 
-        /* Hacer la tabla más compacta */
-        #tablaCompatibilidad {
-            font-size: 0.8rem;
-        }
-
-        #tablaCompatibilidad th,
-        #tablaCompatibilidad td {
-            padding: 0.25rem 0.5rem;
-        }
-
-        /* Asegurar que todas las pestañas tengan el mismo tamaño */
-        /* Hacer que todas las pestañas tengan el mismo tamaño */
-        .tab-content {
-            min-height: 450px; /* Altura mínima fija */
-            background-color: white;
-            transition: min-height 0.3s ease;
-        }
-
-        /* Ajustar según el contenido */
-        .tab-pane {
-            height: 100%;
-            overflow-y: auto; /* Scroll si el contenido es muy grande */
-        }
-
-        /* Estilos para las tablas dentro de pestañas */
-        .tab-pane .table-responsive {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        /* Para la pestaña de información que tiene formulario */
-        #nav-info {
-            min-height: 400px;
-        }
-
-        /* Para la pestaña de imágenes */
-        #nav-imagenes {
-            min-height: 400px;
-        }
-
-        /* Asegurar que todas las pestañas tengan scroll si es necesario */
-        .tab-pane {
-            max-height: 500px;
-            overflow-y: auto;
-            padding-right: 5px;
-        }
-
-        /* Personalizar la barra de scroll para que sea más delgada */
-        .tab-pane::-webkit-scrollbar {
-            width: 5px;
-        }
-
-        .tab-pane::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        .tab-pane::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-
-        .tab-pane::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-
-        /* Estilos para pestañas */
-        .nav-tabs {
+        #tablaUbicaciones thead th {
             background-color: #f8f9fa;
-            padding: 0.5rem 1.5rem 0;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            padding: 8px 10px;
+            white-space: nowrap;
         }
 
-        .nav-tabs .nav-link {
-            border: none;
-            color: #6c757d;
-            font-weight: 500;
-            padding: 0.75rem 1.5rem;
-            margin-right: 0.5rem;
-            border-radius: 0.5rem 0.5rem 0 0;
+        #tablaUbicaciones tbody td {
+            padding: 6px 10px;
+            vertical-align: middle;
+            border-bottom: 1px solid #f0f0f0;
         }
 
-        .nav-tabs .nav-link.active {
-            background-color: white;
-            color: #0d6efd;
-            border-bottom: 3px solid #0d6efd;
+        #tablaUbicaciones tbody tr:hover {
+            background-color: #f8f9fa;
         }
 
-        .nav-tabs .nav-link:hover:not(.active) {
-            background-color: rgba(0, 0, 0, 0.05);
+        /* Badges de colores para la tabla de ubicaciones */
+        #tablaUbicaciones .badge-sucursal {
+            background-color: #0d6efd;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
         }
 
-        /* Contenido de pestañas */
-        .tab-content {
-            background-color: white;
+        #tablaUbicaciones .badge-deposito {
+            background-color: #0dcaf0;
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
         }
 
-        /* Botones de acción */
-        .btn-accion-alta {
-            background-color: #28a745;
-            color: white;
-            border-color: #28a745;
-        }
-
-        .btn-accion-baja {
+        #tablaUbicaciones .badge-seccion {
             background-color: #dc3545;
-            color: white;
-            border-color: #dc3545;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
         }
 
-        .btn-accion-suspender {
+        #tablaUbicaciones .badge-estanteria {
             background-color: #ffc107;
-            color: #212529;
-            border-color: #ffc107;
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
         }
 
-        .badge-estado-activo {
-            background-color: #28a745;
-            color: white;
+        #tablaUbicaciones .badge-estante {
+            background-color: #198754;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
         }
 
-        .badge-estado-inactivo {
+        #tablaUbicaciones .badge-posicion {
             background-color: #6c757d;
-            color: white;
-        }
-
-        /* Estilos generales del modal */
-        .modal-content {
-            border-radius: 0.5rem;
-        }
-
-        .modal-header {
-            border-radius: 0.5rem 0.5rem 0 0;
-        }
-
-        .btn-close-white {
-            filter: invert(1) grayscale(100%) brightness(200%);
-        }
-
-        .bg-gradient-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .bg-gradient-success {
-            background: linear-gradient(135deg, #42e695 0%, #3bb2b8 100%);
-        }
-
-        .bg-gradient-info {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-
-        /* Badges para compatibilidad en la tabla */
-        .badge-compatibilidad {
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 12px;
             font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
+        }
+
+        /* Contenedor con scroll */
+        .tabla-ubicaciones-container {
+            max-height: 350px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+
+        .tabla-ubicaciones-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .tabla-ubicaciones-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .tabla-ubicaciones-container::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        .tabla-ubicaciones-container::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+        /* ============================================================
+        ESTILOS PARA UBICACIONES EN MODAL - CON COLORES DESTACADOS
+        ============================================================ */
+
+        /* Colores para los badges de ubicación en el modal */
+        .badge-sucursal-ubicacion {
+            background-color: #0d6efd !important;
+            color: #ffffff !important;
+            padding: 4px 10px !important;
+            border-radius: 12px !important;
+            font-size: 0.78rem !important;
+            font-weight: 500 !important;
+            display: inline-block !important;
+            border: 1px solid #0d6efd !important;
+        }
+
+        .badge-deposito-ubicacion {
+            background-color: #0dcaf0 !important;
+            color: #000000 !important;
+            padding: 4px 10px !important;
+            border-radius: 12px !important;
+            font-size: 0.78rem !important;
+            font-weight: 500 !important;
+            display: inline-block !important;
+            border: 1px solid #0dcaf0 !important;
+        }
+
+        .badge-seccion-ubicacion {
+            background-color: #dc3545 !important;
+            color: #ffffff !important;
+            padding: 4px 10px !important;
+            border-radius: 12px !important;
+            font-size: 0.78rem !important;
+            font-weight: 500 !important;
+            display: inline-block !important;
+            border: 1px solid #dc3545 !important;
+        }
+
+        .badge-estanteria-ubicacion {
+            background-color: #ffc107 !important;
+            color: #000000 !important;
+            padding: 4px 10px !important;
+            border-radius: 12px !important;
+            font-size: 0.78rem !important;
+            font-weight: 500 !important;
+            display: inline-block !important;
+            border: 1px solid #ffc107 !important;
+        }
+
+        .badge-estante-ubicacion {
+            background-color: #198754 !important;
+            color: #ffffff !important;
+            padding: 4px 10px !important;
+            border-radius: 12px !important;
+            font-size: 0.78rem !important;
+            font-weight: 500 !important;
+            display: inline-block !important;
+            border: 1px solid #198754 !important;
+        }
+
+        .badge-posicion-ubicacion {
+            background-color: #6c757d !important;
+            color: #ffffff !important;
+            padding: 4px 10px !important;
+            border-radius: 12px !important;
+            font-size: 0.78rem !important;
+            font-weight: 500 !important;
+            display: inline-block !important;
+            border: 1px solid #6c757d !important;
+        }
+
+        .badge-descripcion-ubicacion {
+            background-color: #f8f9fa !important;
+            color: #212529 !important;
+            padding: 4px 10px !important;
+            border-radius: 12px !important;
+            font-size: 0.78rem !important;
+            font-weight: 400 !important;
+            display: inline-block !important;
+            border: 1px solid #dee2e6 !important;
             max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            display: inline-block;
         }
 
-        /* Estilos para galería de imágenes */
-        .card-imagen {
-            transition: transform 0.2s;
-            cursor: move;
+        /* Estilos para la tabla de ubicaciones en el modal */
+        #tablaUbicaciones {
+            width: 100% !important;
+            font-size: 0.85rem;
         }
 
-        .card-imagen:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .card-imagen-principal {
-            border: 2px solid #28a745;
-        }
-
-        .imagen-miniatura {
-            height: 120px;
-            object-fit: cover;
+        #tablaUbicaciones thead th {
             background-color: #f8f9fa;
-        }
-
-        .badge-imagen-principal {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1;
-        }
-
-        /* Ordenamiento por arrastre */
-        .sortable-ghost {
-            opacity: 0.4;
-        }
-
-        .sortable-chosen {
-            background-color: #f8f9fa;
-        }
-
-        /* Agrega estos estilos al final de la sección de estilos: */
-        .img-thumbnail {
-            transition: transform 0.2s;
-            border: 2px solid #dee2e6;
-        }
-
-        .img-thumbnail:hover {
-            transform: scale(1.1);
-            border-color: #0d6efd;
-            box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
-        }
-
-        /* Ajustar tamaño de los badges de ubicaciones */
-        .badge-compatibilidad {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            padding: 8px 10px;
             white-space: nowrap;
-            display: inline-block;
+            color: #212529;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* Para ubicaciones múltiples */
-        .badge-ubicacion {
-            font-size: 0.7rem;
-            padding: 0.2rem 0.4rem;
-            margin-bottom: 0.1rem;
-            display: block;
-            text-align: left;
-            border-radius: 0.25rem;
+        #tablaUbicaciones thead th:first-child {
+            border-radius: 4px 0 0 0;
         }
 
-        /* Asegurar que la imagen en miniatura sea circular */
-        .rounded-circle {
-            border-radius: 50% !important;
+        #tablaUbicaciones thead th:last-child {
+            border-radius: 0 4px 0 0;
         }
-        /* Estilos para el carrusel de imágenes */
-            .carousel-container {
-                position: relative;
-                background: #f8f9fa;
-                border-radius: 8px;
-                padding: 20px;
-            }
 
-            .carousel-imagen-principal {
-                max-height: 500px;
-                object-fit: contain;
-                background: white;
-            }
+        #tablaUbicaciones tbody td {
+            padding: 6px 10px;
+            vertical-align: middle;
+            border-bottom: 1px solid #f0f0f0;
+        }
 
-            .carousel-thumbnails {
-                display: flex;
-                justify-content: center;
-                gap: 10px;
-                margin-top: 15px;
-                flex-wrap: wrap;
-            }
+        #tablaUbicaciones tbody tr {
+            transition: background-color 0.15s ease;
+        }
 
-            .thumbnail-item {
-                width: 80px;
-                height: 80px;
-                cursor: pointer;
-                border: 2px solid transparent;
-                border-radius: 8px;
-                overflow: hidden;
-                transition: all 0.3s;
-            }
+        #tablaUbicaciones tbody tr:hover {
+            background-color: #f0f7ff !important;
+        }
 
-            .thumbnail-item:hover {
-                transform: scale(1.1);
-            }
+        #tablaUbicaciones tbody tr:nth-child(even) {
+            background-color: #fafafa;
+        }
 
-            .thumbnail-item.active {
-                border-color: #007bff;
-                box-shadow: 0 0 10px rgba(0,123,255,0.5);
-            }
+        #tablaUbicaciones tbody tr:nth-child(even):hover {
+            background-color: #f0f7ff !important;
+        }
 
-            .thumbnail-img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
+        /* Contenedor con scroll */
+        .tabla-ubicaciones-container {
+            max-height: 350px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+        }
 
-            .carousel-control-prev,
-            .carousel-control-next {
-                width: 10%;
-                background: rgba(0,0,0,0.2);
-                border-radius: 50%;
-                height: 50px;
-                top: 50%;
-                transform: translateY(-50%);
-            }
+        .tabla-ubicaciones-container::-webkit-scrollbar {
+            width: 6px;
+        }
 
-            .carousel-indicators {
-                position: static;
-                margin: 10px 0 0;
-            }
+        .tabla-ubicaciones-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
 
-            .carousel-indicators button {
-                width: 12px;
-                height: 12px;
-                border-radius: 50%;
-                background-color: #007bff;
-                margin: 0 5px;
-            }
-            #carruselProducto .carousel-control-prev,
-            #carruselProducto .carousel-control-next {
-                opacity: 0.8;
-                transition: opacity 0.3s;
-            }
+        .tabla-ubicaciones-container::-webkit-scrollbar-thumb {
+            background: #c1c7cd;
+            border-radius: 3px;
+        }
 
-            #carruselProducto .carousel-control-prev:hover,
-            #carruselProducto .carousel-control-next:hover {
-                opacity: 1;
-            }
+        .tabla-ubicaciones-container::-webkit-scrollbar-thumb:hover {
+            background: #a0a8b0;
+        }
 
-            #carruselProducto .carousel-control-prev-icon,
-            #carruselProducto .carousel-control-next-icon {
-                background-size: 1.5rem;
+        /* Responsive: en pantallas pequeñas, reducir el tamaño de los badges */
+        @media (max-width: 768px) {
+            .badge-sucursal-ubicacion,
+            .badge-deposito-ubicacion,
+            .badge-seccion-ubicacion,
+            .badge-estanteria-ubicacion,
+            .badge-estante-ubicacion,
+            .badge-posicion-ubicacion,
+            .badge-descripcion-ubicacion {
+                font-size: 0.7rem !important;
+                padding: 2px 6px !important;
             }
-
-            #carruselProducto .carousel-indicators {
-                margin-bottom: 0.5rem;
-            }
-
-            #carruselProducto .carousel-indicators button {
-                width: 12px;
-                height: 12px;
-                border-radius: 50%;
-                background-color: #007bff;
-                opacity: 0.5;
-                margin: 0 5px;
-                border: none;
-            }
-
-            #carruselProducto .carousel-indicators button.active {
-                opacity: 1;
-            }
-
-            /* Animación para el fade */
-            .carousel-fade .carousel-item {
-                opacity: 0;
-                transition: opacity 0.5s ease;
-            }
-
-            .carousel-fade .carousel-item.active {
-                opacity: 1;
-            }
-
-            /* Hover en thumbnails */
-            .thumbnail-wrapper:hover {
-                transform: scale(1.05);
-                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            }
-            /* Contador de imágenes */
-            .imagen-contador {
-                position: absolute;
-                bottom: 10px;
-                right: 10px;
-                background: rgba(0,0,0,0.7);
-                color: white;
-                padding: 5px 10px;
-                border-radius: 20px;
-                font-size: 0.9rem;
-                z-index: 10;
-            }
-    </style>
-<script>
-    $(document).ready(function () {
-        // Variables de contexto MULTIEMPRESA
-        const empresa_idx = 2;
-        const pagina_idx = <?php echo $pagina_idx; ?>;
-
-        // Variables globales
-        var tabla;
-        var tablaCompatibilidad;
-        var tablaUbicaciones;
-        var currentPage = 0;
-        var currentOrder = [[1, 'asc']];
-        var currentSearch = '';
-        var productoActualId = null;
-        var productoActualCompatibilidad = null;
-        var productoActualImagenes = null;
-        var productoActualUbicaciones = null;
-        var imagenesProductoActual = [];
-        var tablaProveedores;
-        var productoActualProveedores = null;
-
-        // ========== FUNCIÓN PARA MOSTRAR CARRUSEL (DEFINIR UNA SOLA VEZ) ==========
-        window.mostrarImagenGrande = function(url, titulo, productoId) {
-            console.log("mostrarImagenGrande llamada con:", {url, titulo, productoId});
             
-            // Si tenemos productoId, cargar todas las imágenes del producto
-            if (productoId) {
-                $.ajax({
-                    url: 'productos_ajax.php',
-                    type: 'GET',
-                    data: {
-                        accion: 'obtener_imagenes_producto',
-                        producto_id: productoId,
-                        empresa_idx: empresa_idx
-                    },
-                    dataType: 'json',
-                    success: function(imagenes) {
-                        console.log("Imágenes recibidas:", imagenes);
-                        if (imagenes && imagenes.length > 0) {
-                            // Encontrar el índice de la imagen actual
-                            var indiceActual = 0;
-                            var imagenIdActual = url.split('=')[1]; // Extraer el ID de la imagen de la URL
+            #tablaUbicaciones thead th {
+                font-size: 0.7rem !important;
+                padding: 5px 6px !important;
+            }
+            
+            #tablaUbicaciones tbody td {
+                padding: 4px 6px !important;
+            }
+        }
+    </style>
 
-                            imagenes.forEach(function(img, idx) {
-                                // Comparar por ID de imagen en lugar de URL completa
-                                var imgId = img.imagen_url.split('=')[1];
-                                if (imgId == imagenIdActual) {
-                                    indiceActual = idx;
-                                }
-                            });
-                            mostrarCarruselImagenes(imagenes, indiceActual);
-                        } else {
-                            // Si no hay imágenes, mostrar solo esta
-                            mostrarCarruselImagenes([{
-                                imagen_url: url,
-                                descripcion: titulo || 'Imagen del producto'
-                            }], 0);
+    <!-- ========== JAVASCRIPT ========== -->
+    <script>
+        $(document).ready(function () {
+            // Variables de contexto MULTIEMPRESA
+            const empresa_idx = 2;
+            const pagina_idx = <?php echo $pagina_idx; ?>;
+
+            // Variables globales
+            var tabla = null;
+            var tablaCompatibilidad = null;
+            var tablaUbicaciones = null;
+            var tablaProveedores = null;
+            var currentPage = 0;
+            var currentOrder = [[1, 'asc']];
+            var currentSearch = '';
+            var productoActualId = null;
+            var productoActualCompatibilidad = null;
+            var productoActualImagenes = null;
+            var productoActualUbicaciones = null;
+            var productoActualProveedores = null;
+            var imagenesProductoActual = [];
+            var datosUbicacionCompleta = null;
+            var tags = [];
+            var tagsInput = $('#buscadorTagsInput');
+            var tagsContainer = $('#buscadorTagsContainer');
+            var timeoutCodigo = null;
+
+            // ========== FUNCIONES DE CARRUSEL ==========
+            window.mostrarImagenGrande = function(url, titulo, productoId) {
+                if (productoId) {
+                    $.ajax({
+                        url: 'productos_ajax.php',
+                        type: 'GET',
+                        data: {
+                            accion: 'obtener_imagenes_producto',
+                            producto_id: productoId,
+                            empresa_idx: empresa_idx
+                        },
+                        dataType: 'json',
+                        success: function(imagenes) {
+                            if (imagenes && imagenes.length > 0) {
+                                var indiceActual = 0;
+                                var imagenIdActual = url.split('=')[1];
+                                imagenes.forEach(function(img, idx) {
+                                    var imgId = img.imagen_url ? img.imagen_url.split('=')[1] : null;
+                                    if (imgId == imagenIdActual) indiceActual = idx;
+                                });
+                                mostrarCarruselImagenes(imagenes, indiceActual);
+                            } else {
+                                mostrarCarruselImagenes([{
+                                    imagen_url: url,
+                                    descripcion: titulo || 'Imagen del producto'
+                                }], 0);
+                            }
+                        },
+                        error: function() {
+                            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron cargar las imágenes' });
                         }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("Error al cargar imágenes:", error);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: 'No se pudieron cargar las imágenes'
+                    });
+                } else {
+                    mostrarCarruselImagenes([{
+                        imagen_url: url,
+                        descripcion: titulo || 'Imagen del producto'
+                    }], 0);
+                }
+            };
+
+            function mostrarCarruselImagenes(imagenes, indiceInicial) {
+                if (!imagenes || imagenes.length === 0) {
+                    Swal.fire({ icon: 'info', title: 'Sin imágenes', text: 'Este producto no tiene imágenes para mostrar' });
+                    return;
+                }
+
+                imagenesProductoActual = imagenes;
+                imagenes = imagenes.map(img => {
+                    if (!img.imagen_url) img.imagen_url = 'get_imagen.php?id=' + img.imagen_id;
+                    return img;
+                });
+
+                var carouselHtml = `
+                    <div id="carruselProducto" class="carousel slide carousel-fade" data-bs-ride="false" data-bs-interval="false">
+                        <div class="carousel-indicators">
+                            ${imagenes.map((_, idx) => `
+                                <button type="button" data-bs-target="#carruselProducto" data-bs-slide-to="${idx}" 
+                                    class="${idx === indiceInicial ? 'active' : ''}" aria-current="${idx === indiceInicial ? 'true' : 'false'}" 
+                                    aria-label="Imagen ${idx + 1}"></button>
+                            `).join('')}
+                        </div>
+                        <div class="carousel-inner bg-dark" style="border-radius: 10px; min-height: 500px; display: flex; align-items: center;">
+                            ${imagenes.map((img, idx) => `
+                                <div class="carousel-item ${idx === indiceInicial ? 'active' : ''}" style="text-align: center;">
+                                    <img src="${img.imagen_url}" class="d-block mx-auto" 
+                                        style="max-height: 500px; max-width: 100%; object-fit: contain;"
+                                        alt="${img.descripcion || 'Imagen ' + (idx + 1)}"
+                                        onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'500\' height=\'500\'><rect width=\'500\' height=\'500\' fill=\'#f8f9fa\'/><text x=\'250\' y=\'250\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'24\'>Error</text></svg>';">
+                                    ${img.descripcion ? `
+                                        <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded p-2" style="bottom: 20px;">
+                                            <p class="mb-0 text-white">${img.descripcion}</p>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#carruselProducto" data-bs-slide="prev" style="width: 10%; background: linear-gradient(90deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%); border: none;">
+                            <span class="carousel-control-prev-icon" aria-hidden="true" style="width: 3rem; height: 3rem; background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 1rem;"></span>
+                            <span class="visually-hidden">Anterior</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#carruselProducto" data-bs-slide="next" style="width: 10%; background: linear-gradient(270deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%); border: none;">
+                            <span class="carousel-control-next-icon" aria-hidden="true" style="width: 3rem; height: 3rem; background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 1rem;"></span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </button>
+                        <div class="position-absolute top-0 end-0 m-3 bg-dark bg-opacity-75 text-white px-3 py-2 rounded-pill" style="z-index: 10;">
+                            <span id="imagenActual">${indiceInicial + 1}</span> / ${imagenes.length}
+                        </div>
+                    </div>
+                    <div class="row mt-4 justify-content-center" id="thumbnailsContainer">
+                        ${imagenes.map((img, idx) => `
+                            <div class="col-auto mb-2">
+                                <div class="thumbnail-wrapper" onclick="$('#carruselProducto').carousel(${idx})"
+                                    style="cursor: pointer; border: 3px solid ${idx === indiceInicial ? '#007bff' : 'transparent'}; border-radius: 8px; overflow: hidden; transition: all 0.3s;">
+                                    <img src="${img.imagen_url}" style="width: 80px; height: 80px; object-fit: cover;" 
+                                        alt="Miniatura ${idx + 1}"
+                                        onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'#f8f9fa\'/><text x=\'40\' y=\'40\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';">
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="text-center mt-3">
+                        <button type="button" class="btn btn-outline-secondary" onclick="cerrarModalCarrusel()">
+                            <i class="fas fa-times me-1"></i>Cerrar
+                        </button>
+                    </div>
+                `;
+
+                $('#contenidoCarrusel').html(carouselHtml);
+                setTimeout(function() {
+                    var carruselElement = document.getElementById('carruselProducto');
+                    if (carruselElement) new bootstrap.Carousel(carruselElement, { interval: false, wrap: true, touch: true });
+                    $('#carruselProducto').on('slid.bs.carousel', function(e) {
+                        var currentIndex = $('.carousel-item.active').index();
+                        $('#imagenActual').text(currentIndex + 1);
+                        $('.thumbnail-wrapper').css('border-color', 'transparent');
+                        $('.thumbnail-wrapper').eq(currentIndex).css('border-color', '#007bff');
+                    });
+                }, 100);
+
+                var modalElement = document.getElementById('modalCarrusel');
+                if (modalElement) new bootstrap.Modal(modalElement).show();
+            }
+
+            window.cerrarModalCarrusel = function() {
+                var modalElement = document.getElementById('modalCarrusel');
+                if (modalElement) {
+                    var modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) modal.hide();
+                }
+            };
+
+            // ========== FUNCIONES DE CARGAS DE DATOS ==========
+
+            function cargarTiposProducto() {
+                $.get('productos_ajax.php', { accion: 'obtener_tipos_producto', empresa_idx: empresa_idx }, function(tipos) {
+                    var select = $('#producto_tipo_id');
+                    select.empty().append('<option value="">Seleccionar tipo...</option>');
+                    if (tipos && tipos.length > 0) {
+                        tipos.forEach(function(tipo) {
+                            select.append(`<option value="${tipo.producto_tipo_id}">${tipo.producto_tipo} (${tipo.producto_tipo_codigo})</option>`);
                         });
                     }
-                });
-            } else {
-                // Si no tenemos productoId, mostrar solo la imagen proporcionada
-                mostrarCarruselImagenes([{
-                    imagen_url: url,
-                    descripcion: titulo || 'Imagen del producto'
-                }], 0);
+                }, 'json');
             }
-        };
-        // Función para cargar depósitos según sucursal seleccionada
-        function cargarDepositosParaNuevaUbicacion(sucursalId, selectedId = null) {
-            if (!sucursalId) {
-                $('#deposito_id_nueva').html('<option value="">Primero seleccione una sucursal...</option>');
-                return;
-            }
-            
-            $.get('productos_ajax.php', {
-                accion: 'obtener_depositos_por_sucursal',
-                sucursal_id: sucursalId,
-                empresa_idx: empresa_idx
-            }, function(depositos) {
-                var select = $('#deposito_id_nueva');
-                select.empty();
-                select.append('<option value="">Seleccionar depósito...</option>');
-                
-                $.each(depositos, function(index, deposito) {
-                    var selected = (selectedId && deposito.deposito_id == selectedId) ? 'selected' : '';
-                    var nombre = deposito.deposito_nombre;
-                    if (deposito.es_principal) {
-                        nombre += ' (Principal)';
+
+            function cargarCategoriasProducto() {
+                $.get('productos_ajax.php', { accion: 'obtener_categorias', empresa_idx: empresa_idx }, function(categorias) {
+                    var select = $('#producto_categoria_id');
+                    select.empty().append('<option value="">Seleccionar categoría...</option>');
+                    if (categorias && categorias.length > 0) {
+                        categorias.forEach(function(categoria) {
+                            select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
+                        });
                     }
-                    select.append(`<option value="${deposito.deposito_id}" ${selected}>${nombre}</option>`);
-                });
-            }, 'json');
-        }
-
-        // Evento change del select de sucursal en modal de nueva ubicación
-        $(document).on('change', '#sucursal_id', function() {
-            cargarDepositosParaNuevaUbicacion($(this).val());
-        });
-        // Cargar opciones de cuentas contables
-       function cargarCuentasContables() {
-            console.log("=== Iniciando cargarCuentasContables ===");
-            console.log("empresa_idx:", empresa_idx);
-            
-            $.get('productos_ajax.php', {
-                accion: 'obtener_cuentas_contables',
-                empresa_idx: empresa_idx
-            }, function(cuentas) {
-                console.log("Respuesta recibida:", cuentas);
-                var select = $('#cont_cuenta_id');
-                console.log("Select encontrado:", select.length);
-                select.empty().append('<option value="">Seleccionar cuenta...</option>');
-                
-                if (cuentas && cuentas.length > 0) {
-                    console.log("Número de cuentas:", cuentas.length);
-                    cuentas.forEach(function(cuenta) {
-                        var prefix = '';
-                        for (var i = 1; i < cuenta.nivel; i++) {
-                            prefix += '&nbsp;&nbsp;';
-                        }
-                        var texto = prefix + cuenta.codigo + ' - ' + cuenta.nombre;
-                        select.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
-                    });
-                } else {
-                    console.log("No se recibieron cuentas o array vacío");
-                }
-            }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
-                console.error("Error en la petición:", textStatus, errorThrown);
-                console.error("Respuesta del servidor:", jqXHR.responseText);
-            });
-        }
-        // Función para mostrar carrusel de imágenes
-        // Función para mostrar carrusel de imágenes (MEJORADA)
-        function mostrarCarruselImagenes(imagenes, indiceInicial) {
-            console.log("Mostrando carrusel con imágenes:", imagenes);
-            
-            // Validar que haya imágenes
-            if (!imagenes || imagenes.length === 0) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Sin imágenes',
-                    text: 'Este producto no tiene imágenes para mostrar',
-                    confirmButtonText: 'Entendido'
-                });
-                return;
+                }, 'json');
             }
 
-            // Guardar las imágenes globalmente
-            imagenesProductoActual = imagenes;
-
-            // Asegurar que todas las imágenes tengan URL válida
-            imagenes = imagenes.map(img => {
-                if (!img.imagen_url) {
-                    img.imagen_url = 'get_imagen.php?id=' + img.imagen_id;
-                }
-                return img;
-            });
-
-            // Construir el carrusel MEJORADO con controles personalizados
-            var carouselHtml = `
-                <div id="carruselProducto" class="carousel slide carousel-fade" data-bs-ride="false" data-bs-interval="false">
-                    <!-- Indicadores -->
-                    <div class="carousel-indicators">
-                        ${imagenes.map((_, idx) => `
-                            <button type="button" 
-                                    data-bs-target="#carruselProducto" 
-                                    data-bs-slide-to="${idx}" 
-                                    class="${idx === indiceInicial ? 'active' : ''}"
-                                    aria-current="${idx === indiceInicial ? 'true' : 'false'}"
-                                    aria-label="Imagen ${idx + 1}">
-                            </button>
-                        `).join('')}
-                    </div>
-                    
-                    <!-- Imágenes -->
-                    <div class="carousel-inner bg-dark" style="border-radius: 10px; min-height: 500px; display: flex; align-items: center;">
-                        ${imagenes.map((img, idx) => `
-                            <div class="carousel-item ${idx === indiceInicial ? 'active' : ''}" style="text-align: center;">
-                                <img src="${img.imagen_url}" 
-                                    class="d-block mx-auto" 
-                                    style="max-height: 500px; max-width: 100%; object-fit: contain;"
-                                    alt="${img.descripcion || 'Imagen ' + (idx + 1)}"
-                                    onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'500\' height=\'500\'><rect width=\'500\' height=\'500\' fill=\'#f8f9fa\'/><text x=\'250\' y=\'250\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'24\'>Error</text></svg>';">
-                                
-                                <!-- Descripción de la imagen (opcional) -->
-                                ${img.descripcion ? `
-                                    <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded p-2" style="bottom: 20px;">
-                                        <p class="mb-0 text-white">${img.descripcion}</p>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        `).join('')}
-                    </div>
-                    
-                    <!-- Controles de navegación MEJORADOS -->
-                    <button class="carousel-control-prev" type="button" data-bs-target="#carruselProducto" data-bs-slide="prev" style="width: 10%; background: linear-gradient(90deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%); border: none;">
-                        <span class="carousel-control-prev-icon" aria-hidden="true" style="width: 3rem; height: 3rem; background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 1rem;"></span>
-                        <span class="visually-hidden">Anterior</span>
-                    </button>
-                    <button class="carousel-control-next" type="button" data-bs-target="#carruselProducto" data-bs-slide="next" style="width: 10%; background: linear-gradient(270deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%); border: none;">
-                        <span class="carousel-control-next-icon" aria-hidden="true" style="width: 3rem; height: 3rem; background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 1rem;"></span>
-                        <span class="visually-hidden">Siguiente</span>
-                    </button>
-                    
-                    <!-- Contador de imágenes -->
-                    <div class="position-absolute top-0 end-0 m-3 bg-dark bg-opacity-75 text-white px-3 py-2 rounded-pill" style="z-index: 10;">
-                        <span id="imagenActual">${indiceInicial + 1}</span> / ${imagenes.length}
-                    </div>
-                </div>
-                
-                <!-- Thumbnails debajo del carrusel -->
-                <div class="row mt-4 justify-content-center" id="thumbnailsContainer">
-                    ${imagenes.map((img, idx) => `
-                        <div class="col-auto mb-2">
-                            <div class="thumbnail-wrapper" 
-                                onclick="$('#carruselProducto').carousel(${idx})"
-                                style="cursor: pointer; border: 3px solid ${idx === indiceInicial ? '#007bff' : 'transparent'}; border-radius: 8px; overflow: hidden; transition: all 0.3s;">
-                                <img src="${img.imagen_url}" 
-                                    style="width: 80px; height: 80px; object-fit: cover;" 
-                                    alt="Miniatura ${idx + 1}"
-                                    onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'#f8f9fa\'/><text x=\'40\' y=\'40\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';">
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <div class="text-center mt-3">
-                    <button type="button" class="btn btn-outline-secondary" onclick="cerrarModalCarrusel()">
-                        <i class="fas fa-times me-1"></i>Cerrar
-                    </button>
-                </div>
-            `;
-
-            // Actualizar el contenido del modal
-            $('#contenidoCarrusel').html(carouselHtml);
-            
-            // Inicializar el carrusel de Bootstrap
-            setTimeout(function() {
-                var carruselElement = document.getElementById('carruselProducto');
-                if (carruselElement) {
-                    var carrusel = new bootstrap.Carousel(carruselElement, {
-                        interval: false,
-                        wrap: true,
-                        touch: true
-                    });
-                }
-                
-                // Actualizar contador y thumbnails cuando cambie la imagen
-                $('#carruselProducto').on('slid.bs.carousel', function(e) {
-                    var currentIndex = $('.carousel-item.active').index();
-                    $('#imagenActual').text(currentIndex + 1);
-                    
-                    // Actualizar thumbnails activos
-                    $('.thumbnail-wrapper').css('border-color', 'transparent');
-                    $('.thumbnail-wrapper').eq(currentIndex).css('border-color', '#007bff');
-                });
-            }, 100);
-
-            // Mostrar el modal
-            var modalElement = document.getElementById('modalCarrusel');
-            if (modalElement) {
-                var modal = new bootstrap.Modal(modalElement);
-                modal.show();
-            } else {
-                console.error("Modal carrusel no encontrado");
-            }
-        }
-
-        // Función para cerrar el modal
-        window.cerrarModalCarrusel = function() {
-            var modalElement = document.getElementById('modalCarrusel');
-            if (modalElement) {
-                var modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) {
-                    modal.hide();
-                }
-            }
-        };
-
-        // ========== FUNCIONES DE CARGA DE DATOS ==========
-        // ========== FUNCIONES DE PROVEEDORES ==========
-
-        // Cargar proveedores de un producto
-        function cargarProveedoresProducto(productoId) {
-            productoActualProveedores = productoId;
-
-            if ($.fn.DataTable.isDataTable('#tablaProveedores')) {
-                $('#tablaProveedores').DataTable().destroy();
-                $('#tablaProveedores tbody').empty();
-            }
-
-            tablaProveedores = $('#tablaProveedores').DataTable({
-                ajax: {
-                    url: 'productos_ajax.php',
-                    type: 'GET',
-                    data: {
-                        accion: 'obtener_proveedores_producto',
-                        producto_id: productoId,
-                        empresa_idx: empresa_idx
-                    },
-                    dataSrc: ''
-                },
-                columns: [
-                    { data: 'entidad_nombre', render: function(data) { return data || '-'; } },
-                    { data: 'cuit', render: function(data) { return data || '-'; } },
-                    { data: 'codigo_proveedor', render: function(data) { return data || '-'; } },
-                    { 
-                        data: 'producto_proveedor_id', 
-                        orderable: false, 
-                        searchable: false, 
-                        className: "text-center",
-                        render: function(data) {
-                            return `<div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary btn-editar-proveedor" 
-                                        data-id="${data}" title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-danger btn-eliminar-proveedor" 
-                                        data-id="${data}" title="Eliminar">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>`;
-                        }
+            function cargarUnidadesMedida() {
+                $.get('productos_ajax.php', { accion: 'obtener_unidades_medida', empresa_idx: empresa_idx }, function(unidades) {
+                    var select = $('#unidad_medida_id');
+                    select.empty().append('<option value="">Seleccionar unidad...</option>');
+                    if (unidades && unidades.length > 0) {
+                        unidades.forEach(function(unidad) {
+                            select.append(`<option value="${unidad.unidad_medida_id}">${unidad.unidad_nombre} (${unidad.unidad_abreviatura})</option>`);
+                        });
                     }
-                ],
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-                responsive: true,
-                pageLength: 10,
-                searching: false,
-                paging: false,
-                info: false
-            });
-        }
-
-        // Cargar entidades proveedoras
-        function cargarEntidadesProveedores() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_entidades_proveedores',
-                empresa_idx: empresa_idx
-            }, function(entidades) {
-                var select = $('#entidad_id');
-                select.empty().append('<option value="">Seleccionar proveedor...</option>');
-                if (entidades && entidades.length > 0) {
-                    entidades.forEach(function(entidad) {
-                        var texto = entidad.entidad_nombre;
-                        if (entidad.cuit) texto += ' (' + entidad.cuit + ')';
-                        select.append(`<option value="${entidad.entidad_id}">${texto}</option>`);
-                    });
-                }
-            }, 'json');
-        }
-
-        // Mostrar modal de proveedor
-        function mostrarModalProveedor(productoId, productoProveedorId = null) {
-            resetModalProveedor();
-            $('#proveedor_producto_id').val(productoId);
-            cargarEntidadesProveedores();
-
-            if (productoProveedorId) {
-                $('#modalProveedorLabel').html('<i class="fas fa-edit me-2"></i>Editar Proveedor');
-                $('#producto_proveedor_id').val(productoProveedorId);
-
-                setTimeout(function() {
-                    $.get('productos_ajax.php', {
-                        accion: 'obtener_proveedor_producto_por_id',
-                        producto_proveedor_id: productoProveedorId,
-                        empresa_idx: empresa_idx
-                    }, function(res) {
-                        if (res && res.producto_proveedor_id) {
-                            $('#entidad_id').val(res.entidad_id);
-                            $('#codigo_proveedor').val(res.codigo_proveedor || '');
-                            
-                            // Deshabilitar cambio de proveedor en edición
-                            $('#entidad_id').prop('disabled', true);
-                        }
-                    }, 'json');
-                }, 300);
-            } else {
-                $('#modalProveedorLabel').html('<i class="fas fa-plus me-2"></i>Agregar Proveedor');
-                $('#entidad_id').prop('disabled', false);
+                }, 'json');
             }
 
-            new bootstrap.Modal(document.getElementById('modalProveedor')).show();
-        }
-
-        function resetModalProveedor() {
-            $('#formProveedor')[0].reset();
-            $('#producto_proveedor_id').val('');
-            $('#formProveedor').removeClass('was-validated');
-            $('#entidad_id').empty().append('<option value="">Seleccionar proveedor...</option>').prop('disabled', false);
-        }
-
-        // Cargar monedas
-        function cargarMonedas() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_monedas',
-                empresa_idx: empresa_idx
-            }, function(monedas) {
-                var select = $('#moneda_id');
-                select.empty().append('<option value="">Seleccionar moneda...</option>');
-                if (monedas && monedas.length > 0) {
-                    monedas.forEach(function(moneda) {
-                        var texto = moneda.moneda_nombre;
-                        if (moneda.moneda_simbolo) texto += ' (' + moneda.moneda_simbolo + ')';
-                        select.append(`<option value="${moneda.moneda_id}">${texto}</option>`);
+            function cargarIvaAlicuotas() {
+                $.get('productos_ajax.php', { accion: 'obtener_iva_alicuotas', empresa_idx: empresa_idx }, function(alicuotas) {
+                    var select = $('#iva_alicuota_id');
+                    select.empty().append('<option value="">Seleccionar alícuota...</option>');
+                    if (alicuotas && alicuotas.length > 0) {
+                        alicuotas.forEach(function(alicuota) {
+                            var porcentaje = alicuota.porcentaje ? parseFloat(alicuota.porcentaje).toFixed(2) + '%' : '';
+                            var texto = alicuota.iva_alicuota + (porcentaje ? ' (' + porcentaje + ')' : '');
+                            select.append(`<option value="${alicuota.iva_alicuota_id}" 
+                                data-porcentaje="${alicuota.porcentaje || 0}"
+                                data-gravado="${alicuota.es_gravado || 0}"
+                                data-exento="${alicuota.es_exento || 0}"
+                                data-no-gravado="${alicuota.es_no_gravado || 0}">${texto}</option>`);
+                        });
+                    }
+                    select.off('change').on('change', function() {
+                        var selected = $(this).find('option:selected');
+                        var porcentaje = selected.data('porcentaje') || 0;
+                        var gravado = selected.data('gravado');
+                        var exento = selected.data('exento');
+                        var noGravado = selected.data('no-gravado');
+                        $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + parseFloat(porcentaje).toFixed(2) + '%</span>' : '<span class="text-muted">0%</span>');
+                        var infoHtml = '';
+                        if (exento == 1) infoHtml = '<span class="badge bg-success">EXENTO</span>';
+                        else if (noGravado == 1) infoHtml = '<span class="badge bg-warning">NO GRAVADO</span>';
+                        else if (gravado == 1) infoHtml = '<span class="badge bg-info">GRAVADO</span>';
+                        else infoHtml = '<span class="text-muted">No especificado</span>';
+                        $('#iva_info').html(infoHtml);
                     });
-                }
-            }, 'json');
-        }
-
-        // Mostrar modal de proveedor
-        function mostrarModalProveedor(productoId, productoProveedorId = null) {
-            resetModalProveedor();
-            $('#proveedor_producto_id').val(productoId);
-            cargarEntidadesProveedores();
-            cargarMonedas();
-
-            if (productoProveedorId) {
-                $('#modalProveedorLabel').html('<i class="fas fa-edit me-2"></i>Editar Proveedor');
-                $('#producto_proveedor_id').val(productoProveedorId);
-
-                setTimeout(function() {
-                    $.get('productos_ajax.php', {
-                        accion: 'obtener_proveedor_producto_por_id',
-                        producto_proveedor_id: productoProveedorId,
-                        empresa_idx: empresa_idx
-                    }, function(res) {
-                        if (res && res.producto_proveedor_id) {
-                            $('#entidad_id').val(res.entidad_id);
-                            $('#codigo_proveedor').val(res.codigo_proveedor || '');
-                            $('#costo').val(res.costo || '');
-                            $('#moneda_id').val(res.moneda_id || '');
-                            $('#plazo_entrega_dias').val(res.plazo_entrega_dias || '');
-                            
-                            // Deshabilitar cambio de proveedor en edición
-                            $('#entidad_id').prop('disabled', true);
-                        }
-                    }, 'json');
-                }, 300);
-            } else {
-                $('#modalProveedorLabel').html('<i class="fas fa-plus me-2"></i>Agregar Proveedor');
-                $('#entidad_id').prop('disabled', false);
+                    if (select.val()) select.trigger('change');
+                }, 'json');
             }
 
-            new bootstrap.Modal(document.getElementById('modalProveedor')).show();
-        }
+            function cargarCuentasContables() {
+                $.get('productos_ajax.php', { accion: 'obtener_cuentas_contables', empresa_idx: empresa_idx }, function(cuentas) {
+                    var select = $('#cont_cuenta_id');
+                    select.empty().append('<option value="">Seleccionar cuenta...</option>');
+                    if (cuentas && cuentas.length > 0) {
+                        cuentas.forEach(function(cuenta) {
+                            var prefix = '';
+                            for (var i = 1; i < cuenta.nivel; i++) prefix += '&nbsp;&nbsp;';
+                            var texto = prefix + cuenta.codigo + ' - ' + cuenta.nombre;
+                            select.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
+                        });
+                    }
+                }, 'json');
+            }
 
-        function resetModalProveedor() {
-            $('#formProveedor')[0].reset();
-            $('#producto_proveedor_id').val('');
-            $('#formProveedor').removeClass('was-validated');
-            $('#entidad_id').empty().append('<option value="">Seleccionar proveedor...</option>').prop('disabled', false);
-            $('#moneda_id').empty().append('<option value="">Seleccionar moneda...</option>');
-        }
-        // Cargar opciones de tipos de producto
-        function cargarTiposProducto() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_tipos_producto',
-                empresa_idx: empresa_idx
-            }, function(tipos) {
-                var select = $('#producto_tipo_id');
-                select.empty().append('<option value="">Seleccionar tipo...</option>');
-                if (tipos && tipos.length > 0) {
-                    tipos.forEach(function(tipo) {
-                        select.append(`<option value="${tipo.producto_tipo_id}">${tipo.producto_tipo} (${tipo.producto_tipo_codigo})</option>`);
-                    });
-                }
-            }, 'json');
-        }
+            function cargarMarcas() {
+                $.get('productos_ajax.php', { accion: 'obtener_marcas', empresa_idx: empresa_idx }, function(marcas) {
+                    var selectFiltro = $('#filtroMarca');
+                    var selectModal = $('#marca_id');
+                    selectFiltro.empty().append('<option value="">Todas las marcas</option>');
+                    selectModal.empty().append('<option value="">Seleccionar marca...</option>');
+                    if (marcas && marcas.length > 0) {
+                        marcas.forEach(function(marca) {
+                            selectFiltro.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
+                            selectModal.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
+                        });
+                    }
+                }, 'json');
+            }
 
-        // Cargar opciones de categorías de producto
-        function cargarCategoriasProducto() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_categorias',
-                empresa_idx: empresa_idx
-            }, function(categorias) {
-                var select = $('#producto_categoria_id');
-                select.empty().append('<option value="">Seleccionar categoría...</option>');
-                if (categorias && categorias.length > 0) {
-                    categorias.forEach(function(categoria) {
-                        select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
-                    });
+            function cargarModelos(marcaId, targetId) {
+                targetId = targetId || '#modelo_id';
+                if (!marcaId) {
+                    $(targetId).empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
+                    return;
                 }
-            }, 'json');
-        }
+                $.get('productos_ajax.php', { accion: 'obtener_modelos', empresa_idx: empresa_idx, marca_id: marcaId }, function(modelos) {
+                    var select = $(targetId);
+                    select.empty().append('<option value="">Seleccionar modelo...</option>');
+                    if (modelos && modelos.length > 0) {
+                        select.prop('disabled', false);
+                        modelos.forEach(function(modelo) {
+                            select.append(`<option value="${modelo.modelo_id}">${modelo.modelo_nombre}</option>`);
+                        });
+                    } else select.prop('disabled', true);
+                }, 'json');
+            }
 
-        // Cargar opciones de unidades de medida
-        function cargarUnidadesMedida() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_unidades_medida',
-                empresa_idx: empresa_idx
-            }, function(unidades) {
-                var select = $('#unidad_medida_id');
-                select.empty().append('<option value="">Seleccionar unidad...</option>');
-                if (unidades && unidades.length > 0) {
-                    unidades.forEach(function(unidad) {
-                        select.append(`<option value="${unidad.unidad_medida_id}">${unidad.unidad_nombre} (${unidad.unidad_abreviatura})</option>`);
-                    });
+            function cargarSubmodelos(modeloId, targetId) {
+                targetId = targetId || '#submodelo_id';
+                if (!modeloId) {
+                    $(targetId).empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
+                    return;
                 }
-            }, 'json');
-        }
+                $.get('productos_ajax.php', { accion: 'obtener_submodelos', empresa_idx: empresa_idx, modelo_id: modeloId }, function(submodelos) {
+                    var select = $(targetId);
+                    select.empty().append('<option value="">Seleccionar submodelo...</option>').append('<option value="0">Sin submodelo</option>');
+                    if (submodelos && submodelos.length > 0) {
+                        select.prop('disabled', false);
+                        submodelos.forEach(function(submodelo) {
+                            select.append(`<option value="${submodelo.submodelo_id}">${submodelo.submodelo_nombre}</option>`);
+                        });
+                    } else select.prop('disabled', false);
+                }, 'json');
+            }
 
-        // Cargar opciones de IVA alícuotas
-        function cargarIvaAlicuotas() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_iva_alicuotas',
-                empresa_idx: empresa_idx
-            }, function(alicuotas) {
-                var select = $('#iva_alicuota_id');
-                select.empty().append('<option value="">Seleccionar alícuota...</option>');
-                
-                if (alicuotas && alicuotas.length > 0) {
-                    alicuotas.forEach(function(alicuota) {
-                        var porcentaje = alicuota.porcentaje ? parseFloat(alicuota.porcentaje).toFixed(2) + '%' : '';
-                        var texto = alicuota.iva_alicuota + (porcentaje ? ' (' + porcentaje + ')' : '');
-                        
-                        select.append(`<option value="${alicuota.iva_alicuota_id}" 
-                            data-porcentaje="${alicuota.porcentaje || 0}"
-                            data-gravado="${alicuota.es_gravado || 0}"
-                            data-exento="${alicuota.es_exento || 0}"
-                            data-no-gravado="${alicuota.es_no_gravado || 0}">
-                            ${texto}
-                        </option>`);
-                    });
+            function cargarAnios() {
+                var currentYear = new Date().getFullYear();
+                var startYear = 1950;
+                var selectDesde = $('#anio_desde');
+                var selectHasta = $('#anio_hasta');
+                selectDesde.empty().append('<option value="">Año...</option>');
+                selectHasta.empty().append('<option value="">Año...</option>').append('<option value="0">Actual</option>');
+                for (var year = startYear; year <= currentYear + 10; year++) {
+                    selectDesde.append(`<option value="${year}">${year}</option>`);
+                    selectHasta.append(`<option value="${year}">${year}</option>`);
                 }
-                
-                select.off('change').on('change', function() {
-                    var selected = $(this).find('option:selected');
-                    var porcentaje = selected.data('porcentaje') || 0;
-                    var gravado = selected.data('gravado');
-                    var exento = selected.data('exento');
-                    var noGravado = selected.data('no-gravado');
-                    
-                    $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + parseFloat(porcentaje).toFixed(2) + '%</span>' : '<span class="text-muted">0%</span>');
-                    
-                    var infoHtml = '';
-                    if (exento == 1) {
-                        infoHtml = '<span class="badge bg-success">EXENTO</span>';
-                    } else if (noGravado == 1) {
-                        infoHtml = '<span class="badge bg-warning">NO GRAVADO</span>';
-                    } else if (gravado == 1) {
-                        infoHtml = '<span class="badge bg-info">GRAVADO</span>';
+            }
+
+            function cargarSucursales() {
+                $.get('productos_ajax.php', { accion: 'obtener_sucursales', empresa_idx: empresa_idx }, function(sucursales) {
+                    var select = $('#sucursal_id');
+                    select.empty().append('<option value="">Seleccionar sucursal...</option>');
+                    if (sucursales && sucursales.length > 0) {
+                        sucursales.forEach(function(sucursal) {
+                            select.append(`<option value="${sucursal.sucursal_id}">${sucursal.sucursal_nombre}</option>`);
+                        });
+                    } else select.append('<option value="">No hay sucursales disponibles</option>');
+                }, 'json');
+            }
+
+            function cargarSucursalesSelect(callback) {
+                $.get('productos_ajax.php', { accion: 'obtener_sucursales', empresa_idx: empresa_idx }, function(sucursales) {
+                    var select = $('#select_sucursal');
+                    var currentValue = select.val();
+                    select.empty().append('<option value="">Seleccione sucursal...</option>');
+                    if (sucursales && sucursales.length > 0) {
+                        sucursales.forEach(function(sucursal) {
+                            select.append(`<option value="${sucursal.sucursal_id}">${sucursal.sucursal_nombre}</option>`);
+                        });
+                        select.prop('disabled', false);
                     } else {
-                        infoHtml = '<span class="text-muted">No especificado</span>';
+                        select.append('<option value="">No hay sucursales disponibles</option>');
+                    }
+                    if (currentValue) {
+                        select.val(currentValue);
+                    }
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
+                }, 'json');
+            }
+
+            function cargarDepositos(sucursalId) {
+                var select = $('#select_deposito');
+                select.empty().append('<option value="">Cargando depósitos...</option>').prop('disabled', true);
+                if (!sucursalId) {
+                    select.empty().append('<option value="">Seleccione sucursal primero</option>');
+                    return;
+                }
+                $.get('productos_ajax.php', { accion: 'obtener_depositos_por_sucursal', sucursal_id: sucursalId, empresa_idx: empresa_idx }, function(depositos) {
+                    select.empty().append('<option value="">Seleccione depósito...</option>');
+                    if (depositos && depositos.length > 0) {
+                        depositos.forEach(function(deposito) {
+                            var nombre = deposito.deposito_nombre;
+                            if (deposito.es_principal == 1) nombre += ' ★';
+                            select.append(`<option value="${deposito.deposito_id}">${nombre}</option>`);
+                        });
+                        select.prop('disabled', false);
+                    } else select.append('<option value="">No hay depósitos disponibles</option>');
+                }, 'json');
+            }
+
+            function cargarSecciones(depositoId) {
+                var select = $('#select_seccion');
+                select.empty().append('<option value="">Cargando secciones...</option>').prop('disabled', true);
+                if (!depositoId) {
+                    select.empty().append('<option value="">Seleccione depósito primero</option>');
+                    return;
+                }
+                $.get('productos_ajax.php', { accion: 'obtener_secciones', deposito_id: depositoId, empresa_idx: empresa_idx }, function(secciones) {
+                    select.empty().append('<option value="">Seleccione sección...</option>');
+                    if (secciones && secciones.length > 0) {
+                        secciones.forEach(function(seccion) { select.append(`<option value="${seccion}">${seccion}</option>`); });
+                        select.prop('disabled', false);
+                    } else select.append('<option value="">No hay secciones disponibles</option>');
+                }, 'json');
+            }
+
+            function cargarEstanterias(depositoId, seccion) {
+                var select = $('#select_estanteria');
+                select.empty().append('<option value="">Cargando estanterías...</option>').prop('disabled', true);
+                if (!depositoId || !seccion) {
+                    select.empty().append('<option value="">Seleccione sección primero</option>');
+                    return;
+                }
+                $.get('productos_ajax.php', { accion: 'obtener_estanterias', deposito_id: depositoId, seccion: seccion, empresa_idx: empresa_idx }, function(estanterias) {
+                    select.empty().append('<option value="">Seleccione estantería...</option>');
+                    if (estanterias && estanterias.length > 0) {
+                        estanterias.forEach(function(estanteria) { select.append(`<option value="${estanteria}">${estanteria}</option>`); });
+                        select.prop('disabled', false);
+                    } else select.append('<option value="">No hay estanterías disponibles</option>');
+                }, 'json');
+            }
+
+            function cargarEstantes(depositoId, seccion, estanteria) {
+                var select = $('#select_estante');
+                select.empty().append('<option value="">Cargando estantes...</option>').prop('disabled', true);
+                if (!depositoId || !seccion || !estanteria) {
+                    select.empty().append('<option value="">Seleccione estantería primero</option>');
+                    return;
+                }
+                $.get('productos_ajax.php', { accion: 'obtener_estantes', deposito_id: depositoId, seccion: seccion, estanteria: estanteria, empresa_idx: empresa_idx }, function(estantes) {
+                    select.empty().append('<option value="">Seleccione estante...</option>');
+                    if (estantes && estantes.length > 0) {
+                        estantes.forEach(function(estante) { select.append(`<option value="${estante}">${estante}</option>`); });
+                        select.prop('disabled', false);
+                    } else select.append('<option value="">No hay estantes disponibles</option>');
+                }, 'json');
+            }
+
+            function cargarPosiciones(depositoId, seccion, estanteria, estante) {
+                var select = $('#select_posicion');
+                select.empty().append('<option value="">Cargando posiciones...</option>').prop('disabled', true);
+                if (!depositoId || !seccion || !estanteria || !estante) {
+                    select.empty().append('<option value="">Seleccione estante primero</option>');
+                    return;
+                }
+                $.get('productos_ajax.php', { accion: 'obtener_posiciones', deposito_id: depositoId, seccion: seccion, estanteria: estanteria, estante: estante, empresa_idx: empresa_idx }, function(posiciones) {
+                    select.empty().append('<option value="">Seleccione posición...</option>');
+                    if (posiciones && posiciones.length > 0) {
+                        posiciones.forEach(function(posicion) {
+                            var texto = posicion.posicion;
+                            if (posicion.descripcion) texto += ' (' + posicion.descripcion + ')';
+                            select.append(`<option value="${posicion.sucursal_ubicacion_id}">${texto}</option>`);
+                        });
+                        select.prop('disabled', false);
+                    } else select.append('<option value="">No hay posiciones disponibles</option>');
+                }, 'json');
+            }
+
+            function cargarDetalleUbicacion(ubicacionId) {
+                if (!ubicacionId) {
+                    window.limpiarSeleccionUbicacion();
+                    return;
+                }
+                $.get('productos_ajax.php', { 
+                    accion: 'obtener_ubicacion_detalle', 
+                    sucursal_ubicacion_id: ubicacionId, 
+                    empresa_idx: empresa_idx 
+                }, function(data) {
+                    if (data && data.sucursal_ubicacion_id) {
+                        datosUbicacionCompleta = data;
+                        mostrarUbicacionSeleccionada(data);
+                        $('#sucursal_ubicacion_id').val(data.sucursal_ubicacion_id);
+                        $('#btnGuardarUbicacion').prop('disabled', false);
+                    } else {
+                        window.limpiarSeleccionUbicacion();
+                    }
+                }, 'json');
+            }
+
+            function mostrarUbicacionSeleccionada(data) {
+                var html = '';
+                html += '<span class="badge bg-primary me-1">' + (data.sucursal_nombre || 'N/A') + '</span>';
+                html += '<span class="badge bg-info me-1">' + (data.deposito_nombre || 'N/A') + '</span>';
+                html += '<span class="badge bg-secondary me-1">' + (data.seccion || 'N/A') + '</span>';
+                html += '<span class="badge bg-warning me-1 text-dark">Est: ' + (data.estanteria || 'N/A') + '</span>';
+                html += '<span class="badge bg-success me-1">Nro: ' + (data.estante || 'N/A') + '</span>';
+                html += '<span class="badge bg-danger me-1">Pos: ' + (data.posicion || 'N/A') + '</span>';
+                if (data.descripcion) html += '<span class="badge bg-light text-dark">' + data.descripcion + '</span>';
+                $('#ubicacionSeleccionadaTexto').html(html);
+                $('#ubicacionSeleccionadaPanel').show();
+                $('#selectsUbicacion').hide();
+            }
+
+            function limpiarSelectsDesde(desde) {
+                var selects = ['deposito', 'seccion', 'estanteria', 'estante', 'posicion'];
+                var indice = selects.indexOf(desde);
+                if (indice === -1) return;
+                var mensajes = {
+                    'deposito': 'Primero seleccione sucursal',
+                    'seccion': 'Primero seleccione depósito',
+                    'estanteria': 'Primero seleccione sección',
+                    'estante': 'Primero seleccione estantería',
+                    'posicion': 'Primero seleccione estante'
+                };
+                for (var i = indice; i < selects.length; i++) {
+                    var selectId = '#select_' + selects[i];
+                    $(selectId).empty().append('<option value="">' + mensajes[selects[i]] + '</option>').prop('disabled', true);
+                }
+                $('#btnGuardarUbicacion').prop('disabled', true);
+                $('#sucursal_ubicacion_id').val('');
+            }
+
+            window.limpiarSeleccionUbicacion = function() {
+                $('#ubicacionSeleccionadaPanel').hide();
+                $('#selectsUbicacion').show();
+                $('#sucursal_ubicacion_id').val('');
+                $('#btnGuardarUbicacion').prop('disabled', true);
+                datosUbicacionCompleta = null;
+            };
+
+            function resetModalUbicacion() {
+                var editando = $('#producto_ubicacion_id_editar').val() || '';
+                
+                $('#formUbicacion')[0].reset();
+                $('#formUbicacion').removeClass('was-validated');
+                $('#ubicacionSeleccionadaPanel').hide();
+                $('#selectsUbicacion').show();
+                $('#sucursal_ubicacion_id').val('');
+                $('#btnGuardarUbicacion').prop('disabled', true);
+                
+                if (!editando) {
+                    $('#producto_ubicacion_id_editar').val('');
+                    $('#btnGuardarUbicacion').text('Guardar');
+                    $('#modalUbicacionLabel').html('<i class="fas fa-map-marker-alt me-2"></i>Agregar Ubicación');
+                }
+                
+                datosUbicacionCompleta = null;
+                $('#select_sucursal').empty().append('<option value="">Seleccione sucursal...</option>').prop('disabled', false);
+                $('#select_deposito').empty().append('<option value="">Primero seleccione sucursal</option>').prop('disabled', true);
+                $('#select_seccion').empty().append('<option value="">Primero seleccione depósito</option>').prop('disabled', true);
+                $('#select_estanteria').empty().append('<option value="">Primero seleccione sección</option>').prop('disabled', true);
+                $('#select_estante').empty().append('<option value="">Primero seleccione estantería</option>').prop('disabled', true);
+                $('#select_posicion').empty().append('<option value="">Primero seleccione estante</option>').prop('disabled', true);
+            }
+
+            function resetModalNuevaUbicacion() {
+                $('#formNuevaUbicacion')[0].reset();
+                $('#formNuevaUbicacion').removeClass('was-validated');
+                $('#sucursal_id').empty().append('<option value="">Seleccionar sucursal...</option>');
+                $('#deposito_id_nueva').empty().append('<option value="">Primero seleccione una sucursal...</option>');
+            }
+
+            function cargarDepositosParaNuevaUbicacion(sucursalId, selectedId) {
+                if (!sucursalId) {
+                    $('#deposito_id_nueva').html('<option value="">Primero seleccione una sucursal...</option>');
+                    return;
+                }
+                $.get('productos_ajax.php', { accion: 'obtener_depositos_por_sucursal', sucursal_id: sucursalId, empresa_idx: empresa_idx }, function(depositos) {
+                    var select = $('#deposito_id_nueva');
+                    select.empty().append('<option value="">Seleccionar depósito...</option>');
+                    $.each(depositos, function(index, deposito) {
+                        var selected = (selectedId && deposito.deposito_id == selectedId) ? 'selected' : '';
+                        var nombre = deposito.deposito_nombre;
+                        if (deposito.es_principal) nombre += ' (Principal)';
+                        select.append(`<option value="${deposito.deposito_id}" ${selected}>${nombre}</option>`);
+                    });
+                }, 'json');
+            }
+
+            function cargarEntidadesProveedores() {
+                $.get('productos_ajax.php', { accion: 'obtener_entidades_proveedores', empresa_idx: empresa_idx }, function(entidades) {
+                    var select = $('#entidad_id');
+                    select.empty().append('<option value="">Seleccionar proveedor...</option>');
+                    if (entidades && entidades.length > 0) {
+                        entidades.forEach(function(entidad) {
+                            var texto = entidad.entidad_nombre;
+                            if (entidad.cuit) texto += ' (' + entidad.cuit + ')';
+                            select.append(`<option value="${entidad.entidad_id}">${texto}</option>`);
+                        });
+                    }
+                }, 'json');
+            }
+
+            function formatBytes(bytes, decimals) {
+                decimals = decimals || 2;
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            }
+
+            // ========== FUNCIONES DEL BUSCADOR POR TAGS ==========
+
+            function inicializarBuscadorTags() {
+                tagsContainer.on('click', function(e) {
+                    if (e.target === this || $(e.target).is('#buscadorTagsContainer')) tagsInput.focus();
+                });
+
+                // Usar 'input' en lugar de 'keydown' para mejor respuesta
+                tagsInput.on('input', function(e) {
+                    var value = $(this).val().trim();
+                    if (value.includes(' ')) {
+                        var palabras = value.split(/\s+/);
+                        palabras.forEach(function(palabra) {
+                            if (palabra.length > 0) agregarTag(palabra);
+                        });
+                        $(this).val('');
+                        ejecutarBusquedaTags();
+                    }
+                });
+
+                tagsInput.on('keydown', function(e) {
+                    var value = $(this).val().trim();
+                    if (e.key === ' ' || e.key === 'Space') {
+                        e.preventDefault();
+                        if (value.length > 0) {
+                            agregarTag(value);
+                            $(this).val('');
+                            ejecutarBusquedaTags();
+                        }
+                    } else if (e.key === 'Backspace' && value === '' && tags.length > 0) {
+                        eliminarTag(tags.length - 1);
+                        ejecutarBusquedaTags();
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (value.length > 0) {
+                            agregarTag(value);
+                            $(this).val('');
+                            ejecutarBusquedaTags();
+                        }
+                    } else if (e.key === 'Escape') {
+                        $(this).blur();
+                    }
+                });
+
+                tagsInput.on('paste', function() {
+                    setTimeout(function() {
+                        var value = tagsInput.val().trim();
+                        if (value) {
+                            var palabras = value.split(/\s+/);
+                            palabras.forEach(function(palabra) {
+                                if (palabra.length > 0) agregarTag(palabra);
+                            });
+                            tagsInput.val('');
+                            ejecutarBusquedaTags();
+                        }
+                    }, 10);
+                });
+
+                $('#btnLimpiarTags').on('click', function() { 
+                    limpiarTags(); 
+                    ejecutarBusquedaTags(); 
+                });
+            }
+
+            function agregarTag(texto) {
+                texto = texto.trim();
+                if (!texto) return;
+                var duplicado = tags.some(function(tag) { return tag.toLowerCase() === texto.toLowerCase(); });
+                if (duplicado) { tagsInput.val(''); return; }
+                tags.push(texto);
+                renderizarTags();
+                tagsInput.val('');
+                tagsInput.focus();
+            }
+
+            function eliminarTag(index) {
+                if (index >= 0 && index < tags.length) {
+                    tags.splice(index, 1);
+                    renderizarTags();
+                }
+            }
+
+            function limpiarTags() {
+                tags = [];
+                renderizarTags();
+            }
+
+            function renderizarTags() {
+                tagsContainer.find('.tag-item').remove();
+                tags.forEach(function(tag, index) {
+                    var tagHtml = `
+                        <span class="tag-item" data-index="${index}">
+                            <span class="tag-text">${escapeHtml(tag)}</span>
+                            <span class="tag-remove" data-index="${index}" title="Eliminar"><i class="fas fa-times"></i></span>
+                        </span>
+                    `;
+                    tagsContainer.find('#buscadorTagsInput').before(tagHtml);
+                });
+                tagsContainer.find('.tag-remove').on('click', function(e) {
+                    e.stopPropagation();
+                    var index = parseInt($(this).data('index'));
+                    eliminarTag(index);
+                    ejecutarBusquedaTags();
+                });
+            }
+
+            function escapeHtml(text) {
+                var div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function ejecutarBusquedaTags() {
+                var terminoBusqueda = tags.join(' ');
+                if (tabla) {
+                    if (tags.length > 0) {
+                        $('#buscadorTagsContainer').attr('title', 'Buscando ' + tags.length + ' palabra(s): ' + tags.join(', '));
+                    } else {
+                        $('#buscadorTagsContainer').removeAttr('title');
+                    }
+                    tabla.search(terminoBusqueda);
+                    tabla.draw();
+                    actualizarIndicadorFiltros();
+                }
+            }
+
+            // ========== FUNCIONES DE UBICACIONES ==========
+
+            function inicializarEventosUbicacion() {
+                $('#select_sucursal').off('change').on('change', function() {
+                    var sucursalId = $(this).val();
+                    limpiarSelectsDesde('deposito');
+                    if (sucursalId) cargarDepositos(sucursalId);
+                    window.limpiarSeleccionUbicacion();
+                });
+                $('#select_deposito').off('change').on('change', function() {
+                    var depositoId = $(this).val();
+                    limpiarSelectsDesde('seccion');
+                    if (depositoId) cargarSecciones(depositoId);
+                    window.limpiarSeleccionUbicacion();
+                });
+                $('#select_seccion').off('change').on('change', function() {
+                    var seccion = $(this).val();
+                    var depositoId = $('#select_deposito').val();
+                    limpiarSelectsDesde('estanteria');
+                    if (seccion && depositoId) cargarEstanterias(depositoId, seccion);
+                    window.limpiarSeleccionUbicacion();
+                });
+                $('#select_estanteria').off('change').on('change', function() {
+                    var estanteria = $(this).val();
+                    var depositoId = $('#select_deposito').val();
+                    var seccion = $('#select_seccion').val();
+                    limpiarSelectsDesde('estante');
+                    if (estanteria && depositoId && seccion) cargarEstantes(depositoId, seccion, estanteria);
+                    window.limpiarSeleccionUbicacion();
+                });
+                $('#select_estante').off('change').on('change', function() {
+                    var estante = $(this).val();
+                    var depositoId = $('#select_deposito').val();
+                    var seccion = $('#select_seccion').val();
+                    var estanteria = $('#select_estanteria').val();
+                    limpiarSelectsDesde('posicion');
+                    if (estante && depositoId && seccion && estanteria) cargarPosiciones(depositoId, seccion, estanteria, estante);
+                    window.limpiarSeleccionUbicacion();
+                });
+                $('#select_posicion').off('change').on('change', function() {
+                    var ubicacionId = $(this).val();
+                    if (ubicacionId) {
+                        cargarDetalleUbicacion(ubicacionId);
+                    } else {
+                        window.limpiarSeleccionUbicacion();
+                    }
+                });
+            }
+
+            function cargarUbicacionesProducto(productoId) {
+                productoActualUbicaciones = productoId;
+                if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
+                    $('#tablaUbicaciones').DataTable().destroy();
+                    $('#tablaUbicaciones tbody').empty();
+                }
+                tablaUbicaciones = $('#tablaUbicaciones').DataTable({
+                    ajax: {
+                        url: 'productos_ajax.php',
+                        type: 'GET',
+                        data: { accion: 'obtener_ubicaciones_producto', producto_id: productoId, empresa_idx: empresa_idx },
+                        dataSrc: ''
+                    },
+                    columns: [
+                        { 
+                            data: 'sucursal_nombre', 
+                            className: 'align-middle',
+                            render: function(data) { 
+                                return data ? '<span class="badge badge-sucursal-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
+                            }
+                        },
+                        { 
+                            data: 'deposito_nombre', 
+                            className: 'align-middle',
+                            render: function(data) { 
+                                return data ? '<span class="badge badge-deposito-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
+                            }
+                        },
+                        { 
+                            data: 'seccion', 
+                            className: 'align-middle',
+                            render: function(data) { 
+                                return data ? '<span class="badge badge-seccion-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
+                            }
+                        },
+                        { 
+                            data: 'estanteria', 
+                            className: 'align-middle',
+                            render: function(data) { 
+                                return data ? '<span class="badge badge-estanteria-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
+                            }
+                        },
+                        { 
+                            data: 'estante', 
+                            className: 'align-middle',
+                            render: function(data) { 
+                                return data ? '<span class="badge badge-estante-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
+                            }
+                        },
+                        { 
+                            data: 'posicion', 
+                            className: 'align-middle',
+                            render: function(data) { 
+                                return data ? '<span class="badge badge-posicion-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
+                            }
+                        },
+                        { 
+                            data: 'descripcion', 
+                            className: 'align-middle',
+                            render: function(data) { 
+                                return data ? '<span class="badge badge-descripcion-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
+                            }
+                        },
+                        {
+                            data: 'producto_ubicacion_id', 
+                            orderable: false, 
+                            searchable: false, 
+                            className: "text-center align-middle",
+                            render: function(data) {
+                                return `<div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary btn-editar-ubicacion" data-id="${data}" title="Editar"><i class="fas fa-edit"></i></button>
+                                    <button type="button" class="btn btn-outline-danger btn-eliminar-ubicacion" data-id="${data}" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                </div>`;
+                            }
+                        }
+                    ],
+                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    responsive: true,
+                    pageLength: 10,
+                    searching: false,
+                    paging: false,
+                    info: false,
+                    scrollX: false,
+                    autoWidth: false,
+                    columnDefs: [
+                        { width: '10%', targets: 0 },
+                        { width: '10%', targets: 1 },
+                        { width: '15%', targets: 2 },
+                        { width: '15%', targets: 3 },
+                        { width: '10%', targets: 4 },
+                        { width: '10%', targets: 5 },
+                        { width: '20%', targets: 6 },
+                        { width: '10%', targets: 7 }
+                    ]
+                });
+            }
+
+            function mostrarModalUbicacion(productoId) {
+                resetModalUbicacion();
+                $('#ubicacion_producto_id').val(productoId);
+                $('#producto_ubicacion_id_editar').val('');
+                $('#btnGuardarUbicacion').text('Guardar');
+                $('#modalUbicacionLabel').html('<i class="fas fa-map-marker-alt me-2"></i>Agregar Ubicación');
+                inicializarEventosUbicacion();
+                cargarSucursalesSelect();
+                new bootstrap.Modal(document.getElementById('modalUbicacion')).show();
+            }
+
+            function mostrarModalEditarUbicacion(productoId, productoUbicacionId) {
+                $.get('productos_ajax.php', { 
+                    accion: 'obtener_ubicacion_producto_por_id', 
+                    producto_ubicacion_id: productoUbicacionId,
+                    empresa_idx: empresa_idx 
+                }, function(ubicacionActual) {
+                    if (!ubicacionActual || !ubicacionActual.producto_ubicacion_id) {
+                        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo obtener la ubicación actual' });
+                        return;
                     }
                     
-                    $('#iva_info').html(infoHtml);
-                });
-                
-                if (select.val()) {
-                    select.trigger('change');
-                }
-            }, 'json');
-        }
-
-        // Función para cargar marcas
-        function cargarMarcas() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_marcas',
-                empresa_idx: empresa_idx
-            }, function(marcas) {
-                var selectFiltro = $('#filtroMarca');
-                var selectModal = $('#marca_id');
-
-                selectFiltro.empty().append('<option value="">Todas las marcas</option>');
-                selectModal.empty().append('<option value="">Seleccionar marca...</option>');
-
-                if (marcas && marcas.length > 0) {
-                    marcas.forEach(function(marca) {
-                        selectFiltro.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
-                        selectModal.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
-                    });
-                }
-            }, 'json');
-        }
-
-        // Cargar modelos por marca
-        function cargarModelos(marcaId, targetId = '#modelo_id') {
-            if (!marcaId) {
-                $(targetId).empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
-                return;
-            }
-            
-            $.get('productos_ajax.php', {
-                accion: 'obtener_modelos',
-                empresa_idx: empresa_idx,
-                marca_id: marcaId
-            }, function(modelos) {
-                var select = $(targetId);
-                select.empty().append('<option value="">Seleccionar modelo...</option>');
-
-                if (modelos && modelos.length > 0) {
-                    select.prop('disabled', false);
-                    modelos.forEach(function(modelo) {
-                        select.append(`<option value="${modelo.modelo_id}">${modelo.modelo_nombre}</option>`);
-                    });
-                } else {
-                    select.prop('disabled', true);
-                }
-            }, 'json');
-        }
-
-        // Cargar submodelos por modelo
-        function cargarSubmodelos(modeloId, targetId = '#submodelo_id') {
-            if (!modeloId) {
-                $(targetId).empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
-                return;
-            }
-            
-            $.get('productos_ajax.php', {
-                accion: 'obtener_submodelos',
-                empresa_idx: empresa_idx,
-                modelo_id: modeloId
-            }, function(submodelos) {
-                var select = $(targetId);
-                select.empty().append('<option value="">Seleccionar submodelo...</option>')
-                    .append('<option value="0">Sin submodelo</option>');
-
-                if (submodelos && submodelos.length > 0) {
-                    select.prop('disabled', false);
-                    submodelos.forEach(function(submodelo) {
-                        select.append(`<option value="${submodelo.submodelo_id}">${submodelo.submodelo_nombre}</option>`);
-                    });
-                } else {
-                    select.prop('disabled', false);
-                }
-            }, 'json');
-        }
-
-        // Cargar años para selects
-        function cargarAnios() {
-            var currentYear = new Date().getFullYear();
-            var startYear = 1950;
-
-            var selectDesde = $('#anio_desde');
-            selectDesde.empty().append('<option value="">Año...</option>');
-
-            var selectHasta = $('#anio_hasta');
-            selectHasta.empty().append('<option value="">Año...</option>')
-                .append('<option value="0">Actual</option>');
-
-            for (var year = startYear; year <= currentYear + 10; year++) {
-                selectDesde.append(`<option value="${year}">${year}</option>`);
-                selectHasta.append(`<option value="${year}">${year}</option>`);
-            }
-        }
-
-        // ========== FUNCIONES DE UBICACIONES ==========
-
-        // Cargar ubicaciones de un producto
-       function cargarUbicacionesProducto(productoId) {
-            productoActualUbicaciones = productoId;
-
-            if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
-                $('#tablaUbicaciones').DataTable().destroy();
-                $('#tablaUbicaciones tbody').empty();
-            }
-
-            tablaUbicaciones = $('#tablaUbicaciones').DataTable({
-                ajax: {
-                    url: 'productos_ajax.php',
-                    type: 'GET',
-                    data: {
-                        accion: 'obtener_ubicaciones_producto',
-                        producto_id: productoId,
-                        empresa_idx: empresa_idx
-                    },
-                    dataSrc: ''
-                },
-                columns: [
-                    { data: 'sucursal_nombre', render: function(data) { return data || '-'; } },
-                    { data: 'deposito_nombre', render: function(data) { return data || '-'; } },
-                    { data: 'seccion', render: function(data) { return data || '-'; } },
-                    { data: 'estanteria', render: function(data) { return data || '-'; } },
-                    { data: 'estante', render: function(data) { return data || '-'; } },
-                    { data: 'posicion', render: function(data) { return data || '-'; } },
-                    { 
-                        data: 'producto_ubicacion_id', 
-                        orderable: false, 
-                        searchable: false, 
-                        className: "text-center",
-                        render: function(data) {
-                            return `<div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-danger btn-eliminar-ubicacion" 
-                                        data-id="${data}" title="Eliminar">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>`;
+                    $.get('productos_ajax.php', { 
+                        accion: 'obtener_detalle_ubicacion_sucursal', 
+                        sucursal_ubicacion_id: ubicacionActual.sucursal_ubicacion_id,
+                        empresa_idx: empresa_idx 
+                    }, function(detalleUbicacion) {
+                        if (!detalleUbicacion || !detalleUbicacion.sucursal_ubicacion_id) {
+                            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo obtener el detalle de la ubicación' });
+                            return;
                         }
+                        
+                        var data = {
+                            producto_ubicacion_id: ubicacionActual.producto_ubicacion_id,
+                            producto_id: ubicacionActual.producto_id,
+                            sucursal_ubicacion_id: ubicacionActual.sucursal_ubicacion_id,
+                            sucursal_id: detalleUbicacion.sucursal_id,
+                            deposito_id: detalleUbicacion.deposito_id,
+                            seccion: detalleUbicacion.seccion,
+                            estanteria: detalleUbicacion.estanteria,
+                            estante: detalleUbicacion.estante,
+                            posicion: detalleUbicacion.posicion,
+                            descripcion: detalleUbicacion.descripcion,
+                            sucursal_nombre: detalleUbicacion.sucursal_nombre,
+                            deposito_nombre: detalleUbicacion.deposito_nombre
+                        };
+                        
+                        resetModalUbicacion();
+                        $('#ubicacion_producto_id').val(productoId);
+                        $('#producto_ubicacion_id_editar').val(ubicacionActual.producto_ubicacion_id);
+                        $('#btnGuardarUbicacion').text('Actualizar Ubicación');
+                        $('#modalUbicacionLabel').html('<i class="fas fa-edit me-2"></i>Editar Ubicación');
+                        
+                        var modal = new bootstrap.Modal(document.getElementById('modalUbicacion'));
+                        modal.show();
+                        
+                        $('#modalUbicacion').off('shown.bs.modal').on('shown.bs.modal', function() {
+                            cargarDatosUbicacion(data);
+                        });
+                        
+                        $('#modalUbicacion').off('hidden.bs.modal').on('hidden.bs.modal', function() {
+                            $('#modalUbicacion').off('shown.bs.modal');
+                            if ($('#producto_ubicacion_id_editar').val()) {
+                                $('#producto_ubicacion_id_editar').val('');
+                                $('#btnGuardarUbicacion').text('Guardar');
+                                $('#modalUbicacionLabel').html('<i class="fas fa-map-marker-alt me-2"></i>Agregar Ubicación');
+                            }
+                        });
+                        
+                    }, 'json');
+                }, 'json');
+            }
+
+            function cargarDatosUbicacion(data) {
+                cargarSucursalesSelect(function() {
+                    if ($('#select_sucursal option[value="' + data.sucursal_id + '"]').length > 0) {
+                        $('#select_sucursal').val(data.sucursal_id);
+                        $('#select_sucursal').trigger('change');
                     }
-                ],
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-                responsive: true,
-                pageLength: 10,
-                searching: false,
-                paging: false,
-                info: false
-            });
-        }
-
-        // Cargar sucursales
-        function cargarSucursales() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_sucursales',
-                empresa_idx: empresa_idx
-            }, function(sucursales) {
-                var select = $('#sucursal_id');
-                select.empty().append('<option value="">Seleccionar sucursal...</option>');
-                if (sucursales && sucursales.length > 0) {
-                    sucursales.forEach(function(sucursal) {
-                        select.append(`<option value="${sucursal.sucursal_id}">${sucursal.sucursal_nombre}</option>`);
-                    });
-                }
-            }, 'json');
-        }
-
-        // Cargar ubicaciones de sucursales
-        function cargarUbicacionesSucursales() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_ubicaciones_sucursales',
-                empresa_idx: empresa_idx
-            }, function(ubicaciones) {
-                var select = $('#sucursal_ubicacion_id');
-                select.empty().append('<option value="">Seleccionar ubicación...</option>');
-
-                if (ubicaciones && ubicaciones.length > 0) {
-                    var sucursalActual = '';
-                    ubicaciones.forEach(function(ubicacion) {
-                        if (ubicacion.sucursal_nombre !== sucursalActual) {
-                            if (sucursalActual !== '') select.append('</optgroup>');
-                            sucursalActual = ubicacion.sucursal_nombre;
-                            select.append(`<optgroup label="${sucursalActual}">`);
-                        }
-
-                        var descripcionUbicacion = `${ubicacion.seccion} - ${ubicacion.estanteria} - Est. ${ubicacion.estante} Pos. ${ubicacion.posicion}`;
-                        if (ubicacion.descripcion) descripcionUbicacion += ` (${ubicacion.descripcion})`;
-
-                        select.append(`<option value="${ubicacion.sucursal_ubicacion_id}">${descripcionUbicacion}</option>`);
-                    });
-                    if (sucursalActual !== '') select.append('</optgroup>');
-                }
-            }, 'json');
-        }
-
-        // ========== FUNCIONES DE COMPATIBILIDAD ==========
-
-        // Cargar compatibilidad de un producto
-        function cargarCompatibilidad(productoId) {
-            productoActualCompatibilidad = productoId;
-
-            if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
-                $('#tablaCompatibilidad').DataTable().destroy();
-                $('#tablaCompatibilidad tbody').empty();
-            }
-
-            tablaCompatibilidad = $('#tablaCompatibilidad').DataTable({
-                ajax: {
-                    url: 'productos_ajax.php',
-                    type: 'GET',
-                    data: {
-                        accion: 'obtener_compatibilidad',
-                        producto_id: productoId,
-                        empresa_idx: empresa_idx
-                    },
-                    dataSrc: ''
-                },
-                columns: [
-                    { data: 'marca_nombre', render: function(data) { return data || '-'; } },
-                    { data: 'modelo_nombre', render: function(data) { return data || '-'; } },
-                    { data: 'submodelo_nombre', render: function(data) { return data || '-'; } },
-                    { 
-                        data: null, 
-                        className: 'text-center',
-                        render: function(data) {
-                            var anioDesde = data.anio_desde || '';
-                            var anioHasta = data.anio_hasta == '0' ? 'Actual' : (data.anio_hasta || '');
-                            if (anioHasta && anioHasta !== 'Actual') return `${anioDesde} - ${anioHasta}`;
-                            return anioDesde || '-';
-                        }
-                    },
-                    { 
-                        data: 'compatibilidad_id', 
-                        orderable: false, 
-                        searchable: false, 
-                        className: "text-center",
-                        render: function(data) {
-                            return `<div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary btn-editar-compatibilidad" 
-                                        data-id="${data}" title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-danger btn-eliminar-compatibilidad" 
-                                        data-id="${data}" title="Eliminar">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>`;
-                        }
-                    }
-                ],
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-                responsive: true,
-                pageLength: 10,
-                searching: false,
-                paging: false,
-                info: false
-            });
-        }
-
-        // Mostrar modal de compatibilidad
-        function mostrarModalCompatibilidad(productoId, compatibilidadId = null) {
-            resetModalCompatibilidad();
-            $('#compatibilidad_producto_id').val(productoId);
-            cargarMarcas();
-            cargarAnios();
-
-            if (compatibilidadId) {
-                $('#modalCompatibilidadLabel').html('<i class="fas fa-edit me-2"></i>Editar Compatibilidad');
-                $('#compatibilidad_id').val(compatibilidadId);
-
-                setTimeout(function() {
-                    $.get('productos_ajax.php', {
-                        accion: 'obtener_compatibilidad_por_id',
-                        compatibilidad_id: compatibilidadId,
-                        empresa_idx: empresa_idx
-                    }, function(res) {
-                        if (res && res.compatibilidad_id) {
-                            $('#marca_id').val(res.marca_id);
-                            cargarModelos(res.marca_id);
+                    
+                    var depositoCheck = setInterval(function() {
+                        if ($('#select_deposito option[value="' + data.deposito_id + '"]').length > 0) {
+                            clearInterval(depositoCheck);
+                            $('#select_deposito').val(data.deposito_id);
+                            $('#select_deposito').trigger('change');
                             
-                            setTimeout(function() {
-                                $('#modelo_id').val(res.modelo_id);
-                                cargarSubmodelos(res.modelo_id);
-                                
-                                setTimeout(function() {
-                                    $('#submodelo_id').val(res.submodelo_id || '');
-                                    $('#anio_desde').val(res.anio_desde);
-                                    $('#anio_hasta').val(res.anio_hasta || '');
-                                }, 300);
+                            var seccionCheck = setInterval(function() {
+                                if ($('#select_seccion option[value="' + data.seccion + '"]').length > 0) {
+                                    clearInterval(seccionCheck);
+                                    $('#select_seccion').val(data.seccion);
+                                    $('#select_seccion').trigger('change');
+                                    
+                                    var estanteriaCheck = setInterval(function() {
+                                        if ($('#select_estanteria option[value="' + data.estanteria + '"]').length > 0) {
+                                            clearInterval(estanteriaCheck);
+                                            $('#select_estanteria').val(data.estanteria);
+                                            $('#select_estanteria').trigger('change');
+                                            
+                                            var estanteCheck = setInterval(function() {
+                                                if ($('#select_estante option[value="' + data.estante + '"]').length > 0) {
+                                                    clearInterval(estanteCheck);
+                                                    $('#select_estante').val(data.estante);
+                                                    $('#select_estante').trigger('change');
+                                                    
+                                                    var posicionCheck = setInterval(function() {
+                                                        if ($('#select_posicion option[value="' + data.sucursal_ubicacion_id + '"]').length > 0) {
+                                                            clearInterval(posicionCheck);
+                                                            $('#select_posicion').val(data.sucursal_ubicacion_id);
+                                                            $('#select_posicion').trigger('change');
+                                                        }
+                                                    }, 300);
+                                                }
+                                            }, 300);
+                                        }
+                                    }, 300);
+                                }
                             }, 300);
                         }
-                    }, 'json');
-                }, 500);
-            } else {
-                $('#modalCompatibilidadLabel').html('<i class="fas fa-plus me-2"></i>Agregar Compatibilidad');
+                    }, 300);
+                });
             }
 
-            new bootstrap.Modal(document.getElementById('modalCompatibilidad')).show();
-        }
+            function mostrarModalNuevaUbicacion(productoId) {
+                resetModalNuevaUbicacion();
+                $('#nueva_ubicacion_producto_id').val(productoId);
+                cargarSucursales();
+                new bootstrap.Modal(document.getElementById('modalNuevaUbicacion')).show();
+            }
 
-        function resetModalCompatibilidad() {
-            $('#formCompatibilidad')[0].reset();
-            $('#compatibilidad_id').val('');
-            $('#formCompatibilidad').removeClass('was-validated');
-            $('#marca_id').empty().append('<option value="">Seleccionar marca...</option>');
-            $('#modelo_id').empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
-            $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
-        }
+            // ========== FUNCIONES DE COMPATIBILIDAD ==========
 
-        // ========== FUNCIONES DE IMÁGENES ==========
+            function cargarCompatibilidad(productoId) {
+                productoActualCompatibilidad = productoId;
+                if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
+                    $('#tablaCompatibilidad').DataTable().destroy();
+                    $('#tablaCompatibilidad tbody').empty();
+                }
+                tablaCompatibilidad = $('#tablaCompatibilidad').DataTable({
+                    ajax: {
+                        url: 'productos_ajax.php',
+                        type: 'GET',
+                        data: { accion: 'obtener_compatibilidad', producto_id: productoId, empresa_idx: empresa_idx },
+                        dataSrc: ''
+                    },
+                    columns: [
+                        { data: 'marca_nombre', render: function(data) { return data || '-'; } },
+                        { data: 'modelo_nombre', render: function(data) { return data || '-'; } },
+                        { data: 'submodelo_nombre', render: function(data) { return data || '-'; } },
+                        {
+                            data: null, className: 'text-center',
+                            render: function(data) {
+                                var anioDesde = data.anio_desde || '';
+                                var anioHasta = data.anio_hasta == '0' ? 'Actual' : (data.anio_hasta || '');
+                                if (anioHasta && anioHasta !== 'Actual') return anioDesde + ' - ' + anioHasta;
+                                return anioDesde || '-';
+                            }
+                        },
+                        {
+                            data: 'compatibilidad_id', orderable: false, searchable: false, className: "text-center",
+                            render: function(data) {
+                                return `<div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary btn-editar-compatibilidad" data-id="${data}" title="Editar"><i class="fas fa-edit"></i></button>
+                                    <button type="button" class="btn btn-outline-danger btn-eliminar-compatibilidad" data-id="${data}" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                </div>`;
+                            }
+                        }
+                    ],
+                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    responsive: true,
+                    pageLength: 10,
+                    searching: false,
+                    paging: false,
+                    info: false
+                });
+            }
 
-        // Cargar imágenes de un producto
-       function cargarImagenesProducto(productoId) {
-            productoActualImagenes = productoId;
+            function mostrarModalCompatibilidad(productoId, compatibilidadId) {
+                resetModalCompatibilidad();
+                $('#compatibilidad_producto_id').val(productoId);
+                cargarMarcas();
+                cargarAnios();
 
-            $.get('productos_ajax.php', {
-                accion: 'obtener_imagenes_producto',
-                producto_id: productoId,
-                empresa_idx: empresa_idx
-            }, function(imagenes) {
-                console.log("Imágenes cargadas para producto", productoId, ":", imagenes);
-                var galeria = $('#galeriaImagenes');
-                var sinImagenes = $('#sinImagenes');
-                galeria.empty();
+                if (compatibilidadId) {
+                    $('#modalCompatibilidadLabel').html('<i class="fas fa-edit me-2"></i>Editar Compatibilidad');
+                    $('#compatibilidad_id').val(compatibilidadId);
+                    setTimeout(function() {
+                        $.get('productos_ajax.php', { accion: 'obtener_compatibilidad_por_id', compatibilidad_id: compatibilidadId, empresa_idx: empresa_idx }, function(res) {
+                            if (res && res.compatibilidad_id) {
+                                $('#marca_id').val(res.marca_id);
+                                cargarModelos(res.marca_id);
+                                setTimeout(function() {
+                                    $('#modelo_id').val(res.modelo_id);
+                                    cargarSubmodelos(res.modelo_id);
+                                    setTimeout(function() {
+                                        $('#submodelo_id').val(res.submodelo_id || '');
+                                        $('#anio_desde').val(res.anio_desde);
+                                        $('#anio_hasta').val(res.anio_hasta || '');
+                                    }, 300);
+                                }, 300);
+                            }
+                        }, 'json');
+                    }, 500);
+                } else {
+                    $('#modalCompatibilidadLabel').html('<i class="fas fa-plus me-2"></i>Agregar Compatibilidad');
+                }
+                new bootstrap.Modal(document.getElementById('modalCompatibilidad')).show();
+            }
 
-                if (imagenes && imagenes.length > 0) {
-                    sinImagenes.hide();
+            function resetModalCompatibilidad() {
+                $('#formCompatibilidad')[0].reset();
+                $('#compatibilidad_id').val('');
+                $('#formCompatibilidad').removeClass('was-validated');
+                $('#marca_id').empty().append('<option value="">Seleccionar marca...</option>');
+                $('#modelo_id').empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
+                $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
+            }
 
-                    imagenes.forEach(function(imagen, index) {
-                        var srcImagen = imagen.imagen_url; // Ahora viene del servidor
-                        console.log("URL de imagen:", srcImagen);
-                        
-                        var esPrincipal = imagen.es_principal == 1;
-                        var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
+            // ========== FUNCIONES DE IMÁGENES ==========
 
-                        var cardHtml = `
-                            <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
-                                <div class="card card-imagen ${clasePrincipal} h-100">
-                                    <div class="position-relative">
-                                        <img src="${srcImagen}" class="card-img-top imagen-miniatura" 
-                                            alt="${imagen.descripcion || 'Imagen del producto'}"
-                                            onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'><rect width=\'150\' height=\'150\' fill=\'#f8f9fa\'/><text x=\'75\' y=\'75\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';"
-                                            onclick="mostrarImagenGrande('${srcImagen}', '${imagen.descripcion || ''}', ${productoId})">
-                                        ${esPrincipal ? '<span class="badge bg-success badge-imagen-principal">Principal</span>' : ''}
-                                    </div>
-                                    <div class="card-body p-2">
-                                        <h6 class="card-title mb-1 text-truncate" title="${imagen.descripcion || 'Sin descripción'}">
-                                            ${imagen.descripcion || 'Sin descripción'}
-                                        </h6>
-                                        <p class="card-text small text-muted mb-1">
-                                            <i class="fas fa-sort-numeric-up me-1"></i>Orden: ${imagen.orden || 0}
-                                        </p>
-                                        <p class="card-text small text-muted mb-2">
-                                            <i class="fas fa-weight-hanging me-1"></i>${formatBytes(imagen.imagen_tamanio)}
-                                        </p>
-                                        <p class="card-text small text-muted mb-2">
-                                            <i class="fas fa-folder me-1"></i>${imagen.imagen_nombre}
-                                        </p>
-                                        <div class="btn-group btn-group-sm w-100" role="group">
-                                            <button type="button" class="btn btn-outline-primary btn-editar-imagen" 
-                                                    data-id="${imagen.producto_imagen_id}" title="Editar">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-outline-success btn-imagen-principal" 
-                                                    data-id="${imagen.producto_imagen_id}" title="${esPrincipal ? 'Ya es principal' : 'Marcar como principal'}" 
-                                                    ${esPrincipal ? 'disabled' : ''}>
-                                                <i class="fas fa-star"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-outline-danger btn-eliminar-imagen" 
-                                                    data-id="${imagen.producto_imagen_id}" title="Eliminar">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+            function cargarImagenesProducto(productoId) {
+                productoActualImagenes = productoId;
+                $.get('productos_ajax.php', { accion: 'obtener_imagenes_producto', producto_id: productoId, empresa_idx: empresa_idx }, function(imagenes) {
+                    var galeria = $('#galeriaImagenes');
+                    var sinImagenes = $('#sinImagenes');
+                    galeria.empty();
+                    if (imagenes && imagenes.length > 0) {
+                        sinImagenes.hide();
+                        imagenes.forEach(function(imagen) {
+                            var srcImagen = imagen.imagen_url;
+                            var esPrincipal = imagen.es_principal == 1;
+                            var clasePrincipal = esPrincipal ? 'card-imagen-principal' : '';
+                            var cardHtml = `
+                                <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
+                                    <div class="card card-imagen ${clasePrincipal} h-100">
+                                        <div class="position-relative">
+                                            <img src="${srcImagen}" class="card-img-top imagen-miniatura" 
+                                                alt="${imagen.descripcion || 'Imagen del producto'}"
+                                                onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'><rect width=\'150\' height=\'150\' fill=\'#f8f9fa\'/><text x=\'75\' y=\'75\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';"
+                                                onclick="mostrarImagenGrande('${srcImagen}', '${imagen.descripcion || ''}', ${productoId})">
+                                            ${esPrincipal ? '<span class="badge bg-success badge-imagen-principal">Principal</span>' : ''}
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <h6 class="card-title mb-1 text-truncate" title="${imagen.descripcion || 'Sin descripción'}">${imagen.descripcion || 'Sin descripción'}</h6>
+                                            <p class="card-text small text-muted mb-1"><i class="fas fa-sort-numeric-up me-1"></i>Orden: ${imagen.orden || 0}</p>
+                                            <p class="card-text small text-muted mb-2"><i class="fas fa-weight-hanging me-1"></i>${formatBytes(imagen.imagen_tamanio)}</p>
+                                            <p class="card-text small text-muted mb-2"><i class="fas fa-folder me-1"></i>${imagen.imagen_nombre}</p>
+                                            <div class="btn-group btn-group-sm w-100" role="group">
+                                                <button type="button" class="btn btn-outline-primary btn-editar-imagen" data-id="${imagen.producto_imagen_id}" title="Editar"><i class="fas fa-edit"></i></button>
+                                                <button type="button" class="btn btn-outline-success btn-imagen-principal" data-id="${imagen.producto_imagen_id}" title="${esPrincipal ? 'Ya es principal' : 'Marcar como principal'}" ${esPrincipal ? 'disabled' : ''}><i class="fas fa-star"></i></button>
+                                                <button type="button" class="btn btn-outline-danger btn-eliminar-imagen" data-id="${imagen.producto_imagen_id}" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        `;
-                        galeria.append(cardHtml);
-                    });
-                    inicializarSortable();
-                } else {
-                    sinImagenes.show();
-                }
-            }, 'json').fail(function(xhr, status, error) {
-                console.error("Error al cargar imágenes:", error);
-                console.error("Respuesta:", xhr.responseText);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'No se pudieron cargar las imágenes'
-                });
-            });
-        }
-
-
-        // Función para formatear bytes
-        function formatBytes(bytes, decimals = 2) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-        }
-
-        // Inicializar ordenamiento por arrastre
-        function inicializarSortable() {
-            if (typeof Sortable !== 'undefined') {
-                new Sortable(document.getElementById('galeriaImagenes'), {
-                    animation: 150,
-                    ghostClass: 'sortable-ghost',
-                    chosenClass: 'sortable-chosen',
-                    onEnd: actualizarOrdenImagenes
-                });
-            }
-        }
-
-        // Actualizar orden de imágenes
-        function actualizarOrdenImagenes() {
-            $('#galeriaImagenes .col-md-3').each(function(index) {
-                $.post('productos_ajax.php', {
-                    accion: 'actualizar_imagen_producto',
-                    producto_imagen_id: $(this).data('id'),
-                    orden: index,
-                    empresa_idx: empresa_idx
-                }, function(res) {
-                    if (!res.resultado) console.error('Error al actualizar orden:', res.error);
-                }, 'json');
-            });
-        }
-
-        // Mostrar modal para subir/editar imagen
-        function mostrarModalImagen(productoId, productoImagenId = null) {
-            resetModalImagen();
-            $('#imagen_producto_id').val(productoId);
-
-            if (productoImagenId) {
-                $('#modalImagenLabel').html('<i class="fas fa-edit me-2"></i>Editar Imagen');
-                $('#producto_imagen_id').val(productoImagenId);
-
-                $.get('productos_ajax.php', {
-                    accion: 'obtener_imagen_por_id',
-                    producto_imagen_id: productoImagenId,
-                    empresa_idx: empresa_idx
-                }, function(res) {
-                    if (res && res.producto_imagen_id) {
-                        $('#descripcion_imagen').val(res.descripcion || '');
-                        $('#es_principal_imagen').prop('checked', res.es_principal == 1);
-                        $('#orden_imagen').val(res.orden || 0);
-                        $('#vistaPreviaContainer').show();
-                        $('#vistaPreviaImagen').attr('src', 'get_imagen.php?id=' + res.imagen_id);
-                        $('#imagen_archivo').removeAttr('required');
-                    }
-                }, 'json');
-            } else {
-                $('#modalImagenLabel').html('<i class="fas fa-plus me-2"></i>Agregar Imagen');
-                $('#imagen_archivo').attr('required', 'required');
-            }
-
-            new bootstrap.Modal(document.getElementById('modalImagen')).show();
-        }
-
-        function resetModalImagen() {
-            $('#formImagen')[0].reset();
-            $('#producto_imagen_id').val('');
-            $('#formImagen').removeClass('was-validated');
-            $('#vistaPreviaContainer').hide();
-            $('#vistaPreviaImagen').attr('src', '');
-        }
-
-        // ========== FUNCIONES DE TABLA PRINCIPAL ==========
-
-        function inicializarDataTable() {
-            if ($.fn.DataTable.isDataTable('#tablaProductos')) {
-                $('#tablaProductos').DataTable().destroy();
-                $('#tablaProductos tbody').empty();
-            }
-
-            tabla = $('#tablaProductos').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: 'productos_ajax.php',
-                    type: 'GET',
-                    data: function(d) {
-                        d.accion = 'listar';
-                        d.empresa_idx = empresa_idx;
-                        d.pagina_idx = pagina_idx;
-                        d.filtro_codigo = $('#filtroCodigo').val();
-                        d.filtro_marca = $('#filtroMarca').val();
-                        d.filtro_modelo = $('#filtroModelo').val();
-                        d.filtro_submodelo = $('#filtroSubmodelo').val();
-                    }
-                },
-                stateSave: true,
-                stateSaveParams: function(settings, data) {
-                    data.page = currentPage;
-                    data.order = currentOrder;
-                    data.search = { search: currentSearch !== '-1' ? currentSearch : '' };
-                    delete data.columns;
-                    return data;
-                },
-                stateLoadParams: function(settings, data) {
-                    if (data.page !== undefined) currentPage = data.page;
-                    if (data.order !== undefined) currentOrder = data.order;
-                    currentSearch = (data.search && data.search.search) ? data.search.search : '';
-                    data.search = { search: currentSearch };
-                },
-                dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                     '<"row"<"col-sm-12"tr>>' +
-                     '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
-                     '<"clear">',
-                pageLength: 50,
-                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-                columns: [
-                    { data: 'producto_id', className: 'text-center fw-bold', width: '80px' },
-                    { data: 'producto_codigo', className: 'text-center fw-medium', width: '100px' },
-                    { 
-                        data: 'producto_nombre', 
-                        width: '200px',
-                        render: function(data, type, row) {
-                            if (type === 'export') return data;
-                            var desc = row.producto_descripcion ? 
-                                `<small class="text-muted d-block">${row.producto_descripcion.substring(0, 40)}${row.producto_descripcion.length > 40 ? '...' : ''}</small>` : '';
-                            return `<div class="fw-medium">${data}</div>${desc}`;
-                        }
-                    },
-                    { 
-                        data: 'marcas_compatibles', 
-                        width: '150px',
-                        render: function(data) {
-                            return data ? `<span class="badge badge-compatibilidad bg-info text-white" title="${data}">${data}</span>` : '<span class="text-muted">-</span>';
-                        }
-                    },
-                    { 
-                        data: 'modelos_compatibles', 
-                        width: '150px',
-                        render: function(data) {
-                            return data ? `<span class="badge badge-compatibilidad bg-success text-white" title="${data}">${data}</span>` : '<span class="text-muted">-</span>';
-                        }
-                    },
-                    { 
-                        data: 'submodelos_compatibles', 
-                        width: '150px',
-                        render: function(data) {
-                            return data ? `<span class="badge badge-compatibilidad bg-warning text-dark" title="${data}">${data}</span>` : '<span class="text-muted">-</span>';
-                        }
-                    },
-                    { 
-                        data: 'ubicaciones_info', 
-                        width: '200px',
-                        render: function(data) {
-                            if (!data) return '<span class="text-muted">-</span>';
-                            var ubicaciones = data.split('; ');
-                            var html = ubicaciones.slice(0, 3).map(u => 
-                                `<span class="badge bg-secondary mb-1 d-block text-start" style="font-size: 0.7rem;">${u}</span>`
-                            ).join('');
-                            if (ubicaciones.length > 3) {
-                                html += `<span class="badge bg-light text-dark d-block" style="font-size: 0.7rem;">+${ubicaciones.length - 3} más</span>`;
-                            }
-                            return html;
-                        }
-                    },
-                    { 
-                        data: 'imagen_id_principal', 
-                        width: '80px', 
-                        className: 'text-center', 
-                        orderable: false, 
-                        searchable: false,
-                        render: function(data, type, row) {
-                            if (type === 'export') return data ? 'Sí' : 'No';
-                            if (data) {
-                                var rutaImagen = 'get_imagen.php?id=' + data;
-                                // Escapar correctamente el título para el onclick
-                                var titulo = (row.producto_nombre || '').replace(/'/g, "\\'");
-                                return `<img src="${rutaImagen}" alt="Prod" 
-                                    class="img-thumbnail rounded-circle" 
-                                    style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" 
-                                    onclick="mostrarImagenGrande('${rutaImagen}', '${titulo}', ${row.producto_id})"
-                                    onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'><rect width=\'50\' height=\'50\' fill=\'#f8f9fa\'/><text x=\'25\' y=\'25\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'10\'>Error</text></svg>';">`;
-                            }
-                            return '<div class="text-center text-muted"><i class="fas fa-image fa-lg"></i></div>';
-                        }
-                    },
-                    { 
-                        data: 'estado_info', 
-                        className: 'text-center', 
-                        width: '100px',
-                        render: function(data, type) {
-                            if (!data || !data.estado_registro) return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
-                            if (type === 'export') return data.estado_registro;
-                            var clase = 'badge-estado-inactivo';
-                            if (data.codigo_estandar === 'ACTIVO') clase = 'badge-estado-activo';
-                            return `<span class="badge ${clase}">${data.estado_registro}</span>`;
-                        }
-                    },
-                    { 
-                        data: 'botones', 
-                        orderable: false, 
-                        searchable: false, 
-                        className: "text-center", 
-                        width: '120px',
-                        render: function(data, type, row) {
-                            if (type === 'export' || !data) return '';
-                            return data.map(boton => {
-                                var clase = 'btn-xs me-1 ';
-                                var nombre = boton.accion_js || boton.nombre_funcion.toLowerCase();
-                                clase += nombre === 'editar' ? 'btn-outline-primary' :
-                                        (nombre === 'eliminar' || nombre === 'baja') ? 'btn-outline-danger' :
-                                        (nombre === 'alta' || nombre === 'activar') ? 'btn-outline-success' :
-                                        (nombre === 'suspender' || nombre === 'bloquear') ? 'btn-outline-warning' : 'btn-outline-secondary';
-                                return `<button type="button" class="btn ${clase} btn-accion" 
-                                    title="${boton.descripcion || boton.nombre_funcion}" 
-                                    data-id="${row.producto_id}" 
-                                    data-accion="${boton.accion_js}"
-                                    data-confirmable="${boton.es_confirmable || 0}"
-                                    data-producto="${row.producto_nombre}">
-                                    <i class="${boton.icono_clase || 'fas fa-cog'}"></i>
-                                </button>`;
-                            }).join('') || '<span class="text-muted small">-</span>';
-                        }
-                    }
-                ],
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-                order: currentOrder,
-                responsive: true,
-                createdRow: function(row, data) {
-                    if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') $(row).addClass('table-secondary');
-                    else if (data.estado_info && data.estado_info.codigo_estandar === 'BLOQUEADO') $(row).addClass('table-warning');
-                },
-                initComplete: inicializarEventos
-            });
-        }
-
-        // ========== FUNCIONES DE EVENTOS ==========
-
-        function inicializarEventos() {
-            $('#btnRecargar').off('click').on('click', function() {
-                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
-                tabla.ajax.reload(() => btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>'));
-            });
-
-            $('#btnAplicarFiltros').click(() => tabla.ajax.reload());
-            
-            $('#btnLimpiarFiltros').click(function() {
-                $('#filtroCodigo, #filtroMarca').val('');
-                $('#filtroModelo, #filtroSubmodelo').val('').prop('disabled', true);
-                tabla.ajax.reload();
-            });
-
-            $('#filtroMarca').change(function() {
-                var marcaId = $(this).val();
-                if (marcaId) cargarModelos(marcaId, '#filtroModelo');
-                else $('#filtroModelo, #filtroSubmodelo').val('').prop('disabled', true);
-            });
-
-            $('#filtroModelo').change(function() {
-                var modeloId = $(this).val();
-                if (modeloId) cargarSubmodelos(modeloId, '#filtroSubmodelo');
-                else $('#filtroSubmodelo').val('').prop('disabled', true);
-            });
-
-            $('#btnAgregarCompatibilidad').click(() => productoActualCompatibilidad && mostrarModalCompatibilidad(productoActualCompatibilidad));
-
-            $(document).on('click', '.btn-editar-compatibilidad', function() {
-                productoActualCompatibilidad && mostrarModalCompatibilidad(productoActualCompatibilidad, $(this).data('id'));
-            });
-
-            $(document).on('click', '.btn-eliminar-compatibilidad', function() {
-                var compatibilidadId = $(this).data('id');
-                Swal.fire({
-                    title: '¿Eliminar Compatibilidad?',
-                    text: 'Esta acción no se puede deshacer',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, eliminar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.post('productos_ajax.php', {
-                            accion: 'eliminar_compatibilidad',
-                            compatibilidad_id: compatibilidadId,
-                            empresa_idx: empresa_idx
-                        }, function(res) {
-                            if (res.success) {
-                                Swal.fire('¡Eliminado!', 'Compatibilidad eliminada correctamente', 'success');
-                                tablaCompatibilidad.ajax.reload();
-                            } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
-                        }, 'json');
-                    }
-                });
-            });
-
-            $(document).on('change', '#marca_id', function() {
-                var marcaId = $(this).val();
-                if (marcaId) cargarModelos(marcaId);
-                else $('#modelo_id, #submodelo_id').val('').prop('disabled', true);
-            });
-
-            $(document).on('change', '#modelo_id', function() {
-                var modeloId = $(this).val();
-                if (modeloId) cargarSubmodelos(modeloId);
-                else $('#submodelo_id').val('').prop('disabled', true);
-            });
-
-            $('#btnGuardarCompatibilidad').click(function() {
-                var form = document.getElementById('formCompatibilidad');
-                if (!form.checkValidity()) {
-                    form.classList.add('was-validated');
-                    return false;
-                }
-
-                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-                var datos = {
-                    accion: $('#compatibilidad_id').val() ? 'editar_compatibilidad' : 'agregar_compatibilidad',
-                    compatibilidad_id: $('#compatibilidad_id').val() || '',
-                    producto_id: $('#compatibilidad_producto_id').val(),
-                    marca_id: $('#marca_id').val(),
-                    modelo_id: $('#modelo_id').val(),
-                    submodelo_id: $('#submodelo_id').val() || null,
-                    anio_desde: $('#anio_desde').val(),
-                    anio_hasta: $('#anio_hasta').val() || null,
-                    empresa_idx: empresa_idx
-                };
-
-                $.post('productos_ajax.php', datos, function(res) {
-                    btn.prop('disabled', false).html('Guardar');
-                    if (res.success || res.resultado) {
-                        Swal.fire('¡Guardado!', 'Compatibilidad guardada correctamente', 'success');
-                        bootstrap.Modal.getInstance(document.getElementById('modalCompatibilidad')).hide();
-                        tablaCompatibilidad.ajax.reload();
-                    } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
-                }, 'json');
-            });
-
-            $('#btnAgregarImagen').click(() => productoActualImagenes && mostrarModalImagen(productoActualImagenes));
-
-            $(document).on('click', '.btn-editar-imagen', function() {
-                productoActualImagenes && mostrarModalImagen(productoActualImagenes, $(this).data('id'));
-            });
-
-            $(document).on('click', '.btn-imagen-principal', function() {
-                var productoImagenId = $(this).data('id');
-                Swal.fire({
-                    title: '¿Marcar como principal?',
-                    text: 'Esta imagen será mostrada como la principal del producto',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, marcar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.post('productos_ajax.php', {
-                            accion: 'actualizar_imagen_producto',
-                            producto_imagen_id: productoImagenId,
-                            es_principal: 1,
-                            empresa_idx: empresa_idx
-                        }, function(res) {
-                            if (res.resultado) {
-                                Swal.fire('¡Actualizado!', 'Imagen marcada como principal', 'success');
-                                cargarImagenesProducto(productoActualImagenes);
-                            } else Swal.fire('Error', res.error || 'Error al actualizar', 'error');
-                        }, 'json');
-                    }
-                });
-            });
-
-            $(document).on('click', '.btn-eliminar-imagen', function() {
-                var productoImagenId = $(this).data('id');
-                Swal.fire({
-                    title: '¿Eliminar Imagen?',
-                    text: 'Esta acción no se puede deshacer',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, eliminar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.post('productos_ajax.php', {
-                            accion: 'eliminar_imagen_producto',
-                            producto_imagen_id: productoImagenId,
-                            empresa_idx: empresa_idx
-                        }, function(res) {
-                            if (res.success) {
-                                Swal.fire('¡Eliminado!', 'Imagen eliminada correctamente', 'success');
-                                cargarImagenesProducto(productoActualImagenes);
-                            } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
-                        }, 'json');
-                    }
-                });
-            });
-
-            $('#imagen_archivo').change(function() {
-                if (this.files[0]) {
-                    var reader = new FileReader();
-                    reader.onload = (e) => $('#vistaPreviaContainer').show().find('#vistaPreviaImagen').attr('src', e.target.result);
-                    reader.readAsDataURL(this.files[0]);
-                } else $('#vistaPreviaContainer').hide();
-            });
-
-            $('#btnGuardarImagen').click(function() {
-                var form = document.getElementById('formImagen');
-                var productoImagenId = $('#producto_imagen_id').val();
-
-                if (!productoImagenId && !$('#imagen_archivo')[0].files[0]) {
-                    form.classList.add('was-validated');
-                    return false;
-                }
-
-                if (!form.checkValidity()) {
-                    form.classList.add('was-validated');
-                    return false;
-                }
-
-                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-                var formData = new FormData(form);
-                formData.append('accion', productoImagenId ? 'actualizar_imagen_producto' : 'subir_imagen_producto');
-                formData.append('producto_id', $('#imagen_producto_id').val());
-                if (productoImagenId) formData.append('producto_imagen_id', productoImagenId);
-                formData.append('empresa_idx', empresa_idx);
-
-                $.ajax({
-                    url: 'productos_ajax.php',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(res) {
-                        btn.prop('disabled', false).html('Guardar');
-                        if (res.resultado) {
-                            Swal.fire('¡Guardado!', 'Imagen guardada correctamente', 'success');
-                            bootstrap.Modal.getInstance(document.getElementById('modalImagen')).hide();
-                            cargarImagenesProducto(productoActualImagenes);
-                        } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
-                    },
-                    error: function() {
-                        btn.prop('disabled', false).html('Guardar');
-                        Swal.fire('Error', 'Error de conexión al servidor', 'error');
-                    }
-                });
-            });
-
-            // Eventos de ubicaciones
-            $('#btnAgregarUbicacion').click(() => productoActualUbicaciones && mostrarModalUbicacion(productoActualUbicaciones));
-            $('#btnNuevaUbicacion').click(() => productoActualUbicaciones && mostrarModalNuevaUbicacion(productoActualUbicaciones));
-
-            $(document).on('click', '.btn-eliminar-ubicacion', function() {
-                var productoUbicacionId = $(this).data('id');
-                Swal.fire({
-                    title: '¿Eliminar Ubicación?',
-                    text: 'Esta acción no se puede deshacer',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, eliminar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.post('productos_ajax.php', {
-                            accion: 'eliminar_ubicacion_producto',
-                            producto_ubicacion_id: productoUbicacionId,
-                            empresa_idx: empresa_idx
-                        }, function(res) {
-                            if (res.success) {
-                                Swal.fire('¡Eliminado!', 'Ubicación eliminada correctamente', 'success');
-                                tablaUbicaciones.ajax.reload();
-                            } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
-                        }, 'json');
-                    }
-                });
-            });
-
-            $('#btnGuardarUbicacion').click(function() {
-                var form = document.getElementById('formUbicacion');
-                if (!form.checkValidity()) {
-                    form.classList.add('was-validated');
-                    return false;
-                }
-
-                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-                $.post('productos_ajax.php', {
-                    accion: 'agregar_ubicacion_producto',
-                    producto_id: $('#ubicacion_producto_id').val(),
-                    sucursal_ubicacion_id: $('#sucursal_ubicacion_id').val(),
-                    empresa_idx: empresa_idx
-                }, function(res) {
-                    btn.prop('disabled', false).html('Guardar');
-                    if (res.resultado) {
-                        Swal.fire('¡Guardado!', 'Ubicación asignada correctamente', 'success');
-                        bootstrap.Modal.getInstance(document.getElementById('modalUbicacion')).hide();
-                        tablaUbicaciones.ajax.reload();
-                    } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
-                }, 'json');
-            });
-
-            $('#btnGuardarNuevaUbicacion').click(function() {
-            var form = document.getElementById('formNuevaUbicacion');
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                return false;
-            }
-
-            var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Creando...');
-            $.post('productos_ajax.php', {
-                accion: 'crear_ubicacion_sucursal',
-                empresa_id: empresa_idx,
-                sucursal_id: $('#sucursal_id').val(),
-                deposito_id: $('#deposito_id_nueva').val(),  // AGREGADO
-                seccion: $('#seccion').val(),
-                estanteria: $('#estanteria').val(),
-                estante: $('#estante').val(),
-                posicion: $('#posicion').val(),
-                descripcion: $('#descripcion_ubicacion').val()
-            }, function(res) {
-                btn.prop('disabled', false).html('Crear');
-                if (res.resultado) {
-                    Swal.fire({
-                        title: '¡Creada!',
-                        html: 'Ubicación creada correctamente. ¿Desea asignarla a este producto?',
-                        icon: 'success',
-                        showCancelButton: true,
-                        confirmButtonColor: '#28a745',
-                        cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Sí, asignar',
-                        cancelButtonText: 'No, solo crear'
-                    }).then((result) => {
-                        bootstrap.Modal.getInstance(document.getElementById('modalNuevaUbicacion')).hide();
-                        if (result.isConfirmed) {
-                            $.post('productos_ajax.php', {
-                                accion: 'agregar_ubicacion_producto',
-                                producto_id: $('#nueva_ubicacion_producto_id').val(),
-                                sucursal_ubicacion_id: res.sucursal_ubicacion_id,
-                                empresa_idx: empresa_idx
-                            }, function(res2) {
-                                if (res2.resultado) {
-                                    Swal.fire('¡Asignada!', 'Ubicación creada y asignada correctamente', 'success');
-                                    tablaUbicaciones.ajax.reload();
-                                } else {
-                                    Swal.fire('¡Creada!', 'Ubicación creada correctamente', 'success');
-                                }
-                            }, 'json');
-                        }
-                    });
-                } else {
-                    Swal.fire('Error', res.error || 'Error al crear la ubicación', 'error');
-                }
-            }, 'json');
-        });
-            // Eventos de proveedores
-            $('#btnAgregarProveedor').click(() => productoActualProveedores && mostrarModalProveedor(productoActualProveedores));
-
-            $(document).on('click', '.btn-editar-proveedor', function() {
-                productoActualProveedores && mostrarModalProveedor(productoActualProveedores, $(this).data('id'));
-            });
-
-            $(document).on('click', '.btn-eliminar-proveedor', function() {
-                var productoProveedorId = $(this).data('id');
-                Swal.fire({
-                    title: '¿Eliminar Proveedor?',
-                    text: 'Esta acción no se puede deshacer',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, eliminar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.post('productos_ajax.php', {
-                            accion: 'eliminar_proveedor_producto',
-                            producto_proveedor_id: productoProveedorId,
-                            empresa_idx: empresa_idx
-                        }, function(res) {
-                            if (res.success) {
-                                Swal.fire('¡Eliminado!', 'Proveedor eliminado correctamente', 'success');
-                                tablaProveedores.ajax.reload();
-                            } else {
-                                Swal.fire('Error', res.error || 'Error al eliminar', 'error');
-                            }
-                        }, 'json');
-                    }
-                });
-            });
-
-            $('#btnGuardarProveedor').click(function() {
-                var form = document.getElementById('formProveedor');
-                if (!form.checkValidity()) {
-                    form.classList.add('was-validated');
-                    return false;
-                }
-
-                var productoProveedorId = $('#producto_proveedor_id').val();
-                var accionBackend = productoProveedorId ? 'editar_proveedor_producto' : 'agregar_proveedor_producto';
-
-                var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-
-                $.post('productos_ajax.php', {
-                    accion: accionBackend,
-                    producto_proveedor_id: productoProveedorId,
-                    producto_id: $('#proveedor_producto_id').val(),
-                    entidad_id: $('#entidad_id').val(),
-                    codigo_proveedor: $('#codigo_proveedor').val(),
-                    empresa_idx: empresa_idx
-                }, function(res) {
-                    btn.prop('disabled', false).html('Guardar');
-                    if (res.resultado || res.success) {
-                        Swal.fire('¡Guardado!', 'Proveedor guardado correctamente', 'success');
-                        bootstrap.Modal.getInstance(document.getElementById('modalProveedor')).hide();
-                        tablaProveedores.ajax.reload();
-                    } else {
-                        Swal.fire('Error', res.error || 'Error al guardar', 'error');
-                    }
-                }, 'json');
-            });
-        }
-
-        // Mostrar modal para agregar ubicación existente
-        function mostrarModalUbicacion(productoId) {
-            resetModalUbicacion();
-            $('#ubicacion_producto_id').val(productoId);
-            cargarUbicacionesSucursales();
-            new bootstrap.Modal(document.getElementById('modalUbicacion')).show();
-        }
-
-        // Mostrar modal para crear nueva ubicación
-        function mostrarModalNuevaUbicacion(productoId) {
-            resetModalNuevaUbicacion();
-            $('#nueva_ubicacion_producto_id').val(productoId);
-            cargarSucursales();
-            new bootstrap.Modal(document.getElementById('modalNuevaUbicacion')).show();
-        }
-
-        function resetModalUbicacion() {
-            $('#formUbicacion')[0].reset();
-            $('#formUbicacion').removeClass('was-validated');
-            $('#sucursal_ubicacion_id').empty().append('<option value="">Seleccionar ubicación...</option>');
-        }
-
-        function resetModalNuevaUbicacion() {
-            $('#formNuevaUbicacion')[0].reset();
-            $('#formNuevaUbicacion').removeClass('was-validated');
-            $('#sucursal_id').empty().append('<option value="">Seleccionar sucursal...</option>');
-            $('#deposito_id_nueva').empty().append('<option value="">Primero seleccione una sucursal...</option>');
-        }
-
-        // ========== FUNCIONES DE ACCIONES ==========
-
-        function cargarBotonAgregar() {
-            $.get('productos_ajax.php', {
-                accion: 'obtener_boton_agregar',
-                pagina_idx: pagina_idx
-            }, function(botonAgregar) {
-                if (botonAgregar && botonAgregar.nombre_funcion) {
-                    var icono = botonAgregar.icono_clase ? `<i class="${botonAgregar.icono_clase} me-1"></i>` : '';
-                    var colorClase = botonAgregar.bg_clase && botonAgregar.text_clase ? botonAgregar.bg_clase + ' ' + botonAgregar.text_clase : (botonAgregar.color_clase || 'btn-primary');
-                    $('#contenedor-boton-agregar').html(`<button type="button" class="btn ${colorClase}" id="btnNuevo">${icono}${botonAgregar.nombre_funcion}</button>`);
-                } else {
-                    $('#contenedor-boton-agregar').html('<button type="button" class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-1"></i>Agregar Producto</button>');
-                }
-            }, 'json');
-        }
-
-        $(document).on('click', '#btnNuevo', function() {
-            resetModal();
-            $('#modalLabel').text('Nuevo Producto');
-            cargarTiposProducto();
-            cargarCategoriasProducto();
-            cargarUnidadesMedida();
-            cargarIvaAlicuotas();
-            cargarCuentasContables();  // <--- AGREGAR ESTA LÍNEA
-            new bootstrap.Modal(document.getElementById('modalProducto')).show();
-            $('#producto_codigo').focus();
-        });
-
-        $(document).on('click', '.btn-accion', function() {
-            var productoId = $(this).data('id');
-            var accionJs = $(this).data('accion');
-            var confirmable = $(this).data('confirmable');
-            var producto = $(this).data('producto');
-
-            if (accionJs === 'editar') cargarProductoParaEditar(productoId);
-            else ejecutarAccion(productoId, accionJs, producto, confirmable);
-        });
-
-        function mostrarModalAlta(productoId, producto) {
-            productoActualId = productoId;
-            $('#alta_producto_id').val(productoId);
-            $('#mensajeAlta').html(`¿Está seguro de dar de ALTA el producto <strong>"${producto}"</strong>?`);
-            $('#formAltaProducto')[0].reset();
-            $('#formAltaProducto').removeClass('was-validated');
-            $('#fecha_alta').val(new Date().toISOString().split('T')[0]);
-            new bootstrap.Modal(document.getElementById('modalAltaProducto')).show();
-            $('#motivo_alta').focus();
-        }
-
-        function ejecutarAccion(productoId, accionJs, producto, esConfirmable) {
-            if (esConfirmable == 1 && (accionJs === 'alta' || accionJs === 'activar')) {
-                mostrarModalAlta(productoId, producto);
-                return;
-            }
-
-            if (esConfirmable == 1) {
-                Swal.fire({
-                    title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
-                    html: `¿Está seguro de <strong>${accionJs}</strong> el producto <strong>"${producto}"</strong>?`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: `Sí, ${accionJs}`,
-                    cancelButtonText: 'Cancelar'
-                }).then((result) => result.isConfirmed && enviarAccionBackend(productoId, accionJs, producto));
-            } else {
-                enviarAccionBackend(productoId, accionJs, producto);
-            }
-        }
-
-        function enviarAccionBackend(productoId, accionJs, producto) {
-            $.post('productos_ajax.php', {
-                accion: 'ejecutar_accion',
-                producto_id: productoId,
-                accion_js: accionJs,
-                empresa_idx: empresa_idx,
-                pagina_idx: pagina_idx
-            }, function(res) {
-                if (res.success) {
-                    tabla.ajax.reload(() => {
-                        Swal.fire({
-                            icon: "success",
-                            title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
-                            text: res.message || `Producto "${producto}" actualizado correctamente`,
-                            showConfirmButton: false,
-                            timer: 1500,
-                            toast: true,
-                            position: 'top-end'
+                            `;
+                            galeria.append(cardHtml);
                         });
-                        if (accionJs === 'alta' || accionJs === 'activar') {
-                            var modalAlta = bootstrap.Modal.getInstance(document.getElementById('modalAltaProducto'));
-                            if (modalAlta) modalAlta.hide();
+                        inicializarSortable();
+                    } else sinImagenes.show();
+                }, 'json');
+            }
+
+            function inicializarSortable() {
+                if (typeof Sortable !== 'undefined') {
+                    new Sortable(document.getElementById('galeriaImagenes'), {
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        chosenClass: 'sortable-chosen',
+                        onEnd: function() {
+                            $('#galeriaImagenes .col-md-3').each(function(index) {
+                                $.post('productos_ajax.php', {
+                                    accion: 'actualizar_imagen_producto',
+                                    producto_imagen_id: $(this).data('id'),
+                                    orden: index,
+                                    empresa_idx: empresa_idx
+                                }, function(res) {
+                                    if (!res.resultado) console.error('Error al actualizar orden:', res.error);
+                                }, 'json');
+                            });
                         }
                     });
-                } else {
-                    Swal.fire({ icon: "error", title: "Error", text: res.error || `Error al ${accionJs} el producto` });
                 }
-            }, 'json');
-        }
+            }
 
-        function cargarProductoParaEditar(productoId) {
-            $.get('productos_ajax.php', {
-                accion: 'obtener',
-                producto_id: productoId,
-                empresa_idx: empresa_idx
-            }, function(res) {
-                if (res && res.producto_id) {
+            function mostrarModalImagen(productoId, productoImagenId) {
+                resetModalImagen();
+                $('#imagen_producto_id').val(productoId);
+                if (productoImagenId) {
+                    $('#modalImagenLabel').html('<i class="fas fa-edit me-2"></i>Editar Imagen');
+                    $('#producto_imagen_id').val(productoImagenId);
+                    $.get('productos_ajax.php', { accion: 'obtener_imagen_por_id', producto_imagen_id: productoImagenId, empresa_idx: empresa_idx }, function(res) {
+                        if (res && res.producto_imagen_id) {
+                            $('#descripcion_imagen').val(res.descripcion || '');
+                            $('#es_principal_imagen').prop('checked', res.es_principal == 1);
+                            $('#orden_imagen').val(res.orden || 0);
+                            $('#vistaPreviaContainer').show();
+                            $('#vistaPreviaImagen').attr('src', 'get_imagen.php?id=' + res.imagen_id);
+                            $('#imagen_archivo').removeAttr('required');
+                        }
+                    }, 'json');
+                } else {
+                    $('#modalImagenLabel').html('<i class="fas fa-plus me-2"></i>Agregar Imagen');
+                    $('#imagen_archivo').attr('required', 'required');
+                }
+                new bootstrap.Modal(document.getElementById('modalImagen')).show();
+            }
+
+            function resetModalImagen() {
+                $('#formImagen')[0].reset();
+                $('#producto_imagen_id').val('');
+                $('#formImagen').removeClass('was-validated');
+                $('#vistaPreviaContainer').hide();
+                $('#vistaPreviaImagen').attr('src', '');
+            }
+
+            // ========== FUNCIONES DE PROVEEDORES ==========
+
+            function cargarProveedoresProducto(productoId) {
+                productoActualProveedores = productoId;
+                if ($.fn.DataTable.isDataTable('#tablaProveedores')) {
+                    $('#tablaProveedores').DataTable().destroy();
+                    $('#tablaProveedores tbody').empty();
+                }
+                tablaProveedores = $('#tablaProveedores').DataTable({
+                    ajax: {
+                        url: 'productos_ajax.php',
+                        type: 'GET',
+                        data: { accion: 'obtener_proveedores_producto', producto_id: productoId, empresa_idx: empresa_idx },
+                        dataSrc: ''
+                    },
+                    columns: [
+                        { data: 'entidad_nombre', render: function(data) { return data || '-'; } },
+                        { data: 'cuit', render: function(data) { return data || '-'; } },
+                        { data: 'codigo_proveedor', render: function(data) { return data || '-'; } },
+                        {
+                            data: 'producto_proveedor_id', orderable: false, searchable: false, className: "text-center",
+                            render: function(data) {
+                                return `<div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary btn-editar-proveedor" data-id="${data}" title="Editar"><i class="fas fa-edit"></i></button>
+                                    <button type="button" class="btn btn-outline-danger btn-eliminar-proveedor" data-id="${data}" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                </div>`;
+                            }
+                        }
+                    ],
+                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    responsive: true,
+                    pageLength: 10,
+                    searching: false,
+                    paging: false,
+                    info: false
+                });
+            }
+
+            function mostrarModalProveedor(productoId, productoProveedorId) {
+                resetModalProveedor();
+                $('#proveedor_producto_id').val(productoId);
+                cargarEntidadesProveedores();
+                if (productoProveedorId) {
+                    $('#modalProveedorLabel').html('<i class="fas fa-edit me-2"></i>Editar Proveedor');
+                    $('#producto_proveedor_id').val(productoProveedorId);
+                    setTimeout(function() {
+                        $.get('productos_ajax.php', { accion: 'obtener_proveedor_producto_por_id', producto_proveedor_id: productoProveedorId, empresa_idx: empresa_idx }, function(res) {
+                            if (res && res.producto_proveedor_id) {
+                                $('#entidad_id').val(res.entidad_id);
+                                $('#codigo_proveedor').val(res.codigo_proveedor || '');
+                                $('#entidad_id').prop('disabled', true);
+                            }
+                        }, 'json');
+                    }, 300);
+                } else {
+                    $('#modalProveedorLabel').html('<i class="fas fa-plus me-2"></i>Agregar Proveedor');
+                    $('#entidad_id').prop('disabled', false);
+                }
+                new bootstrap.Modal(document.getElementById('modalProveedor')).show();
+            }
+
+            function resetModalProveedor() {
+                $('#formProveedor')[0].reset();
+                $('#producto_proveedor_id').val('');
+                $('#formProveedor').removeClass('was-validated');
+                $('#entidad_id').empty().append('<option value="">Seleccionar proveedor...</option>').prop('disabled', false);
+            }
+
+            // ========== FUNCIONES DE ACCIONES ==========
+
+            function cargarBotonAgregar() {
+                $.get('productos_ajax.php', { accion: 'obtener_boton_agregar', pagina_idx: pagina_idx }, function(botonAgregar) {
+                    if (botonAgregar && botonAgregar.nombre_funcion) {
+                        var icono = botonAgregar.icono_clase ? '<i class="' + botonAgregar.icono_clase + ' me-1"></i>' : '';
+                        var colorClase = botonAgregar.bg_clase && botonAgregar.text_clase ? botonAgregar.bg_clase + ' ' + botonAgregar.text_clase : (botonAgregar.color_clase || 'btn-primary');
+                        $('#contenedor-boton-agregar').html('<button type="button" class="btn ' + colorClase + '" id="btnNuevo">' + icono + botonAgregar.nombre_funcion + '</button>');
+                    } else {
+                        $('#contenedor-boton-agregar').html('<button type="button" class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-1"></i>Agregar Producto</button>');
+                    }
+                }, 'json');
+            }
+
+            function ejecutarAccion(productoId, accionJs, producto, esConfirmable) {
+                if (esConfirmable == 1 && (accionJs === 'alta' || accionJs === 'activar')) {
+                    mostrarModalAlta(productoId, producto);
+                    return;
+                }
+                if (esConfirmable == 1) {
+                    Swal.fire({
+                        title: '¿' + accionJs.charAt(0).toUpperCase() + accionJs.slice(1) + '?',
+                        html: '¿Está seguro de <strong>' + accionJs + '</strong> el producto <strong>"' + producto + '"</strong>?',
+                        icon: 'question', showCancelButton: true, confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33', confirmButtonText: 'Sí, ' + accionJs, cancelButtonText: 'Cancelar'
+                    }).then(function(result) {
+                        if (result.isConfirmed) enviarAccionBackend(productoId, accionJs, producto);
+                    });
+                } else enviarAccionBackend(productoId, accionJs, producto);
+            }
+
+            function enviarAccionBackend(productoId, accionJs, producto) {
+                $.post('productos_ajax.php', {
+                    accion: 'ejecutar_accion',
+                    producto_id: productoId,
+                    accion_js: accionJs,
+                    empresa_idx: empresa_idx,
+                    pagina_idx: pagina_idx
+                }, function(res) {
+                    if (res.success) {
+                        tabla.ajax.reload(function() {
+                            Swal.fire({ icon: "success", title: "¡" + accionJs.charAt(0).toUpperCase() + accionJs.slice(1) + "!", text: res.message || 'Producto "' + producto + '" actualizado correctamente', showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
+                            if (accionJs === 'alta' || accionJs === 'activar') {
+                                var modalAlta = bootstrap.Modal.getInstance(document.getElementById('modalAltaProducto'));
+                                if (modalAlta) modalAlta.hide();
+                            }
+                        });
+                    } else Swal.fire({ icon: "error", title: "Error", text: res.error || "Error al " + accionJs + " el producto" });
+                }, 'json');
+            }
+
+            function mostrarModalAlta(productoId, producto) {
+                productoActualId = productoId;
+                $('#alta_producto_id').val(productoId);
+                $('#mensajeAlta').html('¿Está seguro de dar de ALTA el producto <strong>"' + producto + '"</strong>?');
+                $('#formAltaProducto')[0].reset();
+                $('#formAltaProducto').removeClass('was-validated');
+                $('#fecha_alta').val(new Date().toISOString().split('T')[0]);
+                new bootstrap.Modal(document.getElementById('modalAltaProducto')).show();
+                $('#motivo_alta').focus();
+            }
+
+            // ========== FUNCIONES DE EDICIÓN ==========
+
+            function cargarProductoParaEditar(productoId) {
+                $.get('productos_ajax.php', { accion: 'obtener', producto_id: productoId, empresa_idx: empresa_idx }, function(res) {
+                    if (res && res.producto_id) {
+                        resetModal();
+                        $('#producto_id').val(res.producto_id);
+                        $('#producto_codigo').val(res.producto_codigo);
+                        $('#producto_nombre').val(res.producto_nombre);
+                        $('#codigo_barras').val(res.codigo_barras);
+                        $('#producto_descripcion').val(res.producto_descripcion || '');
+                        $('#lado').val(res.lado || '');
+                        $('#material').val(res.material || '');
+                        $('#color').val(res.color || '');
+                        $('#peso').val(res.peso || '');
+                        $('#dimensiones').val(res.dimensiones || '');
+                        $('#garantia').val(res.garantia || '');
+                        $('#controla_stock').prop('checked', res.controla_stock == 1);
+                        cargarTiposProducto();
+                        cargarCategoriasProducto();
+                        cargarUnidadesMedida();
+                        cargarIvaAlicuotas();
+                        cargarCuentasContables();
+                        setTimeout(function() {
+                            $('#producto_tipo_id').val(res.producto_tipo_id);
+                            $('#producto_categoria_id').val(res.producto_categoria_id);
+                            $('#unidad_medida_id').val(res.unidad_medida_id || '');
+                            $('#cont_cuenta_id').val(res.cont_cuenta_id || '');
+                            $('#iva_alicuota_id').val(res.iva_alicuota_id || '');
+                            if (res.iva_alicuota_id) $('#iva_alicuota_id').trigger('change');
+                        }, 500);
+                        $('#modalLabel').text('Editar Producto');
+                        cargarCompatibilidad(productoId);
+                        cargarImagenesProducto(productoId);
+                        cargarUbicacionesProducto(productoId);
+                        cargarProveedoresProducto(productoId);
+                        new bootstrap.Modal(document.getElementById('modalProducto')).show();
+                    } else Swal.fire({ icon: "error", title: "Error", text: "Error al obtener datos del producto" });
+                }, 'json');
+            }
+
+            function resetModal() {
+                $('#formProducto')[0].reset();
+                $('#producto_id').val('');
+                $('#formProducto').removeClass('was-validated');
+                $('#iva_alicuota_id').empty().append('<option value="">Seleccionar alícuota...</option>');
+                $('#iva_info').html('<span class="text-muted">Seleccione una alícuota...</span>');
+                $('#cont_cuenta_id').empty().append('<option value="">Seleccionar cuenta...</option>');
+                $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
+                $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
+                $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
+                $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
+                $('#controla_stock').prop('checked', true);
+                if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
+                    $('#tablaCompatibilidad').DataTable().destroy();
+                    $('#tablaCompatibilidad tbody').empty();
+                }
+                $('#galeriaImagenes').empty();
+                $('#sinImagenes').show();
+                if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
+                    $('#tablaUbicaciones').DataTable().destroy();
+                    $('#tablaUbicaciones tbody').empty();
+                }
+                if ($.fn.DataTable.isDataTable('#tablaProveedores')) {
+                    $('#tablaProveedores').DataTable().destroy();
+                    $('#tablaProveedores tbody').empty();
+                }
+            }
+
+            // ========== FUNCIONES DE FILTROS ==========
+
+            function actualizarIndicadorFiltros() {
+                var codigo = $('#filtroCodigo').val().trim();
+                var marca = $('#filtroMarca').val();
+                var modelo = $('#filtroModelo').val();
+                var submodelo = $('#filtroSubmodelo').val();
+                var totalFiltros = 0;
+                
+                if (codigo) totalFiltros++;
+                if (marca) totalFiltros++;
+                if (modelo) totalFiltros++;
+                if (submodelo) totalFiltros++;
+                if (tags.length > 0) totalFiltros++;
+                
+                if (totalFiltros > 0) {
+                    $('#btnLimpiarFiltros').html('<i class="fas fa-times me-1"></i>Limpiar (' + totalFiltros + ')');
+                    $('#btnLimpiarFiltros').removeClass('btn-outline-secondary').addClass('btn-danger');
+                    $('#btnLimpiarFiltros').addClass('btn-sm');
+                } else {
+                    $('#btnLimpiarFiltros').html('<i class="fas fa-times me-1"></i>Limpiar filtros');
+                    $('#btnLimpiarFiltros').removeClass('btn-danger').addClass('btn-outline-secondary');
+                    $('#btnLimpiarFiltros').addClass('btn-sm');
+                }
+            }
+
+            // ========== FUNCIONES DE TABLA PRINCIPAL ==========
+
+            function inicializarDataTable() {
+                if ($.fn.DataTable.isDataTable('#tablaProductos')) {
+                    $('#tablaProductos').DataTable().destroy();
+                    $('#tablaProductos tbody').empty();
+                }
+
+                // El contenedor de info de filtros ahora está en el HTML directamente
+
+                tabla = $('#tablaProductos').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    ajax: {
+                        url: 'productos_ajax.php',
+                        type: 'GET',
+                        data: function(d) {
+                            d.accion = 'listar';
+                            d.empresa_idx = empresa_idx;
+                            d.pagina_idx = pagina_idx;
+                            d.filtro_codigo = $('#filtroCodigo').val();
+                            d.filtro_marca = $('#filtroMarca').val();
+                            d.filtro_modelo = $('#filtroModelo').val();
+                            d.filtro_submodelo = $('#filtroSubmodelo').val();
+                        }
+                    },
+                    stateSave: true,
+                    stateSaveParams: function(settings, data) {
+                        data.page = currentPage;
+                        data.order = currentOrder;
+                        data.search = { search: currentSearch !== '-1' ? currentSearch : '' };
+                        delete data.columns;
+                        return data;
+                    },
+                    stateLoadParams: function(settings, data) {
+                        if (data.page !== undefined) currentPage = data.page;
+                        if (data.order !== undefined) currentOrder = data.order;
+                        currentSearch = (data.search && data.search.search) ? data.search.search : '';
+                        data.search = { search: currentSearch };
+                    },
+                    dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                        '<"row"<"col-sm-12"tr>>' +
+                        '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                        '<"clear">',
+                    pageLength: 50,
+                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+                    buttons: [
+                        {
+                            extend: 'excelHtml5',
+                            text: '<i class="fas fa-file-excel text-success"></i> Excel',
+                            className: 'btn btn-sm btn-outline-success',
+                            title: 'Productos',
+                            exportOptions: {
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                            }
+                        },
+                        {
+                            extend: 'pdfHtml5',
+                            text: '<i class="fas fa-file-pdf text-danger"></i> PDF',
+                            className: 'btn btn-sm btn-outline-danger',
+                            title: 'Productos',
+                            orientation: 'landscape',
+                            pageSize: 'A4',
+                            exportOptions: {
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                            }
+                        },
+                        {
+                            extend: 'csvHtml5',
+                            text: '<i class="fas fa-file-csv text-primary"></i> CSV',
+                            className: 'btn btn-sm btn-outline-primary',
+                            title: 'Productos',
+                            exportOptions: {
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                            }
+                        },
+                        {
+                            extend: 'print',
+                            text: '<i class="fas fa-print text-secondary"></i> Imprimir',
+                            className: 'btn btn-sm btn-outline-secondary',
+                            title: 'Listado de Productos',
+                            exportOptions: {
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                            }
+                        }
+                    ],
+                    columns: [
+                        { data: 'producto_codigo', className: 'text-center fw-medium', width: '100px' },
+                        {
+                            data: 'producto_nombre',
+                            render: function(data, type, row) {
+                                if (type === 'export') return data;
+                                var desc = row.producto_descripcion ? '<small class="text-muted d-block">' + row.producto_descripcion + '</small>' : '';
+                                return '<div class="fw-medium">' + data + '</div>' + desc;
+                            }
+                        },
+                        {
+                            data: 'marcas_compatibles', width: '150px',
+                            render: function(data) {
+                                return data ? '<span class="badge badge-compatibilidad bg-info text-white" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
+                            }
+                        },
+                        {
+                            data: 'modelos_compatibles', width: '150px',
+                            render: function(data) {
+                                return data ? '<span class="badge badge-compatibilidad bg-success text-white" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
+                            }
+                        },
+                        {
+                            data: 'submodelos_compatibles', width: '150px',
+                            render: function(data) {
+                                return data ? '<span class="badge badge-compatibilidad bg-warning text-dark" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
+                            }
+                        },
+                        {
+                            data: 'ubicaciones_info', width: '200px',
+                            render: function(data, type, row) {
+                                if (type === 'export') return data || 'Sin ubicaciones';
+                                if (!data) return '<span class="text-muted">Sin ubicación</span>';
+                                if (row.ubicaciones_detalle && row.ubicaciones_detalle.length > 0) {
+                                    var html = '<div class="ubicaciones-container">';
+                                    var mostrar = row.ubicaciones_detalle.slice(0, 2);
+                                    $.each(mostrar, function(idx, u) {
+                                        var partes = [];
+                                        if (u.seccion) partes.push('<span class="badge badge-ubicacion badge-seccion">' + u.seccion + '</span>');
+                                        if (u.estanteria) partes.push('<span class="badge badge-ubicacion badge-estanteria">' + u.estanteria + '</span>');
+                                        if (u.estante) partes.push('<span class="badge badge-ubicacion badge-estante">' + u.estante + '</span>');
+                                        if (u.posicion) partes.push('<span class="badge badge-ubicacion badge-posicion">' + u.posicion + '</span>');
+                                        if (partes.length > 0) {
+                                            html += '<div class="ubicacion-item"><div class="d-flex flex-wrap align-items-center gap-1">' + partes.join(' ') + '</div></div>';
+                                        }
+                                    });
+                                    html += '</div>';
+                                    return html;
+                                }
+                                var ubicaciones = data.split('; ');
+                                var html = '<div class="ubicaciones-container">';
+                                var mostradas = ubicaciones.slice(0, 2);
+                                $.each(mostradas, function(idx, ubicacion) {
+                                    if (!ubicacion) return true;
+                                    var seccion = '', estanteria = '', estante = '', posicion = '';
+                                    var parts = ubicacion.split(': ');
+                                    var detalle = parts[1] || '';
+                                    var seccionMatch = detalle.match(/^([A-Za-zÁÉÍÓÚáéíóúÑñ\s]+)/);
+                                    if (seccionMatch) seccion = seccionMatch[1].trim();
+                                    var estMatch = detalle.match(/Est(?:\.|antería)?\s*[:]?\s*([A-Za-z0-9]+)/i);
+                                    if (estMatch) estanteria = estMatch[1];
+                                    var nroMatch = detalle.match(/Nro(?:\.)?\s*[:]?\s*([A-Za-z0-9]+)/i);
+                                    if (nroMatch) estante = nroMatch[1];
+                                    var posMatch = detalle.match(/Pos(?:\.)?\s*[:]?\s*([A-Za-z0-9]+)/i);
+                                    if (posMatch) posicion = posMatch[1];
+                                    var partes = [];
+                                    if (seccion) partes.push('<span class="badge badge-ubicacion badge-seccion">' + seccion + '</span>');
+                                    if (estanteria) partes.push('<span class="badge badge-ubicacion badge-estanteria">' + estanteria + '</span>');
+                                    if (estante) partes.push('<span class="badge badge-ubicacion badge-estante">' + estante + '</span>');
+                                    if (posicion) partes.push('<span class="badge badge-ubicacion badge-posicion">' + posicion + '</span>');
+                                    if (partes.length > 0) {
+                                        html += '<div class="ubicacion-item"><div class="d-flex flex-wrap align-items-center gap-1">' + partes.join(' ') + '</div></div>';
+                                    }
+                                });
+                                html += '</div>';
+                                return html;
+                            }
+                        },
+                        {
+                            data: 'imagen_id_principal', width: '80px', className: 'text-center', orderable: false, searchable: false,
+                            render: function(data, type, row) {
+                                if (type === 'export') return data ? 'Sí' : 'No';
+                                if (data) {
+                                    var rutaImagen = 'get_imagen.php?id=' + data;
+                                    var titulo = (row.producto_nombre || '').replace(/'/g, "\\'");
+                                    return '<img src="' + rutaImagen + '" alt="Prod" class="img-thumbnail rounded-circle" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" onclick="mostrarImagenGrande(\'' + rutaImagen + '\', \'' + titulo + '\', ' + row.producto_id + ')" onerror="this.onerror=null; this.src=\'data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'50\\\' height=\\\'50\\\'><rect width=\\\'50\\\' height=\\\'50\\\' fill=\\\'#f8f9fa\\\'/><text x=\\\'25\\\' y=\\\'25\\\' text-anchor=\\\'middle\\\' fill=\\\'#6c757d\\\' font-family=\\\'Arial\\\' font-size=\\\'10\\\'>Error</text></svg>\';">';
+                                }
+                                return '<div class="text-center text-muted"><i class="fas fa-image fa-lg"></i></div>';
+                            }
+                        },
+                        {
+                            data: 'estado_info', className: 'text-center', width: '100px',
+                            render: function(data, type) {
+                                if (!data || !data.estado_registro) return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
+                                if (type === 'export') return data.estado_registro;
+                                var clase = 'badge-estado-inactivo';
+                                if (data.codigo_estandar === 'ACTIVO') clase = 'badge-estado-activo';
+                                return '<span class="badge ' + clase + '">' + data.estado_registro + '</span>';
+                            }
+                        },
+                        {
+                            data: 'botones', orderable: false, searchable: false, className: "text-center", width: '120px',
+                            render: function(data, type, row) {
+                                if (type === 'export' || !data) return '';
+                                return data.map(function(boton) {
+                                    var clase = 'btn-xs me-1 ';
+                                    var nombre = boton.accion_js || boton.nombre_funcion.toLowerCase();
+                                    clase += nombre === 'editar' ? 'btn-outline-primary' :
+                                            (nombre === 'eliminar' || nombre === 'baja') ? 'btn-outline-danger' :
+                                            (nombre === 'alta' || nombre === 'activar') ? 'btn-outline-success' :
+                                            (nombre === 'suspender' || nombre === 'bloquear') ? 'btn-outline-warning' : 'btn-outline-secondary';
+                                    return '<button type="button" class="btn ' + clase + ' btn-accion" title="' + (boton.descripcion || boton.nombre_funcion) + '" data-id="' + row.producto_id + '" data-accion="' + boton.accion_js + '" data-confirmable="' + (boton.es_confirmable || 0) + '" data-producto="' + row.producto_nombre + '"><i class="' + (boton.icono_clase || 'fas fa-cog') + '"></i></button>';
+                                }).join('') || '<span class="text-muted small">-</span>';
+                            }
+                        }
+                    ],
+                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    order: currentOrder,
+                    responsive: true,
+                    createdRow: function(row, data) {
+                        if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') $(row).addClass('table-secondary');
+                        else if (data.estado_info && data.estado_info.codigo_estandar === 'BLOQUEADO') $(row).addClass('table-warning');
+                    },
+                    initComplete: function() {
+                        $('#tablaProductos_filter').hide();
+                        this.api().buttons().container().appendTo('#exportButtonsContainer');
+                        
+                        if (currentSearch && currentSearch.length > 0) {
+                            var palabras = currentSearch.split(/\s+/);
+                            palabras.forEach(function(palabra) {
+                                if (palabra.length > 0) agregarTag(palabra);
+                            });
+                            setTimeout(function() { ejecutarBusquedaTags(); }, 100);
+                        }
+                        inicializarEventos();
+                    }
+                });
+
+                // Evento draw para actualizar contador de filtros
+                tabla.on('draw.dt', function() {
+                    var info = tabla.page.info();
+                    var total = info.recordsDisplay;
+                    var filtroActivo = $('#filtroCodigo').val().trim() || 
+                                    $('#filtroMarca').val() || 
+                                    $('#filtroModelo').val() || 
+                                    $('#filtroSubmodelo').val() ||
+                                    tags.length > 0;
+                    
+                    if (filtroActivo && total > 0) {
+                        $('#infoFiltros').show().html('<i class="fas fa-filter text-primary me-1"></i> Mostrando ' + total + ' resultados');
+                    } else if (filtroActivo && total === 0) {
+                        $('#infoFiltros').show().html('<i class="fas fa-exclamation-triangle text-warning me-1"></i> No se encontraron resultados');
+                    } else {
+                        $('#infoFiltros').hide();
+                    }
+                    
+                    actualizarIndicadorFiltros();
+                });
+            }
+
+            // ========== FUNCIONES DE EVENTOS ==========
+
+            function inicializarEventos() {
+                // Botón Recargar
+                $('#btnRecargar').off('click').on('click', function() {
+                    var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+                    tabla.ajax.reload(function() { btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>'); });
+                });
+
+                // === FILTROS AUTOMÁTICOS ===
+                
+                // Filtro de código con debounce
+                $('#filtroCodigo').off('keyup').on('keyup', function() {
+                    clearTimeout(timeoutCodigo);
+                    var valor = $(this).val();
+                    if (valor.trim().length > 0) {
+                        $('#codigoSearchIcon').show();
+                    } else {
+                        $('#codigoSearchIcon').hide();
+                    }
+                    timeoutCodigo = setTimeout(function() {
+                        tabla.ajax.reload();
+                    }, 400);
+                });
+
+                // Filtro de marca - automático al cambiar
+                $('#filtroMarca').off('change').on('change', function() {
+                    var marcaId = $(this).val();
+                    if (marcaId) {
+                        cargarModelos(marcaId, '#filtroModelo');
+                    } else {
+                        $('#filtroModelo, #filtroSubmodelo').val('').prop('disabled', true);
+                    }
+                    tabla.ajax.reload();
+                });
+
+                // Filtro de modelo - automático al cambiar
+                $('#filtroModelo').off('change').on('change', function() {
+                    var modeloId = $(this).val();
+                    if (modeloId) {
+                        cargarSubmodelos(modeloId, '#filtroSubmodelo');
+                    } else {
+                        $('#filtroSubmodelo').val('').prop('disabled', true);
+                    }
+                    tabla.ajax.reload();
+                });
+
+                // Filtro de submodelo - automático al cambiar
+                $('#filtroSubmodelo').off('change').on('change', function() {
+                    tabla.ajax.reload();
+                });
+
+                // Botón Limpiar Filtros (ahora único)
+                $('#btnLimpiarFiltros').off('click').on('click', function() {
+                    $('#filtroCodigo').val('');
+                    $('#codigoSearchIcon').hide();
+                    $('#filtroMarca').val('');
+                    $('#filtroModelo').val('').prop('disabled', true);
+                    $('#filtroSubmodelo').val('').prop('disabled', true);
+                    limpiarTags();
+                    tabla.ajax.reload();
+                    // Ocultar info de filtros
+                    $('#infoFiltros').hide();
+                });
+
+                // Eventos de compatibilidad
+                $(document).on('change', '#marca_id', function() {
+                    var marcaId = $(this).val();
+                    if (marcaId) cargarModelos(marcaId);
+                    else $('#modelo_id, #submodelo_id').val('').prop('disabled', true);
+                });
+
+                $(document).on('change', '#modelo_id', function() {
+                    var modeloId = $(this).val();
+                    if (modeloId) cargarSubmodelos(modeloId);
+                    else $('#submodelo_id').val('').prop('disabled', true);
+                });
+
+                $(document).on('change', '#sucursal_id', function() {
+                    cargarDepositosParaNuevaUbicacion($(this).val());
+                });
+
+                // Botón Nuevo Producto
+                $(document).on('click', '#btnNuevo', function() {
                     resetModal();
-
-                    $('#producto_id').val(res.producto_id);
-                    $('#producto_codigo').val(res.producto_codigo);
-                    $('#producto_nombre').val(res.producto_nombre);
-                    $('#codigo_barras').val(res.codigo_barras);
-                    $('#producto_descripcion').val(res.producto_descripcion || '');
-                    $('#lado').val(res.lado || '');
-                    $('#material').val(res.material || '');
-                    $('#color').val(res.color || '');
-                    $('#peso').val(res.peso || '');
-                    $('#dimensiones').val(res.dimensiones || '');
-                    $('#garantia').val(res.garantia || '');
-                    $('#controla_stock').prop('checked', res.controla_stock == 1);  // <--- AGREGAR
-
+                    $('#modalLabel').text('Nuevo Producto');
                     cargarTiposProducto();
                     cargarCategoriasProducto();
                     cargarUnidadesMedida();
                     cargarIvaAlicuotas();
-                    cargarCuentasContables();  // <--- AGREGAR ESTA LÍNEA
-
-                    setTimeout(function() {
-                        $('#producto_tipo_id').val(res.producto_tipo_id);
-                        $('#producto_categoria_id').val(res.producto_categoria_id);
-                        $('#unidad_medida_id').val(res.unidad_medida_id || '');
-                        $('#cont_cuenta_id').val(res.cont_cuenta_id || '');
-                        $('#iva_alicuota_id').val(res.iva_alicuota_id || '');
-                        if (res.iva_alicuota_id) $('#iva_alicuota_id').trigger('change');
-                    }, 500);
-
-                    $('#modalLabel').text('Editar Producto');
-
-                    cargarCompatibilidad(productoId);
-                    cargarImagenesProducto(productoId);
-                    cargarUbicacionesProducto(productoId);
-                    cargarProveedoresProducto(productoId); // AGREGAR ESTA LÍNEA
-
+                    cargarCuentasContables();
                     new bootstrap.Modal(document.getElementById('modalProducto')).show();
-                } else {
-                    Swal.fire({ icon: "error", title: "Error", text: "Error al obtener datos del producto" });
-                }
-            }, 'json');
-        }
+                    $('#producto_codigo').focus();
+                });
 
-        function resetModal() {
-            $('#formProducto')[0].reset();
-            $('#producto_id').val('');
-            $('#formProducto').removeClass('was-validated');
-            $('#iva_alicuota_id').empty().append('<option value="">Seleccionar alícuota...</option>');
-            $('#iva_info').html('<span class="text-muted">Seleccione una alícuota...</span>');
-            $('#cont_cuenta_id').empty().append('<option value="">Seleccionar cuenta...</option>');
-            $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
-            $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
-            $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
-            $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
-            $('#controla_stock').prop('checked', true);  // <--- AGREGAR
-
-            if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
-                $('#tablaCompatibilidad').DataTable().destroy();
-                $('#tablaCompatibilidad tbody').empty();
-            }
-
-            $('#galeriaImagenes').empty();
-            $('#sinImagenes').show();
-
-            if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
-                $('#tablaUbicaciones').DataTable().destroy();
-                $('#tablaUbicaciones tbody').empty();
-            }
-            if ($.fn.DataTable.isDataTable('#tablaProveedores')) {
-                $('#tablaProveedores').DataTable().destroy();
-                $('#tablaProveedores tbody').empty();
-            }
-        }
-
-        $('#btnGuardar').click(function() {
-            var form = document.getElementById('formProducto');
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                return false;
-            }
-
-            var id = $('#producto_id').val();
-            var accionBackend = id ? 'editar' : 'agregar';
-
-            if (!$('#producto_codigo').val().trim()) {
-                $('#producto_codigo').addClass('is-invalid');
-                return false;
-            }
-            if (!$('#producto_nombre').val().trim()) {
-                $('#producto_nombre').addClass('is-invalid');
-                return false;
-            }
-            if (!$('#producto_tipo_id').val()) {
-                $('#producto_tipo_id').addClass('is-invalid');
-                return false;
-            }
-            if (!$('#producto_categoria_id').val()) {
-                $('#producto_categoria_id').addClass('is-invalid');
-                return false;
-            }
-
-            var btnGuardar = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-
-            $.ajax({
-                url: 'productos_ajax.php',
-                type: 'POST',
-                data: {
-                    accion: accionBackend,
-                    producto_id: id,
-                    producto_codigo: $('#producto_codigo').val().trim(),
-                    producto_nombre: $('#producto_nombre').val().trim(),
-                    codigo_barras: $('#codigo_barras').val(),
-                    producto_descripcion: $('#producto_descripcion').val(),
-                    producto_categoria_id: $('#producto_categoria_id').val(),
-                    producto_tipo_id: $('#producto_tipo_id').val(),
-                    unidad_medida_id: $('#unidad_medida_id').val() || null,
-                    cont_cuenta_id: $('#cont_cuenta_id').val() || null,
-                    iva_alicuota_id: $('#iva_alicuota_id').val() || null,
-                    lado: $('#lado').val(),
-                    material: $('#material').val(),
-                    color: $('#color').val(),
-                    peso: $('#peso').val(),
-                    dimensiones: $('#dimensiones').val(),
-                    garantia: $('#garantia').val(),
-                    controla_stock: $('#controla_stock').is(':checked') ? 1 : 0,  // <--- AGREGAR ESTA LÍNEA
-                    empresa_idx: empresa_idx,
-                    pagina_idx: pagina_idx
-                },
-                success: function(res) {
-                    btnGuardar.prop('disabled', false).html('Guardar');
-                    if (res.resultado) {
-                        tabla.ajax.reload(() => {
-                            Swal.fire({ icon: "success", title: "¡Guardado!", text: "Producto guardado correctamente", showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
-                            bootstrap.Modal.getInstance(document.getElementById('modalProducto')).hide();
-                        });
-                    } else {
-                        Swal.fire({ icon: "error", title: "Error", text: res.error || "Error al guardar los datos" });
+                // Botón Editar Ubicación
+                $(document).on('click', '.btn-editar-ubicacion', function() {
+                    var productoUbicacionId = $(this).data('id');
+                    if (productoActualUbicaciones) {
+                        mostrarModalEditarUbicacion(productoActualUbicaciones, productoUbicacionId);
                     }
-                },
-                error: function() {
-                    btnGuardar.prop('disabled', false).html('Guardar');
-                    Swal.fire({ icon: "error", title: "Error de conexión", text: "Error al comunicarse con el servidor" });
-                }
-            });
-        });
+                });
 
-        $('#btnConfirmarAlta').click(function() {
-            var form = document.getElementById('formAltaProducto');
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                return false;
+                // Acciones de compatibilidad
+                $('#btnAgregarCompatibilidad').click(function() {
+                    if (productoActualCompatibilidad) mostrarModalCompatibilidad(productoActualCompatibilidad);
+                });
+
+                $(document).on('click', '.btn-editar-compatibilidad', function() {
+                    if (productoActualCompatibilidad) mostrarModalCompatibilidad(productoActualCompatibilidad, $(this).data('id'));
+                });
+
+                $(document).on('click', '.btn-eliminar-compatibilidad', function() {
+                    var compatibilidadId = $(this).data('id');
+                    Swal.fire({
+                        title: '¿Eliminar Compatibilidad?', text: 'Esta acción no se puede deshacer', icon: 'warning',
+                        showCancelButton: true, confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, eliminar'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            $.post('productos_ajax.php', {
+                                accion: 'eliminar_compatibilidad',
+                                compatibilidad_id: compatibilidadId,
+                                empresa_idx: empresa_idx
+                            }, function(res) {
+                                if (res.success) {
+                                    Swal.fire('¡Eliminado!', 'Compatibilidad eliminada correctamente', 'success');
+                                    tablaCompatibilidad.ajax.reload();
+                                } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                            }, 'json');
+                        }
+                    });
+                });
+
+                $('#btnGuardarCompatibilidad').click(function() {
+                    var form = document.getElementById('formCompatibilidad');
+                    if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
+                    var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                    var datos = {
+                        accion: $('#compatibilidad_id').val() ? 'editar_compatibilidad' : 'agregar_compatibilidad',
+                        compatibilidad_id: $('#compatibilidad_id').val() || '',
+                        producto_id: $('#compatibilidad_producto_id').val(),
+                        marca_id: $('#marca_id').val(),
+                        modelo_id: $('#modelo_id').val(),
+                        submodelo_id: $('#submodelo_id').val() || null,
+                        anio_desde: $('#anio_desde').val(),
+                        anio_hasta: $('#anio_hasta').val() || null,
+                        empresa_idx: empresa_idx
+                    };
+                    $.post('productos_ajax.php', datos, function(res) {
+                        btn.prop('disabled', false).html('Guardar');
+                        if (res.success || res.resultado) {
+                            Swal.fire('¡Guardado!', 'Compatibilidad guardada correctamente', 'success');
+                            bootstrap.Modal.getInstance(document.getElementById('modalCompatibilidad')).hide();
+                            tablaCompatibilidad.ajax.reload();
+                        } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
+                    }, 'json');
+                });
+
+                // Acciones de imágenes
+                $('#btnAgregarImagen').click(function() {
+                    if (productoActualImagenes) mostrarModalImagen(productoActualImagenes);
+                });
+
+                $(document).on('click', '.btn-editar-imagen', function() {
+                    if (productoActualImagenes) mostrarModalImagen(productoActualImagenes, $(this).data('id'));
+                });
+
+                $(document).on('click', '.btn-imagen-principal', function() {
+                    var productoImagenId = $(this).data('id');
+                    Swal.fire({
+                        title: '¿Marcar como principal?', text: 'Esta imagen será mostrada como la principal del producto',
+                        icon: 'question', showCancelButton: true, confirmButtonColor: '#28a745',
+                        cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, marcar'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            $.post('productos_ajax.php', {
+                                accion: 'actualizar_imagen_producto',
+                                producto_imagen_id: productoImagenId,
+                                es_principal: 1,
+                                empresa_idx: empresa_idx
+                            }, function(res) {
+                                if (res.resultado) {
+                                    Swal.fire('¡Actualizado!', 'Imagen marcada como principal', 'success');
+                                    cargarImagenesProducto(productoActualImagenes);
+                                } else Swal.fire('Error', res.error || 'Error al actualizar', 'error');
+                            }, 'json');
+                        }
+                    });
+                });
+
+                $(document).on('click', '.btn-eliminar-imagen', function() {
+                    var productoImagenId = $(this).data('id');
+                    Swal.fire({
+                        title: '¿Eliminar Imagen?', text: 'Esta acción no se puede deshacer', icon: 'warning',
+                        showCancelButton: true, confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, eliminar'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            $.post('productos_ajax.php', {
+                                accion: 'eliminar_imagen_producto',
+                                producto_imagen_id: productoImagenId,
+                                empresa_idx: empresa_idx
+                            }, function(res) {
+                                if (res.success) {
+                                    Swal.fire('¡Eliminado!', 'Imagen eliminada correctamente', 'success');
+                                    cargarImagenesProducto(productoActualImagenes);
+                                } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                            }, 'json');
+                        }
+                    });
+                });
+
+                $('#imagen_archivo').change(function() {
+                    if (this.files[0]) {
+                        var reader = new FileReader();
+                        reader.onload = function(e) {
+                            $('#vistaPreviaContainer').show().find('#vistaPreviaImagen').attr('src', e.target.result);
+                        };
+                        reader.readAsDataURL(this.files[0]);
+                    } else $('#vistaPreviaContainer').hide();
+                });
+
+                $('#btnGuardarImagen').click(function() {
+                    var form = document.getElementById('formImagen');
+                    var productoImagenId = $('#producto_imagen_id').val();
+                    if (!productoImagenId && !$('#imagen_archivo')[0].files[0]) {
+                        form.classList.add('was-validated');
+                        return false;
+                    }
+                    if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
+                    var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                    var formData = new FormData(form);
+                    formData.append('accion', productoImagenId ? 'actualizar_imagen_producto' : 'subir_imagen_producto');
+                    formData.append('producto_id', $('#imagen_producto_id').val());
+                    if (productoImagenId) formData.append('producto_imagen_id', productoImagenId);
+                    formData.append('empresa_idx', empresa_idx);
+                    $.ajax({
+                        url: 'productos_ajax.php',
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(res) {
+                            btn.prop('disabled', false).html('Guardar');
+                            if (res.resultado) {
+                                Swal.fire('¡Guardado!', 'Imagen guardada correctamente', 'success');
+                                bootstrap.Modal.getInstance(document.getElementById('modalImagen')).hide();
+                                cargarImagenesProducto(productoActualImagenes);
+                            } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
+                        },
+                        error: function() {
+                            btn.prop('disabled', false).html('Guardar');
+                            Swal.fire('Error', 'Error de conexión al servidor', 'error');
+                        }
+                    });
+                });
+
+                // Acciones de ubicaciones
+                $('#btnAgregarUbicacion').click(function() {
+                    if (productoActualUbicaciones) mostrarModalUbicacion(productoActualUbicaciones);
+                });
+                
+                $('#btnNuevaUbicacion').click(function() {
+                    if (productoActualUbicaciones) mostrarModalNuevaUbicacion(productoActualUbicaciones);
+                });
+
+                $(document).on('click', '.btn-eliminar-ubicacion', function() {
+                    var productoUbicacionId = $(this).data('id');
+                    Swal.fire({
+                        title: '¿Eliminar Ubicación?', text: 'Esta acción no se puede deshacer', icon: 'warning',
+                        showCancelButton: true, confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, eliminar'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            $.post('productos_ajax.php', {
+                                accion: 'eliminar_ubicacion_producto',
+                                producto_ubicacion_id: productoUbicacionId,
+                                empresa_idx: empresa_idx
+                            }, function(res) {
+                                if (res.success) {
+                                    Swal.fire('¡Eliminado!', 'Ubicación eliminada correctamente', 'success');
+                                    tablaUbicaciones.ajax.reload();
+                                } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                            }, 'json');
+                        }
+                    });
+                });
+
+                $('#btnGuardarUbicacion').click(function() {
+                    var ubicacionId = $('#sucursal_ubicacion_id').val();
+                    if (!ubicacionId) {
+                        Swal.fire({ icon: 'warning', title: 'Seleccione una ubicación', text: 'Debe seleccionar una posición válida para continuar' });
+                        return false;
+                    }
+                    
+                    var productoUbicacionId = $('#producto_ubicacion_id_editar').val() || '';
+                    var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                    var esEdicion = productoUbicacionId ? true : false;
+                    
+                    $.post('productos_ajax.php', {
+                        accion: 'agregar_ubicacion_producto',
+                        producto_ubicacion_id: productoUbicacionId,
+                        producto_id: $('#ubicacion_producto_id').val(),
+                        sucursal_ubicacion_id: ubicacionId,
+                        empresa_idx: empresa_idx
+                    }, function(res) {
+                        btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar');
+                        if (res.resultado) {
+                            var mensaje = '';
+                            if (esEdicion) {
+                                mensaje = '¡Ubicación actualizada!';
+                            } else if (res.reactivado) {
+                                mensaje = '¡Ubicación reactivada!';
+                            } else {
+                                mensaje = '¡Ubicación asignada!';
+                            }
+                            Swal.fire({ 
+                                icon: 'success', 
+                                title: mensaje, 
+                                text: 'La ubicación se ha ' + (esEdicion ? 'actualizado' : (res.reactivado ? 'reactivado' : 'asignado')) + ' correctamente al producto', 
+                                timer: 1500, 
+                                showConfirmButton: false, 
+                                toast: true, 
+                                position: 'top-end' 
+                            });
+                            bootstrap.Modal.getInstance(document.getElementById('modalUbicacion')).hide();
+                            tablaUbicaciones.ajax.reload(null, false);
+                            $('#producto_ubicacion_id_editar').val('');
+                            $('#btnGuardarUbicacion').text('Guardar');
+                            $('#modalUbicacionLabel').html('<i class="fas fa-map-marker-alt me-2"></i>Agregar Ubicación');
+                        } else {
+                            Swal.fire({ icon: 'error', title: 'Error', text: res.error || 'Error al guardar la ubicación' });
+                        }
+                    }, 'json');
+                });
+
+                $('#btnGuardarNuevaUbicacion').click(function() {
+                    var form = document.getElementById('formNuevaUbicacion');
+                    if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
+                    var sucursalId = $('#sucursal_id').val();
+                    var depositoId = $('#deposito_id_nueva').val();
+                    var seccion = $('#seccion').val().trim();
+                    var estanteria = $('#estanteria').val().trim();
+                    var estante = $('#estante').val().trim();
+                    var posicion = $('#posicion').val().trim();
+                    var descripcion = $('#descripcion_ubicacion').val().trim();
+                    if (!sucursalId || !depositoId || !seccion || !estanteria || !estante || !posicion) {
+                        Swal.fire('Error', 'Todos los campos son obligatorios', 'error');
+                        return false;
+                    }
+                    var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Creando...');
+                    $.post('productos_ajax.php', {
+                        accion: 'crear_ubicacion_sucursal',
+                        empresa_id: empresa_idx,
+                        sucursal_id: sucursalId,
+                        deposito_id: depositoId,
+                        seccion: seccion,
+                        estanteria: estanteria,
+                        estante: estante,
+                        posicion: posicion,
+                        descripcion: descripcion
+                    }, function(res) {
+                        btn.prop('disabled', false).html('Crear Ubicación');
+                        if (res.resultado) {
+                            Swal.fire({
+                                title: '¡Creada!', html: 'Ubicación creada correctamente. ¿Desea asignarla a este producto?',
+                                icon: 'success', showCancelButton: true, confirmButtonColor: '#28a745',
+                                cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, asignar', cancelButtonText: 'No, solo crear'
+                            }).then(function(result) {
+                                bootstrap.Modal.getInstance(document.getElementById('modalNuevaUbicacion')).hide();
+                                if (result.isConfirmed) {
+                                    $.post('productos_ajax.php', {
+                                        accion: 'agregar_ubicacion_producto',
+                                        producto_id: $('#nueva_ubicacion_producto_id').val(),
+                                        sucursal_ubicacion_id: res.sucursal_ubicacion_id,
+                                        empresa_idx: empresa_idx
+                                    }, function(res2) {
+                                        if (res2.resultado) {
+                                            Swal.fire('¡Asignada!', 'Ubicación creada y asignada correctamente', 'success');
+                                            tablaUbicaciones.ajax.reload();
+                                        } else Swal.fire('¡Creada!', 'Ubicación creada correctamente', 'success');
+                                    }, 'json');
+                                }
+                            });
+                        } else Swal.fire('Error', res.error || 'Error al crear la ubicación', 'error');
+                    }, 'json');
+                });
+
+                // Acciones de proveedores
+                $('#btnAgregarProveedor').click(function() {
+                    if (productoActualProveedores) mostrarModalProveedor(productoActualProveedores);
+                });
+
+                $(document).on('click', '.btn-editar-proveedor', function() {
+                    if (productoActualProveedores) mostrarModalProveedor(productoActualProveedores, $(this).data('id'));
+                });
+
+                $(document).on('click', '.btn-eliminar-proveedor', function() {
+                    var productoProveedorId = $(this).data('id');
+                    Swal.fire({
+                        title: '¿Eliminar Proveedor?', text: 'Esta acción no se puede deshacer', icon: 'warning',
+                        showCancelButton: true, confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, eliminar'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            $.post('productos_ajax.php', {
+                                accion: 'eliminar_proveedor_producto',
+                                producto_proveedor_id: productoProveedorId,
+                                empresa_idx: empresa_idx
+                            }, function(res) {
+                                if (res.success) {
+                                    Swal.fire('¡Eliminado!', 'Proveedor eliminado correctamente', 'success');
+                                    tablaProveedores.ajax.reload();
+                                } else Swal.fire('Error', res.error || 'Error al eliminar', 'error');
+                            }, 'json');
+                        }
+                    });
+                });
+
+                $('#btnGuardarProveedor').click(function() {
+                    var form = document.getElementById('formProveedor');
+                    if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
+                    var productoProveedorId = $('#producto_proveedor_id').val();
+                    var accionBackend = productoProveedorId ? 'editar_proveedor_producto' : 'agregar_proveedor_producto';
+                    var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                    $.post('productos_ajax.php', {
+                        accion: accionBackend,
+                        producto_proveedor_id: productoProveedorId,
+                        producto_id: $('#proveedor_producto_id').val(),
+                        entidad_id: $('#entidad_id').val(),
+                        codigo_proveedor: $('#codigo_proveedor').val(),
+                        empresa_idx: empresa_idx
+                    }, function(res) {
+                        btn.prop('disabled', false).html('Guardar');
+                        if (res.resultado || res.success) {
+                            Swal.fire('¡Guardado!', 'Proveedor guardado correctamente', 'success');
+                            bootstrap.Modal.getInstance(document.getElementById('modalProveedor')).hide();
+                            tablaProveedores.ajax.reload();
+                        } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
+                    }, 'json');
+                });
+
+                // Acciones de productos
+                $(document).on('click', '.btn-accion', function() {
+                    var productoId = $(this).data('id');
+                    var accionJs = $(this).data('accion');
+                    var confirmable = $(this).data('confirmable');
+                    var producto = $(this).data('producto');
+                    if (accionJs === 'editar') cargarProductoParaEditar(productoId);
+                    else ejecutarAccion(productoId, accionJs, producto, confirmable);
+                });
+
+                $('#btnGuardar').click(function() {
+                    var form = document.getElementById('formProducto');
+                    if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
+                    var id = $('#producto_id').val();
+                    var accionBackend = id ? 'editar' : 'agregar';
+                    if (!$('#producto_codigo').val().trim()) { $('#producto_codigo').addClass('is-invalid'); return false; }
+                    if (!$('#producto_nombre').val().trim()) { $('#producto_nombre').addClass('is-invalid'); return false; }
+                    if (!$('#producto_tipo_id').val()) { $('#producto_tipo_id').addClass('is-invalid'); return false; }
+                    if (!$('#producto_categoria_id').val()) { $('#producto_categoria_id').addClass('is-invalid'); return false; }
+                    var btnGuardar = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                    $.ajax({
+                        url: 'productos_ajax.php',
+                        type: 'POST',
+                        data: {
+                            accion: accionBackend,
+                            producto_id: id,
+                            producto_codigo: $('#producto_codigo').val().trim(),
+                            producto_nombre: $('#producto_nombre').val().trim(),
+                            codigo_barras: $('#codigo_barras').val(),
+                            producto_descripcion: $('#producto_descripcion').val(),
+                            producto_categoria_id: $('#producto_categoria_id').val(),
+                            producto_tipo_id: $('#producto_tipo_id').val(),
+                            unidad_medida_id: $('#unidad_medida_id').val() || null,
+                            cont_cuenta_id: $('#cont_cuenta_id').val() || null,
+                            iva_alicuota_id: $('#iva_alicuota_id').val() || null,
+                            lado: $('#lado').val(),
+                            material: $('#material').val(),
+                            color: $('#color').val(),
+                            peso: $('#peso').val(),
+                            dimensiones: $('#dimensiones').val(),
+                            garantia: $('#garantia').val(),
+                            controla_stock: $('#controla_stock').is(':checked') ? 1 : 0,
+                            empresa_idx: empresa_idx,
+                            pagina_idx: pagina_idx
+                        },
+                        success: function(res) {
+                            btnGuardar.prop('disabled', false).html('Guardar');
+                            if (res.resultado) {
+                                tabla.ajax.reload(function() {
+                                    Swal.fire({ icon: "success", title: "¡Guardado!", text: "Producto guardado correctamente", showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
+                                    bootstrap.Modal.getInstance(document.getElementById('modalProducto')).hide();
+                                });
+                            } else Swal.fire({ icon: "error", title: "Error", text: res.error || "Error al guardar los datos" });
+                        },
+                        error: function() {
+                            btnGuardar.prop('disabled', false).html('Guardar');
+                            Swal.fire({ icon: "error", title: "Error de conexión", text: "Error al comunicarse con el servidor" });
+                        }
+                    });
+                });
+
+                $('#btnConfirmarAlta').click(function() {
+                    var form = document.getElementById('formAltaProducto');
+                    if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
+                    Swal.fire({
+                        title: '¿Confirmar Alta?', html: '¿Está seguro de dar de ALTA este producto?', icon: 'question',
+                        showCancelButton: true, confirmButtonColor: '#28a745', cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, dar de Alta'
+                    }).then(function(result) {
+                        if (result.isConfirmed) ejecutarAccion(productoActualId, 'alta', 'Producto', 0);
+                    });
+                });
             }
 
-            Swal.fire({
-                title: '¿Confirmar Alta?',
-                html: '¿Está seguro de dar de ALTA este producto?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#28a745',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Sí, dar de Alta'
-            }).then((result) => result.isConfirmed && ejecutarAccion(productoActualId, 'alta', 'Producto', 0));
+            // ========== INICIALIZACIÓN ==========
+
+            // Inicializar buscador de tags
+            inicializarBuscadorTags();
+
+            // Inicializar eventos de ubicación
+            inicializarEventosUbicacion();
+
+            // Inicializar DataTable
+            inicializarDataTable();
+
+            // Cargar datos iniciales
+            cargarBotonAgregar();
+            cargarTiposProducto();
+            cargarCategoriasProducto();
+            cargarUnidadesMedida();
+            cargarMarcas();
+            cargarSucursales();
+            cargarIvaAlicuotas();
+            cargarCuentasContables();
+
+            // Mostrar/ocultar ícono de búsqueda en el campo de código al cargar
+            if ($('#filtroCodigo').val().trim().length > 0) {
+                $('#codigoSearchIcon').show();
+            }
+
+            $('[title]').tooltip({ trigger: 'hover', placement: 'top' });
         });
-
-        // ========== INICIALIZACIÓN ==========
-        inicializarDataTable();
-        cargarBotonAgregar();
-        cargarTiposProducto();
-        cargarCategoriasProducto();
-        cargarUnidadesMedida();
-        cargarMarcas();
-        cargarSucursales();
-        cargarIvaAlicuotas();
-        cargarCuentasContables();  // <--- Esta línea está presente
-
-        $('[title]').tooltip({ trigger: 'hover', placement: 'top' });
-    });
-</script>
+    </script>
 
     <!-- Librerías necesarias -->
-    <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
@@ -3136,48 +3526,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Sortable.js para arrastrar imágenes -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
-</main>
 
-<!-- Modal para ver imagen en grande -->
-<div class="modal fade" id="modalVerImagen" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="descripcionImagenGrande"></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body text-center">
-                <img id="imagenGrande" src="" alt="Imagen del producto" class="img-fluid rounded">
-            </div>
-        </div>
-    </div>
-</div>
-<!-- Modal para carrusel de imágenes -->
-<div class="modal fade" id="modalCarrusel" tabindex="-1" aria-labelledby="modalCarruselLabel" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-gradient-primary text-white">
-                <h5 class="modal-title" id="modalCarruselLabel">
-                    <i class="fas fa-images me-2"></i>Galería de Imágenes
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body p-4" id="contenidoCarrusel">
-                <!-- El carrusel se cargará dinámicamente aquí -->
-                <div class="text-center py-5">
-                    <i class="fas fa-spinner fa-spin fa-3x text-primary mb-3"></i>
-                    <p class="text-muted">Cargando imágenes...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+</main>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>
 </body>
-
 </html>
