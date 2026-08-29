@@ -1567,4 +1567,291 @@ function obtenerCuentasContables($conexion, $empresa_idx)
     mysqli_stmt_close($stmt);
     return $cuentas;
 }
+// ============================================
+// FUNCIONES PARA VINCULACIÓN ENTIDAD - SUCURSAL DE COMPRA
+// ============================================
+
+/**
+ * Obtener todas las sucursales de compra vinculadas a una entidad
+ */
+function obtenerSucursalesCompraPorEntidad($conexion, $empresa_idx, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT esc.*, 
+                   s.sucursal_nombre, s.direccion, s.telefono, s.email,
+                   l.localidad,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_sucursales_compra esc
+            LEFT JOIN gestion__sucursales s ON esc.sucursal_id = s.sucursal_id
+            LEFT JOIN conf__localidades l ON s.localidad_id = l.localidad_id
+            LEFT JOIN conf__estados_registros er ON esc.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE esc.empresa_id = ? 
+            AND esc.entidad_id = ? 
+            AND esc.tabla_estado_registro_id = 1  -- SOLO ACTIVAS
+            AND esc.f_hasta IS NULL               -- SOLO VIGENTES
+            ORDER BY esc.es_principal DESC, esc.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_idx, $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'ACTIVO',
+            'bg_clase' => $fila['bg_clase'] ?? 'bg-success',
+            'text_clase' => $fila['text_clase'] ?? 'text-white'
+        ];
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+/**
+ * Obtener todas las entidades vinculadas a una sucursal de compra
+ */
+function obtenerEntidadesPorSucursalCompra($conexion, $empresa_idx, $sucursal_id) {
+    $sucursal_id = intval($sucursal_id);
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT esc.*, 
+                   e.entidad_nombre, e.entidad_fantasia, e.cuit,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_sucursales_compra esc
+            LEFT JOIN gestion__entidades e ON esc.entidad_id = e.entidad_id
+            LEFT JOIN conf__estados_registros er ON esc.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE esc.empresa_id = ? AND esc.sucursal_id = ?
+            ORDER BY esc.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_idx, $sucursal_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'ACTIVO',
+            'bg_clase' => $fila['bg_clase'] ?? 'bg-success',
+            'text_clase' => $fila['text_clase'] ?? 'text-white'
+        ];
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+/**
+ * Agregar vinculación Entidad - Sucursal de compra - CORREGIDA
+ */
+/**
+ * Agregar vinculación Entidad - Sucursal de compra - CORREGIDA
+ */
+function agregarVinculacionCompra($conexion, $data) {
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $sucursal_id = intval($data['sucursal_id'] ?? 0);
+    $es_principal = isset($data['es_principal']) && $data['es_principal'] ? 1 : 0;
+    $f_desde = trim($data['f_desde'] ?? '');
+    $f_hasta = !empty($data['f_hasta']) ? trim($data['f_hasta']) : null;
+    $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
+    
+    if (empty($entidad_id) || empty($sucursal_id) || empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'Faltan datos obligatorios (entidad, sucursal, fecha desde)'];
+    }
+    
+    // VALIDACIÓN 1: La fecha no puede ser menor al día actual
+    $hoy = date('Y-m-d');
+    if ($f_desde < $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha desde no puede ser menor al día de hoy'];
+    }
+    
+    // VALIDACIÓN 2: Si se especifica f_hasta, debe ser mayor o igual a f_desde
+    if ($f_hasta && $f_hasta < $f_desde) {
+        return ['resultado' => false, 'error' => 'La fecha hasta debe ser mayor o igual a la fecha desde'];
+    }
+    
+    // VALIDACIÓN 3: No se puede crear una vinculación con f_hasta en el pasado
+    if ($f_hasta && $f_hasta < $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha hasta no puede ser menor al día de hoy'];
+    }
+    
+    // Verificar si ya existe una vinculación activa (sin fecha_hasta) para esta entidad-sucursal específica
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__entidades_sucursales_compra 
+                  WHERE empresa_id = ? AND entidad_id = ? AND sucursal_id = ? 
+                  AND f_hasta IS NULL AND tabla_estado_registro_id = 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "iii", $empresa_id, $entidad_id, $sucursal_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe una vinculación activa para esta entidad y sucursal específica'];
+    }
+    
+    // Contar cuántas vinculaciones activas tiene la entidad
+    $sql_count = "SELECT COUNT(*) as total, SUM(es_principal) as principales 
+                  FROM gestion__entidades_sucursales_compra 
+                  WHERE empresa_id = ? AND entidad_id = ? 
+                  AND f_hasta IS NULL AND tabla_estado_registro_id = 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_count);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row_count = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    $total_activas = intval($row_count['total'] ?? 0);
+    $principales_activas = intval($row_count['principales'] ?? 0);
+    
+    // Si no hay sucursales activas, la nueva debe ser principal automáticamente
+    if ($total_activas === 0) {
+        $es_principal = 1;
+    }
+    
+    // Si el usuario marcó la nueva como principal, verificar que no haya otra principal
+    if ($es_principal == 1 && $principales_activas > 0) {
+        // Desmarcar la principal anterior
+        $sql_update = "UPDATE gestion__entidades_sucursales_compra 
+                       SET es_principal = 0 
+                       WHERE empresa_id = ? AND entidad_id = ? 
+                       AND es_principal = 1 AND tabla_estado_registro_id = 1";
+        $stmt = mysqli_prepare($conexion, $sql_update);
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $entidad_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+        }
+    }
+    
+    // Iniciar transacción
+    mysqli_begin_transaction($conexion);
+    
+    try {
+        // Insertar nueva vinculación
+        $estado_inicial = obtenerEstadoInicial($conexion);
+        
+        $sql = "INSERT INTO gestion__entidades_sucursales_compra 
+                (empresa_id, entidad_id, sucursal_id, es_principal, f_desde, f_hasta, observaciones, tabla_estado_registro_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception('Error al preparar la consulta: ' . mysqli_error($conexion));
+        }
+        
+        mysqli_stmt_bind_param($stmt, "iiiisssi", 
+            $empresa_id,
+            $entidad_id,
+            $sucursal_id,
+            $es_principal,
+            $f_desde,
+            $f_hasta,
+            $observaciones,
+            $estado_inicial
+        );
+        
+        $success = mysqli_stmt_execute($stmt);
+        
+        if ($success) {
+            $id = mysqli_insert_id($conexion);
+            mysqli_stmt_close($stmt);
+            mysqli_commit($conexion);
+            
+            $mensaje = $es_principal ? 'Vinculación creada como principal.' : 'Vinculación creada correctamente.';
+            return ['resultado' => true, 'vinculacion_id' => $id, 'message' => $mensaje];
+        } else {
+            throw new Exception('Error al insertar la vinculación: ' . mysqli_error($conexion));
+        }
+        
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        if (isset($stmt)) mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Cerrar (finalizar) una vinculación de compra
+ */
+/**
+ * Cerrar (finalizar) una vinculación de compra - CORREGIDA
+ */
+function cerrarVinculacionCompra($conexion, $vinculacion_id, $fecha_cierre = null) {
+    $vinculacion_id = intval($vinculacion_id);
+    
+    if (empty($vinculacion_id)) {
+        return ['resultado' => false, 'error' => 'ID de vinculación no proporcionado'];
+    }
+    
+    $fecha_cierre = $fecha_cierre ?? date('Y-m-d');
+    $fecha_cierre = mysqli_real_escape_string($conexion, $fecha_cierre);
+    
+    // Primero verificar que la vinculación existe y está activa
+    $sql_check = "SELECT entidad_sucursal_compra_id, f_hasta, tabla_estado_registro_id 
+                  FROM gestion__entidades_sucursales_compra 
+                  WHERE entidad_sucursal_compra_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "i", $vinculacion_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $vinculacion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if (!$vinculacion) {
+        return ['resultado' => false, 'error' => 'Vinculación no encontrada'];
+    }
+    
+    // Si ya tiene fecha_hasta o está inactiva, no se puede cerrar
+    if (!is_null($vinculacion['f_hasta']) || $vinculacion['tabla_estado_registro_id'] != 1) {
+        return ['resultado' => false, 'error' => 'La vinculación ya está cerrada o inactiva'];
+    }
+    
+    // Actualizar la vinculación
+    $sql = "UPDATE gestion__entidades_sucursales_compra 
+            SET f_hasta = ?, tabla_estado_registro_id = 2 
+            WHERE entidad_sucursal_compra_id = ? 
+            AND f_hasta IS NULL 
+            AND tabla_estado_registro_id = 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "si", $fecha_cierre, $vinculacion_id);
+    $success = mysqli_stmt_execute($stmt);
+    $affected_rows = mysqli_stmt_affected_rows($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success && $affected_rows > 0) {
+        return ['resultado' => true, 'message' => 'Vinculación cerrada correctamente'];
+    } else {
+        return ['resultado' => false, 'error' => 'No se pudo cerrar la vinculación o ya estaba cerrada'];
+    }
+}
 ?>

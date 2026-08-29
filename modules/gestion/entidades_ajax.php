@@ -328,7 +328,83 @@ case 'listar_condiciones_proveedor':
             $historial = obtenerHistorialCondicionesProveedor($conexion, $entidad_id);
             echo json_encode($historial, JSON_UNESCAPED_UNICODE);
             break;
+        case 'obtener_sucursales_compra':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            
+            // Modificar la función para que solo traiga activas
+            $sucursales = obtenerSucursalesCompraPorEntidad($conexion, $empresa_idx, $entidad_id);
+            echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
+            break;
 
+    case 'obtener_entidades_por_sucursal':
+        $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
+        if (empty($sucursal_id)) {
+            echo json_encode(['error' => 'ID de sucursal no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        
+        $entidades = obtenerEntidadesPorSucursalCompra($conexion, $empresa_idx, $sucursal_id);
+        echo json_encode($entidades, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'agregar_vinculacion_compra':
+        // Debug: Ver qué está llegando
+        error_log("POST data: " . print_r($_POST, true));
+        
+        $data = [
+            'empresa_id' => $empresa_idx,
+            'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+            'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
+            'es_principal' => isset($_POST['es_principal']) ? intval($_POST['es_principal']) : 0,
+            'f_desde' => $_POST['f_desde'] ?? '',
+            'f_hasta' => !empty($_POST['f_hasta']) ? $_POST['f_hasta'] : null,
+            'observaciones' => trim($_POST['observaciones'] ?? '')
+        ];
+        
+        error_log("Data a enviar a agregarVinculacionCompra: " . print_r($data, true));
+        
+        $resultado = agregarVinculacionCompra($conexion, $data);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'cerrar_vinculacion_compra':
+        $vinculacion_id = intval($_POST['vinculacion_id'] ?? 0);
+        $fecha_cierre = $_POST['fecha_cierre'] ?? null;
+        
+        $resultado = cerrarVinculacionCompra($conexion, $vinculacion_id, $fecha_cierre);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'obtener_sucursales_sociedad':
+        // Obtener todas las sucursales de la sociedad para combo
+        $sql = "SELECT sucursal_id, sucursal_nombre, direccion 
+                FROM gestion__sucursales 
+                WHERE empresa_id = ? AND tabla_estado_registro_id = 1
+                ORDER BY sucursal_nombre";
+        
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            echo json_encode([], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        
+        mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        
+        $sucursales = [];
+        while ($fila = mysqli_fetch_assoc($result)) {
+            $sucursales[] = $fila;
+        }
+        
+        mysqli_stmt_close($stmt);
+        echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
+        break;
+        
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }
