@@ -53,6 +53,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="col-md-3 d-flex align-items-end justify-content-end">
                                     <button class="btn btn-secondary me-2" id="btnLimpiarFiltros">Limpiar Filtros</button>
                                     <button class="btn btn-primary" id="btnNuevo">Nuevo Precio</button>
+                                    <button class="btn btn-success" id="btnImportarExcel">Importar Excel</button>
                                 </div>
                             </div>
                             <!-- Fila 2: Filtros de lista y producto -->
@@ -85,6 +86,42 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal para Importar Excel -->
+    <div class="modal fade" id="modalImportarExcel" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Importar Precios desde Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formImportarExcel">
+                        <div class="mb-3">
+                            <label for="importListaPrecioId" class="form-label">Lista de Precios *</label>
+                            <select class="form-control" id="importListaPrecioId" required>
+                                <option value="">Seleccionar lista...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="archivoExcel" class="form-label">Archivo Excel (.xlsx)</label>
+                            <input type="file" class="form-control" id="archivoExcel" accept=".xlsx, .xls" required>
+                            <small class="text-muted">El archivo debe tener la columna A con el código del producto y la columna I con el precio.</small>
+                        </div>
+                        <div id="importProgress" style="display: none;">
+                            <div class="progress">
+                                <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;"></div>
+                            </div>
+                            <p id="importStatus" class="mt-2">Procesando...</p>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnProcesarImportacion" class="btn btn-success">Procesar Importación</button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -322,10 +359,176 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
             });
         });
+        function cargarListasPreciosImport() {
+            $.get('listas_precios_productos_ajax.php', {accion: 'obtener_listas'}, function(res){
+                let options = '<option value="">Seleccionar lista...</option>';
+                res.forEach(lista => {
+                    options += `<option value="${lista.lista_precio_id}">${lista.nombre}</option>`;
+                });
+                $('#importListaPrecioId').html(options);
+            });
+        }
+
+        // Inicializar funciones de carga
+        cargarListasPrecios();
+        cargarProductos();
+        cargarMarcas();
+        cargarListasPreciosImport(); // Cargar para el modal de importación
+
+        // --- Botón para abrir el modal de importación ---
+        $('#btnImportarExcel').click(function(){
+            $('#formImportarExcel')[0].reset();
+            $('#importProgress').hide();
+            $('#importProgressBar').css('width', '0%');
+            new bootstrap.Modal(document.getElementById('modalImportarExcel')).show();
+        });
+
+        // --- Procesar la importación ---
+        $('#btnProcesarImportacion').click(function(){
+            var listaId = $('#importListaPrecioId').val();
+            var fileInput = document.getElementById('archivoExcel');
+            
+            if (!listaId) {
+                Swal.fire('Error', 'Debe seleccionar una lista de precios.', 'error');
+                return;
+            }
+            if (!fileInput.files || fileInput.files.length === 0) {
+                Swal.fire('Error', 'Debe seleccionar un archivo Excel.', 'error');
+                return;
+            }
+
+            // Mostrar barra de progreso
+            $('#importProgress').show();
+            $('#importProgressBar').css('width', '10%');
+            $('#importStatus').text('Leyendo archivo...');
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var data = new Uint8Array(e.target.result);
+                    var workbook = XLSX.read(data, {type: 'array'});
+                    var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    var jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+
+                    // Mapear datos: columna A (índice 0) = código, columna I (índice 8) = precio
+                    // Ignorar la primera fila si tiene encabezados
+                    var productos = [];
+                    var startRow = 0;
+                    if (jsonData.length > 0 && typeof jsonData[0][0] === 'string' && jsonData[0][0].toLowerCase().includes('codigo')) {
+                        startRow = 1; // Omitir fila de encabezados
+                    }
+
+                    for (var i = startRow; i < jsonData.length; i++) {
+                        var row = jsonData[i];
+                        var codigo = row[0] ? row[0].toString().trim() : '';
+                        var precio = row[8] ? parseFloat(row[8]) : 0; // Columna I (índice 8)
+                        
+                        if (codigo !== '' && precio > 0) {
+                            productos.push({codigo: codigo, precio: precio});
+                        }
+                    }
+
+                    if (productos.length === 0) {
+                        $('#importProgress').hide();
+                        Swal.fire('Error', 'No se encontraron datos válidos en el archivo. Asegúrese de que la columna A tenga códigos y la columna I precios.', 'error');
+                        return;
+                    }
+
+                    $('#importProgressBar').css('width', '40%');
+                    $('#importStatus').text('Enviando datos al servidor...');
+
+                    // Enviar datos al servidor
+                    $.ajax({
+                        url: 'listas_precios_productos_ajax.php',
+                        type: 'POST',
+                        data: {
+                            accion: 'importar',
+                            lista_precio_id: listaId,
+                            productos: JSON.stringify(productos)
+                        },
+                        success: function(response) {
+                            $('#importProgressBar').css('width', '100%');
+                            $('#importStatus').text('Finalizado');
+
+                            // DEBUG temporal: ver la respuesta cruda en la consola.
+                            // Si no aparece 'detalle' acá, el backend en el servidor
+                            // todavía es la versión vieja (no tiene el array detalle).
+                            console.log('Respuesta de importación:', response);
+
+                            if (response.success) {
+                                // En vez de un mensaje de texto gigante, armamos
+                                // un Excel de respuesta con el detalle fila por
+                                // fila (mismo SheetJS que ya usamos para leer).
+                                if (response.detalle && response.detalle.length > 0) {
+                                    try {
+                                        var filas = response.detalle.map(function(d) {
+                                            return {
+                                                'Código': d.codigo,
+                                                'Producto': d.producto_nombre || '',
+                                                'Estado': d.estado,
+                                                'Precio anterior': d.precio_anterior,
+                                                'Precio nuevo': d.precio_nuevo,
+                                                'Detalle': d.detalle
+                                            };
+                                        });
+                                        var wsReporte = XLSX.utils.json_to_sheet(filas);
+                                        wsReporte['!cols'] = [
+                                            {wch: 14}, {wch: 35}, {wch: 16}, {wch: 14}, {wch: 14}, {wch: 45}
+                                        ];
+                                        var wbReporte = XLSX.utils.book_new();
+                                        XLSX.utils.book_append_sheet(wbReporte, wsReporte, 'Resultado importación');
+                                        var nombreArchivo = 'resultado_importacion_' +
+                                            new Date().toISOString().slice(0, 10) + '.xlsx';
+                                        XLSX.writeFile(wbReporte, nombreArchivo);
+                                    } catch (errExcel) {
+                                        console.error('Error generando el Excel de resultado:', errExcel);
+                                        Swal.fire('Atención', 'La importación se completó pero no se pudo generar el Excel de resultado: ' + errExcel.message, 'warning');
+                                    }
+                                } else {
+                                    console.warn('response.detalle no llegó o está vacío. ¿El backend en el servidor está actualizado?');
+                                }
+
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Importación completada',
+                                    html: 'Actualizados: <b>' + (response.procesados || 0) + '</b><br>' +
+                                          'Sin cambios: <b>' + (response.sin_cambios || 0) + '</b><br>' +
+                                          'No encontrados: <b>' + (response.no_encontrados_count || 0) + '</b><br>' +
+                                          'Con error: <b>' + (response.errores_count || 0) + '</b><br>' +
+                                          '<small>Se descargó un Excel con el detalle producto por producto.</small>'
+                                });
+
+                                // Recargar la tabla
+                                tabla.ajax.reload();
+                            } else {
+                                Swal.fire('Error', response.message || 'Error al procesar la importación', 'error');
+                            }
+                            // Ocultar barra después de un momento
+                            setTimeout(() => {
+                                $('#importProgress').hide();
+                                $('#importProgressBar').css('width', '0%');
+                            }, 2000);
+                        },
+                        error: function(xhr, status, error) {
+                            $('#importProgress').hide();
+                            Swal.fire('Error', 'Error en la comunicación con el servidor: ' + error, 'error');
+                        }
+                    });
+
+                } catch (error) {
+                    $('#importProgress').hide();
+                    Swal.fire('Error', 'Error al leer el archivo: ' + error.message, 'error');
+                }
+            };
+
+            reader.readAsArrayBuffer(fileInput.files[0]);
+        });
+
     });
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </main>
 
 <?php
