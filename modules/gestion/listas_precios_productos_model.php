@@ -5,15 +5,68 @@ $conexion = $conn;
 
 function obtenerListasPreciosProductos($conexion, $filtro_lista = '', $filtro_producto = '', $filtro_marca = '', $filtro_modelo = '', $filtro_submodelo = '')
 {
+    // NOTA: la compatibilidad va como subquery correlacionada con GROUP_CONCAT
+    // (no como JOIN) porque un producto puede tener varias filas de
+    // compatibilidad. Con JOIN se duplicaría cada precio por cada
+    // combinación marca/modelo/submodelo; con subquery queda 1 fila = 1 precio.
+    //
+    // ASUNCIÓN A CONFIRMAR: los nombres de tabla gestion__marcas, gestion__modelos
+    // y gestion__submodelos, con columnas marca_nombre/modelo_nombre/submodelo_nombre,
+    // se infirieron del JSON que devuelve productos_ajax.php (obtener_marcas,
+    // obtener_modelos, obtener_submodelos) y de la convención del resto del
+    // sistema. Si el nombre real de alguna tabla difiere, avisame para corregirlo.
+    // ASUNCIÓN A CONFIRMAR: el campo iva_alicuota_id vive en gestion__productos
+    // (p.iva_alicuota_id) según lo que indicaste. Uso LEFT JOIN (no INNER) para
+    // que un producto sin alícuota cargada siga apareciendo en el listado, con
+    // IVA 0 en vez de desaparecer de la grilla por un dato faltante.
+    // ASUNCIÓN A CONFIRMAR: para el nombre de sucursal en la ubicación, uso
+    // gestion__sucursales(sucursal_id, sucursal_nombre) — es la única tabla de
+    // esta consulta que no me confirmaste con su CREATE TABLE. Es una tabla
+    // troncal del sistema (aparece en el motor de seguridad por sucursal), así
+    // que la convención debería sostenerse, pero avisame si el nombre difiere.
     $sql = "SELECT lpp.*, 
                    lp.lista_precio_nombre as lista_nombre,
                    p.producto_codigo, 
                    p.producto_nombre,
                    lpp.precio_final as precio_unitario,
-                   lpp.actualizado_en as f_actualizacion
+                   lpp.actualizado_en as f_actualizacion,
+                   IFNULL(iva.porcentaje, 0) AS iva_porcentaje,
+                   ROUND(lpp.precio_final * (1 + IFNULL(iva.porcentaje, 0) / 100), 2) AS precio_con_iva,
+                   (SELECT GROUP_CONCAT(DISTINCT CONCAT(
+                                ma.marca_nombre, ' ', mo.modelo_nombre,
+                                IF(pc.submodelo_id IS NOT NULL, CONCAT(' ', sm.submodelo_nombre), ''),
+                                ' (', pc.anio_desde, '-', IFNULL(pc.anio_hasta, 'act.'), ')'
+                            ) ORDER BY ma.marca_nombre, mo.modelo_nombre SEPARATOR ' | ')
+                    FROM gestion__productos_compatibilidad pc
+                    INNER JOIN gestion__marcas ma ON pc.marca_id = ma.marca_id
+                    INNER JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
+                    LEFT JOIN gestion__submodelos sm ON pc.submodelo_id = sm.submodelo_id
+                    WHERE pc.producto_id = p.producto_id
+                      AND pc.tabla_estado_registro_id = 1
+                   ) AS compatibilidad,
+                   (SELECT pi.imagen_id
+                    FROM gestion__productos_imagenes pi
+                    WHERE pi.producto_id = p.producto_id
+                      AND pi.tabla_estado_registro_id = 1
+                    ORDER BY pi.es_principal DESC, pi.orden ASC, pi.producto_imagen_id ASC
+                    LIMIT 1
+                   ) AS imagen_id_principal,
+                   (SELECT GROUP_CONCAT(DISTINCT
+                                CONCAT_WS('|', IFNULL(suc.sucursal_nombre, ''), su.seccion, su.estanteria, su.estante, su.posicion)
+                            SEPARATOR ';;')
+                    FROM gestion__productos_ubicaciones pu
+                    INNER JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
+                    LEFT JOIN gestion__sucursales suc ON su.sucursal_id = suc.sucursal_id
+                    WHERE pu.producto_id = p.producto_id
+                      AND pu.tabla_estado_registro_id = 1
+                      AND su.tabla_estado_registro_id = 1
+                   ) AS ubicaciones_info
             FROM gestion__listas_precios_productos lpp
             INNER JOIN gestion__listas_precios lp ON lpp.lista_precio_id = lp.lista_precio_id
             INNER JOIN gestion__productos p ON lpp.producto_id = p.producto_id
+            LEFT JOIN gestion__impuestos__iva_alicuotas iva 
+                   ON p.iva_alicuota_id = iva.iva_alicuota_id 
+                  AND iva.tabla_estado_registro_id = 1
             WHERE lpp.tabla_estado_registro_id = 1";
 
     $params = [];
