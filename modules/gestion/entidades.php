@@ -334,6 +334,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <thead class="table-light">
                                                             <tr>
                                                                 <th>ID</th>
+                                                                <th>Tipo Cliente</th>    <!-- NUEVA COLUMNA -->
                                                                 <th>Condición de Pago</th>
                                                                 <th>Lista de Precios</th>
                                                                 <th>Límite de Crédito</th>
@@ -341,6 +342,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                 <th>Fecha Desde</th>
                                                                 <th>Fecha Hasta</th>
                                                                 <th>Estado</th>
+                                                                <th class="text-center">Acciones</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody></tbody>
@@ -537,6 +539,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <form id="formCondicionCliente" class="needs-validation" novalidate>
                                 <input type="hidden" id="condicion_cliente_id" name="condicion_cliente_id" />
                                 <input type="hidden" id="entidad_id_condicion_cliente" name="entidad_id" />
+                                
+                                <!-- NUEVO CAMPO: Tipo de Cliente -->
+                                <div class="mb-3">
+                                    <label for="entidad_cliente_tipo_id" class="form-label">Tipo de Cliente</label>
+                                    <select class="form-select" id="entidad_cliente_tipo_id" name="entidad_cliente_tipo_id">
+                                        <option value="">Seleccionar tipo...</option>
+                                    </select>
+                                    <div class="form-text" id="acceso_web_info">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        <span id="acceso_web_texto">Seleccione un tipo para ver el acceso a la web</span>
+                                    </div>
+                                </div>
                                 
                                 <div class="mb-3">
                                     <label for="condicion_pago_cliente_id" class="form-label">Condición de Pago *</label>
@@ -1261,6 +1275,24 @@ $(document).ready(function () {
         }, 'json');
     }
 
+    // Función para cargar tipos de cliente
+    function cargarTiposCliente() {
+        $.get('entidades_ajax.php', {
+            accion: 'obtener_tipos_cliente',
+            empresa_idx: empresa_idx
+        }, function (tipos) {
+            var select = $('#entidad_cliente_tipo_id');
+            select.empty();
+            select.append('<option value="">Seleccionar tipo...</option>');
+            
+            if (tipos && tipos.length > 0) {
+                $.each(tipos, function (index, tipo) {
+                    select.append('<option value="' + tipo.entidad_cliente_tipo_id + '">' + tipo.entidad_cliente_tipo + '</option>');
+                });
+            }
+        }, 'json');
+    }
+
     // Función para resetear el modal de vinculación
     function resetModalVinculacionCompra() {
         $('#formVinculacionCompra')[0].reset();
@@ -1509,7 +1541,7 @@ $(document).ready(function () {
     // FUNCIONES EXISTENTES (CARGAR CONDICIONES, ETC)
     // ============================================
 
-    // Función para cargar condición vigente de cliente
+    // Función para cargar condición vigente de cliente - CON TIPO DE CLIENTE
     function cargarCondicionClienteVigente() {
         if (!entidadActualId) {
             $('#condicion-cliente-vigente').html('<div class="col-12 text-center text-muted py-4">Seleccione una entidad primero</div>');
@@ -1525,7 +1557,11 @@ $(document).ready(function () {
                     <div class="col-md-6">
                         <table class="table table-sm table-borderless">
                             <tr>
-                                <th width="40%">Condición de Pago:</th>
+                                <th width="40%">Tipo de Cliente:</th>
+                                <td><span class="badge bg-info">${condicion.entidad_cliente_tipo || 'No especificado'}</span></td>
+                            </tr>
+                            <tr>
+                                <th>Condición de Pago:</th>
                                 <td><span class="badge bg-info">${condicion.condicion_pago || 'No especificado'}</span></td>
                             </tr>
                             <tr>
@@ -1547,6 +1583,10 @@ $(document).ready(function () {
                             <tr>
                                 <th>Vigencia Desde:</th>
                                 <td>${moment(condicion.f_desde).format('DD/MM/YYYY')}</td>
+                            </tr>
+                            <tr>
+                                <th>Acceso Web:</th>
+                                <td>${condicion.acceso_web_badge || (condicion.acceso_web == 1 ? '<span class="badge bg-success">Accede</span>' : '<span class="badge bg-danger">No accede</span>')}</td>
                             </tr>
                         </table>
                     </div>
@@ -1808,7 +1848,7 @@ $(document).ready(function () {
         }, 'json');
     }
 
-    // Función para inicializar DataTable de condiciones de clientes
+    // Función para inicializar DataTable de condiciones de clientes - CON TIPO DE CLIENTE
     function inicializarDataTableCondicionesClientes(entidadId) {
         if ($.fn.DataTable.isDataTable('#tablaCondicionesClientes')) {
             if (tablaCondicionesClientes) {
@@ -1818,7 +1858,7 @@ $(document).ready(function () {
         }
 
         if (!entidadId) {
-            $('#tablaCondicionesClientes tbody').html('<tr><td colspan="9" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+            $('#tablaCondicionesClientes tbody').html('<tr><td colspan="10" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
             return;
         }
 
@@ -1839,6 +1879,14 @@ $(document).ready(function () {
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
                 { data: 'entidad_condicion_cliente_id', className: 'text-center fw-bold' },
+                {
+                    data: 'entidad_cliente_tipo',
+                    className: 'text-center',
+                    render: function(data, type, row) {
+                        if (type === 'export') return data || '';
+                        return data ? `<span class="badge bg-info">${data}</span>` : '<span class="text-muted fst-italic">Sin tipo</span>';
+                    }
+                },
                 { 
                     data: 'condicion_pago',
                     render: function(data, type, row) {
@@ -1858,7 +1906,7 @@ $(document).ready(function () {
                         if (type === 'export') {
                             return data || '';
                         }
-                        if (data !== null) {
+                        if (data !== null && data !== '') {
                             return '$ ' + parseFloat(data).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
                         }
                         return '<span class="text-muted">-</span>';
@@ -1868,7 +1916,7 @@ $(document).ready(function () {
                     data: 'cliente_descuento_general',
                     className: 'text-center',
                     render: function(data, type, row) {
-                        if (data !== null) {
+                        if (data !== null && data !== '') {
                             return parseFloat(data).toFixed(2) + '%';
                         }
                         return '<span class="text-muted">-</span>';
@@ -2814,6 +2862,9 @@ $(document).ready(function () {
             }
         });
         
+        // Cargar tipos de cliente
+        cargarTiposCliente();
+        
         // Obtener condición vigente para precargar datos
         $.get('entidades_ajax.php', {
             accion: 'obtener_condicion_cliente_vigente',
@@ -2827,6 +2878,12 @@ $(document).ready(function () {
             
             // Precargar datos de la condición vigente si existe
             if (condicionVigente && condicionVigente.entidad_condicion_cliente_id) {
+                // Esperar a que se carguen los tipos
+                setTimeout(function() {
+                    $('#entidad_cliente_tipo_id').val(condicionVigente.entidad_cliente_tipo_id || '');
+                    actualizarAccesoWeb();
+                }, 200);
+                
                 $('#condicion_pago_cliente_id').val(condicionVigente.condicion_pago_id);
                 $('#lista_precio_id').val(condicionVigente.lista_precio_id);
                 $('#limite_credito').val(condicionVigente.limite_credito);
@@ -2903,6 +2960,7 @@ $(document).ready(function () {
                 $('#condicion_pago_proveedor_id').val(condicionVigente.condicion_pago_id);
                 $('#proveedor_categoria_id').val(condicionVigente.proveedor_categoria_id);
                 $('#proveedor_descuento_general').val(condicionVigente.proveedor_descuento_general);
+                $('#entidad_cliente_tipo_id').val(condicionVigente.entidad_cliente_tipo_id || '');
                 
                 // Mostrar mensaje informativo
                 Swal.fire({
@@ -2941,16 +2999,19 @@ $(document).ready(function () {
     function resetModalCondicionCliente() {
         $('#formCondicionCliente')[0].reset();
         $('#condicion_cliente_id').val('');
+        $('#entidad_cliente_tipo_id').val('');
+        $('#acceso_web_texto').html('Seleccione un tipo para ver el acceso a la web');
         $('#formCondicionCliente').removeClass('was-validated');
+        
+        // Recargar los tipos de cliente cada vez que se abre el modal
+        cargarTiposCliente();
     }
-
     function resetModalCondicionProveedor() {
         $('#formCondicionProveedor')[0].reset();
         $('#condicion_proveedor_id').val('');
         $('#formCondicionProveedor').removeClass('was-validated');
     }
-
-    // Guardar condición de cliente
+     // Guardar condición de cliente - CORREGIDO
     $('#btnGuardarCondicionCliente').click(function () {
         var form = document.getElementById('formCondicionCliente');
 
@@ -2961,6 +3022,13 @@ $(document).ready(function () {
 
         var id = $('#condicion_cliente_id').val();
         var accionBackend = id ? 'editar_condicion_cliente' : 'agregar_condicion_cliente';
+        
+        // Obtener valores correctamente
+        var entidadClienteTipoId = $('#entidad_cliente_tipo_id').val();
+        
+        // Debug
+        console.log('Tipo de cliente seleccionado:', entidadClienteTipoId);
+        console.log('f_desde:', $('#f_desde_cliente').val());
 
         var btnGuardar = $(this);
         var originalText = btnGuardar.html();
@@ -2973,12 +3041,13 @@ $(document).ready(function () {
                 accion: accionBackend,
                 condicion_cliente_id: id,
                 entidad_id: $('#entidad_id_condicion_cliente').val(),
+                entidad_cliente_tipo_id: entidadClienteTipoId || null,  // Enviar null si está vacío
                 condicion_pago_id: $('#condicion_pago_cliente_id').val(),
-                lista_precio_id: $('#lista_precio_id').val(),
-                limite_credito: $('#limite_credito').val(),
-                cliente_descuento_general: $('#cliente_descuento_general').val(),
+                lista_precio_id: $('#lista_precio_id').val() || null,
+                limite_credito: $('#limite_credito').val() || null,
+                cliente_descuento_general: $('#cliente_descuento_general').val() || null,
                 f_desde: $('#f_desde_cliente').val(),
-                f_hasta: $('#f_hasta_cliente').val(),
+                f_hasta: $('#f_hasta_cliente').val() || null,
                 empresa_idx: empresa_idx
             },
             success: function (res) {
@@ -2992,7 +3061,7 @@ $(document).ready(function () {
                     Swal.fire({
                         icon: "success",
                         title: "¡Guardado!",
-                        text: "Condición guardada correctamente",
+                        text: res.message || "Condición guardada correctamente",
                         showConfirmButton: false,
                         timer: 1500,
                         toast: true,
@@ -3012,7 +3081,9 @@ $(document).ready(function () {
                     });
                 }
             },
-            error: function () {
+            error: function (xhr, status, error) {
+                console.error('Error AJAX:', error);
+                console.error('Respuesta:', xhr.responseText);
                 btnGuardar.prop('disabled', false).html(originalText);
                 Swal.fire({
                     icon: "error",
@@ -3108,8 +3179,18 @@ $(document).ready(function () {
             if (res && res.entidad_condicion_cliente_id) {
                 resetModalCondicionCliente();
                 
+                // Cargar tipos de cliente primero
+                cargarTiposCliente();
+                
                 $('#condicion_cliente_id').val(res.entidad_condicion_cliente_id);
                 $('#entidad_id_condicion_cliente').val(res.entidad_id);
+                
+                // Esperar un momento para que se carguen los tipos
+                setTimeout(function() {
+                    $('#entidad_cliente_tipo_id').val(res.entidad_cliente_tipo_id || '');
+                    actualizarAccesoWeb();
+                }, 100);
+                
                 $('#condicion_pago_cliente_id').val(res.condicion_pago_id);
                 $('#lista_precio_id').val(res.lista_precio_id);
                 $('#limite_credito').val(res.limite_credito);
@@ -3310,6 +3391,7 @@ $(document).ready(function () {
                 cargarCondicionClienteVigente();
                 cargarCondicionProveedorVigente();
                 inicializarDataTableSucursalesCompra(entidadActualId);
+                cargarTiposCliente();
                 
                 var modal = new bootstrap.Modal(document.getElementById('modalEntidad'));
                 modal.show();
@@ -3700,6 +3782,7 @@ $(document).ready(function () {
     cargarCondicionesPago();
     cargarListasPrecios();
     cargarCategoriasProveedores();
+    cargarTiposCliente();
 
     // Agregar tooltips a los botones
     $('[title]').tooltip({
@@ -3722,7 +3805,66 @@ $(document).ready(function () {
             }
         }, 500);
     });
+    // Función para actualizar la información de acceso web al seleccionar un tipo
+    function actualizarAccesoWeb() {
+        var tipoId = $('#entidad_cliente_tipo_id').val();
+        
+        if (!tipoId) {
+            $('#acceso_web_texto').html('Seleccione un tipo para ver el acceso a la web');
+            return;
+        }
+        
+        // Buscar el tipo en la lista cargada
+        var tipoSeleccionado = tiposClienteData.find(function(t) {
+            return t.entidad_cliente_tipo_id == tipoId;
+        });
+        
+        if (tipoSeleccionado) {
+            var acceso = tipoSeleccionado.acceso_web == 1;
+            var icono = acceso ? 'fa-check-circle text-success' : 'fa-times-circle text-danger';
+            var texto = acceso ? 'Este tipo de cliente tiene <strong>acceso al carrito virtual</strong>' 
+                            : 'Este tipo de cliente <strong>NO tiene acceso</strong> al carrito virtual';
+            var badge = acceso 
+                ? '<span class="badge bg-success">Acceso web</span>' 
+                : '<span class="badge bg-danger">Sin acceso web</span>';
+            
+            $('#acceso_web_texto').html(badge + ' ' + texto);
+        }
+    }
 
+   // Variable para almacenar los tipos de cliente
+    var tiposClienteData = [];
+
+    // Función para cargar tipos de cliente
+    function cargarTiposCliente() {
+        $.get('entidades_ajax.php', {
+            accion: 'obtener_tipos_cliente',
+            empresa_idx: empresa_idx
+        }, function (tipos) {
+            tiposClienteData = tipos;
+            var select = $('#entidad_cliente_tipo_id');
+            select.empty();
+            select.append('<option value="">Seleccionar tipo...</option>');
+            
+            if (tipos && tipos.length > 0) {
+                $.each(tipos, function (index, tipo) {
+                    var accesoLabel = tipo.acceso_web == 1 ? '🔓' : '🔒';
+                    select.append('<option value="' + tipo.entidad_cliente_tipo_id + '">' + 
+                                tipo.entidad_cliente_tipo + ' ' + accesoLabel + '</option>');
+                });
+            }
+            
+            // Si hay un valor seleccionado, actualizar la información
+            if ($('#entidad_cliente_tipo_id').val()) {
+                actualizarAccesoWeb();
+            }
+        }, 'json');
+    }
+
+    // Evento para actualizar acceso web al cambiar el tipo
+    $(document).on('change', '#entidad_cliente_tipo_id', function() {
+        actualizarAccesoWeb();
+    });
     // ============================================
     // FUNCIONES RESPONSIVE
     // ============================================

@@ -215,6 +215,23 @@ case 'listar_condiciones_cliente':
     echo json_encode($condiciones, JSON_UNESCAPED_UNICODE);
     break;
 
+case 'editar_condicion_cliente':
+    $id = intval($_POST['condicion_cliente_id'] ?? 0);
+    $data = [
+        'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+        'entidad_cliente_tipo_id' => isset($_POST['entidad_cliente_tipo_id']) && $_POST['entidad_cliente_tipo_id'] !== '' ? intval($_POST['entidad_cliente_tipo_id']) : null,
+        'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
+        'lista_precio_id' => isset($_POST['lista_precio_id']) && $_POST['lista_precio_id'] !== '' ? intval($_POST['lista_precio_id']) : null,
+        'limite_credito' => isset($_POST['limite_credito']) && $_POST['limite_credito'] !== '' ? floatval($_POST['limite_credito']) : null,
+        'cliente_descuento_general' => isset($_POST['cliente_descuento_general']) && $_POST['cliente_descuento_general'] !== '' ? floatval($_POST['cliente_descuento_general']) : null,
+        'f_desde' => $_POST['f_desde'] ?? '',
+        'f_hasta' => !empty($_POST['f_hasta']) ? $_POST['f_hasta'] : null
+    ];
+    
+    $resultado = editarCondicionCliente($conexion, $id, $data);
+    echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+    break;
+
 case 'listar_condiciones_proveedor':
     $entidad_id = intval($_GET['entidad_id'] ?? 0);
     if (empty($entidad_id)) {
@@ -225,19 +242,91 @@ case 'listar_condiciones_proveedor':
     $condiciones = obtenerCondicionesProveedor($conexion, $empresa_idx, $entidad_id, $pagina_idx);
     echo json_encode($condiciones, JSON_UNESCAPED_UNICODE);
     break;
-
+    // Obtener condiciones de cliente para una entidad - CON TIPO DE CLIENTE (CORREGIDO)
+    function obtenerCondicionesCliente($conexion, $empresa_idx, $entidad_id, $pagina_id) {
+        $pagina_id = intval($pagina_id);
+        $entidad_id = intval($entidad_id);
+        
+        $sql = "SELECT cc.*, 
+                    cp.condicion_pago,
+                    lp.lista_precio_nombre AS lista_precio,
+                    ect.entidad_cliente_tipo,
+                    er.estado_registro,
+                    ec.color_clase, ec.bg_clase, ec.text_clase
+                FROM gestion__entidades_condiciones_clientes cc
+                LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
+                LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+                LEFT JOIN gestion__entidades_clientes_tipos ect ON cc.entidad_cliente_tipo_id = ect.entidad_cliente_tipo_id
+                LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
+                LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+                WHERE cc.entidad_id = ?
+                ORDER BY cc.f_desde DESC";
+        
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) return [];
+        
+        mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        
+        $data = [];
+        while ($fila = mysqli_fetch_assoc($result)) {
+            $color_clase = $fila['color_clase'] ?? 'btn-dark';
+            $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+            $text_clase = $fila['text_clase'] ?? 'text-white';
+            
+            $fila['estado_info'] = [
+                'estado_registro' => $fila['estado_registro'] ?? ($fila['tabla_estado_registro_id'] == 1 ? 'Activo' : 'Inactivo'),
+                'codigo_estandar' => $fila['codigo_estandar'] ?? ($fila['tabla_estado_registro_id'] == 1 ? 'ACTIVO' : 'INACTIVO'),
+                'color_clase' => $color_clase,
+                'bg_clase' => $bg_clase,
+                'text_clase' => $text_clase
+            ];
+            
+            // Asegurar que el tipo de cliente esté disponible
+            $fila['entidad_cliente_tipo'] = $fila['entidad_cliente_tipo'] ?? null;
+            
+            $data[] = $fila;
+        }
+        
+        mysqli_stmt_close($stmt);
+        return $data;
+    }
     case 'agregar_condicion_cliente':
+        // Debug
+        error_log("POST en agregar_condicion_cliente: " . print_r($_POST, true));
+        
         $data = [
             'entidad_id' => intval($_POST['entidad_id'] ?? 0),
-            'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
-            'lista_precio_id' => $_POST['lista_precio_id'] ? intval($_POST['lista_precio_id']) : null,
-            'limite_credito' => $_POST['limite_credito'] ?? null,
-            'cliente_descuento_general' => $_POST['cliente_descuento_general'] ?? null,
+            'condicion_pago_id' => isset($_POST['condicion_pago_id']) && $_POST['condicion_pago_id'] !== '' ? intval($_POST['condicion_pago_id']) : null,
+            'entidad_cliente_tipo_id' => isset($_POST['entidad_cliente_tipo_id']) && $_POST['entidad_cliente_tipo_id'] !== '' ? intval($_POST['entidad_cliente_tipo_id']) : null,
+            'lista_precio_id' => isset($_POST['lista_precio_id']) && $_POST['lista_precio_id'] !== '' ? intval($_POST['lista_precio_id']) : null,
+            'limite_credito' => isset($_POST['limite_credito']) && $_POST['limite_credito'] !== '' ? floatval($_POST['limite_credito']) : null,
+            'cliente_descuento_general' => isset($_POST['cliente_descuento_general']) && $_POST['cliente_descuento_general'] !== '' ? floatval($_POST['cliente_descuento_general']) : null,
             'f_desde' => $_POST['f_desde'] ?? '',
-            'f_hasta' => $_POST['f_hasta'] ?? null
+            'f_hasta' => !empty($_POST['f_hasta']) ? $_POST['f_hasta'] : null
         ];
         
+        error_log("Data procesada: " . print_r($data, true));
+        
         $resultado = agregarCondicionCliente($conexion, $data);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'editar_condicion_cliente':
+        $id = intval($_POST['condicion_cliente_id'] ?? 0);
+        $data = [
+            'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+            'condicion_pago_id' => isset($_POST['condicion_pago_id']) && $_POST['condicion_pago_id'] !== '' ? intval($_POST['condicion_pago_id']) : null,
+            'entidad_cliente_tipo_id' => isset($_POST['entidad_cliente_tipo_id']) && $_POST['entidad_cliente_tipo_id'] !== '' ? intval($_POST['entidad_cliente_tipo_id']) : null,
+            'lista_precio_id' => isset($_POST['lista_precio_id']) && $_POST['lista_precio_id'] !== '' ? intval($_POST['lista_precio_id']) : null,
+            'limite_credito' => isset($_POST['limite_credito']) && $_POST['limite_credito'] !== '' ? floatval($_POST['limite_credito']) : null,
+            'cliente_descuento_general' => isset($_POST['cliente_descuento_general']) && $_POST['cliente_descuento_general'] !== '' ? floatval($_POST['cliente_descuento_general']) : null,
+            'f_desde' => $_POST['f_desde'] ?? '',
+            'f_hasta' => !empty($_POST['f_hasta']) ? $_POST['f_hasta'] : null
+        ];
+        
+        $resultado = editarCondicionCliente($conexion, $id, $data);
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
         break;
 
@@ -404,7 +493,24 @@ case 'listar_condiciones_proveedor':
         mysqli_stmt_close($stmt);
         echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
         break;
+
+    case 'obtener_tipos_cliente':
+        $tipos = obtenerTiposCliente($conexion);
+        echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
+        break;
+    
+    case 'verificar_acceso_web_cliente':
+        $entidad_id = intval($_GET['entidad_id'] ?? 0);
+        if (empty($entidad_id)) {
+            echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
         
+        $resultado = verificarAccesoWebCliente($conexion, $entidad_id);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+        
+
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }
