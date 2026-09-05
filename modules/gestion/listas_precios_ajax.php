@@ -316,7 +316,11 @@ try {
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    // Throwable, no solo Exception: un ValueError (p.ej. de
+    // mysqli_stmt_bind_param con un string de tipos mal contado) no es una
+    // Exception y se escapaba de este catch, cortando la respuesta antes de
+    // devolver JSON válido.
     error_log("Excepción en listas_precios_ajax.php: " . $e->getMessage());
     manejarError('Error del servidor: ' . $e->getMessage(), 500);
 }

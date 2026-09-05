@@ -528,7 +528,15 @@ function agregarListaPrecio($conexion, $data)
         $estado_inicial_val = $estado_inicial;
         $creado_por_val = isset($_SESSION['usuario_id']) ? intval($_SESSION['usuario_id']) : 0;
 
-        mysqli_stmt_bind_param($stmt, "isssiiiiissii", 
+        // El string de tipos tenía 13 caracteres para 12 variables (un "i" de
+        // más antes de f_ultimo_recalculo). mysqli_stmt_bind_param exige que
+        // coincidan exactamente; si no, PHP 8.1+ lanza un ValueError (no una
+        // Exception), que no cae en el catch (Exception $e) de más abajo ni
+        // en el de listas_precios_ajax.php, y corta la respuesta a mitad de
+        // camino sin devolver JSON. Por eso el alta de listas nunca terminaba
+        // de guardar. 12 columnas -> 12 tipos: i,s,s,s,i,i,i,i,s,s,i,i
+        // (f_ultimo_recalculo es datetime-local, va como string).
+        mysqli_stmt_bind_param($stmt, "isssiiiissii",
             $empresa_id_val,
             $codigo_val,
             $nombre_val,
@@ -555,7 +563,10 @@ function agregarListaPrecio($conexion, $data)
         error_log("=== FIN agregarListaPrecio - ÉXITO ===");
         return ['resultado' => true, 'lista_precio_id' => $lista_precio_id, 'message' => 'Lista creada correctamente'];
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
+        // Throwable (no solo Exception): un error de tipos/params en
+        // mysqli_stmt_bind_param es un ValueError, que no es una Exception,
+        // y se nos escapaba de este catch.
         mysqli_rollback($conexion);
         error_log("ERROR en agregarListaPrecio: " . $e->getMessage());
         return ['resultado' => false, 'error' => $e->getMessage()];
@@ -637,7 +648,7 @@ function editarListaPrecio($conexion, $id, $data)
         error_log("=== FIN editarListaPrecio - ÉXITO ===");
         return ['resultado' => true, 'message' => 'Lista actualizada correctamente'];
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         mysqli_rollback($conexion);
         error_log("ERROR en editarListaPrecio: " . $e->getMessage());
         return ['resultado' => false, 'error' => $e->getMessage()];
@@ -751,7 +762,7 @@ function agregarRegla($conexion, $data)
         mysqli_commit($conexion);
         return ['resultado' => true, 'lista_precio_regla_id' => $regla_id, 'message' => 'Regla creada correctamente'];
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         mysqli_rollback($conexion);
         error_log("ERROR en agregarRegla: " . $e->getMessage());
         return ['resultado' => false, 'error' => $e->getMessage()];
@@ -840,7 +851,7 @@ function editarRegla($conexion, $id, $data)
         mysqli_commit($conexion);
         return ['resultado' => true, 'message' => 'Regla actualizada correctamente'];
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         mysqli_rollback($conexion);
         error_log("ERROR en editarRegla: " . $e->getMessage());
         return ['resultado' => false, 'error' => $e->getMessage()];

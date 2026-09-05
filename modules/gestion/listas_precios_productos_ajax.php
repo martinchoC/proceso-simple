@@ -16,15 +16,55 @@ try {
 
 switch ($accion) {
     case 'listar':
+        // VERSION 2026-09-05: server-side real para DataTables (antes carga
+        // completa + búsqueda/paginación en el navegador). Se lee 'columns'
+        // por 'data' (no por índice) para mapear la columna de orden: así no
+        // se rompe si el front reordena/oculta columnas más adelante.
         $filtro_lista = $_GET['filtro_lista'] ?? '';
-        $filtro_producto = $_GET['filtro_producto'] ?? '';
         $filtro_marca = $_GET['filtro_marca'] ?? '';
         $filtro_modelo = $_GET['filtro_modelo'] ?? '';
         $filtro_submodelo = $_GET['filtro_submodelo'] ?? '';
-        $precios = obtenerListasPreciosProductos($conexion, $filtro_lista, $filtro_producto, $filtro_marca, $filtro_modelo, $filtro_submodelo);
-        echo json_encode($precios);
+        $busqueda = $_GET['busqueda'] ?? '';
+        $draw = intval($_GET['draw'] ?? 1);
+        $start = intval($_GET['start'] ?? 0);
+        $length = intval($_GET['length'] ?? 10);
+
+        $mapa_orden = [
+            'lista_nombre'     => 'lp.lista_precio_nombre',
+            'producto_codigo'  => 'p.producto_codigo',
+            'producto_nombre'  => 'p.producto_nombre',
+            'compatibilidad'   => 'p.compatibilidad_texto',
+            'precio_unitario'  => 'lpp.precio_final',
+            'f_actualizacion'  => 'lpp.actualizado_en',
+            // ubicaciones_info, imagen_id_principal y precio_con_iva no son
+            // ordenables server-side (ver comentario en la definición de
+            // columnas del front): no se listan acá a propósito.
+        ];
+        $order_col_idx = intval($_GET['order'][0]['column'] ?? 1);
+        $order_dir = $_GET['order'][0]['dir'] ?? 'asc';
+        $order_col_data = $_GET['columns'][$order_col_idx]['data'] ?? 'producto_codigo';
+        $order_column = $mapa_orden[$order_col_data] ?? 'p.producto_codigo';
+
+        $resultado = obtenerListasPreciosProductos($conexion, [
+            'filtro_lista' => $filtro_lista,
+            'filtro_marca' => $filtro_marca,
+            'filtro_modelo' => $filtro_modelo,
+            'filtro_submodelo' => $filtro_submodelo,
+            'busqueda' => $busqueda,
+            'start' => $start,
+            'length' => $length,
+            'order_column' => $order_column,
+            'order_dir' => $order_dir,
+        ]);
+
+        echo json_encode([
+            'draw' => $draw,
+            'recordsTotal' => $resultado['total'],
+            'recordsFiltered' => $resultado['filtered'],
+            'data' => $resultado['data']
+        ]);
         break;
-    
+
     case 'agregar':
         $data = [
             'lista_precio_id' => $_POST['lista_precio_id'] ?? 0,
@@ -87,6 +127,19 @@ switch ($accion) {
     case 'obtener_listas':
         $listas = obtenerListasPrecios($conexion);
         echo json_encode($listas);
+        break;
+
+    case 'obtener_precios_producto':
+        // Usado desde la pestaña "Precios" del ABM de productos
+        // (productos.php): todos los precios activos de UN producto,
+        // uno por lista de precios.
+        $producto_id = intval($_GET['producto_id'] ?? 0);
+        if (empty($producto_id)) {
+            echo json_encode([]);
+            break;
+        }
+        $precios = obtenerPreciosPorProducto($conexion, $producto_id);
+        echo json_encode($precios);
         break;
 
     case 'obtener_productos':

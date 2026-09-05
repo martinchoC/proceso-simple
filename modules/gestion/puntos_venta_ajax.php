@@ -63,7 +63,7 @@ try {
             $accion_js = $_POST['accion_js'] ?? '';
             $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
             $pagina_id = intval($_POST['pagina_idx'] ?? 0);
-            
+
             $resultado = ejecutarTransicionEstado($conexion, $punto_venta_id, $accion_js, $empresa_idx, $pagina_id);
             echo json_encode($resultado);
             break;
@@ -74,6 +74,7 @@ try {
                 'nombre' => trim($_POST['nombre'] ?? ''),
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'codigo_fiscal' => trim($_POST['codigo_fiscal'] ?? ''),
+                'es_web' => intval($_POST['es_web'] ?? 0),
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
             ];
@@ -84,23 +85,24 @@ try {
 
         case 'editar':
             $id = intval($_POST['punto_venta_id'] ?? 0);
-            
+
             error_log("=== EDITAR - ID recibido: $id ===");
             error_log("POST completo: " . print_r($_POST, true));
-            
+
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
                 'nombre' => trim($_POST['nombre'] ?? ''),
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'codigo_fiscal' => trim($_POST['codigo_fiscal'] ?? ''),
+                'es_web' => intval($_POST['es_web'] ?? 0),
                 'empresa_idx' => $empresa_idx
             ];
-            
+
             error_log("data armada para editarPuntoVenta: " . print_r($data, true));
 
             $resultado = editarPuntoVenta($conexion, $id, $data);
             error_log("resultado de editarPuntoVenta: " . print_r($resultado, true));
-            
+
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

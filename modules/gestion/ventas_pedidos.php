@@ -53,13 +53,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </button>
                                             </div>
                                         </div>
-                                            <div class="col-md-3">
+                                            <div class="col-md-2">
+                                                <input type="text" class="form-control form-control-sm" id="filtro_cliente" placeholder="Filtrar por cliente...">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <input type="text" class="form-control form-control-sm" id="filtro_estado" placeholder="Filtrar por estado...">
+                                            </div>
+                                            <div class="col-md-2">
                                                 <div class="dataTables_length" id="tablaVentasPedidos_length"></div>
                                             </div>
-                                            <div class="col-md-3">
+                                            <div class="col-md-2">
                                                 <div class="dataTables_filter" id="tablaVentasPedidos_filter"></div>
                                             </div>
-                                            <div class="col-md-4 text-end">
+                                            <div class="col-md-2 text-end">
                                                 <div class="btn-group" role="group">
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar tabla">
                                                         <i class="fas fa-sync-alt"></i>
@@ -85,7 +91,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <table id="tablaVentasPedidos" class="table table-striped table-bordered" style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="80">ID</th>
                                                     <th width="100">Tipo</th>
                                                     <th width="120">Sucursal</th>
                                                     <th width="120">Punto Venta</th>
@@ -251,6 +256,64 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <input type="text" class="form-control form-control-sm" id="observaciones" name="observaciones" maxlength="255" placeholder="Notas adicionales">
                                                     </div>
                                                 </div>
+
+                                                <!-- Resumen de totales (mismo dato/formato que la solapa Totales) -->
+                                                <div class="row g-3 mt-1">
+                                                    <div class="col-12">
+                                                        <div class="row g-2">
+                                                            <div class="col-lg-3 col-md-6">
+                                                                <div class="info-box bg-light">
+                                                                    <span class="info-box-icon bg-secondary"><i class="fas fa-coins"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text fw-bold">Bruto</span>
+                                                                        <span class="info-box-number" id="bruto_display_resumen">$0.00</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-lg-3 col-md-6">
+                                                                <div class="info-box bg-light">
+                                                                    <span class="info-box-icon bg-danger"><i class="fas fa-circle-minus"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text fw-bold">Descuento</span>
+                                                                        <span class="info-box-number" id="descuento_display_resumen">$0.00</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-lg-3 col-md-6">
+                                                                <div class="info-box bg-light">
+                                                                    <span class="info-box-icon bg-success"><i class="fas fa-calculator"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text fw-bold">Total Neto</span>
+                                                                        <span class="info-box-number" id="total_neto_display_resumen">$0.00</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-lg-3 col-md-6">
+                                                                <div class="info-box bg-light">
+                                                                    <span class="info-box-icon bg-warning"><i class="fas fa-percent"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text fw-bold">Impuestos</span>
+                                                                        <span class="info-box-number" id="impuestos_display_resumen">$0.00</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <div class="card bg-primary text-white">
+                                                            <div class="card-body py-3">
+                                                                <div class="row align-items-center">
+                                                                    <div class="col-md-6">
+                                                                        <h5 class="mb-0"><i class="fas fa-credit-card me-2"></i>TOTAL DEL PEDIDO</h5>
+                                                                    </div>
+                                                                    <div class="col-md-6 text-md-end">
+                                                                        <h2 class="mb-0" id="total_display_resumen">$0.00</h2>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <!-- TAB 2: PRODUCTOS -->
@@ -269,6 +332,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                     placeholder="Buscar por código o nombre..."
                                                                     autocomplete="off">
                                                                 <input type="hidden" id="producto_seleccionado_id">
+                                                <input type="hidden" id="producto_codigo_seleccionado">
+                                                <input type="hidden" id="producto_nombre_seleccionado">
                                                                 <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%; display: none; background: white; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
                                                             </div>
                                                             <div class="col-md-1">
@@ -279,16 +344,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                             <div class="col-md-2">
                                                                 <label class="small fw-bold">Precio</label>
                                                                 <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_precio" step="0.0001" min="0" placeholder="0.00">
+                                                                    id="producto_precio" step="0.0001" min="0" placeholder="0.00" readonly>
                                                             </div>
                                                             <div class="col-md-1">
                                                                 <label class="small fw-bold">IVA %</label>
-                                                                <select class="form-select form-select-sm" id="producto_iva">
-                                                                    <option value="21">21%</option>
-                                                                    <option value="10.5">10.5%</option>
-                                                                    <option value="27">27%</option>
-                                                                    <option value="0">0%</option>
-                                                                </select>
+                                                                <input type="number" class="form-control form-control-sm no-spinner"
+                                                                    id="producto_iva" step="0.01" min="0" value="0.00" readonly>
                                                             </div>
                                                             <div class="col-md-2">
                                                                 <label class="small fw-bold">IVA Importe</label>
@@ -397,6 +458,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </div>
                                                 <!-- Campos ocultos para enviar -->
                                                 <input type="hidden" id="total_neto" name="total_neto" value="0">
+                                                <input type="hidden" id="descuento_general_pct" name="descuento_general_pct" value="0">
+                                                <input type="hidden" id="descuentos" name="descuentos" value="0">
                                                 <input type="hidden" id="no_gravado" name="no_gravado" value="0">
                                                 <input type="hidden" id="exento" name="exento" value="0">
                                                 <input type="hidden" id="impuestos" name="impuestos" value="0">
@@ -472,11 +535,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <select class="form-select form-select-sm" id="unidad_medida_id_rapido" name="unidad_medida_id_rapido">
                                             <option value="">Seleccionar unidad</option>
                                         </select>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="codigo_cliente_rapido" class="form-label fw-bold small">Código del Cliente *</label>
-                                        <input type="text" class="form-control form-control-sm" id="codigo_cliente_rapido" name="codigo_cliente_rapido" maxlength="50" placeholder="Código que usa este cliente" required>
-                                        <div class="invalid-feedback small">Código del cliente obligatorio</div>
                                     </div>
                                     <div class="col-md-12">
                                         <label for="producto_descripcion_rapido" class="form-label fw-bold small">Descripción</label>

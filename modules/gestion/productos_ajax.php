@@ -13,7 +13,7 @@ $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 40);
 
 // Parámetros de DataTables para paginación
 $start = intval($_GET['start'] ?? $_POST['start'] ?? 0);
-$length = intval($_GET['length'] ?? $_POST['length'] ?? 50);
+$length = intval($_GET['length'] ?? $_POST['length'] ?? 10);
 $draw = intval($_GET['draw'] ?? $_POST['draw'] ?? 1);
 $orderColumn = intval($_GET['order'][0]['column'] ?? $_POST['order'][0]['column'] ?? 1);
 $orderDir = $_GET['order'][0]['dir'] ?? $_POST['order'][0]['dir'] ?? 'asc';
@@ -228,6 +228,11 @@ try {
         case 'obtener_marcas':
             $marcas = obtenerMarcas($conexion, $empresa_idx);
             echo json_encode($marcas, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_listas_precios':
+            $listas_precios = obtenerListasPrecios($conexion, $empresa_idx);
+            echo json_encode($listas_precios, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_modelos':

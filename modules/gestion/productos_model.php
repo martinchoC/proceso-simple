@@ -307,35 +307,22 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         foreach ($palabras as $palabra) {
             $palabra_like = '%' . $palabra . '%';
             
+            // La compatibilidad (marca+modelo+submodelo+año) se busca en
+            // p.compatibilidad_busqueda, materializada por trigger sobre
+            // gestion__productos_compatibilidad — reemplaza los 3 EXISTS+JOIN
+            // que antes se repetían por cada palabra buscada.
             $search_conditions = [
                 "p.producto_codigo LIKE ?",
                 "p.producto_nombre LIKE ?",
                 "p.codigo_barras LIKE ?",
                 "er.$estado_column LIKE ?",
-                "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
-                        LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
-                        WHERE pc.producto_id = p.producto_id 
-                        AND pc.empresa_id = p.empresa_id
-                        AND pc.tabla_estado_registro_id = 1
-                        AND m.marca_nombre LIKE ?)",
-                "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
-                        LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
-                        WHERE pc.producto_id = p.producto_id 
-                        AND pc.empresa_id = p.empresa_id
-                        AND pc.tabla_estado_registro_id = 1
-                        AND mo.modelo_nombre LIKE ?)",
-                "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
-                        LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
-                        WHERE pc.producto_id = p.producto_id 
-                        AND pc.empresa_id = p.empresa_id
-                        AND pc.tabla_estado_registro_id = 1
-                        AND s.submodelo_nombre LIKE ?)"
+                "p.compatibilidad_busqueda LIKE ?"
             ];
 
             $where_conditions[] = "(" . implode(" OR ", $search_conditions) . ")";
 
-            // Agregar 7 parámetros por cada palabra (uno por cada condición)
-            for ($i = 0; $i < 7; $i++) {
+            // Agregar 5 parámetros por cada palabra (uno por cada condición)
+            for ($i = 0; $i < 5; $i++) {
                 $where_params[] = $palabra_like;
                 $where_types .= "s";
             }
@@ -365,9 +352,73 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     }
 
     // =============================================================
-    // CONSULTA PRINCIPAL - VERSIÓN COMPLETA CON ubicaciones_detalle
+    // PASO 1: resolver qué producto_id entran en esta página, con los
+    // joins mínimos (er y um son 1 a 1 con producto — no generan fan-out).
+    // Esto es lo que hace que la paginación sea O(tamaño de página) y no
+    // O(catálogo filtrado completo): antes, el LIMIT se aplicaba DESPUÉS
+    // de armar el producto cartesiano contra compatibilidad × ubicaciones
+    // (ambas uno-a-muchos) y agruparlo, o sea que traer la página 1 costaba
+    // lo mismo que traer el catálogo entero. Si se ordena por un campo
+    // agregado (marcas/modelos/submodelos) no hay forma de evitarlo sin
+    // los joins, así que en ese caso puntual se cae al camino viejo.
     // =============================================================
-    $sql = "SELECT 
+    $columnas_agregadas = ['marcas_compatibles', 'modelos_compatibles', 'submodelos_compatibles'];
+    $paginacion_liviana = !in_array($order_by, $columnas_agregadas, true);
+
+    if ($paginacion_liviana) {
+        $sql_ids = "SELECT p.producto_id
+                    FROM gestion__productos p
+                    LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
+                    LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
+                    $where_clause
+                    ORDER BY $order_by $order_dir, p.producto_id ASC
+                    LIMIT ? OFFSET ?";
+
+        $ids_params = $where_params;
+        $ids_types = $where_types;
+        $ids_params[] = $length;
+        $ids_params[] = $start;
+        $ids_types .= "ii";
+
+        $stmt_ids = mysqli_prepare($conexion, $sql_ids);
+        if (!$stmt_ids) {
+            return ['total' => $total_records, 'filtered' => $total_records, 'productos' => []];
+        }
+        mysqli_stmt_bind_param($stmt_ids, $ids_types, ...$ids_params);
+        mysqli_stmt_execute($stmt_ids);
+        $result_ids = mysqli_stmt_get_result($stmt_ids);
+
+        $producto_ids = [];
+        while ($fila_id = mysqli_fetch_assoc($result_ids)) {
+            $producto_ids[] = (int) $fila_id['producto_id'];
+        }
+        mysqli_stmt_close($stmt_ids);
+
+        // Página vacía (ej: se pidió una página más allá del total) — no
+        // tiene sentido armar un IN() vacío.
+        if (empty($producto_ids)) {
+            return ['total' => $total_records, 'filtered' => $total_records, 'productos' => []];
+        }
+
+        // PASO 2: recién acá entran los joins "caros" (compatibilidad,
+        // ubicaciones), pero SOLO sobre los producto_id de esta página —
+        // el fan-out queda acotado al tamaño de página, no al total filtrado.
+        $placeholders = implode(',', array_fill(0, count($producto_ids), '?'));
+        $hydrate_where = "WHERE p.producto_id IN ($placeholders)";
+        $hydrate_params = $producto_ids;
+        $hydrate_types = str_repeat('i', count($producto_ids));
+    } else {
+        // Orden por un campo agregado: se resuelve todo en un solo paso,
+        // como antes (más caro, pero es un caso poco frecuente).
+        $hydrate_where = $where_clause;
+        $hydrate_params = $where_params;
+        $hydrate_types = $where_types;
+    }
+
+    // =============================================================
+    // CONSULTA DE HIDRATACIÓN - VERSIÓN COMPLETA CON ubicaciones_detalle
+    // =============================================================
+    $sql = "SELECT
             p.*,
             er.$estado_column as estado_registro,
             er.codigo_estandar,
@@ -376,7 +427,7 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             GROUP_CONCAT(DISTINCT m.marca_nombre ORDER BY m.marca_nombre SEPARATOR ', ') as marcas_compatibles,
             GROUP_CONCAT(DISTINCT mo.modelo_nombre ORDER BY mo.modelo_nombre SEPARATOR ', ') as modelos_compatibles,
             GROUP_CONCAT(DISTINCT s.submodelo_nombre ORDER BY s.submodelo_nombre SEPARATOR ', ') as submodelos_compatibles,
-            GROUP_CONCAT(DISTINCT CONCAT(su.sucursal_nombre, ': ', s_ubic.seccion, ' ', s_ubic.estanteria, '-', s_ubic.estante, s_ubic.posicion) 
+            GROUP_CONCAT(DISTINCT CONCAT(su.sucursal_nombre, ': ', s_ubic.seccion, ' ', s_ubic.estanteria, '-', s_ubic.estante, s_ubic.posicion)
                ORDER BY su.sucursal_nombre, s_ubic.seccion, s_ubic.estanteria, s_ubic.estante, s_ubic.posicion SEPARATOR '; ') as ubicaciones_info,
             COALESCE(
                 (SELECT CONCAT('[', GROUP_CONCAT(
@@ -395,52 +446,77 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
                 INNER JOIN gestion__sucursales_ubicaciones su2_ubic ON pu2.sucursal_ubicacion_id = su2_ubic.sucursal_ubicacion_id
                 LEFT JOIN gestion__sucursales su2 ON su2_ubic.sucursal_id = su2.sucursal_id
                 LEFT JOIN gestion__depositos d ON su2_ubic.deposito_id = d.deposito_id
-                WHERE pu2.producto_id = p.producto_id 
+                WHERE pu2.producto_id = p.producto_id
                 AND pu2.tabla_estado_registro_id = 1
                 ), '[]'
             ) as ubicaciones_detalle,
-            (SELECT COUNT(*) 
+            (SELECT COUNT(*)
              FROM gestion__productos_ubicaciones pu3
-             WHERE pu3.producto_id = p.producto_id 
+             WHERE pu3.producto_id = p.producto_id
              AND pu3.tabla_estado_registro_id = 1) as total_ubicaciones,
             (SELECT ci.imagen_id
              FROM gestion__productos_imagenes pi
              INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
-             WHERE pi.producto_id = p.producto_id 
+             WHERE pi.producto_id = p.producto_id
              AND pi.empresa_id = p.empresa_id
              AND pi.es_principal = 1
              AND pi.tabla_estado_registro_id = 1
-             LIMIT 1) as imagen_id_principal
+             LIMIT 1) as imagen_id_principal,
+            COALESCE(
+                (SELECT CONCAT('[', GROUP_CONCAT(
+                    JSON_OBJECT(
+                        'lista_precio_id', lp.lista_precio_id,
+                        'lista_precio_nombre', lp.lista_precio_nombre,
+                        'precio_neto', lpp.precio_final
+                    )
+                    ORDER BY lp.lista_precio_nombre
+                    SEPARATOR ','
+                ), ']')
+                FROM gestion__listas_precios_productos lpp
+                INNER JOIN gestion__listas_precios lp ON lpp.lista_precio_id = lp.lista_precio_id
+                WHERE lpp.producto_id = p.producto_id
+                AND lpp.tabla_estado_registro_id = 1
+                AND lp.tabla_estado_registro_id = 1
+                AND (lp.empresa_id = 0 OR lp.empresa_id = p.empresa_id)
+                ), '[]'
+            ) as precios_listas_json,
+            MAX(IFNULL(iva.porcentaje, 0)) as iva_porcentaje
         FROM gestion__productos p
         LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
         LEFT JOIN conf__colores c ON er.color_id = c.color_id
         LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
-        LEFT JOIN gestion__productos_compatibilidad pc ON p.producto_id = pc.producto_id 
-            AND p.empresa_id = pc.empresa_id 
+        LEFT JOIN gestion__productos_compatibilidad pc ON p.producto_id = pc.producto_id
+            AND p.empresa_id = pc.empresa_id
             AND pc.tabla_estado_registro_id = 1
         LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
         LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
         LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
-        LEFT JOIN gestion__productos_ubicaciones pu ON p.producto_id = pu.producto_id 
+        LEFT JOIN gestion__productos_ubicaciones pu ON p.producto_id = pu.producto_id
             AND pu.tabla_estado_registro_id = 1
         LEFT JOIN gestion__sucursales_ubicaciones s_ubic ON pu.sucursal_ubicacion_id = s_ubic.sucursal_ubicacion_id
         LEFT JOIN gestion__sucursales su ON s_ubic.sucursal_id = su.sucursal_id
-        $where_clause
+        LEFT JOIN gestion__impuestos__iva_alicuotas iva
+            ON p.iva_alicuota_id = iva.iva_alicuota_id
+           AND iva.tabla_estado_registro_id = 1
+        $hydrate_where
         GROUP BY p.producto_id
-        ORDER BY $order_by $order_dir
-        LIMIT ? OFFSET ?";
+        ORDER BY $order_by $order_dir, p.producto_id ASC"
+        . ($paginacion_liviana ? "" : " LIMIT ? OFFSET ?");
+
+    if (!$paginacion_liviana) {
+        $hydrate_params[] = $length;
+        $hydrate_params[] = $start;
+        $hydrate_types .= "ii";
+    }
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
-        return ['total' => 0, 'filtered' => 0, 'productos' => []];
+        return ['total' => $total_records, 'filtered' => $total_records, 'productos' => []];
     }
 
-    // Agregar parámetros de paginación
-    $where_params[] = $length;
-    $where_params[] = $start;
-    $where_types .= "ii";
-
-    mysqli_stmt_bind_param($stmt, $where_types, ...$where_params);
+    if (!empty($hydrate_params)) {
+        mysqli_stmt_bind_param($stmt, $hydrate_types, ...$hydrate_params);
+    }
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
@@ -476,7 +552,33 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         
         $fila['total_ubicaciones'] = intval($fila['total_ubicaciones'] ?? 0);
 
-       
+        // Precios por lista: se traen TODAS las listas de precios activas que
+        // tengan un precio cargado para este producto (gestion__listas_precios_productos
+        // + gestion__listas_precios para el nombre de cada lista). El IVA es el mismo
+        // para todas las listas porque depende del producto (p.iva_alicuota_id ->
+        // gestion__impuestos__iva_alicuotas.porcentaje), no de la lista de precios.
+        $fila['iva_porcentaje'] = (float) ($fila['iva_porcentaje'] ?? 0);
+
+        $precios_listas = [];
+        if (!empty($fila['precios_listas_json']) && $fila['precios_listas_json'] !== '[]') {
+            $decoded = json_decode($fila['precios_listas_json'], true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $item) {
+                    $neto = isset($item['precio_neto']) && $item['precio_neto'] !== null
+                        ? (float) $item['precio_neto'] : null;
+                    $precios_listas[] = [
+                        'lista_precio_id' => $item['lista_precio_id'] ?? null,
+                        'lista_precio_nombre' => $item['lista_precio_nombre'] ?? 'Lista',
+                        'precio_neto' => $neto,
+                        'precio_con_iva' => $neto !== null
+                            ? round($neto * (1 + $fila['iva_porcentaje'] / 100), 2)
+                            : null
+                    ];
+                }
+            }
+        }
+        $fila['precios_listas'] = $precios_listas;
+        unset($fila['precios_listas_json']);
 
         // Agregar URL para la imagen principal si existe
         if (!empty($fila['imagen_id_principal'])) {
@@ -849,6 +951,34 @@ function obtenerUnidadesMedida($conexion, $empresa_idx)
 
     mysqli_stmt_close($stmt);
     return $unidades;
+}
+
+// ✅ Obtener listas de precios activas (para armar columnas dinámicas en el listado de productos)
+function obtenerListasPrecios($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+
+    $sql = "SELECT lista_precio_id, lista_precio_nombre
+            FROM gestion__listas_precios
+            WHERE tabla_estado_registro_id = 1
+            AND (empresa_id = 0 OR empresa_id = ?)
+            ORDER BY lista_precio_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $listas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $listas[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $listas;
 }
 
 // ✅ Agregar nuevo producto (con estado inicial)

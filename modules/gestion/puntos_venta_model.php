@@ -10,7 +10,7 @@ function obtenerFuncionesPagina($conexion, $pagina_id)
             FROM conf__paginas_funciones pf
             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
             LEFT JOIN conf__colores c ON pf.color_id = c.color_id
-            WHERE pf.pagina_id = ? 
+            WHERE pf.pagina_id = ?
             AND pf.tabla_estado_registro_id = 1
             ORDER BY pf.tabla_estado_registro_origen_id, pf.orden";
 
@@ -41,16 +41,16 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
     }
 
     if (in_array('estado_registro', $columns)) {
-        $sql = "SELECT estado_registro, codigo_estandar 
-                FROM conf__estados_registros 
+        $sql = "SELECT estado_registro, codigo_estandar
+                FROM conf__estados_registros
                 WHERE estado_registro_id = ?";
     } elseif (in_array('nombre_estado', $columns)) {
-        $sql = "SELECT nombre_estado as estado_registro, codigo_estandar 
-                FROM conf__estados_registros 
+        $sql = "SELECT nombre_estado as estado_registro, codigo_estandar
+                FROM conf__estados_registros
                 WHERE estado_registro_id = ?";
     } elseif (in_array('descripcion', $columns)) {
-        $sql = "SELECT descripcion as estado_registro, codigo_estandar 
-                FROM conf__estados_registros 
+        $sql = "SELECT descripcion as estado_registro, codigo_estandar
+                FROM conf__estados_registros
                 WHERE estado_registro_id = ?";
     } else {
         return [
@@ -81,13 +81,13 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
         // Incluir botones donde el origen coincide con el estado actual
         // O donde el origen es 0 (botón agregar, pero eso se maneja aparte)
         if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
-            
+
             // Determinar si es confirmable (cambia de estado)
             $esConfirmable = 0;
             if ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) {
                 $esConfirmable = 1;
             }
-            
+
             $botones[] = [
                 'nombre_funcion' => $funcion['nombre_funcion'],
                 'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
@@ -135,10 +135,10 @@ function obtenerBotonAgregar($conexion, $pagina_id)
 
 function obtenerEstadoInicial($conexion)
 {
-    $sql = "SELECT estado_registro_id 
-            FROM conf__estados_registros 
+    $sql = "SELECT estado_registro_id
+            FROM conf__estados_registros
             WHERE valor_estandar IS NOT NULL
-            ORDER BY valor_estandar ASC 
+            ORDER BY valor_estandar ASC
             LIMIT 1";
 
     $result = mysqli_query($conexion, $sql);
@@ -155,8 +155,8 @@ function ejecutarTransicionEstado($conexion, $punto_venta_id, $accion_js, $empre
     $punto_venta_id = intval($punto_venta_id);
     $pagina_id = intval($pagina_id);
 
-    $sql_check = "SELECT punto_venta_id, tabla_estado_registro_id 
-                  FROM gestion__puntos_venta 
+    $sql_check = "SELECT punto_venta_id, tabla_estado_registro_id
+                  FROM gestion__puntos_venta
                   WHERE punto_venta_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
@@ -173,10 +173,10 @@ function ejecutarTransicionEstado($conexion, $punto_venta_id, $accion_js, $empre
 
     $estado_actual_id = $punto['tabla_estado_registro_id'];
 
-    $sql_funcion = "SELECT pf.* 
+    $sql_funcion = "SELECT pf.*
                     FROM conf__paginas_funciones pf
-                    WHERE pf.pagina_id = ? 
-                    AND pf.tabla_estado_registro_origen_id = ? 
+                    WHERE pf.pagina_id = ?
+                    AND pf.tabla_estado_registro_origen_id = ?
                     AND pf.accion_js = ?
                     LIMIT 1";
 
@@ -199,8 +199,8 @@ function ejecutarTransicionEstado($conexion, $punto_venta_id, $accion_js, $empre
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
 
-    $sql_update = "UPDATE gestion__puntos_venta 
-                   SET tabla_estado_registro_id = ? 
+    $sql_update = "UPDATE gestion__puntos_venta
+                   SET tabla_estado_registro_id = ?
                    WHERE punto_venta_id = ? AND empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql_update);
@@ -238,10 +238,10 @@ function obtenerPuntosVenta($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT pv.*, 
+    $sql = "SELECT pv.*,
                    e.empresa,
                    s.sucursal_nombre,
-                   er.$estado_column as estado_registro, 
+                   er.$estado_column as estado_registro,
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase
             FROM gestion__puntos_venta pv
@@ -268,7 +268,8 @@ function obtenerPuntosVenta($conexion, $empresa_idx, $pagina_id)
 
         $fila['empresa_nombre'] = $fila['empresa'] ?? 'Sin empresa';
         $fila['sucursal_nombre'] = $fila['sucursal_nombre'] ?? 'Sin sucursal';
-        
+        $fila['es_web'] = intval($fila['es_web'] ?? 0);
+
         $fila['estado_info'] = [
             'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
             'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
@@ -307,7 +308,7 @@ function agregarPuntoVenta($conexion, $data)
 
     try {
         // Verificar duplicados por sucursal
-        $sql_check = "SELECT COUNT(*) as total FROM gestion__puntos_venta 
+        $sql_check = "SELECT COUNT(*) as total FROM gestion__puntos_venta
                       WHERE sucursal_id = ? AND nombre = ? AND empresa_id = ?";
         $stmt = mysqli_prepare($conexion, $sql_check);
         if (!$stmt) {
@@ -330,7 +331,7 @@ function agregarPuntoVenta($conexion, $data)
 
         // Verificar código fiscal duplicado (si se proporcionó)
         if (!empty($data['codigo_fiscal'])) {
-            $sql_check_fiscal = "SELECT COUNT(*) as total FROM gestion__puntos_venta 
+            $sql_check_fiscal = "SELECT COUNT(*) as total FROM gestion__puntos_venta
                                  WHERE codigo_fiscal = ? AND empresa_id = ?";
             $stmt_fiscal = mysqli_prepare($conexion, $sql_check_fiscal);
             if ($stmt_fiscal) {
@@ -354,9 +355,9 @@ function agregarPuntoVenta($conexion, $data)
         }
 
         // Insertar punto de venta
-        $sql = "INSERT INTO gestion__puntos_venta 
-                (empresa_id, sucursal_id, nombre, descripcion, codigo_fiscal, tabla_estado_registro_id) 
-                VALUES (?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO gestion__puntos_venta
+                (empresa_id, sucursal_id, nombre, descripcion, codigo_fiscal, es_web, tabla_estado_registro_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -368,14 +369,16 @@ function agregarPuntoVenta($conexion, $data)
         $nombre_val = trim($data['nombre']);
         $descripcion_val = isset($data['descripcion']) ? trim($data['descripcion']) : null;
         $codigo_fiscal_val = isset($data['codigo_fiscal']) && $data['codigo_fiscal'] !== '' ? intval($data['codigo_fiscal']) : null;
+        $es_web_val = !empty($data['es_web']) ? 1 : 0;
         $estado_val = $estado_inicial;
 
-        mysqli_stmt_bind_param($stmt, "iissii",
+        mysqli_stmt_bind_param($stmt, "iissiii",
             $empresa_id_val,
             $sucursal_id_val,
             $nombre_val,
             $descripcion_val,
             $codigo_fiscal_val,
+            $es_web_val,
             $estado_val
         );
 
@@ -401,7 +404,7 @@ function agregarPuntoVenta($conexion, $data)
 function editarPuntoVenta($conexion, $id, $data)
 {
     $id = intval($id);
-    
+
     error_log("=== INICIO editarPuntoVenta ID: $id ===");
     error_log("Datos recibidos en función: " . print_r($data, true));
 
@@ -409,7 +412,7 @@ function editarPuntoVenta($conexion, $id, $data)
 
     try {
         // Verificar duplicados (excluyendo el registro actual)
-        $sql_check = "SELECT COUNT(*) as total FROM gestion__puntos_venta 
+        $sql_check = "SELECT COUNT(*) as total FROM gestion__puntos_venta
                       WHERE sucursal_id = ? AND nombre = ? AND empresa_id = ? AND punto_venta_id != ?";
         $stmt = mysqli_prepare($conexion, $sql_check);
         if (!$stmt) {
@@ -432,7 +435,7 @@ function editarPuntoVenta($conexion, $id, $data)
 
         // Verificar código fiscal duplicado (si se proporcionó, excluyendo el actual)
         if (!empty($data['codigo_fiscal'])) {
-            $sql_check_fiscal = "SELECT COUNT(*) as total FROM gestion__puntos_venta 
+            $sql_check_fiscal = "SELECT COUNT(*) as total FROM gestion__puntos_venta
                                  WHERE codigo_fiscal = ? AND empresa_id = ? AND punto_venta_id != ?";
             $stmt_fiscal = mysqli_prepare($conexion, $sql_check_fiscal);
             if ($stmt_fiscal) {
@@ -450,11 +453,12 @@ function editarPuntoVenta($conexion, $id, $data)
         }
 
         // Actualizar punto de venta (NO se actualiza tabla_estado_registro_id porque eso se maneja con acciones)
-        $sql = "UPDATE gestion__puntos_venta 
-                SET sucursal_id = ?, 
-                    nombre = ?, 
-                    descripcion = ?, 
-                    codigo_fiscal = ?
+        $sql = "UPDATE gestion__puntos_venta
+                SET sucursal_id = ?,
+                    nombre = ?,
+                    descripcion = ?,
+                    codigo_fiscal = ?,
+                    es_web = ?
                 WHERE punto_venta_id = ? AND empresa_id = ?";
 
         $stmt = mysqli_prepare($conexion, $sql);
@@ -466,14 +470,16 @@ function editarPuntoVenta($conexion, $id, $data)
         $nombre_val = trim($data['nombre']);
         $descripcion_val = isset($data['descripcion']) ? trim($data['descripcion']) : null;
         $codigo_fiscal_val = isset($data['codigo_fiscal']) && $data['codigo_fiscal'] !== '' ? intval($data['codigo_fiscal']) : null;
+        $es_web_val = !empty($data['es_web']) ? 1 : 0;
         $id_val = $id;
         $empresa_idx_val = intval($data['empresa_idx']);
 
-        mysqli_stmt_bind_param($stmt, "issiii",
+        mysqli_stmt_bind_param($stmt, "issiiii",
             $sucursal_id_val,
             $nombre_val,
             $descripcion_val,
             $codigo_fiscal_val,
+            $es_web_val,
             $id_val,
             $empresa_idx_val
         );
@@ -481,7 +487,7 @@ function editarPuntoVenta($conexion, $id, $data)
         if (!mysqli_stmt_execute($stmt)) {
             throw new Exception("Error ejecutando update: " . mysqli_stmt_error($stmt));
         }
-        
+
         $affected_rows = mysqli_stmt_affected_rows($stmt);
         error_log("Filas afectadas en update: " . $affected_rows);
         mysqli_stmt_close($stmt);
@@ -522,27 +528,27 @@ function obtenerPuntoVentaPorId($conexion, $id, $empresa_idx)
 
 function obtenerSucursalesEmpresa($conexion, $empresa_idx)
 {
-    $sql = "SELECT sucursal_id, sucursal_nombre 
-            FROM gestion__sucursales 
-            WHERE empresa_id = ? 
-            AND tabla_estado_registro_id = 1 
+    $sql = "SELECT sucursal_id, sucursal_nombre
+            FROM gestion__sucursales
+            WHERE empresa_id = ?
+            AND tabla_estado_registro_id = 1
             ORDER BY sucursal_nombre";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         error_log("Error preparando consulta sucursales: " . mysqli_error($conexion));
         return [];
     }
-    
+
     mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    
+
     $sucursales = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         $sucursales[] = $fila;
     }
-    
+
     mysqli_stmt_close($stmt);
     return $sucursales;
 }
@@ -566,13 +572,13 @@ function obtenerEstadosRegistro($conexion)
     $sql = "SELECT estado_registro_id, $nombre_columna as estado_nombre, codigo_estandar
             FROM conf__estados_registros
             ORDER BY orden, $nombre_columna";
-    
+
     $result = mysqli_query($conexion, $sql);
     if (!$result) {
         error_log("Error obteniendo estados: " . mysqli_error($conexion));
         return [];
     }
-    
+
     $estados = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         $estados[] = [
@@ -581,7 +587,7 @@ function obtenerEstadosRegistro($conexion)
             'codigo_estandar' => $fila['codigo_estandar']
         ];
     }
-    
+
     return $estados;
 }
 

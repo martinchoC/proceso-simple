@@ -1,7 +1,7 @@
 $(document).ready(function () {
     const empresa_idx = 2;
     const pagina_idx = 70;
-    
+
     var tabla;
     var currentPage = 0;
     var currentOrder = [[1, 'asc']];
@@ -83,7 +83,7 @@ $(document).ready(function () {
                 '<"clear">',
             pageLength: 50,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-            
+
             columns: [
                 {
                     data: 'punto_venta_id',
@@ -127,6 +127,22 @@ $(document).ready(function () {
                             return data || '';
                         }
                         return `<span class="fw-medium">${data || ''}</span>`;
+                    }
+                },
+                {
+                    data: 'es_web',
+                    className: 'text-center',
+                    render: function (data, type, row) {
+                        var esWeb = parseInt(data) === 1;
+
+                        if (type === 'export') {
+                            return esWeb ? 'Sí' : 'No';
+                        }
+
+                        if (esWeb) {
+                            return '<span class="badge bg-info text-white"><i class="fas fa-globe"></i> Web</span>';
+                        }
+                        return '<span class="text-muted small">-</span>';
                     }
                 },
                 {
@@ -178,12 +194,12 @@ $(document).ready(function () {
                                 var accionJs = boton.accion_js;
                                 var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
                                 var esConfirmable = boton.es_confirmable || 0;
-                                
+
                                 var nombreInfo = row.nombre || 'Punto #' + row.punto_venta_id;
 
-                                var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
-                                                title="${titulo}" 
-                                                data-id="${row.punto_venta_id}" 
+                                var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion"
+                                                title="${titulo}"
+                                                data-id="${row.punto_venta_id}"
                                                 data-accion="${accionJs}"
                                                 data-confirmable="${esConfirmable}"
                                                 data-nombre="${nombreInfo}">
@@ -207,7 +223,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
             },
             order: currentOrder,
             responsive: true,
@@ -249,7 +265,7 @@ $(document).ready(function () {
                         }
                     }
                 }, 100);
-                
+
                 inicializarBotonesExternos();
             }
         });
@@ -427,9 +443,9 @@ $(document).ready(function () {
     // ========== FUNCIONES DE CARGA DE COMBOS ==========
     function cargarCombosFormulario() {
         // Cargar sucursales
-        $.get('puntos_venta_ajax.php', { 
+        $.get('puntos_venta_ajax.php', {
             accion: 'obtener_sucursales_empresa',
-            empresa_idx: empresa_idx 
+            empresa_idx: empresa_idx
         }, function(data) {
             let options = '<option value="">Seleccionar sucursal</option>';
             if (data && data.length > 0) {
@@ -451,6 +467,7 @@ $(document).ready(function () {
     function resetModal() {
         $('#formPuntoVenta')[0].reset();
         $('#punto_venta_id').val('');
+        $('#es_web').prop('checked', false);
         $('#formPuntoVenta').removeClass('was-validated');
     }
 
@@ -458,7 +475,7 @@ $(document).ready(function () {
         resetModal();
         $('#modalLabel').text('Nuevo Punto de Venta');
         cargarCombosFormulario();
-        
+
         var modal = new bootstrap.Modal(document.getElementById('modalPuntoVenta'));
         modal.show();
     });
@@ -471,17 +488,18 @@ $(document).ready(function () {
             empresa_idx: empresa_idx
         }, function (res) {
             console.log("Punto de venta recibido:", res);
-            
+
             if (res && res.punto_venta_id) {
                 resetModal();
-                
+
                 cargarCombosFormulario();
-                
+
                 $('#punto_venta_id').val(res.punto_venta_id);
                 $('#nombre').val(res.nombre || '');
                 $('#descripcion').val(res.descripcion || '');
                 $('#codigo_fiscal').val(res.codigo_fiscal || '');
-                
+                $('#es_web').prop('checked', parseInt(res.es_web) === 1);
+
                 $('#modalLabel').text('Editar Punto de Venta');
 
                 // Asignar valores después de que los combos se hayan cargado
@@ -508,19 +526,19 @@ $(document).ready(function () {
     // ========== GUARDAR PUNTO DE VENTA ==========
     $('#btnGuardar').click(function() {
         var form = document.getElementById('formPuntoVenta');
-        
+
         if (!form.checkValidity()) {
             form.classList.add('was-validated');
             return false;
         }
-        
+
         var id = $('#punto_venta_id').val();
         var accionBackend = id ? 'editar' : 'agregar';
-        
+
         var btnGuardar = $(this);
         var originalText = btnGuardar.html();
         btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-        
+
         // Crear FormData manualmente
         var formData = new FormData();
         formData.append('accion', accionBackend);
@@ -531,19 +549,20 @@ $(document).ready(function () {
         formData.append('nombre', $('#nombre').val() || '');
         formData.append('descripcion', $('#descripcion').val() || '');
         formData.append('codigo_fiscal', $('#codigo_fiscal').val() || '');
+        formData.append('es_web', $('#es_web').is(':checked') ? 1 : 0);
 
         // Log para depuración
         console.log("=== DATOS ENVIADOS ===");
         for (var pair of formData.entries()) {
             console.log(pair[0] + ': "' + pair[1] + '"');
         }
-        
+
         var savedState = {
             page: tabla ? tabla.page() : 0,
             order: tabla ? tabla.order() : [[1, 'asc']],
             search: tabla ? tabla.search() : ''
         };
-        
+
         $.ajax({
             url: 'puntos_venta_ajax.php',
             type: 'POST',
@@ -553,7 +572,7 @@ $(document).ready(function () {
             dataType: 'json',
             success: function(res) {
                 btnGuardar.prop('disabled', false).html(originalText);
-                
+
                 if (res.resultado) {
                     if (tabla) {
                         tabla.ajax.reload(function(json) {
@@ -565,7 +584,7 @@ $(document).ready(function () {
                             }
                         }, false);
                     }
-                    
+
                     Swal.fire({
                         icon: "success",
                         title: "¡Guardado!",
@@ -575,7 +594,7 @@ $(document).ready(function () {
                         toast: true,
                         position: 'top-end'
                     });
-                    
+
                     // Cerrar modal
                     var modalEl = document.getElementById('modalPuntoVenta');
                     var modal = bootstrap.Modal.getInstance(modalEl);
@@ -585,7 +604,7 @@ $(document).ready(function () {
                         modal = new bootstrap.Modal(modalEl);
                         modal.hide();
                     }
-                    
+
                     $('body').removeClass('modal-open');
                     $('.modal-backdrop').remove();
                 } else {
@@ -599,10 +618,10 @@ $(document).ready(function () {
             },
             error: function(xhr, status, error) {
                 btnGuardar.prop('disabled', false).html(originalText);
-                
+
                 console.error("Error AJAX:", error);
                 console.error("Respuesta:", xhr.responseText);
-                
+
                 Swal.fire({
                     icon: "error",
                     title: "Error de conexión",
@@ -617,7 +636,7 @@ $(document).ready(function () {
     $('#btnToggleFullscreen').click(function() {
         var modalDialog = $('#modalPuntoVenta .modal-dialog');
         var btnIcon = $(this).find('i');
-        
+
         if (modalDialog.hasClass('modal-fullscreen')) {
             modalDialog.removeClass('modal-fullscreen');
             btnIcon.removeClass('fa-compress').addClass('fa-expand');

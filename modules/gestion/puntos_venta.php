@@ -78,11 +78,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="80">ID</th>
-                                                    
+
                                                     <th width="150">Sucursal</th>
                                                     <th width="200">Nombre</th>
                                                     <th width="250">Descripción</th>
                                                     <th width="120">Código Fiscal</th>
+                                                    <th width="80">Web</th>
                                                     <th width="120">Estado</th>
                                                     <th width="150" class="text-center">Acciones</th>
                                                 </tr>
@@ -114,7 +115,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <!-- Resto del contenido del modal sin cambios -->
                             <form id="formPuntoVenta" class="needs-validation" novalidate>
                                 <input type="hidden" id="punto_venta_id" name="punto_venta_id" />
-                                
+
                                 <div class="row mb-2">
                                     <div class="col-md-6 mb-2">
                                         <label for="sucursal_id" class="form-label small mb-1">Sucursal *</label>
@@ -134,6 +135,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="col-md-6 mb-2">
                                         <label for="codigo_fiscal" class="form-label small mb-1">Código Fiscal</label>
                                         <input type="number" class="form-control form-control-sm no-spinner" id="codigo_fiscal" name="codigo_fiscal" min="0" step="1">
+                                    </div>
+                                    <div class="col-md-6 mb-2 d-flex align-items-center">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="es_web" name="es_web">
+                                            <label class="form-check-label small" for="es_web">Es el punto de venta web</label>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -238,7 +245,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
+
     <script src="puntos_venta.js?v=<?= filemtime(__DIR__.'/puntos_venta.js') ?>"></script>
 </main>
 

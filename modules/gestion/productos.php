@@ -1,11 +1,18 @@
 <?php
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
+require_once "productos_model.php";
 
 $pageTitle = "Gestión de Productos";
 $currentPage = 'productos';
 $modudo_idx = 2;
 $pagina_idx = 40; // ID de página para gestión de productos
+$empresa_idx = 2; // TODO: reemplazar por el valor real de sesión/contexto cuando exista
+
+// Las listas de precios se traen acá (en el render de la página) y no por AJAX
+// al cargar, para no sumar una vuelta de red extra antes de poder pedir los
+// productos: el DataTable arranca directo con esto ya resuelto.
+$listas_precios_iniciales = obtenerListasPrecios($conexion, $empresa_idx);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -109,16 +116,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
 
-                                        <!-- Botón Limpiar - Ahora debajo de los filtros -->
-                                        <div class="row mb-3">
-                                            <div class="col-md-12">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltros">
-                                                    <i class="fas fa-times me-1"></i>Limpiar filtros
-                                                </button>
-                                                <span id="infoFiltros" class="badge bg-light text-dark p-2 ms-2" style="display:none;"></span>
-                                            </div>
-                                        </div>
-
                                         <!-- Buscador por etiquetas (tags) -->
                                         <div class="row mb-3">
                                             <div class="col-md-12">
@@ -127,11 +124,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="form-control p-1" id="buscadorTagsContainer" style="min-height: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; cursor: text;">
                                                         <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Escribe palabras y presiona espacio...">
                                                     </div>
-                                                    <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTags" title="Limpiar todas las etiquetas">
+                                                    <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTags" title="Limpiar todos los filtros">
                                                         <i class="fas fa-times"></i>
                                                     </button>
                                                 </div>
-                                                <small class="text-muted">Presiona <kbd>Espacio</kbd> para agregar una etiqueta y buscar automáticamente. Las búsquedas son combinadas.</small>
+                                                <small class="text-muted">
+                                                    Presioná <kbd>Espacio</kbd> para agregar una etiqueta (se combinan). La <i class="fas fa-times"></i> limpia todos los filtros.
+                                                    <span id="infoFiltros" class="badge bg-light text-dark ms-1" style="display:none;"></span>
+                                                </small>
                                             </div>
                                         </div>
 
@@ -147,6 +147,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="150">Submodelos</th>
                                                     <th width="200">Ubicaciones</th>
                                                     <th width="80">Imagen</th>
+                                                    <!-- Las columnas de cada lista de precios se agregan acá dinámicamente por JS (ver cargarListasPreciosYTabla) -->
                                                     <th width="100">Estado</th>
                                                     <th width="120" class="text-center">Acciones</th>
                                                 </tr>
@@ -201,6 +202,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         data-bs-target="#nav-proveedores" type="button" role="tab"
                                         aria-controls="nav-proveedores" aria-selected="false">
                                         <i class="fas fa-truck me-2"></i>Proveedores
+                                    </button>
+                                    <button class="nav-link" id="nav-precios-tab" data-bs-toggle="tab"
+                                        data-bs-target="#nav-precios" type="button" role="tab"
+                                        aria-controls="nav-precios" aria-selected="false">
+                                        <i class="fas fa-dollar-sign me-2"></i>Precios
                                     </button>
                                 </div>
                             </nav>
@@ -460,6 +466,40 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="alert alert-info mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         Puede asignar múltiples proveedores a un mismo producto con diferentes códigos.
+                                    </div>
+                                </div>
+
+                                <!-- Pestaña de Precios -->
+                                <div class="tab-pane fade" id="nav-precios" role="tabpanel"
+                                    aria-labelledby="nav-precios-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-dollar-sign me-2 text-success"></i>Precios del Producto
+                                        </h6>
+                                        <button type="button" class="btn btn-success btn-sm" id="btnAgregarPrecioProducto">
+                                            <i class="fas fa-plus me-1"></i>Agregar Precio
+                                        </button>
+                                    </div>
+                                    <div class="table-responsive" style="max-height: 300px;">
+                                        <table id="tablaPreciosProducto" class="table table-sm table-hover mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th width="30%" class="py-1">Lista</th>
+                                                    <th width="20%" class="py-1 text-end">Precio Unitario</th>
+                                                    <th width="20%" class="py-1 text-end">Precio c/IVA</th>
+                                                    <th width="15%" class="py-1">Actualización</th>
+                                                    <th width="15%" class="py-1 text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                    <div class="alert alert-info mt-3">
+                                        <i class="fas fa-external-link-alt me-2"></i>
+                                        Para altas masivas o importación desde Excel, usá
+                                        <a href="listas_precios_productos.php" target="_blank" rel="noopener">Listas de Precios</a>
+                                        en una pestaña nueva del navegador. Acá se edita rápido el precio de este
+                                        producto en cada lista.
                                     </div>
                                 </div>
                             </div>
@@ -855,6 +895,55 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
 
+            <!-- Modal para precio de producto en una lista -->
+            <div class="modal fade" id="modalPrecioProducto" tabindex="-1" aria-labelledby="modalPrecioProductoLabel"
+                aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header bg-gradient-success text-white border-0">
+                            <h5 class="modal-title" id="modalPrecioProductoLabel">
+                                <i class="fas fa-dollar-sign me-2"></i>Precio de Producto en Lista
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <form id="formPrecioProducto" class="needs-validation" novalidate>
+                                <input type="hidden" id="precio_producto_id_producto" name="producto_id" />
+                                <input type="hidden" id="lista_precio_producto_id_precio" name="lista_precio_producto_id" />
+
+                                <div class="mb-3">
+                                    <label for="lista_precio_id_precio" class="form-label">Lista de Precios *</label>
+                                    <select class="form-select" id="lista_precio_id_precio" name="lista_precio_id" required>
+                                        <option value="">Seleccionar lista...</option>
+                                    </select>
+                                    <div class="invalid-feedback">Seleccione una lista</div>
+                                    <div class="form-text">Al editar, la lista no se puede cambiar: elimine el precio y agréguelo en la lista correcta si se equivocó.</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="precio_unitario_precio" class="form-label">Precio Unitario (neto, sin IVA) *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="precio_unitario_precio"
+                                            name="precio_unitario" step="0.01" min="0" required>
+                                    </div>
+                                    <div class="invalid-feedback">El precio es obligatorio</div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer bg-light border-top">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success px-3" id="btnGuardarPrecioProducto">
+                                <i class="fas fa-save me-1"></i>Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Modal para dar de alta -->
             <div class="modal fade" id="modalAltaProducto" tabindex="-1" aria-labelledby="modalAltaLabel"
                 aria-hidden="true" data-bs-backdrop="static">
@@ -1065,6 +1154,52 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .badge-estante { background-color: #198754 !important; color: #ffffff !important; }
         .badge-posicion { background-color: #6c757d !important; color: #ffffff !important; }
         #tablaProductos td.ubicacion-columna { padding: 4px 6px; vertical-align: middle; min-width: 140px; max-width: 180px; }
+
+        /* Columna Precio: neto y c/IVA por cada lista de precios */
+        .precios-listas-container { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+        .precio-lista-item { line-height: 1.1; padding: 2px 0; }
+        .precio-lista-item + .precio-lista-item { border-top: 1px dashed #dee2e6; padding-top: 4px; }
+        .precio-lista-item small { font-size: 0.72rem; }
+
+        /* DataTables Responsive: columnas ocultas se muestran en una fila expandible (+) */
+        #tablaProductos.dtr-inline.collapsed > tbody > tr > td.dtr-control,
+        #tablaProductos.dtr-inline.collapsed > tbody > tr > th.dtr-control {
+            position: relative;
+            padding-left: 27px;
+            cursor: pointer;
+        }
+        #tablaProductos.dtr-inline.collapsed > tbody > tr > td.dtr-control::before,
+        #tablaProductos.dtr-inline.collapsed > tbody > tr > th.dtr-control::before {
+            top: 50%;
+            left: 5px;
+            height: 1em;
+            width: 1em;
+            margin-top: -9px;
+            display: block;
+            position: absolute;
+            color: #fff;
+            border: 2px solid #fff;
+            border-radius: 14px;
+            box-shadow: 0 0 3px #444;
+            box-sizing: content-box;
+            text-align: center;
+            text-indent: 0 !important;
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 1em;
+            content: '+';
+            background-color: #0d6efd;
+        }
+        #tablaProductos.dtr-inline.collapsed > tbody > tr.parent > td.dtr-control::before,
+        #tablaProductos.dtr-inline.collapsed > tbody > tr.parent > th.dtr-control::before {
+            content: '-';
+            background-color: #dc3545;
+        }
+        table.dtr-inline.collapsed td.child ul.dtr-details { list-style: none; margin: 0; padding: 0; }
+        table.dtr-inline.collapsed td.child ul.dtr-details > li { padding: 0.3rem 0; border-bottom: 1px solid #f0f0f0; }
+        table.dtr-inline.collapsed td.child span.dtr-title { font-weight: 600; margin-right: 0.5rem; }
+        @media (max-width: 767.98px) {
+            #tablaProductos_wrapper .btn-group { flex-wrap: wrap; }
+        }
         /* Estilos mejorados para la tabla de ubicaciones en el modal */
         #tablaUbicaciones {
             width: 100% !important;
@@ -1354,11 +1489,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             const empresa_idx = 2;
             const pagina_idx = <?php echo $pagina_idx; ?>;
 
+            // Listas de precios activas, resueltas ya en el servidor al renderizar
+            // la página (ver $listas_precios_iniciales en productos.php) para no
+            // esperar una vuelta de AJAX extra antes de poder armar la tabla.
+            const listasPreciosIniciales = <?php echo json_encode($listas_precios_iniciales, JSON_UNESCAPED_UNICODE); ?>;
+
             // Variables globales
             var tabla = null;
             var tablaCompatibilidad = null;
             var tablaUbicaciones = null;
             var tablaProveedores = null;
+            var tablaPreciosProducto = null;
             var currentPage = 0;
             var currentOrder = [[1, 'asc']];
             var currentSearch = '';
@@ -1367,6 +1508,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var productoActualImagenes = null;
             var productoActualUbicaciones = null;
             var productoActualProveedores = null;
+            var productoActualPrecios = null;
             var imagenesProductoActual = [];
             var datosUbicacionCompleta = null;
             var tags = [];
@@ -1970,10 +2112,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }, 10);
                 });
 
-                $('#btnLimpiarTags').on('click', function() { 
-                    limpiarTags(); 
-                    ejecutarBusquedaTags(); 
-                });
             }
 
             function agregarTag(texto) {
@@ -2567,6 +2705,100 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#entidad_id').empty().append('<option value="">Seleccionar proveedor...</option>').prop('disabled', false);
             }
 
+            // ========== FUNCIONES DE PRECIOS (por lista de precios) ==========
+            // Reutiliza el mismo backend de listas_precios_productos_ajax.php (ya
+            // probado ahí): acá solo se lista/agrega/edita/elimina el precio de
+            // ESTE producto en cada lista, sin duplicar esa lógica en productos_*.
+
+            function cargarPreciosProducto(productoId) {
+                productoActualPrecios = productoId;
+                if ($.fn.DataTable.isDataTable('#tablaPreciosProducto')) {
+                    $('#tablaPreciosProducto').DataTable().destroy();
+                    $('#tablaPreciosProducto tbody').empty();
+                }
+                tablaPreciosProducto = $('#tablaPreciosProducto').DataTable({
+                    ajax: {
+                        url: 'listas_precios_productos_ajax.php',
+                        type: 'GET',
+                        data: { accion: 'obtener_precios_producto', producto_id: productoId },
+                        dataSrc: ''
+                    },
+                    columns: [
+                        { data: 'lista_nombre', render: function(data) { return data || '-'; } },
+                        {
+                            data: 'precio_unitario', className: 'text-end',
+                            render: data => '$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        },
+                        {
+                            data: 'precio_con_iva', className: 'text-end',
+                            render: function(data, type, row) {
+                                var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
+                                return '<span title="IVA ' + iva + '%">$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</span>';
+                            }
+                        },
+                        { data: 'f_actualizacion', render: data => data ? new Date(data).toLocaleString() : '-' },
+                        {
+                            data: 'lista_precio_producto_id', orderable: false, searchable: false, className: "text-center",
+                            render: function(data) {
+                                return `<div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary btn-editar-precio" data-id="${data}" title="Editar"><i class="fas fa-edit"></i></button>
+                                    <button type="button" class="btn btn-outline-danger btn-eliminar-precio" data-id="${data}" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                </div>`;
+                            }
+                        }
+                    ],
+                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    responsive: true,
+                    pageLength: 10,
+                    searching: false,
+                    paging: false,
+                    info: false
+                });
+            }
+
+            function cargarListasPreciosParaModalPrecio() {
+                $.get('listas_precios_productos_ajax.php', { accion: 'obtener_listas' }, function(res) {
+                    var options = '<option value="">Seleccionar lista...</option>';
+                    (res || []).forEach(function(lista) {
+                        options += `<option value="${lista.lista_precio_id}">${lista.nombre}</option>`;
+                    });
+                    $('#lista_precio_id_precio').html(options);
+                });
+            }
+
+            function mostrarModalPrecioProducto(productoId, listaPrecioProductoId) {
+                resetModalPrecioProducto();
+                $('#precio_producto_id_producto').val(productoId);
+                cargarListasPreciosParaModalPrecio();
+                if (listaPrecioProductoId) {
+                    $('#modalPrecioProductoLabel').html('<i class="fas fa-edit me-2"></i>Editar Precio');
+                    $('#lista_precio_producto_id_precio').val(listaPrecioProductoId);
+                    setTimeout(function() {
+                        $.get('listas_precios_productos_ajax.php', { accion: 'obtener', lista_precio_producto_id: listaPrecioProductoId }, function(res) {
+                            if (res && res.lista_precio_producto_id) {
+                                $('#lista_precio_id_precio').val(res.lista_precio_id).prop('disabled', true);
+                                // toFixed(2): la columna en la base guarda más decimales de
+                                // precisión (para cálculos internos), pero para editar a mano
+                                // alcanza y sobra con 2 — sin esto el input mostraba algo como
+                                // "1500.000000" en vez de "1500.00".
+                                $('#precio_unitario_precio').val(parseFloat(res.precio_unitario).toFixed(2));
+                            }
+                        }, 'json');
+                    }, 300);
+                } else {
+                    $('#modalPrecioProductoLabel').html('<i class="fas fa-plus me-2"></i>Agregar Precio');
+                    $('#lista_precio_id_precio').prop('disabled', false);
+                }
+                new bootstrap.Modal(document.getElementById('modalPrecioProducto')).show();
+            }
+
+            function resetModalPrecioProducto() {
+                $('#formPrecioProducto')[0].reset();
+                $('#lista_precio_producto_id_precio').val('');
+                $('#formPrecioProducto').removeClass('was-validated');
+                $('#lista_precio_id_precio').empty().append('<option value="">Seleccionar lista...</option>').prop('disabled', false);
+            }
+
             // ========== FUNCIONES DE ACCIONES ==========
 
             function cargarBotonAgregar() {
@@ -2665,6 +2897,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         cargarImagenesProducto(productoId);
                         cargarUbicacionesProducto(productoId);
                         cargarProveedoresProducto(productoId);
+                        cargarPreciosProducto(productoId);
                         new bootstrap.Modal(document.getElementById('modalProducto')).show();
                     } else Swal.fire({ icon: "error", title: "Error", text: "Error al obtener datos del producto" });
                 }, 'json');
@@ -2696,6 +2929,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#tablaProveedores').DataTable().destroy();
                     $('#tablaProveedores tbody').empty();
                 }
+                if ($.fn.DataTable.isDataTable('#tablaPreciosProducto')) {
+                    $('#tablaPreciosProducto').DataTable().destroy();
+                    $('#tablaPreciosProducto tbody').empty();
+                }
             }
 
             // ========== FUNCIONES DE FILTROS ==========
@@ -2714,25 +2951,85 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 if (tags.length > 0) totalFiltros++;
                 
                 if (totalFiltros > 0) {
-                    $('#btnLimpiarFiltros').html('<i class="fas fa-times me-1"></i>Limpiar (' + totalFiltros + ')');
-                    $('#btnLimpiarFiltros').removeClass('btn-outline-secondary').addClass('btn-danger');
-                    $('#btnLimpiarFiltros').addClass('btn-sm');
+                    $('#btnLimpiarTags').removeClass('btn-outline-secondary').addClass('btn-danger')
+                        .attr('title', 'Limpiar todos los filtros (' + totalFiltros + ' activo' + (totalFiltros > 1 ? 's' : '') + ')');
                 } else {
-                    $('#btnLimpiarFiltros').html('<i class="fas fa-times me-1"></i>Limpiar filtros');
-                    $('#btnLimpiarFiltros').removeClass('btn-danger').addClass('btn-outline-secondary');
-                    $('#btnLimpiarFiltros').addClass('btn-sm');
+                    $('#btnLimpiarTags').removeClass('btn-danger').addClass('btn-outline-secondary')
+                        .attr('title', 'Limpiar todos los filtros');
                 }
             }
 
             // ========== FUNCIONES DE TABLA PRINCIPAL ==========
 
-            function inicializarDataTable() {
+            function inicializarDataTable(listasPrecios) {
+                listasPrecios = listasPrecios || [];
+
                 if ($.fn.DataTable.isDataTable('#tablaProductos')) {
                     $('#tablaProductos').DataTable().destroy();
                     $('#tablaProductos tbody').empty();
                 }
 
                 // El contenedor de info de filtros ahora está en el HTML directamente
+
+                // Paleta de colores para distinguir cada lista de precios (mismo color siempre para la misma lista)
+                var paletaListas = [
+                    { bg: '#0d6efd', text: '#fff' }, { bg: '#198754', text: '#fff' },
+                    { bg: '#fd7e14', text: '#fff' }, { bg: '#6f42c1', text: '#fff' },
+                    { bg: '#d63384', text: '#fff' }, { bg: '#20c997', text: '#000' },
+                    { bg: '#0dcaf0', text: '#000' }, { bg: '#ffc107', text: '#000' },
+                    { bg: '#6c757d', text: '#fff' }, { bg: '#dc3545', text: '#fff' }
+                ];
+                function colorPorLista(id, nombre) {
+                    var key = (id !== null && id !== undefined && id !== '') ? String(id) : (nombre || '');
+                    var hash = 0;
+                    for (var i = 0; i < key.length; i++) {
+                        hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+                    }
+                    return paletaListas[hash % paletaListas.length];
+                }
+
+                // Una columna de DataTable por cada lista de precios activa
+                var columnasListasPrecios = listasPrecios.map(function(lista) {
+                    return {
+                        data: null, width: '120px', className: 'text-end', orderable: false, searchable: false, responsivePriority: 5,
+                        render: function(data, type, row) {
+                            var fmt = function(n) {
+                                return parseFloat(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            };
+                            var entry = (row.precios_listas || []).find(function(p) {
+                                return String(p.lista_precio_id) === String(lista.lista_precio_id);
+                            });
+                            if (!entry || entry.precio_neto === null || entry.precio_neto === undefined) {
+                                return type === 'export' ? '' : '<span class="text-muted">-</span>';
+                            }
+                            if (type === 'export') {
+                                return 'neto $' + fmt(entry.precio_neto) + ' / c-IVA $' + fmt(entry.precio_con_iva);
+                            }
+                            var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
+                            return '<div class="precio-lista-item" title="IVA ' + iva + '%">' +
+                                        '<span class="fw-medium">$ ' + fmt(entry.precio_neto) + '</span>' +
+                                        '<small class="text-muted d-block lh-1">c/IVA $ ' + fmt(entry.precio_con_iva) + '</small>' +
+                                    '</div>';
+                        }
+                    };
+                });
+
+                // Insertar en el thead un <th> coloreado por cada lista (siempre después de "Imagen" y antes de "Estado")
+                $('#tablaProductos thead th.th-lista-precio').remove();
+                var $thAnterior = $('#tablaProductos thead th').eq(6);
+                listasPrecios.forEach(function(lista) {
+                    var color = colorPorLista(lista.lista_precio_id, lista.lista_precio_nombre);
+                    var $th = $('<th class="th-lista-precio text-center" width="120"></th>')
+                        .css({ 'background-color': color.bg, color: color.text })
+                        .text(lista.lista_precio_nombre);
+                    $thAnterior.after($th);
+                    $thAnterior = $th;
+                });
+
+                // Índices para exportar (todas las columnas visibles menos "Acciones", que siempre es la última)
+                var totalColumnas = 9 + listasPrecios.length; // 7 fijas antes del precio + N listas + Estado + Acciones
+                var exportCols = [];
+                for (var ie = 0; ie < totalColumnas - 1; ie++) exportCols.push(ie);
 
                 tabla = $('#tablaProductos').DataTable({
                     processing: true,
@@ -2768,7 +3065,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         '<"row"<"col-sm-12"tr>>' +
                         '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
                         '<"clear">',
-                    pageLength: 50,
+                    pageLength: 10, // arranca en 10 (antes 50): carga inicial más rápida, sobre todo con el fan-out ya resuelto por página
                     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
                     buttons: [
                         {
@@ -2777,7 +3074,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             className: 'btn btn-sm btn-outline-success',
                             title: 'Productos',
                             exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                                columns: exportCols
                             }
                         },
                         {
@@ -2788,7 +3085,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             orientation: 'landscape',
                             pageSize: 'A4',
                             exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                                columns: exportCols
                             }
                         },
                         {
@@ -2797,7 +3094,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             className: 'btn btn-sm btn-outline-primary',
                             title: 'Productos',
                             exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                                columns: exportCols
                             }
                         },
                         {
@@ -2806,14 +3103,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             className: 'btn btn-sm btn-outline-secondary',
                             title: 'Listado de Productos',
                             exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                                columns: exportCols
                             }
                         }
                     ],
                     columns: [
-                        { data: 'producto_codigo', className: 'text-center fw-medium', width: '100px' },
+                        { data: 'producto_codigo', className: 'text-center fw-medium', width: '100px', responsivePriority: 2 },
                         {
                             data: 'producto_nombre',
+                            responsivePriority: 3,
                             render: function(data, type, row) {
                                 if (type === 'export') return data;
                                 var desc = row.producto_descripcion ? '<small class="text-muted d-block">' + row.producto_descripcion + '</small>' : '';
@@ -2821,25 +3119,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         },
                         {
-                            data: 'marcas_compatibles', width: '150px',
+                            data: 'marcas_compatibles', width: '150px', responsivePriority: 7,
                             render: function(data) {
                                 return data ? '<span class="badge badge-compatibilidad bg-info text-white" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
                             }
                         },
                         {
-                            data: 'modelos_compatibles', width: '150px',
+                            data: 'modelos_compatibles', width: '150px', responsivePriority: 8,
                             render: function(data) {
                                 return data ? '<span class="badge badge-compatibilidad bg-success text-white" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
                             }
                         },
                         {
-                            data: 'submodelos_compatibles', width: '150px',
+                            data: 'submodelos_compatibles', width: '150px', responsivePriority: 9,
                             render: function(data) {
                                 return data ? '<span class="badge badge-compatibilidad bg-warning text-dark" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
                             }
                         },
                         {
-                            data: 'ubicaciones_info', width: '200px',
+                            data: 'ubicaciones_info', width: '200px', responsivePriority: 4,
                             render: function(data, type, row) {
                                 if (type === 'export') return data || 'Sin ubicaciones';
                                 if (!data) return '<span class="text-muted">Sin ubicación</span>';
@@ -2889,7 +3187,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         },
                         {
-                            data: 'imagen_id_principal', width: '80px', className: 'text-center', orderable: false, searchable: false,
+                            data: 'imagen_id_principal', width: '80px', className: 'text-center', orderable: false, searchable: false, responsivePriority: 10,
                             render: function(data, type, row) {
                                 if (type === 'export') return data ? 'Sí' : 'No';
                                 if (data) {
@@ -2900,8 +3198,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 return '<div class="text-center text-muted"><i class="fas fa-image fa-lg"></i></div>';
                             }
                         },
+                    ].concat(columnasListasPrecios, [
                         {
-                            data: 'estado_info', className: 'text-center', width: '100px',
+                            data: 'estado_info', className: 'text-center', width: '100px', responsivePriority: 6,
                             render: function(data, type) {
                                 if (!data || !data.estado_registro) return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
                                 if (type === 'export') return data.estado_registro;
@@ -2911,7 +3210,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         },
                         {
-                            data: 'botones', orderable: false, searchable: false, className: "text-center", width: '120px',
+                            data: 'botones', orderable: false, searchable: false, className: "text-center", width: '120px', responsivePriority: 1,
                             render: function(data, type, row) {
                                 if (type === 'export' || !data) return '';
                                 return data.map(function(boton) {
@@ -2925,7 +3224,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 }).join('') || '<span class="text-muted small">-</span>';
                             }
                         }
-                    ],
+                    ]),
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
                     order: currentOrder,
                     responsive: true,
@@ -3022,16 +3321,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     tabla.ajax.reload();
                 });
 
-                // Botón Limpiar Filtros (ahora único)
-                $('#btnLimpiarFiltros').off('click').on('click', function() {
+                // La X del buscador ahora limpia TODOS los filtros (antes
+                // era un botón "Limpiar filtros" aparte, más la X de tags
+                // por separado — se unificaron en un solo control).
+                $('#btnLimpiarTags').off('click').on('click', function() {
                     $('#filtroCodigo').val('');
                     $('#codigoSearchIcon').hide();
                     $('#filtroMarca').val('');
                     $('#filtroModelo').val('').prop('disabled', true);
                     $('#filtroSubmodelo').val('').prop('disabled', true);
                     limpiarTags();
-                    tabla.ajax.reload();
-                    // Ocultar info de filtros
+                    // ejecutarBusquedaTags() ya limpia el search y hace
+                    // tabla.draw() (server-side: dispara el ajax reload con
+                    // los filtros ya vacíos) — no hace falta un reload aparte.
+                    ejecutarBusquedaTags();
                     $('#infoFiltros').hide();
                 });
 
@@ -3413,6 +3716,60 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }, 'json');
                 });
 
+                // Acciones de precios (por lista de precios) — pega directo contra
+                // listas_precios_productos_ajax.php, el mismo backend que ya usa la
+                // pantalla de Listas de Precios.
+                $('#btnAgregarPrecioProducto').click(function() {
+                    if (productoActualPrecios) mostrarModalPrecioProducto(productoActualPrecios);
+                });
+
+                $(document).on('click', '.btn-editar-precio', function() {
+                    if (productoActualPrecios) mostrarModalPrecioProducto(productoActualPrecios, $(this).data('id'));
+                });
+
+                $(document).on('click', '.btn-eliminar-precio', function() {
+                    var listaPrecioProductoId = $(this).data('id');
+                    Swal.fire({
+                        title: '¿Eliminar precio?', text: 'No se puede deshacer', icon: 'warning',
+                        showCancelButton: true, confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, eliminar'
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            $.get('listas_precios_productos_ajax.php', {
+                                accion: 'eliminar',
+                                lista_precio_producto_id: listaPrecioProductoId
+                            }, function(res) {
+                                if (res.resultado) {
+                                    Swal.fire('¡Eliminado!', 'Precio eliminado correctamente', 'success');
+                                    tablaPreciosProducto.ajax.reload();
+                                } else Swal.fire('Error', res.error || 'No se pudo eliminar', 'error');
+                            }, 'json');
+                        }
+                    });
+                });
+
+                $('#btnGuardarPrecioProducto').click(function() {
+                    var form = document.getElementById('formPrecioProducto');
+                    if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
+                    var listaPrecioProductoId = $('#lista_precio_producto_id_precio').val();
+                    var accionBackend = listaPrecioProductoId ? 'editar' : 'agregar';
+                    var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                    $.post('listas_precios_productos_ajax.php', {
+                        accion: accionBackend,
+                        lista_precio_producto_id: listaPrecioProductoId,
+                        lista_precio_id: $('#lista_precio_id_precio').val(),
+                        producto_id: $('#precio_producto_id_producto').val(),
+                        precio_unitario: $('#precio_unitario_precio').val()
+                    }, function(res) {
+                        btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar');
+                        if (res.resultado) {
+                            Swal.fire('¡Guardado!', 'Precio guardado correctamente', 'success');
+                            bootstrap.Modal.getInstance(document.getElementById('modalPrecioProducto')).hide();
+                            tablaPreciosProducto.ajax.reload();
+                        } else Swal.fire('Error', res.error || 'Ya existe un precio para este producto en la lista seleccionada', 'error');
+                    }, 'json');
+                });
+
                 // Acciones de productos
                 $(document).on('click', '.btn-accion', function() {
                     var productoId = $(this).data('id');
@@ -3495,8 +3852,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Inicializar eventos de ubicación
             inicializarEventosUbicacion();
 
-            // Inicializar DataTable
-            inicializarDataTable();
+            // Inicializar DataTable (las listas de precios ya vinieron resueltas desde el servidor)
+            inicializarDataTable(listasPreciosIniciales);
 
             // Cargar datos iniciales
             cargarBotonAgregar();
@@ -3525,6 +3882,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+
+    <!-- Extensión Responsive de DataTables (necesaria para que responsive:true funcione) -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
 

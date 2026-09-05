@@ -11,8 +11,74 @@ $(document).ready(function () {
     var detalles = [];
     var clienteActualId = null;
     var clienteSucursalActualId = null;
+    var clienteCondicionComercial = null; // { lista_precio_id, condicion_pago_id, cliente_descuento_general, limite_credito }
     var timeoutBusqueda = null;
     var selectedIndex = -1;
+
+    // Trae la condición comercial vigente del cliente (gestion__entidades_condiciones_clientes).
+    // Si autoAplicarCondicionPago es true, además completa #condicion_pago_id (uso: selección manual
+    // de cliente). Si es false, solo guarda el dato para calcular descuentos al agregar productos,
+    // sin pisar la condición de pago ya guardada en el pedido (uso: cargar un pedido existente).
+    function cargarCondicionesComercialesCliente(entidadId, autoAplicarCondicionPago) {
+        clienteCondicionComercial = null;
+
+        if (!entidadId) {
+            $('#descuento_general_pct').val('0');
+            return;
+        }
+
+        $.get('ventas_pedidos_ajax.php', {
+            accion: 'obtener_condiciones_cliente',
+            entidad_id: entidadId,
+            empresa_idx: empresa_idx
+        }, function(res) {
+            if (res && res.success && res.data) {
+                clienteCondicionComercial = res.data;
+
+                if (autoAplicarCondicionPago && res.data.condicion_pago_id) {
+                    var opcion = $('#condicion_pago_id option[value="' + res.data.condicion_pago_id + '"]');
+                    if (opcion.length) {
+                        $('#condicion_pago_id').val(res.data.condicion_pago_id);
+                    }
+                }
+
+                if (autoAplicarCondicionPago) {
+                    var descuentoPct = parseFloat(res.data.cliente_descuento_general) || 0;
+                    $('#descuento_general_pct').val(descuentoPct);
+
+                    // Si ya había productos agregados (cambio de cliente sobre un pedido en curso),
+                    // recalcular cada línea con el nuevo descuento general.
+                    if (detalles.length > 0) {
+                        recalcularDetallesConDescuento(descuentoPct);
+                    }
+                }
+            } else if (autoAplicarCondicionPago) {
+                $('#descuento_general_pct').val('0');
+            }
+        }, 'json');
+    }
+
+    // Recalcula descuento_general, precio_unitario_neto, neto_gravado, iva_importe y total_linea
+    // de cada línea ya agregada, a partir de su precio_unitario (bruto, sin tocar) y el nuevo
+    // porcentaje de descuento general del cliente.
+    function recalcularDetallesConDescuento(descuentoPct) {
+        detalles.forEach(function(detalle) {
+            var descuentoGeneralImporte = detalle.precio_unitario * (descuentoPct / 100);
+            var precioUnitarioNeto = detalle.precio_unitario - descuentoGeneralImporte;
+            var netoGravado = detalle.cantidad * precioUnitarioNeto;
+            var ivaImporte = netoGravado * (detalle.iva_porcentaje / 100);
+
+            detalle.descuento_general_pct = descuentoPct;
+            detalle.descuento_general = descuentoGeneralImporte;
+            detalle.precio_unitario_neto = precioUnitarioNeto;
+            detalle.neto_gravado = netoGravado;
+            detalle.iva_importe = ivaImporte;
+            detalle.total_linea = netoGravado + ivaImporte + (detalle.no_gravado || 0) + (detalle.exento || 0);
+        });
+
+        renderizarDetalles();
+        actualizarTotales();
+    }
 
     // ========== FUNCIONES DE DATATABLE CON FILTROS POR COLUMNA ==========
     function inicializarDataTable() {
@@ -91,10 +157,6 @@ $(document).ready(function () {
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             
             columns: [
-                {
-                    data: 'venta_pedido_id',
-                    className: 'text-center'
-                },
                 {
                     data: 'comprobante_tipo',
                     className: 'text-center',
@@ -180,10 +242,14 @@ $(document).ready(function () {
                     data: 'total',
                     className: 'text-end',
                     render: function(data, type, row) {
+                        var valor = parseFloat(data) || 0;
                         if (type === 'export') {
-                            return parseFloat(data).toFixed(2);
+                            return valor.toFixed(2);
                         }
-                        return `<span class="text-primary">$${parseFloat(data).toFixed(2)}</span>`;
+                        if (type === 'sort' || type === 'filter') {
+                            return valor;
+                        }
+                        return `<span class="text-primary">$${valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
                     }
                 },
                 {
@@ -272,19 +338,6 @@ $(document).ready(function () {
                 }
             },
             initComplete: function () {
-                this.api().columns().every(function () {
-                    var column = this;
-                    var header = $(column.header());
-                    
-                    var input = $('<input type="text" class="column-filter" placeholder="Filtrar...">')
-                        .appendTo(header)
-                        .on('keyup change', function () {
-                            if (column.search() !== this.value) {
-                                column.search(this.value).draw();
-                            }
-                        });
-                });
-
                 setTimeout(function() {
                     var lengthControl = $('#tablaVentasPedidos_length').detach();
                     $('#tablaVentasPedidos_length').replaceWith(lengthControl);
@@ -313,6 +366,14 @@ $(document).ready(function () {
                         });
                     }
                 }, 100);
+
+                $('#filtro_cliente').on('keyup', function() {
+                    tabla.column(4).search(this.value).draw();
+                });
+
+                $('#filtro_estado').on('keyup', function() {
+                    tabla.column(8).search(this.value).draw();
+                });
 
                 var buttons = new $.fn.dataTable.Buttons(tabla, {
                     buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
@@ -531,6 +592,7 @@ $(document).ready(function () {
                 
                 var clienteNombre = selectedOption.text();
                 $('#cliente_actual_nombre').text(clienteNombre);
+                cargarCondicionesComercialesCliente(clienteActualId, true);
                 
             } else if (tipo === 'S') {
                 $('#entidad_id').val(entidadId);
@@ -540,6 +602,7 @@ $(document).ready(function () {
                 
                 var textoCompleto = selectedOption.text();
                 $('#cliente_actual_nombre').text(textoCompleto);
+                cargarCondicionesComercialesCliente(clienteActualId, true);
             }
             
         } else {
@@ -547,6 +610,7 @@ $(document).ready(function () {
             $('#entidad_sucursal_id').val('');
             clienteActualId = null;
             clienteSucursalActualId = null;
+            clienteCondicionComercial = null;
             $('#cliente_actual_nombre').text('No seleccionado');
         }
     });
@@ -557,11 +621,16 @@ $(document).ready(function () {
     }
 
     function cargarPedidoParaVisualizar(pedidoId) {
-        $.get('ventas_pedidos_ajax.php', {
-            accion: 'obtener',
-            venta_pedido_id: pedidoId,
-            empresa_idx: empresa_idx
-        }, function (res) {
+        $.ajax({
+            url: 'ventas_pedidos_ajax.php',
+            type: 'GET',
+            data: {
+                accion: 'obtener',
+                venta_pedido_id: pedidoId,
+                empresa_idx: empresa_idx
+            },
+            dataType: 'json',
+            success: function (res) {
             if (res && res.venta_pedido_id) {
                 resetModal();
                 
@@ -576,6 +645,7 @@ $(document).ready(function () {
                 $('#direccion_entrega').val(res.direccion_entrega);
                 $('#observaciones').val(res.observaciones);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
+                $('#descuento_general_pct').val(res.descuento_general_pct || '0');
                 $('#total_neto').val(res.subtotal || 0);
                 $('#no_gravado').val(res.no_gravado || 0);
                 $('#exento').val(res.exento || 0);
@@ -606,6 +676,7 @@ $(document).ready(function () {
                     
                     if (res.entidad_id) {
                         clienteActualId = res.entidad_id;
+                        cargarCondicionesComercialesCliente(res.entidad_id, false);
                         
                         if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
                             $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
@@ -625,8 +696,10 @@ $(document).ready(function () {
                                 detalle_idx: index,
                                 venta_pedido_detalle_id: detalle.venta_pedido_detalle_id,
                                 producto_id: detalle.producto_id,
+                                producto_codigo: detalle.producto_codigo,
                                 producto_nombre: detalle.producto_nombre,
                                 cantidad: detalle.cantidad,
+                                cantidad_entregada: detalle.cantidad_entregada || 0,
                                 precio_unitario: detalle.precio_unitario,
                                 no_gravado: detalle.no_gravado || 0,
                                 exento: detalle.exento || 0,
@@ -682,7 +755,18 @@ $(document).ready(function () {
                     confirmButtonText: "Entendido"
                 });
             }
-        }, 'json');
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.error('Error en obtener (visualizar):', textStatus, errorThrown);
+                console.error('Respuesta cruda del servidor:', jqXHR.responseText);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error al visualizar el pedido",
+                    text: "Revisá la consola del navegador (F12) para ver el detalle.",
+                    confirmButtonText: "Entendido"
+                });
+            }
+        });
     }
 
     $(document).on('click', '.btn-accion', function () {
@@ -802,25 +886,55 @@ $(document).ready(function () {
                     empresa_idx: empresa_idx
                 },
                 dataType: 'json',
-                success: function(data) {
+                success: function(res) {
                     resultadosDiv.empty().hide();
                     selectedIndex = -1;
-                    
+
+                    if (res && res.error === 'sin_lista_precios') {
+                        resultadosDiv.append(
+                            `<div class="list-group-item text-danger small">
+                                <i class="fas fa-triangle-exclamation me-1"></i>
+                                Este cliente no tiene una lista de precios vigente asignada
+                                (gestion__entidades_condiciones_clientes). No se pueden buscar ni
+                                agregar productos hasta configurarla.
+                            </div>`
+                        );
+                        resultadosDiv.show();
+                        return;
+                    }
+
+                    var data = (res && res.productos) ? res.productos : [];
+
                     if (data && data.length > 0) {
                         data.forEach(function(item, index) {
                             resultadosDiv.append(
                                 `<a href="#" class="list-group-item list-group-item-action" 
                                    data-index="${index}"
                                    data-id="${item.producto_id}"
+                                   data-codigo="${item.producto_codigo}"
+                                   data-nombre="${item.producto_nombre}"
                                    data-iva-id="${item.iva_alicuota_id}"
-                                   data-iva="${item.iva_porcentaje || 21}">
+                                   data-iva="${item.iva_porcentaje || 21}"
+                                   data-precio="${item.precio_final || ''}">
                                     <strong>${item.producto_codigo}</strong> - ${item.producto_nombre}
-                                    ${item.codigo_cliente ? '<br><small>Código Cliente: ' + item.codigo_cliente + '</small>' : ''}
                                 </a>`
                             );
                         });
                         resultadosDiv.show();
                     }
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('Error en buscar_productos_cliente:', textStatus, errorThrown);
+                    console.error('Respuesta cruda del servidor:', jqXHR.responseText);
+                    resultadosDiv.empty();
+                    resultadosDiv.append(
+                        `<div class="list-group-item text-danger small">
+                            <i class="fas fa-triangle-exclamation me-1"></i>
+                            Error del servidor al buscar productos. Revisá la consola del navegador
+                            (F12) para ver el detalle.
+                        </div>`
+                    );
+                    resultadosDiv.show();
                 }
             });
         }, 300);
@@ -878,26 +992,24 @@ $(document).ready(function () {
         
         var item = $(this);
         var productoId = item.data('id');
+        var productoCodigo = item.data('codigo');
+        var productoNombre = item.data('nombre');
         var iva = item.data('iva');
         var ivaId = item.data('iva-id');
-        var textoCompleto = item.text().trim();
+        var precioLista = item.data('precio');
         
-        $('#busqueda_producto').val(textoCompleto);
+        $('#busqueda_producto').val(productoCodigo + ' - ' + productoNombre);
         $('#producto_seleccionado_id').val(productoId);
+        $('#producto_codigo_seleccionado').val(productoCodigo);
+        $('#producto_nombre_seleccionado').val(productoNombre);
         $('#producto_iva').val(iva);
         $('#producto_iva_id').val(ivaId);
-        
-        $.get('ventas_pedidos_ajax.php', {
-            accion: 'obtener_ultimo_precio',
-            producto_id: productoId,
-            entidad_id: clienteActualId,
-            empresa_idx: empresa_idx
-        }, function(res) {
-            if (res.success && res.precio) {
-                $('#producto_precio').val(res.precio);
-            }
-            calcularIvaImporte();
-        }, 'json');
+
+        // El precio viene fijo de la lista de precios del cliente y el % de IVA del
+        // producto (iva_alicuota_id); ninguno de los dos se vuelve a consultar ni se
+        // deja editar acá.
+        $('#producto_precio').val(precioLista || '0');
+        calcularIvaImporte();
         
         $('#resultados_busqueda').hide();
         selectedIndex = -1;
@@ -915,7 +1027,11 @@ $(document).ready(function () {
         var precio = parseFloat($('#producto_precio').val()) || 0;
         var iva = parseFloat($('#producto_iva').val()) || 0;
 
-        var netoGravado = cantidad * precio;
+        var descuentoGeneralPct = (clienteCondicionComercial && clienteCondicionComercial.cliente_descuento_general)
+            ? parseFloat(clienteCondicionComercial.cliente_descuento_general) : 0;
+        var precioNeto = precio - (precio * descuentoGeneralPct / 100);
+
+        var netoGravado = cantidad * precioNeto;
         var ivaImporte = netoGravado * (iva / 100);
 
         $('#producto_iva_importe').val(ivaImporte.toFixed(2));
@@ -975,9 +1091,15 @@ $(document).ready(function () {
             return;
         }
         
-        var productoText = $('#busqueda_producto').val();
+        var productoCodigo = $('#producto_codigo_seleccionado').val() || '';
+        var productoNombre = $('#producto_nombre_seleccionado').val() || $('#busqueda_producto').val();
         
-        var netoGravado = cantidad * precio; 
+        var descuentoGeneralPct = (clienteCondicionComercial && clienteCondicionComercial.cliente_descuento_general)
+            ? parseFloat(clienteCondicionComercial.cliente_descuento_general) : 0;
+        var descuentoGeneralImporte = precio * (descuentoGeneralPct / 100);
+        var precioUnitarioNeto = precio - descuentoGeneralImporte;
+
+        var netoGravado = cantidad * precioUnitarioNeto;
         var ivaImporte = netoGravado * (iva / 100);
         var totalLinea = netoGravado + ivaImporte + noGravado + exento;
         
@@ -985,9 +1107,14 @@ $(document).ready(function () {
             detalle_idx: 'temp_' + new Date().getTime(),
             venta_pedido_detalle_id: 0,
             producto_id: parseInt(productoId),
-            producto_nombre: productoText,
+            producto_codigo: productoCodigo,
+            producto_nombre: productoNombre,
             cantidad: cantidad,
+            cantidad_entregada: 0,
             precio_unitario: precio,
+            descuento_general_pct: descuentoGeneralPct,
+            descuento_general: descuentoGeneralImporte,
+            precio_unitario_neto: precioUnitarioNeto,
             no_gravado: noGravado,
             exento: exento,
             iva_alicuota_id: parseInt(ivaId),
@@ -1003,10 +1130,12 @@ $(document).ready(function () {
         
         $('#busqueda_producto').val('');
         $('#producto_seleccionado_id').val('');
+        $('#producto_codigo_seleccionado').val('');
+        $('#producto_nombre_seleccionado').val('');
         $('#producto_iva_id').val('');
         $('#producto_cantidad').val('1.00');
         $('#producto_precio').val('');
-        $('#producto_iva').val('21');
+        $('#producto_iva').val('');
         $('#producto_iva_importe').val('0.00');
         $('#producto_no_gravado').val('0.00');
         $('#producto_exento').val('0.00');
@@ -1032,14 +1161,15 @@ $(document).ready(function () {
         <table class="table table-sm table-bordered table-hover mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Producto</th>
+                    <th>Código</th>
+                    <th>Detalle</th>
                     <th class="text-center">Cant.</th>
-                    <th class="text-end">Precio</th>
+                    <th class="text-end">Precio Unit.</th>
+                    <th class="text-end">Desc. %</th>
+                    <th class="text-end">Desc. $</th>
+                    <th class="text-end">Precio Neto</th>
                     <th class="text-center">IVA %</th>
                     <th class="text-end">IVA $</th>
-                    <th class="text-end">No Grav.</th>
-                    <th class="text-end">Exento</th>
-                    <th class="text-end">Neto</th>
                     <th class="text-end">Total</th>
                     <th class="text-center">Acciones</th>
                 </tr>
@@ -1054,18 +1184,19 @@ $(document).ready(function () {
             
             html += `
             <tr class="${claseFila}" data-idx="${detalle.detalle_idx}">
+                <td>${detalle.producto_codigo || ''}</td>
                 <td>
                     <div class="fw-bold">${nombreProducto.substring(0, 35)}${nombreProducto.length > 35 ? '...' : ''}</div>
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                 </td>
-                <td class="text-center">${detalle.cantidad.toFixed(2)}</td>
-                <td class="text-end">$${detalle.precio_unitario.toFixed(4)}</td>
+                <td class="text-center">${formatMoneda(detalle.cantidad)}</td>
+                <td class="text-end">$${formatMoneda(detalle.precio_unitario)}</td>
+                <td class="text-end">${formatMoneda(detalle.descuento_general_pct)}%</td>
+                <td class="text-end">$${formatMoneda(detalle.descuento_general)}</td>
+                <td class="text-end">$${formatMoneda(detalle.precio_unitario_neto)}</td>
                 <td class="text-center">${detalle.iva_porcentaje.toFixed(2)}%</td>
-                <td class="text-end">$${(detalle.iva_importe || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.no_gravado || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.exento || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.neto_gravado || 0).toFixed(2)}</td>
-                <td class="text-end fw-bold text-success">$${detalle.total_linea.toFixed(2)}</td>
+                <td class="text-end">$${formatMoneda(detalle.iva_importe)}</td>
+                <td class="text-end fw-bold text-success">$${formatMoneda(detalle.total_linea)}</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-warning btn-editar-detalle" 
                             data-idx="${detalle.detalle_idx}" title="Editar">
@@ -1086,32 +1217,49 @@ $(document).ready(function () {
         $('#contenedor-detalles').html(html);
     }
 
+    function formatMoneda(valor) {
+        return (valor || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function actualizarTotales() {
         var totalNeto = 0;
         var totalNoGravado = 0;
         var totalExento = 0;
         var totalImpuestos = 0;
+        var totalDescuentos = 0;
         
         detalles.forEach(function(detalle) {
             totalNeto += detalle.neto_gravado || 0;
             totalImpuestos += detalle.iva_importe || 0;
             totalNoGravado += detalle.no_gravado || 0;
             totalExento += detalle.exento || 0;
+            totalDescuentos += (detalle.descuento_general || 0) * (detalle.cantidad || 0);
         });
         
         var totalGeneral = totalNeto + totalImpuestos + totalNoGravado + totalExento;
+        var totalBruto = totalNeto + totalDescuentos;
         
         $('#total_neto').val(totalNeto.toFixed(2));
+        $('#descuentos').val(totalDescuentos.toFixed(2));
         $('#no_gravado').val(totalNoGravado.toFixed(2));
         $('#exento').val(totalExento.toFixed(2));
         $('#impuestos').val(totalImpuestos.toFixed(2));
         $('#total').val(totalGeneral.toFixed(2));
         
-        $('#total_neto_display').text(totalNeto.toFixed(2));
-        $('#no_gravado_display').text(totalNoGravado.toFixed(2));
-        $('#exento_display').text(totalExento.toFixed(2));
-        $('#impuestos_display').text(totalImpuestos.toFixed(2));
-        $('#total_display').text(totalGeneral.toFixed(2));
+        $('#total_neto_display').text(formatMoneda(totalNeto));
+        $('#no_gravado_display').text(formatMoneda(totalNoGravado));
+        $('#exento_display').text(formatMoneda(totalExento));
+        $('#impuestos_display').text(formatMoneda(totalImpuestos));
+        $('#total_display').text(formatMoneda(totalGeneral));
+
+        // Mismo resumen, replicado en la solapa "Datos del Pedido"
+        $('#bruto_display_resumen').text(formatMoneda(totalBruto));
+        $('#descuento_display_resumen').text(formatMoneda(totalDescuentos));
+        $('#total_neto_display_resumen').text(formatMoneda(totalNeto));
+        $('#impuestos_display_resumen').text(formatMoneda(totalImpuestos));
+        $('#total_display_resumen').text(formatMoneda(totalGeneral));
+
+        $('#contador-productos').text(detalles.length);
     }
 
     $('#btnToggleFullscreen').click(function() {
@@ -1167,8 +1315,10 @@ $(document).ready(function () {
         });
 
         if (detalle) {
-            $('#busqueda_producto').val(detalle.producto_nombre);
+            $('#busqueda_producto').val((detalle.producto_codigo ? detalle.producto_codigo + ' - ' : '') + detalle.producto_nombre);
             $('#producto_seleccionado_id').val(detalle.producto_id);
+            $('#producto_codigo_seleccionado').val(detalle.producto_codigo || '');
+            $('#producto_nombre_seleccionado').val(detalle.producto_nombre);
             $('#producto_iva_id').val(detalle.iva_alicuota_id);
             $('#producto_cantidad').val(detalle.cantidad);
             $('#producto_precio').val(detalle.precio_unitario);
@@ -1266,9 +1416,13 @@ $(document).ready(function () {
         $('#venta_pedido_id').val('');
         $('#entidad_id').val('');
         $('#entidad_sucursal_id').val('');
+        $('#entidad_combo').prop('disabled', false).removeAttr('title');
         $('#punto_venta_id').html('<option value="">Primero seleccione sucursal</option>');
         $('#punto_venta_id').prop('disabled', true);
         $('#tipo_cambio').val('1.000000');
+        $('#f_entrega_estimada').val(new Date().toISOString().split('T')[0]);
+        $('#descuento_general_pct').val('0');
+        $('#descuentos').val('0');
         $('#total_neto').val('0');
         $('#no_gravado').val('0');
         $('#exento').val('0');
@@ -1279,6 +1433,7 @@ $(document).ready(function () {
         detalles = [];
         clienteActualId = null;
         clienteSucursalActualId = null;
+        clienteCondicionComercial = null;
         renderizarDetalles();
         actualizarTotales();
         
@@ -1328,6 +1483,7 @@ $(document).ready(function () {
                 $('#direccion_entrega').val(res.direccion_entrega);
                 $('#observaciones').val(res.observaciones);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
+                $('#descuento_general_pct').val(res.descuento_general_pct || '0');
                 $('#total_neto').val(res.subtotal || 0);
                 $('#no_gravado').val(res.no_gravado || 0);
                 $('#exento').val(res.exento || 0);
@@ -1369,6 +1525,7 @@ $(document).ready(function () {
                     
                     if (res.entidad_id) {
                         clienteActualId = res.entidad_id;
+                        cargarCondicionesComercialesCliente(res.entidad_id, false);
                         
                         if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
                             $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
@@ -1380,6 +1537,8 @@ $(document).ready(function () {
                         
                         var textoSeleccionado = $('#entidad_combo option:selected').text();
                         $('#cliente_actual_nombre').text(textoSeleccionado || 'No seleccionado');
+                        // El cliente queda fijo una vez guardado el pedido; no se puede cambiar en edición.
+                        $('#entidad_combo').prop('disabled', true).attr('title', 'El cliente no se puede modificar una vez guardado el pedido');
                     }
                     
                     if (res.detalles && res.detalles.length > 0) {
@@ -1388,9 +1547,14 @@ $(document).ready(function () {
                                 detalle_idx: index,
                                 venta_pedido_detalle_id: detalle.venta_pedido_detalle_id,
                                 producto_id: detalle.producto_id,
+                                producto_codigo: detalle.producto_codigo,
                                 producto_nombre: detalle.producto_nombre,
                                 cantidad: detalle.cantidad,
+                                cantidad_entregada: detalle.cantidad_entregada || 0,
                                 precio_unitario: detalle.precio_unitario,
+                                descuento_general_pct: detalle.descuento_general_pct || 0,
+                                descuento_general: detalle.descuento_general || 0,
+                                precio_unitario_neto: detalle.precio_unitario_neto || detalle.precio_unitario,
                                 no_gravado: detalle.no_gravado || 0,
                                 exento: detalle.exento || 0,
                                 iva_alicuota_id: detalle.iva_alicuota_id,
@@ -1497,6 +1661,8 @@ $(document).ready(function () {
         formData.append('direccion_entrega', $('#direccion_entrega').val() || '');
         formData.append('observaciones', $('#observaciones').val() || '');
         formData.append('subtotal', $('#total_neto').val() || '0');
+        formData.append('descuento_general_pct', $('#descuento_general_pct').val() || '0');
+        formData.append('descuentos', $('#descuentos').val() || '0');
         formData.append('no_gravado', $('#no_gravado').val() || '0');
         formData.append('exento', $('#exento').val() || '0');
         formData.append('impuestos', $('#impuestos').val() || '0');
@@ -1653,9 +1819,7 @@ $(document).ready(function () {
             producto_descripcion: $('#producto_descripcion_rapido').val(),
             producto_categoria_id: $('#producto_categoria_id_rapido').val(),
             iva_alicuota_id: $('#iva_alicuota_id_rapido').val(),
-            unidad_medida_id: $('#unidad_medida_id_rapido').val() || null,
-            codigo_cliente: $('#codigo_cliente_rapido').val(),
-            entidad_id: clienteActualId
+            unidad_medida_id: $('#unidad_medida_id_rapido').val() || null
         };
 
         $.ajax({

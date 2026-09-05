@@ -145,6 +145,7 @@ try {
                 'tipo_cambio' => floatval($_POST['tipo_cambio'] ?? 0),
                 'direccion_entrega' => trim($_POST['direccion_entrega'] ?? ''),
                 'subtotal' => floatval($_POST['subtotal'] ?? 0),
+                'descuento_general_pct' => floatval($_POST['descuento_general_pct'] ?? 0),
                 'descuentos' => floatval($_POST['descuentos'] ?? 0),
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
@@ -184,12 +185,14 @@ try {
                 'tipo_cambio' => floatval($_POST['tipo_cambio'] ?? 0),
                 'direccion_entrega' => trim($_POST['direccion_entrega'] ?? ''),
                 'subtotal' => floatval($_POST['subtotal'] ?? 0),
+                'descuento_general_pct' => floatval($_POST['descuento_general_pct'] ?? 0),
                 'descuentos' => floatval($_POST['descuentos'] ?? 0),
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'detalles' => $detalles,
-                'empresa_idx' => $empresa_idx
+                'empresa_idx' => $empresa_idx,
+                'pagina_idx' => $pagina_idx
             ];
 
             $resultado = editarPedidoVenta($conexion, $id, $data);
@@ -248,7 +251,7 @@ try {
                 break;
             }
             
-            $productos = obtenerProductosPorListaPrecios($conexion, $empresa_idx_local, $entidad_id);
+            $productos = obtenerProductosPorCliente($conexion, $empresa_idx_local, $entidad_id);
             echo json_encode($productos, JSON_UNESCAPED_UNICODE);
             break;
         
@@ -282,19 +285,6 @@ try {
             echo json_encode($lista_precio, JSON_UNESCAPED_UNICODE);
             break;
 
-        case 'obtener_codigo_cliente':
-            $producto_id = intval($_GET['producto_id'] ?? 0);
-            $entidad_id = intval($_GET['entidad_id'] ?? 0);
-            
-            if (empty($producto_id) || empty($entidad_id)) {
-                echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
-                break;
-            }
-            
-            $codigo_cliente = obtenerCodigoCliente($conexion, $producto_id, $entidad_id, $empresa_idx);
-            echo json_encode(['success' => true, 'codigo_cliente' => $codigo_cliente], JSON_UNESCAPED_UNICODE);
-            break;
-
         case 'obtener_categorias_productos':
             $empresa_idx_param = intval($_GET['empresa_idx'] ?? $empresa_idx);
             $categorias = obtenerCategoriasProductos($conexion, $empresa_idx_param);
@@ -312,13 +302,19 @@ try {
             $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
             
             if (empty($entidad_id)) {
-                echo json_encode([]);
+                echo json_encode(['error' => null, 'productos' => []], JSON_UNESCAPED_UNICODE);
                 break;
             }
-    
-    $productos = buscarProductosPorListaPrecios($conexion, $empresa_idx_local, $entidad_id, $q);
-    echo json_encode($productos, JSON_UNESCAPED_UNICODE);
-    break;
+
+            $condicion_comercial = obtenerCondicionesCliente($conexion, $entidad_id, $empresa_idx_local);
+            if (!$condicion_comercial || empty($condicion_comercial['lista_precio_id'])) {
+                echo json_encode(['error' => 'sin_lista_precios', 'productos' => []], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+
+            $productos = buscarProductosPorCliente($conexion, $empresa_idx_local, $entidad_id, $q);
+            echo json_encode(['error' => null, 'productos' => $productos], JSON_UNESCAPED_UNICODE);
+            break;
 
         case 'obtener_ultimo_precio':
             $producto_id = intval($_GET['producto_id'] ?? 0);
@@ -356,8 +352,6 @@ try {
                 'producto_categoria_id' => intval($_POST['producto_categoria_id'] ?? 0),
                 'iva_alicuota_id' => intval($_POST['iva_alicuota_id'] ?? 1),
                 'unidad_medida_id' => intval($_POST['unidad_medida_id'] ?? 0),
-                'codigo_cliente' => trim($_POST['codigo_cliente'] ?? ''),
-                'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'empresa_idx' => $empresa_idx
             ];
             

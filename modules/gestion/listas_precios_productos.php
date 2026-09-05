@@ -205,7 +205,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="mb-3">
                             <label for="archivoExcel" class="form-label">Archivo Excel (.xlsx)</label>
                             <input type="file" class="form-control" id="archivoExcel" accept=".xlsx, .xls" required>
-                            <small class="text-muted">El archivo debe tener la columna A con el código del producto y la columna I con el precio.</small>
+                            <small class="text-muted">El archivo debe tener la columna A con el código del producto y la columna C con el precio.</small>
                         </div>
                         <div id="importProgress" style="display: none;">
                             <div class="progress">
@@ -355,6 +355,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         // ========== BUSCADOR POR TAGS (código, producto y compatibilidad) ==========
         var tags = [];
         var tagsInput, tagsContainer;
+        var terminoBusquedaActual = ''; // se manda al servidor en cada ajax (ver ejecutarBusquedaTags)
 
         function agregarTag(texto) {
             texto = texto.trim();
@@ -404,18 +405,36 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             return div.innerHTML;
         }
 
+        // Precios del Excel de importación vienen como texto con coma
+        // decimal (ej: "36398,97"), no como número JS. parseFloat() a secas
+        // trunca en la coma ("2,20" -> 2), así que primero se saca cualquier
+        // punto de miles y se reemplaza la coma decimal por punto. Si la
+        // celda ya viene como número (otro formato de Excel), se usa tal cual.
+        function parsearPrecioExcel(valor) {
+            if (valor === null || valor === undefined || valor === '') return 0;
+            if (typeof valor === 'number') return valor;
+            var texto = valor.toString().trim();
+            if (texto.indexOf(',') !== -1) {
+                texto = texto.replace(/\./g, '').replace(',', '.');
+            }
+            var numero = parseFloat(texto);
+            return isNaN(numero) ? 0 : numero;
+        }
+
         function ejecutarBusquedaTags() {
-            // Búsqueda "smart" nativa de DataTables: al unir las palabras con
-            // espacio, exige que TODAS estén presentes (AND) en algún lugar de
-            // la fila (código, producto o compatibilidad), combinando campos.
-            var terminoBusqueda = tags.join(' ');
+            // VERSION 2026-09-05: antes usaba tabla.search() (búsqueda "smart"
+            // de DataTables sobre lo ya cargado en el navegador). Ahora la
+            // tabla es server-side: cada palabra se manda al backend y se
+            // exige (AND) contra código, producto, compatibilidad_busqueda y
+            // lista, sin traer de antemano todo el catálogo al navegador.
+            terminoBusquedaActual = tags.join(' ');
             if (tags.length > 0) {
                 $('#buscadorTagsContainer').attr('title', 'Buscando ' + tags.length + ' palabra(s): ' + tags.join(', '));
             } else {
                 $('#buscadorTagsContainer').removeAttr('title');
             }
             if (tabla) {
-                tabla.search(terminoBusqueda).draw();
+                tabla.ajax.reload(); // reload() vuelve a la página 1 por default
             }
         }
 
@@ -505,9 +524,35 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         var tabla = $('#tablaListasPreciosProductos').DataTable({
             dom: '<"row"<"col-md-6"l><"col-md-6"B>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
             responsive: true,
+            processing: true,
+            serverSide: true,
+            pageLength: 10, // explícito: antes dependía del default implícito de DataTables
+            // VERSION 2026-09-05: server-side real (antes carga completa +
+            // búsqueda/orden/paginación en el navegador). Con ~5.000 filas la
+            // carga completa se sentía cada vez más lenta apenas se agregaban
+            // listas/productos; ahora cada draw pide sólo la página actual, y
+            // el texto libre se busca en el servidor contra
+            // p.compatibilidad_busqueda (materializada), no en el navegador.
+            //
+            // OJO exportación: los botones Excel/PDF de DataTables sólo
+            // pueden exportar lo que hay cargado en el navegador, y con
+            // server-side eso es SOLO la página visible (antes exportaban
+            // todos los resultados filtrados). Si necesitás exportar el
+            // listado filtrado completo, avisame y armamos un endpoint aparte
+            // para eso — no lo mezclo acá para no meter un cambio no pedido.
             buttons: [
-                { extend: 'excelHtml5', text: '<i class="fas fa-file-excel"></i> Excel', className: 'btn btn-success btn-sm me-2' },
-                { extend: 'pdfHtml5', text: '<i class="fas fa-file-pdf"></i> PDF', className: 'btn btn-danger btn-sm' }
+                {
+                    extend: 'excelHtml5', text: '<i class="fas fa-file-excel"></i> Excel', className: 'btn btn-success btn-sm me-2',
+                    // La columna Imagen (índice 5) no exporta bien a Excel
+                    // (es un <img>, no texto), así que se excluye.
+                    exportOptions: { columns: ':not(:eq(5))' },
+                    title: 'Listas de precios'
+                },
+                {
+                    extend: 'pdfHtml5', text: '<i class="fas fa-file-pdf"></i> PDF', className: 'btn btn-danger btn-sm',
+                    exportOptions: { columns: [0, 1, 2, 6, 7] },
+                    title: 'Listas de precios'
+                }
             ],
             ajax: {
                 url: 'listas_precios_productos_ajax.php',
@@ -518,12 +563,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     d.filtro_marca = $('#filtroMarca').val();
                     d.filtro_modelo = $('#filtroModelo').val();
                     d.filtro_submodelo = $('#filtroSubmodelo').val();
-                },
-                dataSrc: ''
+                    d.busqueda = terminoBusquedaActual;
+                }
             },
             language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
             drawCallback: function(settings) {
-                var total = this.api().rows({ filter: 'applied' }).count();
+                // Server-side: el total ya viene filtrado desde el backend
+                // (recordsFiltered), no se recuenta en el navegador.
+                var total = this.api().page.info().recordsDisplay;
                 var lista = $('#filtroLista').val();
                 var marca = $('#filtroMarca').val();
                 var modelo = $('#filtroModelo').val();
@@ -531,7 +578,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 var filtroActivo = lista || marca || modelo || submodelo || tags.length > 0;
 
                 if (filtroActivo && total > 0) {
-                    $('#infoFiltros').show().html('<i class="fas fa-filter text-primary me-1"></i> Mostrando ' + total + ' resultados');
+                    $('#infoFiltros').show().html('<i class="fas fa-filter text-primary me-1"></i> ' + total + ' resultados');
                 } else if (filtroActivo && total === 0) {
                     $('#infoFiltros').show().html('<i class="fas fa-exclamation-triangle text-warning me-1"></i> No se encontraron resultados');
                 } else {
@@ -547,11 +594,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     data: 'compatibilidad',
                     responsivePriority: 9,
                     render: {
-                        // '_' es lo que usa DataTables para buscar/ordenar: texto
-                        // plano, sin el <span title="..."> del render visual.
-                        // Así la búsqueda multi-palabra matchea limpio contra
-                        // "Toyota Hilux 2015-2020" sin romperse con el HTML.
-                        _: function(data) { return data || ''; },
+                        // '_' es lo que usa DataTables para buscar/ordenar.
+                        // Se usa compatibilidad_busqueda (materializada con
+                        // cada año del rango expandido, ej: "...2015 2016
+                        // 2017 2018..."), NO el texto legible — así buscar
+                        // "2018" encuentra un producto compatible con un
+                        // rango "2015-2020", que nunca contiene "2018" como
+                        // substring del texto mostrado.
+                        _: function(data, type, row) { return row.compatibilidad_busqueda || data || ''; },
                         display: function(data) {
                             if (!data) return '<span class="text-muted">-</span>';
                             var esc = $('<div>').text(data).html();
@@ -562,6 +612,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 {
                     data: 'ubicaciones_info',
                     responsivePriority: 8,
+                    orderable: false, // se resuelve aparte (2do paso), no está en el whitelist de orden server-side
                     render: {
                         // '_': texto plano para buscar (sucursal + sección/estantería/etc,
                         // sin el HTML de los badges).
@@ -615,6 +666,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     data: 'precio_con_iva',
                     className: 'text-end',
                     responsivePriority: 5,
+                    orderable: false, // depende del join de IVA, no está en el whitelist de orden server-side (ver ajax)
                     render: function(data, type, row) {
                         if (type !== 'display') return data;
                         var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
@@ -665,7 +717,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#lista_precio_producto_id').val(res.lista_precio_producto_id);
                     $('#lista_precio_id').val(res.lista_precio_id);
                     $('#producto_id').val(res.producto_id);
-                    $('#precio_unitario').val(res.precio_unitario);
+                    // toFixed(2): la base guarda más decimales de precisión, pero
+                    // para editar a mano alcanza con 2 (evita ver "1500.000000").
+                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(2));
                     $('#ajuste_id').val(res.ajuste_id);
                     new bootstrap.Modal(document.getElementById('modalListaPrecioProducto')).show();
                 } else Swal.fire('Error', 'Error al obtener datos', 'error');
@@ -739,7 +793,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         $('#btnProcesarImportacion').click(function(){
             var listaId = $('#importListaPrecioId').val();
             var fileInput = document.getElementById('archivoExcel');
-            
+
             if (!listaId) {
                 Swal.fire('Error', 'Debe seleccionar una lista de precios.', 'error');
                 return;
@@ -749,9 +803,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 return;
             }
 
+            // Tamaño de lote: se manda de a partes al servidor en vez de todo
+            // junto. Esto es lo que permite ver el progreso real (no una barra
+            // que salta de 10% a 40% y se queda esperando una única respuesta),
+            // y además evita mandar un POST gigante y un loop de 5.000 filas
+            // en un solo request PHP (riesgo de timeout). 300 es un punto de
+            // partida razonable; si el servidor responde rápido se puede subir.
+            var TAM_LOTE = 300;
+
             // Mostrar barra de progreso
             $('#importProgress').show();
-            $('#importProgressBar').css('width', '10%');
+            $('#importProgressBar').css('width', '5%');
             $('#importStatus').text('Leyendo archivo...');
 
             var reader = new FileReader();
@@ -762,19 +824,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                     var jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
 
-                    // Mapear datos: columna A (índice 0) = código, columna I (índice 8) = precio
-                    // Ignorar la primera fila si tiene encabezados
+                    // Mapear datos: columna A (índice 0) = código, columna C (índice 2) = precio.
+                    // No hace falta detectar fila de encabezado a mano: filas de
+                    // título/encabezado/vacías se descartan solas porque su
+                    // columna C no parsea a un precio > 0.
                     var productos = [];
-                    var startRow = 0;
-                    if (jsonData.length > 0 && typeof jsonData[0][0] === 'string' && jsonData[0][0].toLowerCase().includes('codigo')) {
-                        startRow = 1; // Omitir fila de encabezados
-                    }
-
-                    for (var i = startRow; i < jsonData.length; i++) {
+                    for (var i = 0; i < jsonData.length; i++) {
                         var row = jsonData[i];
                         var codigo = row[0] ? row[0].toString().trim() : '';
-                        var precio = row[8] ? parseFloat(row[8]) : 0; // Columna I (índice 8)
-                        
+                        var precio = parsearPrecioExcel(row[2]); // Columna C (índice 2)
+
                         if (codigo !== '' && precio > 0) {
                             productos.push({codigo: codigo, precio: precio});
                         }
@@ -782,90 +841,142 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                     if (productos.length === 0) {
                         $('#importProgress').hide();
-                        Swal.fire('Error', 'No se encontraron datos válidos en el archivo. Asegúrese de que la columna A tenga códigos y la columna I precios.', 'error');
+                        Swal.fire('Error', 'No se encontraron datos válidos en el archivo. Asegúrese de que la columna A tenga códigos y la columna C precios.', 'error');
                         return;
                     }
 
-                    $('#importProgressBar').css('width', '40%');
-                    $('#importStatus').text('Enviando datos al servidor...');
+                    // --- Envío por lotes con progreso real ---
+                    var totalLotes = Math.ceil(productos.length / TAM_LOTE);
+                    var loteActual = 0;
+                    var acumulado = {
+                        procesados: 0,
+                        sin_cambios: 0,
+                        no_encontrados_count: 0,
+                        errores_count: 0,
+                        detalle: []
+                    };
 
-                    // Enviar datos al servidor
-                    $.ajax({
-                        url: 'listas_precios_productos_ajax.php',
-                        type: 'POST',
-                        data: {
-                            accion: 'importar',
-                            lista_precio_id: listaId,
-                            productos: JSON.stringify(productos)
-                        },
-                        success: function(response) {
-                            $('#importProgressBar').css('width', '100%');
-                            $('#importStatus').text('Finalizado');
+                    $('#importProgressBar').css('width', '5%');
+                    $('#importStatus').text('Enviando 0 de ' + productos.length + ' productos...');
 
-                            // DEBUG temporal: ver la respuesta cruda en la consola.
-                            // Si no aparece 'detalle' acá, el backend en el servidor
-                            // todavía es la versión vieja (no tiene el array detalle).
-                            console.log('Respuesta de importación:', response);
+                    function marcarLoteComoError(lote, motivo) {
+                        // Si un lote entero falla (timeout, error 500, corte de
+                        // conexión), no se aborta toda la importación: se
+                        // registran esas filas como error y se sigue con el
+                        // resto de los lotes.
+                        acumulado.errores_count += lote.length;
+                        lote.forEach(function(p){
+                            acumulado.detalle.push({
+                                codigo: p.codigo,
+                                producto_nombre: '',
+                                estado: 'Error',
+                                precio_anterior: null,
+                                precio_nuevo: p.precio,
+                                detalle: motivo
+                            });
+                        });
+                    }
 
-                            if (response.success) {
-                                // En vez de un mensaje de texto gigante, armamos
-                                // un Excel de respuesta con el detalle fila por
-                                // fila (mismo SheetJS que ya usamos para leer).
+                    function procesarLote() {
+                        var inicio = loteActual * TAM_LOTE;
+                        var lote = productos.slice(inicio, inicio + TAM_LOTE);
+
+                        $.ajax({
+                            url: 'listas_precios_productos_ajax.php',
+                            type: 'POST',
+                            data: {
+                                accion: 'importar',
+                                lista_precio_id: listaId,
+                                productos: JSON.stringify(lote)
+                            },
+                            dataType: 'json'
+                        }).done(function(response){
+                            if (response && response.success) {
+                                acumulado.procesados += response.procesados || 0;
+                                acumulado.sin_cambios += response.sin_cambios || 0;
+                                acumulado.no_encontrados_count += response.no_encontrados_count || 0;
+                                acumulado.errores_count += response.errores_count || 0;
                                 if (response.detalle && response.detalle.length > 0) {
-                                    try {
-                                        var filas = response.detalle.map(function(d) {
-                                            return {
-                                                'Código': d.codigo,
-                                                'Producto': d.producto_nombre || '',
-                                                'Estado': d.estado,
-                                                'Precio anterior': d.precio_anterior,
-                                                'Precio nuevo': d.precio_nuevo,
-                                                'Detalle': d.detalle
-                                            };
-                                        });
-                                        var wsReporte = XLSX.utils.json_to_sheet(filas);
-                                        wsReporte['!cols'] = [
-                                            {wch: 14}, {wch: 35}, {wch: 16}, {wch: 14}, {wch: 14}, {wch: 45}
-                                        ];
-                                        var wbReporte = XLSX.utils.book_new();
-                                        XLSX.utils.book_append_sheet(wbReporte, wsReporte, 'Resultado importación');
-                                        var nombreArchivo = 'resultado_importacion_' +
-                                            new Date().toISOString().slice(0, 10) + '.xlsx';
-                                        XLSX.writeFile(wbReporte, nombreArchivo);
-                                    } catch (errExcel) {
-                                        console.error('Error generando el Excel de resultado:', errExcel);
-                                        Swal.fire('Atención', 'La importación se completó pero no se pudo generar el Excel de resultado: ' + errExcel.message, 'warning');
-                                    }
-                                } else {
-                                    console.warn('response.detalle no llegó o está vacío. ¿El backend en el servidor está actualizado?');
+                                    acumulado.detalle = acumulado.detalle.concat(response.detalle);
                                 }
-
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Importación completada',
-                                    html: 'Actualizados: <b>' + (response.procesados || 0) + '</b><br>' +
-                                          'Sin cambios: <b>' + (response.sin_cambios || 0) + '</b><br>' +
-                                          'No encontrados: <b>' + (response.no_encontrados_count || 0) + '</b><br>' +
-                                          'Con error: <b>' + (response.errores_count || 0) + '</b><br>' +
-                                          '<small>Se descargó un Excel con el detalle producto por producto.</small>'
-                                });
-
-                                // Recargar la tabla
-                                tabla.ajax.reload();
                             } else {
-                                Swal.fire('Error', response.message || 'Error al procesar la importación', 'error');
+                                marcarLoteComoError(lote, (response && response.message) ? response.message : 'Error al procesar el lote');
                             }
-                            // Ocultar barra después de un momento
-                            setTimeout(() => {
-                                $('#importProgress').hide();
-                                $('#importProgressBar').css('width', '0%');
-                            }, 2000);
-                        },
-                        error: function(xhr, status, error) {
-                            $('#importProgress').hide();
-                            Swal.fire('Error', 'Error en la comunicación con el servidor: ' + error, 'error');
+                        }).fail(function(xhr, status, error){
+                            marcarLoteComoError(lote, 'Error de comunicación con el servidor: ' + error);
+                        }).always(function(){
+                            loteActual++;
+                            var procesadosHasta = Math.min(loteActual * TAM_LOTE, productos.length);
+                            var pct = Math.round((procesadosHasta / productos.length) * 100);
+                            $('#importProgressBar').css('width', pct + '%');
+                            $('#importStatus').text(
+                                'Procesando ' + procesadosHasta + ' de ' + productos.length + ' productos ' +
+                                '(lote ' + loteActual + ' de ' + totalLotes + ')...'
+                            );
+
+                            if (loteActual < totalLotes) {
+                                procesarLote();
+                            } else {
+                                finalizarImportacion();
+                            }
+                        });
+                    }
+
+                    function finalizarImportacion() {
+                        $('#importProgressBar').css('width', '100%');
+                        $('#importStatus').text('Finalizado');
+
+                        // En vez de un mensaje de texto gigante, armamos un
+                        // Excel de respuesta con el detalle fila por fila,
+                        // combinando el detalle de TODOS los lotes.
+                        if (acumulado.detalle.length > 0) {
+                            try {
+                                var filas = acumulado.detalle.map(function(d) {
+                                    return {
+                                        'Código': d.codigo,
+                                        'Producto': d.producto_nombre || '',
+                                        'Estado': d.estado,
+                                        'Precio anterior': d.precio_anterior,
+                                        'Precio nuevo': d.precio_nuevo,
+                                        'Detalle': d.detalle
+                                    };
+                                });
+                                var wsReporte = XLSX.utils.json_to_sheet(filas);
+                                wsReporte['!cols'] = [
+                                    {wch: 14}, {wch: 35}, {wch: 16}, {wch: 14}, {wch: 14}, {wch: 45}
+                                ];
+                                var wbReporte = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(wbReporte, wsReporte, 'Resultado importación');
+                                var nombreArchivo = 'resultado_importacion_' +
+                                    new Date().toISOString().slice(0, 10) + '.xlsx';
+                                XLSX.writeFile(wbReporte, nombreArchivo);
+                            } catch (errExcel) {
+                                console.error('Error generando el Excel de resultado:', errExcel);
+                                Swal.fire('Atención', 'La importación se completó pero no se pudo generar el Excel de resultado: ' + errExcel.message, 'warning');
+                            }
                         }
-                    });
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Importación completada',
+                            html: 'Actualizados: <b>' + acumulado.procesados + '</b><br>' +
+                                  'Sin cambios: <b>' + acumulado.sin_cambios + '</b><br>' +
+                                  'No encontrados: <b>' + acumulado.no_encontrados_count + '</b><br>' +
+                                  'Con error: <b>' + acumulado.errores_count + '</b><br>' +
+                                  '<small>Se descargó un Excel con el detalle producto por producto.</small>'
+                        });
+
+                        // Recargar la tabla
+                        tabla.ajax.reload();
+
+                        // Ocultar barra después de un momento
+                        setTimeout(() => {
+                            $('#importProgress').hide();
+                            $('#importProgressBar').css('width', '0%');
+                        }, 2000);
+                    }
+
+                    procesarLote();
 
                 } catch (error) {
                     $('#importProgress').hide();
