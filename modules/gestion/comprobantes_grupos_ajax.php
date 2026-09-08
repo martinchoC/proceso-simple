@@ -57,6 +57,12 @@ try {
             echo json_encode($subgrupos, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_tablas_disponibles':
+            $comprobante_subgrupo_id = intval($_GET['comprobante_subgrupo_id'] ?? 0);
+            $tablas = obtenerTablasSinSubgrupoAsociado($conexion, $empresa_idx, $comprobante_subgrupo_id);
+            echo json_encode($tablas, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'obtener_boton_agregar':
             $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
@@ -91,7 +97,8 @@ try {
                 'comprobante_subgrupo' => trim($_POST['comprobante_subgrupo'] ?? ''),
                 'comprobante_grupo_id' => intval($_POST['comprobante_grupo_id'] ?? 0),
                 'orden' => intval($_POST['orden'] ?? 0),
-                'empresa_idx' => $empresa_idx
+                'empresa_idx' => $empresa_idx,
+                'tabla_id' => intval($_POST['tabla_id'] ?? 0)
             ];
 
             $resultado = agregarComprobanteSubgrupo($conexion, $data);
@@ -104,7 +111,8 @@ try {
                 'comprobante_subgrupo' => trim($_POST['comprobante_subgrupo'] ?? ''),
                 'comprobante_grupo_id' => intval($_POST['comprobante_grupo_id'] ?? 0),
                 'orden' => intval($_POST['orden'] ?? 0),
-                'empresa_idx' => $empresa_idx
+                'empresa_idx' => $empresa_idx,
+                'tabla_id' => intval($_POST['tabla_id'] ?? 0)
             ];
 
             $resultado = editarComprobanteSubgrupo($conexion, $id, $data);

@@ -478,6 +478,14 @@ function obtenerPedidosVenta($conexion, $empresa_idx, $pagina_id)
         $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
         $text_clase = $fila['text_clase'] ?? 'text-white';
 
+        // DIAGNÓSTICO TEMPORAL — sacar una vez resuelto el bug de cliente sin nombre en el listado
+        if (!empty($fila['entidad_id']) && empty($fila['entidad_nombre'])) {
+            error_log("DIAGNOSTICO obtenerPedidosVenta: venta_pedido_id={$fila['venta_pedido_id']} " .
+                      "entidad_id={$fila['entidad_id']} (tipo=" . gettype($fila['entidad_id']) . ") " .
+                      "pero entidad_nombre vino vacío del JOIN con gestion__entidades. " .
+                      "empresa_id_pedido={$fila['empresa_id']}");
+        }
+
         $fila['estado_info'] = [
             'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
             'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
@@ -1122,7 +1130,7 @@ function obtenerProductosPorCliente($conexion, $empresa_idx, $entidad_id)
     $lista_precio_id = intval($condicion['lista_precio_id']);
 
     $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre, 
-                   p.iva_alicuota_id,
+                   p.iva_alicuota_id, p.compatibilidad_texto,
                    iva.porcentaje as iva_porcentaje,
                    lp.precio_final
             FROM gestion__listas_precios_productos lp
@@ -1280,7 +1288,7 @@ function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q)
     $lista_precio_id = intval($condicion['lista_precio_id']);
 
     $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre, 
-                   p.iva_alicuota_id,
+                   p.iva_alicuota_id, p.compatibilidad_texto,
                    iva.porcentaje as iva_porcentaje,
                    lp.precio_final
             FROM gestion__listas_precios_productos lp

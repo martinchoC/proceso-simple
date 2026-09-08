@@ -480,7 +480,18 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
                 AND (lp.empresa_id = 0 OR lp.empresa_id = p.empresa_id)
                 ), '[]'
             ) as precios_listas_json,
-            MAX(IFNULL(iva.porcentaje, 0)) as iva_porcentaje
+            MAX(IFNULL(iva.porcentaje, 0)) as iva_porcentaje,
+            -- Rango de años que cubre el producto según su compatibilidad:
+            -- desde = el año más chico entre todas sus compatibilidades activas;
+            -- hasta = el año más grande, salvo que alguna compatibilidad no tenga
+            -- límite superior (anio_hasta NULL o >= 2100, el sentinel de sin tope
+            -- usado en gestion__productos_compatibilidad), en cuyo caso el producto
+            -- se considera vigente hasta la actualidad.
+            MIN(CASE WHEN pc.compatibilidad_id IS NOT NULL THEN pc.anio_desde END) as compat_anio_desde,
+            MAX(CASE WHEN pc.compatibilidad_id IS NOT NULL AND pc.anio_hasta IS NOT NULL AND pc.anio_hasta < 2100
+                     THEN pc.anio_hasta END) as compat_anio_hasta,
+            MAX(CASE WHEN pc.compatibilidad_id IS NOT NULL AND (pc.anio_hasta IS NULL OR pc.anio_hasta >= 2100)
+                     THEN 1 ELSE 0 END) as compat_sin_limite
         FROM gestion__productos p
         LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
         LEFT JOIN conf__colores c ON er.color_id = c.color_id
@@ -539,6 +550,21 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             'unidad_nombre' => $fila['unidad_nombre'] ?? '',
             'unidad_abreviatura' => $fila['unidad_abreviatura'] ?? ''
         ] : null;
+
+        // Años que cubre el producto según su compatibilidad (desde - hasta).
+        // Sin compatibilidad cargada => null (el front muestra '-').
+        $fila['compatibilidad_anios'] = null;
+        if (!empty($fila['compat_anio_desde'])) {
+            $anio_desde = (int) $fila['compat_anio_desde'];
+            if (!empty($fila['compat_sin_limite'])) {
+                $fila['compatibilidad_anios'] = $anio_desde . ' - Actual';
+            } elseif (!empty($fila['compat_anio_hasta'])) {
+                $fila['compatibilidad_anios'] = $anio_desde . ' - ' . (int) $fila['compat_anio_hasta'];
+            } else {
+                $fila['compatibilidad_anios'] = $anio_desde . ' - ' . $anio_desde;
+            }
+        }
+        unset($fila['compat_anio_desde'], $fila['compat_anio_hasta'], $fila['compat_sin_limite']);
 
         // Decodificar ubicaciones detalle si existe (JSON válido)
         if (!empty($fila['ubicaciones_detalle']) && $fila['ubicaciones_detalle'] !== '[]') {

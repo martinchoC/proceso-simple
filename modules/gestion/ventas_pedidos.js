@@ -202,6 +202,9 @@ $(document).ready(function () {
                 {
                     data: null,
                     render: function(data, type, row) {
+                        if (data.entidad_id && !data.entidad_nombre) {
+                            console.warn('[DIAGNOSTICO] Pedido con entidad_id pero sin entidad_nombre:', JSON.parse(JSON.stringify(data)));
+                        }
                         if (type === 'export') {
                             return data.entidad_nombre || '';
                         }
@@ -339,12 +342,6 @@ $(document).ready(function () {
             },
             initComplete: function () {
                 setTimeout(function() {
-                    var lengthControl = $('#tablaVentasPedidos_length').detach();
-                    $('#tablaVentasPedidos_length').replaceWith(lengthControl);
-                    
-                    var filterControl = $('#tablaVentasPedidos_filter').detach();
-                    $('#tablaVentasPedidos_filter').replaceWith(filterControl);
-                    
                     $('#tablaVentasPedidos_length').addClass('dataTables_length_custom');
                     $('#tablaVentasPedidos_filter').addClass('dataTables_filter_custom');
                     
@@ -720,7 +717,7 @@ $(document).ready(function () {
                     $('.btn-editar-detalle, .btn-eliminar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido').hide();
                     $('#busqueda_producto').prop('disabled', true);
                     
-                    $('.card-primary').hide();
+                    $('.card-info').hide(); // tarjeta 'Agregar Producto' (antes decía .card-primary, que apunta a la tarjeta de pestañas completa)
                     $('#btnNuevoProductoRapido').hide();
                     
                     $('#btnGuardar').hide();
@@ -732,7 +729,7 @@ $(document).ready(function () {
                     
                 }, 500);
 
-                var modal = new bootstrap.Modal(document.getElementById('modalVentaPedido'));
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaPedido'), { backdrop: 'static', keyboard: false });
                 modal.show();
 
                 $('#modalVentaPedido').off('hidden.bs.modal').on('hidden.bs.modal', function () {
@@ -741,7 +738,7 @@ $(document).ready(function () {
                     $('.modal-footer .btn-secondary').show();
                     $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoCliente').prop('disabled', false);
                     
-                    $('.card-primary').show();
+                    $('.card-info').show(); // tarjeta 'Agregar Producto'
                     $('#btnNuevoProductoRapido').show();
                     
                     $('.btn-secondary[data-bs-dismiss="modal"]').show();
@@ -916,7 +913,11 @@ $(document).ready(function () {
                                    data-iva-id="${item.iva_alicuota_id}"
                                    data-iva="${item.iva_porcentaje || 21}"
                                    data-precio="${item.precio_final || ''}">
-                                    <strong>${item.producto_codigo}</strong> - ${item.producto_nombre}
+                                    <div class="d-flex justify-content-between">
+                                        <span><strong>${item.producto_codigo}</strong> - ${item.producto_nombre}</span>
+                                        <span class="text-success fw-bold ms-2">$${formatMoneda(item.precio_final || 0)}</span>
+                                    </div>
+                                    ${item.compatibilidad_texto ? '<small class="text-muted">' + item.compatibilidad_texto + '</small>' : ''}
                                 </a>`
                             );
                         });
@@ -1037,7 +1038,7 @@ $(document).ready(function () {
         $('#producto_iva_importe').val(ivaImporte.toFixed(2));
     }
 
-    $('#producto_cantidad, #producto_precio, #producto_iva, #producto_no_gravado, #producto_exento').on('input', function() {
+    $('#producto_cantidad, #producto_precio, #producto_iva').on('input', function() {
         calcularIvaImporte();
     });
 
@@ -1078,8 +1079,8 @@ $(document).ready(function () {
         var iva = parseFloat($('#producto_iva').val());
         var ivaId = $('#producto_iva_id').val() || obtenerIdIva(iva);
         var ivaImporte = parseFloat($('#producto_iva_importe').val()) || 0;
-        var noGravado = parseFloat($('#producto_no_gravado').val()) || 0;
-        var exento = parseFloat($('#producto_exento').val()) || 0;
+        var noGravado = 0;
+        var exento = 0;
         
         if (cantidad <= 0) {
             Swal.fire({
@@ -1137,8 +1138,6 @@ $(document).ready(function () {
         $('#producto_precio').val('');
         $('#producto_iva').val('');
         $('#producto_iva_importe').val('0.00');
-        $('#producto_no_gravado').val('0.00');
-        $('#producto_exento').val('0.00');
         
         $('#busqueda_producto').focus();
     });
@@ -1245,12 +1244,6 @@ $(document).ready(function () {
         $('#exento').val(totalExento.toFixed(2));
         $('#impuestos').val(totalImpuestos.toFixed(2));
         $('#total').val(totalGeneral.toFixed(2));
-        
-        $('#total_neto_display').text(formatMoneda(totalNeto));
-        $('#no_gravado_display').text(formatMoneda(totalNoGravado));
-        $('#exento_display').text(formatMoneda(totalExento));
-        $('#impuestos_display').text(formatMoneda(totalImpuestos));
-        $('#total_display').text(formatMoneda(totalGeneral));
 
         // Mismo resumen, replicado en la solapa "Datos del Pedido"
         $('#bruto_display_resumen').text(formatMoneda(totalBruto));
@@ -1324,8 +1317,6 @@ $(document).ready(function () {
             $('#producto_precio').val(detalle.precio_unitario);
             $('#producto_iva').val(detalle.iva_porcentaje);
             $('#producto_iva_importe').val(detalle.iva_importe);
-            $('#producto_no_gravado').val(detalle.no_gravado || 0);
-            $('#producto_exento').val(detalle.exento || 0);
             
             detalles = detalles.filter(function(item) {
                 return item.detalle_idx != idx;
@@ -1459,7 +1450,7 @@ $(document).ready(function () {
         var today = new Date().toISOString().split('T')[0];
         $('#f_emision').val(today);
 
-        var modal = new bootstrap.Modal(document.getElementById('modalVentaPedido'));
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaPedido'), { backdrop: 'static', keyboard: false });
         modal.show();
     });
 
@@ -1580,7 +1571,7 @@ $(document).ready(function () {
                     
                 }, 500);
 
-                var modal = new bootstrap.Modal(document.getElementById('modalVentaPedido'));
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaPedido'), { backdrop: 'static', keyboard: false });
                 modal.show();
             } else {
                 Swal.fire({

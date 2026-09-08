@@ -158,11 +158,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <span class="badge bg-primary rounded-pill ms-1" id="contador-productos">0</span>
                                                 </a>
                                             </li>
-                                            <li class="nav-item">
-                                                <a class="nav-link" id="tab-totales" data-bs-toggle="tab" href="#totales" role="tab">
-                                                    <i class="fas fa-calculator me-1"></i>Totales
-                                                </a>
-                                            </li>
                                         </ul>
                                     </div>
                                     <div class="card-body">
@@ -314,6 +309,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                <!-- Campos ocultos para enviar (antes vivían en la solapa Totales, ya eliminada) -->
+                                                <input type="hidden" id="total_neto" name="total_neto" value="0">
+                                                <input type="hidden" id="descuento_general_pct" name="descuento_general_pct" value="0">
+                                                <input type="hidden" id="descuentos" name="descuentos" value="0">
+                                                <input type="hidden" id="no_gravado" name="no_gravado" value="0">
+                                                <input type="hidden" id="exento" name="exento" value="0">
+                                                <input type="hidden" id="impuestos" name="impuestos" value="0">
+                                                <input type="hidden" id="total" name="total" value="0">
                                             </div>
 
                                             <!-- TAB 2: PRODUCTOS -->
@@ -325,16 +329,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     </div>
                                                     <div class="card-body py-2">
                                                         <div class="row g-2 align-items-end">
-                                                            <div class="col-md-3 position-relative">
+                                                            <div class="col-md-5 position-relative">
                                                                 <label class="small fw-bold">Producto</label>
                                                                 <input type="text" class="form-control form-control-sm" 
                                                                     id="busqueda_producto" 
-                                                                    placeholder="Buscar por código o nombre..."
+                                                                    placeholder="Buscar por código, nombre o compatibilidad..."
                                                                     autocomplete="off">
                                                                 <input type="hidden" id="producto_seleccionado_id">
                                                 <input type="hidden" id="producto_codigo_seleccionado">
                                                 <input type="hidden" id="producto_nombre_seleccionado">
-                                                                <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%; display: none; background: white; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+                                                                <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 280px; overflow-y: auto; width: 100%; display: none; background: white; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
                                                             </div>
                                                             <div class="col-md-1">
                                                                 <label class="small fw-bold">Cant.</label>
@@ -355,16 +359,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                 <label class="small fw-bold">IVA Importe</label>
                                                                 <input type="number" class="form-control form-control-sm no-spinner" 
                                                                     id="producto_iva_importe" step="0.01" min="0" value="0.00" readonly>
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small fw-bold">No Grav.</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_no_gravado" step="0.01" min="0" value="0.00">
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small fw-bold">Exento</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_exento" step="0.01" min="0" value="0.00">
                                                             </div>
                                                             <div class="col-md-1">
                                                                 <button type="button" class="btn btn-sm btn-success w-100" id="btnAgregarProducto">
@@ -393,77 +387,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <i class="fas fa-bolt me-1"></i>Nuevo Producto Rápido
                                                     </button>
                                                 </div>
-                                            </div>
-
-                                            <!-- TAB 3: TOTALES -->
-                                            <div class="tab-pane fade" id="totales" role="tabpanel">
-                                                <div class="row g-3">
-                                                    <!-- Resumen de totales en tarjetas -->
-                                                    <div class="col-12">
-                                                        <div class="row g-2">
-                                                            <div class="col-lg-3 col-md-6">
-                                                                <div class="info-box bg-light">
-                                                                    <span class="info-box-icon bg-success"><i class="fas fa-calculator"></i></span>
-                                                                    <div class="info-box-content">
-                                                                        <span class="info-box-text fw-bold">Total Neto</span>
-                                                                        <span class="info-box-number" id="total_neto_display">$0.00</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-lg-3 col-md-6">
-                                                                <div class="info-box bg-light">
-                                                                    <span class="info-box-icon bg-secondary"><i class="fas fa-circle-minus"></i></span>
-                                                                    <div class="info-box-content">
-                                                                        <span class="info-box-text fw-bold">No Gravado</span>
-                                                                        <span class="info-box-number" id="no_gravado_display">$0.00</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-lg-3 col-md-6">
-                                                                <div class="info-box bg-light">
-                                                                    <span class="info-box-icon bg-info"><i class="fas fa-circle-exclamation"></i></span>
-                                                                    <div class="info-box-content">
-                                                                        <span class="info-box-text fw-bold">Exento</span>
-                                                                        <span class="info-box-number" id="exento_display">$0.00</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-lg-3 col-md-6">
-                                                                <div class="info-box bg-light">
-                                                                    <span class="info-box-icon bg-warning"><i class="fas fa-percent"></i></span>
-                                                                    <div class="info-box-content">
-                                                                        <span class="info-box-text fw-bold">Impuestos</span>
-                                                                        <span class="info-box-number" id="impuestos_display">$0.00</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- Total general destacado -->
-                                                    <div class="col-12">
-                                                        <div class="card bg-primary text-white">
-                                                            <div class="card-body py-3">
-                                                                <div class="row align-items-center">
-                                                                    <div class="col-md-6">
-                                                                        <h5 class="mb-0"><i class="fas fa-credit-card me-2"></i>TOTAL DEL PEDIDO</h5>
-                                                                    </div>
-                                                                    <div class="col-md-6 text-md-end">
-                                                                        <h2 class="mb-0" id="total_display">$0.00</h2>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <!-- Campos ocultos para enviar -->
-                                                <input type="hidden" id="total_neto" name="total_neto" value="0">
-                                                <input type="hidden" id="descuento_general_pct" name="descuento_general_pct" value="0">
-                                                <input type="hidden" id="descuentos" name="descuentos" value="0">
-                                                <input type="hidden" id="no_gravado" name="no_gravado" value="0">
-                                                <input type="hidden" id="exento" name="exento" value="0">
-                                                <input type="hidden" id="impuestos" name="impuestos" value="0">
-                                                <input type="hidden" id="total" name="total" value="0">
                                             </div>
                                         </div>
                                     </div>

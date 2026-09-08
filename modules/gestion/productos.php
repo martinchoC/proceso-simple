@@ -145,6 +145,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="150">Marcas</th>
                                                     <th width="150">Modelos</th>
                                                     <th width="150">Submodelos</th>
+                                                    <th width="100">Años</th>
                                                     <th width="200">Ubicaciones</th>
                                                     <th width="80">Imagen</th>
                                                     <!-- Las columnas de cada lista de precios se agregan acá dinámicamente por JS (ver cargarListasPreciosYTabla) -->
@@ -3015,8 +3016,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 // Insertar en el thead un <th> coloreado por cada lista (siempre después de "Imagen" y antes de "Estado")
+                // Índice 7 = "Imagen" (0:Código, 1:Nombre, 2:Marcas, 3:Modelos, 4:Submodelos, 5:Años, 6:Ubicaciones, 7:Imagen)
                 $('#tablaProductos thead th.th-lista-precio').remove();
-                var $thAnterior = $('#tablaProductos thead th').eq(6);
+                var $thAnterior = $('#tablaProductos thead th').eq(7);
                 listasPrecios.forEach(function(lista) {
                     var color = colorPorLista(lista.lista_precio_id, lista.lista_precio_nombre);
                     var $th = $('<th class="th-lista-precio text-center" width="120"></th>')
@@ -3027,7 +3029,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 // Índices para exportar (todas las columnas visibles menos "Acciones", que siempre es la última)
-                var totalColumnas = 9 + listasPrecios.length; // 7 fijas antes del precio + N listas + Estado + Acciones
+                var totalColumnas = 10 + listasPrecios.length; // 8 fijas antes del precio (incluye Años) + N listas + Estado + Acciones
                 var exportCols = [];
                 for (var ie = 0; ie < totalColumnas - 1; ie++) exportCols.push(ie);
 
@@ -3134,6 +3136,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             data: 'submodelos_compatibles', width: '150px', responsivePriority: 9,
                             render: function(data) {
                                 return data ? '<span class="badge badge-compatibilidad bg-warning text-dark" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
+                            }
+                        },
+                        {
+                            data: 'compatibilidad_anios', width: '100px', className: 'text-center', responsivePriority: 9,
+                            render: function(data) {
+                                return data ? '<span class="badge bg-secondary" title="Años cubiertos según compatibilidad">' + data + '</span>' : '<span class="text-muted">-</span>';
                             }
                         },
                         {

@@ -438,6 +438,116 @@ function obtenerComprobanteGrupoPorId($conexion, $id, $empresa_idx)
 }
 
 // ===========================================
+// FUNCIONES PARA ASOCIACIÓN TABLA <-> SUBGRUPO DE COMPROBANTES
+// (conf__tablas_comprobantes_subgrupos)
+// ===========================================
+
+// ✅ Tablas candidatas para el desplegable: las que no tienen NINGÚN subgrupo
+// asociado todavía, más la que ya está asociada al subgrupo que se está editando
+// (si no se la incluyera, desaparecería del combo al editar).
+function obtenerTablasSinSubgrupoAsociado($conexion, $empresa_idx, $comprobante_subgrupo_id = 0)
+{
+    $empresa_idx = intval($empresa_idx);
+    $comprobante_subgrupo_id = intval($comprobante_subgrupo_id);
+
+    $sql = "SELECT t.tabla_id, t.tabla_nombre, t.tabla_descripcion
+            FROM conf__tablas t
+            WHERE t.tabla_estado_registro_id = 1
+              AND (
+                    NOT EXISTS (
+                        SELECT 1 FROM conf__tablas_comprobantes_subgrupos tcs
+                        WHERE tcs.tabla_id = t.tabla_id
+                          AND tcs.empresa_id = ?
+                          AND tcs.tabla_estado_registro_id = 1
+                    )
+                    OR EXISTS (
+                        SELECT 1 FROM conf__tablas_comprobantes_subgrupos tcs2
+                        WHERE tcs2.tabla_id = t.tabla_id
+                          AND tcs2.empresa_id = ?
+                          AND tcs2.comprobante_subgrupo_id = ?
+                          AND tcs2.tabla_estado_registro_id = 1
+                    )
+                  )
+            ORDER BY t.tabla_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "iii", $empresa_idx, $empresa_idx, $comprobante_subgrupo_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $tablas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $tablas[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $tablas;
+}
+
+// ✅ Verifica que una tabla no esté ya tomada por otro subgrupo (distinto del actual)
+// antes de guardar. Devuelve un mensaje de error, o null si está disponible.
+function validarTablaDisponible($conexion, $empresa_idx, $tabla_id, $comprobante_subgrupo_id_actual = 0)
+{
+    $tabla_id = intval($tabla_id);
+    $empresa_idx = intval($empresa_idx);
+    $comprobante_subgrupo_id_actual = intval($comprobante_subgrupo_id_actual);
+
+    $sql = "SELECT comprobante_subgrupo_id FROM conf__tablas_comprobantes_subgrupos
+            WHERE tabla_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1
+            AND comprobante_subgrupo_id != ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return 'Error en la consulta';
+
+    mysqli_stmt_bind_param($stmt, "iii", $tabla_id, $empresa_idx, $comprobante_subgrupo_id_actual);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $existente = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    return $existente ? 'Esa tabla ya está asociada a otro subgrupo de comprobantes' : null;
+}
+
+// ✅ Sincroniza la asociación tabla<->subgrupo (selección única desde el desplegable).
+// Se llama DESPUÉS de validarTablaDisponible(), una vez que el subgrupo ya existe.
+function guardarAsociacionTablaSubgrupo($conexion, $comprobante_subgrupo_id, $empresa_idx, $tabla_id)
+{
+    $comprobante_subgrupo_id = intval($comprobante_subgrupo_id);
+    $empresa_idx = intval($empresa_idx);
+    $tabla_id = intval($tabla_id);
+
+    // Quitar cualquier asociación previa de este subgrupo (selección única)
+    $sql_delete = "DELETE FROM conf__tablas_comprobantes_subgrupos 
+                   WHERE comprobante_subgrupo_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_delete);
+    if ($stmt) {
+        mysqli_stmt_bind_param($stmt, "ii", $comprobante_subgrupo_id, $empresa_idx);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
+
+    if ($tabla_id <= 0) {
+        return true; // Quedó sin tabla asociada
+    }
+
+    $sql_insert = "INSERT INTO conf__tablas_comprobantes_subgrupos 
+                   (tabla_id, empresa_id, comprobante_subgrupo_id, tabla_estado_registro_id)
+                   VALUES (?, ?, ?, 1)";
+    $stmt = mysqli_prepare($conexion, $sql_insert);
+    if (!$stmt)
+        return false;
+
+    mysqli_stmt_bind_param($stmt, "iii", $tabla_id, $empresa_idx, $comprobante_subgrupo_id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    return $success;
+}
+
+// ===========================================
 // FUNCIONES PARA SUBGRUPOS DE COMPROBANTES
 // ===========================================
 
@@ -523,10 +633,16 @@ function obtenerSubgruposAgrupadosPorGrupo($conexion, $empresa_idx, $pagina_id)
     $sql = "SELECT cs.comprobante_subgrupo_id, cs.comprobante_subgrupo, cs.orden,
                    cs.comprobante_grupo_id, cs.tabla_estado_registro_id,
                    er.estado_registro, er.codigo_estandar,
-                   c.color_clase, c.bg_clase, c.text_clase
+                   c.color_clase, c.bg_clase, c.text_clase,
+                   t.tabla_id, t.tabla_nombre
             FROM gestion__comprobantes_subgrupos cs
             LEFT JOIN conf__estados_registros er ON cs.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
+            LEFT JOIN conf__tablas_comprobantes_subgrupos tcs 
+                   ON tcs.comprobante_subgrupo_id = cs.comprobante_subgrupo_id
+                  AND tcs.empresa_id = cs.empresa_id
+                  AND tcs.tabla_estado_registro_id = 1
+            LEFT JOIN conf__tablas t ON t.tabla_id = tcs.tabla_id
             WHERE cs.empresa_id = ?
             ORDER BY cs.comprobante_grupo_id, cs.orden, cs.comprobante_subgrupo";
 
@@ -552,6 +668,11 @@ function obtenerSubgruposAgrupadosPorGrupo($conexion, $empresa_idx, $pagina_id)
             'bg_clase' => $bg_clase,
             'text_clase' => $text_clase
         ];
+
+        $fila['tabla_asociada'] = $fila['tabla_id'] ? [
+            'tabla_id' => $fila['tabla_id'],
+            'tabla_nombre' => $fila['tabla_nombre']
+        ] : null;
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         
@@ -694,6 +815,15 @@ function agregarComprobanteSubgrupo($conexion, $data)
         return ['resultado' => false, 'error' => 'ID de grupo inválido'];
     }
 
+    // Tabla a asociar (opcional) — 0/vacío = sin tabla asociada
+    $tabla_id = intval($data['tabla_id'] ?? 0);
+    if ($tabla_id > 0) {
+        $error_tabla = validarTablaDisponible($conexion, $empresa_idx, $tabla_id, 0);
+        if ($error_tabla) {
+            return ['resultado' => false, 'error' => $error_tabla];
+        }
+    }
+
     $estado_inicial = obtenerEstadoInicial($conexion);
 
     // Verificar duplicados (mismo nombre + mismo grupo + misma empresa)
@@ -728,6 +858,9 @@ function agregarComprobanteSubgrupo($conexion, $data)
     if ($success) {
         $comprobante_subgrupo_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
+
+        guardarAsociacionTablaSubgrupo($conexion, $comprobante_subgrupo_id, $empresa_idx, $tabla_id);
+
         return ['resultado' => true, 'comprobante_subgrupo_id' => $comprobante_subgrupo_id];
     } else {
         mysqli_stmt_close($stmt);
@@ -754,6 +887,15 @@ function editarComprobanteSubgrupo($conexion, $id, $data)
 
     if ($comprobante_grupo_id <= 0) {
         return ['resultado' => false, 'error' => 'ID de grupo inválido'];
+    }
+
+    // Tabla a asociar (opcional) — 0/vacío = sin tabla asociada
+    $tabla_id = intval($data['tabla_id'] ?? 0);
+    if ($tabla_id > 0) {
+        $error_tabla = validarTablaDisponible($conexion, $empresa_idx, $tabla_id, $id);
+        if ($error_tabla) {
+            return ['resultado' => false, 'error' => $error_tabla];
+        }
     }
 
     // Verificar que el subgrupo pertenezca a la empresa
@@ -807,6 +949,7 @@ function editarComprobanteSubgrupo($conexion, $id, $data)
     mysqli_stmt_close($stmt);
 
     if ($success) {
+        guardarAsociacionTablaSubgrupo($conexion, $id, $empresa_idx, $tabla_id);
         return ['resultado' => true];
     } else {
         return ['resultado' => false, 'error' => 'Error al actualizar el subgrupo de comprobante'];
@@ -821,10 +964,16 @@ function obtenerComprobanteSubgrupoPorId($conexion, $id, $empresa_idx)
 
     $sql = "SELECT cs.comprobante_subgrupo_id, cs.comprobante_subgrupo, cs.orden,
                    cs.comprobante_grupo_id, cs.tabla_estado_registro_id,
-                   er.estado_registro, er.codigo_estandar
+                   er.estado_registro, er.codigo_estandar,
+                   tcs.tabla_id
             FROM gestion__comprobantes_subgrupos cs
             LEFT JOIN conf__estados_registros er ON cs.tabla_estado_registro_id = er.estado_registro_id
-            WHERE cs.comprobante_subgrupo_id = ? AND cs.empresa_id = ?";
+            LEFT JOIN conf__tablas_comprobantes_subgrupos tcs 
+                   ON tcs.comprobante_subgrupo_id = cs.comprobante_subgrupo_id
+                  AND tcs.empresa_id = cs.empresa_id
+                  AND tcs.tabla_estado_registro_id = 1
+            WHERE cs.comprobante_subgrupo_id = ? AND cs.empresa_id = ?
+            LIMIT 1";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)

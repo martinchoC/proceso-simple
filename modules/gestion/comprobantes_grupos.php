@@ -47,18 +47,84 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <!-- Botones se cargarán dinámicamente -->
                                         </div>
                                         <div class="float-end">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                id="btnRecargar">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </button>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    id="btnRecargar" title="Recargar tabla">
+                                                    <i class="fas fa-sync-alt"></i>
+                                                </button>
+                                                <button type="button"
+                                                    class="btn btn-sm btn-outline-success dropdown-toggle"
+                                                    data-bs-toggle="dropdown" aria-expanded="false"
+                                                    title="Exportar datos">
+                                                    <i class="fas fa-file-export"></i> Exportar
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li><a class="dropdown-item" href="#" id="btnExportarExcel"><i
+                                                                class="fas fa-file-excel text-success"></i> Excel</a>
+                                                    </li>
+                                                    <li><a class="dropdown-item" href="#" id="btnExportarPDF"><i
+                                                                class="fas fa-file-pdf text-danger"></i> PDF</a></li>
+                                                    <li>
+                                                        <hr class="dropdown-divider">
+                                                    </li>
+                                                    <li><a class="dropdown-item" href="#" id="btnExportarCSV"><i
+                                                                class="fas fa-file-csv text-primary"></i> CSV</a></li>
+                                                    <li><a class="dropdown-item" href="#" id="btnExportarPrint"><i
+                                                                class="fas fa-print text-secondary"></i> Imprimir</a>
+                                                    </li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div class="card-body">
-                                        <!-- Lista jerárquica manual -->
-                                        <div id="arbolComprobantes" class="list-group">
-                                            <!-- Los grupos y subgrupos se cargarán aquí -->
+                                        <!-- Filtros -->
+                                        <div class="row mb-3">
+                                            <div class="col-md-3">
+                                                <label for="filtroTipo" class="form-label">Filtrar por Tipo</label>
+                                                <select class="form-select form-select-sm" id="filtroTipo">
+                                                    <option value="">Todos</option>
+                                                    <option value="grupo">Grupos</option>
+                                                    <option value="subgrupo">Subgrupos</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="filtroGrupoPadre" class="form-label">Filtrar por Grupo</label>
+                                                <select class="form-select form-select-sm" id="filtroGrupoPadre">
+                                                    <option value="">Todos los grupos</option>
+                                                    <!-- Se llena dinámicamente -->
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="filtroEstadoGrupo" class="form-label">Filtrar por Estado</label>
+                                                <select class="form-select form-select-sm" id="filtroEstadoGrupo">
+                                                    <option value="">Todos los estados</option>
+                                                    <!-- Se llena dinámicamente -->
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3 d-flex align-items-end">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltrosGrupos">
+                                                    <i class="fas fa-filter-circle-xmark me-1"></i>Limpiar Filtros
+                                                </button>
+                                            </div>
                                         </div>
+
+                                        <!-- DataTable -->
+                                        <table id="tablaGruposSubgrupos" class="table table-striped table-bordered"
+                                            style="width:100%">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th width="100">Tipo</th>
+                                                    <th>Nombre</th>
+                                                    <th width="180">Grupo</th>
+                                                    <th width="180">Tabla Asociada</th>
+                                                    <th width="80">Orden</th>
+                                                    <th width="120">Estado</th>
+                                                    <th width="180" class="text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
@@ -134,6 +200,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <small class="text-muted">Número para ordenar los subgrupos dentro del grupo (menor número = primero)</small>
                                 </div>
                                 <div class="mb-3">
+                                    <label for="tabla_id" class="form-label">Tabla Asociada</label>
+                                    <select class="form-select" id="tabla_id" name="tabla_id">
+                                        <option value="0">Sin tabla asociada</option>
+                                        <!-- Se llena dinámicamente: tablas sin subgrupo asociado + la actual -->
+                                    </select>
+                                    <small class="text-muted">Sólo se listan las tablas que todavía no tienen un
+                                        subgrupo asociado</small>
+                                </div>
+                                <div class="mb-3">
                                     <label class="form-label">Grupo Padre</label>
                                     <div class="form-control bg-light">
                                         <span id="nombre_grupo_padre" class="fw-bold text-primary">Seleccionar grupo primero</span>
@@ -202,24 +277,241 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         `;
                     }
                     
-                    // Botón para expandir/colapsar todos
-                    htmlBotones += `
-                        <button type="button" class="btn btn-outline-info me-2" id="btnExpandirTodo">
-                            <i class="fas fa-expand-alt me-1"></i>Expandir Todo
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary me-2" id="btnColapsarTodo">
-                            <i class="fas fa-compress-alt me-1"></i>Colapsar Todo
-                        </button>
-                    `;
-                    
                     $('#contenedor-botones').html(htmlBotones);
                 }, 'json');
             }
 
-            // Cargar jerarquía completa
+            // Cargar el desplegable de tablas disponibles para asociar a un subgrupo
+            // (tablas sin subgrupo asociado + la tabla actual del subgrupo, si se está editando)
+            function cargarTablasDisponibles(comprobanteSubgrupoId, tablaSeleccionadaId) {
+                return $.get('comprobantes_grupos_ajax.php', {
+                    accion: 'obtener_tablas_disponibles',
+                    empresa_idx: empresa_idx,
+                    comprobante_subgrupo_id: comprobanteSubgrupoId || 0
+                }, function (data) {
+                    $('#tabla_id').empty().append('<option value="0">Sin tabla asociada</option>');
+                    $.each(data, function (index, tabla) {
+                        $('#tabla_id').append('<option value="' + tabla.tabla_id + '">' + tabla.tabla_nombre + '</option>');
+                    });
+                    if (tablaSeleccionadaId) {
+                        $('#tabla_id').val(tablaSeleccionadaId);
+                    }
+                }, 'json');
+            }
+
+            // Instancia del DataTable
+            var tablaDT;
+
+            // Determina clase de badge según código de estado estándar
+            function badgeClasePorEstado(codigoEstandar) {
+                if (codigoEstandar === 'ACTIVO') return 'bg-success';
+                if (codigoEstandar === 'BLOQUEADO') return 'bg-warning';
+                if (codigoEstandar === 'INACTIVO') return 'bg-secondary';
+                return 'bg-secondary';
+            }
+
+            // Aplana grupos + subgrupos (jerarquía) en filas de tabla, agrupando visualmente
+            // cada grupo justo antes de sus propios subgrupos.
+            function aplanarJerarquia(grupos, subgruposPorGrupo) {
+                var filas = [];
+
+                grupos.forEach(function (grupo) {
+                    filas.push({
+                        id: grupo.comprobante_grupo_id,
+                        tipo: 'grupo',
+                        nombre: grupo.comprobante_grupo,
+                        grupo_id: grupo.comprobante_grupo_id,
+                        grupo_nombre: '—',
+                        tabla_nombre: null,
+                        orden: grupo.orden || 0,
+                        estado_info: grupo.estado_info,
+                        botones: grupo.botones || []
+                    });
+
+                    var hijos = (subgruposPorGrupo[grupo.comprobante_grupo_id] || []).slice();
+                    hijos.sort((a, b) => (a.orden || 0) - (b.orden || 0) || a.comprobante_subgrupo.localeCompare(b.comprobante_subgrupo));
+
+                    hijos.forEach(function (subgrupo) {
+                        filas.push({
+                            id: subgrupo.comprobante_subgrupo_id,
+                            tipo: 'subgrupo',
+                            nombre: subgrupo.comprobante_subgrupo,
+                            grupo_id: grupo.comprobante_grupo_id,
+                            grupo_nombre: grupo.comprobante_grupo,
+                            tabla_nombre: subgrupo.tabla_asociada ? subgrupo.tabla_asociada.tabla_nombre : null,
+                            orden: subgrupo.orden || 0,
+                            estado_info: subgrupo.estado_info,
+                            botones: subgrupo.botones || []
+                        });
+                    });
+                });
+
+                return filas;
+            }
+
+            // Arma el HTML de los botones de acción de una fila (comunes a grupo/subgrupo,
+            // más "Agregar Subgrupo" cuando la fila es un grupo)
+            function renderAcciones(fila) {
+                var html = '<div class="btn-group">';
+
+                (fila.botones || []).forEach(function (boton) {
+                    var claseBoton = 'btn-accion-arbre ';
+                    if (boton.bg_clase && boton.text_clase) {
+                        claseBoton += boton.bg_clase + ' ' + boton.text_clase;
+                    } else if (boton.color_clase) {
+                        claseBoton += boton.color_clase;
+                    } else {
+                        claseBoton += 'btn-outline-primary';
+                    }
+
+                    var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
+                    var titulo = boton.descripcion || boton.nombre_funcion;
+
+                    html += `
+                        <button type="button" class="btn btn-sm ${claseBoton}"
+                                title="${titulo}"
+                                data-id="${fila.id}"
+                                data-tipo="${fila.tipo}"
+                                data-accion="${boton.accion_js}"
+                                data-confirmable="${boton.es_confirmable || 0}"
+                                data-nombre="${fila.nombre}">
+                            ${icono}
+                        </button>
+                    `;
+                });
+
+                if (fila.tipo === 'grupo') {
+                    html += `
+                        <button type="button" class="btn btn-sm btn-success btn-agregar-subgrupo"
+                                title="Agregar Subgrupo"
+                                data-grupo-id="${fila.id}"
+                                data-grupo-nombre="${fila.nombre}">
+                            <i class="fas fa-plus-circle"></i>
+                        </button>
+                    `;
+                }
+
+                html += '</div>';
+                return html;
+            }
+
+            // Poblar los filtros de Grupo y Estado a partir de los datos ya cargados
+            function poblarFiltros(filas) {
+                var gruposUnicos = {};
+                var estadosUnicos = {};
+
+                filas.forEach(function (fila) {
+                    if (fila.tipo === 'grupo') {
+                        gruposUnicos[fila.id] = fila.nombre;
+                    }
+                    if (fila.estado_info) {
+                        estadosUnicos[fila.estado_info.codigo_estandar] = fila.estado_info.estado_registro;
+                    }
+                });
+
+                var selGrupo = $('#filtroGrupoPadre').val();
+                $('#filtroGrupoPadre').empty().append('<option value="">Todos los grupos</option>');
+                $.each(gruposUnicos, function (id, nombre) {
+                    $('#filtroGrupoPadre').append('<option value="' + id + '">' + nombre + '</option>');
+                });
+                $('#filtroGrupoPadre').val(selGrupo);
+
+                var selEstado = $('#filtroEstadoGrupo').val();
+                $('#filtroEstadoGrupo').empty().append('<option value="">Todos los estados</option>');
+                $.each(estadosUnicos, function (codigo, nombre) {
+                    $('#filtroEstadoGrupo').append('<option value="' + codigo + '">' + nombre + '</option>');
+                });
+                $('#filtroEstadoGrupo').val(selEstado);
+            }
+
+            // Inicializar el DataTable (una sola vez)
+            function inicializarDataTable() {
+                tablaDT = $('#tablaGruposSubgrupos').DataTable({
+                    data: [],
+                    columns: [
+                        {
+                            data: 'tipo',
+                            render: function (data) {
+                                return data === 'grupo'
+                                    ? '<span class="badge bg-warning text-dark"><i class="fas fa-folder me-1"></i>Grupo</span>'
+                                    : '<span class="badge bg-info text-dark"><i class="fas fa-folder-open me-1"></i>Subgrupo</span>';
+                            }
+                        },
+                        {
+                            data: 'nombre',
+                            render: function (data, type, fila) {
+                                return fila.tipo === 'grupo' ? '<strong>' + data + '</strong>' : data;
+                            }
+                        },
+                        { data: 'grupo_nombre' },
+                        {
+                            data: 'tabla_nombre',
+                            render: function (data) {
+                                return data ? data : '<span class="text-muted">—</span>';
+                            }
+                        },
+                        { data: 'orden' },
+                        {
+                            data: 'estado_info',
+                            render: function (data) {
+                                var badge = badgeClasePorEstado(data ? data.codigo_estandar : null);
+                                var texto = data ? data.estado_registro : 'Sin estado';
+                                return '<span class="badge ' + badge + '">' + texto + '</span>';
+                            }
+                        },
+                        {
+                            data: null,
+                            orderable: false,
+                            className: 'text-center',
+                            render: function (data, type, fila) {
+                                return renderAcciones(fila);
+                            }
+                        }
+                    ],
+                    order: [],
+                    pageLength: 25,
+                    language: {
+                        emptyTable: 'No hay grupos ni subgrupos de comprobantes registrados',
+                        zeroRecords: 'No se encontraron registros con los filtros aplicados',
+                        search: 'Buscar:',
+                        lengthMenu: 'Mostrar _MENU_ registros',
+                        info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
+                        infoEmpty: 'Sin registros',
+                        paginate: { previous: 'Anterior', next: 'Siguiente' }
+                    },
+                    dom: 'Bfrtip',
+                    buttons: ['excel', 'pdf', 'csv', 'print']
+                });
+
+                // Filtro personalizado: Tipo / Grupo / Estado
+                $.fn.dataTable.ext.search.push(function (settings, searchData, index, rowData) {
+                    if (settings.nTable.id !== 'tablaGruposSubgrupos') return true;
+
+                    var fTipo = $('#filtroTipo').val();
+                    var fGrupo = $('#filtroGrupoPadre').val();
+                    var fEstado = $('#filtroEstadoGrupo').val();
+
+                    if (fTipo && rowData.tipo !== fTipo) return false;
+                    if (fGrupo && String(rowData.grupo_id) !== String(fGrupo)) return false;
+                    if (fEstado && (!rowData.estado_info || rowData.estado_info.codigo_estandar !== fEstado)) return false;
+
+                    return true;
+                });
+
+                $('#filtroTipo, #filtroGrupoPadre, #filtroEstadoGrupo').on('change', function () {
+                    tablaDT.draw();
+                });
+
+                $('#btnLimpiarFiltrosGrupos').on('click', function () {
+                    $('#filtroTipo').val('');
+                    $('#filtroGrupoPadre').val('');
+                    $('#filtroEstadoGrupo').val('');
+                    tablaDT.draw();
+                });
+            }
+
+            // Cargar jerarquía completa y volcarla en el DataTable
             function cargarJerarquia() {
-                $('#arbolComprobantes').html('<div class="text-center p-4"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2">Cargando jerarquía...</p></div>');
-                
                 $.get('comprobantes_grupos_ajax.php', {
                     accion: 'listar_jerarquia',
                     empresa_idx: empresa_idx,
@@ -229,251 +521,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     if (res && res.grupos) {
                         gruposData = res.grupos;
                         subgruposData = res.subgrupos || {};
-                        
-                        // Ordenar grupos por orden
+
                         gruposData.sort((a, b) => (a.orden || 0) - (b.orden || 0) || a.comprobante_grupo.localeCompare(b.comprobante_grupo));
-                        
-                        renderizarJerarquia();
+
+                        var filas = aplanarJerarquia(gruposData, subgruposData);
+                        poblarFiltros(filas);
+
+                        tablaDT.clear();
+                        tablaDT.rows.add(filas);
+                        tablaDT.draw();
                     } else {
-                        $('#arbolComprobantes').html('<div class="alert alert-warning">No se encontraron grupos de comprobantes</div>');
-                    }
-                }, 'json').fail(function() {
-                    $('#arbolComprobantes').html('<div class="alert alert-danger">Error al cargar los datos</div>');
-                });
-            }
-
-            // Renderizar la jerarquía en el DOM
-            function renderizarJerarquia() {
-                var html = '';
-                
-                gruposData.forEach(function(grupo) {
-                    // Determinar clase CSS según estado
-                    var estadoClase = '';
-                    if (grupo.estado_info && grupo.estado_info.codigo_estandar === 'INACTIVO') {
-                        estadoClase = 'inactivo';
-                    } else if (grupo.estado_info && grupo.estado_info.codigo_estandar === 'BLOQUEADO') {
-                        estadoClase = 'bloqueado';
-                    }
-                    
-                    // Determinar color del badge de estado
-                    var badgeClase = 'bg-secondary';
-                    if (grupo.estado_info && grupo.estado_info.codigo_estandar === 'ACTIVO') {
-                        badgeClase = 'bg-success';
-                    } else if (grupo.estado_info && grupo.estado_info.codigo_estandar === 'INACTIVO') {
-                        badgeClase = 'bg-secondary';
-                    } else if (grupo.estado_info && grupo.estado_info.codigo_estandar === 'BLOQUEADO') {
-                        badgeClase = 'bg-warning';
-                    }
-                    
-                    // Verificar si el grupo tiene subgrupos
-                    var tieneSubgrupos = subgruposData[grupo.comprobante_grupo_id] && 
-                                       subgruposData[grupo.comprobante_grupo_id].length > 0;
-                    
-                    // Grupo
-                    html += `
-                        <div class="list-group-item list-group-item-action list-group-item-grupo ${estadoClase}" 
-                             data-id="${grupo.comprobante_grupo_id}" 
-                             data-tipo="grupo">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    ${tieneSubgrupos ? `
-                                    <button class="btn btn-sm btn-outline-secondary btn-expander-arbre me-2" 
-                                            data-id="${grupo.comprobante_grupo_id}"
-                                            data-expanded="true">
-                                        <i class="fas fa-minus-circle fa-xs"></i>
-                                    </button>
-                                    ` : '<span class="me-4"></span>'}
-                                    <i class="fas fa-folder text-warning me-2"></i>
-                                    <div>
-                                        <strong>${grupo.comprobante_grupo}</strong>
-                                        <div class="text-muted small">
-                                            ID: ${grupo.comprobante_grupo_id} | Orden: ${grupo.orden || 0}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge ${badgeClase} badge-estado me-3">
-                                        ${grupo.estado_info ? grupo.estado_info.estado_registro : 'Sin estado'}
-                                    </span>
-                                    <div class="btn-group">
-                    `;
-                    
-                    // Botones de acción del grupo
-                    if (grupo.botones && grupo.botones.length > 0) {
-                        grupo.botones.forEach(function(boton) {
-                            var claseBoton = 'btn-accion-arbre ';
-                            if (boton.bg_clase && boton.text_clase) {
-                                claseBoton += boton.bg_clase + ' ' + boton.text_clase;
-                            } else if (boton.color_clase) {
-                                claseBoton += boton.color_clase;
-                            } else {
-                                claseBoton += 'btn-outline-primary';
-                            }
-                            
-                            var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
-                            var titulo = boton.descripcion || boton.nombre_funcion;
-                            
-                            html += `
-                                <button type="button" class="btn ${claseBoton}" 
-                                        title="${titulo}"
-                                        data-id="${grupo.comprobante_grupo_id}"
-                                        data-tipo="grupo"
-                                        data-accion="${boton.accion_js}"
-                                        data-confirmable="${boton.es_confirmable || 0}"
-                                        data-nombre="${grupo.comprobante_grupo}">
-                                    ${icono}
-                                </button>
-                            `;
+                        tablaDT.clear().draw();
+                        Swal.fire({
+                            icon: "warning",
+                            title: "Sin datos",
+                            text: "No se encontraron grupos de comprobantes"
                         });
                     }
-                    
-                    // Botón para agregar subgrupo
-                    html += `
-                                        <button type="button" class="btn btn-success btn-sm btn-agregar-subgrupo" 
-                                                title="Agregar Subgrupo"
-                                                data-grupo-id="${grupo.comprobante_grupo_id}"
-                                                data-grupo-nombre="${grupo.comprobante_grupo}">
-                                            <i class="fas fa-plus-circle"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    // Subgrupos (si tiene y están expandidos)
-                    if (tieneSubgrupos) {
-                        // Ordenar subgrupos
-                        var subgruposOrdenados = subgruposData[grupo.comprobante_grupo_id].sort((a, b) => 
-                            (a.orden || 0) - (b.orden || 0) || a.comprobante_subgrupo.localeCompare(b.comprobante_subgrupo)
-                        );
-                        
-                        subgruposOrdenados.forEach(function(subgrupo) {
-                            // Determinar clase CSS según estado
-                            var subEstadoClase = '';
-                            if (subgrupo.estado_info && subgrupo.estado_info.codigo_estandar === 'INACTIVO') {
-                                subEstadoClase = 'inactivo';
-                            } else if (subgrupo.estado_info && subgrupo.estado_info.codigo_estandar === 'BLOQUEADO') {
-                                subEstadoClase = 'bloqueado';
-                            }
-                            
-                            // Determinar color del badge de estado
-                            var subBadgeClase = 'bg-secondary';
-                            if (subgrupo.estado_info && subgrupo.estado_info.codigo_estandar === 'ACTIVO') {
-                                subBadgeClase = 'bg-success';
-                            } else if (subgrupo.estado_info && subgrupo.estado_info.codigo_estandar === 'INACTIVO') {
-                                subBadgeClase = 'bg-secondary';
-                            } else if (subgrupo.estado_info && subgrupo.estado_info.codigo_estandar === 'BLOQUEADO') {
-                                subBadgeClase = 'bg-warning';
-                            }
-                            
-                            html += `
-                                <div class="list-group-item list-group-item-action list-group-item-subgrupo ${subEstadoClase} grupo-${grupo.comprobante_grupo_id}" 
-                                     data-id="${subgrupo.comprobante_subgrupo_id}" 
-                                     data-tipo="subgrupo"
-                                     data-grupo-padre="${grupo.comprobante_grupo_id}">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div class="d-flex align-items-center">
-                                            <span class="me-4"></span> <!-- Espacio para alinear con el botón expander -->
-                                            <i class="fas fa-folder-open text-info me-2"></i>
-                                            <div>
-                                                ${subgrupo.comprobante_subgrupo}
-                                                <div class="text-muted small">
-                                                    ID: ${subgrupo.comprobante_subgrupo_id} | Orden: ${subgrupo.orden || 0}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex align-items-center">
-                                            <span class="badge ${subBadgeClase} badge-estado me-3">
-                                                ${subgrupo.estado_info ? subgrupo.estado_info.estado_registro : 'Sin estado'}
-                                            </span>
-                                            <div class="btn-group">
-                            `;
-                            
-                            // Botones de acción del subgrupo
-                            if (subgrupo.botones && subgrupo.botones.length > 0) {
-                                subgrupo.botones.forEach(function(boton) {
-                                    var claseBoton = 'btn-accion-arbre ';
-                                    if (boton.bg_clase && boton.text_clase) {
-                                        claseBoton += boton.bg_clase + ' ' + boton.text_clase;
-                                    } else if (boton.color_clase) {
-                                        claseBoton += boton.color_clase;
-                                    } else {
-                                        claseBoton += 'btn-outline-primary';
-                                    }
-                                    
-                                    var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
-                                    var titulo = boton.descripcion || boton.nombre_funcion;
-                                    
-                                    html += `
-                                        <button type="button" class="btn ${claseBoton}" 
-                                                title="${titulo}"
-                                                data-id="${subgrupo.comprobante_subgrupo_id}"
-                                                data-tipo="subgrupo"
-                                                data-accion="${boton.accion_js}"
-                                                data-confirmable="${boton.es_confirmable || 0}"
-                                                data-nombre="${subgrupo.comprobante_subgrupo}">
-                                            ${icono}
-                                        </button>
-                                    `;
-                                });
-                            }
-                            
-                            html += `
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                    }
+                }, 'json').fail(function () {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: "Error al cargar los datos"
+                    });
                 });
-                
-                $('#arbolComprobantes').html(html || '<div class="alert alert-info">No hay grupos de comprobantes registrados</div>');
             }
-
-            // ===========================================
-            // MANEJO DE EXPANSIÓN/COLAPSO
-            // ===========================================
-
-            $(document).on('click', '.btn-expander-arbre', function() {
-                var btn = $(this);
-                var grupoId = btn.data('id');
-                var expanded = btn.data('expanded') === true;
-                var icon = btn.find('i');
-                
-                if (expanded) {
-                    // Colapsar
-                    $(`.grupo-${grupoId}`).slideUp(200);
-                    icon.removeClass('fa-minus-circle').addClass('fa-plus-circle');
-                    btn.data('expanded', false);
-                } else {
-                    // Expandir
-                    $(`.grupo-${grupoId}`).slideDown(200);
-                    icon.removeClass('fa-plus-circle').addClass('fa-minus-circle');
-                    btn.data('expanded', true);
-                }
-            });
-
-            // Expandir todos
-            $('#btnExpandirTodo').click(function() {
-                $('.btn-expander-arbre').each(function() {
-                    var btn = $(this);
-                    if (!btn.data('expanded')) {
-                        btn.trigger('click');
-                    }
-                });
-            });
-
-            // Colapsar todos
-            $('#btnColapsarTodo').click(function() {
-                $('.btn-expander-arbre').each(function() {
-                    var btn = $(this);
-                    if (btn.data('expanded')) {
-                        btn.trigger('click');
-                    }
-                });
-            });
 
             // ===========================================
             // MANEJO DE GRUPOS
@@ -502,6 +574,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#orden_subgrupo').val(0);
                 $('#grupo_padre_id').val(grupoSeleccionadoId);
                 $('#nombre_grupo_padre').text(grupoSeleccionadoNombre);
+                cargarTablasDisponibles(0, null);
 
                 var modal = new bootstrap.Modal(document.getElementById('modalComprobanteSubgrupo'));
                 modal.show();
@@ -625,6 +698,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#orden_subgrupo').val(res.orden || 0);
                         $('#grupo_padre_id').val(res.comprobante_grupo_id);
                         $('#modalSubgrupoLabel').text('Editar Subgrupo de Comprobante');
+                        cargarTablasDisponibles(res.comprobante_subgrupo_id, res.tabla_id || 0);
                         
                         // Obtener nombre del grupo padre
                         $.get('comprobantes_grupos_ajax.php', {
@@ -741,6 +815,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 var subgrupoNombre = $('#comprobante_subgrupo').val().trim();
                 var grupoPadreId = $('#grupo_padre_id').val();
                 var orden = $('#orden_subgrupo').val() || 0;
+                var tablaId = $('#tabla_id').val() || 0;
 
                 if (!subgrupoNombre || !grupoPadreId) {
                     if (!subgrupoNombre) $('#comprobante_subgrupo').addClass('is-invalid');
@@ -761,7 +836,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         comprobante_subgrupo: subgrupoNombre,
                         orden: orden,
                         empresa_idx: empresa_idx,
-                        pagina_idx: pagina_subgrupos_idx
+                        pagina_idx: pagina_subgrupos_idx,
+                        tabla_id: tablaId
                     },
                     success: function (res) {
                         if (res.resultado) {
@@ -818,6 +894,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#comprobante_subgrupo_id').val('');
                 $('#grupo_padre_id').val('');
                 $('#nombre_grupo_padre').text('Seleccionar grupo primero');
+                $('#tabla_id').empty().append('<option value="0">Sin tabla asociada</option>');
                 $('#formComprobanteSubgrupo').removeClass('was-validated');
             }
 
@@ -825,7 +902,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // INICIALIZACIÓN
             // ===========================================
 
+            // Manejadores para los botones del dropdown de exportación
+            $('#btnExportarExcel').click(function (e) {
+                e.preventDefault();
+                $('.buttons-excel').click();
+            });
+            $('#btnExportarPDF').click(function (e) {
+                e.preventDefault();
+                $('.buttons-pdf').click();
+            });
+            $('#btnExportarCSV').click(function (e) {
+                e.preventDefault();
+                $('.buttons-csv').click();
+            });
+            $('#btnExportarPrint').click(function (e) {
+                e.preventDefault();
+                $('.buttons-print').click();
+            });
+
             cargarBotonesPrincipales();
+            inicializarDataTable();
             cargarJerarquia();
 
             // Botón recargar
@@ -841,60 +937,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </script>
     
     <style>
-        .list-group-item-grupo {
-            background-color: #f8f9fa;
-            border-left: 4px solid #ffc107;
-            font-weight: bold;
-            padding-left: 15px;
+        .dt-buttons .btn {
+            margin-right: 5px;
+            margin-bottom: 5px;
         }
-        
-        .list-group-item-subgrupo {
-            background-color: white;
-            border-left: 4px solid #0dcaf0;
-            padding-left: 40px;
+        .dt-button-collection .dropdown-menu {
+            margin-top: 5px;
         }
-        
-        .list-group-item.inactivo {
-            background-color: #f8d7da;
-            color: #721c24;
+        .dataTables_wrapper .dt-buttons {
+            display: none; /* se usa el dropdown propio del card-header en su lugar */
         }
-        
-        .list-group-item.bloqueado {
-            background-color: #fff3cd;
-            color: #856404;
+        .dropdown-menu .dropdown-item i {
+            width: 20px;
+            text-align: center;
+            margin-right: 8px;
         }
-        
-        .badge-estado {
-            min-width: 80px;
-        }
-        
         .btn-accion-arbre {
             padding: 2px 6px;
             font-size: 12px;
             margin-right: 3px;
-        }
-        
-        .btn-expander-arbre {
-            width: 24px;
-            height: 24px;
-            padding: 0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-        }
-        
-        .nombre-celda {
-            min-width: 300px;
-        }
-        
-        .btn-agregar-subgrupo {
-            margin-left: 5px;
-        }
-        
-        /* Resaltar fila al pasar el mouse */
-        .list-group-item-action:hover {
-            background-color: rgba(0, 123, 255, 0.1) !important;
         }
     </style>
     
