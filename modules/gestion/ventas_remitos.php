@@ -258,17 +258,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <!-- TAB 2: PRODUCTOS -->
                                             <div class="tab-pane fade" id="productos" role="tabpanel">
 
-                                                <!-- Pedidos pendientes del cliente -->
-                                                <div class="card card-warning card-outline mb-3">
+                                                <!-- Pedidos pendientes del cliente (se oculta si no hay ninguno) -->
+                                                <div class="card card-warning card-outline mb-3" id="card-pedidos-pendientes" style="display: none;">
                                                     <div class="card-header py-1 bg-warning bg-opacity-10">
                                                         <h6 class="mb-0 small"><i class="fas fa-clock me-2"></i>Pedidos pendientes de entrega del cliente</h6>
                                                     </div>
                                                     <div class="card-body py-2">
-                                                        <div id="contenedor-pendientes">
-                                                            <div class="text-center text-muted small p-2">
-                                                                <i class="fas fa-arrow-up me-1"></i>Seleccione un cliente en la solapa "Datos del Remito"
-                                                            </div>
-                                                        </div>
+                                                        <div id="contenedor-pendientes"></div>
                                                     </div>
                                                 </div>
 
@@ -296,10 +292,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                             </div>
                                                         </div>
                                                         <div id="resultados_busqueda" class="mt-2"></div>
-                                                        <small class="text-muted d-block mt-1">
-                                                            El precio de referencia y el IVA salen de la lista de precios y del producto vigentes
-                                                            para el cliente; son solo una base informativa para la facturación posterior, el
-                                                            remito en sí no calcula impuestos.
+                                                        <small class="text-muted d-block mt-1" id="descuento_general_info">
+                                                            <i class="fas fa-tag me-1"></i>Seleccione un cliente para ver su descuento general.
                                                         </small>
                                                     </div>
                                                 </div>
@@ -352,6 +346,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .modal-fullscreen .modal-content { height: 100vh; border-radius: 0; }
         .modal-fullscreen .modal-body { overflow-y: auto; max-height: calc(100vh - 120px); }
 
+        /* Modal principal más ancho (sin pisar el modo pantalla completa, que ya lo maneja Bootstrap) */
+        #modalVentaRemito .modal-dialog.modal-xl:not(.modal-fullscreen) { max-width: 1400px; }
+
         .card-tabs .nav-tabs { border-bottom: 2px solid #dee2e6; background: #f8f9fa; border-radius: 4px 4px 0 0; }
         .card-tabs .nav-tabs .nav-link {
             border: none; border-radius: 0; padding: 0.6rem 1.2rem; color: #6c757d;
@@ -376,6 +373,56 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         #contenedor-detalles tbody tr.table-info { background: #e3f2fd !important; }
 
         .detalles-vacio { color: #6c757d; border-radius: 8px; background: #f8f9fa !important; border: 2px dashed #dee2e6 !important; }
+
+        /* Stepper compacto de cantidad en la tabla de detalle (+/- no se envuelven en columnas angostas) */
+        .cantidad-stepper {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            width: fit-content;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .cantidad-stepper .btn-stepper {
+            flex: 0 0 auto;
+            width: 20px;
+            height: 24px;
+            padding: 0;
+            border: none;
+            background: #f1f3f5;
+            color: #495057;
+            font-size: 13px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .cantidad-stepper .btn-stepper:hover { background: #dee2e6; }
+        .cantidad-stepper .btn-stepper:active { background: #ced4da; }
+        .cantidad-stepper .cantidad-stepper-input {
+            flex: 0 0 auto;
+            width: 46px;
+            height: 24px;
+            border: none;
+            border-left: 1px solid #ced4da;
+            border-right: 1px solid #ced4da;
+            text-align: center;
+            font-size: 12px;
+            padding: 0 2px;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+        .cantidad-stepper .cantidad-stepper-input:focus {
+            outline: none;
+            background: #eef6ff;
+        }
+        .cantidad-stepper .cantidad-stepper-input::-webkit-inner-spin-button,
+        .cantidad-stepper .cantidad-stepper-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
 
         /* Buscador de "producto sin pedido" por etiquetas (mismo patrón que el ABM de productos) */
         .tag-item {

@@ -1394,7 +1394,7 @@ function buscarProductosClienteRemitos($conexion, $empresa_idx, $entidad_id, $q)
     }
 
     $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre,
-                   p.compatibilidad_busqueda,
+                   p.compatibilidad_texto,
                    p.iva_alicuota_id,
                    iva.porcentaje as iva_porcentaje,
                    lp.precio_final

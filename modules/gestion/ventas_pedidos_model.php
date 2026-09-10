@@ -1274,11 +1274,17 @@ function agregarProductoRapido($conexion, $data)
     }
 }
 
+// Búsqueda por etiquetas (mismo patrón que el ABM de productos y que ventas_remitos):
+// $q llega como una o más palabras separadas por espacio, cada palabra es una condición
+// AND independiente y dentro de cada palabra se busca con OR en código, nombre y
+// compatibilidad. Así "poza corolla" encuentra productos que mencionen ambas palabras
+// sin importar en qué columna esté cada una. También devuelve, ya calculados, el
+// descuento general del cliente y el precio neto (bruto - descuento), para que el
+// carrito de "Agregar Producto" no tenga que volver a consultarlos por fila.
 function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q)
 {
     $entidad_id = intval($entidad_id);
     $empresa_idx = intval($empresa_idx);
-    $q = mysqli_real_escape_string($conexion, $q);
 
     $condicion = obtenerListaPrecioVigenteCliente($conexion, $entidad_id);
     if (!$condicion || empty($condicion['lista_precio_id'])) {
@@ -1286,38 +1292,57 @@ function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q)
         return [];
     }
     $lista_precio_id = intval($condicion['lista_precio_id']);
+    $descuento_pct = floatval($condicion['cliente_descuento_general'] ?? 0);
 
-    $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre, 
+    $where_conditions = [
+        "lp.lista_precio_id = ?",
+        "lp.empresa_id = ?",
+        "p.empresa_id = ?",
+        "p.tabla_estado_registro_id = 1",
+        "lp.tabla_estado_registro_id = 1",
+        "lp.f_desde <= CURDATE()",
+        "(lp.f_hasta IS NULL OR lp.f_hasta >= CURDATE())"
+    ];
+    $where_params = [$lista_precio_id, $empresa_idx, $empresa_idx];
+    $where_types = "iii";
+
+    $palabras = preg_split('/\s+/', trim($q));
+    $palabras = array_filter($palabras, function ($p) { return strlen($p) > 0; });
+
+    foreach ($palabras as $palabra) {
+        $palabra_like = '%' . $palabra . '%';
+        $where_conditions[] = "(p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.compatibilidad_busqueda LIKE ?)";
+        $where_params[] = $palabra_like;
+        $where_params[] = $palabra_like;
+        $where_params[] = $palabra_like;
+        $where_types .= "sss";
+    }
+
+    $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre,
                    p.iva_alicuota_id, p.compatibilidad_texto,
                    iva.porcentaje as iva_porcentaje,
                    lp.precio_final
             FROM gestion__listas_precios_productos lp
             INNER JOIN gestion__productos p ON p.producto_id = lp.producto_id
             LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id
-            WHERE lp.lista_precio_id = ?
-            AND lp.empresa_id = ?
-            AND p.empresa_id = ?
-            AND p.tabla_estado_registro_id = 1
-            AND lp.tabla_estado_registro_id = 1
-            AND lp.f_desde <= CURDATE()
-            AND (lp.f_hasta IS NULL OR lp.f_hasta >= CURDATE())
-            AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.compatibilidad_busqueda LIKE ?)
+            WHERE " . implode(" AND ", $where_conditions) . "
             ORDER BY p.producto_nombre
             LIMIT 20";
-    
+
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
-    
-    $search = "%$q%";
-    mysqli_stmt_bind_param($stmt, "iiisss", $lista_precio_id, $empresa_idx, $empresa_idx, $search, $search, $search);
+
+    mysqli_stmt_bind_param($stmt, $where_types, ...$where_params);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    
+
     $productos = [];
     while ($fila = mysqli_fetch_assoc($result)) {
+        $fila['descuento_general_pct'] = $descuento_pct;
+        $fila['precio_neto'] = floatval($fila['precio_final']) * (1 - $descuento_pct / 100);
         $productos[] = $fila;
     }
-    
+
     mysqli_stmt_close($stmt);
     return $productos;
 }

@@ -2,10 +2,10 @@
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
 
-$pageTitle = "Puntos de Venta";
-$currentPage = 'puntos_venta';
+$pageTitle = "Bocas";
+$currentPage = 'bocas';
 $modudo_idx = 2;
-$pagina_idx = 70;
+$pagina_idx = 71; // Mismo ID de página en conf__paginas que usaba Depósitos
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -17,7 +17,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="row">
                 <div class="col-sm-6">
                     <h3 class="mb-0">
-                        <i class="fas fa-cash-register me-2"></i>Puntos de Venta
+                        <i class="fas fa-store me-2"></i>Bocas
                     </h3>
                     <small class="text-muted">Sistema Declarativo Multiempresa</small>
                 </div>
@@ -25,7 +25,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <ol class="breadcrumb float-sm-end">
                         <li class="breadcrumb-item"><a href="#">Home</a></li>
                         <li class="breadcrumb-item"><a href="#">Configuración</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Puntos de Venta</li>
+                        <li class="breadcrumb-item active" aria-current="page">Bocas</li>
                     </ol>
                 </div>
             </div>
@@ -74,17 +74,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
 
                                     <div class="card-body">
-                                        <table id="tablaPuntosVenta" class="table table-striped table-bordered" style="width:100%">
+                                        <table id="tablaBocas" class="table table-striped table-bordered" style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="80">ID</th>
-
                                                     <th width="150">Sucursal</th>
-                                                    <th width="150">Boca</th>
                                                     <th width="200">Nombre</th>
-                                                    <th width="250">Descripción</th>
-                                                    <th width="120">Código Fiscal</th>
-                                                    <th width="80">Web</th>
+                                                    <th width="120">Código</th>
+                                                    <th width="90">Depósito</th>
+                                                    <th width="200">Descripción</th>
                                                     <th width="120">Estado</th>
                                                     <th width="150" class="text-center">Acciones</th>
                                                 </tr>
@@ -100,11 +98,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
 
             <!-- Modal principal -->
-            <div class="modal fade" id="modalPuntoVenta" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+            <div class="modal fade" id="modalBoca" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header py-2 position-relative">
-                            <h5 class="modal-title" id="modalLabel">Punto de Venta</h5>
+                            <h5 class="modal-title" id="modalLabel">Boca</h5>
                             <div class="position-absolute top-0 end-0 mt-2 me-2 d-flex gap-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="btnToggleFullscreen" title="Pantalla completa">
                                     <i class="fas fa-expand"></i>
@@ -113,9 +111,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>
                         </div>
                         <div class="modal-body p-3">
-                            <!-- Resto del contenido del modal sin cambios -->
-                            <form id="formPuntoVenta" class="needs-validation" novalidate>
-                                <input type="hidden" id="punto_venta_id" name="punto_venta_id" />
+                            <form id="formBoca" class="needs-validation" novalidate>
+                                <input type="hidden" id="boca_id" name="boca_id" />
 
                                 <div class="row mb-2">
                                     <div class="col-md-6 mb-2">
@@ -126,32 +123,43 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback small">Seleccione una sucursal</div>
                                     </div>
                                     <div class="col-md-6 mb-2">
-                                        <label for="boca_id" class="form-label small mb-1">Boca *</label>
-                                        <select class="form-select form-select-sm" id="boca_id" name="boca_id" required disabled>
-                                            <option value="">Seleccione una sucursal primero</option>
-                                        </select>
-                                        <div class="invalid-feedback small">Seleccione una boca</div>
-                                    </div>
-                                </div>
-
-                                <div class="row mb-2">
-                                    <div class="col-12 mb-2">
-                                        <label for="nombre" class="form-label small mb-1">Nombre *</label>
-                                        <input type="text" class="form-control form-control-sm" id="nombre" name="nombre" maxlength="100" required>
+                                        <label for="boca_nombre" class="form-label small mb-1">Nombre *</label>
+                                        <input type="text" class="form-control form-control-sm" id="boca_nombre" name="boca_nombre" maxlength="100" required>
                                         <div class="invalid-feedback small">El nombre es obligatorio</div>
                                     </div>
                                 </div>
 
                                 <div class="row mb-2">
                                     <div class="col-md-6 mb-2">
-                                        <label for="codigo_fiscal" class="form-label small mb-1">Código Fiscal</label>
-                                        <input type="number" class="form-control form-control-sm no-spinner" id="codigo_fiscal" name="codigo_fiscal" min="0" step="1">
+                                        <label for="codigo" class="form-label small mb-1">Código *</label>
+                                        <input type="text" class="form-control form-control-sm" id="codigo" name="codigo" maxlength="20" required>
+                                        <div class="invalid-feedback small">El código es obligatorio (único por sucursal)</div>
                                     </div>
-                                    <div class="col-md-6 mb-2 d-flex align-items-center">
-                                        <div class="form-check form-switch mt-4">
-                                            <input class="form-check-input" type="checkbox" id="es_web" name="es_web">
-                                            <label class="form-check-label small" for="es_web">Es el punto de venta web</label>
-                                        </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="orden" class="form-label small mb-1">Orden</label>
+                                        <input type="number" class="form-control form-control-sm no-spinner" id="orden" name="orden" min="0" step="1" value="1">
+                                    </div>
+                                </div>
+
+                                <div class="row mb-2">
+                                    <div class="col-md-6 mb-2">
+                                        <label for="provincia_id" class="form-label small mb-1">Provincia</label>
+                                        <select class="form-select form-select-sm" id="provincia_id" name="provincia_id">
+                                            <option value="">Seleccionar provincia</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="localidad_id" class="form-label small mb-1">Localidad</label>
+                                        <select class="form-select form-select-sm" id="localidad_id" name="localidad_id" disabled>
+                                            <option value="">Seleccione una provincia primero</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-2">
+                                    <div class="col-12 mb-2">
+                                        <label for="direccion" class="form-label small mb-1">Dirección</label>
+                                        <input type="text" class="form-control form-control-sm" id="direccion" name="direccion" maxlength="255">
                                     </div>
                                 </div>
 
@@ -159,6 +167,33 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="col-12 mb-2">
                                         <label for="descripcion" class="form-label small mb-1">Descripción</label>
                                         <textarea class="form-control form-control-sm" id="descripcion" name="descripcion" rows="2" maxlength="255"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-2">
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="es_deposito" name="es_deposito" value="1">
+                                            <label class="form-check-label" for="es_deposito">Maneja stock (depósito)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="permite_ingresos" name="permite_ingresos" value="1" checked>
+                                            <label class="form-check-label" for="permite_ingresos">Permite Ingresos</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="permite_egresos" name="permite_egresos" value="1" checked>
+                                            <label class="form-check-label" for="permite_egresos">Permite Egresos</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="es_principal" name="es_principal" value="1">
+                                            <label class="form-check-label" for="es_principal">Boca Principal</label>
+                                        </div>
                                     </div>
                                 </div>
                             </form>
@@ -257,7 +292,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <script src="puntos_venta.js?v=<?= filemtime(__DIR__.'/puntos_venta.js') ?>"></script>
+    <script src="bocas.js?v=<?= filemtime(__DIR__.'/bocas.js') ?>"></script>
 </main>
 
 <?php

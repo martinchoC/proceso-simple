@@ -422,7 +422,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
                                                 <tr>
                                                     <th style="width: 10%;">Sucursal</th>
-                                                    <th style="width: 10%;">Depósito</th>
+                                                    <th style="width: 10%;">Boca</th>
                                                     <th style="width: 15%;">Sección</th>
                                                     <th style="width: 15%;">Estantería</th>
                                                     <th style="width: 10%;">Estante</th>
@@ -712,10 +712,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </select>
                                     </div>
                                     <div class="col-md-3">
-                                        <label for="select_deposito" class="form-label fw-bold">
-                                            <i class="fas fa-warehouse text-info me-1"></i>Depósito
+                                        <label for="select_boca" class="form-label fw-bold">
+                                            <i class="fas fa-warehouse text-info me-1"></i>Boca
                                         </label>
-                                        <select class="form-select" id="select_deposito" disabled>
+                                        <select class="form-select" id="select_boca" disabled>
                                             <option value="">Primero seleccione sucursal</option>
                                         </select>
                                     </div>
@@ -724,7 +724,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <i class="fas fa-layer-group text-secondary me-1"></i>Sección
                                         </label>
                                         <select class="form-select" id="select_seccion" disabled>
-                                            <option value="">Primero seleccione depósito</option>
+                                            <option value="">Primero seleccione boca</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3">
@@ -792,11 +792,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback">Seleccione una sucursal</div>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="deposito_id_nueva" class="form-label form-label-sm">Depósito *</label>
-                                        <select class="form-select form-select-sm" id="deposito_id_nueva" name="deposito_id" required>
+                                        <label for="boca_id_nueva" class="form-label form-label-sm">Boca *</label>
+                                        <select class="form-select form-select-sm" id="boca_id_nueva" name="boca_id" required>
                                             <option value="">Primero seleccione una sucursal...</option>
                                         </select>
-                                        <div class="invalid-feedback">Debe seleccionar un depósito</div>
+                                        <div class="invalid-feedback">Debe seleccionar una boca</div>
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label for="seccion" class="form-label form-label-sm">Sección *</label>
@@ -1234,7 +1234,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             font-size: 0.75rem;
         }
 
-        #tablaUbicaciones .badge-deposito {
+        #tablaUbicaciones .badge-boca {
             background-color: #0dcaf0;
             color: #000;
             padding: 4px 8px;
@@ -1315,7 +1315,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             border: 1px solid #0d6efd !important;
         }
 
-        .badge-deposito-ubicacion {
+        .badge-boca-ubicacion {
             background-color: #0dcaf0 !important;
             color: #000000 !important;
             padding: 4px 10px !important;
@@ -1462,7 +1462,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         /* Responsive: en pantallas pequeñas, reducir el tamaño de los badges */
         @media (max-width: 768px) {
             .badge-sucursal-ubicacion,
-            .badge-deposito-ubicacion,
+            .badge-boca-ubicacion,
             .badge-seccion-ubicacion,
             .badge-estanteria-ubicacion,
             .badge-estante-ubicacion,
@@ -1832,34 +1832,34 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            function cargarDepositos(sucursalId) {
-                var select = $('#select_deposito');
-                select.empty().append('<option value="">Cargando depósitos...</option>').prop('disabled', true);
+            function cargarBocas(sucursalId) {
+                var select = $('#select_boca');
+                select.empty().append('<option value="">Cargando bocas...</option>').prop('disabled', true);
                 if (!sucursalId) {
                     select.empty().append('<option value="">Seleccione sucursal primero</option>');
                     return;
                 }
-                $.get('productos_ajax.php', { accion: 'obtener_depositos_por_sucursal', sucursal_id: sucursalId, empresa_idx: empresa_idx }, function(depositos) {
-                    select.empty().append('<option value="">Seleccione depósito...</option>');
-                    if (depositos && depositos.length > 0) {
-                        depositos.forEach(function(deposito) {
-                            var nombre = deposito.deposito_nombre;
-                            if (deposito.es_principal == 1) nombre += ' ★';
-                            select.append(`<option value="${deposito.deposito_id}">${nombre}</option>`);
+                $.get('productos_ajax.php', { accion: 'obtener_bocas_por_sucursal', sucursal_id: sucursalId, empresa_idx: empresa_idx }, function(bocas) {
+                    select.empty().append('<option value="">Seleccione boca...</option>');
+                    if (bocas && bocas.length > 0) {
+                        bocas.forEach(function(boca) {
+                            var nombre = boca.boca_nombre;
+                            if (boca.es_principal == 1) nombre += ' ★';
+                            select.append(`<option value="${boca.boca_id}">${nombre}</option>`);
                         });
                         select.prop('disabled', false);
-                    } else select.append('<option value="">No hay depósitos disponibles</option>');
+                    } else select.append('<option value="">No hay bocas disponibles</option>');
                 }, 'json');
             }
 
-            function cargarSecciones(depositoId) {
+            function cargarSecciones(bocaId) {
                 var select = $('#select_seccion');
                 select.empty().append('<option value="">Cargando secciones...</option>').prop('disabled', true);
-                if (!depositoId) {
-                    select.empty().append('<option value="">Seleccione depósito primero</option>');
+                if (!bocaId) {
+                    select.empty().append('<option value="">Seleccione boca primero</option>');
                     return;
                 }
-                $.get('productos_ajax.php', { accion: 'obtener_secciones', deposito_id: depositoId, empresa_idx: empresa_idx }, function(secciones) {
+                $.get('productos_ajax.php', { accion: 'obtener_secciones', boca_id: bocaId, empresa_idx: empresa_idx }, function(secciones) {
                     select.empty().append('<option value="">Seleccione sección...</option>');
                     if (secciones && secciones.length > 0) {
                         secciones.forEach(function(seccion) { select.append(`<option value="${seccion}">${seccion}</option>`); });
@@ -1868,14 +1868,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            function cargarEstanterias(depositoId, seccion) {
+            function cargarEstanterias(bocaId, seccion) {
                 var select = $('#select_estanteria');
                 select.empty().append('<option value="">Cargando estanterías...</option>').prop('disabled', true);
-                if (!depositoId || !seccion) {
+                if (!bocaId || !seccion) {
                     select.empty().append('<option value="">Seleccione sección primero</option>');
                     return;
                 }
-                $.get('productos_ajax.php', { accion: 'obtener_estanterias', deposito_id: depositoId, seccion: seccion, empresa_idx: empresa_idx }, function(estanterias) {
+                $.get('productos_ajax.php', { accion: 'obtener_estanterias', boca_id: bocaId, seccion: seccion, empresa_idx: empresa_idx }, function(estanterias) {
                     select.empty().append('<option value="">Seleccione estantería...</option>');
                     if (estanterias && estanterias.length > 0) {
                         estanterias.forEach(function(estanteria) { select.append(`<option value="${estanteria}">${estanteria}</option>`); });
@@ -1884,14 +1884,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            function cargarEstantes(depositoId, seccion, estanteria) {
+            function cargarEstantes(bocaId, seccion, estanteria) {
                 var select = $('#select_estante');
                 select.empty().append('<option value="">Cargando estantes...</option>').prop('disabled', true);
-                if (!depositoId || !seccion || !estanteria) {
+                if (!bocaId || !seccion || !estanteria) {
                     select.empty().append('<option value="">Seleccione estantería primero</option>');
                     return;
                 }
-                $.get('productos_ajax.php', { accion: 'obtener_estantes', deposito_id: depositoId, seccion: seccion, estanteria: estanteria, empresa_idx: empresa_idx }, function(estantes) {
+                $.get('productos_ajax.php', { accion: 'obtener_estantes', boca_id: bocaId, seccion: seccion, estanteria: estanteria, empresa_idx: empresa_idx }, function(estantes) {
                     select.empty().append('<option value="">Seleccione estante...</option>');
                     if (estantes && estantes.length > 0) {
                         estantes.forEach(function(estante) { select.append(`<option value="${estante}">${estante}</option>`); });
@@ -1900,14 +1900,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            function cargarPosiciones(depositoId, seccion, estanteria, estante) {
+            function cargarPosiciones(bocaId, seccion, estanteria, estante) {
                 var select = $('#select_posicion');
                 select.empty().append('<option value="">Cargando posiciones...</option>').prop('disabled', true);
-                if (!depositoId || !seccion || !estanteria || !estante) {
+                if (!bocaId || !seccion || !estanteria || !estante) {
                     select.empty().append('<option value="">Seleccione estante primero</option>');
                     return;
                 }
-                $.get('productos_ajax.php', { accion: 'obtener_posiciones', deposito_id: depositoId, seccion: seccion, estanteria: estanteria, estante: estante, empresa_idx: empresa_idx }, function(posiciones) {
+                $.get('productos_ajax.php', { accion: 'obtener_posiciones', boca_id: bocaId, seccion: seccion, estanteria: estanteria, estante: estante, empresa_idx: empresa_idx }, function(posiciones) {
                     select.empty().append('<option value="">Seleccione posición...</option>');
                     if (posiciones && posiciones.length > 0) {
                         posiciones.forEach(function(posicion) {
@@ -1944,7 +1944,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function mostrarUbicacionSeleccionada(data) {
                 var html = '';
                 html += '<span class="badge bg-primary me-1">' + (data.sucursal_nombre || 'N/A') + '</span>';
-                html += '<span class="badge bg-info me-1">' + (data.deposito_nombre || 'N/A') + '</span>';
+                html += '<span class="badge bg-info me-1">' + (data.boca_nombre || 'N/A') + '</span>';
                 html += '<span class="badge bg-secondary me-1">' + (data.seccion || 'N/A') + '</span>';
                 html += '<span class="badge bg-warning me-1 text-dark">Est: ' + (data.estanteria || 'N/A') + '</span>';
                 html += '<span class="badge bg-success me-1">Nro: ' + (data.estante || 'N/A') + '</span>';
@@ -1956,12 +1956,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             function limpiarSelectsDesde(desde) {
-                var selects = ['deposito', 'seccion', 'estanteria', 'estante', 'posicion'];
+                var selects = ['boca', 'seccion', 'estanteria', 'estante', 'posicion'];
                 var indice = selects.indexOf(desde);
                 if (indice === -1) return;
                 var mensajes = {
-                    'deposito': 'Primero seleccione sucursal',
-                    'seccion': 'Primero seleccione depósito',
+                    'boca': 'Primero seleccione sucursal',
+                    'seccion': 'Primero seleccione boca',
                     'estanteria': 'Primero seleccione sección',
                     'estante': 'Primero seleccione estantería',
                     'posicion': 'Primero seleccione estante'
@@ -2000,8 +2000,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 
                 datosUbicacionCompleta = null;
                 $('#select_sucursal').empty().append('<option value="">Seleccione sucursal...</option>').prop('disabled', false);
-                $('#select_deposito').empty().append('<option value="">Primero seleccione sucursal</option>').prop('disabled', true);
-                $('#select_seccion').empty().append('<option value="">Primero seleccione depósito</option>').prop('disabled', true);
+                $('#select_boca').empty().append('<option value="">Primero seleccione sucursal</option>').prop('disabled', true);
+                $('#select_seccion').empty().append('<option value="">Primero seleccione boca</option>').prop('disabled', true);
                 $('#select_estanteria').empty().append('<option value="">Primero seleccione sección</option>').prop('disabled', true);
                 $('#select_estante').empty().append('<option value="">Primero seleccione estantería</option>').prop('disabled', true);
                 $('#select_posicion').empty().append('<option value="">Primero seleccione estante</option>').prop('disabled', true);
@@ -2011,22 +2011,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#formNuevaUbicacion')[0].reset();
                 $('#formNuevaUbicacion').removeClass('was-validated');
                 $('#sucursal_id').empty().append('<option value="">Seleccionar sucursal...</option>');
-                $('#deposito_id_nueva').empty().append('<option value="">Primero seleccione una sucursal...</option>');
+                $('#boca_id_nueva').empty().append('<option value="">Primero seleccione una sucursal...</option>');
             }
 
-            function cargarDepositosParaNuevaUbicacion(sucursalId, selectedId) {
+            function cargarBocasParaNuevaUbicacion(sucursalId, selectedId) {
                 if (!sucursalId) {
-                    $('#deposito_id_nueva').html('<option value="">Primero seleccione una sucursal...</option>');
+                    $('#boca_id_nueva').html('<option value="">Primero seleccione una sucursal...</option>');
                     return;
                 }
-                $.get('productos_ajax.php', { accion: 'obtener_depositos_por_sucursal', sucursal_id: sucursalId, empresa_idx: empresa_idx }, function(depositos) {
-                    var select = $('#deposito_id_nueva');
-                    select.empty().append('<option value="">Seleccionar depósito...</option>');
-                    $.each(depositos, function(index, deposito) {
-                        var selected = (selectedId && deposito.deposito_id == selectedId) ? 'selected' : '';
-                        var nombre = deposito.deposito_nombre;
-                        if (deposito.es_principal) nombre += ' (Principal)';
-                        select.append(`<option value="${deposito.deposito_id}" ${selected}>${nombre}</option>`);
+                $.get('productos_ajax.php', { accion: 'obtener_bocas_por_sucursal', sucursal_id: sucursalId, empresa_idx: empresa_idx }, function(bocas) {
+                    var select = $('#boca_id_nueva');
+                    select.empty().append('<option value="">Seleccionar boca...</option>');
+                    $.each(bocas, function(index, boca) {
+                        var selected = (selectedId && boca.boca_id == selectedId) ? 'selected' : '';
+                        var nombre = boca.boca_nombre;
+                        if (boca.es_principal) nombre += ' (Principal)';
+                        select.append(`<option value="${boca.boca_id}" ${selected}>${nombre}</option>`);
                     });
                 }, 'json');
             }
@@ -2182,38 +2182,38 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function inicializarEventosUbicacion() {
                 $('#select_sucursal').off('change').on('change', function() {
                     var sucursalId = $(this).val();
-                    limpiarSelectsDesde('deposito');
-                    if (sucursalId) cargarDepositos(sucursalId);
+                    limpiarSelectsDesde('boca');
+                    if (sucursalId) cargarBocas(sucursalId);
                     window.limpiarSeleccionUbicacion();
                 });
-                $('#select_deposito').off('change').on('change', function() {
-                    var depositoId = $(this).val();
+                $('#select_boca').off('change').on('change', function() {
+                    var bocaId = $(this).val();
                     limpiarSelectsDesde('seccion');
-                    if (depositoId) cargarSecciones(depositoId);
+                    if (bocaId) cargarSecciones(bocaId);
                     window.limpiarSeleccionUbicacion();
                 });
                 $('#select_seccion').off('change').on('change', function() {
                     var seccion = $(this).val();
-                    var depositoId = $('#select_deposito').val();
+                    var bocaId = $('#select_boca').val();
                     limpiarSelectsDesde('estanteria');
-                    if (seccion && depositoId) cargarEstanterias(depositoId, seccion);
+                    if (seccion && bocaId) cargarEstanterias(bocaId, seccion);
                     window.limpiarSeleccionUbicacion();
                 });
                 $('#select_estanteria').off('change').on('change', function() {
                     var estanteria = $(this).val();
-                    var depositoId = $('#select_deposito').val();
+                    var bocaId = $('#select_boca').val();
                     var seccion = $('#select_seccion').val();
                     limpiarSelectsDesde('estante');
-                    if (estanteria && depositoId && seccion) cargarEstantes(depositoId, seccion, estanteria);
+                    if (estanteria && bocaId && seccion) cargarEstantes(bocaId, seccion, estanteria);
                     window.limpiarSeleccionUbicacion();
                 });
                 $('#select_estante').off('change').on('change', function() {
                     var estante = $(this).val();
-                    var depositoId = $('#select_deposito').val();
+                    var bocaId = $('#select_boca').val();
                     var seccion = $('#select_seccion').val();
                     var estanteria = $('#select_estanteria').val();
                     limpiarSelectsDesde('posicion');
-                    if (estante && depositoId && seccion && estanteria) cargarPosiciones(depositoId, seccion, estanteria, estante);
+                    if (estante && bocaId && seccion && estanteria) cargarPosiciones(bocaId, seccion, estanteria, estante);
                     window.limpiarSeleccionUbicacion();
                 });
                 $('#select_posicion').off('change').on('change', function() {
@@ -2248,10 +2248,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         },
                         { 
-                            data: 'deposito_nombre', 
+                            data: 'boca_nombre', 
                             className: 'align-middle',
                             render: function(data) { 
-                                return data ? '<span class="badge badge-deposito-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
+                                return data ? '<span class="badge badge-boca-ubicacion">' + data + '</span>' : '<span class="text-muted">-</span>'; 
                             }
                         },
                         { 
@@ -2360,14 +2360,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             producto_id: ubicacionActual.producto_id,
                             sucursal_ubicacion_id: ubicacionActual.sucursal_ubicacion_id,
                             sucursal_id: detalleUbicacion.sucursal_id,
-                            deposito_id: detalleUbicacion.deposito_id,
+                            boca_id: detalleUbicacion.boca_id,
                             seccion: detalleUbicacion.seccion,
                             estanteria: detalleUbicacion.estanteria,
                             estante: detalleUbicacion.estante,
                             posicion: detalleUbicacion.posicion,
                             descripcion: detalleUbicacion.descripcion,
                             sucursal_nombre: detalleUbicacion.sucursal_nombre,
-                            deposito_nombre: detalleUbicacion.deposito_nombre
+                            boca_nombre: detalleUbicacion.boca_nombre
                         };
                         
                         resetModalUbicacion();
@@ -2403,11 +2403,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#select_sucursal').trigger('change');
                     }
                     
-                    var depositoCheck = setInterval(function() {
-                        if ($('#select_deposito option[value="' + data.deposito_id + '"]').length > 0) {
-                            clearInterval(depositoCheck);
-                            $('#select_deposito').val(data.deposito_id);
-                            $('#select_deposito').trigger('change');
+                    var bocaCheck = setInterval(function() {
+                        if ($('#select_boca option[value="' + data.boca_id + '"]').length > 0) {
+                            clearInterval(bocaCheck);
+                            $('#select_boca').val(data.boca_id);
+                            $('#select_boca').trigger('change');
                             
                             var seccionCheck = setInterval(function() {
                                 if ($('#select_seccion option[value="' + data.seccion + '"]').length > 0) {
@@ -3360,7 +3360,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 $(document).on('change', '#sucursal_id', function() {
-                    cargarDepositosParaNuevaUbicacion($(this).val());
+                    cargarBocasParaNuevaUbicacion($(this).val());
                 });
 
                 // Botón Nuevo Producto
@@ -3622,13 +3622,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     var form = document.getElementById('formNuevaUbicacion');
                     if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
                     var sucursalId = $('#sucursal_id').val();
-                    var depositoId = $('#deposito_id_nueva').val();
+                    var bocaId = $('#boca_id_nueva').val();
                     var seccion = $('#seccion').val().trim();
                     var estanteria = $('#estanteria').val().trim();
                     var estante = $('#estante').val().trim();
                     var posicion = $('#posicion').val().trim();
                     var descripcion = $('#descripcion_ubicacion').val().trim();
-                    if (!sucursalId || !depositoId || !seccion || !estanteria || !estante || !posicion) {
+                    if (!sucursalId || !bocaId || !seccion || !estanteria || !estante || !posicion) {
                         Swal.fire('Error', 'Todos los campos son obligatorios', 'error');
                         return false;
                     }
@@ -3637,7 +3637,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         accion: 'crear_ubicacion_sucursal',
                         empresa_id: empresa_idx,
                         sucursal_id: sucursalId,
-                        deposito_id: depositoId,
+                        boca_id: bocaId,
                         seccion: seccion,
                         estanteria: estanteria,
                         estante: estante,

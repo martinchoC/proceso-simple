@@ -1,6 +1,6 @@
 $(document).ready(function () {
-    const empresa_idx = 2;
-    const pagina_idx = 70;
+    const empresa_idx = 2;          // ID de la empresa (ajustar según contexto)
+    const pagina_idx = 71;          // ID de página en conf__paginas
 
     var tabla;
     var currentPage = 0;
@@ -9,14 +9,14 @@ $(document).ready(function () {
 
     // ========== FUNCIONES DE DATATABLE ==========
     function inicializarDataTable() {
-        if ($.fn.DataTable.isDataTable('#tablaPuntosVenta')) {
-            $('#tablaPuntosVenta').DataTable().destroy();
-            $('#tablaPuntosVenta tbody').empty();
+        if ($.fn.DataTable.isDataTable('#tablaBocas')) {
+            $('#tablaBocas').DataTable().destroy();
+            $('#tablaBocas tbody').empty();
         }
 
-        tabla = $('#tablaPuntosVenta').DataTable({
+        tabla = $('#tablaBocas').DataTable({
             ajax: {
-                url: 'puntos_venta_ajax.php',
+                url: 'bocas_ajax.php',
                 type: 'GET',
                 data: {
                     accion: 'listar',
@@ -60,11 +60,9 @@ $(document).ready(function () {
                 var savedData = localStorage.getItem('DataTables_' + settings.sInstance);
                 if (savedData) {
                     var data = JSON.parse(savedData);
-
                     if (data.search && (data.search.search === '-1' || data.search.search === '')) {
                         data.search.search = '';
                     }
-
                     if (data.columns) {
                         $.each(data.columns, function (i, col) {
                             if (col.search && col.search.search === '-1') {
@@ -72,7 +70,6 @@ $(document).ready(function () {
                             }
                         });
                     }
-
                     return data;
                 }
                 return null;
@@ -86,7 +83,7 @@ $(document).ready(function () {
 
             columns: [
                 {
-                    data: 'punto_venta_id',
+                    data: 'boca_id',
                     className: 'text-center fw-bold'
                 },
                 {
@@ -101,6 +98,16 @@ $(document).ready(function () {
                 },
                 {
                     data: 'boca_nombre',
+                    className: 'text-start',
+                    render: function (data, type, row) {
+                        if (type === 'export') {
+                            return data || '';
+                        }
+                        return `<span class="fw-bold">${data || ''}</span>`;
+                    }
+                },
+                {
+                    data: 'codigo',
                     className: 'text-center',
                     render: function (data, type, row) {
                         if (type === 'export') {
@@ -110,13 +117,16 @@ $(document).ready(function () {
                     }
                 },
                 {
-                    data: 'nombre',
-                    className: 'text-start',
+                    data: 'es_deposito',
+                    className: 'text-center',
                     render: function (data, type, row) {
+                        var esDeposito = data == 1;
                         if (type === 'export') {
-                            return data || '';
+                            return esDeposito ? 'Sí' : 'No';
                         }
-                        return `<span class="fw-bold">${data || ''}</span>`;
+                        return esDeposito
+                            ? '<span class="badge bg-info text-dark">Sí</span>'
+                            : '<span class="badge bg-light text-muted">No</span>';
                     }
                 },
                 {
@@ -127,32 +137,6 @@ $(document).ready(function () {
                             return data || '';
                         }
                         return `<span>${data || ''}</span>`;
-                    }
-                },
-                {
-                    data: 'codigo_fiscal',
-                    className: 'text-center',
-                    render: function (data, type, row) {
-                        if (type === 'export') {
-                            return data || '';
-                        }
-                        return `<span class="fw-medium">${data || ''}</span>`;
-                    }
-                },
-                {
-                    data: 'es_web',
-                    className: 'text-center',
-                    render: function (data, type, row) {
-                        var esWeb = parseInt(data) === 1;
-
-                        if (type === 'export') {
-                            return esWeb ? 'Sí' : 'No';
-                        }
-
-                        if (esWeb) {
-                            return '<span class="badge bg-info text-white"><i class="fas fa-globe"></i> Web</span>';
-                        }
-                        return '<span class="text-muted small">-</span>';
                     }
                 },
                 {
@@ -185,11 +169,9 @@ $(document).ready(function () {
                     width: '150px',
                     render: function (data, type, row) {
                         var botones = '';
-
                         if (data && data.length > 0) {
                             var editarBoton = '';
                             var otrosBotones = '';
-
                             data.forEach(boton => {
                                 var claseBoton = 'btn-sm me-1 ';
                                 if (boton.bg_clase && boton.text_clase) {
@@ -204,12 +186,11 @@ $(document).ready(function () {
                                 var accionJs = boton.accion_js;
                                 var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
                                 var esConfirmable = boton.es_confirmable || 0;
+                                var nombreInfo = row.boca_nombre || 'Boca #' + row.boca_id;
 
-                                var nombreInfo = row.nombre || 'Punto #' + row.punto_venta_id;
-
-                                var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion"
-                                                title="${titulo}"
-                                                data-id="${row.punto_venta_id}"
+                                var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion" 
+                                                title="${titulo}" 
+                                                data-id="${row.boca_id}" 
                                                 data-accion="${accionJs}"
                                                 data-confirmable="${esConfirmable}"
                                                 data-nombre="${nombreInfo}">
@@ -222,12 +203,10 @@ $(document).ready(function () {
                                     otrosBotones += botonHtml;
                                 }
                             });
-
                             botones = editarBoton + otrosBotones;
                         } else {
                             botones = '<span class="text-muted small">Sin acciones</span>';
                         }
-
                         return `<div class="btn-group" role="group">${botones}</div>`;
                     }
                 }
@@ -245,16 +224,14 @@ $(document).ready(function () {
             initComplete: function () {
                 var buttons = new $.fn.dataTable.Buttons(tabla, {
                     buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
-                }).container().appendTo($('#tablaPuntosVenta_wrapper .col-md-6:eq(1)'));
+                }).container().appendTo($('#tablaBocas_wrapper .col-md-6:eq(1)'));
 
                 $(tabla.table().container()).on('page.dt', function (e) {
                     currentPage = tabla.page();
                 });
-
                 $(tabla.table().container()).on('order.dt', function (e, settings, details) {
                     currentOrder = tabla.order();
                 });
-
                 $(tabla.table().container()).on('search.dt', function (e, settings) {
                     currentSearch = tabla.search();
                 });
@@ -264,7 +241,6 @@ $(document).ready(function () {
                     if (searchInput.val() === '-1' || searchInput.val() === '') {
                         searchInput.val('');
                         currentSearch = '';
-
                         var savedData = localStorage.getItem('DataTables_' + tabla.settings()[0].sInstance);
                         if (savedData) {
                             var data = JSON.parse(savedData);
@@ -309,57 +285,44 @@ $(document).ready(function () {
     function inicializarBotonesExternos() {
         $('#btnExportarExcel').off('click').on('click', function(e) {
             e.preventDefault();
-            if (tabla) {
-                tabla.button('.buttons-excel').trigger();
-            }
+            if (tabla) tabla.button('.buttons-excel').trigger();
         });
-
         $('#btnExportarPDF').off('click').on('click', function(e) {
             e.preventDefault();
-            if (tabla) {
-                tabla.button('.buttons-pdf').trigger();
-            }
+            if (tabla) tabla.button('.buttons-pdf').trigger();
         });
-
         $('#btnExportarCSV').off('click').on('click', function(e) {
             e.preventDefault();
-            if (tabla) {
-                tabla.button('.buttons-csv').trigger();
-            }
+            if (tabla) tabla.button('.buttons-csv').trigger();
         });
-
         $('#btnExportarPrint').off('click').on('click', function(e) {
             e.preventDefault();
-            if (tabla) {
-                tabla.button('.buttons-print').trigger();
-            }
+            if (tabla) tabla.button('.buttons-print').trigger();
         });
     }
 
     function cargarBotonAgregar() {
-        $.get('puntos_venta_ajax.php', {
+        $.get('bocas_ajax.php', {
             accion: 'obtener_boton_agregar',
             pagina_idx: pagina_idx
         }, function (botonAgregar) {
             if (botonAgregar && botonAgregar.nombre_funcion) {
                 var icono = botonAgregar.icono_clase ? `<i class="${botonAgregar.icono_clase} me-1"></i>` : '';
-
                 var colorClase = 'btn-primary';
                 if (botonAgregar.bg_clase && botonAgregar.text_clase) {
                     colorClase = botonAgregar.bg_clase + ' ' + botonAgregar.text_clase;
                 } else if (botonAgregar.color_clase) {
                     colorClase = botonAgregar.color_clase;
                 }
-
                 $('#contenedor-boton-agregar').html(
                     `<button type="button" class="btn ${colorClase}" id="btnNuevo">
-                ${icono}${botonAgregar.nombre_funcion}
-             </button>`
+                        ${icono}${botonAgregar.nombre_funcion}
+                    </button>`
                 );
             } else {
                 $('#contenedor-boton-agregar').html(
                     '<button type="button" class="btn btn-primary" id="btnNuevo">' +
-                    '<i class="fas fa-plus me-1"></i>Nuevo Punto de Venta</button>'
+                    '<i class="fas fa-plus me-1"></i>Nueva Boca</button>'
                 );
             }
         }, 'json');
@@ -367,17 +330,17 @@ $(document).ready(function () {
 
     // ========== MANEJADOR DE ACCIONES DE BOTONES ==========
     $(document).on('click', '.btn-accion', function () {
-        var puntoVentaId = $(this).data('id');
+        var bocaId = $(this).data('id');
         var accionJs = $(this).data('accion');
         var confirmable = $(this).data('confirmable');
-        var nombreInfo = $(this).data('nombre') || 'Punto #' + puntoVentaId;
+        var nombreInfo = $(this).data('nombre') || 'Boca #' + bocaId;
 
         if (accionJs === 'editar') {
-            cargarPuntoVentaParaEditar(puntoVentaId);
+            cargarBocaParaEditar(bocaId);
         } else if (confirmable == 1) {
             Swal.fire({
                 title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
-                html: `¿Está seguro de <strong>${accionJs}</strong> el punto de venta<br>
+                html: `¿Está seguro de <strong>${accionJs}</strong> la boca<br>
                     <strong>${nombreInfo}</strong>?`,
                 icon: 'question',
                 showCancelButton: true,
@@ -389,42 +352,37 @@ $(document).ready(function () {
                 allowOutsideClick: false
             }).then((result) => {
                 if (result.isConfirmed) {
-                    ejecutarAccion(puntoVentaId, accionJs, nombreInfo);
+                    ejecutarAccion(bocaId, accionJs, nombreInfo);
                 }
             });
         } else {
-            ejecutarAccion(puntoVentaId, accionJs, nombreInfo);
+            ejecutarAccion(bocaId, accionJs, nombreInfo);
         }
     });
 
-    // Función para ejecutar cualquier acción del backend
-    function ejecutarAccion(puntoVentaId, accionJs, nombreInfo) {
+    function ejecutarAccion(bocaId, accionJs, nombreInfo) {
         var savedState = {
             page: tabla.page(),
             order: tabla.order(),
             search: tabla.search()
         };
 
-        $.post('puntos_venta_ajax.php', {
+        $.post('bocas_ajax.php', {
             accion: 'ejecutar_accion',
-            punto_venta_id: puntoVentaId,
+            boca_id: bocaId,
             accion_js: accionJs,
             empresa_idx: empresa_idx,
             pagina_idx: pagina_idx
         }, function (res) {
             if (res.success) {
                 tabla.ajax.reload(function (json) {
-                    if (savedState.page !== undefined) {
-                        tabla.page(savedState.page).draw('page');
-                    }
-                    if (savedState.search && savedState.search !== '') {
-                        tabla.search(savedState.search).draw();
-                    }
+                    if (savedState.page !== undefined) tabla.page(savedState.page).draw('page');
+                    if (savedState.search && savedState.search !== '') tabla.search(savedState.search).draw();
 
                     Swal.fire({
                         icon: "success",
                         title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
-                        text: res.message || `Punto "${nombreInfo}" actualizado correctamente`,
+                        text: res.message || `Boca "${nombreInfo}" actualizada correctamente`,
                         showConfirmButton: false,
                         timer: 1500,
                         toast: true,
@@ -435,7 +393,7 @@ $(document).ready(function () {
                 Swal.fire({
                     icon: "error",
                     title: "Error",
-                    text: res.error || `Error al ${accionJs} el punto de venta`,
+                    text: res.error || `Error al ${accionJs} la boca`,
                     confirmButtonText: "Entendido"
                 });
             }
@@ -450,10 +408,9 @@ $(document).ready(function () {
         });
     }
 
-    // ========== FUNCIONES DE CARGA DE COMBOS ==========
+    // ========== CARGA DE COMBOS ==========
     function cargarCombosFormulario() {
-        // Cargar sucursales
-        $.get('puntos_venta_ajax.php', {
+        $.get('bocas_ajax.php', {
             accion: 'obtener_sucursales_empresa',
             empresa_idx: empresa_idx
         }, function(data) {
@@ -466,148 +423,164 @@ $(document).ready(function () {
                 options = '<option value="">No hay sucursales disponibles</option>';
             }
             $('#sucursal_id').html(options);
-            console.log("Sucursales cargadas:", data);
         }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
             console.error("Error cargando sucursales:", textStatus, errorThrown);
-            console.error("Respuesta:", jqXHR.responseText);
+        });
+
+        $.get('bocas_ajax.php', {
+            accion: 'obtener_provincias'
+        }, function(data) {
+            let options = '<option value="">Seleccionar provincia</option>';
+            if (data && data.length > 0) {
+                data.forEach(function(item) {
+                    options += `<option value="${item.provincia_id}">${item.provincia}</option>`;
+                });
+            }
+            $('#provincia_id').html(options);
+        }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+            console.error("Error cargando provincias:", textStatus, errorThrown);
         });
     }
 
-    // Combo encadenado: al elegir sucursal, cargar sus bocas (comerciales y de depósito).
-    // Es obligatorio elegir una boca, no hay opción de "PV general".
-    function cargarBocasPorSucursal(sucursalId, selectedId, callback) {
-        if (!sucursalId) {
-            $('#boca_id').html('<option value="">Seleccione una sucursal primero</option>').prop('disabled', true);
+    // Combo encadenado: al cambiar provincia, cargar localidades de esa provincia
+    function cargarLocalidadesPorProvincia(provinciaId, localidadSeleccionada, callback) {
+        if (!provinciaId) {
+            $('#localidad_id').html('<option value="">Seleccione una provincia primero</option>').prop('disabled', true);
             if (callback) callback();
             return;
         }
-        $('#boca_id').prop('disabled', true).html('<option value="">Cargando...</option>');
-        $.get('puntos_venta_ajax.php', {
-            accion: 'obtener_bocas_por_sucursal',
-            sucursal_id: sucursalId,
-            empresa_idx: empresa_idx
+        $('#localidad_id').prop('disabled', true).html('<option value="">Cargando...</option>');
+        $.get('bocas_ajax.php', {
+            accion: 'obtener_localidades_por_provincia',
+            provincia_id: provinciaId
         }, function(data) {
-            let options = '<option value="">Seleccionar boca</option>';
+            let options = '<option value="">Seleccionar localidad</option>';
             if (data && data.length > 0) {
                 data.forEach(function(item) {
-                    var etiqueta = item.boca_nombre + (item.es_deposito == 1 ? ' (depósito)' : ' (comercial)');
-                    options += `<option value="${item.boca_id}">${etiqueta}</option>`;
+                    options += `<option value="${item.localidad_id}">${item.localidad}</option>`;
                 });
             } else {
-                options = '<option value="">Esta sucursal no tiene bocas cargadas</option>';
+                options = '<option value="">Sin localidades para esta provincia</option>';
             }
-            $('#boca_id').html(options).prop('disabled', false);
-            if (selectedId) {
-                $('#boca_id').val(selectedId);
+            $('#localidad_id').html(options).prop('disabled', false);
+            if (localidadSeleccionada) {
+                $('#localidad_id').val(localidadSeleccionada);
             }
             if (callback) callback();
         }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
-            console.error("Error cargando bocas:", textStatus, errorThrown);
-            $('#boca_id').html('<option value="">Error al cargar</option>').prop('disabled', true);
+            console.error("Error cargando localidades:", textStatus, errorThrown);
+            $('#localidad_id').html('<option value="">Error al cargar</option>').prop('disabled', true);
             if (callback) callback();
         });
     }
 
-    $(document).on('change', '#sucursal_id', function () {
-        cargarBocasPorSucursal($(this).val(), null);
+    $(document).on('change', '#provincia_id', function () {
+        cargarLocalidadesPorProvincia($(this).val(), null);
     });
 
     // ========== FUNCIONES DEL MODAL ==========
     function resetModal() {
-        $('#formPuntoVenta')[0].reset();
-        $('#punto_venta_id').val('');
-        $('#es_web').prop('checked', false);
-        $('#formPuntoVenta').removeClass('was-validated');
-        $('#boca_id').html('<option value="">Seleccione una sucursal primero</option>').prop('disabled', true);
+        $('#formBoca')[0].reset();
+        $('#boca_id').val('');
+        $('#formBoca').removeClass('was-validated');
+        // Valores por defecto para checkboxes
+        $('#permite_ingresos').prop('checked', true);
+        $('#permite_egresos').prop('checked', true);
+        $('#es_principal').prop('checked', false);
+        $('#es_deposito').prop('checked', false);
+        $('#orden').val(1);
+        $('#localidad_id').html('<option value="">Seleccione una provincia primero</option>').prop('disabled', true);
     }
 
     $(document).on('click', '#btnNuevo', function () {
         resetModal();
-        $('#modalLabel').text('Nuevo Punto de Venta');
+        $('#modalLabel').text('Nueva Boca');
         cargarCombosFormulario();
-
-        var modal = new bootstrap.Modal(document.getElementById('modalPuntoVenta'));
+        var modal = new bootstrap.Modal(document.getElementById('modalBoca'));
         modal.show();
     });
 
-    // ========== CARGA DE PUNTO PARA EDITAR ==========
-    function cargarPuntoVentaParaEditar(puntoVentaId) {
-        $.get('puntos_venta_ajax.php', {
+    // ========== CARGA DE BOCA PARA EDITAR ==========
+    function cargarBocaParaEditar(bocaId) {
+        $.get('bocas_ajax.php', {
             accion: 'obtener',
-            punto_venta_id: puntoVentaId,
+            boca_id: bocaId,
             empresa_idx: empresa_idx
         }, function (res) {
-            console.log("Punto de venta recibido:", res);
-
-            if (res && res.punto_venta_id) {
+            if (res && res.boca_id) {
                 resetModal();
-
                 cargarCombosFormulario();
 
-                $('#punto_venta_id').val(res.punto_venta_id);
-                $('#nombre').val(res.nombre || '');
+                $('#boca_id').val(res.boca_id);
+                $('#boca_nombre').val(res.boca_nombre || '');
+                $('#codigo').val(res.codigo || '');
                 $('#descripcion').val(res.descripcion || '');
-                $('#codigo_fiscal').val(res.codigo_fiscal || '');
-                $('#es_web').prop('checked', parseInt(res.es_web) === 1);
+                $('#direccion').val(res.direccion || '');
+                $('#orden').val(res.orden || 1);
+                $('#permite_ingresos').prop('checked', res.permite_ingresos == 1);
+                $('#permite_egresos').prop('checked', res.permite_egresos == 1);
+                $('#es_principal').prop('checked', res.es_principal == 1);
+                $('#es_deposito').prop('checked', res.es_deposito == 1);
 
-                $('#modalLabel').text('Editar Punto de Venta');
+                $('#modalLabel').text('Editar Boca');
 
-                // Asignar valores después de que los combos se hayan cargado
+                // Los combos de sucursal/provincia recién se están poblando
+                // (cargarCombosFormulario es async); se esperan 500ms antes de
+                // fijar los valores, igual que hacía el ABM original con sucursal.
                 setTimeout(function() {
                     if (res.sucursal_id) {
-                        console.log("Asignando sucursal_id:", res.sucursal_id);
                         $('#sucursal_id').val(res.sucursal_id);
-                        cargarBocasPorSucursal(res.sucursal_id, res.boca_id);
+                    }
+                    if (res.provincia_id) {
+                        $('#provincia_id').val(res.provincia_id);
+                        cargarLocalidadesPorProvincia(res.provincia_id, res.localidad_id);
                     }
                 }, 500);
 
-                var modal = new bootstrap.Modal(document.getElementById('modalPuntoVenta'));
+                var modal = new bootstrap.Modal(document.getElementById('modalBoca'));
                 modal.show();
             } else {
                 Swal.fire({
                     icon: "error",
                     title: "Error",
-                    text: "Error al obtener datos del punto de venta",
+                    text: "Error al obtener datos de la boca",
                     confirmButtonText: "Entendido"
                 });
             }
         }, 'json');
     }
 
-    // ========== GUARDAR PUNTO DE VENTA ==========
+    // ========== GUARDAR BOCA ==========
     $('#btnGuardar').click(function() {
-        var form = document.getElementById('formPuntoVenta');
-
+        var form = document.getElementById('formBoca');
         if (!form.checkValidity()) {
             form.classList.add('was-validated');
             return false;
         }
 
-        var id = $('#punto_venta_id').val();
+        var id = $('#boca_id').val();
         var accionBackend = id ? 'editar' : 'agregar';
 
         var btnGuardar = $(this);
         var originalText = btnGuardar.html();
         btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
 
-        // Crear FormData manualmente
         var formData = new FormData();
         formData.append('accion', accionBackend);
         formData.append('empresa_idx', empresa_idx);
         formData.append('pagina_idx', pagina_idx);
-        formData.append('punto_venta_id', $('#punto_venta_id').val() || '');
+        formData.append('boca_id', id);
         formData.append('sucursal_id', $('#sucursal_id').val() || '');
-        formData.append('boca_id', $('#boca_id').val() || '');
-        formData.append('nombre', $('#nombre').val() || '');
+        formData.append('boca_nombre', $('#boca_nombre').val() || '');
+        formData.append('codigo', $('#codigo').val() || '');
         formData.append('descripcion', $('#descripcion').val() || '');
-        formData.append('codigo_fiscal', $('#codigo_fiscal').val() || '');
-        formData.append('es_web', $('#es_web').is(':checked') ? 1 : 0);
-
-        // Log para depuración
-        console.log("=== DATOS ENVIADOS ===");
-        for (var pair of formData.entries()) {
-            console.log(pair[0] + ': "' + pair[1] + '"');
-        }
+        formData.append('localidad_id', $('#localidad_id').val() || '');
+        formData.append('direccion', $('#direccion').val() || '');
+        formData.append('orden', $('#orden').val() || 1);
+        formData.append('es_deposito', $('#es_deposito').is(':checked') ? 1 : 0);
+        formData.append('permite_ingresos', $('#permite_ingresos').is(':checked') ? 1 : 0);
+        formData.append('permite_egresos', $('#permite_egresos').is(':checked') ? 1 : 0);
+        formData.append('es_principal', $('#es_principal').is(':checked') ? 1 : 0);
 
         var savedState = {
             page: tabla ? tabla.page() : 0,
@@ -616,7 +589,7 @@ $(document).ready(function () {
         };
 
         $.ajax({
-            url: 'puntos_venta_ajax.php',
+            url: 'bocas_ajax.php',
             type: 'POST',
             data: formData,
             processData: false,
@@ -624,38 +597,28 @@ $(document).ready(function () {
             dataType: 'json',
             success: function(res) {
                 btnGuardar.prop('disabled', false).html(originalText);
-
                 if (res.resultado) {
                     if (tabla) {
                         tabla.ajax.reload(function(json) {
-                            if (savedState.page !== undefined) {
-                                tabla.page(savedState.page).draw('page');
-                            }
-                            if (savedState.search && savedState.search !== '') {
-                                tabla.search(savedState.search).draw();
-                            }
+                            if (savedState.page !== undefined) tabla.page(savedState.page).draw('page');
+                            if (savedState.search && savedState.search !== '') tabla.search(savedState.search).draw();
                         }, false);
                     }
 
                     Swal.fire({
                         icon: "success",
                         title: "¡Guardado!",
-                        text: "Punto de venta guardado correctamente",
+                        text: "Boca guardada correctamente",
                         showConfirmButton: false,
                         timer: 1500,
                         toast: true,
                         position: 'top-end'
                     });
 
-                    // Cerrar modal
-                    var modalEl = document.getElementById('modalPuntoVenta');
+                    var modalEl = document.getElementById('modalBoca');
                     var modal = bootstrap.Modal.getInstance(modalEl);
-                    if (modal) {
-                        modal.hide();
-                    } else {
-                        modal = new bootstrap.Modal(modalEl);
-                        modal.hide();
-                    }
+                    if (modal) modal.hide();
+                    else new bootstrap.Modal(modalEl).hide();
 
                     $('body').removeClass('modal-open');
                     $('.modal-backdrop').remove();
@@ -670,10 +633,7 @@ $(document).ready(function () {
             },
             error: function(xhr, status, error) {
                 btnGuardar.prop('disabled', false).html(originalText);
-
-                console.error("Error AJAX:", error);
-                console.error("Respuesta:", xhr.responseText);
-
+                console.error("Error AJAX:", error, xhr.responseText);
                 Swal.fire({
                     icon: "error",
                     title: "Error de conexión",
@@ -684,11 +644,10 @@ $(document).ready(function () {
         });
     });
 
-    // ========== FUNCIONES DE PANTALLA COMPLETA ==========
+    // ========== PANTALLA COMPLETA ==========
     $('#btnToggleFullscreen').click(function() {
-        var modalDialog = $('#modalPuntoVenta .modal-dialog');
+        var modalDialog = $('#modalBoca .modal-dialog');
         var btnIcon = $(this).find('i');
-
         if (modalDialog.hasClass('modal-fullscreen')) {
             modalDialog.removeClass('modal-fullscreen');
             btnIcon.removeClass('fa-compress').addClass('fa-expand');

@@ -66,14 +66,14 @@ try {
             
             echo json_encode($cuentas, JSON_UNESCAPED_UNICODE);
             break;
-        case 'obtener_depositos_por_sucursal':
+        case 'obtener_bocas_por_sucursal':
                 $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
                 if ($sucursal_id <= 0) {
                     echo json_encode(['error' => 'ID de sucursal inválido'], JSON_UNESCAPED_UNICODE);
                     break;
                 }
-                $depositos = obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx);
-                echo json_encode($depositos, JSON_UNESCAPED_UNICODE);
+                $bocas = obtenerBocasPorSucursal($conexion, $sucursal_id, $empresa_idx);
+                echo json_encode($bocas, JSON_UNESCAPED_UNICODE);
                 break;
         case 'obtener_boton_agregar':
             $boton_agregar = obtenerBotonAgregar($conexion, $pagina_idx);
@@ -109,7 +109,7 @@ try {
                     'id' => $item['id'],
                     'text' => $item['text'],
                     'sucursal_nombre' => $item['sucursal_nombre'],
-                    'deposito_nombre' => $item['deposito_nombre'],
+                    'boca_nombre' => $item['boca_nombre'],
                     'seccion' => $item['seccion'],
                     'estanteria' => $item['estanteria'],
                     'estante' => $item['estante'],
@@ -521,7 +521,7 @@ try {
             $data = [
                 'empresa_id' => $empresa_idx,
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'deposito_id' => intval($_POST['deposito_id'] ?? 0),  // CORREGIDO: lee deposito_id
+                'boca_id' => intval($_POST['boca_id'] ?? 0),  // CORREGIDO: lee boca_id
                 'seccion' => trim($_POST['seccion'] ?? ''),
                 'estanteria' => trim($_POST['estanteria'] ?? ''),
                 'estante' => trim($_POST['estante'] ?? ''),
@@ -589,60 +589,60 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
         case 'obtener_secciones':
-    $deposito_id = intval($_GET['deposito_id'] ?? 0);
+    $boca_id = intval($_GET['boca_id'] ?? 0);
     $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
     
-    if ($deposito_id == 0) {
+    if ($boca_id == 0) {
         echo json_encode([]);
         break;
     }
     
-    $secciones = obtenerSeccionesPorDeposito($conexion, $deposito_id, $empresa_idx);
+    $secciones = obtenerSeccionesPorBoca($conexion, $boca_id, $empresa_idx);
     echo json_encode($secciones, JSON_UNESCAPED_UNICODE);
     break;
 
 case 'obtener_estanterias':
-    $deposito_id = intval($_GET['deposito_id'] ?? 0);
+    $boca_id = intval($_GET['boca_id'] ?? 0);
     $seccion = $_GET['seccion'] ?? '';
     $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
     
-    if ($deposito_id == 0 || empty($seccion)) {
+    if ($boca_id == 0 || empty($seccion)) {
         echo json_encode([]);
         break;
     }
     
-    $estanterias = obtenerEstanteriasPorSeccion($conexion, $deposito_id, $seccion, $empresa_idx);
+    $estanterias = obtenerEstanteriasPorSeccion($conexion, $boca_id, $seccion, $empresa_idx);
     echo json_encode($estanterias, JSON_UNESCAPED_UNICODE);
     break;
 
 case 'obtener_estantes':
-    $deposito_id = intval($_GET['deposito_id'] ?? 0);
+    $boca_id = intval($_GET['boca_id'] ?? 0);
     $seccion = $_GET['seccion'] ?? '';
     $estanteria = $_GET['estanteria'] ?? '';
     $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
     
-    if ($deposito_id == 0 || empty($seccion) || empty($estanteria)) {
+    if ($boca_id == 0 || empty($seccion) || empty($estanteria)) {
         echo json_encode([]);
         break;
     }
     
-    $estantes = obtenerEstantesPorEstanteria($conexion, $deposito_id, $seccion, $estanteria, $empresa_idx);
+    $estantes = obtenerEstantesPorEstanteria($conexion, $boca_id, $seccion, $estanteria, $empresa_idx);
     echo json_encode($estantes, JSON_UNESCAPED_UNICODE);
     break;
 
 case 'obtener_posiciones':
-    $deposito_id = intval($_GET['deposito_id'] ?? 0);
+    $boca_id = intval($_GET['boca_id'] ?? 0);
     $seccion = $_GET['seccion'] ?? '';
     $estanteria = $_GET['estanteria'] ?? '';
     $estante = $_GET['estante'] ?? '';
     $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
     
-    if ($deposito_id == 0 || empty($seccion) || empty($estanteria) || empty($estante)) {
+    if ($boca_id == 0 || empty($seccion) || empty($estanteria) || empty($estante)) {
         echo json_encode([]);
         break;
     }
     
-    $posiciones = obtenerPosicionesPorEstante($conexion, $deposito_id, $seccion, $estanteria, $estante, $empresa_idx);
+    $posiciones = obtenerPosicionesPorEstante($conexion, $boca_id, $seccion, $estanteria, $estante, $empresa_idx);
     echo json_encode($posiciones, JSON_UNESCAPED_UNICODE);
     break;
 

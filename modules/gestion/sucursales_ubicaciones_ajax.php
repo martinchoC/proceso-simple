@@ -21,7 +21,7 @@ try {
         case 'listar':
             $filters = [
                 'sucursal' => $_GET['filter_sucursal'] ?? '',
-                'deposito' => $_GET['filter_deposito'] ?? '',
+                'boca' => $_GET['filter_boca'] ?? '',
                 'estado' => $_GET['filter_estado'] ?? '',
                 'busqueda' => $_GET['filter_busqueda'] ?? ''
             ];
@@ -37,9 +37,9 @@ try {
             echo json_encode(obtenerSucursalesActivas($conexion, $empresa_idx), JSON_UNESCAPED_UNICODE);
             break;
             
-        case 'obtener_depositos_por_sucursal':
+        case 'obtener_bocas_por_sucursal':
             $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
-            echo json_encode($sucursal_id > 0 ? obtenerDepositosPorSucursal($conexion, $sucursal_id) : [], JSON_UNESCAPED_UNICODE);
+            echo json_encode($sucursal_id > 0 ? obtenerBocasPorSucursal($conexion, $sucursal_id) : [], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_estados_registro':
@@ -49,7 +49,7 @@ try {
         case 'agregar':
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
+                'boca_id' => intval($_POST['boca_id'] ?? 0),
                 'seccion' => trim($_POST['seccion'] ?? ''),
                 'estanteria' => trim($_POST['estanteria'] ?? ''),
                 'estante' => trim($_POST['estante'] ?? ''),
@@ -65,7 +65,7 @@ try {
         case 'editar':
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
+                'boca_id' => intval($_POST['boca_id'] ?? 0),
                 'seccion' => trim($_POST['seccion'] ?? ''),
                 'estanteria' => trim($_POST['estanteria'] ?? ''),
                 'estante' => trim($_POST['estante'] ?? ''),

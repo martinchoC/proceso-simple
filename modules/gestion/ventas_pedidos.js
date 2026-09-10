@@ -12,8 +12,15 @@ $(document).ready(function () {
     var clienteActualId = null;
     var clienteSucursalActualId = null;
     var clienteCondicionComercial = null; // { lista_precio_id, condicion_pago_id, cliente_descuento_general, limite_credito }
-    var timeoutBusqueda = null;
-    var selectedIndex = -1;
+
+    // Buscador de producto por etiquetas (mismo patrón que ventas_remitos y que el ABM
+    // de productos): cada palabra se convierte en un "tag" dentro del campo al presionar
+    // espacio, y los resultados aparecen debajo del campo (no en un desplegable flotante),
+    // cada uno con su propia cantidad y su propio botón de agregar, estilo "carrito".
+    var tagsProducto = [];
+    var tagsProductoInput = $('#busqueda_producto');
+    var tagsProductoContainer = $('#busqueda_producto_container');
+    var ultimosResultadosBusqueda = [];
 
     // Trae la condición comercial vigente del cliente (gestion__entidades_condiciones_clientes).
     // Si autoAplicarCondicionPago es true, además completa #condicion_pago_id (uso: selección manual
@@ -610,6 +617,11 @@ $(document).ready(function () {
             clienteCondicionComercial = null;
             $('#cliente_actual_nombre').text('No seleccionado');
         }
+
+        // El filtro de búsqueda (tags + resultados) corresponde a la lista de precios
+        // del cliente anterior: se limpia al cambiar de cliente para no ofrecer
+        // precios/IVA que ya no corresponden.
+        resetBusquedaProducto();
     });
 
     function imprimirComprobante(pedidoId) {
@@ -712,21 +724,21 @@ $(document).ready(function () {
                     }
 
                     $('#formVentaPedido :input').prop('disabled', true);
-                    $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoCliente').prop('disabled', true);
-                    
-                    $('.btn-editar-detalle, .btn-eliminar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido').hide();
+                    $('.btn-eliminar-detalle, #btnNuevoProductoRapido, #btnLimpiarTagsProducto, #btnNuevoCliente').prop('disabled', true);
+
+                    $('.btn-eliminar-detalle, #btnNuevoProductoRapido').hide();
                     $('#busqueda_producto').prop('disabled', true);
-                    
+
                     $('.card-info').hide(); // tarjeta 'Agregar Producto' (antes decía .card-primary, que apunta a la tarjeta de pestañas completa)
                     $('#btnNuevoProductoRapido').hide();
-                    
+
                     $('#btnGuardar').hide();
                     $('.modal-footer .btn-secondary').hide();
-                    
+
                     $('.btn-secondary[data-bs-dismiss="modal"]').hide();
-                    
+
                     $('#btnToggleFullscreen').prop('disabled', false);
-                    
+
                 }, 500);
 
                 var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaPedido'), { backdrop: 'static', keyboard: false });
@@ -736,11 +748,11 @@ $(document).ready(function () {
                     $('#formVentaPedido :input').prop('disabled', false);
                     $('#btnGuardar').show();
                     $('.modal-footer .btn-secondary').show();
-                    $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoCliente').prop('disabled', false);
-                    
+                    $('.btn-eliminar-detalle, #btnNuevoProductoRapido, #btnLimpiarTagsProducto, #btnNuevoCliente').prop('disabled', false);
+
                     $('.card-info').show(); // tarjeta 'Agregar Producto'
                     $('#btnNuevoProductoRapido').show();
-                    
+
                     $('.btn-secondary[data-bs-dismiss="modal"]').show();
                 });
 
@@ -857,202 +869,234 @@ $(document).ready(function () {
         });
     }
 
-    $('#busqueda_producto').on('input', function() {
-        var q = $(this).val().trim();
-        var resultadosDiv = $('#resultados_busqueda');
-        
-        if (!clienteActualId) {
-            resultadosDiv.hide();
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function renderizarResultadosVacio(mensajeHtml) {
+        $('#resultados_busqueda').html(`<div class="text-center text-muted small p-2">${mensajeHtml}</div>`);
+    }
+
+    function renderizarResultadosBusqueda(productos) {
+        ultimosResultadosBusqueda = productos || [];
+        var cont = $('#resultados_busqueda');
+
+        if (ultimosResultadosBusqueda.length === 0) {
+            renderizarResultadosVacio('<i class="fas fa-circle-info me-1"></i>No se encontraron productos para ese filtro.');
             return;
         }
-        
-        if (q.length < 2) {
-            resultadosDiv.hide();
-            return;
-        }
-        
-        clearTimeout(timeoutBusqueda);
-        timeoutBusqueda = setTimeout(function() {
-            $.ajax({
-                url: 'ventas_pedidos_ajax.php',
-                type: 'GET',
-                data: {
-                    accion: 'buscar_productos_cliente',
-                    entidad_id: clienteActualId,
-                    q: q,
-                    empresa_idx: empresa_idx
-                },
-                dataType: 'json',
-                success: function(res) {
-                    resultadosDiv.empty().hide();
-                    selectedIndex = -1;
 
-                    if (res && res.error === 'sin_lista_precios') {
-                        resultadosDiv.append(
-                            `<div class="list-group-item text-danger small">
-                                <i class="fas fa-triangle-exclamation me-1"></i>
-                                Este cliente no tiene una lista de precios vigente asignada
-                                (gestion__entidades_condiciones_clientes). No se pueden buscar ni
-                                agregar productos hasta configurarla.
-                            </div>`
-                        );
-                        resultadosDiv.show();
-                        return;
-                    }
+        var html = `<table class="table table-sm table-bordered table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th class="text-center">IVA</th>
+                    <th class="text-end">Precio Ref.</th>
+                    <th class="text-center" width="110">Cantidad</th>
+                    <th class="text-center" width="90">Acción</th>
+                </tr>
+            </thead>
+            <tbody>`;
 
-                    var data = (res && res.productos) ? res.productos : [];
+        ultimosResultadosBusqueda.forEach(function (item, index) {
+            var ivaPorcentaje = parseFloat(item.iva_porcentaje || 0);
+            var precio = parseFloat(item.precio_neto || 0);
 
-                    if (data && data.length > 0) {
-                        data.forEach(function(item, index) {
-                            resultadosDiv.append(
-                                `<a href="#" class="list-group-item list-group-item-action" 
-                                   data-index="${index}"
-                                   data-id="${item.producto_id}"
-                                   data-codigo="${item.producto_codigo}"
-                                   data-nombre="${item.producto_nombre}"
-                                   data-iva-id="${item.iva_alicuota_id}"
-                                   data-iva="${item.iva_porcentaje || 21}"
-                                   data-precio="${item.precio_final || ''}">
-                                    <div class="d-flex justify-content-between">
-                                        <span><strong>${item.producto_codigo}</strong> - ${item.producto_nombre}</span>
-                                        <span class="text-success fw-bold ms-2">$${formatMoneda(item.precio_final || 0)}</span>
-                                    </div>
-                                    ${item.compatibilidad_texto ? '<small class="text-muted">' + item.compatibilidad_texto + '</small>' : ''}
-                                </a>`
-                            );
-                        });
-                        resultadosDiv.show();
-                    }
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error('Error en buscar_productos_cliente:', textStatus, errorThrown);
-                    console.error('Respuesta cruda del servidor:', jqXHR.responseText);
-                    resultadosDiv.empty();
-                    resultadosDiv.append(
-                        `<div class="list-group-item text-danger small">
-                            <i class="fas fa-triangle-exclamation me-1"></i>
-                            Error del servidor al buscar productos. Revisá la consola del navegador
-                            (F12) para ver el detalle.
-                        </div>`
-                    );
-                    resultadosDiv.show();
+            html += `<tr class="resultado-libre-fila">
+                <td>${item.producto_codigo || ''}</td>
+                <td>${item.producto_nombre || ''}
+                    ${item.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(item.compatibilidad_texto)}</small>` : ''}
+                </td>
+                <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                <td class="text-end">$${formatMoneda(precio)}</td>
+                <td>
+                    <input type="number" class="form-control form-control-sm no-spinner input-cantidad-producto"
+                        value="1.00" step="0.01" min="0.01">
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-success btn-agregar-producto"
+                        data-index="${index}"
+                        data-id="${item.producto_id}"
+                        data-codigo="${item.producto_codigo}"
+                        data-nombre="${item.producto_nombre}"
+                        data-precio-bruto="${parseFloat(item.precio_final || 0)}"
+                        data-descuento-pct="${parseFloat(item.descuento_general_pct || 0)}"
+                        data-iva-id="${item.iva_alicuota_id || ''}"
+                        data-iva="${ivaPorcentaje}"
+                        title="Agregar al pedido">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        cont.html(html);
+    }
+
+    function inicializarBuscadorTagsProducto() {
+        tagsProductoContainer.on('click', function (e) {
+            if (e.target === this || $(e.target).is('#busqueda_producto_container')) tagsProductoInput.focus();
+        });
+
+        tagsProductoInput.on('input', function () {
+            var value = $(this).val().trim();
+            if (value.includes(' ')) {
+                var palabras = value.split(/\s+/);
+                palabras.forEach(function (palabra) {
+                    if (palabra.length > 0) agregarTagProducto(palabra);
+                });
+                $(this).val('');
+                ejecutarBusquedaProducto();
+            }
+        });
+
+        tagsProductoInput.on('keydown', function (e) {
+            var value = $(this).val().trim();
+            if (e.key === ' ' || e.key === 'Space') {
+                e.preventDefault();
+                if (value.length > 0) {
+                    agregarTagProducto(value);
+                    $(this).val('');
+                    ejecutarBusquedaProducto();
                 }
-            });
-        }, 300);
-    });
-
-    $('#busqueda_producto').on('keydown', function(e) {
-        var resultados = $('#resultados_busqueda .list-group-item');
-        
-        if (resultados.length === 0) return;
-        
-        if (e.keyCode === 40) {
-            e.preventDefault();
-            if (selectedIndex < resultados.length - 1) {
-                selectedIndex++;
-            } else {
-                selectedIndex = 0;
+            } else if (e.key === 'Backspace' && value === '' && tagsProducto.length > 0) {
+                eliminarTagProducto(tagsProducto.length - 1);
+                ejecutarBusquedaProducto();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (value.length > 0) {
+                    agregarTagProducto(value);
+                    $(this).val('');
+                    ejecutarBusquedaProducto();
+                }
+            } else if (e.key === 'Escape') {
+                $(this).blur();
             }
-            actualizarSeleccion(resultados);
+        });
+
+        tagsProductoInput.on('paste', function () {
+            setTimeout(function () {
+                var value = tagsProductoInput.val().trim();
+                if (value) {
+                    var palabras = value.split(/\s+/);
+                    palabras.forEach(function (palabra) {
+                        if (palabra.length > 0) agregarTagProducto(palabra);
+                    });
+                    tagsProductoInput.val('');
+                    ejecutarBusquedaProducto();
+                }
+            }, 10);
+        });
+    }
+
+    function agregarTagProducto(texto) {
+        texto = texto.trim();
+        if (!texto) return;
+        var duplicado = tagsProducto.some(function (tag) { return tag.toLowerCase() === texto.toLowerCase(); });
+        if (duplicado) { tagsProductoInput.val(''); return; }
+        tagsProducto.push(texto);
+        renderizarTagsProducto();
+        tagsProductoInput.val('');
+        tagsProductoInput.focus();
+    }
+
+    function eliminarTagProducto(index) {
+        if (index >= 0 && index < tagsProducto.length) {
+            tagsProducto.splice(index, 1);
+            renderizarTagsProducto();
         }
-        else if (e.keyCode === 38) {
-            e.preventDefault();
-            if (selectedIndex > 0) {
-                selectedIndex--;
-            } else {
-                selectedIndex = resultados.length - 1;
+    }
+
+    function limpiarTagsProducto() {
+        tagsProducto = [];
+        renderizarTagsProducto();
+    }
+
+    function renderizarTagsProducto() {
+        tagsProductoContainer.find('.tag-item').remove();
+        tagsProducto.forEach(function (tag, index) {
+            var tagHtml = `
+                <span class="tag-item" data-index="${index}">
+                    <span class="tag-text">${escapeHtml(tag)}</span>
+                    <span class="tag-remove" data-index="${index}" title="Eliminar"><i class="fas fa-times"></i></span>
+                </span>
+            `;
+            tagsProductoContainer.find('#busqueda_producto').before(tagHtml);
+        });
+        tagsProductoContainer.find('.tag-remove').off('click').on('click', function (e) {
+            e.stopPropagation();
+            var index = parseInt($(this).data('index'));
+            eliminarTagProducto(index);
+            ejecutarBusquedaProducto();
+        });
+    }
+
+    function ejecutarBusquedaProducto() {
+        if (!clienteActualId) {
+            renderizarResultadosVacio('<i class="fas fa-arrow-up me-1"></i>Seleccione un cliente primero');
+            return;
+        }
+        if (tagsProducto.length === 0) {
+            $('#resultados_busqueda').empty();
+            return;
+        }
+
+        var q = tagsProducto.join(' ');
+        $.ajax({
+            url: 'ventas_pedidos_ajax.php',
+            type: 'GET',
+            data: { accion: 'buscar_productos_cliente', entidad_id: clienteActualId, q: q, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (res) {
+                if (res && res.error === 'sin_lista_precios') {
+                    renderizarResultadosVacio(
+                        `<span class="text-danger"><i class="fas fa-triangle-exclamation me-1"></i>
+                        Este cliente no tiene una lista de precios vigente asignada
+                        (gestion__entidades_condiciones_clientes). No se pueden buscar ni
+                        agregar productos hasta configurarla.</span>`
+                    );
+                    return;
+                }
+                renderizarResultadosBusqueda((res && res.productos) ? res.productos : []);
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.error('Error en buscar_productos_cliente:', textStatus, errorThrown);
+                console.error('Respuesta cruda del servidor:', jqXHR.responseText);
+                renderizarResultadosVacio(
+                    '<span class="text-danger"><i class="fas fa-triangle-exclamation me-1"></i>Error del servidor al buscar productos.</span>'
+                );
             }
-            actualizarSeleccion(resultados);
-        }
-        else if (e.keyCode === 13 && selectedIndex >= 0) {
-            e.preventDefault();
-            $(resultados[selectedIndex]).click();
-        }
-    });
+        });
+    }
 
-    function actualizarSeleccion(resultados) {
-        resultados.removeClass('active');
-        $(resultados[selectedIndex]).addClass('active');
-        
-        var container = $('#resultados_busqueda');
-        var selectedElement = $(resultados[selectedIndex]);
-        var containerScrollTop = container.scrollTop();
-        var containerHeight = container.height();
-        var elementTop = selectedElement.position().top;
-        var elementHeight = selectedElement.outerHeight();
-        
-        if (elementTop < 0) {
-            container.scrollTop(containerScrollTop + elementTop);
-        } else if (elementTop + elementHeight > containerHeight) {
-            container.scrollTop(containerScrollTop + (elementTop + elementHeight - containerHeight));
+    function resetBusquedaProducto() {
+        tagsProducto = [];
+        renderizarTagsProducto();
+        tagsProductoInput.val('');
+        if (clienteActualId) {
+            $('#resultados_busqueda').empty();
+        } else {
+            renderizarResultadosVacio('<i class="fas fa-arrow-up me-1"></i>Seleccione un cliente primero');
         }
     }
 
-    $(document).on('click', '#resultados_busqueda .list-group-item', function(e) {
-        e.preventDefault();
-        
-        var item = $(this);
-        var productoId = item.data('id');
-        var productoCodigo = item.data('codigo');
-        var productoNombre = item.data('nombre');
-        var iva = item.data('iva');
-        var ivaId = item.data('iva-id');
-        var precioLista = item.data('precio');
-        
-        $('#busqueda_producto').val(productoCodigo + ' - ' + productoNombre);
-        $('#producto_seleccionado_id').val(productoId);
-        $('#producto_codigo_seleccionado').val(productoCodigo);
-        $('#producto_nombre_seleccionado').val(productoNombre);
-        $('#producto_iva').val(iva);
-        $('#producto_iva_id').val(ivaId);
-
-        // El precio viene fijo de la lista de precios del cliente y el % de IVA del
-        // producto (iva_alicuota_id); ninguno de los dos se vuelve a consultar ni se
-        // deja editar acá.
-        $('#producto_precio').val(precioLista || '0');
-        calcularIvaImporte();
-        
-        $('#resultados_busqueda').hide();
-        selectedIndex = -1;
+    $('#btnLimpiarTagsProducto').on('click', function () {
+        limpiarTagsProducto();
+        resetBusquedaProducto();
+        tagsProductoInput.focus();
     });
 
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('#busqueda_producto, #resultados_busqueda').length) {
-            $('#resultados_busqueda').hide();
-            selectedIndex = -1;
-        }
-    });
+    inicializarBuscadorTagsProducto();
 
-    function calcularIvaImporte() {
-        var cantidad = parseFloat($('#producto_cantidad').val()) || 0;
-        var precio = parseFloat($('#producto_precio').val()) || 0;
-        var iva = parseFloat($('#producto_iva').val()) || 0;
+    $(document).on('click', '.btn-agregar-producto', function () {
+        var btn = $(this);
+        var fila = btn.closest('tr');
+        var cantidad = parseFloat(fila.find('.input-cantidad-producto').val());
 
-        var descuentoGeneralPct = (clienteCondicionComercial && clienteCondicionComercial.cliente_descuento_general)
-            ? parseFloat(clienteCondicionComercial.cliente_descuento_general) : 0;
-        var precioNeto = precio - (precio * descuentoGeneralPct / 100);
-
-        var netoGravado = cantidad * precioNeto;
-        var ivaImporte = netoGravado * (iva / 100);
-
-        $('#producto_iva_importe').val(ivaImporte.toFixed(2));
-    }
-
-    $('#producto_cantidad, #producto_precio, #producto_iva').on('input', function() {
-        calcularIvaImporte();
-    });
-
-    function obtenerIdIva(porcentaje) {
-        switch(parseFloat(porcentaje)) {
-            case 21: return 1;
-            case 10.5: return 2;
-            case 27: return 3;
-            case 0: return 4;
-            default: return 1;
-        }
-    }
-
-    $('#btnAgregarProducto').click(function() {
         if (!clienteActualId) {
             Swal.fire({
                 icon: "warning",
@@ -1062,27 +1106,7 @@ $(document).ready(function () {
             });
             return;
         }
-        
-        var productoId = $('#producto_seleccionado_id').val();
-        if (!productoId) {
-            Swal.fire({
-                icon: "warning",
-                title: "Producto requerido",
-                text: "Debe seleccionar un producto de la lista",
-                confirmButtonText: "Entendido"
-            });
-            return;
-        }
-        
-        var cantidad = parseFloat($('#producto_cantidad').val());
-        var precio = parseFloat($('#producto_precio').val()) || 0;
-        var iva = parseFloat($('#producto_iva').val());
-        var ivaId = $('#producto_iva_id').val() || obtenerIdIva(iva);
-        var ivaImporte = parseFloat($('#producto_iva_importe').val()) || 0;
-        var noGravado = 0;
-        var exento = 0;
-        
-        if (cantidad <= 0) {
+        if (!cantidad || cantidad <= 0) {
             Swal.fire({
                 icon: "warning",
                 title: "Cantidad inválida",
@@ -1091,55 +1115,64 @@ $(document).ready(function () {
             });
             return;
         }
-        
-        var productoCodigo = $('#producto_codigo_seleccionado').val() || '';
-        var productoNombre = $('#producto_nombre_seleccionado').val() || $('#busqueda_producto').val();
-        
-        var descuentoGeneralPct = (clienteCondicionComercial && clienteCondicionComercial.cliente_descuento_general)
-            ? parseFloat(clienteCondicionComercial.cliente_descuento_general) : 0;
-        var descuentoGeneralImporte = precio * (descuentoGeneralPct / 100);
-        var precioUnitarioNeto = precio - descuentoGeneralImporte;
 
-        var netoGravado = cantidad * precioUnitarioNeto;
-        var ivaImporte = netoGravado * (iva / 100);
-        var totalLinea = netoGravado + ivaImporte + noGravado + exento;
-        
-        var nuevoDetalle = {
-            detalle_idx: 'temp_' + new Date().getTime(),
-            venta_pedido_detalle_id: 0,
-            producto_id: parseInt(productoId),
-            producto_codigo: productoCodigo,
-            producto_nombre: productoNombre,
-            cantidad: cantidad,
-            cantidad_entregada: 0,
-            precio_unitario: precio,
-            descuento_general_pct: descuentoGeneralPct,
-            descuento_general: descuentoGeneralImporte,
-            precio_unitario_neto: precioUnitarioNeto,
-            no_gravado: noGravado,
-            exento: exento,
-            iva_alicuota_id: parseInt(ivaId),
-            iva_porcentaje: iva,
-            neto_gravado: netoGravado,
-            iva_importe: ivaImporte,
-            total_linea: totalLinea
-        };
-        
-        detalles.push(nuevoDetalle);
+        var productoId = parseInt(btn.data('id'));
+        var existente = detalles.find(function (d) { return d.producto_id == productoId; });
+
+        var mensajeToast = 'Producto agregado';
+
+        if (existente) {
+            // Ya hay una línea para este producto: se suma la cantidad en lugar de
+            // duplicar la línea (precio, descuento e IVA no cambian).
+            existente.cantidad = (parseFloat(existente.cantidad) || 0) + cantidad;
+            existente.neto_gravado = existente.cantidad * existente.precio_unitario_neto;
+            existente.iva_importe = existente.neto_gravado * (existente.iva_porcentaje / 100);
+            existente.total_linea = existente.neto_gravado + existente.iva_importe + (existente.no_gravado || 0) + (existente.exento || 0);
+            mensajeToast = 'Cantidad sumada a la línea existente';
+        } else {
+            var precioBruto = parseFloat(btn.data('precio-bruto')) || 0;
+            var descuentoGeneralPct = parseFloat(btn.data('descuento-pct')) || 0;
+            var descuentoGeneralImporte = precioBruto * (descuentoGeneralPct / 100);
+            var precioUnitarioNeto = precioBruto - descuentoGeneralImporte;
+            var iva = parseFloat(btn.data('iva')) || 0;
+            var ivaId = btn.data('iva-id') || null;
+            var noGravado = 0;
+            var exento = 0;
+
+            var netoGravado = cantidad * precioUnitarioNeto;
+            var ivaImporte = netoGravado * (iva / 100);
+            var totalLinea = netoGravado + ivaImporte + noGravado + exento;
+
+            detalles.push({
+                detalle_idx: 'temp_' + new Date().getTime() + '_' + Math.random(),
+                venta_pedido_detalle_id: 0,
+                producto_id: productoId,
+                producto_codigo: btn.data('codigo'),
+                producto_nombre: btn.data('nombre'),
+                cantidad: cantidad,
+                cantidad_entregada: 0,
+                precio_unitario: precioBruto,
+                descuento_general_pct: descuentoGeneralPct,
+                descuento_general: descuentoGeneralImporte,
+                precio_unitario_neto: precioUnitarioNeto,
+                no_gravado: noGravado,
+                exento: exento,
+                iva_alicuota_id: ivaId ? parseInt(ivaId) : null,
+                iva_porcentaje: iva,
+                neto_gravado: netoGravado,
+                iva_importe: ivaImporte,
+                total_linea: totalLinea
+            });
+        }
+
         renderizarDetalles();
         actualizarTotales();
-        
-        $('#busqueda_producto').val('');
-        $('#producto_seleccionado_id').val('');
-        $('#producto_codigo_seleccionado').val('');
-        $('#producto_nombre_seleccionado').val('');
-        $('#producto_iva_id').val('');
-        $('#producto_cantidad').val('1.00');
-        $('#producto_precio').val('');
-        $('#producto_iva').val('');
-        $('#producto_iva_importe').val('0.00');
-        
-        $('#busqueda_producto').focus();
+
+        // Estilo carrito: se deja la lista de resultados como está, para poder seguir
+        // agregando el mismo u otros productos; solo se reinicia la cantidad de la fila.
+        fila.find('.input-cantidad-producto').val('1.00');
+
+        Swal.fire({ icon: 'success', title: mensajeToast, showConfirmButton: false, timer: 1000, toast: true, position: 'top-end' });
     });
 
     function renderizarDetalles() {
@@ -1188,7 +1221,14 @@ $(document).ready(function () {
                     <div class="fw-bold">${nombreProducto.substring(0, 35)}${nombreProducto.length > 35 ? '...' : ''}</div>
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                 </td>
-                <td class="text-center">${formatMoneda(detalle.cantidad)}</td>
+                <td class="text-center">
+                    <div class="cantidad-stepper mx-auto">
+                        <button type="button" class="btn-stepper btn-cantidad-menos" data-idx="${detalle.detalle_idx}" tabindex="-1">&minus;</button>
+                        <input type="number" class="cantidad-stepper-input input-cantidad-detalle"
+                            data-idx="${detalle.detalle_idx}" value="${detalle.cantidad}" step="0.01" min="0">
+                        <button type="button" class="btn-stepper btn-cantidad-mas" data-idx="${detalle.detalle_idx}" tabindex="-1">+</button>
+                    </div>
+                </td>
                 <td class="text-end">$${formatMoneda(detalle.precio_unitario)}</td>
                 <td class="text-end">${formatMoneda(detalle.descuento_general_pct)}%</td>
                 <td class="text-end">$${formatMoneda(detalle.descuento_general)}</td>
@@ -1197,11 +1237,7 @@ $(document).ready(function () {
                 <td class="text-end">$${formatMoneda(detalle.iva_importe)}</td>
                 <td class="text-end fw-bold text-success">$${formatMoneda(detalle.total_linea)}</td>
                 <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-warning btn-editar-detalle" 
-                            data-idx="${detalle.detalle_idx}" title="Editar">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-danger btn-eliminar-detalle" 
+                    <button type="button" class="btn btn-sm btn-danger btn-eliminar-detalle"
                             data-idx="${detalle.detalle_idx}" title="Eliminar">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -1215,6 +1251,72 @@ $(document).ready(function () {
         
         $('#contenedor-detalles').html(html);
     }
+
+    // Sube/baja la cantidad de una línea ya cargada, recalculando neto/IVA/total.
+    // Si la nueva cantidad es 0 (o menos), pregunta si se desea eliminar el producto
+    // en lugar de dejar una línea en cero; si no se confirma, se restaura la cantidad
+    // que tenía antes del cambio.
+    function cambiarCantidadDetalle(idx, nuevaCantidad) {
+        var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
+        if (!detalle) return;
+
+        if (isNaN(nuevaCantidad)) {
+            renderizarDetalles();
+            return;
+        }
+
+        if (nuevaCantidad <= 0) {
+            Swal.fire({
+                title: '¿Eliminar producto?',
+                text: 'La cantidad llegó a 0. ¿Desea quitar "' + (detalle.producto_nombre || '') + '" del pedido?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    detalles = detalles.filter(function (d) { return d.detalle_idx != idx; });
+                    renderizarDetalles();
+                    actualizarTotales();
+                    Swal.fire({ icon: 'success', title: 'Eliminado', showConfirmButton: false, timer: 1200, toast: true, position: 'top-end' });
+                } else {
+                    renderizarDetalles();
+                }
+            });
+            return;
+        }
+
+        detalle.cantidad = nuevaCantidad;
+        detalle.neto_gravado = detalle.cantidad * detalle.precio_unitario_neto;
+        detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
+        detalle.total_linea = detalle.neto_gravado + detalle.iva_importe + (detalle.no_gravado || 0) + (detalle.exento || 0);
+
+        renderizarDetalles();
+        actualizarTotales();
+    }
+
+    // Los botones +/- suman o restan una unidad entera; para cantidades con decimales
+    // (ej. productos que se venden por peso) se puede escribir el valor exacto en el campo.
+    $(document).on('click', '.btn-cantidad-menos', function () {
+        var idx = $(this).data('idx');
+        var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
+        if (!detalle) return;
+        cambiarCantidadDetalle(idx, Math.round(((parseFloat(detalle.cantidad) || 0) - 1) * 100) / 100);
+    });
+
+    $(document).on('click', '.btn-cantidad-mas', function () {
+        var idx = $(this).data('idx');
+        var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
+        if (!detalle) return;
+        cambiarCantidadDetalle(idx, Math.round(((parseFloat(detalle.cantidad) || 0) + 1) * 100) / 100);
+    });
+
+    $(document).on('change', '.input-cantidad-detalle', function () {
+        var idx = $(this).data('idx');
+        cambiarCantidadDetalle(idx, parseFloat($(this).val()));
+    });
 
     function formatMoneda(valor) {
         return (valor || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1299,33 +1401,6 @@ $(document).ready(function () {
                 });
             }
         });
-    });
-
-    $(document).on('click', '.btn-editar-detalle', function() {
-        var idx = $(this).data('idx');
-        var detalle = detalles.find(function(item) {
-            return item.detalle_idx == idx;
-        });
-
-        if (detalle) {
-            $('#busqueda_producto').val((detalle.producto_codigo ? detalle.producto_codigo + ' - ' : '') + detalle.producto_nombre);
-            $('#producto_seleccionado_id').val(detalle.producto_id);
-            $('#producto_codigo_seleccionado').val(detalle.producto_codigo || '');
-            $('#producto_nombre_seleccionado').val(detalle.producto_nombre);
-            $('#producto_iva_id').val(detalle.iva_alicuota_id);
-            $('#producto_cantidad').val(detalle.cantidad);
-            $('#producto_precio').val(detalle.precio_unitario);
-            $('#producto_iva').val(detalle.iva_porcentaje);
-            $('#producto_iva_importe').val(detalle.iva_importe);
-            
-            detalles = detalles.filter(function(item) {
-                return item.detalle_idx != idx;
-            });
-            renderizarDetalles();
-            actualizarTotales();
-            
-            $('#busqueda_producto').focus();
-        }
     });
 
     function cargarCombosFormulario() {
@@ -1427,15 +1502,16 @@ $(document).ready(function () {
         clienteCondicionComercial = null;
         renderizarDetalles();
         actualizarTotales();
-        
+
         $('#entidad_combo').html('<option value="">Seleccionar cliente o sucursal</option>');
         $('#cliente_actual_nombre').text('No seleccionado');
-        
+        resetBusquedaProducto();
+
         $('.btn-secondary[data-bs-dismiss="modal"]').show();
-        
-        $('.btn-editar-detalle, .btn-eliminar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido').show();
+
+        $('.btn-eliminar-detalle, #btnNuevoProductoRapido, #btnLimpiarTagsProducto').show().prop('disabled', false);
         $('#busqueda_producto').prop('disabled', false);
-        
+
         $('#btnImprimirDesdeEdicion').remove();
         
         window.sucursalIdEditar = null;
@@ -1561,11 +1637,11 @@ $(document).ready(function () {
                     
                     if (res.comprobante_nro && res.comprobante_nro > 0) {
                         $('.btn-secondary[data-bs-dismiss="modal"]').hide();
-                        $('.btn-editar-detalle, .btn-eliminar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido').hide();
+                        $('.btn-eliminar-detalle, #btnNuevoProductoRapido, #btnLimpiarTagsProducto').hide();
                         $('#busqueda_producto').prop('disabled', true);
                     } else {
                         $('.btn-secondary[data-bs-dismiss="modal"]').show();
-                        $('.btn-editar-detalle, .btn-eliminar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido').show();
+                        $('.btn-eliminar-detalle, #btnNuevoProductoRapido, #btnLimpiarTagsProducto').show();
                         $('#busqueda_producto').prop('disabled', false);
                     }
                     

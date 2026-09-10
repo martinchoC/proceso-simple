@@ -137,7 +137,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <form id="formVentaPedido" class="needs-validation" novalidate>
                                 <!-- Campos ocultos -->
                                 <input type="hidden" id="venta_pedido_id" name="venta_pedido_id" />
-                                <input type="hidden" id="producto_iva_id" name="producto_iva_id" />
                                 <input type="hidden" id="entidad_id" name="entidad_id" />
                                 <input type="hidden" id="entidad_sucursal_id" name="entidad_sucursal_id" />
                                 <input type="hidden" id="empresa_id_hidden" name="empresa_id_hidden" value="<?= $empresa_id ?>" />
@@ -322,51 +321,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                             <!-- TAB 2: PRODUCTOS -->
                                             <div class="tab-pane fade" id="productos" role="tabpanel">
-                                                <!-- Barra de búsqueda y agregado -->
+                                                <!-- Barra de búsqueda y agregado (buscador por etiquetas, estilo "carrito",
+                                                     mismo patrón que ventas_remitos) -->
                                                 <div class="card card-info card-outline mb-3">
                                                     <div class="card-header py-1 bg-info bg-opacity-10">
                                                         <h6 class="mb-0 small"><i class="fas fa-plus-circle me-2"></i>Agregar Producto</h6>
                                                     </div>
                                                     <div class="card-body py-2">
-                                                        <div class="row g-2 align-items-end">
-                                                            <div class="col-md-5 position-relative">
+                                                        <div class="row g-2">
+                                                            <div class="col-12">
                                                                 <label class="small fw-bold">Producto</label>
-                                                                <input type="text" class="form-control form-control-sm" 
-                                                                    id="busqueda_producto" 
-                                                                    placeholder="Buscar por código, nombre o compatibilidad..."
-                                                                    autocomplete="off">
-                                                                <input type="hidden" id="producto_seleccionado_id">
-                                                <input type="hidden" id="producto_codigo_seleccionado">
-                                                <input type="hidden" id="producto_nombre_seleccionado">
-                                                                <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 280px; overflow-y: auto; width: 100%; display: none; background: white; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small fw-bold">Cant.</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_cantidad" step="0.01" min="0.01" value="1.00">
-                                                            </div>
-                                                            <div class="col-md-2">
-                                                                <label class="small fw-bold">Precio</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_precio" step="0.0001" min="0" placeholder="0.00" readonly>
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <label class="small fw-bold">IVA %</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner"
-                                                                    id="producto_iva" step="0.01" min="0" value="0.00" readonly>
-                                                            </div>
-                                                            <div class="col-md-2">
-                                                                <label class="small fw-bold">IVA Importe</label>
-                                                                <input type="number" class="form-control form-control-sm no-spinner" 
-                                                                    id="producto_iva_importe" step="0.01" min="0" value="0.00" readonly>
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <button type="button" class="btn btn-sm btn-success w-100" id="btnAgregarProducto">
-                                                                    <i class="fas fa-plus"></i>
-                                                                    <span class="d-none d-md-inline ms-1">Agregar</span>
-                                                                </button>
+                                                                <div class="input-group input-group-sm">
+                                                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                                                    <div class="form-control p-1" id="busqueda_producto_container" style="min-height: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; cursor: text;">
+                                                                        <input type="text" id="busqueda_producto" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" autocomplete="off" placeholder="Escribí palabras y presioná espacio...">
+                                                                    </div>
+                                                                    <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTagsProducto" title="Limpiar filtro">
+                                                                        <i class="fas fa-times"></i>
+                                                                    </button>
+                                                                </div>
+                                                                <small class="text-muted">
+                                                                    Presioná <kbd>Espacio</kbd> para agregar una etiqueta (se combinan por código, nombre y compatibilidad).
+                                                                </small>
                                                             </div>
                                                         </div>
+                                                        <div id="resultados_busqueda" class="mt-2"></div>
                                                     </div>
                                                 </div>
 
@@ -601,15 +580,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             color: #212529;
         }
 
-        /* ===== TABLA DE DETALLES ===== */
-        #contenedor-detalles {
+        /* ===== TABLA DE DETALLES Y RESULTADOS DE BÚSQUEDA ===== */
+        #contenedor-detalles, #resultados_busqueda {
             font-size: 0.85rem;
         }
-        #contenedor-detalles table {
+        #contenedor-detalles table, #resultados_busqueda table {
             border-radius: 8px;
             overflow: hidden;
         }
-        #contenedor-detalles thead th {
+        #contenedor-detalles thead th, #resultados_busqueda thead th {
             background: #f1f3f5 !important;
             border-bottom: 2px solid #dee2e6;
             font-weight: 600;
@@ -618,11 +597,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             letter-spacing: 0.3px;
             padding: 0.5rem 0.75rem;
         }
-        #contenedor-detalles tbody td {
+        #contenedor-detalles tbody td, #resultados_busqueda tbody td {
             padding: 0.4rem 0.75rem;
             vertical-align: middle;
         }
-        #contenedor-detalles tbody tr:hover {
+        #contenedor-detalles tbody tr:hover, #resultados_busqueda tbody tr:hover {
             background: #f8f9fa;
         }
         #contenedor-detalles tbody tr.table-info {
@@ -636,30 +615,111 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             border: 2px dashed #dee2e6 !important;
         }
 
-        /* ===== RESULTADOS BÚSQUEDA ===== */
-        #resultados_busqueda {
-            border-radius: 8px !important;
-            box-shadow: 0 6px 24px rgba(0,0,0,0.15) !important;
-            border: 1px solid #e9ecef !important;
-            background: white !important;
+        /* Stepper compacto de cantidad en la tabla de detalle (+/- no se envuelven en columnas angostas) */
+        .cantidad-stepper {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            width: fit-content;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            overflow: hidden;
         }
-        #resultados_busqueda .list-group-item {
-            padding: 0.6rem 1rem;
+        .cantidad-stepper .btn-stepper {
+            flex: 0 0 auto;
+            width: 20px;
+            height: 24px;
+            padding: 0;
             border: none;
-            border-bottom: 1px solid #f1f3f5;
-            cursor: pointer;
-            transition: background 0.15s ease;
-            font-size: 0.85rem;
-        }
-        #resultados_busqueda .list-group-item:last-child {
-            border-bottom: none;
-        }
-        #resultados_busqueda .list-group-item:hover {
             background: #f1f3f5;
+            color: #495057;
+            font-size: 13px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
         }
-        #resultados_busqueda .list-group-item.active {
-            background: #1a73e8;
-            color: white;
+        .cantidad-stepper .btn-stepper:hover { background: #dee2e6; }
+        .cantidad-stepper .btn-stepper:active { background: #ced4da; }
+        .cantidad-stepper .cantidad-stepper-input {
+            flex: 0 0 auto;
+            width: 46px;
+            height: 24px;
+            border: none;
+            border-left: 1px solid #ced4da;
+            border-right: 1px solid #ced4da;
+            text-align: center;
+            font-size: 12px;
+            padding: 0 2px;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+        .cantidad-stepper .cantidad-stepper-input:focus {
+            outline: none;
+            background: #eef6ff;
+        }
+        .cantidad-stepper .cantidad-stepper-input::-webkit-inner-spin-button,
+        .cantidad-stepper .cantidad-stepper-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Buscador de producto por etiquetas (mismo patrón que el ABM de productos y que ventas_remitos) */
+        .tag-item {
+            display: inline-flex;
+            align-items: center;
+            background-color: #e9ecef;
+            border-radius: 16px;
+            padding: 2px 8px 2px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #212529;
+            transition: all 0.2s;
+            margin: 2px 2px;
+            white-space: nowrap;
+            max-width: 200px;
+            border: 1px solid #dee2e6;
+        }
+        .tag-item:hover { background-color: #dee2e6; }
+        .tag-item .tag-remove {
+            cursor: pointer;
+            margin-left: 6px;
+            font-size: 14px;
+            color: #6c757d;
+            transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            line-height: 1;
+        }
+        .tag-item .tag-remove:hover { color: #dc3545; background-color: rgba(220, 53, 69, 0.1); }
+        .tag-item .tag-text { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+
+        #busqueda_producto_container {
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            min-height: 38px;
+            padding: 4px 8px;
+            cursor: text;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        #busqueda_producto_container:focus-within {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        #busqueda_producto {
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 4px 0;
+            font-size: 14px;
+            min-width: 80px;
+            flex: 1;
         }
 
         /* ===== INPUTS NUMBER ===== */

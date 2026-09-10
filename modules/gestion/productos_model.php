@@ -11,24 +11,24 @@ function buscarUbicacionesSucursales($conexion, $termino, $empresa_idx)
     $sql = "SELECT 
                 su.sucursal_ubicacion_id,
                 su.sucursal_id,
-                su.deposito_id,
+                su.boca_id,
                 su.seccion,
                 su.estanteria,
                 su.estante,
                 su.posicion,
                 su.descripcion,
                 s.sucursal_nombre,
-                d.deposito_nombre,
-                d.codigo AS deposito_codigo
+                b.boca_nombre,
+                b.codigo AS boca_codigo
             FROM gestion__sucursales_ubicaciones su
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
-            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
+            LEFT JOIN gestion__bocas b ON su.boca_id = b.boca_id
             WHERE (su.empresa_id = 0 OR su.empresa_id = ?)
             AND su.tabla_estado_registro_id = 1
             AND (
                 s.sucursal_nombre LIKE ? OR
-                d.deposito_nombre LIKE ? OR
-                d.codigo LIKE ? OR
+                b.boca_nombre LIKE ? OR
+                b.codigo LIKE ? OR
                 su.seccion LIKE ? OR
                 su.estanteria LIKE ? OR
                 su.estante LIKE ? OR
@@ -36,7 +36,7 @@ function buscarUbicacionesSucursales($conexion, $termino, $empresa_idx)
                 CONCAT(su.estanteria, '-', su.estante, '-', su.posicion) LIKE ? OR
                 CONCAT(su.seccion, ' ', su.estanteria, '-', su.estante, su.posicion) LIKE ?
             )
-            ORDER BY s.sucursal_nombre, d.deposito_nombre, su.seccion, su.estanteria, su.estante, su.posicion
+            ORDER BY s.sucursal_nombre, b.boca_nombre, su.seccion, su.estanteria, su.estante, su.posicion
             LIMIT 20"; // Limitar resultados para mejor rendimiento
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -58,7 +58,7 @@ function buscarUbicacionesSucursales($conexion, $termino, $empresa_idx)
         $texto = sprintf(
             '%s - %s - %s - %s - Est.%s - Pos.%s',
             $fila['sucursal_nombre'] ?? 'Sin sucursal',
-            $fila['deposito_nombre'] ?? 'Sin depósito',
+            $fila['boca_nombre'] ?? 'Sin boca',
             $fila['seccion'] ?? 'Sin sección',
             $fila['estanteria'] ?? 'Sin estantería',
             $fila['estante'] ?? 'Sin estante',
@@ -73,7 +73,7 @@ function buscarUbicacionesSucursales($conexion, $termino, $empresa_idx)
             'id' => $fila['sucursal_ubicacion_id'],
             'text' => $texto,
             'sucursal_nombre' => $fila['sucursal_nombre'],
-            'deposito_nombre' => $fila['deposito_nombre'],
+            'boca_nombre' => $fila['boca_nombre'],
             'seccion' => $fila['seccion'],
             'estanteria' => $fila['estanteria'],
             'estante' => $fila['estante'],
@@ -107,12 +107,12 @@ function buscarUbicacionesRapidas($conexion, $termino, $empresa_idx, $limite = 1
                 su.posicion,
                 su.descripcion,
                 s.sucursal_nombre,
-                d.deposito_nombre,
-                d.codigo AS deposito_codigo,
+                b.boca_nombre,
+                b.codigo AS boca_codigo,
                 -- Calcular relevancia para ordenar
                 CASE 
                     WHEN s.sucursal_nombre LIKE ? THEN 1
-                    WHEN d.deposito_nombre LIKE ? THEN 2
+                    WHEN b.boca_nombre LIKE ? THEN 2
                     WHEN su.seccion LIKE ? THEN 3
                     WHEN su.estanteria LIKE ? THEN 4
                     WHEN su.estante LIKE ? THEN 5
@@ -122,13 +122,13 @@ function buscarUbicacionesRapidas($conexion, $termino, $empresa_idx, $limite = 1
                 END AS relevancia
             FROM gestion__sucursales_ubicaciones su
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
-            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
+            LEFT JOIN gestion__bocas b ON su.boca_id = b.boca_id
             WHERE (su.empresa_id = 0 OR su.empresa_id = ?)
             AND su.tabla_estado_registro_id = 1
             AND (
                 s.sucursal_nombre LIKE ? OR
-                d.deposito_nombre LIKE ? OR
-                d.codigo LIKE ? OR
+                b.boca_nombre LIKE ? OR
+                b.codigo LIKE ? OR
                 su.seccion LIKE ? OR
                 su.estanteria LIKE ? OR
                 su.estante LIKE ? OR
@@ -138,7 +138,7 @@ function buscarUbicacionesRapidas($conexion, $termino, $empresa_idx, $limite = 1
                 CONCAT(su.estanteria, su.estante, su.posicion) LIKE ? OR
                 su.descripcion LIKE ?
             )
-            ORDER BY relevancia ASC, s.sucursal_nombre, d.deposito_nombre, su.seccion
+            ORDER BY relevancia ASC, s.sucursal_nombre, b.boca_nombre, su.seccion
             LIMIT ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -165,7 +165,7 @@ function buscarUbicacionesRapidas($conexion, $termino, $empresa_idx, $limite = 1
         // Construir texto descriptivo compacto
         $partes = [];
         if (!empty($fila['sucursal_nombre'])) $partes[] = $fila['sucursal_nombre'];
-        if (!empty($fila['deposito_nombre'])) $partes[] = $fila['deposito_nombre'];
+        if (!empty($fila['boca_nombre'])) $partes[] = $fila['boca_nombre'];
         if (!empty($fila['seccion'])) $partes[] = $fila['seccion'];
         
         $ubicacion_detalle = '';
@@ -188,7 +188,7 @@ function buscarUbicacionesRapidas($conexion, $termino, $empresa_idx, $limite = 1
             'id' => $fila['sucursal_ubicacion_id'],
             'text' => $texto,
             'sucursal_nombre' => $fila['sucursal_nombre'],
-            'deposito_nombre' => $fila['deposito_nombre'],
+            'boca_nombre' => $fila['boca_nombre'],
             'seccion' => $fila['seccion'],
             'estanteria' => $fila['estanteria'],
             'estante' => $fila['estante'],
@@ -433,7 +433,7 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
                 (SELECT CONCAT('[', GROUP_CONCAT(
                     JSON_OBJECT(
                         'sucursal', COALESCE(su2.sucursal_nombre, ''),
-                        'deposito', COALESCE(d.deposito_nombre, ''),
+                        'boca', COALESCE(b.boca_nombre, ''),
                         'seccion', COALESCE(su2_ubic.seccion, ''),
                         'estanteria', COALESCE(su2_ubic.estanteria, ''),
                         'estante', COALESCE(su2_ubic.estante, ''),
@@ -445,7 +445,7 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
                 FROM gestion__productos_ubicaciones pu2
                 INNER JOIN gestion__sucursales_ubicaciones su2_ubic ON pu2.sucursal_ubicacion_id = su2_ubic.sucursal_ubicacion_id
                 LEFT JOIN gestion__sucursales su2 ON su2_ubic.sucursal_id = su2.sucursal_id
-                LEFT JOIN gestion__depositos d ON su2_ubic.deposito_id = d.deposito_id
+                LEFT JOIN gestion__bocas b ON su2_ubic.boca_id = b.boca_id
                 WHERE pu2.producto_id = p.producto_id
                 AND pu2.tabla_estado_registro_id = 1
                 ), '[]'
@@ -1944,7 +1944,7 @@ function actualizarImagenProducto($conexion, $producto_imagen_id, $data, $empres
 }
 
 // ✅ Obtener ubicaciones de sucursales
-// ✅ Obtener ubicaciones de sucursales (con depósitos)
+// ✅ Obtener ubicaciones de sucursales (con bocas)
 function obtenerUbicacionesSucursales($conexion, $empresa_idx)
 {
     $empresa_idx = intval($empresa_idx);
@@ -1952,21 +1952,21 @@ function obtenerUbicacionesSucursales($conexion, $empresa_idx)
     $sql = "SELECT 
                 su.sucursal_ubicacion_id,
                 su.sucursal_id,
-                su.deposito_id,
+                su.boca_id,
                 su.seccion,
                 su.estanteria,
                 su.estante,
                 su.posicion,
                 su.descripcion,
                 s.sucursal_nombre,
-                d.deposito_nombre,
-                d.codigo AS deposito_codigo
+                b.boca_nombre,
+                b.codigo AS boca_codigo
             FROM gestion__sucursales_ubicaciones su
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
-            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
+            LEFT JOIN gestion__bocas b ON su.boca_id = b.boca_id
             WHERE (su.empresa_id = 0 OR su.empresa_id = ?)
             AND su.tabla_estado_registro_id = 1
-            ORDER BY s.sucursal_nombre, d.deposito_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
+            ORDER BY s.sucursal_nombre, b.boca_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -2015,7 +2015,7 @@ function obtenerSucursales($conexion, $empresa_idx)
     return $sucursales;
 }
 
-// ✅ Obtener ubicaciones de un producto (con depósitos)
+// ✅ Obtener ubicaciones de un producto (con bocas)
 function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
 {
     $producto_id = intval($producto_id);
@@ -2024,22 +2024,22 @@ function obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx)
                 pu.producto_ubicacion_id,
                 pu.sucursal_ubicacion_id,
                 su.sucursal_id,
-                su.deposito_id,
+                su.boca_id,
                 su.seccion,
                 su.estanteria,
                 su.estante,
                 su.posicion,
                 su.descripcion,
                 s.sucursal_nombre,
-                d.deposito_nombre,
-                d.codigo AS deposito_codigo
+                b.boca_nombre,
+                b.codigo AS boca_codigo
             FROM gestion__productos_ubicaciones pu
             INNER JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
-            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
+            LEFT JOIN gestion__bocas b ON su.boca_id = b.boca_id
             WHERE pu.producto_id = ?
             AND pu.tabla_estado_registro_id = 1
-            ORDER BY s.sucursal_nombre, d.deposito_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
+            ORDER BY s.sucursal_nombre, b.boca_nombre, su.seccion, su.estanteria, su.estante, su.posicion";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -2203,12 +2203,12 @@ function eliminarUbicacionProducto($conexion, $producto_ubicacion_id)
     }
 }
 
-// ✅ Crear nueva ubicación de sucursal (con depósito)
+// ✅ Crear nueva ubicación de sucursal (con boca)
 function crearUbicacionSucursal($conexion, $data)
 {
     $empresa_id = intval($data['empresa_id'] ?? 0);
     $sucursal_id = intval($data['sucursal_id'] ?? 0);
-    $deposito_id = intval($data['deposito_id'] ?? 0);
+    $boca_id = intval($data['boca_id'] ?? 0);
     $seccion = mysqli_real_escape_string($conexion, trim($data['seccion'] ?? ''));
     $estanteria = mysqli_real_escape_string($conexion, trim($data['estanteria'] ?? ''));
     $estante = mysqli_real_escape_string($conexion, trim($data['estante'] ?? ''));
@@ -2220,8 +2220,8 @@ function crearUbicacionSucursal($conexion, $data)
         return ['resultado' => false, 'error' => 'Seleccione una sucursal'];
     }
     
-    if ($deposito_id == 0) {
-        return ['resultado' => false, 'error' => 'Seleccione un depósito'];
+    if ($boca_id == 0) {
+        return ['resultado' => false, 'error' => 'Seleccione una boca'];
     }
 
     if (empty($seccion)) {
@@ -2240,10 +2240,10 @@ function crearUbicacionSucursal($conexion, $data)
         return ['resultado' => false, 'error' => 'La posición es obligatoria'];
     }
 
-    // Verificar si ya existe esta ubicación (incluyendo depósito)
+    // Verificar si ya existe esta ubicación (incluyendo boca)
     $sql_check = "SELECT COUNT(*) as total FROM gestion__sucursales_ubicaciones 
                   WHERE sucursal_id = ? 
-                  AND deposito_id = ?
+                  AND boca_id = ?
                   AND seccion = ? 
                   AND estanteria = ? 
                   AND estante = ? 
@@ -2254,19 +2254,19 @@ function crearUbicacionSucursal($conexion, $data)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
 
-    mysqli_stmt_bind_param($stmt, "iissss", $sucursal_id, $deposito_id, $seccion, $estanteria, $estante, $posicion);
+    mysqli_stmt_bind_param($stmt, "iissss", $sucursal_id, $boca_id, $seccion, $estanteria, $estante, $posicion);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
     if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Esta ubicación ya existe en la sucursal/depósito'];
+        return ['resultado' => false, 'error' => 'Esta ubicación ya existe en la sucursal/boca'];
     }
 
     // Insertar nueva ubicación
     $sql = "INSERT INTO gestion__sucursales_ubicaciones 
-            (empresa_id, sucursal_id, deposito_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
+            (empresa_id, sucursal_id, boca_id, seccion, estanteria, estante, posicion, descripcion, tabla_estado_registro_id) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -2279,7 +2279,7 @@ function crearUbicacionSucursal($conexion, $data)
         "iiisssss",
         $empresa_id,
         $sucursal_id,
-        $deposito_id,
+        $boca_id,
         $seccion,
         $estanteria,
         $estante,
@@ -2602,18 +2602,21 @@ function obtenerCuentasContables($conexion, $empresa_idx)
     mysqli_stmt_close($stmt);
     return $cuentas;
 }
-// ✅ Obtener depósitos por sucursal
-function obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx)
+// ✅ Obtener bocas por sucursal
+function obtenerBocasPorSucursal($conexion, $sucursal_id, $empresa_idx)
 {
     $sucursal_id = intval($sucursal_id);
     $empresa_idx = intval($empresa_idx);
 
-    $sql = "SELECT deposito_id, deposito_nombre, codigo, es_principal
-            FROM gestion__depositos
+    // Solo bocas que manejan stock: este combo es para ubicar físicamente
+    // un producto dentro de un depósito, no aplica a bocas comerciales
+    $sql = "SELECT boca_id, boca_nombre, codigo, es_principal
+            FROM gestion__bocas
             WHERE sucursal_id = ? 
             AND empresa_id = ?
+            AND es_deposito = 1
             AND tabla_estado_registro_id = 1
-            ORDER BY es_principal DESC, orden ASC, deposito_nombre ASC";
+            ORDER BY es_principal DESC, orden ASC, boca_nombre ASC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -2624,23 +2627,23 @@ function obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_idx)
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
-    $depositos = [];
+    $bocas = [];
     while ($fila = mysqli_fetch_assoc($result)) {
-        $depositos[] = $fila;
+        $bocas[] = $fila;
     }
 
     mysqli_stmt_close($stmt);
-    return $depositos;
+    return $bocas;
 }
-// ✅ Obtener secciones por depósito
-function obtenerSeccionesPorDeposito($conexion, $deposito_id, $empresa_idx)
+// ✅ Obtener secciones por boca
+function obtenerSeccionesPorBoca($conexion, $boca_id, $empresa_idx)
 {
-    $deposito_id = intval($deposito_id);
+    $boca_id = intval($boca_id);
     $empresa_idx = intval($empresa_idx);
     
     $sql = "SELECT DISTINCT seccion 
             FROM gestion__sucursales_ubicaciones 
-            WHERE deposito_id = ? 
+            WHERE boca_id = ? 
             AND (empresa_id = 0 OR empresa_id = ?)
             AND tabla_estado_registro_id = 1
             AND seccion != ''
@@ -2651,7 +2654,7 @@ function obtenerSeccionesPorDeposito($conexion, $deposito_id, $empresa_idx)
         return [];
     }
     
-    mysqli_stmt_bind_param($stmt, "ii", $deposito_id, $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "ii", $boca_id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     
@@ -2664,16 +2667,16 @@ function obtenerSeccionesPorDeposito($conexion, $deposito_id, $empresa_idx)
     return $secciones;
 }
 
-// ✅ Obtener estanterías por sección y depósito
-function obtenerEstanteriasPorSeccion($conexion, $deposito_id, $seccion, $empresa_idx)
+// ✅ Obtener estanterías por sección y boca
+function obtenerEstanteriasPorSeccion($conexion, $boca_id, $seccion, $empresa_idx)
 {
-    $deposito_id = intval($deposito_id);
+    $boca_id = intval($boca_id);
     $empresa_idx = intval($empresa_idx);
     $seccion = mysqli_real_escape_string($conexion, trim($seccion));
     
     $sql = "SELECT DISTINCT estanteria 
             FROM gestion__sucursales_ubicaciones 
-            WHERE deposito_id = ? 
+            WHERE boca_id = ? 
             AND seccion = ?
             AND (empresa_id = 0 OR empresa_id = ?)
             AND tabla_estado_registro_id = 1
@@ -2685,7 +2688,7 @@ function obtenerEstanteriasPorSeccion($conexion, $deposito_id, $seccion, $empres
         return [];
     }
     
-    mysqli_stmt_bind_param($stmt, "isi", $deposito_id, $seccion, $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "isi", $boca_id, $seccion, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     
@@ -2698,17 +2701,17 @@ function obtenerEstanteriasPorSeccion($conexion, $deposito_id, $seccion, $empres
     return $estanterias;
 }
 
-// ✅ Obtener estantes por estantería, sección y depósito
-function obtenerEstantesPorEstanteria($conexion, $deposito_id, $seccion, $estanteria, $empresa_idx)
+// ✅ Obtener estantes por estantería, sección y boca
+function obtenerEstantesPorEstanteria($conexion, $boca_id, $seccion, $estanteria, $empresa_idx)
 {
-    $deposito_id = intval($deposito_id);
+    $boca_id = intval($boca_id);
     $empresa_idx = intval($empresa_idx);
     $seccion = mysqli_real_escape_string($conexion, trim($seccion));
     $estanteria = mysqli_real_escape_string($conexion, trim($estanteria));
     
     $sql = "SELECT DISTINCT estante 
             FROM gestion__sucursales_ubicaciones 
-            WHERE deposito_id = ? 
+            WHERE boca_id = ? 
             AND seccion = ?
             AND estanteria = ?
             AND (empresa_id = 0 OR empresa_id = ?)
@@ -2721,7 +2724,7 @@ function obtenerEstantesPorEstanteria($conexion, $deposito_id, $seccion, $estant
         return [];
     }
     
-    mysqli_stmt_bind_param($stmt, "issi", $deposito_id, $seccion, $estanteria, $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "issi", $boca_id, $seccion, $estanteria, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     
@@ -2734,10 +2737,10 @@ function obtenerEstantesPorEstanteria($conexion, $deposito_id, $seccion, $estant
     return $estantes;
 }
 
-// ✅ Obtener posiciones por estante, estantería, sección y depósito
-function obtenerPosicionesPorEstante($conexion, $deposito_id, $seccion, $estanteria, $estante, $empresa_idx)
+// ✅ Obtener posiciones por estante, estantería, sección y boca
+function obtenerPosicionesPorEstante($conexion, $boca_id, $seccion, $estanteria, $estante, $empresa_idx)
 {
-    $deposito_id = intval($deposito_id);
+    $boca_id = intval($boca_id);
     $empresa_idx = intval($empresa_idx);
     $seccion = mysqli_real_escape_string($conexion, trim($seccion));
     $estanteria = mysqli_real_escape_string($conexion, trim($estanteria));
@@ -2748,7 +2751,7 @@ function obtenerPosicionesPorEstante($conexion, $deposito_id, $seccion, $estante
                 posicion,
                 descripcion
             FROM gestion__sucursales_ubicaciones 
-            WHERE deposito_id = ? 
+            WHERE boca_id = ? 
             AND seccion = ?
             AND estanteria = ?
             AND estante = ?
@@ -2762,7 +2765,7 @@ function obtenerPosicionesPorEstante($conexion, $deposito_id, $seccion, $estante
         return [];
     }
     
-    mysqli_stmt_bind_param($stmt, "isssi", $deposito_id, $seccion, $estanteria, $estante, $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "isssi", $boca_id, $seccion, $estanteria, $estante, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     
@@ -2784,11 +2787,11 @@ function obtenerUbicacionCompletaPorId($conexion, $sucursal_ubicacion_id, $empre
     $sql = "SELECT 
                 su.*,
                 s.sucursal_nombre,
-                d.deposito_nombre,
-                d.codigo AS deposito_codigo
+                b.boca_nombre,
+                b.codigo AS boca_codigo
             FROM gestion__sucursales_ubicaciones su
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
-            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
+            LEFT JOIN gestion__bocas b ON su.boca_id = b.boca_id
             WHERE su.sucursal_ubicacion_id = ?
             AND (su.empresa_id = 0 OR su.empresa_id = ?)
             AND su.tabla_estado_registro_id = 1";
@@ -2815,18 +2818,18 @@ function obtenerDetalleUbicacionSucursal($conexion, $sucursal_ubicacion_id, $emp
     $sql = "SELECT 
                 su.sucursal_ubicacion_id,
                 su.sucursal_id,
-                su.deposito_id,
+                su.boca_id,
                 su.seccion,
                 su.estanteria,
                 su.estante,
                 su.posicion,
                 su.descripcion,
                 s.sucursal_nombre,
-                d.deposito_nombre,
-                d.codigo AS deposito_codigo
+                b.boca_nombre,
+                b.codigo AS boca_codigo
             FROM gestion__sucursales_ubicaciones su
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
-            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
+            LEFT JOIN gestion__bocas b ON su.boca_id = b.boca_id
             WHERE su.sucursal_ubicacion_id = ?
             AND (su.empresa_id = 0 OR su.empresa_id = ?)
             AND su.tabla_estado_registro_id = 1";
@@ -2847,7 +2850,7 @@ function obtenerDetalleUbicacionSucursal($conexion, $sucursal_ubicacion_id, $emp
     // Log para depuración
     if ($ubicacion) {
         error_log("obtenerDetalleUbicacionSucursal - sucursal_id: " . ($ubicacion['sucursal_id'] ?? 'NULL'));
-        error_log("obtenerDetalleUbicacionSucursal - deposito_id: " . ($ubicacion['deposito_id'] ?? 'NULL'));
+        error_log("obtenerDetalleUbicacionSucursal - boca_id: " . ($ubicacion['boca_id'] ?? 'NULL'));
         error_log("obtenerDetalleUbicacionSucursal - seccion: " . ($ubicacion['seccion'] ?? 'NULL'));
     }
     
@@ -2864,7 +2867,7 @@ function obtenerUbicacionProductoPorId($conexion, $producto_ubicacion_id)
                 pu.producto_id,
                 pu.sucursal_ubicacion_id,
                 su.sucursal_id,
-                su.deposito_id,
+                su.boca_id,
                 su.seccion,
                 su.estanteria,
                 su.estante,
@@ -2872,12 +2875,12 @@ function obtenerUbicacionProductoPorId($conexion, $producto_ubicacion_id)
                 su.descripcion,
                 su.tabla_estado_registro_id,
                 s.sucursal_nombre,
-                d.deposito_nombre,
-                d.codigo AS deposito_codigo
+                b.boca_nombre,
+                b.codigo AS boca_codigo
             FROM gestion__productos_ubicaciones pu
             INNER JOIN gestion__sucursales_ubicaciones su ON pu.sucursal_ubicacion_id = su.sucursal_ubicacion_id
             LEFT JOIN gestion__sucursales s ON su.sucursal_id = s.sucursal_id
-            LEFT JOIN gestion__depositos d ON su.deposito_id = d.deposito_id
+            LEFT JOIN gestion__bocas b ON su.boca_id = b.boca_id
             WHERE pu.producto_ubicacion_id = ?
             AND pu.tabla_estado_registro_id = 1";
     

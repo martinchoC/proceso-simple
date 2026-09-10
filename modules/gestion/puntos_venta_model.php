@@ -241,12 +241,14 @@ function obtenerPuntosVenta($conexion, $empresa_idx, $pagina_id)
     $sql = "SELECT pv.*,
                    e.empresa,
                    s.sucursal_nombre,
+                   gb.boca_nombre,
                    er.$estado_column as estado_registro,
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase
             FROM gestion__puntos_venta pv
             LEFT JOIN conf__empresas e ON pv.empresa_id = e.empresa_id
             LEFT JOIN gestion__sucursales s ON pv.sucursal_id = s.sucursal_id
+            INNER JOIN gestion__bocas gb ON pv.boca_id = gb.boca_id
             LEFT JOIN conf__estados_registros er ON pv.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
             WHERE pv.empresa_id = ?
@@ -300,6 +302,9 @@ function agregarPuntoVenta($conexion, $data)
     if (empty($data['sucursal_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar una sucursal'];
     }
+    if (empty($data['boca_id'])) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar una boca'];
+    }
     if (empty($data['nombre'])) {
         return ['resultado' => false, 'error' => 'El nombre es obligatorio'];
     }
@@ -348,6 +353,10 @@ function agregarPuntoVenta($conexion, $data)
             }
         }
 
+        // Validar que la boca pertenezca a la sucursal elegida (siempre, ya es obligatoria)
+        $boca_id_val = intval($data['boca_id']);
+        validarBocaPerteneceASucursal($conexion, $boca_id_val, $sucursal_id_check, $empresa_idx_check);
+
         // Obtener estado inicial
         $estado_inicial = obtenerEstadoInicial($conexion);
         if (!$estado_inicial) {
@@ -356,8 +365,8 @@ function agregarPuntoVenta($conexion, $data)
 
         // Insertar punto de venta
         $sql = "INSERT INTO gestion__puntos_venta
-                (empresa_id, sucursal_id, nombre, descripcion, codigo_fiscal, es_web, tabla_estado_registro_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
+                (empresa_id, sucursal_id, boca_id, nombre, descripcion, codigo_fiscal, es_web, tabla_estado_registro_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -372,9 +381,10 @@ function agregarPuntoVenta($conexion, $data)
         $es_web_val = !empty($data['es_web']) ? 1 : 0;
         $estado_val = $estado_inicial;
 
-        mysqli_stmt_bind_param($stmt, "iissiii",
+        mysqli_stmt_bind_param($stmt, "iiissiii",
             $empresa_id_val,
             $sucursal_id_val,
+            $boca_id_val,
             $nombre_val,
             $descripcion_val,
             $codigo_fiscal_val,
@@ -452,9 +462,17 @@ function editarPuntoVenta($conexion, $id, $data)
             }
         }
 
+        // Validar que la boca pertenezca a la sucursal elegida (siempre, ya es obligatoria)
+        if (empty($data['boca_id'])) {
+            throw new Exception('Debe seleccionar una boca');
+        }
+        $boca_id_val = intval($data['boca_id']);
+        validarBocaPerteneceASucursal($conexion, $boca_id_val, $sucursal_id_check, $empresa_idx_check);
+
         // Actualizar punto de venta (NO se actualiza tabla_estado_registro_id porque eso se maneja con acciones)
         $sql = "UPDATE gestion__puntos_venta
                 SET sucursal_id = ?,
+                    boca_id = ?,
                     nombre = ?,
                     descripcion = ?,
                     codigo_fiscal = ?,
@@ -474,8 +492,9 @@ function editarPuntoVenta($conexion, $id, $data)
         $id_val = $id;
         $empresa_idx_val = intval($data['empresa_idx']);
 
-        mysqli_stmt_bind_param($stmt, "issiiii",
+        mysqli_stmt_bind_param($stmt, "iissiiii",
             $sucursal_id_val,
+            $boca_id_val,
             $nombre_val,
             $descripcion_val,
             $codigo_fiscal_val,
@@ -503,14 +522,70 @@ function editarPuntoVenta($conexion, $id, $data)
     }
 }
 
+// Valida que la boca elegida pertenezca a la misma sucursal del punto de
+// venta (regla de negocio que la FK simple no puede expresar). Lanza
+// Exception si no se cumple, para que agregar/editar hagan rollback.
+function validarBocaPerteneceASucursal($conexion, $boca_id, $sucursal_id, $empresa_idx)
+{
+    $sql = "SELECT sucursal_id FROM gestion__bocas WHERE boca_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        throw new Exception("Error validando boca: " . mysqli_error($conexion));
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $boca_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $boca = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$boca) {
+        throw new Exception('La boca seleccionada no existe');
+    }
+    if (intval($boca['sucursal_id']) !== intval($sucursal_id)) {
+        throw new Exception('La boca seleccionada no pertenece a la sucursal elegida');
+    }
+}
+
+// Bocas de una sucursal para el selector del PV (obligatorio elegir una):
+// a diferencia del combo de ubicaciones físicas de stock, acá NO se
+// filtra por es_deposito, porque un punto de venta puede colgar tanto
+// de una boca comercial (ej. "Caja mostrador") como de una boca de
+// depósito (ej. "Remitos").
+function obtenerBocasPorSucursal($conexion, $sucursal_id, $empresa_idx)
+{
+    $sql = "SELECT boca_id, boca_nombre, codigo, es_deposito, es_principal
+            FROM gestion__bocas
+            WHERE sucursal_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1
+            ORDER BY es_principal DESC, orden ASC, boca_nombre ASC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $sucursal_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $bocas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $bocas[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $bocas;
+}
+
 function obtenerPuntoVentaPorId($conexion, $id, $empresa_idx)
 {
     $id = intval($id);
 
-    $sql = "SELECT pv.*, s.sucursal_nombre, e.empresa
+    $sql = "SELECT pv.*, s.sucursal_nombre, e.empresa, gb.boca_nombre
             FROM gestion__puntos_venta pv
             LEFT JOIN gestion__sucursales s ON pv.sucursal_id = s.sucursal_id
             LEFT JOIN conf__empresas e ON pv.empresa_id = e.empresa_id
+            INNER JOIN gestion__bocas gb ON pv.boca_id = gb.boca_id
             WHERE pv.punto_venta_id = ? AND pv.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
