@@ -215,7 +215,8 @@ try {
             break;
 
         case 'obtener_comprobantes_tipos':
-            $tipos = obtenerComprobantesTipos($conexion);
+            $punto_venta_id = intval($_GET['punto_venta_id'] ?? 0);
+            $tipos = obtenerComprobantesTipos($conexion, $empresa_idx, $pagina_idx, $punto_venta_id);
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
 

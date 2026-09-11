@@ -4,13 +4,18 @@ $conexion = $conn;
 
 // ============================================================
 // SUPUESTOS A VALIDAR CON EL ESQUEMA REAL (avisame si difieren):
-// - Existe gestion__depositos(deposito_id, deposito_nombre, empresa_id, tabla_estado_registro_id),
-//   mismo patrón que gestion__sucursales.
+// - (2026-09-10, actualizado) El formulario ya NO usa sucursal_id ni deposito_id
+//   como combos independientes: se unificaron en un solo combo "Punto de Venta",
+//   restringido a los PV cuya boca asociada (gestion__puntos_venta.boca_id ->
+//   gestion__bocas) tiene es_deposito=1. sucursal_id y boca_id (ex deposito_id,
+//   requiere ALTER TABLE gestion__ventas_remitos CHANGE COLUMN deposito_id boca_id
+//   SMALLINT(5) UNSIGNED NOT NULL) se resuelven en el backend a partir del PV
+//   elegido, vía resolverBocaYSucursalPorPuntoVentaRemitos(). gestion__depositos
+//   sigue existiendo sólo para las funciones/acciones viejas que se dejaron sin
+//   uso (obtenerDepositosEmpresa, acción AJAX 'obtener_depositos').
 // - gestion__ventas_remitos.comprobante_pv guarda directamente el punto_venta_id elegido
 //   (igual que ya hace gestion__comprobantes.comprobante_pv en syncComprobante() de
-//   ventas_pedidos_model.php), no un número de PV separado. Por eso el combo "Punto de
-//   Venta" del formulario sigue saliendo de gestion__puntos_venta filtrado por sucursal,
-//   pero lo que se persiste en la cabecera del remito es ese mismo punto_venta_id.
+//   ventas_pedidos_model.php), no un número de PV separado.
 // - "Pendiente de entrega" = gestion__ventas_pedidos_detalles.cantidad - cantidad_entregada,
 //   tal cual pidió Pablo. Se excluyen pedidos cuyo estado tenga codigo_estandar = 'CANCELADO'.
 // - La reversión de cantidad_entregada (al editar o al anular un remito) dispara cuando el
@@ -568,7 +573,7 @@ function obtenerRemitosVenta($conexion, $empresa_idx, $pagina_id)
                    ct.comprobante_tipo,
                    e.entidad_nombre, e.entidad_fantasia,
                    s.sucursal_nombre,
-                   dep.deposito_nombre,
+                   b.boca_nombre,
                    pv.nombre as punto_venta_nombre, pv.codigo_fiscal as punto_venta_codigo,
                    COALESCE(td.total, 0) as total
             FROM gestion__ventas_remitos vr
@@ -577,7 +582,7 @@ function obtenerRemitosVenta($conexion, $empresa_idx, $pagina_id)
             LEFT JOIN gestion__comprobantes_tipos ct ON vr.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON vr.entidad_id = e.entidad_id
             LEFT JOIN gestion__sucursales s ON vr.sucursal_id = s.sucursal_id AND s.empresa_id = vr.empresa_id
-            LEFT JOIN gestion__depositos dep ON vr.deposito_id = dep.deposito_id AND dep.empresa_id = vr.empresa_id
+            LEFT JOIN gestion__bocas b ON vr.boca_id = b.boca_id AND b.empresa_id = vr.empresa_id
             LEFT JOIN gestion__puntos_venta pv ON vr.comprobante_pv = pv.punto_venta_id AND pv.empresa_id = vr.empresa_id
             LEFT JOIN (
                 SELECT venta_remito_id, SUM(importe_linea + iva_importe) as total
@@ -628,12 +633,12 @@ function obtenerRemitoVentaPorId($conexion, $id, $empresa_idx)
     $sql = "SELECT vr.*,
                    ct.comprobante_tipo,
                    e.entidad_nombre, e.entidad_fantasia,
-                   dep.deposito_nombre,
+                   b.boca_nombre,
                    pv.nombre as punto_venta_nombre
             FROM gestion__ventas_remitos vr
             LEFT JOIN gestion__comprobantes_tipos ct ON vr.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON vr.entidad_id = e.entidad_id
-            LEFT JOIN gestion__depositos dep ON vr.deposito_id = dep.deposito_id
+            LEFT JOIN gestion__bocas b ON vr.boca_id = b.boca_id
             LEFT JOIN gestion__puntos_venta pv ON vr.comprobante_pv = pv.punto_venta_id AND pv.empresa_id = vr.empresa_id
             WHERE vr.venta_remito_id = ? AND vr.empresa_id = ?";
 
@@ -718,12 +723,6 @@ function agregarRemitoVenta($conexion, $data)
     if (empty($data['comprobante_tipo_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar el tipo de comprobante'];
     }
-    if (empty($data['sucursal_id'])) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar la sucursal'];
-    }
-    if (empty($data['deposito_id'])) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar el depósito'];
-    }
     if (empty($data['punto_venta_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar el punto de venta'];
     }
@@ -737,10 +736,19 @@ function agregarRemitoVenta($conexion, $data)
         $empresa_id_val = intval($data['empresa_idx']);
         $estado_inicial_val = intval(obtenerEstadoInicialPaginaRemitos($conexion, $data['pagina_idx']) ?: 1);
 
-        $sucursal_id_val = intval($data['sucursal_id']);
-        $deposito_id_val = intval($data['deposito_id']);
-        $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $comprobante_pv_val = intval($data['punto_venta_id']); // ver nota de supuestos arriba
+
+        // boca_id (ex deposito_id) y sucursal_id ya NO vienen del formulario: se
+        // resuelven acá revalidando contra la base que el PV tenga una boca de
+        // depósito activa. No confiar en lo que mande el cliente.
+        $ubicacion = resolverBocaYSucursalPorPuntoVentaRemitos($conexion, $empresa_id_val, $comprobante_pv_val);
+        if (!$ubicacion) {
+            throw new Exception("El punto de venta elegido no tiene un depósito válido asociado");
+        }
+        $boca_id_val = intval($ubicacion['boca_id']);
+        $sucursal_id_val = intval($ubicacion['sucursal_id']);
+
+        $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $comprobante_nro_val = 0;
         $entidad_id_val = intval($data['entidad_id']);
         $entidad_sucursal_id_val = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0)
@@ -749,7 +757,7 @@ function agregarRemitoVenta($conexion, $data)
         $observaciones_val = isset($data['observaciones']) ? trim($data['observaciones']) : '';
 
         $sql = "INSERT INTO gestion__ventas_remitos
-                (empresa_id, sucursal_id, deposito_id, comprobante_tipo_id, comprobante_pv,
+                (empresa_id, sucursal_id, boca_id, comprobante_tipo_id, comprobante_pv,
                  comprobante_nro, comprobante_id, f_emision, entidad_id, entidad_sucursal_id,
                  observaciones, tabla_estado_registro_id)
                 VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)";
@@ -764,7 +772,7 @@ function agregarRemitoVenta($conexion, $data)
             "iiiiiisiisi",
             $empresa_id_val,
             $sucursal_id_val,
-            $deposito_id_val,
+            $boca_id_val,
             $comprobante_tipo_id_val,
             $comprobante_pv_val,
             $comprobante_nro_val,
@@ -864,10 +872,19 @@ function editarRemitoVenta($conexion, $id, $data)
         mysqli_stmt_close($stmt);
 
         $empresa_idx_val = intval($data['empresa_idx']);
-        $sucursal_id_val = intval($data['sucursal_id']);
-        $deposito_id_val = intval($data['deposito_id']);
-        $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
+        if (empty($data['punto_venta_id'])) {
+            throw new Exception("Debe seleccionar el punto de venta");
+        }
         $comprobante_pv_val = intval($data['punto_venta_id']);
+
+        $ubicacion = resolverBocaYSucursalPorPuntoVentaRemitos($conexion, $empresa_idx_val, $comprobante_pv_val);
+        if (!$ubicacion) {
+            throw new Exception("El punto de venta elegido no tiene un depósito válido asociado");
+        }
+        $boca_id_val = intval($ubicacion['boca_id']);
+        $sucursal_id_val = intval($ubicacion['sucursal_id']);
+
+        $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $entidad_id_val = intval($data['entidad_id']);
         $entidad_sucursal_id_val = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0)
             ? intval($data['entidad_sucursal_id']) : null;
@@ -875,7 +892,7 @@ function editarRemitoVenta($conexion, $id, $data)
         $observaciones_val = isset($data['observaciones']) ? trim($data['observaciones']) : '';
 
         $sql = "UPDATE gestion__ventas_remitos
-                SET sucursal_id = ?, deposito_id = ?, comprobante_tipo_id = ?, comprobante_pv = ?,
+                SET sucursal_id = ?, boca_id = ?, comprobante_tipo_id = ?, comprobante_pv = ?,
                     f_emision = ?, entidad_id = ?, entidad_sucursal_id = ?, observaciones = ?
                 WHERE venta_remito_id = ? AND empresa_id = ?";
         $stmt = mysqli_prepare($conexion, $sql);
@@ -886,7 +903,7 @@ function editarRemitoVenta($conexion, $id, $data)
             $stmt,
             "iiiisiisii",
             $sucursal_id_val,
-            $deposito_id_val,
+            $boca_id_val,
             $comprobante_tipo_id_val,
             $comprobante_pv_val,
             $f_emision_val,
@@ -1204,25 +1221,134 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
 // duplicados acá por el mismo criterio de no cruzar includes entre módulos)
 // ============================================================
 
-function obtenerComprobantesTiposRemitos($conexion)
+// Mismo criterio que obtenerComprobantesTipos() en ventas_pedidos_model.php:
+// pagina_id -> tabla_id -> subgrupo con esa tabla_id, intersectado con lo
+// habilitado para el punto_venta_id en gestion__puntos_venta_comprobantes.
+// Filtro duro por intersección: sin PV, o sin habilitación, no aparece.
+function obtenerComprobantesTiposRemitos($conexion, $empresa_idx, $pagina_id, $punto_venta_id)
 {
-    // A pedido de Pablo: sin filtrar por grupo/subgrupo, se muestran todos los tipos
-    // activos y él elige a mano cuál corresponde a "Remito".
-    $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra
-            FROM gestion__comprobantes_tipos
-            WHERE tabla_estado_registro_id = 1
-            ORDER BY comprobante_tipo";
+    $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
+    $punto_venta_id = intval($punto_venta_id);
 
-    $result = mysqli_query($conexion, $sql);
-    if (!$result) return [];
+    if (empty($punto_venta_id)) {
+        return [];
+    }
+
+    $tabla_id = obtenerTablaOrigenPorPaginaRemitos($conexion, $pagina_id);
+    if (empty($tabla_id)) {
+        error_log("obtenerComprobantesTiposRemitos: sin tabla_id configurado para pagina_id=$pagina_id");
+        return [];
+    }
+
+    $sql = "SELECT ct.comprobante_tipo_id, ct.comprobante_tipo, ct.letra, ct.codigo
+            FROM gestion__comprobantes_tipos ct
+            INNER JOIN gestion__comprobantes_subgrupos cs
+                ON cs.comprobante_subgrupo_id = ct.comprobante_subgrupo_id
+                AND cs.tabla_estado_registro_id = 1
+                AND cs.tabla_id = ?
+                AND cs.empresa_id IN (0, ?)
+            INNER JOIN gestion__puntos_venta_comprobantes pvc
+                ON pvc.comprobante_tipo_id = ct.comprobante_tipo_id
+                AND pvc.punto_venta_id = ?
+                AND pvc.empresa_id = ?
+                AND pvc.tabla_estado_registro_id = 1
+            WHERE ct.tabla_estado_registro_id = 1
+              AND ct.empresa_id IN (0, ?)
+            ORDER BY ct.orden, ct.comprobante_tipo";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando obtenerComprobantesTiposRemitos: " . mysqli_error($conexion));
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "iiiii", $tabla_id, $empresa_idx, $punto_venta_id, $empresa_idx, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
 
     $tipos = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         $tipos[] = $fila;
     }
+    mysqli_stmt_close($stmt);
+
     return $tipos;
 }
 
+// Reemplaza a obtenerDepositosEmpresa()/obtenerSucursalesEmpresaRemitos() para el
+// combo único del formulario: puntos de venta de la empresa cuya boca asociada
+// es un depósito (es_deposito=1) y está activa. boca_id es nullable en
+// gestion__puntos_venta, así que el INNER JOIN ya excluye los PV sin boca asignada.
+function obtenerPuntosVentaDepositoRemitos($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+
+    $sql = "SELECT pv.punto_venta_id, pv.nombre AS punto_venta_nombre,
+                   pv.codigo_fiscal AS punto_venta_codigo, pv.boca_id
+            FROM gestion__puntos_venta pv
+            INNER JOIN gestion__bocas b
+                ON b.boca_id = pv.boca_id
+                AND b.tabla_estado_registro_id = 1
+                AND b.es_deposito = 1
+            WHERE pv.empresa_id = ?
+              AND pv.tabla_estado_registro_id = 1
+            ORDER BY pv.nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando obtenerPuntosVentaDepositoRemitos: " . mysqli_error($conexion));
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $puntos_venta = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $puntos_venta[] = $fila;
+    }
+    mysqli_stmt_close($stmt);
+    return $puntos_venta;
+}
+
+// Resuelve boca_id + sucursal_id (para la RLS transversal por sucursal) a partir
+// del punto_venta_id elegido, revalidando en el propio backend que sea un PV con
+// boca de depósito activa — no confiar en lo que mandó el formulario.
+function resolverBocaYSucursalPorPuntoVentaRemitos($conexion, $empresa_idx, $punto_venta_id)
+{
+    $empresa_idx = intval($empresa_idx);
+    $punto_venta_id = intval($punto_venta_id);
+
+    $sql = "SELECT pv.boca_id, b.sucursal_id
+            FROM gestion__puntos_venta pv
+            INNER JOIN gestion__bocas b
+                ON b.boca_id = pv.boca_id
+                AND b.tabla_estado_registro_id = 1
+                AND b.es_deposito = 1
+            WHERE pv.punto_venta_id = ?
+              AND pv.empresa_id = ?
+              AND pv.tabla_estado_registro_id = 1";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando resolverBocaYSucursalPorPuntoVentaRemitos: " . mysqli_error($conexion));
+        return null;
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $punto_venta_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $fila = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    return $fila ?: null;
+}
+
+// Sin uso desde el formulario de remitos (reemplazadas por
+// obtenerPuntosVentaDepositoRemitos). Se dejan definidas porque las acciones
+// AJAX 'obtener_depositos' y 'obtener_sucursales_empresa' todavía las invocan.
 function obtenerDepositosEmpresa($conexion, $empresa_idx)
 {
     $empresa_idx = intval($empresa_idx);

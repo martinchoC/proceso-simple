@@ -87,7 +87,7 @@ $(document).ready(function () {
             columns: [
                 {
                     data: 'punto_venta_id',
-                    className: 'text-center fw-bold'
+                    className: 'text-center fw-bold',
                 },
                 {
                     data: 'sucursal_nombre',
@@ -236,7 +236,6 @@ $(document).ready(function () {
                 url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
             },
             order: currentOrder,
-            responsive: true,
             createdRow: function (row, data, dataIndex) {
                 if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
                     $(row).addClass('table-secondary');
@@ -473,6 +472,213 @@ $(document).ready(function () {
         });
     }
 
+    // Tipos de comprobante: mismo patrón que "Agregar Producto" en ventas_pedidos
+    // (buscador arriba, resultados con botón "+", lista de agregados abajo con
+    // sus propias acciones), pero sin la complejidad de tags/ida-y-vuelta al
+    // servidor por letra: el catálogo de una empresa es chico y ya viaja completo
+    // en 'obtener_comprobantes_tipos', así que el filtro se hace en el cliente.
+    var catalogoComprobantesTipos = [];
+    var comprobantesSeleccionados = []; // [{comprobante_tipo_id, requiere_afip}]
+    var paginaComprobantesSeleccionados = 0;
+    var COMPROBANTES_POR_PAGINA = 12;
+
+    // 'habilitados' es un objeto {comprobante_tipo_id: requiere_afip} con lo
+    // que ya tenía marcado el PV (vacío para "Nuevo").
+    function cargarComprobantesTipos(habilitados, callback) {
+        habilitados = habilitados || {};
+        $.get('puntos_venta_ajax.php', {
+            accion: 'obtener_comprobantes_tipos',
+            empresa_idx: empresa_idx
+        }, function(data) {
+            catalogoComprobantesTipos = data || [];
+            comprobantesSeleccionados = [];
+            catalogoComprobantesTipos.forEach(function (item) {
+                var estaHabilitado = Object.prototype.hasOwnProperty.call(habilitados, item.comprobante_tipo_id)
+                    || Object.prototype.hasOwnProperty.call(habilitados, String(item.comprobante_tipo_id));
+                if (estaHabilitado) {
+                    var requiereAfip = (habilitados[item.comprobante_tipo_id] ?? habilitados[String(item.comprobante_tipo_id)]) == 1;
+                    comprobantesSeleccionados.push({
+                        comprobante_tipo_id: item.comprobante_tipo_id,
+                        requiere_afip: requiereAfip ? 1 : 0
+                    });
+                }
+            });
+
+            $('#busqueda_comprobante_tipo').val('');
+            $('#resultados_busqueda_comprobantes').empty();
+            paginaComprobantesSeleccionados = 0;
+            renderizarComprobantesSeleccionados();
+            if (callback) callback();
+        }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+            console.error("Error cargando tipos de comprobante:", textStatus, errorThrown);
+            $('#tablaComprobantesSeleccionados tbody').html('<tr><td colspan="5" class="text-center text-danger small py-2">Error al cargar</td></tr>');
+            if (callback) callback();
+        });
+    }
+
+    function comprobanteYaSeleccionado(comprobanteTipoId) {
+        return comprobantesSeleccionados.some(function (c) { return c.comprobante_tipo_id == comprobanteTipoId; });
+    }
+
+    function renderizarResultadosComprobantes() {
+        var q = ($('#busqueda_comprobante_tipo').val() || '').trim().toLowerCase();
+        var cont = $('#resultados_busqueda_comprobantes');
+
+        if (!q) {
+            cont.empty();
+            return;
+        }
+
+        var coincidencias = catalogoComprobantesTipos.filter(function (item) {
+            if (comprobanteYaSeleccionado(item.comprobante_tipo_id)) return false;
+            var texto = ((item.comprobante_tipo || '') + ' ' + (item.codigo || '') + ' ' + (item.letra || '') + ' ' + (item.comprobante_subgrupo || '')).toLowerCase();
+            return texto.indexOf(q) !== -1;
+        });
+
+        if (coincidencias.length === 0) {
+            cont.html('<div class="text-center text-muted small p-2"><i class="fas fa-circle-info me-1"></i>No se encontraron tipos de comprobante para ese filtro.</div>');
+            return;
+        }
+
+        var html = `<table class="table table-sm table-bordered table-hover mb-0" style="width: auto; max-width: 600px;">
+            <thead class="table-light">
+                <tr>
+                    <th>Subgrupo / Tipo</th>
+                    <th class="text-center" width="70">Código</th>
+                    <th class="text-center" width="60">Letra</th>
+                    <th class="text-center" width="70">Acción</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        coincidencias.forEach(function (item) {
+            html += `<tr>
+                <td>
+                    <div class="small text-muted">${item.comprobante_subgrupo || ''}</div>
+                    <div>${item.comprobante_tipo || ''}</div>
+                </td>
+                <td class="text-center">${item.codigo || ''}</td>
+                <td class="text-center">${item.letra || ''}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-success btn-agregar-comprobante"
+                        data-id="${item.comprobante_tipo_id}" title="Agregar">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        cont.html(html);
+    }
+
+    $(document).on('input', '#busqueda_comprobante_tipo', function () {
+        renderizarResultadosComprobantes();
+    });
+
+    $(document).on('click', '.btn-agregar-comprobante', function () {
+        var comprobanteTipoId = parseInt($(this).data('id'));
+        if (comprobanteYaSeleccionado(comprobanteTipoId)) return;
+
+        comprobantesSeleccionados.push({ comprobante_tipo_id: comprobanteTipoId, requiere_afip: 1 });
+        paginaComprobantesSeleccionados = Math.ceil(comprobantesSeleccionados.length / COMPROBANTES_POR_PAGINA) - 1;
+        renderizarComprobantesSeleccionados();
+        renderizarResultadosComprobantes(); // saca el que se acaba de agregar de los resultados
+    });
+
+    function renderizarComprobantesSeleccionados() {
+        var tbody = $('#tablaComprobantesSeleccionados tbody');
+
+        $('#badgeComprobantesCount').text(comprobantesSeleccionados.length);
+
+        if (comprobantesSeleccionados.length === 0) {
+            tbody.html('<tr><td colspan="5" class="text-center text-muted small py-2">Sin tipos de comprobante habilitados</td></tr>');
+            $('#paginacionComprobantesSeleccionados').empty();
+            paginaComprobantesSeleccionados = 0;
+            return;
+        }
+
+        var totalPaginas = Math.ceil(comprobantesSeleccionados.length / COMPROBANTES_POR_PAGINA);
+        if (paginaComprobantesSeleccionados >= totalPaginas) paginaComprobantesSeleccionados = totalPaginas - 1;
+        if (paginaComprobantesSeleccionados < 0) paginaComprobantesSeleccionados = 0;
+
+        var inicio = paginaComprobantesSeleccionados * COMPROBANTES_POR_PAGINA;
+        var paginaActual = comprobantesSeleccionados.slice(inicio, inicio + COMPROBANTES_POR_PAGINA);
+
+        var html = '';
+        paginaActual.forEach(function (sel) {
+            var item = catalogoComprobantesTipos.find(function (c) { return c.comprobante_tipo_id == sel.comprobante_tipo_id; }) || {};
+            html += `<tr data-comprobante-id="${sel.comprobante_tipo_id}">
+                <td>
+                    <div class="small text-muted">${item.comprobante_subgrupo || ''}</div>
+                    <div>${item.comprobante_tipo || ''}</div>
+                </td>
+                <td class="text-center">${item.codigo || ''}</td>
+                <td class="text-center">${item.letra || ''}</td>
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input check-requiere-afip" ${sel.requiere_afip ? 'checked' : ''}>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-comprobante" title="Quitar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+        tbody.html(html);
+
+        renderizarPaginacionComprobantes(totalPaginas);
+    }
+
+    function renderizarPaginacionComprobantes(totalPaginas) {
+        var cont = $('#paginacionComprobantesSeleccionados');
+
+        if (totalPaginas <= 1) {
+            cont.empty();
+            return;
+        }
+
+        var html = '<ul class="pagination pagination-sm mb-0">';
+        html += `<li class="page-item ${paginaComprobantesSeleccionados === 0 ? 'disabled' : ''}">
+            <button type="button" class="page-link" data-pagina="${paginaComprobantesSeleccionados - 1}">&laquo;</button>
+        </li>`;
+        for (var i = 0; i < totalPaginas; i++) {
+            html += `<li class="page-item ${i === paginaComprobantesSeleccionados ? 'active' : ''}">
+                <button type="button" class="page-link" data-pagina="${i}">${i + 1}</button>
+            </li>`;
+        }
+        html += `<li class="page-item ${paginaComprobantesSeleccionados === totalPaginas - 1 ? 'disabled' : ''}">
+            <button type="button" class="page-link" data-pagina="${paginaComprobantesSeleccionados + 1}">&raquo;</button>
+        </li>`;
+        html += '</ul>';
+        cont.html(html);
+    }
+
+    $(document).on('click', '#paginacionComprobantesSeleccionados .page-link', function () {
+        var pagina = parseInt($(this).data('pagina'));
+        if (isNaN(pagina) || pagina < 0) return;
+        paginaComprobantesSeleccionados = pagina;
+        renderizarComprobantesSeleccionados();
+    });
+
+    $(document).on('change', '.check-requiere-afip', function () {
+        var comprobanteTipoId = parseInt($(this).closest('tr').data('comprobante-id'));
+        var sel = comprobantesSeleccionados.find(function (c) { return c.comprobante_tipo_id == comprobanteTipoId; });
+        if (sel) sel.requiere_afip = $(this).is(':checked') ? 1 : 0;
+    });
+
+    $(document).on('click', '.btn-quitar-comprobante', function () {
+        var comprobanteTipoId = parseInt($(this).closest('tr').data('comprobante-id'));
+        comprobantesSeleccionados = comprobantesSeleccionados.filter(function (c) { return c.comprobante_tipo_id != comprobanteTipoId; });
+        renderizarComprobantesSeleccionados();
+        renderizarResultadosComprobantes(); // el que se quitó puede volver a aparecer si matchea el filtro activo
+    });
+
+    // Junta la selección actual en el formato que espera el backend
+    function obtenerComprobantesSeleccionados() {
+        return comprobantesSeleccionados;
+    }
+
     // Combo encadenado: al elegir sucursal, cargar sus bocas (comerciales y de depósito).
     // Es obligatorio elegir una boca, no hay opción de "PV general".
     function cargarBocasPorSucursal(sucursalId, selectedId, callback) {
@@ -519,12 +725,26 @@ $(document).ready(function () {
         $('#es_web').prop('checked', false);
         $('#formPuntoVenta').removeClass('was-validated');
         $('#boca_id').html('<option value="">Seleccione una sucursal primero</option>').prop('disabled', true);
+        $('#busqueda_comprobante_tipo').val('');
+        $('#resultados_busqueda_comprobantes').empty();
+        $('#tablaComprobantesSeleccionados tbody').html('<tr><td colspan="5" class="text-center text-muted small py-2">Cargando...</td></tr>');
+        $('#paginacionComprobantesSeleccionados').empty();
+        paginaComprobantesSeleccionados = 0;
+
+        // El modal siempre abre en la solapa "Datos", aunque la vez anterior
+        // se haya quedado en "Comprobantes"
+        var tabDatosBtn = document.getElementById('tab-datos-btn');
+        if (tabDatosBtn) {
+            var tabDatos = new bootstrap.Tab(tabDatosBtn);
+            tabDatos.show();
+        }
     }
 
     $(document).on('click', '#btnNuevo', function () {
         resetModal();
         $('#modalLabel').text('Nuevo Punto de Venta');
         cargarCombosFormulario();
+        cargarComprobantesTipos({});
 
         var modal = new bootstrap.Modal(document.getElementById('modalPuntoVenta'));
         modal.show();
@@ -543,6 +763,7 @@ $(document).ready(function () {
                 resetModal();
 
                 cargarCombosFormulario();
+                cargarComprobantesTipos(res.comprobantes_habilitados || {});
 
                 $('#punto_venta_id').val(res.punto_venta_id);
                 $('#nombre').val(res.nombre || '');
@@ -580,6 +801,13 @@ $(document).ready(function () {
 
         if (!form.checkValidity()) {
             form.classList.add('was-validated');
+            // Los campos obligatorios (sucursal, boca, nombre) viven en la solapa
+            // "Datos"; si el usuario está parado en "Comprobantes" al guardar,
+            // el error queda invisible si no volvemos a esa solapa.
+            var tabDatosBtn = document.getElementById('tab-datos-btn');
+            if (tabDatosBtn) {
+                new bootstrap.Tab(tabDatosBtn).show();
+            }
             return false;
         }
 
@@ -602,6 +830,7 @@ $(document).ready(function () {
         formData.append('descripcion', $('#descripcion').val() || '');
         formData.append('codigo_fiscal', $('#codigo_fiscal').val() || '');
         formData.append('es_web', $('#es_web').is(':checked') ? 1 : 0);
+        formData.append('comprobantes', JSON.stringify(obtenerComprobantesSeleccionados()));
 
         // Log para depuración
         console.log("=== DATOS ENVIADOS ===");

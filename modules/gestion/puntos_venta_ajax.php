@@ -60,6 +60,12 @@ try {
             echo json_encode($bocas, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_comprobantes_tipos':
+            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
+            $tipos = obtenerComprobantesTipos($conexion, $empresa_idx_local);
+            echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'obtener_estados':
             $estados = obtenerEstadosRegistro($conexion);
             echo json_encode($estados, JSON_UNESCAPED_UNICODE);
@@ -83,6 +89,7 @@ try {
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'codigo_fiscal' => trim($_POST['codigo_fiscal'] ?? ''),
                 'es_web' => intval($_POST['es_web'] ?? 0),
+                'comprobantes' => json_decode($_POST['comprobantes'] ?? '[]', true) ?: [],
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
             ];
@@ -104,6 +111,7 @@ try {
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'codigo_fiscal' => trim($_POST['codigo_fiscal'] ?? ''),
                 'es_web' => intval($_POST['es_web'] ?? 0),
+                'comprobantes' => json_decode($_POST['comprobantes'] ?? '[]', true) ?: [],
                 'empresa_idx' => $empresa_idx
             ];
 

@@ -538,6 +538,50 @@ $(document).ready(function () {
         });
     }
 
+    function cargarTiposComprobante(puntoVentaId, callback) {
+        if (!puntoVentaId) {
+            $('#comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>');
+            $('#comprobante_tipo_id').prop('disabled', true);
+            if (callback) callback();
+            return;
+        }
+
+        $.ajax({
+            url: 'ventas_pedidos_ajax.php',
+            type: 'GET',
+            data: {
+                accion: 'obtener_comprobantes_tipos',
+                punto_venta_id: puntoVentaId,
+                pagina_idx: pagina_idx,
+                empresa_idx: empresa_idx
+            },
+            dataType: 'json',
+            success: function(data) {
+                if (data && data.length > 0) {
+                    var options = data.length === 1 ? '' : '<option value="">Seleccionar</option>';
+                    data.forEach(function(item) {
+                        options += `<option value="${item.comprobante_tipo_id}">${item.comprobante_tipo}</option>`;
+                    });
+                    $('#comprobante_tipo_id').html(options);
+                    $('#comprobante_tipo_id').prop('disabled', false);
+                    if (data.length === 1) {
+                        $('#comprobante_tipo_id').val(data[0].comprobante_tipo_id);
+                    }
+                } else {
+                    $('#comprobante_tipo_id').html('<option value="">Sin tipos habilitados para este punto de venta</option>');
+                    $('#comprobante_tipo_id').prop('disabled', true);
+                }
+                if (callback) callback();
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error("Error cargando tipos de comprobante:", textStatus, errorThrown);
+                $('#comprobante_tipo_id').html('<option value="">Error al cargar</option>');
+                $('#comprobante_tipo_id').prop('disabled', true);
+                if (callback) callback();
+            }
+        });
+    }
+
     function cargarClientesYSucursales() {
         $.ajax({
             url: 'ventas_pedidos_ajax.php',
@@ -575,7 +619,16 @@ $(document).ready(function () {
 
     $('#sucursal_id').on('change', function() {
         var sucursalId = $(this).val();
-        cargarPuntosVenta(sucursalId);
+        cargarPuntosVenta(sucursalId, function() {
+            // Al cambiar de sucursal el punto de venta anterior ya no es válido,
+            // así que los tipos de comprobante tampoco: se limpian hasta elegir PV de nuevo.
+            cargarTiposComprobante(null);
+        });
+    });
+
+    $('#punto_venta_id').on('change', function() {
+        var puntoVentaId = $(this).val();
+        cargarTiposComprobante(puntoVentaId);
     });
 
     $('#entidad_combo').on('change', function() {
@@ -670,7 +723,6 @@ $(document).ready(function () {
                 $('#modalLabel').text('Visualizar Pedido de Venta');
 
                 setTimeout(function() {
-                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                     $('#moneda_id').val(res.moneda_id);
                     $('#condicion_pago_id').val(res.condicion_pago_id);
                     
@@ -679,6 +731,9 @@ $(document).ready(function () {
                         cargarPuntosVenta(res.sucursal_id, function() {
                             if (res.punto_venta_id) {
                                 $('#punto_venta_id').val(res.punto_venta_id);
+                                cargarTiposComprobante(res.punto_venta_id, function() {
+                                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                                });
                             }
                         });
                     }
@@ -1417,20 +1472,11 @@ $(document).ready(function () {
             $('#sucursal_id').html(options);
         }, 'json');
 
-        $.get('ventas_pedidos_ajax.php', { accion: 'obtener_comprobantes_tipos' }, function(data) {
-            if (data && data.length > 0) {
-                if (data.length === 1) {
-                    var options = `<option value="${data[0].comprobante_tipo_id}" selected>${data[0].comprobante_tipo}</option>`;
-                    $('#comprobante_tipo_id').html(options);
-                } else {
-                    var options = '<option value="">Seleccionar</option>';
-                    data.forEach(function(item) {
-                        options += `<option value="${item.comprobante_tipo_id}">${item.comprobante_tipo}</option>`;
-                    });
-                    $('#comprobante_tipo_id').html(options);
-                }
-            }
-        }, 'json');
+        // El combo de tipo de comprobante ya no se carga acá de forma estática:
+        // depende del punto de venta elegido (ver cargarTiposComprobante), así que
+        // arranca vacío hasta que el usuario seleccione sucursal + punto de venta.
+        $('#comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>');
+        $('#comprobante_tipo_id').prop('disabled', true);
 
         $.get('ventas_pedidos_ajax.php', { accion: 'obtener_monedas' }, function(data) {
             var options = '<option value="">Seleccionar moneda</option>';
@@ -1577,7 +1623,6 @@ $(document).ready(function () {
                 }
 
                 setTimeout(function() {
-                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                     $('#moneda_id').val(res.moneda_id);
                     $('#condicion_pago_id').val(res.condicion_pago_id);
                     
@@ -1586,6 +1631,9 @@ $(document).ready(function () {
                         cargarPuntosVenta(res.sucursal_id, function() {
                             if (res.punto_venta_id) {
                                 $('#punto_venta_id').val(res.punto_venta_id);
+                                cargarTiposComprobante(res.punto_venta_id, function() {
+                                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                                });
                             }
                         });
                     }

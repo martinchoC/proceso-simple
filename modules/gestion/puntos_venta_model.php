@@ -400,6 +400,10 @@ function agregarPuntoVenta($conexion, $data)
         error_log("Punto de venta creado con ID: " . $punto_venta_id);
         mysqli_stmt_close($stmt);
 
+        // Guardar tipos de comprobante habilitados para este PV
+        $comprobantes = $data['comprobantes'] ?? [];
+        guardarComprobantesPuntoVenta($conexion, $punto_venta_id, $empresa_id_val, $comprobantes);
+
         mysqli_commit($conexion);
         error_log("=== FIN agregarPuntoVenta - ÉXITO ===");
         return ['resultado' => true, 'punto_venta_id' => $punto_venta_id];
@@ -511,6 +515,10 @@ function editarPuntoVenta($conexion, $id, $data)
         error_log("Filas afectadas en update: " . $affected_rows);
         mysqli_stmt_close($stmt);
 
+        // Guardar tipos de comprobante habilitados para este PV
+        $comprobantes = $data['comprobantes'] ?? [];
+        guardarComprobantesPuntoVenta($conexion, $id, $empresa_idx_val, $comprobantes);
+
         mysqli_commit($conexion);
         error_log("=== FIN editarPuntoVenta - ÉXITO ===");
         return ['resultado' => true, 'message' => 'Punto de venta actualizado correctamente'];
@@ -577,6 +585,123 @@ function obtenerBocasPorSucursal($conexion, $sucursal_id, $empresa_idx)
     return $bocas;
 }
 
+// Catálogo de tipos de comprobante habilitables para un PV. empresa_id=0
+// es catálogo global (compartido entre empresas) y se incluye siempre
+// junto con los específicos de la empresa.
+function obtenerComprobantesTipos($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    // Asume que gestion__comprobantes_tipos.comprobante_subgrupo_id es la FK hacia
+    // gestion__comprobantes_subgrupos, siguiendo la convención de nombres del resto
+    // del esquema. Si el campo real tiene otro nombre, ajustar el JOIN.
+    $sql = "SELECT ct.comprobante_tipo_id, ct.comprobante_tipo, ct.codigo, ct.letra, ct.signo,
+                   ct.impacta_stock, ct.impacta_contabilidad, ct.impacta_ctacte,
+                   ct.comprobante_subgrupo_id, cs.comprobante_subgrupo, cs.codigo AS subgrupo_codigo
+            FROM gestion__comprobantes_tipos ct
+            LEFT JOIN gestion__comprobantes_subgrupos cs
+                ON cs.comprobante_subgrupo_id = ct.comprobante_subgrupo_id
+                AND cs.tabla_estado_registro_id = 1
+            WHERE (ct.empresa_id = ? OR ct.empresa_id = 0) AND ct.tabla_estado_registro_id = 1
+            ORDER BY cs.orden ASC, ct.orden ASC, ct.comprobante_tipo ASC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $tipos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $tipos[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $tipos;
+}
+
+// Tipos de comprobante ya habilitados para un PV puntual (para precargar
+// el formulario de edición). Devuelve comprobante_tipo_id => requiere_afip.
+function obtenerComprobantesPorPuntoVenta($conexion, $punto_venta_id, $empresa_idx)
+{
+    $punto_venta_id = intval($punto_venta_id);
+    $empresa_idx = intval($empresa_idx);
+
+    $sql = "SELECT comprobante_tipo_id, requiere_afip
+            FROM gestion__puntos_venta_comprobantes
+            WHERE punto_venta_id = ? AND empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $punto_venta_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $habilitados = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $habilitados[intval($fila['comprobante_tipo_id'])] = intval($fila['requiere_afip']);
+    }
+
+    mysqli_stmt_close($stmt);
+    return $habilitados;
+}
+
+// Sincroniza gestion__puntos_venta_comprobantes con la selección actual:
+// borra todo lo previo y vuelve a insertar lo elegido. Se llama SIEMPRE
+// dentro de la transacción de agregarPuntoVenta/editarPuntoVenta — no
+// abre ni cierra transacción propia, y propaga la excepción para que el
+// caller haga rollback.
+function guardarComprobantesPuntoVenta($conexion, $punto_venta_id, $empresa_idx, $comprobantes)
+{
+    $punto_venta_id = intval($punto_venta_id);
+    $empresa_idx = intval($empresa_idx);
+
+    $sql_delete = "DELETE FROM gestion__puntos_venta_comprobantes WHERE punto_venta_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_delete);
+    if (!$stmt) {
+        throw new Exception("Error preparando limpieza de comprobantes: " . mysqli_error($conexion));
+    }
+    mysqli_stmt_bind_param($stmt, "ii", $punto_venta_id, $empresa_idx);
+    if (!mysqli_stmt_execute($stmt)) {
+        throw new Exception("Error limpiando comprobantes habilitados: " . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
+
+    if (empty($comprobantes)) {
+        return; // ningún tipo habilitado es una selección válida
+    }
+
+    $sql_insert = "INSERT INTO gestion__puntos_venta_comprobantes
+                    (empresa_id, punto_venta_id, comprobante_tipo_id, requiere_afip, tabla_estado_registro_id)
+                    VALUES (?, ?, ?, ?, 1)";
+    $stmt = mysqli_prepare($conexion, $sql_insert);
+    if (!$stmt) {
+        throw new Exception("Error preparando insert de comprobantes: " . mysqli_error($conexion));
+    }
+
+    foreach ($comprobantes as $item) {
+        $comprobante_tipo_id_val = intval($item['comprobante_tipo_id'] ?? 0);
+        if ($comprobante_tipo_id_val <= 0) {
+            continue;
+        }
+        $requiere_afip_val = !empty($item['requiere_afip']) ? 1 : 0;
+
+        mysqli_stmt_bind_param($stmt, "iiii",
+            $empresa_idx, $punto_venta_id, $comprobante_tipo_id_val, $requiere_afip_val
+        );
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Error guardando comprobante habilitado: " . mysqli_stmt_error($stmt));
+        }
+    }
+
+    mysqli_stmt_close($stmt);
+}
+
 function obtenerPuntoVentaPorId($conexion, $id, $empresa_idx)
 {
     $id = intval($id);
@@ -597,6 +722,10 @@ function obtenerPuntoVentaPorId($conexion, $id, $empresa_idx)
     $result = mysqli_stmt_get_result($stmt);
     $punto = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
+
+    if ($punto) {
+        $punto['comprobantes_habilitados'] = obtenerComprobantesPorPuntoVenta($conexion, $id, $empresa_idx);
+    }
 
     return $punto;
 }

@@ -949,24 +949,64 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx)
     return $pedido;
 }
 
-function obtenerComprobantesTipos($conexion)
+// Resuelve los tipos de comprobante habilitados para un combo, cruzando:
+// 1) pagina_id -> conf__paginas.tabla_id -> subgrupos cuya tabla_id coincide
+//    (la tabla física cuelga del subgrupo, no del tipo: ver decisión de proyecto)
+// 2) esos tipos, intersectados con lo habilitado para el punto_venta_id elegido
+//    en gestion__puntos_venta_comprobantes (tabla puente)
+// Filtro duro por intersección: un tipo que no está habilitado para el PV
+// directamente NO aparece en el resultado (no se lista deshabilitado).
+function obtenerComprobantesTipos($conexion, $empresa_idx, $pagina_id, $punto_venta_id)
 {
-    $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra 
-            FROM gestion__comprobantes_tipos 
-            WHERE comprobante_grupo_id = 1 
-            AND comprobante_subgrupo_id = 17
-            AND tabla_estado_registro_id = 1 
-            ORDER BY comprobante_tipo";
-    
-    $result = mysqli_query($conexion, $sql);
-    if (!$result)
+    $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
+    $punto_venta_id = intval($punto_venta_id);
+
+    if (empty($punto_venta_id)) {
+        // Sin punto de venta elegido no hay contra qué intersectar: combo vacío.
         return [];
-    
+    }
+
+    $tabla_id = obtenerTablaOrigenPorPagina($conexion, $pagina_id);
+    if (empty($tabla_id)) {
+        error_log("obtenerComprobantesTipos: sin tabla_id configurado para pagina_id=$pagina_id");
+        return [];
+    }
+
+    $sql = "SELECT ct.comprobante_tipo_id, ct.comprobante_tipo, ct.letra, ct.codigo
+            FROM gestion__comprobantes_tipos ct
+            INNER JOIN gestion__comprobantes_subgrupos cs
+                ON cs.comprobante_subgrupo_id = ct.comprobante_subgrupo_id
+                AND cs.tabla_estado_registro_id = 1
+                AND cs.tabla_id = ?
+                AND cs.empresa_id IN (0, ?)
+            INNER JOIN gestion__puntos_venta_comprobantes pvc
+                ON pvc.comprobante_tipo_id = ct.comprobante_tipo_id
+                AND pvc.punto_venta_id = ?
+                AND pvc.empresa_id = ?
+                AND pvc.tabla_estado_registro_id = 1
+            WHERE ct.tabla_estado_registro_id = 1
+              AND ct.empresa_id IN (0, ?)
+            ORDER BY ct.orden, ct.comprobante_tipo";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando obtenerComprobantesTipos: " . mysqli_error($conexion));
+        return [];
+    }
+
+    // 5 parámetros "i" en el orden exacto de aparición de los "?":
+    // tabla_id, empresa_idx (subgrupo), punto_venta_id, empresa_idx (pvc), empresa_idx (tipo)
+    mysqli_stmt_bind_param($stmt, "iiiii", $tabla_id, $empresa_idx, $punto_venta_id, $empresa_idx, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
     $tipos = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         $tipos[] = $fila;
     }
-    
+    mysqli_stmt_close($stmt);
+
     return $tipos;
 }
 

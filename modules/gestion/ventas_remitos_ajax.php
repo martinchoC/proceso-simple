@@ -60,33 +60,12 @@ try {
             echo json_encode($depositos, JSON_UNESCAPED_UNICODE);
             break;
 
+        // Combo único: ya no depende de sucursal_id. Lista los PV de la empresa
+        // cuya boca asociada es un depósito activo (ver plan acordado con Pablo:
+        // se elimina el combo de sucursal y el de depósito, un solo select).
         case 'obtener_puntos_venta':
-            $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
             $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
-
-            if (empty($sucursal_id)) {
-                echo json_encode([]);
-                break;
-            }
-
-            $sql = "SELECT punto_venta_id, nombre as punto_venta_nombre, codigo_fiscal as punto_venta_codigo
-                    FROM gestion__puntos_venta
-                    WHERE sucursal_id = ?
-                    AND empresa_id = ?
-                    AND tabla_estado_registro_id = 1
-                    ORDER BY nombre";
-
-            $stmt = mysqli_prepare($conexion, $sql);
-            mysqli_stmt_bind_param($stmt, "ii", $sucursal_id, $empresa_idx_local);
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
-
-            $puntos_venta = [];
-            while ($fila = mysqli_fetch_assoc($result)) {
-                $puntos_venta[] = $fila;
-            }
-            mysqli_stmt_close($stmt);
-
+            $puntos_venta = obtenerPuntosVentaDepositoRemitos($conexion, $empresa_idx_local);
             echo json_encode($puntos_venta, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -150,8 +129,6 @@ try {
             }
 
             $data = [
-                'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
                 'punto_venta_id' => intval($_POST['punto_venta_id'] ?? 0),
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
@@ -180,8 +157,6 @@ try {
             }
 
             $data = [
-                'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
-                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
                 'punto_venta_id' => intval($_POST['punto_venta_id'] ?? 0),
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
@@ -213,7 +188,8 @@ try {
             break;
 
         case 'obtener_comprobantes_tipos':
-            $tipos = obtenerComprobantesTiposRemitos($conexion);
+            $punto_venta_id = intval($_GET['punto_venta_id'] ?? 0);
+            $tipos = obtenerComprobantesTiposRemitos($conexion, $empresa_idx, $pagina_idx, $punto_venta_id);
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
 

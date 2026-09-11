@@ -74,23 +74,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
 
                                     <div class="card-body">
-                                        <table id="tablaPuntosVenta" class="table table-striped table-bordered" style="width:100%">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th width="80">ID</th>
+                                        <div class="table-responsive">
+                                            <table id="tablaPuntosVenta" class="table table-striped table-bordered" style="width:100%">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th width="80">ID</th>
 
-                                                    <th width="150">Sucursal</th>
-                                                    <th width="150">Boca</th>
-                                                    <th width="200">Nombre</th>
-                                                    <th width="250">Descripción</th>
-                                                    <th width="120">Código Fiscal</th>
-                                                    <th width="80">Web</th>
-                                                    <th width="120">Estado</th>
-                                                    <th width="150" class="text-center">Acciones</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody></tbody>
-                                        </table>
+                                                        <th width="150">Sucursal</th>
+                                                        <th width="150">Boca</th>
+                                                        <th width="200">Nombre</th>
+                                                        <th width="250">Descripción</th>
+                                                        <th width="120">Código Fiscal</th>
+                                                        <th width="80">Web</th>
+                                                        <th width="120">Estado</th>
+                                                        <th width="150" class="text-center">Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -101,7 +103,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <!-- Modal principal -->
             <div class="modal fade" id="modalPuntoVenta" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-ancho-maximo">
                     <div class="modal-content">
                         <div class="modal-header py-2 position-relative">
                             <h5 class="modal-title" id="modalLabel">Punto de Venta</h5>
@@ -113,52 +115,109 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>
                         </div>
                         <div class="modal-body p-3">
-                            <!-- Resto del contenido del modal sin cambios -->
                             <form id="formPuntoVenta" class="needs-validation" novalidate>
                                 <input type="hidden" id="punto_venta_id" name="punto_venta_id" />
 
-                                <div class="row mb-2">
-                                    <div class="col-md-6 mb-2">
-                                        <label for="sucursal_id" class="form-label small mb-1">Sucursal *</label>
-                                        <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
-                                            <option value="">Seleccionar sucursal</option>
-                                        </select>
-                                        <div class="invalid-feedback small">Seleccione una sucursal</div>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <label for="boca_id" class="form-label small mb-1">Boca *</label>
-                                        <select class="form-select form-select-sm" id="boca_id" name="boca_id" required disabled>
-                                            <option value="">Seleccione una sucursal primero</option>
-                                        </select>
-                                        <div class="invalid-feedback small">Seleccione una boca</div>
-                                    </div>
-                                </div>
+                                <ul class="nav nav-tabs" id="tabsPuntoVenta" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="tab-datos-btn" data-bs-toggle="tab" data-bs-target="#tab-datos" type="button" role="tab" aria-controls="tab-datos" aria-selected="true">
+                                            Datos
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="tab-comprobantes-btn" data-bs-toggle="tab" data-bs-target="#tab-comprobantes" type="button" role="tab" aria-controls="tab-comprobantes" aria-selected="false">
+                                            Comprobantes <span class="badge bg-secondary ms-1" id="badgeComprobantesCount">0</span>
+                                        </button>
+                                    </li>
+                                </ul>
 
-                                <div class="row mb-2">
-                                    <div class="col-12 mb-2">
-                                        <label for="nombre" class="form-label small mb-1">Nombre *</label>
-                                        <input type="text" class="form-control form-control-sm" id="nombre" name="nombre" maxlength="100" required>
-                                        <div class="invalid-feedback small">El nombre es obligatorio</div>
-                                    </div>
-                                </div>
+                                <div class="tab-content pt-3">
+                                    <div class="tab-pane fade show active" id="tab-datos" role="tabpanel" aria-labelledby="tab-datos-btn">
+                                        <div class="row mb-2">
+                                            <div class="col-md-6 mb-2">
+                                                <label for="sucursal_id" class="form-label small mb-1">Sucursal *</label>
+                                                <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
+                                                    <option value="">Seleccionar sucursal</option>
+                                                </select>
+                                                <div class="invalid-feedback small">Seleccione una sucursal</div>
+                                            </div>
+                                            <div class="col-md-6 mb-2">
+                                                <label for="boca_id" class="form-label small mb-1">Boca *</label>
+                                                <select class="form-select form-select-sm" id="boca_id" name="boca_id" required disabled>
+                                                    <option value="">Seleccione una sucursal primero</option>
+                                                </select>
+                                                <div class="invalid-feedback small">Seleccione una boca</div>
+                                            </div>
+                                        </div>
 
-                                <div class="row mb-2">
-                                    <div class="col-md-6 mb-2">
-                                        <label for="codigo_fiscal" class="form-label small mb-1">Código Fiscal</label>
-                                        <input type="number" class="form-control form-control-sm no-spinner" id="codigo_fiscal" name="codigo_fiscal" min="0" step="1">
-                                    </div>
-                                    <div class="col-md-6 mb-2 d-flex align-items-center">
-                                        <div class="form-check form-switch mt-4">
-                                            <input class="form-check-input" type="checkbox" id="es_web" name="es_web">
-                                            <label class="form-check-label small" for="es_web">Es el punto de venta web</label>
+                                        <div class="row mb-2">
+                                            <div class="col-12 mb-2">
+                                                <label for="nombre" class="form-label small mb-1">Nombre *</label>
+                                                <input type="text" class="form-control form-control-sm" id="nombre" name="nombre" maxlength="100" required>
+                                                <div class="invalid-feedback small">El nombre es obligatorio</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-2">
+                                            <div class="col-md-6 mb-2">
+                                                <label for="codigo_fiscal" class="form-label small mb-1">Código Fiscal</label>
+                                                <input type="number" class="form-control form-control-sm no-spinner" id="codigo_fiscal" name="codigo_fiscal" min="0" step="1">
+                                            </div>
+                                            <div class="col-md-6 mb-2 d-flex align-items-center">
+                                                <div class="form-check form-switch mt-4">
+                                                    <input class="form-check-input" type="checkbox" id="es_web" name="es_web">
+                                                    <label class="form-check-label small" for="es_web">Es el punto de venta web</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-2">
+                                            <div class="col-12 mb-2">
+                                                <label for="descripcion" class="form-label small mb-1">Descripción</label>
+                                                <textarea class="form-control form-control-sm" id="descripcion" name="descripcion" rows="2" maxlength="255"></textarea>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div class="row mb-2">
-                                    <div class="col-12 mb-2">
-                                        <label for="descripcion" class="form-label small mb-1">Descripción</label>
-                                        <textarea class="form-control form-control-sm" id="descripcion" name="descripcion" rows="2" maxlength="255"></textarea>
+                                    <div class="tab-pane fade" id="tab-comprobantes" role="tabpanel" aria-labelledby="tab-comprobantes-btn">
+                                        <div class="card card-info card-outline mb-2">
+                                            <div class="card-header py-1 bg-info bg-opacity-10">
+                                                <h6 class="mb-0 small"><i class="fas fa-plus-circle me-2"></i>Agregar tipo de comprobante</h6>
+                                            </div>
+                                            <div class="card-body py-2">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                                    <input type="text" class="form-control" id="busqueda_comprobante_tipo" autocomplete="off" placeholder="Buscar por nombre, código o letra...">
+                                                </div>
+                                                <div id="resultados_busqueda_comprobantes" class="mt-2"></div>
+                                            </div>
+                                        </div>
+
+                                        <label class="form-label small mb-1">Tipos de comprobante habilitados</label>
+                                        <div style="max-width: 600px;">
+                                            <div class="table-responsive" style="min-height: 440px; border: 1px solid #dee2e6; border-radius: 0.25rem;">
+                                                <table class="table table-sm table-hover mb-0" id="tablaComprobantesSeleccionados" style="width: auto; max-width: 600px;">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Subgrupo / Tipo</th>
+                                                            <th width="70" class="text-center">Código</th>
+                                                            <th width="60" class="text-center">Letra</th>
+                                                            <th width="110" class="text-center">Requiere AFIP</th>
+                                                            <th width="50" class="text-center">Quitar</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td colspan="5" class="text-center text-muted small py-2">Cargando...</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                                <div class="form-text small mb-0">Solo los tipos de esta lista quedan habilitados para el punto de venta</div>
+                                                <nav id="paginacionComprobantesSeleccionados" aria-label="Paginación de tipos de comprobante habilitados"></nav>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </form>
@@ -202,6 +261,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
         .modal-fullscreen .modal-body {
             overflow-y: auto;
+        }
+
+        /* Modal lo más ancho posible en pantallas grandes: modal-xl (1140px)
+           se queda corto en monitores anchos. Por debajo de 576px, Bootstrap
+           ya hace que .modal-dialog ocupe el ancho completo con margen fijo
+           (sin usar max-width), así que esta regla no interfiere con mobile. */
+        @media (min-width: 576px) {
+            .modal-ancho-maximo:not(.modal-fullscreen) {
+                max-width: 96vw;
+            }
         }
 
         .table-sm td, .table-sm th {

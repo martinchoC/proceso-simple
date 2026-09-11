@@ -295,7 +295,32 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     #contadorResultados {
         font-style: italic;
     }
+    /* Vista jerárquica: Grupo > Subgrupo */
+    tr.grupo-header td {
+        background-color: #dee2e6 !important;
+        font-weight: 600;
+        cursor: pointer;
+        border-top: 2px solid #adb5bd;
+    }
+    tr.grupo-header:hover td {
+        background-color: #ced4da !important;
+    }
+    tr.subgrupo-header td {
+        background-color: #f1f3f5 !important;
+        font-weight: 500;
+        cursor: pointer;
+        padding-left: 1.5rem;
+    }
+    tr.subgrupo-header:hover td {
+        background-color: #e9ecef !important;
+    }
+    .icono-colapso {
+        width: 12px;
+        display: inline-block;
+        transition: transform 0.15s ease-in-out;
+    }
 </style>
+<link rel="stylesheet" href="https://cdn.datatables.net/rowgroup/1.4.1/css/rowGroup.dataTables.min.css">
 
 <script>
     $(document).ready(function () {
@@ -691,15 +716,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     },
                     {
                         data: 'grupo_info',
+                        visible: false,
                         render: function (data, type, row) {
-                            if (type === 'export') return data?.comprobante_grupo || '';
+                            if (type === 'export' || type === 'sort' || type === 'type' || type === 'filter') {
+                                return data?.comprobante_grupo || 'Sin grupo';
+                            }
                             return data?.comprobante_grupo ? '<span class="fw-medium">' + data.comprobante_grupo + '</span>' : '';
                         }
                     },
                     {
                         data: 'subgrupo_info',
+                        visible: false,
                         render: function (data, type, row) {
-                            if (type === 'export') return data?.comprobante_subgrupo || '';
+                            if (type === 'export' || type === 'sort' || type === 'type' || type === 'filter') {
+                                return data?.comprobante_subgrupo || 'Sin subgrupo';
+                            }
                             return data?.comprobante_subgrupo ? '<span class="fw-medium">' + data.comprobante_subgrupo + '</span>' : '';
                         }
                     },
@@ -803,6 +834,51 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
                 },
                 order: currentOrder,
+                // Grupo y Subgrupo siempre mandan como criterio primario de orden,
+                // para que las filas de cada grupo/subgrupo queden contiguas
+                // (requisito de rowGroup). El orden elegido por el usuario
+                // (columna currentOrder) se aplica como criterio secundario.
+                orderFixed: {
+                    pre: [[3, 'asc'], [4, 'asc']]
+                },
+                rowGroup: {
+                    dataSrc: [
+                        function (row) { return row.grupo_info?.comprobante_grupo || 'Sin grupo'; },
+                        function (row) { return row.subgrupo_info?.comprobante_subgrupo || 'Sin subgrupo'; }
+                    ],
+                    startRender: function (rows, group, level) {
+                        var visibleCount = tabla.columns(':visible').count();
+                        if (level === 0) {
+                            var key = 'G:' + group;
+                            return $('<tr/>')
+                                .addClass('grupo-header')
+                                .attr('data-group-key', key)
+                                .append(
+                                    '<td colspan="' + visibleCount + '">' +
+                                    '<i class="fas fa-chevron-down icono-colapso me-2"></i>' +
+                                    '<i class="fas fa-folder me-2"></i>' +
+                                    '<strong>' + group + '</strong>' +
+                                    '<span class="badge bg-secondary ms-2">' + rows.count() + '</span>' +
+                                    '</td>'
+                                );
+                        } else {
+                            var sample = rows.data()[0];
+                            var grupoNombre = sample?.grupo_info?.comprobante_grupo || 'Sin grupo';
+                            var key = 'G:' + grupoNombre + '|S:' + group;
+                            return $('<tr/>')
+                                .addClass('subgrupo-header')
+                                .attr('data-group-key', key)
+                                .append(
+                                    '<td colspan="' + visibleCount + '">' +
+                                    '<i class="fas fa-chevron-down icono-colapso me-2"></i>' +
+                                    '<i class="fas fa-folder-open me-2"></i>' +
+                                    group +
+                                    '<span class="badge bg-light text-dark ms-2">' + rows.count() + '</span>' +
+                                    '</td>'
+                                );
+                        }
+                    }
+                },
                 responsive: true,
                 createdRow: function (row, data, dataIndex) {
                     if (data.estado_info && data.estado_info.codigo_estandar === 'INACTIVO') {
@@ -849,10 +925,64 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 drawCallback: function() {
                     // Actualizar contador después de cada dibujo
                     actualizarContadorResultados();
+                    // Reaplicar estado de colapso de grupos/subgrupos tras cada redibujado
+                    aplicarColapsoGrupos();
                 }
             });
             inicializarEventos();
         }
+
+        // Estado de grupos/subgrupos colapsados (persiste mientras dura la sesión de la página)
+        var gruposColapsados = new Set();
+
+        // Oculta/muestra filas de detalle según el estado de colapso de cada grupo/subgrupo
+        function aplicarColapsoGrupos() {
+            var grupoColapsado = false;
+            var subgrupoColapsado = false;
+
+            $('#tablaComprobantesTipos tbody tr').each(function () {
+                var $fila = $(this);
+
+                if ($fila.hasClass('grupo-header')) {
+                    var key = $fila.data('group-key');
+                    grupoColapsado = gruposColapsados.has(key);
+                    subgrupoColapsado = false;
+                    $fila.find('.icono-colapso')
+                        .toggleClass('fa-chevron-down', !grupoColapsado)
+                        .toggleClass('fa-chevron-right', grupoColapsado);
+                    $fila.show();
+                } else if ($fila.hasClass('subgrupo-header')) {
+                    if (grupoColapsado) {
+                        $fila.hide();
+                        return;
+                    }
+                    var key = $fila.data('group-key');
+                    subgrupoColapsado = gruposColapsados.has(key);
+                    $fila.find('.icono-colapso')
+                        .toggleClass('fa-chevron-down', !subgrupoColapsado)
+                        .toggleClass('fa-chevron-right', subgrupoColapsado);
+                    $fila.show();
+                } else {
+                    // Fila de datos: oculta si su grupo o subgrupo está colapsado
+                    if (grupoColapsado || subgrupoColapsado) {
+                        $fila.hide();
+                    } else {
+                        $fila.show();
+                    }
+                }
+            });
+        }
+
+        // Click en un encabezado de grupo o subgrupo: alterna colapso
+        $(document).on('click', 'tr.grupo-header, tr.subgrupo-header', function () {
+            var key = $(this).data('group-key');
+            if (gruposColapsados.has(key)) {
+                gruposColapsados.delete(key);
+            } else {
+                gruposColapsados.add(key);
+            }
+            aplicarColapsoGrupos();
+        });
 
         // Función para inicializar eventos
         function inicializarEventos() {
@@ -1240,6 +1370,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <!-- Librerías adicionales necesarias -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.datatables.net/rowgroup/1.4.1/js/dataTables.rowGroup.min.js"></script>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

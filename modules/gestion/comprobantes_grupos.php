@@ -185,7 +185,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="modal-body">
                             <form id="formComprobanteSubgrupo" class="needs-validation" novalidate>
                                 <input type="hidden" id="comprobante_subgrupo_id" name="comprobante_subgrupo_id" />
-                                <input type="hidden" id="grupo_padre_id" name="grupo_padre_id" />
                                 <div class="mb-3">
                                     <label for="comprobante_subgrupo" class="form-label">Nombre del Subgrupo *</label>
                                     <input type="text" class="form-control" id="comprobante_subgrupo"
@@ -209,11 +208,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         subgrupo asociado</small>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Grupo Padre</label>
-                                    <div class="form-control bg-light">
-                                        <span id="nombre_grupo_padre" class="fw-bold text-primary">Seleccionar grupo primero</span>
-                                    </div>
-                                    <small class="text-muted">El subgrupo se asociará al grupo seleccionado previamente</small>
+                                    <label for="grupo_padre_id" class="form-label">Grupo Padre *</label>
+                                    <select class="form-select" id="grupo_padre_id" name="grupo_padre_id" required>
+                                        <option value="">Seleccionar grupo...</option>
+                                    </select>
+                                    <div class="invalid-feedback">Debe seleccionar un grupo</div>
+                                    <small class="text-muted">Grupo al que pertenece el subgrupo</small>
                                 </div>
                             </form>
                         </div>
@@ -295,6 +295,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     });
                     if (tablaSeleccionadaId) {
                         $('#tabla_id').val(tablaSeleccionadaId);
+                    }
+                }, 'json');
+            }
+
+            // Cargar el desplegable de grupos padre disponibles para el subgrupo
+            function cargarGruposParaSelect(grupoSeleccionadoId) {
+                return $.get('comprobantes_grupos_ajax.php', {
+                    accion: 'listar_grupos_select',
+                    empresa_idx: empresa_idx
+                }, function (data) {
+                    $('#grupo_padre_id').empty().append('<option value="">Seleccionar grupo...</option>');
+                    $.each(data, function (index, grupo) {
+                        $('#grupo_padre_id').append('<option value="' + grupo.comprobante_grupo_id + '">' + grupo.comprobante_grupo + '</option>');
+                    });
+                    if (grupoSeleccionadoId) {
+                        $('#grupo_padre_id').val(grupoSeleccionadoId);
                     }
                 }, 'json');
             }
@@ -572,8 +588,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 resetModalSubgrupo();
                 $('#modalSubgrupoLabel').text('Nuevo Subgrupo');
                 $('#orden_subgrupo').val(0);
-                $('#grupo_padre_id').val(grupoSeleccionadoId);
-                $('#nombre_grupo_padre').text(grupoSeleccionadoNombre);
+                cargarGruposParaSelect(grupoSeleccionadoId);
                 cargarTablasDisponibles(0, null);
 
                 var modal = new bootstrap.Modal(document.getElementById('modalComprobanteSubgrupo'));
@@ -696,20 +711,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#comprobante_subgrupo_id').val(res.comprobante_subgrupo_id);
                         $('#comprobante_subgrupo').val(res.comprobante_subgrupo);
                         $('#orden_subgrupo').val(res.orden || 0);
-                        $('#grupo_padre_id').val(res.comprobante_grupo_id);
                         $('#modalSubgrupoLabel').text('Editar Subgrupo de Comprobante');
                         cargarTablasDisponibles(res.comprobante_subgrupo_id, res.tabla_id || 0);
-                        
-                        // Obtener nombre del grupo padre
-                        $.get('comprobantes_grupos_ajax.php', {
-                            accion: 'obtener_grupo',
-                            comprobante_grupo_id: res.comprobante_grupo_id,
-                            empresa_idx: empresa_idx
-                        }, function(grupoRes) {
-                            if (grupoRes && grupoRes.comprobante_grupo) {
-                                $('#nombre_grupo_padre').text(grupoRes.comprobante_grupo);
-                            }
-                        });
+                        cargarGruposParaSelect(res.comprobante_grupo_id);
 
                         var modal = new bootstrap.Modal(document.getElementById('modalComprobanteSubgrupo'));
                         modal.show();
@@ -892,8 +896,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function resetModalSubgrupo() {
                 $('#formComprobanteSubgrupo')[0].reset();
                 $('#comprobante_subgrupo_id').val('');
-                $('#grupo_padre_id').val('');
-                $('#nombre_grupo_padre').text('Seleccionar grupo primero');
+                $('#grupo_padre_id').empty().append('<option value="">Seleccionar grupo...</option>');
                 $('#tabla_id').empty().append('<option value="0">Sin tabla asociada</option>');
                 $('#formComprobanteSubgrupo').removeClass('was-validated');
             }
