@@ -420,6 +420,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 var tabla;
 var arbolInstance = null;
 var vistaActual = 'arbol';
+var modalFuncion = null; // instancia única del modal, se crea una sola vez
 
 // Mapa de colores Bootstrap
 const bootstrapColors = {
@@ -749,8 +750,10 @@ function abrirModalNuevaFuncion(paginaId, paginaNombre, conEstadosPredefinidos =
     }
     
     $('#modalLabel').text('Nueva Función en ' + (paginaNombre || 'Página'));
-    var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
-    modal.show();
+    if (!modalFuncion) {
+        modalFuncion = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPaginaFuncion'));
+    }
+    modalFuncion.show();
 }
 
 // ============================================================
@@ -947,6 +950,13 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                 });
                 
                 container.on('select_node.jstree', function(e, data) {
+                    // jstree selecciona el nodo automáticamente al abrir el menú
+                    // contextual (botón derecho). Si no se filtra acá, un click
+                    // derecho dispara editarFuncion() dos veces: una por esta
+                    // selección y otra si además se elige "Editar" del menú.
+                    if (data.event && data.event.type === 'contextmenu') {
+                        return;
+                    }
                     var node = data.node;
                     if (node.type === 'activa' || node.type === 'inactiva') {
                         var funcionId = node.id.replace('funcion_', '');
@@ -1006,7 +1016,14 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
 // FUNCIONES CRUD
 // ============================================================
 
+var cargandoEdicion = false; // evita que dos aperturas superpuestas se pisen los campos
+
 function editarFuncion(funcionId) {
+    if (cargandoEdicion) {
+        return;
+    }
+    cargandoEdicion = true;
+
     $.get('paginas_funciones_ajax.php', {accion: 'obtener', pagina_funcion_id: funcionId}, function(res){
         if(res){
             $('#pagina_funcion_id').val(res.pagina_funcion_id);
@@ -1027,12 +1044,16 @@ function editarFuncion(funcionId) {
             }, 300);
             
             $('#modalLabel').text('Editar Función');
-            var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
-            modal.show();
+            if (!modalFuncion) {
+                modalFuncion = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPaginaFuncion'));
+            }
+            modalFuncion.show();
         } else {
             Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron obtener los datos' });
         }
-    }, 'json');
+    }, 'json').always(function() {
+        cargandoEdicion = false;
+    });
 }
 
 function eliminarFuncion(funcionId) {
@@ -1127,8 +1148,10 @@ $(document).ready(function(){
             cargarFuncionesEstandar();
             cargarEstadosRegistro();
             
-            var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
-            modal.show();
+            if (!modalFuncion) {
+                modalFuncion = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPaginaFuncion'));
+            }
+            modalFuncion.show();
         }
     });
     
@@ -1160,6 +1183,8 @@ $(document).ready(function(){
             tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1
         };
 
+        $('#btnGuardar').prop('disabled', true);
+
         $.ajax({
             url: 'paginas_funciones_ajax.php',
             type: 'GET',
@@ -1167,18 +1192,14 @@ $(document).ready(function(){
             dataType: 'json',
             success: function(res) {
                 if(res.resultado) {
-                    var modal = bootstrap.Modal.getInstance(document.getElementById('modalPaginaFuncion'));
-                    if (modal) {
-                        modal.hide();
+                    if (modalFuncion) {
+                        modalFuncion.hide();
                     }
-                    
-                    $('#formPaginaFuncion')[0].reset();
-                    $('#formPaginaFuncion').removeClass('was-validated');
-                    $('#tabla_estado_registro_id').val('1');
-                    $('#tabla_estado_registro_origen_id').val('0');
-                    updateButtonPreviews('btn-primary', 'fa-cog', 'Función');
-                    updateColorPreview('btn-primary');
-                    
+                    // El reset del formulario y de las vistas previas queda a cargo
+                    // del handler 'hidden.bs.modal' (se dispara cuando termina la
+                    // animación de cierre) — hacerlo acá también pisaba el contenido
+                    // del modal en medio de la transición y se veía como un salto.
+
                     cargarArbol($('#filtroModulo').val(), $('#filtroPagina').val(), $('#buscarFuncion').val());
                     if (typeof tabla !== 'undefined' && tabla) {
                         tabla.ajax.reload(null, false);
@@ -1191,6 +1212,9 @@ $(document).ready(function(){
             },
             error: function() {
                 Swal.fire({ icon: "error", title: "Error", text: "Error de conexión con el servidor" });
+            },
+            complete: function() {
+                $('#btnGuardar').prop('disabled', false);
             }
         });
     });
@@ -1223,6 +1247,25 @@ $(document).ready(function(){
         updateButtonPreviews(colorClass, iconoClase, funcionNombre);
     });
     
+    // Filtro client-side por módulo/página para la Vista Tabla
+    // (la tabla carga todos los registros una sola vez; los combos filtran sobre lo ya cargado)
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        if (settings.nTable.id !== 'tablaPaginasFunciones') {
+            return true;
+        }
+        var rowData = tabla.row(dataIndex).data();
+        var moduloSel = $('#filtroModulo').val();
+        var paginaSel = $('#filtroPagina').val();
+
+        if (moduloSel && String(rowData.modulo_id) !== String(moduloSel)) {
+            return false;
+        }
+        if (paginaSel && String(rowData.pagina_id) !== String(paginaSel)) {
+            return false;
+        }
+        return true;
+    });
+
     // Configuración de DataTable
     tabla = $('#tablaPaginasFunciones').DataTable({
         pageLength: 25,
@@ -1418,12 +1461,13 @@ $(document).ready(function(){
 
     // Eventos de filtro
     $('#filtroModulo').change(function() {
+        var moduloId = $(this).val();
+        cargarPaginasFiltro(moduloId); // el combo de páginas se actualiza en ambas vistas
+
         if (vistaActual === 'arbol') {
-            var moduloId = $(this).val();
-            cargarPaginasFiltro(moduloId);
             cargarArbol(moduloId, $('#filtroPagina').val(), $('#buscarFuncion').val());
         } else {
-            tabla.ajax.reload();
+            tabla.draw();
         }
     });
 
@@ -1431,7 +1475,7 @@ $(document).ready(function(){
         if (vistaActual === 'arbol') {
             cargarArbol($('#filtroModulo').val(), $(this).val(), $('#buscarFuncion').val());
         } else {
-            tabla.ajax.reload();
+            tabla.draw();
         }
     });
     

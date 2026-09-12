@@ -49,6 +49,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">
                                     <div class="card-header">
                                         <div id="contenedor-boton-agregar" class="d-inline"></div>
+                                        <div class="d-inline-block ms-2" style="min-width: 160px;">
+                                            <select class="form-select form-select-sm" id="filtroEstado" title="Filtrar por estado">
+                                            </select>
+                                        </div>
                                         <div class="float-end">
                                             <div class="btn-group" role="group">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -149,7 +153,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="200">Ubicaciones</th>
                                                     <th width="80">Imagen</th>
                                                     <!-- Las columnas de cada lista de precios se agregan acá dinámicamente por JS (ver cargarListasPreciosYTabla) -->
-                                                    <th width="100">Estado</th>
                                                     <th width="120" class="text-center">Acciones</th>
                                                 </tr>
                                             </thead>
@@ -222,24 +225,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                         <div class="row g-2">
                                             <div class="col-md-4">
-                                                <label for="producto_codigo" class="form-label form-label-sm">Código
-                                                    *</label>
                                                 <input type="text" class="form-control form-control-sm"
-                                                    id="producto_codigo" name="producto_codigo" maxlength="50" required>
+                                                    id="producto_codigo" name="producto_codigo" maxlength="50"
+                                                    placeholder="Código *" required>
                                                 <div class="invalid-feedback">El código es obligatorio</div>
                                             </div>
                                             <div class="col-md-4">
-                                                <label for="codigo_barras" class="form-label form-label-sm">Código de
-                                                    Barras</label>
                                                 <input type="text" class="form-control form-control-sm"
-                                                    id="codigo_barras" name="codigo_barras" maxlength="150">
+                                                    id="codigo_barras" name="codigo_barras" maxlength="150"
+                                                    placeholder="Código de Barras">
                                             </div>
                                             <div class="col-md-4">
-                                                <label for="producto_tipo_id" class="form-label form-label-sm">Tipo
-                                                    *</label>
                                                 <select class="form-select form-select-sm" id="producto_tipo_id"
                                                     name="producto_tipo_id" required>
-                                                    <option value="">Seleccionar...</option>
+                                                    <option value="">Tipo *</option>
                                                 </select>
                                                 <div class="invalid-feedback">Seleccione un tipo</div>
                                             </div>
@@ -247,98 +246,82 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                         <div class="row g-2 mt-1">
                                             <div class="col-md-12">
-                                                <label for="producto_nombre" class="form-label form-label-sm">Nombre
-                                                    *</label>
                                                 <input type="text" class="form-control form-control-sm"
                                                     id="producto_nombre" name="producto_nombre" maxlength="150"
-                                                    required>
+                                                    placeholder="Nombre *" required>
                                                 <div class="invalid-feedback">El nombre es obligatorio</div>
                                             </div>
                                         </div>
 
                                         <div class="row g-2 mt-1">
+                                            <div class="col-md-12">
+                                                <label for="producto_descripcion" class="form-label form-label-sm">Descripción
+                                                    Extendida</label>
+                                                <textarea class="form-control form-control-sm" id="producto_descripcion"
+                                                    name="producto_descripcion" rows="2"></textarea>
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-2 mt-1">
                                             <div class="col-md-6">
-                                                <label for="producto_categoria_id"
-                                                    class="form-label form-label-sm">Categoría *</label>
                                                 <select class="form-select form-select-sm" id="producto_categoria_id"
                                                     name="producto_categoria_id" required>
-                                                    <option value="">Seleccionar categoría...</option>
+                                                    <option value="">Categoría *</option>
                                                 </select>
                                                 <div class="invalid-feedback">Seleccione una categoría</div>
                                             </div>
                                             <div class="col-md-6">
-                                                <label for="unidad_medida_id" class="form-label form-label-sm">Unidad de
-                                                    Medida</label>
                                                 <select class="form-select form-select-sm" id="unidad_medida_id"
                                                     name="unidad_medida_id">
-                                                    <option value="">Seleccionar...</option>
+                                                    <option value="">Unidad de Medida</option>
                                                 </select>
                                             </div>
                                         </div>
 
                                         <div class="row g-2 mt-1">
                                             <div class="col-md-4">
-                                                <label for="lado" class="form-label form-label-sm">Lado</label>
                                                 <input type="text" class="form-control form-control-sm" id="lado"
-                                                    name="lado" maxlength="10">
+                                                    name="lado" maxlength="10" placeholder="Lado">
                                             </div>
                                             <div class="col-md-4">
-                                                <label for="material" class="form-label form-label-sm">Material</label>
                                                 <input type="text" class="form-control form-control-sm" id="material"
-                                                    name="material" maxlength="50">
+                                                    name="material" maxlength="50" placeholder="Material">
                                             </div>
                                             <div class="col-md-4">
-                                                <label for="color" class="form-label form-label-sm">Color</label>
                                                 <input type="text" class="form-control form-control-sm" id="color"
-                                                    name="color" maxlength="50">
+                                                    name="color" maxlength="50" placeholder="Color">
                                             </div>
                                         </div>
 
                                         <div class="row g-2 mt-1">
                                             <div class="col-md-6">
-                                                <label for="peso" class="form-label form-label-sm">Peso (kg)</label>
                                                 <input type="number" class="form-control form-control-sm" id="peso"
-                                                    name="peso" min="0" step="0.01">
+                                                    name="peso" min="0" step="0.01" placeholder="Peso (kg)">
                                             </div>
                                             <div class="col-md-6">
-                                                <label for="garantia" class="form-label form-label-sm">Garantía</label>
                                                 <input type="text" class="form-control form-control-sm" id="garantia"
-                                                    name="garantia" maxlength="50">
+                                                    name="garantia" maxlength="50" placeholder="Garantía">
                                             </div>
-                                            <div class="col-md-6">
-                                                <div class="form-check form-switch mt-4">
+                                        </div>
+                                        <div class="row g-2 mt-1 align-items-center">
+                                            <div class="col-md-4">
+                                                <div class="form-check form-switch">
                                                     <input class="form-check-input" type="checkbox" role="switch" 
                                                         id="controla_stock" name="controla_stock" value="1" checked>
                                                     <label class="form-check-label" for="controla_stock">
                                                         <i class="fas fa-boxes me-1"></i>Controla Stock
                                                     </label>
-                                                    <div class="form-text">Si está activado, el producto controlará inventario</div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div class="row g-2 mt-1">
-                                            <div class="col-md-6">
-                                                <label for="cont_cuenta_id" class="form-label form-label-sm">Cuenta Contable</label>
+                                            <div class="col-md-4">
                                                 <select class="form-select form-select-sm" id="cont_cuenta_id" name="cont_cuenta_id">
-                                                    <option value="">Seleccionar cuenta...</option>
+                                                    <option value="">Cuenta Contable</option>
                                                 </select>
-                                                <div class="form-text">Cuenta contable para imputación del producto</div>
                                             </div>
-                                            <div class="col-md-6">
-                                                <label for="iva_alicuota_id" class="form-label form-label-sm">IVA Alícuota</label>
+                                            <div class="col-md-4">
                                                 <select class="form-select form-select-sm" id="iva_alicuota_id" name="iva_alicuota_id">
-                                                    <option value="">Seleccionar alícuota...</option>
+                                                    <option value="">IVA Alícuota</option>
                                                 </select>
-                                                <div class="form-text">Alícuota de IVA aplicable al producto</div>
-                                            </div>
-                                        </div>
-
-                                        <div class="row g-2 mt-1">
-                                            <div class="col-md-12">
-                                                <label for="producto_descripcion"
-                                                    class="form-label form-label-sm">Descripción</label>
-                                                <textarea class="form-control form-control-sm" id="producto_descripcion"
-                                                    name="producto_descripcion" rows="2"></textarea>
                                             </div>
                                         </div>
                                     </form>
@@ -351,10 +334,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <h6 class="mb-0">
                                             <i class="fas fa-cogs me-2 text-primary"></i>Compatibilidad del Producto
                                         </h6>
-                                        <button type="button" class="btn btn-primary btn-sm"
-                                            id="btnAgregarCompatibilidad">
-                                            <i class="fas fa-plus me-1"></i>Agregar
-                                        </button>
+                                        <div>
+                                            <button type="button" class="btn btn-outline-primary btn-sm me-1"
+                                                id="btnAgregarCompatibilidadMultiple" title="Agregar varias a la vez buscando por texto">
+                                                <i class="fas fa-layer-group me-1"></i>Agregar varias
+                                            </button>
+                                            <button type="button" class="btn btn-primary btn-sm"
+                                                id="btnAgregarCompatibilidad">
+                                                <i class="fas fa-plus me-1"></i>Agregar
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="table-responsive" style="max-height: 300px;">
                                         <table id="tablaCompatibilidad" class="table table-sm table-hover mb-0">
@@ -588,6 +577,66 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </button>
                             <button type="button" class="btn btn-sm btn-info px-3" id="btnGuardarCompatibilidad">
                                 <i class="fas fa-save me-1"></i>Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal para alta múltiple de compatibilidad -->
+            <div class="modal fade" id="modalCompatibilidadMultiple" tabindex="-1"
+                aria-labelledby="modalCompatibilidadMultipleLabel" aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-xl modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header bg-gradient-info text-white border-0">
+                            <h5 class="modal-title" id="modalCompatibilidadMultipleLabel">
+                                <i class="fas fa-layer-group me-2"></i>Agregar varias compatibilidades
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <input type="hidden" id="compatibilidad_multiple_producto_id" />
+
+                            <label class="form-label form-label-sm">Buscar marca, modelo o submodelo</label>
+                            <input type="text" class="form-control form-control-sm mb-2"
+                                id="buscadorCompatibilidadMultiple" placeholder="Ej: citroen c3, ford fiesta..."
+                                autocomplete="off" />
+                            <div id="resultadosCompatibilidadMultiple" class="list-group mb-3"
+                                style="max-height: 180px; overflow-y: auto;"></div>
+
+                            <label class="form-label form-label-sm">
+                                Seleccionadas para agregar
+                                <span class="badge bg-secondary" id="contadorStagingCompatibilidad">0</span>
+                            </label>
+                            <div class="table-responsive" style="max-height: 260px;">
+                                <table class="table table-sm table-hover mb-0" id="tablaStagingCompatibilidad">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Marca</th>
+                                            <th>Modelo</th>
+                                            <th>Submodelo</th>
+                                            <th width="120">Año desde</th>
+                                            <th width="120">Año hasta</th>
+                                            <th width="40"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="stagingCompatibilidadBody">
+                                        <tr id="stagingCompatibilidadVacio">
+                                            <td colspan="6" class="text-center text-muted py-3">
+                                                Buscá arriba y hacé clic en un resultado para agregarlo acá.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light border-top">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-info px-3" id="btnGuardarCompatibilidadMultiple">
+                                <i class="fas fa-save me-1"></i>Guardar todas
                             </button>
                         </div>
                     </div>
@@ -1089,12 +1138,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             height: calc(1.5em + 0.5rem + 2px);
         }
         .modal-footer { padding: 0.5rem 1rem; }
-        #tablaCompatibilidad { font-size: 0.8rem; }
-        #tablaCompatibilidad th, #tablaCompatibilidad td { padding: 0.25rem 0.5rem; }
+        #tablaCompatibilidad { font-size: 0.8rem; width: 100% !important; }
+        #tablaCompatibilidad th, #tablaCompatibilidad td { padding: 0.25rem 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
+        #tablaProveedores, #tablaPreciosProducto { font-size: 0.8rem; width: 100% !important; }
+        #tablaProveedores th, #tablaProveedores td,
+        #tablaPreciosProducto th, #tablaPreciosProducto td { padding: 0.25rem 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
         .tab-content { min-height: 450px; background-color: white; transition: min-height 0.3s ease; }
         .tab-pane { height: 100%; overflow-y: auto; }
         .tab-pane .table-responsive { max-height: 300px; overflow-y: auto; }
-        #nav-info { min-height: 400px; }
+        #nav-info { min-height: 320px; }
         #nav-imagenes { min-height: 400px; }
         .tab-pane { max-height: 500px; overflow-y: auto; padding-right: 5px; }
         .tab-pane::-webkit-scrollbar { width: 5px; }
@@ -1155,6 +1207,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .badge-estante { background-color: #198754 !important; color: #ffffff !important; }
         .badge-posicion { background-color: #6c757d !important; color: #ffffff !important; }
         #tablaProductos td.ubicacion-columna { padding: 4px 6px; vertical-align: middle; min-width: 140px; max-width: 180px; }
+
+        /* Compatibilidad: 4 columnas (Marcas/Modelos/Submodelos/Años), cada una
+           con una mini-tabla de una fila por combinación real. Mismo font-size/
+           padding en las 4 para que las filas se alineen entre columnas. */
+        .compat-col-table { border-collapse: separate !important; border-spacing: 0 2px !important; font-size: 0.78rem; width: 100%; }
+        .compat-col-table td { padding: 0.15rem 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; border: none !important; border-radius: 0.2rem !important; font-weight: 700; }
+        .compat-td-marca { background-color: #0dcaf0; color: #000; }
+        .compat-td-modelo { background-color: #198754; color: #fff; }
+        .compat-td-submodelo { background-color: #ffc107; color: #000; }
+        .compat-td-anios { background-color: #6c757d; color: #fff; text-align: center; }
 
         /* Columna Precio: neto y c/IVA por cada lista de precios */
         .precios-listas-container { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
@@ -1653,7 +1715,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function cargarTiposProducto() {
                 $.get('productos_ajax.php', { accion: 'obtener_tipos_producto', empresa_idx: empresa_idx }, function(tipos) {
                     var select = $('#producto_tipo_id');
-                    select.empty().append('<option value="">Seleccionar tipo...</option>');
+                    select.empty().append('<option value="">Tipo *</option>');
                     if (tipos && tipos.length > 0) {
                         tipos.forEach(function(tipo) {
                             select.append(`<option value="${tipo.producto_tipo_id}">${tipo.producto_tipo} (${tipo.producto_tipo_codigo})</option>`);
@@ -1665,7 +1727,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function cargarCategoriasProducto() {
                 $.get('productos_ajax.php', { accion: 'obtener_categorias', empresa_idx: empresa_idx }, function(categorias) {
                     var select = $('#producto_categoria_id');
-                    select.empty().append('<option value="">Seleccionar categoría...</option>');
+                    select.empty().append('<option value="">Categoría *</option>');
                     if (categorias && categorias.length > 0) {
                         categorias.forEach(function(categoria) {
                             select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
@@ -1677,7 +1739,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function cargarUnidadesMedida() {
                 $.get('productos_ajax.php', { accion: 'obtener_unidades_medida', empresa_idx: empresa_idx }, function(unidades) {
                     var select = $('#unidad_medida_id');
-                    select.empty().append('<option value="">Seleccionar unidad...</option>');
+                    select.empty().append('<option value="">Unidad de Medida</option>');
                     if (unidades && unidades.length > 0) {
                         unidades.forEach(function(unidad) {
                             select.append(`<option value="${unidad.unidad_medida_id}">${unidad.unidad_nombre} (${unidad.unidad_abreviatura})</option>`);
@@ -1686,10 +1748,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            function cargarIvaAlicuotas() {
+            function cargarIvaAlicuotas(valorPorDefecto) {
                 $.get('productos_ajax.php', { accion: 'obtener_iva_alicuotas', empresa_idx: empresa_idx }, function(alicuotas) {
                     var select = $('#iva_alicuota_id');
-                    select.empty().append('<option value="">Seleccionar alícuota...</option>');
+                    select.empty().append('<option value="">IVA Alícuota</option>');
                     if (alicuotas && alicuotas.length > 0) {
                         alicuotas.forEach(function(alicuota) {
                             var porcentaje = alicuota.porcentaje ? parseFloat(alicuota.porcentaje).toFixed(2) + '%' : '';
@@ -1715,14 +1777,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         else infoHtml = '<span class="text-muted">No especificado</span>';
                         $('#iva_info').html(infoHtml);
                     });
+                    // Producto nuevo: IVA por defecto (iva_alicuota_id = 1). En modo edición
+                    // no se pasa valorPorDefecto acá — el valor real lo pisa el setTimeout
+                    // de cargarProductoParaEditar una vez resuelto el fetch del producto.
+                    if (valorPorDefecto) select.val(String(valorPorDefecto));
                     if (select.val()) select.trigger('change');
                 }, 'json');
             }
 
-            function cargarCuentasContables() {
+            function cargarCuentasContables(valorPorDefecto) {
                 $.get('productos_ajax.php', { accion: 'obtener_cuentas_contables', empresa_idx: empresa_idx }, function(cuentas) {
                     var select = $('#cont_cuenta_id');
-                    select.empty().append('<option value="">Seleccionar cuenta...</option>');
+                    select.empty().append('<option value="">Cuenta Contable</option>');
                     if (cuentas && cuentas.length > 0) {
                         cuentas.forEach(function(cuenta) {
                             var prefix = '';
@@ -1731,6 +1797,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             select.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
                         });
                     }
+                    // Producto nuevo: cuenta contable por defecto (cont_cuenta_id = 131).
+                    if (valorPorDefecto) select.val(String(valorPorDefecto));
                 }, 'json');
             }
 
@@ -1746,6 +1814,23 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             selectModal.append(`<option value="${marca.marca_id}">${marca.marca_nombre}</option>`);
                         });
                     }
+                }, 'json');
+            }
+
+            // Filtro rápido de estado, al lado del botón "Agregar". Arranca siempre
+            // en "Activo" — por eso se resuelve ANTES de inicializar el DataTable
+            // (que dispara su primer pedido apenas se crea), pasando un callback
+            // en vez de dejar que la primera carga salga sin filtro.
+            function cargarFiltroEstado(callback) {
+                $.get('productos_ajax.php', { accion: 'obtener_estados' }, function(estados) {
+                    var $select = $('#filtroEstado');
+                    $select.empty().append('<option value="">Todos los estados</option>');
+                    (estados || []).forEach(function(estado) {
+                        $select.append(`<option value="${estado.tabla_estado_registro_id}">${estado.estado_registro}</option>`);
+                    });
+                    // Arranca siempre en Activo (tabla_estado_registro_id = 1).
+                    $select.val('1');
+                    if (typeof callback === 'function') callback();
                 }, 'json');
             }
 
@@ -2468,11 +2553,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         dataSrc: ''
                     },
                     columns: [
-                        { data: 'marca_nombre', render: function(data) { return data || '-'; } },
-                        { data: 'modelo_nombre', render: function(data) { return data || '-'; } },
-                        { data: 'submodelo_nombre', render: function(data) { return data || '-'; } },
+                        { data: 'marca_nombre', responsivePriority: 2, render: function(data) { return '<span title="' + (data || '-') + '">' + (data || '-') + '</span>'; } },
+                        { data: 'modelo_nombre', responsivePriority: 3, render: function(data) { return '<span title="' + (data || '-') + '">' + (data || '-') + '</span>'; } },
+                        { data: 'submodelo_nombre', responsivePriority: 5, render: function(data) { return '<span title="' + (data || '-') + '">' + (data || '-') + '</span>'; } },
                         {
-                            data: null, className: 'text-center',
+                            data: null, className: 'text-center', responsivePriority: 4,
                             render: function(data) {
                                 var anioDesde = data.anio_desde || '';
                                 var anioHasta = data.anio_hasta == '0' ? 'Actual' : (data.anio_hasta || '');
@@ -2481,7 +2566,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         },
                         {
-                            data: 'compatibilidad_id', orderable: false, searchable: false, className: "text-center",
+                            data: 'compatibilidad_id', orderable: false, searchable: false, className: "text-center", responsivePriority: 1,
                             render: function(data) {
                                 return `<div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-primary btn-editar-compatibilidad" data-id="${data}" title="Editar"><i class="fas fa-edit"></i></button>
@@ -2538,6 +2623,103 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#marca_id').empty().append('<option value="">Seleccionar marca...</option>');
                 $('#modelo_id').empty().append('<option value="">Seleccionar modelo...</option>').prop('disabled', true);
                 $('#submodelo_id').empty().append('<option value="">Seleccionar submodelo...</option>').prop('disabled', true);
+            }
+
+            // ========== ALTA MÚLTIPLE DE COMPATIBILIDAD ==========
+            // Staging en memoria: cada item = {tempId, marca_id, marca_nombre, modelo_id,
+            // modelo_nombre, submodelo_id, submodelo_nombre, anio_desde, anio_hasta}.
+            // Cada uno tiene su propio rango de años, editable en la tabla antes de guardar.
+            var stagingCompatibilidadMultiple = [];
+            var stagingCompatibilidadNextId = 1;
+            var buscadorCompatibilidadMultipleTimer = null;
+
+            function mostrarModalCompatibilidadMultiple(productoId) {
+                stagingCompatibilidadMultiple = [];
+                stagingCompatibilidadNextId = 1;
+                $('#compatibilidad_multiple_producto_id').val(productoId);
+                $('#buscadorCompatibilidadMultiple').val('');
+                $('#resultadosCompatibilidadMultiple').empty();
+                renderStagingCompatibilidadMultiple();
+                new bootstrap.Modal(document.getElementById('modalCompatibilidadMultiple')).show();
+                setTimeout(function() { $('#buscadorCompatibilidadMultiple').trigger('focus'); }, 300);
+            }
+
+            // Genera las <option> de años (mismo rango que cargarAnios, 1950 a actual+10).
+            // esHasta agrega la opción "Actual" (value="0").
+            function opcionesAnios(seleccionado, esHasta) {
+                var currentYear = new Date().getFullYear();
+                var startYear = 1950;
+                var html = '<option value="">Año...</option>';
+                if (esHasta) html += '<option value="0"' + (seleccionado === '0' ? ' selected' : '') + '>Actual</option>';
+                for (var year = startYear; year <= currentYear + 10; year++) {
+                    html += '<option value="' + year + '"' + (String(seleccionado) === String(year) ? ' selected' : '') + '>' + year + '</option>';
+                }
+                return html;
+            }
+
+            function renderStagingCompatibilidadMultiple() {
+                var $body = $('#stagingCompatibilidadBody');
+                $body.empty();
+                $('#contadorStagingCompatibilidad').text(stagingCompatibilidadMultiple.length);
+
+                if (stagingCompatibilidadMultiple.length === 0) {
+                    $body.append('<tr id="stagingCompatibilidadVacio"><td colspan="6" class="text-center text-muted py-3">Buscá arriba y hacé clic en un resultado para agregarlo acá.</td></tr>');
+                    return;
+                }
+
+                stagingCompatibilidadMultiple.forEach(function(item) {
+                    var $fila = $('<tr>').attr('data-temp-id', item.tempId);
+                    $fila.append('<td>' + item.marca_nombre + '</td>');
+                    $fila.append('<td>' + item.modelo_nombre + '</td>');
+                    $fila.append('<td>' + (item.submodelo_nombre || '-') + '</td>');
+                    $fila.append('<td><select class="form-select form-select-sm staging-anio-desde">' + opcionesAnios(item.anio_desde, false) + '</select></td>');
+                    $fila.append('<td><select class="form-select form-select-sm staging-anio-hasta">' + opcionesAnios(item.anio_hasta, true) + '</select></td>');
+                    $fila.append('<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger btn-quitar-staging-compat" title="Quitar"><i class="fas fa-times"></i></button></td>');
+                    $body.append($fila);
+                });
+            }
+
+            function buscarCompatibilidadMultiple(termino) {
+                var $resultados = $('#resultadosCompatibilidadMultiple');
+                if (!termino || termino.trim().length < 2) {
+                    $resultados.empty();
+                    return;
+                }
+                $.get('productos_ajax.php', { accion: 'buscar_marca_modelo_submodelo', termino: termino, limite: 30 }, function(filas) {
+                    $resultados.empty();
+                    if (!filas || filas.length === 0) {
+                        $resultados.append('<div class="list-group-item text-muted py-2">Sin resultados</div>');
+                        return;
+                    }
+                    filas.forEach(function(f) {
+                        var texto = f.marca_nombre + ' - ' + f.modelo_nombre + (f.submodelo_nombre ? ' - ' + f.submodelo_nombre : ' - (Sin submodelo)');
+                        var $item = $('<button type="button" class="list-group-item list-group-item-action py-1"></button>').text(texto);
+                        $item.data('combo', f);
+                        $resultados.append($item);
+                    });
+                }, 'json');
+            }
+
+            function agregarComboAStaging(f) {
+                // Evitar agregar dos veces exactamente la misma combinación a la staging.
+                var yaEsta = stagingCompatibilidadMultiple.some(function(item) {
+                    return item.marca_id == f.marca_id && item.modelo_id == f.modelo_id
+                        && (item.submodelo_id || '') == (f.submodelo_id || '');
+                });
+                if (yaEsta) return;
+
+                stagingCompatibilidadMultiple.push({
+                    tempId: stagingCompatibilidadNextId++,
+                    marca_id: f.marca_id,
+                    marca_nombre: f.marca_nombre,
+                    modelo_id: f.modelo_id,
+                    modelo_nombre: f.modelo_nombre,
+                    submodelo_id: f.submodelo_id || null,
+                    submodelo_nombre: f.submodelo_nombre || null,
+                    anio_desde: '',
+                    anio_hasta: ''
+                });
+                renderStagingCompatibilidadMultiple();
             }
 
             // ========== FUNCIONES DE IMÁGENES ==========
@@ -2654,11 +2836,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         dataSrc: ''
                     },
                     columns: [
-                        { data: 'entidad_nombre', render: function(data) { return data || '-'; } },
-                        { data: 'cuit', render: function(data) { return data || '-'; } },
-                        { data: 'codigo_proveedor', render: function(data) { return data || '-'; } },
+                        { data: 'entidad_nombre', responsivePriority: 1, render: function(data) { return data || '-'; } },
+                        { data: 'cuit', responsivePriority: 3, render: function(data) { return data || '-'; } },
+                        { data: 'codigo_proveedor', responsivePriority: 2, render: function(data) { return data || '-'; } },
                         {
-                            data: 'producto_proveedor_id', orderable: false, searchable: false, className: "text-center",
+                            data: 'producto_proveedor_id', orderable: false, searchable: false, className: "text-center", responsivePriority: 1,
                             render: function(data) {
                                 return `<div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-primary btn-editar-proveedor" data-id="${data}" title="Editar"><i class="fas fa-edit"></i></button>
@@ -2725,21 +2907,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         dataSrc: ''
                     },
                     columns: [
-                        { data: 'lista_nombre', render: function(data) { return data || '-'; } },
+                        { data: 'lista_nombre', responsivePriority: 1, render: function(data) { return data || '-'; } },
                         {
-                            data: 'precio_unitario', className: 'text-end',
+                            data: 'precio_unitario', className: 'text-end', responsivePriority: 2,
                             render: data => '$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         },
                         {
-                            data: 'precio_con_iva', className: 'text-end',
+                            data: 'precio_con_iva', className: 'text-end', responsivePriority: 3,
                             render: function(data, type, row) {
                                 var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
                                 return '<span title="IVA ' + iva + '%">$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</span>';
                             }
                         },
-                        { data: 'f_actualizacion', render: data => data ? new Date(data).toLocaleString() : '-' },
+                        { data: 'f_actualizacion', responsivePriority: 4, render: data => data ? new Date(data).toLocaleString() : '-' },
                         {
-                            data: 'lista_precio_producto_id', orderable: false, searchable: false, className: "text-center",
+                            data: 'lista_precio_producto_id', orderable: false, searchable: false, className: "text-center", responsivePriority: 1,
                             render: function(data) {
                                 return `<div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-primary btn-editar-precio" data-id="${data}" title="Editar"><i class="fas fa-edit"></i></button>
@@ -2908,13 +3090,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#formProducto')[0].reset();
                 $('#producto_id').val('');
                 $('#formProducto').removeClass('was-validated');
-                $('#iva_alicuota_id').empty().append('<option value="">Seleccionar alícuota...</option>');
+                $('#iva_alicuota_id').empty().append('<option value="">IVA Alícuota</option>');
                 $('#iva_info').html('<span class="text-muted">Seleccione una alícuota...</span>');
-                $('#cont_cuenta_id').empty().append('<option value="">Seleccionar cuenta...</option>');
+                $('#cont_cuenta_id').empty().append('<option value="">Cuenta Contable</option>');
                 $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
-                $('#producto_tipo_id').empty().append('<option value="">Seleccionar tipo...</option>');
-                $('#producto_categoria_id').empty().append('<option value="">Seleccionar categoría...</option>');
-                $('#unidad_medida_id').empty().append('<option value="">Seleccionar unidad...</option>');
+                $('#producto_tipo_id').empty().append('<option value="">Tipo *</option>');
+                $('#producto_categoria_id').empty().append('<option value="">Categoría *</option>');
+                $('#unidad_medida_id').empty().append('<option value="">Unidad de Medida</option>');
                 $('#controla_stock').prop('checked', true);
                 if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
                     $('#tablaCompatibilidad').DataTable().destroy();
@@ -3015,7 +3197,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     };
                 });
 
-                // Insertar en el thead un <th> coloreado por cada lista (siempre después de "Imagen" y antes de "Estado")
+                // Insertar en el thead un <th> coloreado por cada lista (siempre después de "Imagen" y antes de "Acciones")
                 // Índice 7 = "Imagen" (0:Código, 1:Nombre, 2:Marcas, 3:Modelos, 4:Submodelos, 5:Años, 6:Ubicaciones, 7:Imagen)
                 $('#tablaProductos thead th.th-lista-precio').remove();
                 var $thAnterior = $('#tablaProductos thead th').eq(7);
@@ -3029,7 +3211,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 // Índices para exportar (todas las columnas visibles menos "Acciones", que siempre es la última)
-                var totalColumnas = 10 + listasPrecios.length; // 8 fijas antes del precio (incluye Años) + N listas + Estado + Acciones
+                var totalColumnas = 9 + listasPrecios.length; // 8 fijas antes del precio (Código, Nombre, Marcas, Modelos, Submodelos, Años, Ubicaciones, Imagen) + N listas + Acciones
                 var exportCols = [];
                 for (var ie = 0; ie < totalColumnas - 1; ie++) exportCols.push(ie);
 
@@ -3047,6 +3229,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             d.filtro_marca = $('#filtroMarca').val();
                             d.filtro_modelo = $('#filtroModelo').val();
                             d.filtro_submodelo = $('#filtroSubmodelo').val();
+                            d.filtro_estado = $('#filtroEstado').val();
                         }
                     },
                     stateSave: true,
@@ -3114,34 +3297,75 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         {
                             data: 'producto_nombre',
                             responsivePriority: 3,
-                            render: function(data, type, row) {
+                            render: function(data, type) {
                                 if (type === 'export') return data;
-                                var desc = row.producto_descripcion ? '<small class="text-muted d-block">' + row.producto_descripcion + '</small>' : '';
-                                return '<div class="fw-medium">' + data + '</div>' + desc;
+                                return '<div class="fw-medium">' + data + '</div>';
                             }
                         },
                         {
-                            data: 'marcas_compatibles', width: '150px', responsivePriority: 7,
-                            render: function(data) {
-                                return data ? '<span class="badge badge-compatibilidad bg-info text-white" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
+                            // Cada columna de compatibilidad usa la MISMA fuente de
+                            // datos (compatibilidades_detalle) y arma una mini-tabla
+                            // con una fila por combinación real. Como las 4 columnas
+                            // recorren el mismo array en el mismo orden, sus filas se
+                            // alinean entre sí (fila 1 de Marca = fila 1 de Modelo =
+                            // fila 1 de Submodelo = fila 1 de Años, etc).
+                            data: 'compatibilidades_detalle', width: '150px', responsivePriority: 7,
+                            orderable: false, searchable: false,
+                            render: function(data, type) {
+                                if (type === 'export') {
+                                    if (!data || !data.length) return '';
+                                    return data.map(function(c) { return c.marca; }).join(' | ');
+                                }
+                                if (!data || !data.length) return '<span class="text-muted">-</span>';
+                                var filas = data.map(function(c) {
+                                    return '<tr><td class="compat-td-marca">' + c.marca + '</td></tr>';
+                                }).join('');
+                                return '<table class="compat-col-table"><tbody>' + filas + '</tbody></table>';
                             }
                         },
                         {
-                            data: 'modelos_compatibles', width: '150px', responsivePriority: 8,
-                            render: function(data) {
-                                return data ? '<span class="badge badge-compatibilidad bg-success text-white" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
+                            data: 'compatibilidades_detalle', width: '150px', responsivePriority: 8,
+                            orderable: false, searchable: false,
+                            render: function(data, type) {
+                                if (type === 'export') {
+                                    if (!data || !data.length) return '';
+                                    return data.map(function(c) { return c.modelo; }).join(' | ');
+                                }
+                                if (!data || !data.length) return '<span class="text-muted">-</span>';
+                                var filas = data.map(function(c) {
+                                    return '<tr><td class="compat-td-modelo">' + c.modelo + '</td></tr>';
+                                }).join('');
+                                return '<table class="compat-col-table"><tbody>' + filas + '</tbody></table>';
                             }
                         },
                         {
-                            data: 'submodelos_compatibles', width: '150px', responsivePriority: 9,
-                            render: function(data) {
-                                return data ? '<span class="badge badge-compatibilidad bg-warning text-dark" title="' + data + '">' + data + '</span>' : '<span class="text-muted">-</span>';
+                            data: 'compatibilidades_detalle', width: '150px', responsivePriority: 9,
+                            orderable: false, searchable: false,
+                            render: function(data, type) {
+                                if (type === 'export') {
+                                    if (!data || !data.length) return '';
+                                    return data.map(function(c) { return c.submodelo || ''; }).join(' | ');
+                                }
+                                if (!data || !data.length) return '<span class="text-muted">-</span>';
+                                var filas = data.map(function(c) {
+                                    return '<tr><td class="compat-td-submodelo">' + (c.submodelo || '-') + '</td></tr>';
+                                }).join('');
+                                return '<table class="compat-col-table"><tbody>' + filas + '</tbody></table>';
                             }
                         },
                         {
-                            data: 'compatibilidad_anios', width: '100px', className: 'text-center', responsivePriority: 9,
-                            render: function(data) {
-                                return data ? '<span class="badge bg-secondary" title="Años cubiertos según compatibilidad">' + data + '</span>' : '<span class="text-muted">-</span>';
+                            data: 'compatibilidades_detalle', width: '100px', className: 'text-center', responsivePriority: 6,
+                            orderable: false, searchable: false,
+                            render: function(data, type) {
+                                if (type === 'export') {
+                                    if (!data || !data.length) return '';
+                                    return data.map(function(c) { return c.anios; }).join(' | ');
+                                }
+                                if (!data || !data.length) return '<span class="text-muted">-</span>';
+                                var filas = data.map(function(c) {
+                                    return '<tr><td class="compat-td-anios">' + c.anios + '</td></tr>';
+                                }).join('');
+                                return '<table class="compat-col-table"><tbody>' + filas + '</tbody></table>';
                             }
                         },
                         {
@@ -3207,16 +3431,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         },
                     ].concat(columnasListasPrecios, [
-                        {
-                            data: 'estado_info', className: 'text-center', width: '100px', responsivePriority: 6,
-                            render: function(data, type) {
-                                if (!data || !data.estado_registro) return type === 'export' ? 'Sin estado' : '<span class="badge badge-estado-inactivo">Sin estado</span>';
-                                if (type === 'export') return data.estado_registro;
-                                var clase = 'badge-estado-inactivo';
-                                if (data.codigo_estandar === 'ACTIVO') clase = 'badge-estado-activo';
-                                return '<span class="badge ' + clase + '">' + data.estado_registro + '</span>';
-                            }
-                        },
                         {
                             data: 'botones', orderable: false, searchable: false, className: "text-center", width: '120px', responsivePriority: 1,
                             render: function(data, type, row) {
@@ -3329,6 +3543,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     tabla.ajax.reload();
                 });
 
+                // Filtro rápido de estado - automático al cambiar
+                $('#filtroEstado').off('change').on('change', function() {
+                    tabla.ajax.reload();
+                });
+
                 // La X del buscador ahora limpia TODOS los filtros (antes
                 // era un botón "Limpiar filtros" aparte, más la X de tags
                 // por separado — se unificaron en un solo control).
@@ -3370,8 +3589,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     cargarTiposProducto();
                     cargarCategoriasProducto();
                     cargarUnidadesMedida();
-                    cargarIvaAlicuotas();
-                    cargarCuentasContables();
+                    cargarIvaAlicuotas(1);
+                    cargarCuentasContables(131);
                     new bootstrap.Modal(document.getElementById('modalProducto')).show();
                     $('#producto_codigo').focus();
                 });
@@ -3437,6 +3656,78 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             bootstrap.Modal.getInstance(document.getElementById('modalCompatibilidad')).hide();
                             tablaCompatibilidad.ajax.reload();
                         } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
+                    }, 'json');
+                });
+
+                // Acciones de alta múltiple de compatibilidad
+                $('#btnAgregarCompatibilidadMultiple').click(function() {
+                    if (productoActualCompatibilidad) mostrarModalCompatibilidadMultiple(productoActualCompatibilidad);
+                });
+
+                $('#buscadorCompatibilidadMultiple').on('input', function() {
+                    var termino = $(this).val();
+                    clearTimeout(buscadorCompatibilidadMultipleTimer);
+                    buscadorCompatibilidadMultipleTimer = setTimeout(function() {
+                        buscarCompatibilidadMultiple(termino);
+                    }, 300);
+                });
+
+                $(document).on('click', '#resultadosCompatibilidadMultiple button', function() {
+                    agregarComboAStaging($(this).data('combo'));
+                });
+
+                $(document).on('change', '.staging-anio-desde, .staging-anio-hasta', function() {
+                    var tempId = $(this).closest('tr').data('temp-id');
+                    var item = stagingCompatibilidadMultiple.find(function(i) { return i.tempId === tempId; });
+                    if (!item) return;
+                    if ($(this).hasClass('staging-anio-desde')) item.anio_desde = $(this).val();
+                    else item.anio_hasta = $(this).val();
+                });
+
+                $(document).on('click', '.btn-quitar-staging-compat', function() {
+                    var tempId = $(this).closest('tr').data('temp-id');
+                    stagingCompatibilidadMultiple = stagingCompatibilidadMultiple.filter(function(i) { return i.tempId !== tempId; });
+                    renderStagingCompatibilidadMultiple();
+                });
+
+                $('#btnGuardarCompatibilidadMultiple').click(function() {
+                    if (stagingCompatibilidadMultiple.length === 0) {
+                        Swal.fire('Nada para guardar', 'Buscá y agregá al menos una combinación', 'info');
+                        return;
+                    }
+                    var sinAnio = stagingCompatibilidadMultiple.some(function(i) { return !i.anio_desde; });
+                    if (sinAnio) {
+                        Swal.fire('Falta el año desde', 'Completá "Año desde" en todas las filas antes de guardar', 'warning');
+                        return;
+                    }
+
+                    var productoId = $('#compatibilidad_multiple_producto_id').val();
+                    var items = stagingCompatibilidadMultiple.map(function(i) {
+                        return {
+                            marca_id: i.marca_id,
+                            modelo_id: i.modelo_id,
+                            submodelo_id: i.submodelo_id,
+                            anio_desde: i.anio_desde,
+                            anio_hasta: i.anio_hasta || null
+                        };
+                    });
+
+                    var btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                    $.post('productos_ajax.php', {
+                        accion: 'agregar_compatibilidades_multiple',
+                        producto_id: productoId,
+                        items: JSON.stringify(items),
+                        empresa_idx: empresa_idx
+                    }, function(res) {
+                        btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar todas');
+                        if (res && res.resultado) {
+                            var msg = res.exitosos + ' agregada(s)' + (res.fallidos > 0 ? ', ' + res.fallidos + ' no se pudieron agregar (ya existían)' : '');
+                            Swal.fire('¡Listo!', msg, res.fallidos > 0 ? 'warning' : 'success');
+                            bootstrap.Modal.getInstance(document.getElementById('modalCompatibilidadMultiple')).hide();
+                            tablaCompatibilidad.ajax.reload();
+                        } else {
+                            Swal.fire('Error', (res && res.error) || 'No se pudo agregar ninguna (¿ya existían todas?)', 'error');
+                        }
                     }, 'json');
                 });
 
@@ -3860,8 +4151,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Inicializar eventos de ubicación
             inicializarEventosUbicacion();
 
-            // Inicializar DataTable (las listas de precios ya vinieron resueltas desde el servidor)
-            inicializarDataTable(listasPreciosIniciales);
+            // Inicializar DataTable (las listas de precios ya vinieron resueltas desde el
+            // servidor; el filtro de estado se resuelve antes para que la primera carga
+            // ya salga filtrada en "Activo", no sin filtro)
+            cargarFiltroEstado(function() {
+                inicializarDataTable(listasPreciosIniciales);
+            });
 
             // Cargar datos iniciales
             cargarBotonAgregar();

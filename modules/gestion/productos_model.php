@@ -218,6 +218,7 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     $filtro_modelo = $params['filtro_modelo'] ?? '';
     $filtro_submodelo = $params['filtro_submodelo'] ?? '';
     $filtro_codigo = $params['filtro_codigo'] ?? '';
+    $filtro_estado = $params['filtro_estado'] ?? '';
 
     // Validar dirección de orden
     $order_dir = ($order_dir === 'ASC' || $order_dir === 'DESC') ? $order_dir : 'ASC';
@@ -227,9 +228,12 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         0 => 'p.producto_id',
         1 => 'p.producto_codigo',
         2 => 'p.producto_nombre',
-        3 => 'marcas_compatibles',
-        4 => 'modelos_compatibles',
-        5 => 'submodelos_compatibles',
+        // 3, 4, 5: antes marcas_compatibles / modelos_compatibles /
+        // submodelos_compatibles. Se eliminaron como columnas ordenables:
+        // ahora la compatibilidad se muestra consolidada por fila real
+        // (compatibilidades_detalle, JSON) y no tiene un criterio de orden
+        // simple. Si llega un order_column apuntando a estos índices, cae
+        // al default (p.producto_codigo) más abajo.
         6 => 'um.unidad_abreviatura',
         7 => 'er.estado_registro'
     ];
@@ -266,35 +270,44 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         $where_types .= "s";
     }
 
-    // Filtros de compatibilidad
-    if (!empty($filtro_marca)) {
-        $where_conditions[] = "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
-                WHERE pc.producto_id = p.producto_id 
-                AND pc.empresa_id = p.empresa_id
-                AND pc.tabla_estado_registro_id = 1
-                AND pc.marca_id = ?)";
-        $where_params[] = intval($filtro_marca);
+    // Filtro rápido por estado (dropdown junto al botón Agregar, arranca en "Activo")
+    if (!empty($filtro_estado)) {
+        $where_conditions[] = "p.tabla_estado_registro_id = ?";
+        $where_params[] = intval($filtro_estado);
         $where_types .= "i";
     }
 
-    if (!empty($filtro_modelo)) {
-        $where_conditions[] = "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
-                WHERE pc.producto_id = p.producto_id 
-                AND pc.empresa_id = p.empresa_id
-                AND pc.tabla_estado_registro_id = 1
-                AND pc.modelo_id = ?)";
-        $where_params[] = intval($filtro_modelo);
-        $where_types .= "i";
-    }
+    // Filtro de compatibilidad: marca + modelo + submodelo deben cumplirse
+    // en la MISMA fila de gestion__productos_compatibilidad. Antes eran 3
+    // EXISTS independientes, que podían dar falso positivo (ej: producto
+    // con marcaA+submodeloX en una fila y marcaB+submodeloY en otra —
+    // filtrar por marcaA+submodeloY lo traía igual, sin que esa combinación
+    // exista realmente).
+    if (!empty($filtro_marca) || !empty($filtro_modelo) || !empty($filtro_submodelo)) {
+        $compat_conditions = [
+            "pc.producto_id = p.producto_id",
+            "pc.empresa_id = p.empresa_id",
+            "pc.tabla_estado_registro_id = 1"
+        ];
 
-    if (!empty($filtro_submodelo)) {
-        $where_conditions[] = "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc 
-                WHERE pc.producto_id = p.producto_id 
-                AND pc.empresa_id = p.empresa_id
-                AND pc.tabla_estado_registro_id = 1
-                AND pc.submodelo_id = ?)";
-        $where_params[] = intval($filtro_submodelo);
-        $where_types .= "i";
+        if (!empty($filtro_marca)) {
+            $compat_conditions[] = "pc.marca_id = ?";
+            $where_params[] = intval($filtro_marca);
+            $where_types .= "i";
+        }
+        if (!empty($filtro_modelo)) {
+            $compat_conditions[] = "pc.modelo_id = ?";
+            $where_params[] = intval($filtro_modelo);
+            $where_types .= "i";
+        }
+        if (!empty($filtro_submodelo)) {
+            $compat_conditions[] = "pc.submodelo_id = ?";
+            $where_params[] = intval($filtro_submodelo);
+            $where_types .= "i";
+        }
+
+        $where_conditions[] = "EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pc WHERE "
+            . implode(" AND ", $compat_conditions) . ")";
     }
 
     // Filtro de búsqueda global
@@ -362,7 +375,10 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     // agregado (marcas/modelos/submodelos) no hay forma de evitarlo sin
     // los joins, así que en ese caso puntual se cae al camino viejo.
     // =============================================================
-    $columnas_agregadas = ['marcas_compatibles', 'modelos_compatibles', 'submodelos_compatibles'];
+    // Ya no hay columnas de compatibilidad agregadas por GROUP BY (ver
+    // compatibilidades_detalle más abajo, resuelto por subconsulta
+    // correlacionada) — el camino de paginación liviana aplica siempre.
+    $columnas_agregadas = [];
     $paginacion_liviana = !in_array($order_by, $columnas_agregadas, true);
 
     if ($paginacion_liviana) {
@@ -415,6 +431,58 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         $hydrate_types = $where_types;
     }
 
+    // La compatibilidad se muestra consolidada por fila real (una entrada
+    // por combinación marca+modelo+submodelo+años, no por campo suelto).
+    // Si hay filtro de marca/modelo/submodelo activo, la subconsulta trae
+    // SOLO la(s) fila(s) que matchean ese filtro — así el datatable nunca
+    // muestra una compatibilidad que no sea la que aplicó el filtro.
+    $compat_detail_conditions = [];
+    $compat_detail_params = [];
+    $compat_detail_types = "";
+
+    if (!empty($filtro_marca)) {
+        $compat_detail_conditions[] = "pc2.marca_id = ?";
+        $compat_detail_params[] = intval($filtro_marca);
+        $compat_detail_types .= "i";
+    }
+    if (!empty($filtro_modelo)) {
+        $compat_detail_conditions[] = "pc2.modelo_id = ?";
+        $compat_detail_params[] = intval($filtro_modelo);
+        $compat_detail_types .= "i";
+    }
+    if (!empty($filtro_submodelo)) {
+        $compat_detail_conditions[] = "pc2.submodelo_id = ?";
+        $compat_detail_params[] = intval($filtro_submodelo);
+        $compat_detail_types .= "i";
+    }
+    $compat_detail_extra = !empty($compat_detail_conditions)
+        ? " AND " . implode(" AND ", $compat_detail_conditions)
+        : "";
+
+    // Además del filtro de marca/modelo/submodelo (dropdowns), la barra de
+    // búsqueda libre agrega "palabras" que matchean contra p.compatibilidad_busqueda
+    // (el blob con TODAS las compatibilidades del producto). Si no se acota acá,
+    // esa palabra encuentra al producto correctamente pero la subconsulta sigue
+    // trayendo TODAS las filas, incluidas las que no tienen nada que ver con lo
+    // buscado (ej: buscás "picasso" y te muestra también una fila "Chevrolet Blazer"
+    // que no menciona Picasso en ningún lado).
+    //
+    // Regla por palabra W: la fila sobrevive si
+    //   (el texto de ESTA fila contiene W) OR (W no aparece en compatibilidad_busqueda)
+    // — es decir: si W es una palabra "de compatibilidad" (aparece en el blob),
+    // exigimos que esta fila puntual la contenga; si W no tiene nada que ver con
+    // compatibilidad (matcheó por nombre/código/estado), no se usa para filtrar filas.
+    if (!empty($palabras)) {
+        foreach ($palabras as $palabra) {
+            $palabra_like = '%' . $palabra . '%';
+            $compat_detail_extra .= " AND (CONCAT_WS(' ', ma2.marca_nombre, mo2.modelo_nombre, sm2.submodelo_nombre, pc2.anio_desde, pc2.anio_hasta) LIKE ?"
+                . " OR p.compatibilidad_busqueda NOT LIKE ?)";
+            $compat_detail_params[] = $palabra_like;
+            $compat_detail_params[] = $palabra_like;
+            $compat_detail_types .= "ss";
+        }
+    }
+
     // =============================================================
     // CONSULTA DE HIDRATACIÓN - VERSIÓN COMPLETA CON ubicaciones_detalle
     // =============================================================
@@ -424,9 +492,28 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             er.codigo_estandar,
             c.color_clase, c.bg_clase, c.text_clase,
             um.unidad_nombre, um.unidad_abreviatura,
-            GROUP_CONCAT(DISTINCT m.marca_nombre ORDER BY m.marca_nombre SEPARATOR ', ') as marcas_compatibles,
-            GROUP_CONCAT(DISTINCT mo.modelo_nombre ORDER BY mo.modelo_nombre SEPARATOR ', ') as modelos_compatibles,
-            GROUP_CONCAT(DISTINCT s.submodelo_nombre ORDER BY s.submodelo_nombre SEPARATOR ', ') as submodelos_compatibles,
+            COALESCE(
+                (SELECT CONCAT('[', GROUP_CONCAT(
+                    JSON_OBJECT(
+                        'marca', ma2.marca_nombre,
+                        'modelo', mo2.modelo_nombre,
+                        'submodelo', sm2.submodelo_nombre,
+                        'anio_desde', pc2.anio_desde,
+                        'anio_hasta', pc2.anio_hasta
+                    )
+                    ORDER BY ma2.marca_nombre, mo2.modelo_nombre, sm2.submodelo_nombre, pc2.anio_desde
+                    SEPARATOR ','
+                ), ']')
+                FROM gestion__productos_compatibilidad pc2
+                INNER JOIN gestion__marcas ma2 ON pc2.marca_id = ma2.marca_id
+                INNER JOIN gestion__modelos mo2 ON pc2.modelo_id = mo2.modelo_id
+                LEFT JOIN gestion__submodelos sm2 ON pc2.submodelo_id = sm2.submodelo_id
+                WHERE pc2.producto_id = p.producto_id
+                AND pc2.empresa_id = p.empresa_id
+                AND pc2.tabla_estado_registro_id = 1
+                $compat_detail_extra
+                ), '[]'
+            ) as compatibilidades_detalle,
             GROUP_CONCAT(DISTINCT CONCAT(su.sucursal_nombre, ': ', s_ubic.seccion, ' ', s_ubic.estanteria, '-', s_ubic.estante, s_ubic.posicion)
                ORDER BY su.sucursal_nombre, s_ubic.seccion, s_ubic.estanteria, s_ubic.estante, s_ubic.posicion SEPARATOR '; ') as ubicaciones_info,
             COALESCE(
@@ -480,28 +567,11 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
                 AND (lp.empresa_id = 0 OR lp.empresa_id = p.empresa_id)
                 ), '[]'
             ) as precios_listas_json,
-            MAX(IFNULL(iva.porcentaje, 0)) as iva_porcentaje,
-            -- Rango de años que cubre el producto según su compatibilidad:
-            -- desde = el año más chico entre todas sus compatibilidades activas;
-            -- hasta = el año más grande, salvo que alguna compatibilidad no tenga
-            -- límite superior (anio_hasta NULL o >= 2100, el sentinel de sin tope
-            -- usado en gestion__productos_compatibilidad), en cuyo caso el producto
-            -- se considera vigente hasta la actualidad.
-            MIN(CASE WHEN pc.compatibilidad_id IS NOT NULL THEN pc.anio_desde END) as compat_anio_desde,
-            MAX(CASE WHEN pc.compatibilidad_id IS NOT NULL AND pc.anio_hasta IS NOT NULL AND pc.anio_hasta < 2100
-                     THEN pc.anio_hasta END) as compat_anio_hasta,
-            MAX(CASE WHEN pc.compatibilidad_id IS NOT NULL AND (pc.anio_hasta IS NULL OR pc.anio_hasta >= 2100)
-                     THEN 1 ELSE 0 END) as compat_sin_limite
+            MAX(IFNULL(iva.porcentaje, 0)) as iva_porcentaje
         FROM gestion__productos p
         LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
         LEFT JOIN conf__colores c ON er.color_id = c.color_id
         LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
-        LEFT JOIN gestion__productos_compatibilidad pc ON p.producto_id = pc.producto_id
-            AND p.empresa_id = pc.empresa_id
-            AND pc.tabla_estado_registro_id = 1
-        LEFT JOIN gestion__marcas m ON pc.marca_id = m.marca_id
-        LEFT JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
-        LEFT JOIN gestion__submodelos s ON pc.submodelo_id = s.submodelo_id
         LEFT JOIN gestion__productos_ubicaciones pu ON p.producto_id = pu.producto_id
             AND pu.tabla_estado_registro_id = 1
         LEFT JOIN gestion__sucursales_ubicaciones s_ubic ON pu.sucursal_ubicacion_id = s_ubic.sucursal_ubicacion_id
@@ -519,6 +589,11 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         $hydrate_params[] = $start;
         $hydrate_types .= "ii";
     }
+
+    // Los placeholders de compatibilidades_detalle están en el SELECT,
+    // antes que los del WHERE/LIMIT en el texto de la query — van primero.
+    $hydrate_params = array_merge($compat_detail_params, $hydrate_params);
+    $hydrate_types = $compat_detail_types . $hydrate_types;
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -551,20 +626,34 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             'unidad_abreviatura' => $fila['unidad_abreviatura'] ?? ''
         ] : null;
 
-        // Años que cubre el producto según su compatibilidad (desde - hasta).
-        // Sin compatibilidad cargada => null (el front muestra '-').
-        $fila['compatibilidad_anios'] = null;
-        if (!empty($fila['compat_anio_desde'])) {
-            $anio_desde = (int) $fila['compat_anio_desde'];
-            if (!empty($fila['compat_sin_limite'])) {
-                $fila['compatibilidad_anios'] = $anio_desde . ' - Actual';
-            } elseif (!empty($fila['compat_anio_hasta'])) {
-                $fila['compatibilidad_anios'] = $anio_desde . ' - ' . (int) $fila['compat_anio_hasta'];
-            } else {
-                $fila['compatibilidad_anios'] = $anio_desde . ' - ' . $anio_desde;
+        // Compatibilidad: una entrada por fila real (marca+modelo+submodelo+años),
+        // nunca mezclada por campo suelto. Si hay filtro de marca/modelo/submodelo
+        // activo, ya viene acotada a lo que matchea ese filtro (ver $compat_detail_extra).
+        $compatibilidades = [];
+        if (!empty($fila['compatibilidades_detalle']) && $fila['compatibilidades_detalle'] !== '[]') {
+            $decoded = json_decode($fila['compatibilidades_detalle'], true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $item) {
+                    $anio_desde = isset($item['anio_desde']) ? (int) $item['anio_desde'] : null;
+                    $anio_hasta_raw = $item['anio_hasta'] ?? null;
+                    if ($anio_hasta_raw === null) {
+                        $anio_texto = $anio_desde . ' - Actual';
+                    } elseif ((int) $anio_hasta_raw >= 2100) {
+                        // Sentinel de "sin tope" usado en gestion__productos_compatibilidad
+                        $anio_texto = $anio_desde . ' - Actual';
+                    } else {
+                        $anio_texto = $anio_desde . ' - ' . (int) $anio_hasta_raw;
+                    }
+                    $compatibilidades[] = [
+                        'marca' => $item['marca'] ?? '',
+                        'modelo' => $item['modelo'] ?? '',
+                        'submodelo' => $item['submodelo'] ?? null,
+                        'anios' => $anio_texto
+                    ];
+                }
             }
         }
-        unset($fila['compat_anio_desde'], $fila['compat_anio_hasta'], $fila['compat_sin_limite']);
+        $fila['compatibilidades_detalle'] = $compatibilidades;
 
         // Decodificar ubicaciones detalle si existe (JSON válido)
         if (!empty($fila['ubicaciones_detalle']) && $fila['ubicaciones_detalle'] !== '[]') {
@@ -632,42 +721,54 @@ function limitarTexto($texto, $limite = 30)
     return substr($texto, 0, $limite) . '...';
 }
 
-// ✅ Obtener todos los estados disponibles
-function obtenerEstados($conexion)
+// ✅ Obtener los estados posibles para productos (dropdown de filtro rápido).
+// gestion__productos.tabla_estado_registro_id referencia conf__tablas_estados_registros
+// (estados propios de CADA tabla del sistema, con su tabla_id), NO conf__estados_registros
+// (que es genérico, sin noción de tabla, y se usa aparte como flag de soft-delete
+// universal — por eso antes esta función traía mal el desplegable).
+//
+// El tabla_id de "productos" se deduce de cualquier fila real de gestion__productos
+// en vez de hardcodearlo acá: cualquier producto existente ya tiene un
+// tabla_estado_registro_id que pertenece a ese tabla_id, así que alcanza con mirar
+// a qué tabla_id pertenece ESE id en conf__tablas_estados_registros.
+function obtenerEstadosProductos($conexion)
 {
-    // Primero verifiquemos la estructura de la tabla conf__estados_registros
-    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
-    $result = mysqli_query($conexion, $sql_check);
-    $columns = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $columns[] = $row['Field'];
-    }
-
-    // Determinar el nombre correcto de la columna para el estado
-    $estado_column = 'estado_registro';
-    if (!in_array('estado_registro', $columns)) {
-        if (in_array('nombre_estado', $columns)) {
-            $estado_column = 'nombre_estado';
-        } elseif (in_array('descripcion', $columns)) {
-            $estado_column = 'descripcion';
-        }
-    }
-
-    $sql = "SELECT estado_registro_id, $estado_column as estado_registro, codigo_estandar
-            FROM conf__estados_registros
-            WHERE tabla_estado_registro_id = 1
-            ORDER BY estado_registro_id";
-
-    $result = mysqli_query($conexion, $sql);
+    $sql_tabla_id = "SELECT ctr.tabla_id
+                      FROM gestion__productos p
+                      INNER JOIN conf__tablas_estados_registros ctr
+                          ON ctr.tabla_estado_registro_id = p.tabla_estado_registro_id
+                      LIMIT 1";
+    $result = mysqli_query($conexion, $sql_tabla_id);
     if (!$result) {
+        error_log("Error resolviendo tabla_id de productos: " . mysqli_error($conexion));
         return [];
     }
+    $fila = mysqli_fetch_assoc($result);
+    if (!$fila) {
+        // No hay ningún producto todavía (o ninguno con un estado que matchee
+        // conf__tablas_estados_registros) — no hay de dónde deducir el tabla_id.
+        return [];
+    }
+    $tabla_id = intval($fila['tabla_id']);
+
+    $sql = "SELECT tabla_estado_registro_id, tabla_estado_registro AS estado_registro, es_inicial
+            FROM conf__tablas_estados_registros
+            WHERE tabla_id = ?
+            ORDER BY orden ASC, tabla_estado_registro_id ASC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    mysqli_stmt_bind_param($stmt, "i", $tabla_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
 
     $estados = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        $estados[] = $fila;
+    while ($f = mysqli_fetch_assoc($result)) {
+        $estados[] = $f;
     }
-
+    mysqli_stmt_close($stmt);
     return $estados;
 }
 
@@ -1472,25 +1573,52 @@ function obtenerCompatibilidadPorId($conexion, $compatibilidad_id, $empresa_idx)
     return $compatibilidad;
 }
 
-// ✅ Agregar compatibilidad
-function agregarCompatibilidad($conexion, $data)
+// ✅ Invoca el procedure que recalcula compatibilidad_texto/compatibilidad_busqueda
+// de un producto. Debe llamarse SIEMPRE que se inserta, edita o elimina (soft-delete)
+// una fila de gestion__productos_compatibilidad — antes nada lo hacía, por eso el
+// texto/búsqueda de compatibilidad quedaba desactualizado hasta que corría el EVENT
+// diario (y ese solo cubre productos con compatibilidad "vigente").
+function recalcularCompatibilidadProducto($conexion, $producto_id)
 {
-    $producto_id = intval($data['producto_id'] ?? 0);
-    $marca_id = intval($data['marca_id'] ?? 0);
-    $modelo_id = intval($data['modelo_id'] ?? 0);
-    $submodelo_id = !empty($data['submodelo_id']) ? intval($data['submodelo_id']) : null;
-    $anio_desde = intval($data['anio_desde'] ?? 2000);
-    $anio_hasta = !empty($data['anio_hasta']) ? intval($data['anio_hasta']) : null;
-    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $producto_id = intval($producto_id);
+    if ($producto_id <= 0) {
+        return false;
+    }
+    $stmt = mysqli_prepare($conexion, "CALL sp_recalcular_compatibilidad_producto(?)");
+    if (!$stmt) {
+        error_log("Error preparando CALL sp_recalcular_compatibilidad_producto: " . mysqli_error($conexion));
+        return false;
+    }
+    mysqli_stmt_bind_param($stmt, "i", $producto_id);
+    $ok = mysqli_stmt_execute($stmt);
+    if (!$ok) {
+        error_log("Error ejecutando sp_recalcular_compatibilidad_producto($producto_id): " . mysqli_error($conexion));
+    }
+    // CALL a un procedure deja un result set "extra" pendiente en el protocolo
+    // (aunque el procedure no haga ningún SELECT visible al cliente). Si no se
+    // drena ANTES de cerrar el stmt, la siguiente query en esta misma conexión
+    // puede fallar con "Commands out of sync".
+    do {
+        if ($res = mysqli_stmt_get_result($stmt)) {
+            mysqli_free_result($res);
+        }
+    } while (mysqli_stmt_more_results($stmt) && mysqli_stmt_next_result($stmt));
+    mysqli_stmt_close($stmt);
+    return $ok;
+}
 
+// Inserta UNA fila de compatibilidad, sin recalcular compatibilidad_texto/busqueda.
+// Uso interno: tanto el alta individual como el alta múltiple pasan por acá;
+// quien llama decide cuándo recalcular (el alta múltiple lo hace una sola vez
+// al final, no una vez por fila, para no repetir el procedure innecesariamente).
+function _insertarFilaCompatibilidad($conexion, $empresa_id, $producto_id, $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta)
+{
     if ($producto_id == 0) {
         return ['resultado' => false, 'error' => 'Producto no válido'];
     }
-
     if ($marca_id == 0) {
         return ['resultado' => false, 'error' => 'Marca no válida'];
     }
-
     if ($modelo_id == 0) {
         return ['resultado' => false, 'error' => 'Modelo no válido'];
     }
@@ -1547,9 +1675,142 @@ function agregarCompatibilidad($conexion, $data)
         mysqli_stmt_close($stmt);
         return ['resultado' => true, 'compatibilidad_id' => $compatibilidad_id];
     } else {
+        $error = mysqli_error($conexion);
         mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al crear la compatibilidad: ' . mysqli_error($conexion)];
+        return ['resultado' => false, 'error' => 'Error al crear la compatibilidad: ' . $error];
     }
+}
+
+// ✅ Agregar compatibilidad (una fila)
+function agregarCompatibilidad($conexion, $data)
+{
+    $producto_id = intval($data['producto_id'] ?? 0);
+    $marca_id = intval($data['marca_id'] ?? 0);
+    $modelo_id = intval($data['modelo_id'] ?? 0);
+    $submodelo_id = !empty($data['submodelo_id']) ? intval($data['submodelo_id']) : null;
+    $anio_desde = intval($data['anio_desde'] ?? 2000);
+    $anio_hasta = !empty($data['anio_hasta']) ? intval($data['anio_hasta']) : null;
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+
+    $resultado = _insertarFilaCompatibilidad($conexion, $empresa_id, $producto_id, $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta);
+
+    if ($resultado['resultado']) {
+        recalcularCompatibilidadProducto($conexion, $producto_id);
+    }
+
+    return $resultado;
+}
+
+// ✅ Agregar VARIAS compatibilidades de una sola vez (alta múltiple). $items es
+// un array de ['marca_id','modelo_id','submodelo_id','anio_desde','anio_hasta'].
+// Cada fila puede tener su propio rango de años. Se recalcula compatibilidad_texto/
+// busqueda UNA sola vez al final (no una vez por fila), y se sigue insertando el
+// resto aunque una fila individual falle (ej: duplicado) — el detalle de qué
+// entró y qué no viaja en 'resultados'.
+function agregarCompatibilidadesMultiple($conexion, $producto_id, $empresa_id, $items)
+{
+    $producto_id = intval($producto_id);
+    $empresa_id = intval($empresa_id);
+    $resultados = [];
+    $alguna_ok = false;
+
+    if (!is_array($items) || empty($items)) {
+        return ['resultado' => false, 'error' => 'No se recibieron compatibilidades para agregar'];
+    }
+
+    foreach ($items as $item) {
+        $marca_id = intval($item['marca_id'] ?? 0);
+        $modelo_id = intval($item['modelo_id'] ?? 0);
+        $submodelo_id = !empty($item['submodelo_id']) ? intval($item['submodelo_id']) : null;
+        $anio_desde = intval($item['anio_desde'] ?? 2000);
+        $anio_hasta = !empty($item['anio_hasta']) ? intval($item['anio_hasta']) : null;
+
+        $res = _insertarFilaCompatibilidad($conexion, $empresa_id, $producto_id, $marca_id, $modelo_id, $submodelo_id, $anio_desde, $anio_hasta);
+        $res['marca_id'] = $marca_id;
+        $res['modelo_id'] = $modelo_id;
+        $res['submodelo_id'] = $submodelo_id;
+        $resultados[] = $res;
+
+        if ($res['resultado']) {
+            $alguna_ok = true;
+        }
+    }
+
+    if ($alguna_ok) {
+        recalcularCompatibilidadProducto($conexion, $producto_id);
+    }
+
+    $exitosos = count(array_filter($resultados, function ($r) { return $r['resultado']; }));
+
+    return [
+        'resultado' => $alguna_ok,
+        'total' => count($items),
+        'exitosos' => $exitosos,
+        'fallidos' => count($items) - $exitosos,
+        'resultados' => $resultados
+    ];
+}
+
+// ✅ Buscar combinaciones marca+modelo+submodelo por texto libre (para el alta
+// múltiple de compatibilidad). Cada fila del resultado es una combinación
+// seleccionable independiente. Si un modelo no tiene submodelos cargados en el
+// catálogo, aparece una sola vez con submodelo_id/nombre en null ("Sin submodelo").
+// Si tiene submodelos, aparece una fila por cada uno (no se ofrece la opción
+// "sin submodelo" en ese caso — para eso está el alta individual).
+function buscarMarcaModeloSubmodelo($conexion, $termino, $limite = 30)
+{
+    $termino = trim($termino ?? '');
+    if (strlen($termino) < 2) {
+        return [];
+    }
+
+    $palabras = preg_split('/\s+/', $termino);
+    $palabras = array_filter($palabras, function ($p) { return strlen($p) > 0; });
+    if (empty($palabras)) {
+        return [];
+    }
+
+    $condiciones = [];
+    $params = [];
+    $types = "";
+    foreach ($palabras as $palabra) {
+        $condiciones[] = "CONCAT_WS(' ', ma.marca_nombre, mo.modelo_nombre, sm.submodelo_nombre) LIKE ?";
+        $params[] = '%' . $palabra . '%';
+        $types .= "s";
+    }
+
+    $limite = intval($limite);
+    $params[] = $limite;
+    $types .= "i";
+
+    $sql = "SELECT ma.marca_id, ma.marca_nombre, mo.modelo_id, mo.modelo_nombre,
+                   sm.submodelo_id, sm.submodelo_nombre
+            FROM gestion__modelos mo
+            INNER JOIN gestion__marcas ma ON mo.marca_id = ma.marca_id
+            LEFT JOIN gestion__submodelos sm ON sm.modelo_id = mo.modelo_id
+                AND sm.tabla_estado_registro_id = 1
+            WHERE ma.tabla_estado_registro_id = 1
+              AND mo.tabla_estado_registro_id = 1
+              AND " . implode(" AND ", $condiciones) . "
+            ORDER BY ma.marca_nombre, mo.modelo_nombre, sm.submodelo_nombre
+            LIMIT ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando buscarMarcaModeloSubmodelo: " . mysqli_error($conexion));
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $filas = [];
+    while ($f = mysqli_fetch_assoc($result)) {
+        $filas[] = $f;
+    }
+    mysqli_stmt_close($stmt);
+    return $filas;
 }
 
 // ✅ Editar compatibilidad
@@ -1571,7 +1832,7 @@ function editarCompatibilidad($conexion, $compatibilidad_id, $data, $empresa_idx
     }
 
     // Verificar que la compatibilidad exista y pertenezca a la empresa
-    $sql_check = "SELECT compatibilidad_id FROM gestion__productos_compatibilidad 
+    $sql_check = "SELECT compatibilidad_id, producto_id FROM gestion__productos_compatibilidad 
                   WHERE compatibilidad_id = ? AND empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql_check);
@@ -1615,6 +1876,7 @@ function editarCompatibilidad($conexion, $compatibilidad_id, $data, $empresa_idx
     mysqli_stmt_close($stmt);
 
     if ($success) {
+        recalcularCompatibilidadProducto($conexion, $compatibilidad['producto_id']);
         return ['resultado' => true];
     } else {
         return ['resultado' => false, 'error' => 'Error al actualizar la compatibilidad: ' . mysqli_error($conexion)];
@@ -1625,6 +1887,26 @@ function editarCompatibilidad($conexion, $compatibilidad_id, $data, $empresa_idx
 function eliminarCompatibilidad($conexion, $compatibilidad_id, $empresa_idx)
 {
     $compatibilidad_id = intval($compatibilidad_id);
+
+    // Necesitamos el producto_id para recalcular después del borrado lógico
+    // (una vez cambiado tabla_estado_registro_id, la fila deja de contar para
+    // sp_recalcular_compatibilidad_producto, así que hay que pedirlo antes).
+    $sql_producto = "SELECT producto_id FROM gestion__productos_compatibilidad
+                      WHERE compatibilidad_id = ? AND empresa_id = ?";
+    $stmt_producto = mysqli_prepare($conexion, $sql_producto);
+    if (!$stmt_producto) {
+        return ['success' => false, 'error' => 'Error en la consulta'];
+    }
+    mysqli_stmt_bind_param($stmt_producto, "ii", $compatibilidad_id, $empresa_idx);
+    mysqli_stmt_execute($stmt_producto);
+    $result_producto = mysqli_stmt_get_result($stmt_producto);
+    $fila_producto = mysqli_fetch_assoc($result_producto);
+    mysqli_stmt_close($stmt_producto);
+
+    if (!$fila_producto) {
+        return ['success' => false, 'error' => 'Compatibilidad no encontrada'];
+    }
+    $producto_id = $fila_producto['producto_id'];
 
     $sql = "UPDATE gestion__productos_compatibilidad 
             SET tabla_estado_registro_id = 2 -- Cambiar a estado inactivo
@@ -1640,6 +1922,7 @@ function eliminarCompatibilidad($conexion, $compatibilidad_id, $empresa_idx)
     mysqli_stmt_close($stmt);
 
     if ($success) {
+        recalcularCompatibilidadProducto($conexion, $producto_id);
         return ['success' => true];
     } else {
         return ['success' => false, 'error' => 'Error al eliminar la compatibilidad'];

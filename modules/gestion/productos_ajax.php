@@ -24,6 +24,7 @@ $filtro_marca = $_GET['filtro_marca'] ?? $_POST['filtro_marca'] ?? '';
 $filtro_modelo = $_GET['filtro_modelo'] ?? $_POST['filtro_modelo'] ?? '';
 $filtro_submodelo = $_GET['filtro_submodelo'] ?? $_POST['filtro_submodelo'] ?? '';
 $filtro_codigo = $_GET['filtro_codigo'] ?? $_POST['filtro_codigo'] ?? '';
+$filtro_estado = $_GET['filtro_estado'] ?? $_POST['filtro_estado'] ?? '';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -44,7 +45,8 @@ try {
                 'filtro_marca' => $filtro_marca,
                 'filtro_modelo' => $filtro_modelo,
                 'filtro_submodelo' => $filtro_submodelo,
-                'filtro_codigo' => $filtro_codigo
+                'filtro_codigo' => $filtro_codigo,
+                'filtro_estado' => $filtro_estado
             ]);
             
             echo json_encode([
@@ -221,7 +223,7 @@ try {
             break;
 
         case 'obtener_estados':
-            $estados = obtenerEstados($conexion);
+            $estados = obtenerEstadosProductos($conexion);
             echo json_encode($estados, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -291,6 +293,28 @@ try {
             ];
             $resultado = agregarCompatibilidad($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        // Alta múltiple: cada item trae su propio marca/modelo/submodelo/años.
+        // 'items' llega como JSON string (un array) por POST.
+        case 'agregar_compatibilidades_multiple':
+            $producto_id = intval($_POST['producto_id'] ?? 0);
+            $items = json_decode($_POST['items'] ?? '[]', true);
+            if (!is_array($items)) {
+                echo json_encode(['resultado' => false, 'error' => 'Formato de items inválido'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $resultado = agregarCompatibilidadesMultiple($conexion, $producto_id, $empresa_idx, $items);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        // Búsqueda de combinaciones marca+modelo+submodelo por texto libre,
+        // para el buscador del alta múltiple de compatibilidad.
+        case 'buscar_marca_modelo_submodelo':
+            $termino = $_GET['termino'] ?? '';
+            $limite = intval($_GET['limite'] ?? 30);
+            $combinaciones = buscarMarcaModeloSubmodelo($conexion, $termino, $limite);
+            echo json_encode($combinaciones, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'editar_compatibilidad':

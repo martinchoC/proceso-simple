@@ -1,1462 +1,1560 @@
-<?php
-// Configuración de la página
-$pageTitle = "Gestión de Ubicaciones de Sucursales";
-$currentPage = 'sucursales_ubicaciones';
-$modudo_idx = 2;
-$pagina_idx = 38; // ✅ ID de página para ubicaciones de sucursales
+$(document).ready(function () {
+    const empresa_idx = EMPRESA_ID;
+    const pagina_idx = PAGINA_ID;
 
-define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
-require_once ROOT_PATH . '/templates/adminlte/header1.php';
-?>
+    var tabla;
+    var currentPage = 0;
+    var currentOrder = [[4, 'desc']];
+    var currentSearch = '';
 
-<main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-sitemap me-2"></i>Árbol de Ubicaciones de Sucursales
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa - Vista Jerárquica</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="sucursales.php">Sucursales</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Árbol de Ubicaciones</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    // Estado del formulario
+    var detalles = [];
+    var clienteActualId = null;
+    var clienteSucursalActualId = null;
+    var pedidosPendientesCliente = []; // respuesta cruda de obtener_pedidos_pendientes_cliente
 
-    <div class="app-content">
-        <div class="container-fluid">
-            <div class="content-wrapper">
-                <section class="content">
-                    <div class="container-fluid">                      
-                        <div class="row">
-                            <div class="col-lg-4 col-xl-3">
-                                <!-- Panel de filtros y estadísticas -->
-                                <div class="card card-modern mb-4">
-                                    <div class="card-header card-header-modern">
-                                        <h5 class="card-title mb-0">
-                                            <i class="fas fa-filter me-2"></i>Filtros y Controles
-                                        </h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="mb-4">
-                                            <label for="filterSucursal" class="form-label">
-                                                <i class="fas fa-store me-1"></i>Sucursal
-                                            </label>
-                                            <select class="form-select form-select-modern" id="filterSucursal">
-                                                <option value="">Todas las sucursales</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <label class="form-label">
-                                                <i class="fas fa-expand-alt me-1"></i>Controles del Árbol
-                                            </label>
-                                            <div class="d-grid gap-2">
-                                                <button type="button" class="btn btn-modern-primary" id="btnExpandAll">
-                                                    <i class="fas fa-expand me-1"></i>Expandir Todo
-                                                </button>
-                                                <button type="button" class="btn btn-modern-secondary" id="btnCollapseAll">
-                                                    <i class="fas fa-compress me-1"></i>Contraer Todo
-                                                </button>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="stats-container">
-                                            <h6 class="mb-3">
-                                                <i class="fas fa-chart-pie me-1"></i>Estadísticas
-                                            </h6>
-                                            <div class="stats-card">
-                                                <div class="stats-item">
-                                                    <i class="fas fa-store stats-icon"></i>
-                                                    <div class="stats-content">
-                                                        <div class="stats-number" id="totalSucursales">0</div>
-                                                        <div class="stats-label">Sucursales</div>
-                                                    </div>
-                                                </div>
-                                                <div class="stats-item">
-                                                    <i class="fas fa-warehouse stats-icon"></i>
-                                                    <div class="stats-content">
-                                                        <div class="stats-number" id="totalBocas">0</div>
-                                                        <div class="stats-label">Bocas</div>
-                                                    </div>
-                                                </div>
-                                                <div class="stats-item">
-                                                    <i class="fas fa-layer-group stats-icon"></i>
-                                                    <div class="stats-content">
-                                                        <div class="stats-number" id="totalSecciones">0</div>
-                                                        <div class="stats-label">Secciones</div>
-                                                    </div>
-                                                </div>
-                                                <div class="stats-item">
-                                                    <i class="fas fa-th-large stats-icon"></i>
-                                                    <div class="stats-content">
-                                                        <div class="stats-number" id="totalEstanterias">0</div>
-                                                        <div class="stats-label">Estanterías</div>
-                                                    </div>
-                                                </div>
-                                                <div class="stats-item">
-                                                    <i class="fas fa-shelves stats-icon"></i>
-                                                    <div class="stats-content">
-                                                        <div class="stats-number" id="totalEstantes">0</div>
-                                                        <div class="stats-label">Estantes</div>
-                                                    </div>
-                                                </div>
-                                                <div class="stats-item">
-                                                    <i class="fas fa-cube stats-icon"></i>
-                                                    <div class="stats-content">
-                                                        <div class="stats-number" id="totalPosiciones">0</div>
-                                                        <div class="stats-label">Posiciones</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mt-4">
-                                            <h6 class="mb-3">
-                                                <i class="fas fa-key me-1"></i>Leyenda
-                                            </h6>
-                                            <div class="legend-item">
-                                                <span class="legend-color legend-sucursal"></span>
-                                                <span class="legend-text">Sucursal</span>
-                                            </div>
-                                            <div class="legend-item">
-                                                <span class="legend-color legend-boca"></span>
-                                                <span class="legend-text">Boca</span>
-                                            </div>
-                                            <div class="legend-item">
-                                                <span class="legend-color legend-seccion"></span>
-                                                <span class="legend-text">Sección</span>
-                                            </div>
-                                            <div class="legend-item">
-                                                <span class="legend-color legend-estanteria"></span>
-                                                <span class="legend-text">Estantería</span>
-                                            </div>
-                                            <div class="legend-item">
-                                                <span class="legend-color legend-estante"></span>
-                                                <span class="legend-text">Estante</span>
-                                            </div>
-                                            <div class="legend-item">
-                                                <span class="legend-color legend-posicion"></span>
-                                                <span class="legend-text">Posición</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="card card-modern">
-                                    <div class="card-header card-header-modern">
-                                        <h5 class="card-title mb-0">
-                                            <i class="fas fa-bolt me-2"></i>Acciones Rápidas
-                                        </h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="contenedor-boton-agregar" class="d-grid mb-3"></div>
-                                        
-                                        <div class="btn-group w-100">
-                                            <button type="button" class="btn btn-modern-secondary dropdown-toggle" 
-                                                    id="btnExportar" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="fas fa-download me-1"></i>Exportar
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end w-100">
-                                                <li><a class="dropdown-item btn-export-format" href="#" data-format="excel"><i class="fas fa-file-excel text-success me-2"></i>Excel (.xlsx)</a></li>
-                                                <li><a class="dropdown-item btn-export-format" href="#" data-format="pdf"><i class="fas fa-file-pdf text-danger me-2"></i>PDF (.pdf)</a></li>
-                                                <li><a class="dropdown-item btn-export-format" href="#" data-format="csv"><i class="fas fa-file-csv text-info me-2"></i>CSV (.csv)</a></li>
-                                            </ul>
-                                        </div>
-                                        
-                                        <button type="button" class="btn btn-modern-secondary w-100 mt-2" onclick="window.print();">
-                                            <i class="fas fa-print me-1"></i>Imprimir
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="col-lg-8 col-xl-9">
-                                <div class="card card-modern">
-                                    <div class="card-header card-header-modern">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <h5 class="card-title mb-0">
-                                                    <i class="fas fa-sitemap me-2"></i>Árbol Jerárquico de Ubicaciones
-                                                </h5>
-                                                <small class="text-muted">Explora las ubicaciones jerárquicamente</small>
-                                            </div>
-                                            <div class="search-container">
-                                                <div class="input-group input-group-modern">
-                                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                                    <input type="text" class="form-control" id="searchTree" placeholder="Buscar ubicación...">
-                                                    <button class="btn btn-outline-secondary" type="button" id="btnClearSearch">
-                                                        <i class="fas fa-times"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="card-body">
-                                        <div class="tree-container" id="treeContainer">
-                                            <div class="tree-loading">
-                                                <div class="spinner-border text-primary" role="status">
-                                                    <span class="visually-hidden">Cargando árbol...</span>
-                                                </div>
-                                                <p class="mt-2">Cargando estructura jerárquica...</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="card-footer">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <small class="text-muted">
-                                                    <i class="fas fa-info-circle me-1"></i>
-                                                    Haz clic en <i class="fas fa-chevron-right"></i> para expandir
-                                                </small>
-                                            </div>
-                                            <div class="col-md-6 text-end">
-                                                <small class="text-muted">
-                                                    <i class="fas fa-sync-alt me-1"></i>Última actualización: 
-                                                    <span id="lastUpdate"><?php echo date('d/m/Y H:i:s'); ?></span>
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </div>
+    // ========== CANTIDAD YA COMPROMETIDA EN ESTE BORRADOR PARA UNA LÍNEA DE PEDIDO ==========
+    // Nota importante (simplificación deliberada, ver aviso al final de la entrega):
+    // al EDITAR un remito ya guardado, el pendiente que devuelve el servidor todavía
+    // incluye lo que este mismo remito reservó la vez anterior (recién se libera al
+    // guardar). Por eso, durante la edición, el pendiente que se muestra acá puede verse
+    // más bajo de lo real para esas líneas puntuales. Es un comportamiento conservador
+    // (nunca deja pasarse del pendiente real).
+    function cantidadYaComprometida(ventaPedidoDetalleId) {
+        return detalles
+            .filter(function (d) { return d.venta_pedido_detalle_id == ventaPedidoDetalleId; })
+            .reduce(function (acc, d) { return acc + (parseFloat(d.cantidad) || 0); }, 0);
+    }
 
-            <!-- Modal -->
-            <div class="modal fade modal-modern" id="modalSucursalUbicacion" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header modal-header-modern">
-                            <div>
-                                <h5 class="modal-title" id="modalLabel">
-                                    <i class="fas fa-map-marker-alt me-2"></i>Ubicación de Sucursal
-                                </h5>
-                                <p class="modal-subtitle mb-0" id="modalSubtitle"></p>
-                            </div>
-                            <button type="button" class="btn-close btn-close-modern" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="location-path mb-4">
-                                <div class="path-header">
-                                    <i class="fas fa-road me-2"></i>Ruta Completa
-                                </div>
-                                <div class="path-content">
-                                    <div id="fullPath"></div>
-                                </div>
-                            </div>
-                            
-                            <form id="formSucursalUbicacion" class="needs-validation" novalidate>
-                                <input type="hidden" id="sucursal_ubicacion_id" name="sucursal_ubicacion_id" />
-                                <input type="hidden" id="parent_type" name="parent_type" />
-                                <input type="hidden" id="parent_id" name="parent_id" />
-                                
-                                <div class="row">
-                                    <div class="col-md-12 mb-3">
-                                        <label for="sucursal_id" class="form-label"><i class="fas fa-store me-1"></i>Sucursal *</label>
-                                        <div class="input-group input-group-modern">
-                                            <span class="input-group-text"><i class="fas fa-building"></i></span>
-                                            <select class="form-select" id="sucursal_id" name="sucursal_id" required>
-                                                <option value="">Seleccionar sucursal...</option>
-                                            </select>
-                                        </div>
-                                        <div class="invalid-feedback">Debe seleccionar una sucursal</div>
-                                    </div>
-                                    <div class="col-md-12 mb-3">
-                                        <label for="boca_id" class="form-label"><i class="fas fa-warehouse me-1"></i>Boca *</label>
-                                        <div class="input-group input-group-modern">
-                                            <span class="input-group-text"><i class="fas fa-building"></i></span>
-                                            <select class="form-select" id="boca_id" name="boca_id" required>
-                                                <option value="">Primero seleccione una sucursal...</option>
-                                            </select>
-                                        </div>
-                                        <div class="invalid-feedback">Debe seleccionar un depósito</div>
-                                    </div>
-                                    
-                                    <div class="col-md-3 mb-3">
-                                        <label for="seccion" class="form-label"><i class="fas fa-layer-group me-1"></i>Sección *</label>
-                                        <div class="input-group input-group-modern">
-                                            <span class="input-group-text"><i class="fas fa-tag"></i></span>
-                                            <input type="text" class="form-control" id="seccion" name="seccion" maxlength="50" required placeholder="Ej: A">
-                                        </div>
-                                        <div class="invalid-feedback">La sección es obligatoria</div>
-                                    </div>
-                                    
-                                    <div class="col-md-3 mb-3">
-                                        <label for="estanteria" class="form-label"><i class="fas fa-th-large me-1"></i>Estantería *</label>
-                                        <div class="input-group input-group-modern">
-                                            <span class="input-group-text"><i class="fas fa-th"></i></span>
-                                            <input type="text" class="form-control" id="estanteria" name="estanteria" maxlength="50" required placeholder="Ej: 01">
-                                        </div>
-                                        <div class="invalid-feedback">La estantería es obligatoria</div>
-                                    </div>
-                                    
-                                    <div class="col-md-3 mb-3">
-                                        <label for="estante" class="form-label"><i class="fas fa-shelves me-1"></i>Estante *</label>
-                                        <div class="input-group input-group-modern">
-                                            <span class="input-group-text"><i class="fas fa-box"></i></span>
-                                            <input type="text" class="form-control" id="estante" name="estante" maxlength="50" required placeholder="Ej: 01">
-                                        </div>
-                                        <div class="invalid-feedback">El estante es obligatorio</div>
-                                    </div>
-                                    
-                                    <div class="col-md-3 mb-3">
-                                        <label for="posicion" class="form-label"><i class="fas fa-cube me-1"></i>Posición *</label>
-                                        <div class="input-group input-group-modern">
-                                            <span class="input-group-text"><i class="fas fa-cube"></i></span>
-                                            <input type="text" class="form-control" id="posicion" name="posicion" maxlength="50" required placeholder="Ej: 1A">
-                                        </div>
-                                        <div class="invalid-feedback">La posición es obligatoria</div>
-                                    </div>
-                                    
-                                    <div class="col-md-12 mb-3">
-                                        <label for="descripcion" class="form-label"><i class="fas fa-align-left me-1"></i>Descripción</label>
-                                        <div class="input-group input-group-modern">
-                                            <span class="input-group-text"><i class="fas fa-comment"></i></span>
-                                            <textarea class="form-control" id="descripcion" name="descripcion" maxlength="255" rows="2" placeholder="Descripción detallada..."></textarea>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-12 mb-3">
-                                        <label for="estado_registro_id" class="form-label"><i class="fas fa-circle me-1"></i>Estado</label>
-                                        <div class="input-group input-group-modern">
-                                            <span class="input-group-text"><i class="fas fa-toggle-on"></i></span>
-                                            <select class="form-select" id="estado_registro_id" name="estado_registro_id">
-                                                <option value="">Seleccionar estado...</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="modal-footer modal-footer-modern">
-                            <button type="button" class="btn btn-modern-secondary" data-bs-dismiss="modal">
-                                <i class="fas fa-times me-1"></i>Cancelar
-                            </button>
-                            <button type="button" class="btn btn-modern-primary" id="btnGuardar">
-                                <i class="fas fa-save me-1"></i>Guardar Ubicación
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    // Igual que cantidadYaComprometida, pero excluyendo una línea puntual (la que se
+    // está por editar in-place), para poder calcular cuánto puede crecer ESA línea sin
+    // pasarse del pendiente total del renglón de pedido.
+    function cantidadComprometidaExcluyendo(ventaPedidoDetalleId, detalleIdxExcluir) {
+        return detalles
+            .filter(function (d) { return d.venta_pedido_detalle_id == ventaPedidoDetalleId && d.detalle_idx != detalleIdxExcluir; })
+            .reduce(function (acc, d) { return acc + (parseFloat(d.cantidad) || 0); }, 0);
+    }
 
-    <style>
-    /* Estilos simplificados */
-    .card-modern {
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        overflow: hidden;
-        height: 100%;
-    }
-    
-    .card-header-modern {
-        background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
-        color: white;
-        border-bottom: none;
-        padding: 1rem 1.25rem;
-    }
-    
-    .card-title {
-        font-weight: 600;
-        font-size: 1.1rem;
-    }
-    
-    .btn-modern-primary {
-        background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
-        border: none;
-        color: white;
-        font-weight: 500;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        width: 100%;
-    }
-    
-    .btn-modern-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(52, 152, 219, 0.4);
-    }
-    
-    .btn-modern-secondary {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        color: #495057;
-        font-weight: 500;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        width: 100%;
-    }
-    
-    .btn-modern-secondary:hover {
-        background: #e9ecef;
-        transform: translateY(-2px);
-    }
-    
-    .stats-container {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 10px;
-        margin-top: 1rem;
-    }
-    
-    .stats-card {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-    }
-    
-    .stats-item {
-        display: flex;
-        align-items: center;
-        background: white;
-        padding: 0.5rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    .stats-icon {
-        font-size: 1rem;
-        color: #3498db;
-        margin-right: 0.5rem;
-        background: rgba(52, 152, 219, 0.1);
-        padding: 0.35rem;
-        border-radius: 6px;
-    }
-    
-    .stats-number {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #212529;
-        line-height: 1;
-    }
-    
-    .stats-label {
-        font-size: 0.7rem;
-        color: #6c757d;
-    }
-    
-    .legend-item {
-        display: flex;
-        align-items: center;
-        margin-bottom: 0.35rem;
-    }
-    
-    .legend-color {
-        width: 14px;
-        height: 14px;
-        border-radius: 4px;
-        margin-right: 0.5rem;
-    }
-    .legend-boca { background: linear-gradient(135deg, #16a085 0%, #27ae60 100%); }
-    .legend-sucursal { background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%); }
-    .legend-seccion { background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%); }
-    .legend-estanteria { background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%); }
-    .legend-estante { background: linear-gradient(135deg, #9b59b6 0%, #34495e 100%); }
-    .legend-posicion { background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%); }
-    
-    .legend-text {
-        font-size: 0.85rem;
-        color: #495057;
-    }
-    
-    .tree-container {
-        min-height: 500px;
-        max-height: 650px;
-        overflow-y: auto;
-        padding: 0.75rem;
-        background: #f8f9fa;
-        border-radius: 8px;
-    }
-    
-    .tree-loading {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 300px;
-        color: #6c757d;
-    }
-    
-    /* Árbol simplificado */
-    .tree {
-        list-style: none;
-        padding-left: 0;
-        margin: 0;
-    }
-    
-    .tree-node {
-        margin-bottom: 2px;
-    }
-    
-    .tree-node-content {
-        display: flex;
-        align-items: center;
-        padding: 0.35rem 0.6rem;
-        background: white;
-        border-radius: 6px;
-        border: 1px solid #e9ecef;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        min-height: 38px;
-    }
-    
-    .tree-node-content:hover {
-        transform: translateX(3px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border-color: #3498db;
-    }
-    
-    .tree-node-expander {
-        width: 18px;
-        height: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 0.35rem;
-        border-radius: 4px;
-        background: #f8f9fa;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-        cursor: pointer;
-    }
-    
-    .tree-node-expander i {
-        font-size: 0.6rem;
-        color: #495057;
-        transition: transform 0.2s ease !important;
-    }
-    
-    .tree-node-expanded .tree-node-expander i {
-        transform: rotate(90deg) !important;
-    }
-    
-    .tree-node-icon {
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 0.4rem;
-        border-radius: 5px;
-        color: white;
-        font-size: 0.7rem;
-        flex-shrink: 0;
-    }
-    
-    .tree-node-sucursal .tree-node-icon { background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%); }
-    .tree-node-boca .tree-node-icon { background: linear-gradient(135deg, #16a085 0%, #27ae60 100%); }
-    .tree-node-seccion .tree-node-icon { background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%); }
-    .tree-node-estanteria .tree-node-icon { background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%); }
-    .tree-node-estante .tree-node-icon { background: linear-gradient(135deg, #9b59b6 0%, #34495e 100%); }
-    .tree-node-posicion .tree-node-icon { background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%); }
-    
-    .tree-node-info {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-width: 0;
-    }
-    
-    .tree-node-main {
-        flex: 1;
-        min-width: 0;
-        margin-right: 0.5rem;
-    }
-    
-    .tree-node-title {
-        font-weight: 600;
-        color: #212529;
-        font-size: 0.9rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .tree-node-subtitle {
-        font-size: 0.7rem;
-        color: #6c757d;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .tree-node-details {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        flex-shrink: 0;
-    }
-    
-    .tree-node-detail {
-        display: flex;
-        align-items: center;
-        font-size: 0.7rem;
-        color: #6c757d;
-    }
-    
-    .tree-node-detail i {
-        font-size: 0.6rem;
-        margin-right: 0.15rem;
-        color: #adb5bd;
-    }
-    
-    .tree-node-actions {
-        display: flex;
-        gap: 0.15rem;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-        flex-shrink: 0;
-    }
-    
-    .tree-node-content:hover .tree-node-actions {
-        opacity: 1;
-    }
-    
-    .tree-node-action {
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 4px;
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        color: #495057;
-        transition: all 0.2s ease;
-        font-size: 0.65rem;
-    }
-    
-    .tree-node-action:hover {
-        background: #3498db;
-        border-color: #3498db;
-        color: white;
-    }
-    
-    .tree-children {
-        list-style: none;
-        padding-left: 1.5rem;
-        margin-top: 2px;
-        border-left: 2px dashed #dee2e6;
-        margin-left: 0.75rem;
-    }
-    
-    .tree-node-empty {
-        padding: 0.5rem 1rem;
-        background: white;
-        border-radius: 8px;
-        border: 1px dashed #dee2e6;
-        color: #6c757d;
-        text-align: center;
-    }
-    
-    .badge-compact {
-        padding: 0.1rem 0.35rem;
-        font-size: 0.6rem;
-        font-weight: 500;
-        border-radius: 4px;
-    }
-    
-    .search-container {
-        width: 250px;
-    }
-    
-    .input-group-modern {
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    
-    .input-group-modern .input-group-text {
-        background: #f8f9fa;
-        border: 2px solid #e9ecef;
-        border-right: none;
-        color: #6c757d;
-        padding: 0.3rem 0.6rem;
-    }
-    
-    .input-group-modern .form-control {
-        border: 2px solid #e9ecef;
-        border-left: none;
-        padding: 0.3rem 0.6rem;
-        font-size: 0.85rem;
-    }
-    
-    .input-group-modern .form-control:focus {
-        border-color: #3498db;
-        box-shadow: none;
-    }
-    
-    .tree-node-highlight {
-        background: rgba(255, 235, 59, 0.2);
-        border-color: #ffc107;
-    }
-    
-    .location-path {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    
-    .path-header {
-        display: flex;
-        align-items: center;
-        color: #495057;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        font-size: 0.85rem;
-    }
-    
-    .path-content {
-        background: white;
-        padding: 0.5rem;
-        border-radius: 8px;
-        border: 2px solid #dee2e6;
-        font-size: 0.8rem;
-    }
-    
-    #fullPath {
-        font-family: 'Courier New', monospace;
-        color: #495057;
-        line-height: 1.4;
-    }
-    
-    .modal-modern .modal-content {
-        border-radius: 12px;
-        border: none;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-    }
-    
-    .modal-header-modern {
-        background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
-        color: white;
-        border-bottom: none;
-        padding: 1rem 1.25rem;
-    }
-    
-    .modal-header-modern .btn-close-modern {
-        filter: brightness(0) invert(1);
-        opacity: 0.8;
-    }
-    
-    .modal-subtitle {
-        color: rgba(255,255,255,0.8);
-        font-size: 0.8rem;
-    }
-    
-    @media (max-width: 768px) {
-        .search-container { width: 100%; margin-top: 0.5rem; }
-        .tree-container { max-height: 400px; }
-        .stats-card { grid-template-columns: 1fr; }
-        .tree-node-details { display: none; }
-        .tree-node-actions { opacity: 1; }
-    }
-    </style>
+    // ========== FUNCIONES DE DATATABLE ==========
+    function inicializarDataTable() {
+        if ($.fn.DataTable.isDataTable('#tablaVentasRemitos')) {
+            $('#tablaVentasRemitos').DataTable().destroy();
+            $('#tablaVentasRemitos tbody').empty();
+        }
 
-    <script>
-    $(document).ready(function(){
-        const empresa_idx = 2;
-        const pagina_idx = <?php echo $pagina_idx; ?>;
-        
-        let sucursalesData = [];
-        let treeData = {};
-        let estadisticas = { sucursales: 0, bocas: 0, secciones: 0, estanterias: 0, estantes: 0, posiciones: 0 };
-        let bocasPorSucursal = {};
-        let ubicacionesCache = null; // Cache para evitar recargas innecesarias
-        
-        // Cargar sucursales
-        function cargarSucursales() {
-            return new Promise((resolve, reject) => {
-                $.get('sucursales_ubicaciones_ajax.php', {
-                    accion: 'obtener_sucursales_activas',
-                    empresa_idx: empresa_idx
-                }, function(sucursales){
-                    sucursalesData = sucursales;
-                    
-                    var filterSelect = $('#filterSucursal');
-                    filterSelect.empty();
-                    filterSelect.append('<option value="">Todas las sucursales</option>');
-                    
-                    $.each(sucursales, function(index, sucursal){
-                        var text = sucursal.sucursal_nombre + (sucursal.localidad ? ' (' + sucursal.localidad + ')' : '');
-                        filterSelect.append('<option value="' + sucursal.sucursal_id + '">' + text + '</option>');
-                    });
-                    
-                    cargarSucursalesEnModal();
-                    resolve(sucursales);
-                }, 'json').fail(reject);
-            });
-        }
-        
-        function cargarSucursalesEnModal() {
-            var modalSelect = $('#sucursal_id');
-            modalSelect.empty();
-            modalSelect.append('<option value="">Seleccionar sucursal...</option>');
-            
-            $.each(sucursalesData, function(index, sucursal){
-                var text = sucursal.sucursal_nombre + (sucursal.localidad ? ' (' + sucursal.localidad + ')' : '');
-                modalSelect.append('<option value="' + sucursal.sucursal_id + '">' + text + '</option>');
-            });
-        }
-        
-        function cargarBocas(sucursalId, selectedId = null) {
-            if (!sucursalId) {
-                $('#boca_id').html('<option value="">Primero seleccione una sucursal...</option>');
-                return;
-            }
-            
-            $.get('sucursales_ubicaciones_ajax.php', {
-                accion: 'obtener_bocas_por_sucursal',
-                sucursal_id: sucursalId
-            }, function(bocas) {
-                bocasPorSucursal[sucursalId] = bocas;
-                
-                var select = $('#boca_id');
-                select.empty();
-                select.append('<option value="">Seleccionar depósito...</option>');
-                
-                $.each(bocas, function(index, boca) {
-                    var selected = (selectedId && boca.boca_id == selectedId) ? 'selected' : '';
-                    var nombre = boca.boca_nombre + (boca.es_principal ? ' (Principal)' : '');
-                    select.append('<option value="' + boca.boca_id + '" ' + selected + '>' + nombre + '</option>');
-                });
-            }, 'json');
-        }
-        
-        function cargarEstados(selectedId = null) {
-            $.get('sucursales_ubicaciones_ajax.php', { accion: 'obtener_estados_registro' }, function(estados){
-                var select = $('#estado_registro_id');
-                select.empty();
-                select.append('<option value="">Seleccionar estado...</option>');
-                
-                $.each(estados, function(index, estado){
-                    var selected = (selectedId && estado.estado_registro_id == selectedId) ? 'selected' : '';
-                    select.append('<option value="' + estado.estado_registro_id + '" ' + selected + '>' + estado.estado_registro + '</option>');
-                });
-            }, 'json');
-        }
-        
-        // Función principal para cargar ubicaciones - Optimizada
-        function cargarUbicaciones(sucursalId = '') {
-            // Si hay cache y no hay filtro, usar cache
-            if (ubicacionesCache && !sucursalId) {
-                procesarDatosArbol(ubicacionesCache);
-                renderizarArbol();
-                actualizarEstadisticas();
-                actualizarUltimaActualizacion();
-                return;
-            }
-            
-            $('#treeContainer').html(`
-                <div class="tree-loading">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Cargando...</span>
-                    </div>
-                    <p class="mt-2">Cargando ubicaciones...</p>
-                </div>
-            `);
-            
-            $.get('sucursales_ubicaciones_ajax.php', {
-                accion: 'listar',
-                empresa_idx: empresa_idx,
-                pagina_idx: pagina_idx,
-                filter_sucursal: sucursalId
-            }, function(ubicaciones){
-                // Guardar cache
-                ubicacionesCache = ubicaciones;
-                procesarDatosArbol(ubicaciones);
-                renderizarArbol();
-                actualizarEstadisticas();
-                actualizarUltimaActualizacion();
-                
-                setTimeout(function() {
-                    inicializarEstadoArbol();
-                }, 50);
-            }, 'json');
-        }
-        
-        // Procesar datos de forma más eficiente
-        function procesarDatosArbol(ubicaciones) {
-            treeData = {};
-            estadisticas = { sucursales: 0, bocas: 0, secciones: 0, estanterias: 0, estantes: 0, posiciones: 0 };
-            
-            for (var i = 0; i < ubicaciones.length; i++) {
-                var u = ubicaciones[i];
-                var sucursalId = u.sucursal_id;
-                var bocaId = u.boca_id;
-                var seccion = u.seccion;
-                var estanteria = u.estanteria;
-                var estante = u.estante;
-                var posicion = u.posicion || '1A';
-                
-                if (!treeData[sucursalId]) {
-                    treeData[sucursalId] = {
-                        id: sucursalId,
-                        type: 'sucursal',
-                        nombre: u.sucursal_nombre,
-                        localidad: u.localidad || '',
-                        bocas: {}
-                    };
-                    estadisticas.sucursales++;
-                }
-                
-                if (!treeData[sucursalId].bocas[bocaId]) {
-                    treeData[sucursalId].bocas[bocaId] = {
-                        id: bocaId,
-                        type: 'boca',
-                        nombre: u.boca_nombre,
-                        parentSucursalId: sucursalId,
-                        secciones: {}
-                    };
-                    estadisticas.bocas++;
-                }
-                
-                if (!treeData[sucursalId].bocas[bocaId].secciones[seccion]) {
-                    treeData[sucursalId].bocas[bocaId].secciones[seccion] = {
-                        id: seccion,
-                        type: 'seccion',
-                        nombre: 'Sección ' + seccion,
-                        parentSucursalId: sucursalId,
-                        parentBocaId: bocaId,
-                        estanterias: {}
-                    };
-                    estadisticas.secciones++;
-                }
-                
-                if (!treeData[sucursalId].bocas[bocaId].secciones[seccion].estanterias[estanteria]) {
-                    treeData[sucursalId].bocas[bocaId].secciones[seccion].estanterias[estanteria] = {
-                        id: estanteria,
-                        type: 'estanteria',
-                        nombre: 'Estantería ' + estanteria,
-                        parentSucursalId: sucursalId,
-                        parentBocaId: bocaId,
-                        parentSeccion: seccion,
-                        estantes: {}
-                    };
-                    estadisticas.estanterias++;
-                }
-                
-                if (!treeData[sucursalId].bocas[bocaId].secciones[seccion].estanterias[estanteria].estantes[estante]) {
-                    treeData[sucursalId].bocas[bocaId].secciones[seccion].estanterias[estanteria].estantes[estante] = {
-                        id: estante,
-                        type: 'estante',
-                        nombre: 'Estante ' + estante,
-                        parentSucursalId: sucursalId,
-                        parentBocaId: bocaId,
-                        parentSeccion: seccion,
-                        parentEstanteria: estanteria,
-                        posiciones: {}
-                    };
-                    estadisticas.estantes++;
-                }
-                
-                var estanteObj = treeData[sucursalId].bocas[bocaId].secciones[seccion].estanterias[estanteria].estantes[estante];
-                if (!estanteObj.posiciones[posicion]) {
-                    estanteObj.posiciones[posicion] = {
-                        id: u.sucursal_ubicacion_id,
-                        type: 'posicion',
-                        nombre: 'Posición ' + posicion,
-                        descripcion: u.descripcion || '',
-                        estado: u.estado_info,
-                        botones: u.botones || [],
-                        seccion: seccion,
-                        estanteria: estanteria,
-                        estante: estante,
-                        posicion: posicion
-                    };
-                    estadisticas.posiciones++;
-                }
-            }
-        }
-        
-        // Renderizar árbol de forma más eficiente
-        function renderizarArbol() {
-            var html = '<ul class="tree">';
-            var keys = Object.keys(treeData);
-            
-            if (keys.length === 0) {
-                html += '<div class="tree-node-empty"><i class="fas fa-inbox me-1"></i>No hay ubicaciones registradas.</div>';
-            } else {
-                for (var i = 0; i < keys.length; i++) {
-                    html += renderizarNodo(treeData[keys[i]], true);
-                }
-            }
-            
-            html += '</ul>';
-            $('#treeContainer').html(html);
-        }
-        
-        function renderizarNodo(nodo, expandir = false) {
-            var tipos = {
-                'sucursal': { icon: 'fas fa-store', cls: 'tree-node-sucursal' },
-                'boca': { icon: 'fas fa-warehouse', cls: 'tree-node-boca' },
-                'seccion': { icon: 'fas fa-layer-group', cls: 'tree-node-seccion' },
-                'estanteria': { icon: 'fas fa-th-large', cls: 'tree-node-estanteria' },
-                'estante': { icon: 'fas fa-shelves', cls: 'tree-node-estante' },
-                'posicion': { icon: 'fas fa-cube', cls: 'tree-node-posicion' }
-            };
-            
-            var tipo = tipos[nodo.type] || tipos['sucursal'];
-            var tieneHijos = nodo.type !== 'posicion';
-            var html = '';
-            
-            var nodoId = nodo.id;
-            if (nodo.type === 'boca' && nodo.parentSucursalId) {
-                nodoId = nodo.parentSucursalId + '_' + nodo.id;
-            } else if (nodo.type === 'seccion' && nodo.parentSucursalId && nodo.parentBocaId) {
-                nodoId = nodo.parentSucursalId + '_' + nodo.parentBocaId + '_' + nodo.id;
-            } else if (nodo.type === 'estanteria' && nodo.parentSucursalId && nodo.parentBocaId && nodo.parentSeccion) {
-                nodoId = nodo.parentSucursalId + '_' + nodo.parentBocaId + '_' + nodo.parentSeccion + '_' + nodo.id;
-            } else if (nodo.type === 'estante' && nodo.parentSucursalId && nodo.parentBocaId && nodo.parentSeccion && nodo.parentEstanteria) {
-                nodoId = nodo.parentSucursalId + '_' + nodo.parentBocaId + '_' + nodo.parentSeccion + '_' + nodo.parentEstanteria + '_' + nodo.id;
-            }
-            
-            var expandClass = (expandir && tieneHijos) ? 'tree-node-expanded' : '';
-            
-            html += '<li class="tree-node ' + tipo.cls + ' ' + expandClass + '" data-id="' + nodoId + '" data-type="' + nodo.type + '">';
-            html += '<div class="tree-node-content">';
-            
-            if (tieneHijos) {
-                html += '<div class="tree-node-expander"><i class="fas fa-chevron-right"></i></div>';
-            } else {
-                html += '<div class="tree-node-expander" style="visibility:hidden;"></div>';
-            }
-            
-            html += '<div class="tree-node-icon"><i class="' + tipo.icon + '"></i></div>';
-            html += '<div class="tree-node-info">';
-            html += '<div class="tree-node-main">';
-            html += '<div class="tree-node-title">' + nodo.nombre + '</div>';
-            
-            if (nodo.type === 'sucursal' && nodo.localidad) {
-                html += '<div class="tree-node-subtitle"><i class="fas fa-map-marker-alt fa-xs me-1"></i>' + nodo.localidad + '</div>';
-            } else if (nodo.type === 'posicion' && nodo.descripcion) {
-                html += '<div class="tree-node-subtitle">' + nodo.descripcion.substring(0, 30) + '</div>';
-            }
-            html += '</div>';
-            
-            html += '<div class="tree-node-details">';
-            if (nodo.type === 'posicion') {
-                html += '<span class="badge badge-compact bg-' + getEstadoColor(nodo.estado) + '">' + (nodo.estado?.estado_registro || 'Sin estado') + '</span>';
-            }
-            html += '</div>';
-            html += '</div>';
-            
-            html += '<div class="tree-node-actions">';
-            if (nodo.type === 'posicion') {
-                html += '<button class="tree-node-action btn-editar" data-id="' + nodo.id + '" title="Editar"><i class="fas fa-edit"></i></button>';
-            } else {
-                html += '<button class="tree-node-action btn-agregar-hijo" data-id="' + nodoId + '" data-type="' + nodo.type + '" title="Agregar"><i class="fas fa-plus"></i></button>';
-            }
-            html += '</div>';
-            html += '</div>';
-            
-            // Hijos - Solo para nodos que no son posiciones
-            if (tieneHijos) {
-                var childType = getChildType(nodo.type);
-                var children = getChildren(nodo, childType);
-                var hasChildren = false;
-                var childHtml = '';
-                
-                for (var key in children) {
-                    if (children.hasOwnProperty(key)) {
-                        hasChildren = true;
-                        // Solo expandir si es sucursal
-                        var expandirHijo = (nodo.type === 'sucursal');
-                        childHtml += renderizarNodo(children[key], expandirHijo);
-                    }
-                }
-                
-                if (hasChildren) {
-                    var displayStyle = (nodo.type === 'sucursal') ? '' : ' style="display:none;"';
-                    html += '<ul class="tree-children"' + displayStyle + '>' + childHtml + '</ul>';
-                }
-            }
-            
-            html += '</li>';
-            return html;
-        }
-        
-        function getChildType(parentType) {
-            var map = { 'sucursal': 'boca', 'boca': 'seccion', 'seccion': 'estanteria', 'estanteria': 'estante', 'estante': 'posicion' };
-            return map[parentType] || null;
-        }
-        
-        function getChildren(nodo, childType) {
-            var map = { 'boca': 'bocas', 'seccion': 'secciones', 'estanteria': 'estanterias', 'estante': 'estantes', 'posicion': 'posiciones' };
-            var key = map[childType];
-            return (key && nodo[key]) ? nodo[key] : {};
-        }
-        
-        function getEstadoColor(estadoInfo) {
-            if (!estadoInfo) return 'secondary';
-            var map = { 'ACTIVO': 'success', 'INACTIVO': 'secondary', 'BLOQUEADO': 'warning' };
-            return map[estadoInfo.codigo_estandar] || 'secondary';
-        }
-        
-        function actualizarEstadisticas() {
-            $('#totalSucursales').text(estadisticas.sucursales);
-            $('#totalBocas').text(estadisticas.bocas);
-            $('#totalSecciones').text(estadisticas.secciones);
-            $('#totalEstanterias').text(estadisticas.estanterias);
-            $('#totalEstantes').text(estadisticas.estantes);
-            $('#totalPosiciones').text(estadisticas.posiciones);
-        }
-        
-        function actualizarUltimaActualizacion() {
-            var now = new Date();
-            $('#lastUpdate').text(now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES'));
-        }
-        
-        function inicializarEstadoArbol() {
-            $('.tree-node').each(function() {
-                var $node = $(this);
-                var $children = $node.find('.tree-children');
-                var $expander = $node.find('.tree-node-expander');
-                var $icon = $expander.find('i');
-                
-                if ($children.length > 0) {
-                    if ($children.is(':visible')) {
-                        $node.addClass('tree-node-expanded');
-                        $icon.css('transform', 'rotate(90deg)');
-                    } else {
-                        $node.addClass('tree-node-collapsed');
-                        $icon.css('transform', 'rotate(0deg)');
-                    }
-                }
-            });
-        }
-        
-        // EVENTOS
-        
-        $(document).on('click', '.tree-node-expander', function(e) {
-            e.stopPropagation();
-            var $expander = $(this);
-            var $node = $expander.closest('.tree-node');
-            var $children = $node.find('.tree-children');
-            var $icon = $expander.find('i');
-            
-            if ($children.length > 0) {
-                if ($children.is(':visible')) {
-                    $children.slideUp(200);
-                    $node.removeClass('tree-node-expanded').addClass('tree-node-collapsed');
-                    $icon.css('transform', 'rotate(0deg)');
-                } else {
-                    $children.slideDown(200);
-                    $node.removeClass('tree-node-collapsed').addClass('tree-node-expanded');
-                    $icon.css('transform', 'rotate(90deg)');
-                }
-            }
-        });
-        
-        $('#btnExpandAll').click(function() {
-            $('.tree-children').slideDown(200);
-            $('.tree-node').each(function() {
-                var $node = $(this);
-                var $icon = $node.find('.tree-node-expander i');
-                $node.removeClass('tree-node-collapsed').addClass('tree-node-expanded');
-                $icon.css('transform', 'rotate(90deg)');
-            });
-        });
-        
-        $('#btnCollapseAll').click(function() {
-            $('.tree-children').slideUp(200);
-            $('.tree-node').each(function() {
-                var $node = $(this);
-                var $icon = $node.find('.tree-node-expander i');
-                $node.removeClass('tree-node-expanded').addClass('tree-node-collapsed');
-                $icon.css('transform', 'rotate(0deg)');
-            });
-        });
-        
-        $(document).on('click', '.btn-agregar-hijo', function(e) {
-            e.stopPropagation();
-            var parentId = $(this).data('id');
-            var parentType = $(this).data('type');
-            
-            resetModal();
-            $('#parent_type').val(parentType);
-            $('#parent_id').val(parentId);
-            
-            $.get('sucursales_ubicaciones_ajax.php', {
-                accion: 'obtener_valores_por_defecto',
-                parent_type: parentType,
-                parent_id: parentId,
-                empresa_idx: empresa_idx
-            }, function(valores) {
-                if (valores.sucursal_id) {
-                    $('#sucursal_id').val(valores.sucursal_id);
-                    cargarBocas(valores.sucursal_id, valores.boca_id);
-                }
-                if (valores.seccion) $('#seccion').val(valores.seccion);
-                if (valores.estanteria) $('#estanteria').val(valores.estanteria);
-                if (valores.estante) $('#estante').val(valores.estante);
-                if (valores.posicion) $('#posicion').val(valores.posicion);
-                
-                $('#modalLabel').html('<i class="fas fa-map-marker-alt me-2"></i>Nueva Ubicación');
-                $('#modalSubtitle').text('Agregar ' + (getChildType(parentType) || 'posición'));
-                cargarEstados();
-                actualizarRutaCompleta();
-                
-                var modal = new bootstrap.Modal(document.getElementById('modalSucursalUbicacion'));
-                modal.show();
-            }, 'json').fail(function() {
-                $('#modalLabel').html('<i class="fas fa-map-marker-alt me-2"></i>Nueva Ubicación');
-                $('#modalSubtitle').text('Agregar ubicación');
-                cargarEstados();
-                actualizarRutaCompleta();
-                
-                var modal = new bootstrap.Modal(document.getElementById('modalSucursalUbicacion'));
-                modal.show();
-            });
-        });
-        
-        $(document).on('click', '.btn-editar', function(e) {
-            e.stopPropagation();
-            var id = $(this).data('id');
-            
-            $.get('sucursales_ubicaciones_ajax.php', {
-                accion: 'obtener',
-                sucursal_ubicacion_id: id,
-                empresa_idx: empresa_idx
-            }, function(res) {
-                if (res && res.sucursal_ubicacion_id) {
-                    resetModal();
-                    $('#sucursal_ubicacion_id').val(res.sucursal_ubicacion_id);
-                    $('#sucursal_id').val(res.sucursal_id);
-                    cargarBocas(res.sucursal_id, res.boca_id);
-                    $('#seccion').val(res.seccion || '');
-                    $('#estanteria').val(res.estanteria || '');
-                    $('#estante').val(res.estante || '');
-                    $('#posicion').val(res.posicion || '');
-                    $('#descripcion').val(res.descripcion || '');
-                    
-                    cargarEstados(res.tabla_estado_registro_id);
-                    actualizarRutaCompleta();
-                    
-                    $('#modalLabel').html('<i class="fas fa-map-marker-alt me-2"></i>Editar Ubicación');
-                    $('#modalSubtitle').text('Modificar ubicación existente');
-                    
-                    var modal = new bootstrap.Modal(document.getElementById('modalSucursalUbicacion'));
-                    modal.show();
-                }
-            }, 'json');
-        });
-        
-        $(document).on('click', '#btnNuevo', function() {
-            resetModal();
-            $('#modalLabel').html('<i class="fas fa-map-marker-alt me-2"></i>Nueva Ubicación');
-            $('#modalSubtitle').text('Crear una nueva ubicación');
-            cargarEstados();
-            actualizarRutaCompleta();
-            
-            var modal = new bootstrap.Modal(document.getElementById('modalSucursalUbicacion'));
-            modal.show();
-            $('#seccion').focus();
-        });
-        
-        $(document).on('change', '#filterSucursal', function() {
-            cargarUbicaciones($(this).val());
-        });
-        
-        $(document).on('change', '#sucursal_id', function() {
-            cargarBocas($(this).val());
-        });
-        
-        function resetModal() {
-            $('#formSucursalUbicacion')[0].reset();
-            $('#sucursal_ubicacion_id').val('');
-            $('#parent_type').val('');
-            $('#parent_id').val('');
-            $('#formSucursalUbicacion').removeClass('was-validated');
-            $('#fullPath').html('<span class="text-muted">Seleccione los datos para ver la ruta completa</span>');
-        }
-        
-        function actualizarRutaCompleta() {
-            var sucursalId = $('#sucursal_id').val();
-            var bocaId = $('#boca_id').val();
-            var seccion = $('#seccion').val();
-            var estanteria = $('#estanteria').val();
-            var estante = $('#estante').val();
-            var posicion = $('#posicion').val();
-            
-            var ruta = '';
-            
-            if (sucursalId) {
-                var sucursal = sucursalesData.find(s => s.sucursal_id == sucursalId);
-                if (sucursal) {
-                    ruta += '<strong>' + sucursal.sucursal_nombre + '</strong>';
-                    if (sucursal.localidad) ruta += ' <span class="text-muted">(' + sucursal.localidad + ')</span>';
-                }
-            }
-            
-            if (bocaId && bocasPorSucursal[sucursalId]) {
-                var boca = bocasPorSucursal[sucursalId].find(d => d.boca_id == bocaId);
-                if (boca) {
-                    ruta += ' &nbsp;&nbsp;<i class="fas fa-arrow-right text-muted"></i>&nbsp;&nbsp; <strong>' + boca.boca_nombre + '</strong>';
-                }
-            }
-            
-            if (seccion) ruta += ' &nbsp;&nbsp;<i class="fas fa-arrow-right text-muted"></i>&nbsp;&nbsp; <strong>Sección ' + seccion + '</strong>';
-            if (estanteria) ruta += ' &nbsp;&nbsp;<i class="fas fa-arrow-right text-muted"></i>&nbsp;&nbsp; <strong>Estantería ' + estanteria + '</strong>';
-            if (estante) ruta += ' &nbsp;&nbsp;<i class="fas fa-arrow-right text-muted"></i>&nbsp;&nbsp; <strong>Estante ' + estante + '</strong>';
-            if (posicion) ruta += ' &nbsp;&nbsp;<i class="fas fa-arrow-right text-muted"></i>&nbsp;&nbsp; <strong>Posición ' + posicion + '</strong>';
-            
-            $('#fullPath').html(ruta || '<span class="text-muted">Seleccione los datos para ver la ruta completa</span>');
-        }
-        
-        // Búsqueda
-        $('#searchTree').on('input', function() {
-            var term = $(this).val().toLowerCase().trim();
-            
-            if (term.length > 0) {
-                $('.tree-node').hide();
-                $('.tree-node').each(function() {
-                    var $node = $(this);
-                    if ($node.text().toLowerCase().includes(term)) {
-                        $node.addClass('tree-node-highlight').show();
-                        $node.parentsUntil('.tree', '.tree-node').show();
-                        $node.parentsUntil('.tree', '.tree-node').each(function() {
-                            var $parent = $(this);
-                            $parent.addClass('tree-node-expanded');
-                            $parent.find('.tree-children').show();
-                            $parent.find('.tree-node-expander i').css('transform', 'rotate(90deg)');
-                        });
-                    }
-                });
-            } else {
-                $('.tree-node').show().removeClass('tree-node-highlight');
-                $('.tree-children').hide();
-                $('.tree-node-sucursal .tree-children').show();
-                $('.tree-node-sucursal').addClass('tree-node-expanded');
-                $('.tree-node-sucursal .tree-node-expander i').css('transform', 'rotate(90deg)');
-            }
-        });
-        
-        $('#btnClearSearch').click(function() {
-            $('#searchTree').val('').trigger('input');
-        });
-        
-        // Guardar
-        $('#btnGuardar').click(function() {
-            var form = document.getElementById('formSucursalUbicacion');
-            
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                return false;
-            }
-            
-            var id = $('#sucursal_ubicacion_id').val();
-            var accionBackend = id ? 'editar' : 'agregar';
-            
-            var btn = $(this);
-            var originalText = btn.html();
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
-            
-            $.ajax({
-                url: 'sucursales_ubicaciones_ajax.php',
-                type: 'POST',
+        tabla = $('#tablaVentasRemitos').DataTable({
+            ajax: {
+                url: 'ventas_remitos_ajax.php',
+                type: 'GET',
                 data: {
-                    accion: accionBackend,
-                    sucursal_ubicacion_id: id,
-                    sucursal_id: $('#sucursal_id').val(),
-                    boca_id: $('#boca_id').val(),
-                    seccion: $('#seccion').val().trim(),
-                    estanteria: $('#estanteria').val().trim(),
-                    estante: $('#estante').val().trim(),
-                    posicion: $('#posicion').val().trim(),
-                    descripcion: $('#descripcion').val().trim(),
-                    estado_registro_id: $('#estado_registro_id').val() || 1,
+                    accion: 'listar',
                     empresa_idx: empresa_idx,
                     pagina_idx: pagina_idx
                 },
-                success: function(res) {
-                    btn.prop('disabled', false).html(originalText);
-                    
-                    if (res.resultado) {
-                        var modalEl = document.getElementById('modalSucursalUbicacion');
-                        var modal = bootstrap.Modal.getInstance(modalEl);
-                        modal.hide();
-                        
-                        // Limpiar cache para recargar
-                        ubicacionesCache = null;
-                        cargarUbicaciones($('#filterSucursal').val());
-                        
-                        Swal.fire({
-                            icon: "success",
-                            title: "¡Guardado!",
-                            text: "Ubicación guardada correctamente",
-                            showConfirmButton: false,
-                            timer: 1200,
-                            toast: true,
-                            position: 'top-end'
+                dataSrc: ''
+            },
+            stateSave: true,
+            stateSaveParams: function (settings, data) {
+                data.page = currentPage;
+                data.order = currentOrder;
+                data.search = (currentSearch !== '-1' && currentSearch !== '') ? { search: currentSearch } : { search: '' };
+                delete data.columns;
+                return data;
+            },
+            stateLoadParams: function (settings, data) {
+                if (data.page !== undefined) currentPage = data.page;
+                if (data.order !== undefined && data.order.length > 0) currentOrder = data.order;
+
+                if (data.search && data.search.search !== undefined) {
+                    var searchValue = data.search.search;
+                    currentSearch = (searchValue === '-1' || searchValue === '') ? '' : searchValue;
+                } else {
+                    currentSearch = '';
+                }
+                data.search = { search: currentSearch };
+            },
+            stateLoadCallback: function (settings) {
+                var savedData = localStorage.getItem('DataTables_' + settings.sInstance);
+                if (savedData) {
+                    var data = JSON.parse(savedData);
+                    if (data.search && (data.search.search === '-1' || data.search.search === '')) {
+                        data.search.search = '';
+                    }
+                    if (data.columns) {
+                        $.each(data.columns, function (i, col) {
+                            if (col.search && col.search.search === '-1') col.search.search = '';
                         });
-                    } else {
-                        Swal.fire({ icon: "error", title: "Error", text: res.error || "Error al guardar", confirmButtonText: "Entendido" });
+                    }
+                    return data;
+                }
+                return null;
+            },
+            dom: '<"row"<"col-sm-12"tr>>' +
+                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                '<"clear">',
+            pageLength: 50,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+
+            columns: [
+                {
+                    data: 'comprobante_tipo',
+                    className: 'text-center',
+                    render: function (data) { return `<span>${data || ''}</span>`; }
+                },
+                {
+                    data: 'sucursal_nombre',
+                    className: 'text-center',
+                    render: function (data) { return `<span>${data || ''}</span>`; }
+                },
+                {
+                    data: 'deposito_nombre',
+                    className: 'text-center',
+                    render: function (data) { return `<span>${data || ''}</span>`; }
+                },
+                {
+                    data: 'punto_venta_nombre',
+                    className: 'text-center',
+                    render: function (data) { return `<span>${data || ''}</span>`; }
+                },
+                {
+                    data: null,
+                    className: 'text-center',
+                    render: function (data, type, row) {
+                        var numero = row.comprobante_nro || '';
+                        return type === 'export' ? numero : `<span>${numero}</span>`;
                     }
                 },
-                error: function() {
-                    btn.prop('disabled', false).html(originalText);
-                    Swal.fire({ icon: "error", title: "Error de conexión", text: "Error al comunicarse con el servidor", confirmButtonText: "Entendido" });
+                {
+                    data: null,
+                    render: function (data, type, row) {
+                        if (type === 'export') return data.entidad_nombre || '';
+                        return `<div>${data.entidad_nombre || ''}</div>
+                                <small class="text-muted">${data.entidad_fantasia || ''}</small>`;
+                    }
+                },
+                {
+                    data: 'f_emision',
+                    className: 'text-center',
+                    render: function (data, type) {
+                        if (type === 'export' || !data) return data || '';
+                        var parts = data.split('-');
+                        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : data;
+                    }
+                },
+                {
+                    data: 'total',
+                    className: 'text-end',
+                    render: function (data, type) {
+                        var valor = parseFloat(data) || 0;
+                        if (type === 'export') return valor.toFixed(2);
+                        if (type === 'sort' || type === 'filter') return valor;
+                        return `<span class="text-primary">$${valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+                    }
+                },
+                {
+                    data: 'estado_info',
+                    className: 'text-center',
+                    render: function (data, type) {
+                        if (type === 'export') return (data && data.estado_registro) ? data.estado_registro : '';
+                        return `<span>${(data && data.estado_registro) ? data.estado_registro : ''}</span>`;
+                    }
+                },
+                {
+                    data: 'botones',
+                    orderable: false,
+                    searchable: false,
+                    className: "text-center",
+                    width: '250px',
+                    render: function (data, type, row) {
+                        var botones = '';
+                        if (data && data.length > 0) {
+                            var editarBoton = '';
+                            var otrosBotones = '';
+
+                            data.forEach(boton => {
+                                var claseBoton = 'btn-sm me-1 ';
+                                if (boton.bg_clase && boton.text_clase) {
+                                    claseBoton += boton.bg_clase + ' ' + boton.text_clase;
+                                } else if (boton.color_clase) {
+                                    claseBoton += boton.color_clase;
+                                } else {
+                                    claseBoton += 'btn-outline-primary';
+                                }
+
+                                var titulo = boton.descripcion || boton.nombre_funcion;
+                                var accionJs = boton.accion_js;
+                                var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
+                                var esConfirmable = boton.es_confirmable || 0;
+                                var comprobanteInfo = `${row.comprobante_tipo || ''} -${row.comprobante_nro || ''}`;
+                                var clienteInfo = row.entidad_nombre || row.entidad_fantasia || '';
+
+                                var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion"
+                                                title="${titulo}"
+                                                data-id="${row.venta_remito_id}"
+                                                data-accion="${accionJs}"
+                                                data-confirmable="${esConfirmable}"
+                                                data-comprobante="${comprobanteInfo}"
+                                                data-cliente="${clienteInfo}">
+                                                ${icono}
+                                            </button>`;
+
+                                if (accionJs === 'editar') {
+                                    editarBoton = botonHtml;
+                                } else {
+                                    otrosBotones += botonHtml;
+                                }
+                            });
+
+                            botones = editarBoton + otrosBotones;
+                        } else {
+                            botones = '<span class="text-muted small">Sin acciones</span>';
+                        }
+                        return `<div class="btn-group" role="group">${botones}</div>`;
+                    }
                 }
-            });
+            ],
+            language: { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' },
+            order: currentOrder,
+            responsive: true,
+            createdRow: function (row, data) {
+                if (data.estado_info && data.estado_info.codigo_estandar === 'CONFIRMADO') {
+                    $(row).addClass('table-success');
+                } else if (data.estado_info && (data.estado_info.codigo_estandar === 'CANCELADO' || data.estado_info.codigo_estandar === 'ANULADO')) {
+                    $(row).addClass('table-danger');
+                } else if (data.estado_info && data.estado_info.codigo_estandar === 'PENDIENTE') {
+                    $(row).addClass('table-warning');
+                }
+            },
+            initComplete: function () {
+                setTimeout(function () {
+                    $('#tablaVentasRemitos_length').addClass('dataTables_length_custom');
+                    $('#tablaVentasRemitos_filter').addClass('dataTables_filter_custom');
+
+                    if ($('#tablaVentasRemitos_length').html().trim() === '') {
+                        var selectHtml = '<label>Mostrar <select name="tablaVentasRemitos_length" aria-controls="tablaVentasRemitos" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
+                        $('#tablaVentasRemitos_length').html(selectHtml);
+                        $('#tablaVentasRemitos_length select').on('change', function () {
+                            tabla.page.len($(this).val()).draw();
+                        });
+                    }
+
+                    if ($('#tablaVentasRemitos_filter').html().trim() === '') {
+                        var filterHtml = '<label>Buscar:<input type="search" class="form-control form-control-sm" placeholder="" aria-controls="tablaVentasRemitos"></label>';
+                        $('#tablaVentasRemitos_filter').html(filterHtml);
+                        $('#tablaVentasRemitos_filter input').on('keyup', function () {
+                            tabla.search($(this).val()).draw();
+                        });
+                    }
+                }, 100);
+
+                $('#filtro_cliente').on('keyup', function () {
+                    tabla.column(5).search(this.value).draw();
+                });
+                $('#filtro_estado').on('keyup', function () {
+                    tabla.column(8).search(this.value).draw();
+                });
+
+                new $.fn.dataTable.Buttons(tabla, {
+                    buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
+                }).container().appendTo($('#tablaVentasRemitos_wrapper .col-md-6:eq(1)'));
+
+                $(tabla.table().container()).on('page.dt', function () { currentPage = tabla.page(); });
+                $(tabla.table().container()).on('order.dt', function () { currentOrder = tabla.order(); });
+                $(tabla.table().container()).on('search.dt', function () { currentSearch = tabla.search(); });
+            }
         });
-        
-        // Cargar botón agregar
-        function cargarBotonAgregar() {
-            $.get('sucursales_ubicaciones_ajax.php', {
-                accion: 'obtener_boton_agregar',
-                pagina_idx: pagina_idx
-            }, function(boton) {
-                if (boton && boton.nombre_funcion) {
-                    var icono = boton.icono_clase ? '<i class="' + boton.icono_clase + ' me-1"></i>' : '';
-                    $('#contenedor-boton-agregar').html(
-                        '<button type="button" class="btn btn-modern-primary" id="btnNuevo">' +
-                        icono + boton.nombre_funcion + '</button>'
-                    );
-                } else {
-                    $('#contenedor-boton-agregar').html(
-                        '<button type="button" class="btn btn-modern-primary" id="btnNuevo">' +
-                        '<i class="fas fa-plus me-1"></i>Nueva Ubicación</button>'
-                    );
+
+        inicializarEventos();
+    }
+
+    function inicializarEventos() {
+        $('#btnRecargar').off('click').on('click', function () {
+            var btn = $(this);
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            var savedState = { page: tabla.page(), order: tabla.order(), search: tabla.search() };
+            tabla.ajax.reload(function () {
+                if (savedState.page !== undefined) tabla.page(savedState.page).draw('page');
+                if (savedState.search) tabla.search(savedState.search).draw();
+                btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>');
+            }, false);
+        });
+
+        $('#btnExportarExcel').on('click', function () { tabla.button('.buttons-excel').trigger(); });
+        $('#btnExportarPDF').on('click', function () { tabla.button('.buttons-pdf').trigger(); });
+        $('#btnExportarCSV').on('click', function () { tabla.button('.buttons-csv').trigger(); });
+        $('#btnExportarPrint').on('click', function () { tabla.button('.buttons-print').trigger(); });
+    }
+
+    function cargarBotonAgregar() {
+        $.get('ventas_remitos_ajax.php', { accion: 'obtener_boton_agregar', pagina_idx: pagina_idx }, function (botonAgregar) {
+            if (botonAgregar && botonAgregar.nombre_funcion) {
+                var icono = botonAgregar.icono_clase ? `<i class="${botonAgregar.icono_clase} me-1"></i>` : '';
+                var colorClase = 'btn-primary';
+                if (botonAgregar.bg_clase && botonAgregar.text_clase) {
+                    colorClase = botonAgregar.bg_clase + ' ' + botonAgregar.text_clase;
+                } else if (botonAgregar.color_clase) {
+                    colorClase = botonAgregar.color_clase;
                 }
-            }, 'json').fail(function() {
                 $('#contenedor-boton-agregar').html(
-                    '<button type="button" class="btn btn-modern-primary" id="btnNuevo">' +
-                    '<i class="fas fa-plus me-1"></i>Nueva Ubicación</button>'
+                    `<button type="button" class="btn ${colorClase}" id="btnNuevo">${icono}${botonAgregar.nombre_funcion}</button>`
                 );
-            });
+            } else {
+                $('#contenedor-boton-agregar').html(
+                    '<button type="button" class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-1"></i>Nuevo Remito</button>'
+                );
+            }
+        }, 'json').fail(function () {
+            $('#contenedor-boton-agregar').html(
+                '<button type="button" class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-1"></i>Nuevo Remito</button>'
+            );
+        });
+    }
+
+    function cargarPuntosVenta(sucursalId, callback) {
+        if (!sucursalId) {
+            $('#punto_venta_id').html('<option value="">Primero seleccione sucursal</option>').prop('disabled', true);
+            if (callback) callback();
+            return;
         }
-        
-        // Inicializar
-        cargarSucursales().then(function() {
-            cargarUbicaciones();
-            cargarEstados();
-            cargarBotonAgregar();
+
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener_puntos_venta', sucursal_id: sucursalId, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (data) {
+                var options = '<option value="">Seleccionar punto de venta</option>';
+                if (data && data.length > 0) {
+                    data.forEach(function (item) {
+                        options += `<option value="${item.punto_venta_id}">${item.punto_venta_nombre} (${item.punto_venta_codigo})</option>`;
+                    });
+                    $('#punto_venta_id').prop('disabled', false);
+                } else {
+                    options = '<option value="">No hay puntos de venta disponibles</option>';
+                    $('#punto_venta_id').prop('disabled', true);
+                }
+                $('#punto_venta_id').html(options);
+                if (callback) callback();
+            },
+            error: function () {
+                $('#punto_venta_id').html('<option value="">Error al cargar</option>').prop('disabled', true);
+                if (callback) callback();
+            }
+        });
+    }
+
+    function cargarClientesYSucursales() {
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener_clientes_con_sucursales', empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (data) {
+                var options = '<option value="">Seleccionar cliente o sucursal</option>';
+                if (data && data.length > 0) {
+                    data.forEach(function (item) {
+                        if (item.sucursales && item.sucursales.length > 0) {
+                            item.sucursales.forEach(function (sucursal) {
+                                options += `<option value="S-${sucursal.sucursal_id}" data-entidad-id="${item.entidad_id}" data-sucursal-id="${sucursal.sucursal_id}">${item.entidad_nombre} - ${sucursal.sucursal_nombre}</option>`;
+                            });
+                        } else {
+                            options += `<option value="P-${item.entidad_id}" data-entidad-id="${item.entidad_id}" data-sucursal-id="">${item.entidad_nombre}</option>`;
+                        }
+                    });
+                } else {
+                    options = '<option value="">No hay clientes disponibles</option>';
+                }
+                $('#entidad_combo').html(options);
+            },
+            error: function () {
+                $('#entidad_combo').html('<option value="">Error al cargar</option>');
+            }
+        });
+    }
+
+    $('#sucursal_id').on('change', function () {
+        cargarPuntosVenta($(this).val(), function () {
+            // Al cambiar de sucursal el punto de venta anterior ya no es válido,
+            // así que los tipos de comprobante tampoco: se limpian hasta elegir PV de nuevo.
+            cargarTiposComprobante(null);
         });
     });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-</main>
 
-<?php
-require_once ROOT_PATH . '/templates/adminlte/footer1.php';
-?>
-</body>
-</html>
+    $('#punto_venta_id').on('change', function () {
+        cargarTiposComprobante($(this).val());
+    });
+
+    $('#entidad_combo').on('change', function () {
+        var selectedOption = $(this).find('option:selected');
+        var entidadId = selectedOption.data('entidad-id');
+        var sucursalId = selectedOption.data('sucursal-id');
+        var valorCombo = $(this).val();
+        var clienteAnteriorId = clienteActualId;
+
+        if (valorCombo) {
+            var tipo = valorCombo.split('-')[0];
+
+            $('#entidad_id').val(entidadId);
+            $('#entidad_sucursal_id').val(tipo === 'S' ? sucursalId : '');
+            clienteActualId = parseInt(entidadId);
+            clienteSucursalActualId = tipo === 'S' ? parseInt(sucursalId) : null;
+        } else {
+            $('#entidad_id').val('');
+            $('#entidad_sucursal_id').val('');
+            clienteActualId = null;
+            clienteSucursalActualId = null;
+        }
+
+        if (clienteAnteriorId !== clienteActualId) {
+            if (detalles.length > 0) {
+                detalles = [];
+                renderizarDetalles();
+                actualizarTotales();
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Cliente cambiado',
+                    text: 'Se limpiaron los productos cargados: correspondían a los pedidos del cliente anterior.',
+                    showConfirmButton: false,
+                    timer: 2200,
+                    toast: true,
+                    position: 'top-end'
+                });
+            }
+            cargarPedidosPendientes(clienteActualId);
+            cargarDescuentoGeneralCliente(clienteActualId);
+            resetBusquedaProductoLibre();
+        }
+    });
+
+    // ========== PEDIDOS PENDIENTES DEL CLIENTE ==========
+    function cargarPedidosPendientes(entidadId) {
+        if (!entidadId) {
+            pedidosPendientesCliente = [];
+            renderizarPendientes();
+            return;
+        }
+
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener_pedidos_pendientes_cliente', entidad_id: entidadId, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (data) {
+                pedidosPendientesCliente = data || [];
+                renderizarPendientes();
+            },
+            error: function () {
+                pedidosPendientesCliente = [];
+                renderizarPendientes();
+                $('#contenedor-pendientes').html(
+                    '<div class="text-danger small p-2"><i class="fas fa-triangle-exclamation me-1"></i>Error al consultar los pedidos pendientes del cliente.</div>'
+                );
+            }
+        });
+    }
+
+    // Muestra, en la tarjeta de "Agregar producto sin pedido", el % de descuento general
+    // que la condición comercial del cliente (gestion__entidades_condiciones_clientes)
+    // aplica a todos los productos de esa lista de precios.
+    function cargarDescuentoGeneralCliente(entidadId) {
+        var info = $('#descuento_general_info');
+
+        if (!entidadId) {
+            info.html('<i class="fas fa-tag me-1"></i>Seleccione un cliente para ver su descuento general.');
+            return;
+        }
+
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener_condiciones_cliente', entidad_id: entidadId, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (res) {
+                if (res && res.success && res.data) {
+                    var pct = parseFloat(res.data.cliente_descuento_general) || 0;
+                    info.html(`<i class="fas fa-tag me-1"></i>Descuento general del cliente: <strong>${pct.toFixed(2)}%</strong> (se aplica a todos los productos).`);
+                } else {
+                    info.html('<i class="fas fa-triangle-exclamation me-1"></i>Este cliente no tiene una lista de precios vigente asignada.');
+                }
+            },
+            error: function () {
+                info.html('<i class="fas fa-triangle-exclamation me-1"></i>Error al consultar el descuento general del cliente.');
+            }
+        });
+    }
+
+    function renderizarPendientes() {
+        var cont = $('#contenedor-pendientes');
+        var card = $('#card-pedidos-pendientes');
+
+        var totalLineasPendientes = (pedidosPendientesCliente || [])
+            .reduce(function (acc, pedido) { return acc + (pedido.detalles || []).length; }, 0);
+
+        // La tarjeta completa se oculta si no hay nada que mostrar (sin cliente, o cliente
+        // sin pedidos con entregas pendientes), en vez de ocupar lugar con un mensaje vacío.
+        if (!clienteActualId || totalLineasPendientes === 0) {
+            card.hide();
+            cont.empty();
+            return;
+        }
+
+        card.show();
+
+        var html = `<table class="table table-sm table-bordered table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Pedido</th>
+                    <th>Fecha</th>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th class="text-center">IVA</th>
+                    <th class="text-end">Pendiente</th>
+                    <th class="text-center" width="110">Cant. a remitir</th>
+                    <th class="text-center" width="90">Acción</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        pedidosPendientesCliente.forEach(function (pedido) {
+            var numeroPedido = pedido.comprobante_nro > 0
+                ? `${pedido.comprobante_tipo || 'Pedido'} #${pedido.comprobante_nro}`
+                : `${pedido.comprobante_tipo || 'Pedido'} (sin numerar)`;
+
+            pedido.detalles.forEach(function (linea) {
+                var yaComprometido = cantidadYaComprometida(linea.venta_pedido_detalle_id);
+                var pendienteEfectivo = Math.max(0, linea.pendiente - yaComprometido);
+                var agotado = pendienteEfectivo <= 0.0001;
+                var ivaPorcentaje = parseFloat(linea.iva_porcentaje || 0);
+
+                html += `<tr class="pendiente-fila ${agotado ? 'pendiente-agotada' : ''}">
+                    <td>${numeroPedido}</td>
+                    <td>${formatFecha(pedido.f_emision)}</td>
+                    <td>${linea.producto_codigo || ''}</td>
+                    <td>${linea.producto_nombre || ''}</td>
+                    <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                    <td class="text-end">${formatMoneda(pendienteEfectivo)}</td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm no-spinner input-cantidad-pendiente"
+                            value="${pendienteEfectivo.toFixed(2)}" step="0.01" min="0.01"
+                            max="${pendienteEfectivo}" ${agotado ? 'disabled' : ''}>
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-success btn-agregar-pendiente" ${agotado ? 'disabled' : ''}
+                            data-vpd-id="${linea.venta_pedido_detalle_id}"
+                            data-producto-id="${linea.producto_id}"
+                            data-codigo="${linea.producto_codigo || ''}"
+                            data-nombre="${linea.producto_nombre || ''}"
+                            data-precio="${linea.precio_unitario_neto}"
+                            data-precio-bruto="${linea.precio_unitario_bruto || 0}"
+                            data-descuento-pct="${linea.descuento_general_pct || 0}"
+                            data-iva-id="${linea.iva_alicuota_id || ''}"
+                            data-iva="${ivaPorcentaje}"
+                            data-pedido-id="${pedido.venta_pedido_id}"
+                            data-pedido-nro="${pedido.comprobante_nro}"
+                            data-pedido-tipo="${pedido.comprobante_tipo || ''}"
+                            data-pendiente="${pendienteEfectivo}"
+                            title="${agotado ? 'Ya incluido en este remito' : 'Agregar al remito'}">
+                            <i class="fas fa-${agotado ? 'check' : 'plus'}"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+        });
+
+        html += '</tbody></table>';
+        cont.html(html);
+    }
+
+    $(document).on('click', '.btn-agregar-pendiente', function () {
+        var btn = $(this);
+        var fila = btn.closest('tr');
+        var cantidad = parseFloat(fila.find('.input-cantidad-pendiente').val());
+        var pendienteEfectivo = parseFloat(btn.data('pendiente'));
+
+        if (!cantidad || cantidad <= 0) {
+            Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'Ingrese una cantidad mayor a 0', confirmButtonText: 'Entendido' });
+            return;
+        }
+        if (cantidad > pendienteEfectivo + 0.0001) {
+            Swal.fire({ icon: 'warning', title: 'Cantidad excede el pendiente', text: `El máximo disponible es ${formatMoneda(pendienteEfectivo)}`, confirmButtonText: 'Entendido' });
+            return;
+        }
+
+        var vpdId = parseInt(btn.data('vpd-id'));
+        var existente = detalles.find(function (d) { return d.venta_pedido_detalle_id == vpdId; });
+
+        var mensajeToast = 'Línea agregada';
+
+        if (existente) {
+            // Ya hay una línea de este mismo renglón de pedido: se suma la cantidad
+            // en lugar de crear una línea duplicada (precio, descuento e IVA no cambian).
+            existente.cantidad = (parseFloat(existente.cantidad) || 0) + cantidad;
+            existente.importe_linea = existente.cantidad * existente.precio_unitario_neto;
+            existente.iva_importe = existente.importe_linea * (existente.iva_porcentaje / 100);
+            mensajeToast = 'Cantidad sumada a la línea existente';
+        } else {
+            var precioBruto = parseFloat(btn.data('precio-bruto')) || 0;
+            var descuentoPct = parseFloat(btn.data('descuento-pct')) || 0;
+            var descuentoGeneral = precioBruto * (descuentoPct / 100);
+            var precioNeto = precioBruto - descuentoGeneral;
+            var ivaPct = parseFloat(btn.data('iva')) || 0;
+            var importeNeto = cantidad * precioNeto;
+            var ivaImporte = importeNeto * (ivaPct / 100);
+
+            detalles.push({
+                detalle_idx: 'temp_' + new Date().getTime() + '_' + Math.random(),
+                venta_remito_detalle_id: 0,
+                venta_pedido_detalle_id: vpdId,
+                producto_id: parseInt(btn.data('producto-id')),
+                producto_codigo: btn.data('codigo'),
+                producto_nombre: btn.data('nombre'),
+                cantidad: cantidad,
+                precio_unitario_bruto: precioBruto,
+                descuento_general_pct: descuentoPct,
+                descuento_general: descuentoGeneral,
+                precio_unitario_neto: precioNeto,
+                importe_linea: importeNeto,
+                iva_alicuota_id: btn.data('iva-id') || null,
+                iva_porcentaje: ivaPct,
+                iva_importe: ivaImporte,
+                origen_pedido_nro: btn.data('pedido-nro'),
+                origen_pedido_tipo: btn.data('pedido-tipo')
+            });
+        }
+
+        renderizarDetalles();
+        actualizarTotales();
+        renderizarPendientes();
+
+        Swal.fire({ icon: 'success', title: mensajeToast, showConfirmButton: false, timer: 1000, toast: true, position: 'top-end' });
+    });
+
+    // ========== BÚSQUEDA DE PRODUCTO SIN PEDIDO (tags + estilo "carrito") ==========
+    // El filtro funciona igual que el buscador por etiquetas del ABM de productos:
+    // cada palabra que se escribe se convierte en un "tag" dentro del propio campo de
+    // texto al presionar espacio (se combinan todas como filtro). Los resultados
+    // aparecen debajo del campo (no en un desplegable flotante); cada producto tiene su
+    // propia cantidad y su propio botón de agregar, igual que en "Pedidos pendientes".
+    var tagsProductoLibre = [];
+    var tagsProductoLibreInput = $('#busqueda_producto');
+    var tagsProductoLibreContainer = $('#busqueda_producto_container');
+    var ultimosResultadosBusqueda = [];
+
+    function renderizarResultadosVacio(mensajeHtml) {
+        $('#resultados_busqueda').html(`<div class="text-center text-muted small p-2">${mensajeHtml}</div>`);
+    }
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function renderizarResultadosBusqueda(productos) {
+        ultimosResultadosBusqueda = productos || [];
+        var cont = $('#resultados_busqueda');
+
+        if (ultimosResultadosBusqueda.length === 0) {
+            renderizarResultadosVacio('<i class="fas fa-circle-info me-1"></i>No se encontraron productos para ese filtro.');
+            return;
+        }
+
+        var html = `<table class="table table-sm table-bordered table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th class="text-center">IVA</th>
+                    <th class="text-end">Precio Ref.</th>
+                    <th class="text-center" width="110">Cantidad</th>
+                    <th class="text-center" width="90">Acción</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        ultimosResultadosBusqueda.forEach(function (item, index) {
+            var ivaPorcentaje = parseFloat(item.iva_porcentaje || 0);
+            var precio = parseFloat(item.precio_neto || 0);
+
+            html += `<tr class="resultado-libre-fila">
+                <td>${item.producto_codigo || ''}</td>
+                <td>${item.producto_nombre || ''}
+                    ${item.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(item.compatibilidad_texto)}</small>` : ''}
+                </td>
+                <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                <td class="text-end">$${formatMoneda(precio)}</td>
+                <td>
+                    <input type="number" class="form-control form-control-sm no-spinner input-cantidad-libre"
+                        value="1.00" step="0.01" min="0.01">
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-success btn-agregar-libre"
+                        data-index="${index}"
+                        data-id="${item.producto_id}"
+                        data-codigo="${item.producto_codigo}"
+                        data-nombre="${item.producto_nombre}"
+                        data-precio="${precio}"
+                        data-precio-bruto="${parseFloat(item.precio_final || 0)}"
+                        data-descuento-pct="${parseFloat(item.descuento_general_pct || 0)}"
+                        data-iva-id="${item.iva_alicuota_id || ''}"
+                        data-iva="${ivaPorcentaje}"
+                        title="Agregar al remito">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        cont.html(html);
+    }
+
+    function inicializarBuscadorTagsProductoLibre() {
+        tagsProductoLibreContainer.on('click', function (e) {
+            if (e.target === this || $(e.target).is('#busqueda_producto_container')) tagsProductoLibreInput.focus();
+        });
+
+        // Usar 'input' además de 'keydown' por si el espacio llega de otra forma
+        // (teclado virtual, autocompletado), igual que en el buscador de productos.
+        tagsProductoLibreInput.on('input', function () {
+            var value = $(this).val().trim();
+            if (value.includes(' ')) {
+                var palabras = value.split(/\s+/);
+                palabras.forEach(function (palabra) {
+                    if (palabra.length > 0) agregarTagProductoLibre(palabra);
+                });
+                $(this).val('');
+                ejecutarBusquedaProductoLibre();
+            }
+        });
+
+        tagsProductoLibreInput.on('keydown', function (e) {
+            var value = $(this).val().trim();
+            if (e.key === ' ' || e.key === 'Space') {
+                e.preventDefault();
+                if (value.length > 0) {
+                    agregarTagProductoLibre(value);
+                    $(this).val('');
+                    ejecutarBusquedaProductoLibre();
+                }
+            } else if (e.key === 'Backspace' && value === '' && tagsProductoLibre.length > 0) {
+                eliminarTagProductoLibre(tagsProductoLibre.length - 1);
+                ejecutarBusquedaProductoLibre();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (value.length > 0) {
+                    agregarTagProductoLibre(value);
+                    $(this).val('');
+                    ejecutarBusquedaProductoLibre();
+                }
+            } else if (e.key === 'Escape') {
+                $(this).blur();
+            }
+        });
+
+        tagsProductoLibreInput.on('paste', function () {
+            setTimeout(function () {
+                var value = tagsProductoLibreInput.val().trim();
+                if (value) {
+                    var palabras = value.split(/\s+/);
+                    palabras.forEach(function (palabra) {
+                        if (palabra.length > 0) agregarTagProductoLibre(palabra);
+                    });
+                    tagsProductoLibreInput.val('');
+                    ejecutarBusquedaProductoLibre();
+                }
+            }, 10);
+        });
+    }
+
+    function agregarTagProductoLibre(texto) {
+        texto = texto.trim();
+        if (!texto) return;
+        var duplicado = tagsProductoLibre.some(function (tag) { return tag.toLowerCase() === texto.toLowerCase(); });
+        if (duplicado) { tagsProductoLibreInput.val(''); return; }
+        tagsProductoLibre.push(texto);
+        renderizarTagsProductoLibre();
+        tagsProductoLibreInput.val('');
+        tagsProductoLibreInput.focus();
+    }
+
+    function eliminarTagProductoLibre(index) {
+        if (index >= 0 && index < tagsProductoLibre.length) {
+            tagsProductoLibre.splice(index, 1);
+            renderizarTagsProductoLibre();
+        }
+    }
+
+    function limpiarTagsProductoLibre() {
+        tagsProductoLibre = [];
+        renderizarTagsProductoLibre();
+    }
+
+    function renderizarTagsProductoLibre() {
+        tagsProductoLibreContainer.find('.tag-item').remove();
+        tagsProductoLibre.forEach(function (tag, index) {
+            var tagHtml = `
+                <span class="tag-item" data-index="${index}">
+                    <span class="tag-text">${escapeHtml(tag)}</span>
+                    <span class="tag-remove" data-index="${index}" title="Eliminar"><i class="fas fa-times"></i></span>
+                </span>
+            `;
+            tagsProductoLibreContainer.find('#busqueda_producto').before(tagHtml);
+        });
+        tagsProductoLibreContainer.find('.tag-remove').off('click').on('click', function (e) {
+            e.stopPropagation();
+            var index = parseInt($(this).data('index'));
+            eliminarTagProductoLibre(index);
+            ejecutarBusquedaProductoLibre();
+        });
+    }
+
+    function ejecutarBusquedaProductoLibre() {
+        if (!clienteActualId) {
+            renderizarResultadosVacio('<i class="fas fa-arrow-up me-1"></i>Seleccione un cliente en la solapa "Datos del Remito"');
+            return;
+        }
+        if (tagsProductoLibre.length === 0) {
+            $('#resultados_busqueda').empty();
+            return;
+        }
+
+        var q = tagsProductoLibre.join(' ');
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: { accion: 'buscar_productos_cliente', entidad_id: clienteActualId, q: q, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (res) {
+                if (res && res.error === 'sin_lista_precios') {
+                    renderizarResultadosVacio(
+                        `<span class="text-danger"><i class="fas fa-triangle-exclamation me-1"></i>
+                        Este cliente no tiene una lista de precios vigente asignada. No se pueden
+                        buscar ni agregar productos sin pedido hasta configurarla.</span>`
+                    );
+                    return;
+                }
+                renderizarResultadosBusqueda((res && res.productos) ? res.productos : []);
+            },
+            error: function () {
+                renderizarResultadosVacio(
+                    '<span class="text-danger"><i class="fas fa-triangle-exclamation me-1"></i>Error del servidor al buscar productos.</span>'
+                );
+            }
+        });
+    }
+
+    function resetBusquedaProductoLibre() {
+        tagsProductoLibre = [];
+        renderizarTagsProductoLibre();
+        tagsProductoLibreInput.val('');
+        if (clienteActualId) {
+            $('#resultados_busqueda').empty();
+        } else {
+            renderizarResultadosVacio('<i class="fas fa-arrow-up me-1"></i>Seleccione un cliente en la solapa "Datos del Remito"');
+        }
+    }
+
+    $('#btnLimpiarTagsProductoLibre').on('click', function () {
+        limpiarTagsProductoLibre();
+        resetBusquedaProductoLibre();
+        tagsProductoLibreInput.focus();
+    });
+
+    inicializarBuscadorTagsProductoLibre();
+
+    $(document).on('click', '.btn-agregar-libre', function () {
+        var btn = $(this);
+        var fila = btn.closest('tr');
+        var cantidad = parseFloat(fila.find('.input-cantidad-libre').val());
+
+        if (!clienteActualId) {
+            Swal.fire({ icon: 'warning', title: 'Seleccione cliente', text: 'Debe seleccionar un cliente primero', confirmButtonText: 'Entendido' });
+            return;
+        }
+        if (!cantidad || cantidad <= 0) {
+            Swal.fire({ icon: 'warning', title: 'Cantidad inválida', text: 'La cantidad debe ser mayor a 0', confirmButtonText: 'Entendido' });
+            return;
+        }
+
+        var productoId = parseInt(btn.data('id'));
+        var existente = detalles.find(function (d) {
+            return !d.venta_pedido_detalle_id && d.producto_id == productoId;
+        });
+
+        var mensajeToast = 'Línea agregada';
+
+        if (existente) {
+            // Ya hay una línea "sin pedido" para este producto: se suma la cantidad
+            // en lugar de crear una línea duplicada (precio, descuento e IVA no cambian).
+            existente.cantidad = (parseFloat(existente.cantidad) || 0) + cantidad;
+            existente.importe_linea = existente.cantidad * existente.precio_unitario_neto;
+            existente.iva_importe = existente.importe_linea * (existente.iva_porcentaje / 100);
+            mensajeToast = 'Cantidad sumada a la línea existente';
+        } else {
+            var precioBruto = parseFloat(btn.data('precio-bruto')) || 0;
+            var descuentoPct = parseFloat(btn.data('descuento-pct')) || 0;
+            var descuentoGeneral = precioBruto * (descuentoPct / 100);
+            var precioNeto = precioBruto - descuentoGeneral;
+            var ivaPct = parseFloat(btn.data('iva')) || 0;
+            var importeNeto = cantidad * precioNeto;
+            var ivaImporte = importeNeto * (ivaPct / 100);
+
+            detalles.push({
+                detalle_idx: 'temp_' + new Date().getTime() + '_' + Math.random(),
+                venta_remito_detalle_id: 0,
+                venta_pedido_detalle_id: null,
+                producto_id: productoId,
+                producto_codigo: btn.data('codigo'),
+                producto_nombre: btn.data('nombre'),
+                cantidad: cantidad,
+                precio_unitario_bruto: precioBruto,
+                descuento_general_pct: descuentoPct,
+                descuento_general: descuentoGeneral,
+                precio_unitario_neto: precioNeto,
+                importe_linea: importeNeto,
+                iva_alicuota_id: btn.data('iva-id') || null,
+                iva_porcentaje: ivaPct,
+                iva_importe: ivaImporte,
+                origen_pedido_nro: null,
+                origen_pedido_tipo: null
+            });
+        }
+
+        renderizarDetalles();
+        actualizarTotales();
+
+        // Se deja la lista de resultados como está (estilo carrito: se puede seguir
+        // agregando el mismo u otros productos), solo se reinicia la cantidad de la fila.
+        fila.find('.input-cantidad-libre').val('1.00');
+
+        Swal.fire({ icon: 'success', title: mensajeToast, showConfirmButton: false, timer: 1000, toast: true, position: 'top-end' });
+    });
+
+    // ========== TABLA DE DETALLE DEL REMITO ==========
+    function renderizarDetalles() {
+        var cont = $('#contenedor-detalles');
+
+        if (detalles.length === 0) {
+            cont.html(`
+                <div class="detalles-vacio">
+                    <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                    <p class="mb-0 fw-bold">No hay productos agregados al remito</p>
+                    <small class="text-muted">Agregá líneas desde los pedidos pendientes o cargá un producto sin pedido</small>
+                </div>`);
+            return;
+        }
+
+        var html = `<table class="table table-sm table-bordered table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Origen</th>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th class="text-center">Cantidad</th>
+                    <th class="text-end">P. Unit. Neto</th>
+                    <th class="text-end">Importe Neto</th>
+                    <th class="text-center">IVA</th>
+                    <th class="text-end">Importe IVA</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        detalles.forEach(function (detalle) {
+            var origen = detalle.venta_pedido_detalle_id
+                ? `<span class="badge bg-warning text-dark">${detalle.origen_pedido_tipo || 'Pedido'} ${detalle.origen_pedido_nro > 0 ? '#' + detalle.origen_pedido_nro : ''}</span>`
+                : `<span class="badge bg-secondary">Sin pedido</span>`;
+            var iva = (detalle.iva_porcentaje || detalle.iva_porcentaje === 0) ? `${parseFloat(detalle.iva_porcentaje).toFixed(2)}%` : '-';
+            var importeIva = parseFloat(detalle.iva_importe || 0);
+            var totalLinea = parseFloat(detalle.importe_linea || 0) + importeIva;
+
+            html += `<tr data-idx="${detalle.detalle_idx}">
+                <td>${origen}</td>
+                <td>${detalle.producto_codigo || ''}</td>
+                <td>${detalle.producto_nombre || ''}</td>
+                <td class="text-center">
+                    <div class="cantidad-stepper mx-auto">
+                        <button type="button" class="btn-stepper btn-cantidad-menos" data-idx="${detalle.detalle_idx}" tabindex="-1">&minus;</button>
+                        <input type="number" class="cantidad-stepper-input input-cantidad-detalle"
+                            data-idx="${detalle.detalle_idx}" value="${detalle.cantidad}" step="0.01" min="0">
+                        <button type="button" class="btn-stepper btn-cantidad-mas" data-idx="${detalle.detalle_idx}" tabindex="-1">+</button>
+                    </div>
+                </td>
+                <td class="text-end">$${formatMoneda(detalle.precio_unitario_neto)}</td>
+                <td class="text-end">$${formatMoneda(detalle.importe_linea)}</td>
+                <td class="text-center">${iva}</td>
+                <td class="text-end">$${formatMoneda(importeIva)}</td>
+                <td class="text-end fw-bold text-success">$${formatMoneda(totalLinea)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger btn-eliminar-detalle" data-idx="${detalle.detalle_idx}" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        cont.html(html);
+    }
+
+    // Pendiente original (antes de lo reservado por este mismo remito) de un renglón de
+    // pedido, según lo último que se cargó en "Pedidos pendientes". Se usa para topear
+    // la edición in-place de cantidad de una línea que viene de un pedido.
+    function obtenerPendienteOriginal(ventaPedidoDetalleId) {
+        for (var i = 0; i < pedidosPendientesCliente.length; i++) {
+            var pedido = pedidosPendientesCliente[i];
+            for (var j = 0; j < (pedido.detalles || []).length; j++) {
+                if (pedido.detalles[j].venta_pedido_detalle_id == ventaPedidoDetalleId) {
+                    return parseFloat(pedido.detalles[j].pendiente) || 0;
+                }
+            }
+        }
+        return null; // no se encontró (no debería pasar en uso normal)
+    }
+
+    // Sube/baja la cantidad de una línea ya cargada, recalculando importe neto e IVA.
+    // Si la nueva cantidad es 0 (o menos), pregunta si se desea eliminar el producto
+    // en lugar de dejar una línea en cero; si no se confirma, se restaura la cantidad
+    // que tenía antes del cambio. Para líneas que vienen de un pedido, no deja superar
+    // el pendiente disponible de ese renglón.
+    function cambiarCantidadDetalle(idx, nuevaCantidad) {
+        var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
+        if (!detalle) return;
+
+        if (isNaN(nuevaCantidad)) {
+            renderizarDetalles();
+            return;
+        }
+
+        if (nuevaCantidad <= 0) {
+            Swal.fire({
+                title: '¿Eliminar producto?',
+                text: 'La cantidad llegó a 0. ¿Desea quitar "' + (detalle.producto_nombre || '') + '" del remito?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    detalles = detalles.filter(function (d) { return d.detalle_idx != idx; });
+                    renderizarDetalles();
+                    actualizarTotales();
+                    renderizarPendientes();
+                    Swal.fire({ icon: 'success', title: 'Eliminado', showConfirmButton: false, timer: 1200, toast: true, position: 'top-end' });
+                } else {
+                    renderizarDetalles();
+                }
+            });
+            return;
+        }
+
+        if (detalle.venta_pedido_detalle_id) {
+            var pendienteOriginal = obtenerPendienteOriginal(detalle.venta_pedido_detalle_id);
+            if (pendienteOriginal !== null) {
+                var comprometidoPorOtras = cantidadComprometidaExcluyendo(detalle.venta_pedido_detalle_id, idx);
+                var maximoPermitido = pendienteOriginal - comprometidoPorOtras;
+                if (nuevaCantidad > maximoPermitido + 0.0001) {
+                    Swal.fire({ icon: 'warning', title: 'Cantidad excede el pendiente', text: `El máximo disponible para esta línea es ${formatMoneda(Math.max(0, maximoPermitido))}`, confirmButtonText: 'Entendido' });
+                    renderizarDetalles();
+                    return;
+                }
+            }
+        }
+
+        detalle.cantidad = nuevaCantidad;
+        detalle.importe_linea = detalle.cantidad * detalle.precio_unitario_neto;
+        detalle.iva_importe = detalle.importe_linea * (detalle.iva_porcentaje / 100);
+
+        renderizarDetalles();
+        actualizarTotales();
+        renderizarPendientes();
+    }
+
+    $(document).on('click', '.btn-cantidad-menos', function () {
+        var idx = $(this).data('idx');
+        var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
+        if (!detalle) return;
+        cambiarCantidadDetalle(idx, Math.round(((parseFloat(detalle.cantidad) || 0) - 1) * 100) / 100);
+    });
+
+    $(document).on('click', '.btn-cantidad-mas', function () {
+        var idx = $(this).data('idx');
+        var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
+        if (!detalle) return;
+        cambiarCantidadDetalle(idx, Math.round(((parseFloat(detalle.cantidad) || 0) + 1) * 100) / 100);
+    });
+
+    $(document).on('change', '.input-cantidad-detalle', function () {
+        var idx = $(this).data('idx');
+        cambiarCantidadDetalle(idx, parseFloat($(this).val()));
+    });
+
+    $(document).on('click', '.btn-eliminar-detalle', function () {
+        var idx = $(this).data('idx');
+        Swal.fire({
+            title: '¿Eliminar producto?',
+            text: 'Esta acción no se puede deshacer',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                detalles = detalles.filter(function (item) { return item.detalle_idx != idx; });
+                renderizarDetalles();
+                actualizarTotales();
+                renderizarPendientes();
+                Swal.fire({ icon: 'success', title: 'Eliminado', showConfirmButton: false, timer: 1200, toast: true, position: 'top-end' });
+            }
+        });
+    });
+
+    function formatMoneda(valor) {
+        return (parseFloat(valor) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatFecha(fecha) {
+        if (!fecha) return '';
+        var parts = fecha.split('-');
+        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fecha;
+    }
+
+    function actualizarTotales() {
+        var subtotalBruto = 0, totalDescuento = 0, totalNeto = 0, totalIva = 0;
+
+        detalles.forEach(function (d) {
+            var cantidad = parseFloat(d.cantidad) || 0;
+            var bruto = parseFloat(d.precio_unitario_bruto) || 0;
+            var descuentoUnit = parseFloat(d.descuento_general) || 0;
+            subtotalBruto += cantidad * bruto;
+            totalDescuento += cantidad * descuentoUnit;
+            totalNeto += parseFloat(d.importe_linea) || 0;
+            totalIva += parseFloat(d.iva_importe) || 0;
+        });
+
+        var totalGeneral = totalNeto + totalIva;
+
+        $('#subtotal_bruto_resumen').text(formatMoneda(subtotalBruto));
+        $('#descuento_resumen').text(formatMoneda(totalDescuento));
+        $('#neto_resumen').text(formatMoneda(totalNeto));
+        $('#iva_resumen').text(formatMoneda(totalIva));
+        $('#total_display_resumen').text('$' + formatMoneda(totalGeneral));
+        $('#contador-productos').text(detalles.length);
+    }
+
+    $('#btnToggleFullscreen').click(function () {
+        var modalDialog = $('#modalVentaRemito .modal-dialog');
+        var btnIcon = $(this).find('i');
+        if (modalDialog.hasClass('modal-fullscreen')) {
+            modalDialog.removeClass('modal-fullscreen');
+            btnIcon.removeClass('fa-compress').addClass('fa-expand');
+        } else {
+            modalDialog.addClass('modal-fullscreen');
+            btnIcon.removeClass('fa-expand').addClass('fa-compress');
+        }
+    });
+
+    // ========== COMBOS DEL FORMULARIO ==========
+    function cargarCombosFormulario() {
+        $.get('ventas_remitos_ajax.php', { accion: 'obtener_sucursales_empresa', empresa_idx: empresa_idx }, function (data) {
+            var options = '<option value="">Seleccionar sucursal</option>';
+            if (data && data.length > 0) {
+                data.forEach(function (item) {
+                    options += `<option value="${item.sucursal_id}">${item.sucursal_nombre}</option>`;
+                });
+            }
+            $('#sucursal_id').html(options);
+        }, 'json');
+
+        $.get('ventas_remitos_ajax.php', { accion: 'obtener_depositos', empresa_idx: empresa_idx }, function (data) {
+            var options = '<option value="">Seleccionar depósito</option>';
+            if (data && data.length > 0) {
+                data.forEach(function (item) {
+                    options += `<option value="${item.deposito_id}">${item.deposito_nombre}</option>`;
+                });
+            }
+            $('#deposito_id').html(options);
+        }, 'json');
+
+        // El combo de tipo de comprobante depende del punto de venta elegido
+        // (ver cargarTiposComprobante): sin PV no hay contra qué intersectar
+        // en gestion__puntos_venta_comprobantes, así que arranca deshabilitado.
+        $('#comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>').prop('disabled', true);
+    }
+
+    // Mismo criterio que cargarTiposComprobante() en ventas_pedidos.js: sin PV,
+    // combo deshabilitado; con PV, pide a obtener_comprobantes_tipos los tipos
+    // habilitados (subgrupo por tabla_id de la página, intersectado con el PV).
+    function cargarTiposComprobante(puntoVentaId, callback) {
+        if (!puntoVentaId) {
+            $('#comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>').prop('disabled', true);
+            if (callback) callback();
+            return;
+        }
+
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: {
+                accion: 'obtener_comprobantes_tipos',
+                punto_venta_id: puntoVentaId,
+                pagina_idx: pagina_idx,
+                empresa_idx: empresa_idx
+            },
+            dataType: 'json',
+            success: function (data) {
+                if (data && data.length > 0) {
+                    var options = data.length === 1 ? '' : '<option value="">Seleccionar</option>';
+                    data.forEach(function (item) {
+                        options += `<option value="${item.comprobante_tipo_id}">${item.comprobante_tipo}</option>`;
+                    });
+                    $('#comprobante_tipo_id').html(options).prop('disabled', false);
+                    if (data.length === 1) {
+                        $('#comprobante_tipo_id').val(data[0].comprobante_tipo_id);
+                    }
+                } else {
+                    $('#comprobante_tipo_id').html('<option value="">Sin tipos habilitados para este punto de venta</option>').prop('disabled', true);
+                }
+                if (callback) callback();
+            },
+            error: function () {
+                $('#comprobante_tipo_id').html('<option value="">Error al cargar</option>').prop('disabled', true);
+                if (callback) callback();
+            }
+        });
+    }
+
+    function resetModal() {
+        $('#formVentaRemito')[0].reset();
+        $('#venta_remito_id').val('');
+        $('#entidad_id').val('');
+        $('#entidad_sucursal_id').val('');
+        $('#entidad_combo').prop('disabled', false).removeAttr('title');
+        $('#punto_venta_id').html('<option value="">Primero seleccione sucursal</option>').prop('disabled', true);
+        $('#comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>').prop('disabled', true);
+        $('#formVentaRemito').removeClass('was-validated');
+
+        detalles = [];
+        clienteActualId = null;
+        clienteSucursalActualId = null;
+        pedidosPendientesCliente = [];
+        renderizarDetalles();
+        actualizarTotales();
+        renderizarPendientes();
+
+        $('#entidad_combo').html('<option value="">Seleccionar cliente o sucursal</option>');
+        resetBusquedaProductoLibre();
+        cargarDescuentoGeneralCliente(null);
+
+        $('.btn-secondary[data-bs-dismiss="modal"]').show();
+        $('.btn-eliminar-detalle, .btn-agregar-pendiente, .btn-agregar-libre, #btnLimpiarTagsProductoLibre').show().prop('disabled', false);
+        $('#busqueda_producto').prop('disabled', false);
+    }
+
+    $(document).on('click', '#btnNuevo', function () {
+        resetModal();
+        $('#modalLabel').text('Nuevo Remito de Venta');
+        cargarCombosFormulario();
+        cargarClientesYSucursales();
+
+        $('#f_emision').val(new Date().toISOString().split('T')[0]);
+
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaRemito'), { backdrop: 'static', keyboard: false });
+        modal.show();
+    });
+
+    function poblarDetallesDesdeRespuesta(res) {
+        detalles = (res.detalles || []).map(function (d, index) {
+            return {
+                detalle_idx: index,
+                venta_remito_detalle_id: d.venta_remito_detalle_id,
+                venta_pedido_detalle_id: d.venta_pedido_detalle_id || null,
+                producto_id: d.producto_id,
+                producto_codigo: d.producto_codigo,
+                producto_nombre: d.producto_nombre,
+                cantidad: parseFloat(d.cantidad),
+                precio_unitario_bruto: parseFloat(d.precio_unitario_bruto || 0),
+                descuento_general_pct: parseFloat(d.descuento_general_pct || 0),
+                descuento_general: parseFloat(d.descuento_general || 0),
+                precio_unitario_neto: parseFloat(d.precio_unitario_neto || 0),
+                importe_linea: parseFloat(d.importe_linea || 0),
+                iva_alicuota_id: d.iva_alicuota_id,
+                iva_porcentaje: parseFloat(d.iva_porcentaje || 0),
+                iva_importe: parseFloat(d.iva_importe || 0),
+                origen_pedido_nro: d.pedido_comprobante_nro,
+                origen_pedido_tipo: null
+            };
+        });
+        renderizarDetalles();
+        actualizarTotales();
+    }
+
+    function cargarRemitoComun(remitoId, soloVisualizar) {
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener', venta_remito_id: remitoId, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (res) {
+                if (!res || !res.venta_remito_id) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Error al obtener datos del remito', confirmButtonText: 'Entendido' });
+                    return;
+                }
+
+                resetModal();
+                cargarCombosFormulario();
+                cargarClientesYSucursales();
+
+                $('#venta_remito_id').val(res.venta_remito_id);
+                $('#comprobante_nro').val(res.comprobante_nro);
+                $('#f_emision').val(res.f_emision);
+                $('#observaciones').val(res.observaciones);
+                $('#modalLabel').text(soloVisualizar ? 'Visualizar Remito de Venta' : 'Editar Remito de Venta');
+
+                poblarDetallesDesdeRespuesta(res);
+
+                setTimeout(function () {
+                    $('#deposito_id').val(res.deposito_id);
+
+                    if (res.sucursal_id) {
+                        $('#sucursal_id').val(res.sucursal_id);
+                        cargarPuntosVenta(res.sucursal_id, function () {
+                            if (res.comprobante_pv) {
+                                $('#punto_venta_id').val(res.comprobante_pv);
+                                // Recién con el combo poblado tiene sentido setear el
+                                // tipo de comprobante guardado (antes se pisaba contra
+                                // un select todavía vacío y quedaba en blanco).
+                                cargarTiposComprobante(res.comprobante_pv, function () {
+                                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                                });
+                            }
+                        });
+                    }
+
+                    if (res.entidad_id) {
+                        clienteActualId = parseInt(res.entidad_id);
+                        if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
+                            $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
+                            clienteSucursalActualId = parseInt(res.entidad_sucursal_id);
+                        } else {
+                            $('#entidad_combo').val('P-' + res.entidad_id);
+                            clienteSucursalActualId = null;
+                        }
+                        $('#entidad_combo').prop('disabled', true).attr('title', 'El cliente no se puede modificar una vez guardado el remito');
+                        cargarDescuentoGeneralCliente(clienteActualId);
+
+                        if (!soloVisualizar) {
+                            cargarPedidosPendientes(clienteActualId);
+                        }
+                    }
+
+                    if (soloVisualizar) {
+                        $('#formVentaRemito :input').prop('disabled', true);
+                        $('.btn-eliminar-detalle, .btn-agregar-pendiente, .btn-agregar-libre, #btnLimpiarTagsProductoLibre').prop('disabled', true).hide();
+                        $('#busqueda_producto').prop('disabled', true);
+                        $('#btnGuardar, .btn-secondary[data-bs-dismiss="modal"]').hide();
+                        $('#contenedor-pendientes').html('<div class="text-muted small p-2">No aplica en modo visualización.</div>');
+                        $('#resultados_busqueda').html('<div class="text-muted small p-2">No aplica en modo visualización.</div>');
+                    } else {
+                        $('#formVentaRemito :input').prop('disabled', false);
+                        $('#entidad_combo').prop('disabled', true); // sigue fijo aunque se pueda editar el resto
+                        $('#btnGuardar, .btn-secondary[data-bs-dismiss="modal"]').show();
+                    }
+                }, 400);
+
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaRemito'), { backdrop: 'static', keyboard: false });
+                modal.show();
+
+                $('#modalVentaRemito').off('hidden.bs.modal').on('hidden.bs.modal', function () {
+                    $('#formVentaRemito :input').prop('disabled', false);
+                    $('.btn-eliminar-detalle, .btn-agregar-pendiente, .btn-agregar-libre, #btnLimpiarTagsProductoLibre').prop('disabled', false).show();
+                    $('#busqueda_producto').prop('disabled', false);
+                    $('#btnGuardar, .btn-secondary[data-bs-dismiss="modal"]').show();
+                });
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.error('Error en obtener remito:', textStatus, errorThrown, jqXHR.responseText);
+                Swal.fire({ icon: 'error', title: 'Error al obtener el remito', text: 'Revisá la consola del navegador (F12) para ver el detalle.', confirmButtonText: 'Entendido' });
+            }
+        });
+    }
+
+    function cargarRemitoParaEditar(id) { cargarRemitoComun(id, false); }
+    function cargarRemitoParaVisualizar(id) { cargarRemitoComun(id, true); }
+
+    $(document).on('click', '.btn-accion', function () {
+        var remitoId = $(this).data('id');
+        var accionJs = $(this).data('accion');
+        var confirmable = $(this).data('confirmable');
+        var comprobanteInfo = $(this).data('comprobante') || 'Remito #' + remitoId;
+        var clienteInfo = $(this).data('cliente') || '';
+
+        if (accionJs === 'editar') {
+            cargarRemitoParaEditar(remitoId);
+        } else if (accionJs === 'visualizar') {
+            cargarRemitoParaVisualizar(remitoId);
+        } else if (confirmable == 1) {
+            Swal.fire({
+                title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
+                html: `¿Está seguro de <strong>${accionJs}</strong> el remito<br>
+                    <strong>${comprobanteInfo}</strong>?<br>
+                    <small class="text-muted">Cliente: ${clienteInfo}</small>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: `Sí, ${accionJs}`,
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) ejecutarAccion(remitoId, accionJs, comprobanteInfo);
+            });
+        } else {
+            ejecutarAccion(remitoId, accionJs, comprobanteInfo);
+        }
+    });
+
+    function ejecutarAccion(remitoId, accionJs, comprobanteInfo) {
+        var savedState = { page: tabla.page(), order: tabla.order(), search: tabla.search() };
+
+        $.post('ventas_remitos_ajax.php', {
+            accion: 'ejecutar_accion',
+            venta_remito_id: remitoId,
+            accion_js: accionJs,
+            empresa_idx: empresa_idx,
+            pagina_idx: pagina_idx
+        }, function (res) {
+            if (res.success) {
+                tabla.ajax.reload(function () {
+                    if (savedState.page !== undefined) tabla.page(savedState.page).draw('page');
+                    if (savedState.search) tabla.search(savedState.search).draw();
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
+                        text: res.message || `Remito "${comprobanteInfo}" actualizado correctamente`,
+                        showConfirmButton: false,
+                        timer: 2000,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }, false);
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: res.error || `Error al ${accionJs} el remito`, confirmButtonText: 'Entendido' });
+            }
+        }, 'json').fail(function (xhr) {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor', confirmButtonText: 'Entendido' });
+            console.error('Error en ejecutarAccion:', xhr.responseText);
+        });
+    }
+
+    // ========== GUARDAR ==========
+    $('#btnGuardar').click(function () {
+        var form = document.getElementById('formVentaRemito');
+
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return false;
+        }
+        if (!clienteActualId) {
+            Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'Debe seleccionar un cliente', confirmButtonText: 'Entendido' });
+            return false;
+        }
+        if (detalles.length === 0) {
+            Swal.fire({ icon: 'warning', title: 'Productos requeridos', text: 'Debe agregar al menos un producto al remito', confirmButtonText: 'Entendido' });
+            return false;
+        }
+
+        var id = $('#venta_remito_id').val();
+        var accionBackend = id ? 'editar' : 'agregar';
+
+        var btnGuardar = $(this);
+        var originalText = btnGuardar.html();
+        btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+        var detallesEnviar = detalles.map(function (d) {
+            return {
+                producto_id: d.producto_id,
+                venta_pedido_detalle_id: d.venta_pedido_detalle_id,
+                cantidad: d.cantidad,
+                precio_unitario_bruto: d.precio_unitario_bruto,
+                descuento_general_pct: d.descuento_general_pct,
+                iva_alicuota_id: d.iva_alicuota_id,
+                iva_porcentaje: d.iva_porcentaje
+            };
+        });
+
+        var formData = new FormData();
+        formData.append('accion', accionBackend);
+        formData.append('empresa_idx', empresa_idx);
+        formData.append('pagina_idx', pagina_idx);
+        formData.append('venta_remito_id', id || '');
+        formData.append('sucursal_id', $('#sucursal_id').val() || '');
+        formData.append('deposito_id', $('#deposito_id').val() || '');
+        formData.append('punto_venta_id', $('#punto_venta_id').val() || '');
+        formData.append('comprobante_tipo_id', $('#comprobante_tipo_id').val() || '');
+        formData.append('entidad_id', clienteActualId);
+        formData.append('entidad_sucursal_id', clienteSucursalActualId !== null ? clienteSucursalActualId : '');
+        formData.append('f_emision', $('#f_emision').val() || '');
+        formData.append('observaciones', $('#observaciones').val() || '');
+        formData.append('detalles', JSON.stringify(detallesEnviar));
+
+        var savedState = { page: tabla ? tabla.page() : 0, order: tabla ? tabla.order() : [[4, 'desc']], search: tabla ? tabla.search() : '' };
+
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function (res) {
+                btnGuardar.prop('disabled', false).html(originalText);
+
+                if (res.resultado) {
+                    if (tabla) {
+                        tabla.ajax.reload(function () {
+                            if (savedState.page !== undefined) tabla.page(savedState.page).draw('page');
+                            if (savedState.search) tabla.search(savedState.search).draw();
+                        }, false);
+                    }
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Guardado!',
+                        text: 'Remito de venta guardado correctamente',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        toast: true,
+                        position: 'top-end'
+                    });
+
+                    var modalEl = document.getElementById('modalVentaRemito');
+                    var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    modal.hide();
+                    $('body').removeClass('modal-open');
+                    $('.modal-backdrop').remove();
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: res.error || 'Error al guardar los datos', confirmButtonText: 'Entendido' });
+                }
+            },
+            error: function (xhr, status, error) {
+                btnGuardar.prop('disabled', false).html(originalText);
+                console.error('Error AJAX:', error, xhr.responseText);
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'Error al comunicarse con el servidor', confirmButtonText: 'Entendido' });
+            }
+        });
+    });
+
+    inicializarDataTable();
+    cargarBotonAgregar();
+
+    $('[title]').tooltip({ trigger: 'hover', placement: 'top' });
+});

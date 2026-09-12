@@ -18,7 +18,8 @@ switch ($accion) {
         break;
     
     case 'obtenerPaginas':
-        $paginas = obtenerPaginas($conexion);
+        $modulo_id = $_GET['modulo_id'] ?? null;
+        $paginas = obtenerPaginas($conexion, $modulo_id);
         echo json_encode($paginas);
         break;
 

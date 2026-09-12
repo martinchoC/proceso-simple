@@ -45,7 +45,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">
                                     <div class="card-header">
                                         <div class="row align-items-center">
-                                            <div class="col-md-2">
+                                            <div class="col-md-3">
                                             <div id="contenedor-boton-agregar" class="d-inline">
                                                 <!-- Cargando... -->
                                                 <button type="button" class="btn btn-primary" id="btnNuevo" style="display:none;">
@@ -54,18 +54,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
                                             <div class="col-md-2">
-                                                <input type="text" class="form-control form-control-sm" id="filtro_cliente" placeholder="Filtrar por cliente...">
-                                            </div>
-                                            <div class="col-md-2">
-                                                <input type="text" class="form-control form-control-sm" id="filtro_estado" placeholder="Filtrar por estado...">
-                                            </div>
-                                            <div class="col-md-2">
                                                 <div class="dataTables_length" id="tablaVentasPedidos_length"></div>
                                             </div>
-                                            <div class="col-md-2">
+                                            <div class="col-md-3">
                                                 <div class="dataTables_filter" id="tablaVentasPedidos_filter"></div>
                                             </div>
-                                            <div class="col-md-2 text-end">
+                                            <div class="col-md-4 text-end">
                                                 <div class="btn-group" role="group">
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar tabla">
                                                         <i class="fas fa-sync-alt"></i>
@@ -85,10 +79,41 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </div>
                                             </div>
                                         </div>
+                                        <div class="row align-items-center mt-2">
+                                            <div class="col-md-2">
+                                                <input type="text" class="form-control form-control-sm" id="filtro_cliente" placeholder="Filtrar por cliente...">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <input type="text" class="form-control form-control-sm" id="filtro_estado" placeholder="Filtrar por estado...">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <select class="form-select form-select-sm" id="filtro_sucursal">
+                                                    <option value="">Todas las sucursales</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <select class="form-select form-select-sm" id="filtro_punto_venta">
+                                                    <option value="">Todos los PV</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="btn-group btn-group-sm" role="group" aria-label="Filtros rápidos por estado">
+                                                    <button type="button" class="btn btn-outline-warning btn-filtro-estado-rapido" data-estado-id="5">
+                                                        <i class="fas fa-clock me-1"></i>Pend. preparación
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-info btn-filtro-estado-rapido" data-estado-id="10">
+                                                        <i class="fas fa-truck-loading me-1"></i>Entrega parcial
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary" id="btnLimpiarFiltrosRapidos" title="Limpiar filtros">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div class="card-body">
-                                        <table id="tablaVentasPedidos" class="table table-striped table-bordered" style="width:100%">
+                                        <table id="tablaVentasPedidos" class="table table-striped table-bordered table-sm table-slim" style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="100">Tipo</th>
@@ -809,6 +834,33 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         #tablaVentasPedidos thead th {
             vertical-align: top;
             padding-bottom: 0.5rem;
+        }
+        /* ===== TABLA MÁS COMPACTA (slim) ===== */
+        #tablaVentasPedidos.table-slim th,
+        #tablaVentasPedidos.table-slim td {
+            font-size: 0.78rem;
+            padding: 0.3rem 0.5rem;
+            line-height: 1.2;
+            vertical-align: middle;
+        }
+        #tablaVentasPedidos.table-slim td small {
+            font-size: 0.7rem;
+        }
+        #tablaVentasPedidos.table-slim .btn-accion {
+            padding: 0.15rem 0.4rem;
+            font-size: 0.7rem;
+        }
+        .btn-filtro-estado-rapido.active {
+            font-weight: 600;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+        }
+        .btn-filtro-estado-rapido[data-estado-id="5"].active {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-filtro-estado-rapido[data-estado-id="10"].active {
+            background-color: #0dcaf0;
+            color: #212529;
         }
         .dt-buttons {
             display: none !important;

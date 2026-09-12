@@ -4,8 +4,13 @@ $(document).ready(function () {
     
     var tabla;
     var currentPage = 0;
-    var currentOrder = [[1, 'asc']];
+    var currentOrder = [[5, 'desc']]; // f_emision, del más nuevo al más viejo
     var currentSearch = '';
+
+    // Filtros de la vista de listado (sucursal, punto de venta y accesos rápidos de estado)
+    var filtroListadoSucursalId = '';
+    var filtroListadoPuntoVentaId = '';
+    var filtroListadoEstadosRapidos = []; // ej. [5, 10]
     
     // Variables para manejo de detalles
     var detalles = [];
@@ -160,7 +165,7 @@ $(document).ready(function () {
             dom: '<"row"<"col-sm-12"tr>>' +
                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
                 '<"clear">',
-            pageLength: 50,
+            pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             
             columns: [
@@ -223,7 +228,9 @@ $(document).ready(function () {
                     data: 'f_emision',
                     className: 'text-center',
                     render: function(data, type, row) {
-                        if (type === 'export') {
+                        // 'sort'/'filter'/'type'/'export' reciben el ISO crudo (YYYY-MM-DD):
+                        // ordena y filtra bien. Solo 'display' formatea a DD/MM/YYYY.
+                        if (type !== 'display') {
                             return data;
                         }
                         if (!data) return '';
@@ -238,7 +245,7 @@ $(document).ready(function () {
                     data: 'f_entrega_estimada',
                     className: 'text-center',
                     render: function(data, type, row) {
-                        if (type === 'export' || !data) {
+                        if (type !== 'display' || !data) {
                             return data || '';
                         }
                         let parts = data.split('-');
@@ -353,7 +360,7 @@ $(document).ready(function () {
                     $('#tablaVentasPedidos_filter').addClass('dataTables_filter_custom');
                     
                     if ($('#tablaVentasPedidos_length').html().trim() === '') {
-                        var selectHtml = '<label>Mostrar <select name="tablaVentasPedidos_length" aria-controls="tablaVentasPedidos" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
+                        var selectHtml = '<label>Mostrar <select name="tablaVentasPedidos_length" aria-controls="tablaVentasPedidos" class="form-select form-select-sm"><option value="10" selected="">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
                         $('#tablaVentasPedidos_length').html(selectHtml);
                         
                         $('#tablaVentasPedidos_length select').on('change', function() {
@@ -378,6 +385,45 @@ $(document).ready(function () {
                 $('#filtro_estado').on('keyup', function() {
                     tabla.column(8).search(this.value).draw();
                 });
+
+                // Filtro por sucursal: recarga el combo de punto de venta en cascada
+                // (mismo patrón que el formulario de alta/edición) y redibuja la tabla.
+                $('#filtro_sucursal').on('change', function() {
+                    filtroListadoSucursalId = $(this).val();
+                    filtroListadoPuntoVentaId = '';
+                    cargarFiltroPuntosVenta(filtroListadoSucursalId);
+                    tabla.draw();
+                });
+
+                $('#filtro_punto_venta').on('change', function() {
+                    filtroListadoPuntoVentaId = $(this).val();
+                    tabla.draw();
+                });
+
+                // Accesos rápidos por estado (multi-selección: Pend. preparación / Entrega parcial).
+                // Reconocen visualmente el filtro activo y filtran por tabla_estado_registro_id real,
+                // no por el texto mostrado en la columna Estado.
+                $('.btn-filtro-estado-rapido').on('click', function() {
+                    var estadoId = parseInt($(this).data('estado-id'), 10);
+                    $(this).toggleClass('active');
+
+                    var idx = filtroListadoEstadosRapidos.indexOf(estadoId);
+                    if (idx === -1) {
+                        filtroListadoEstadosRapidos.push(estadoId);
+                    } else {
+                        filtroListadoEstadosRapidos.splice(idx, 1);
+                    }
+                    tabla.draw();
+                });
+
+                $('#btnLimpiarFiltrosRapidos').on('click', function() {
+                    filtroListadoEstadosRapidos = [];
+                    $('.btn-filtro-estado-rapido').removeClass('active');
+                    tabla.draw();
+                });
+
+                cargarFiltroSucursales();
+                cargarFiltroPuntosVenta('');
 
                 var buttons = new $.fn.dataTable.Buttons(tabla, {
                     buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
@@ -494,6 +540,70 @@ $(document).ready(function () {
             );
         });
     }
+
+    // Combos del filtro de listado (independientes de los del formulario de alta/edición:
+    // #filtro_sucursal / #filtro_punto_venta vs #sucursal_id / #punto_venta_id).
+    function cargarFiltroSucursales() {
+        $.get('ventas_pedidos_ajax.php', {
+            accion: 'obtener_sucursales_empresa',
+            empresa_idx: empresa_idx
+        }, function(data) {
+            var options = '<option value="">Todas las sucursales</option>';
+            if (data && data.length > 0) {
+                data.forEach(function(item) {
+                    options += `<option value="${item.sucursal_id}">${item.sucursal_nombre}</option>`;
+                });
+            }
+            $('#filtro_sucursal').html(options);
+        }, 'json');
+    }
+
+    function cargarFiltroPuntosVenta(sucursalId) {
+        if (!sucursalId) {
+            $('#filtro_punto_venta').html('<option value="">Todos los PV</option>');
+            return;
+        }
+
+        $.get('ventas_pedidos_ajax.php', {
+            accion: 'obtener_puntos_venta',
+            sucursal_id: sucursalId,
+            empresa_idx: empresa_idx
+        }, function(data) {
+            var options = '<option value="">Todos los PV</option>';
+            if (data && data.length > 0) {
+                data.forEach(function(item) {
+                    options += `<option value="${item.punto_venta_id}">${item.punto_venta_nombre}</option>`;
+                });
+            }
+            $('#filtro_punto_venta').html(options);
+        }, 'json');
+    }
+
+    // Predicado custom de DataTables: se evalúa contra la fila cruda (aData), no contra el HTML
+    // ya renderizado de cada columna, así el filtro de estado usa tabla_estado_registro_id real
+    // en vez de comparar el texto que se ve en pantalla. Se registra una sola vez (fuera de
+    // inicializarDataTable, que solo se llama una vez, pero así queda a salvo de duplicarse si
+    // algún día se vuelve a invocar).
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, rowData) {
+        if (settings.nTable.id !== 'tablaVentasPedidos') {
+            return true;
+        }
+
+        if (filtroListadoSucursalId && String(rowData.sucursal_id) !== String(filtroListadoSucursalId)) {
+            return false;
+        }
+
+        if (filtroListadoPuntoVentaId && String(rowData.punto_venta_id) !== String(filtroListadoPuntoVentaId)) {
+            return false;
+        }
+
+        if (filtroListadoEstadosRapidos.length > 0 &&
+            filtroListadoEstadosRapidos.indexOf(parseInt(rowData.tabla_estado_registro_id, 10)) === -1) {
+            return false;
+        }
+
+        return true;
+    });
 
     function cargarPuntosVenta(sucursalId, callback) {
         if (!sucursalId) {

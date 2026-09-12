@@ -6,13 +6,19 @@ $conexion = $conn;
 // FUNCIONES DE OBTENCIÓN DE DATOS
 // ============================================================
 
-function obtenerPaginas($conexion)
+function obtenerPaginas($conexion, $modulo_id = null)
 {
     $sql = "SELECT p.*, m.modulo as nombre_modulo
             FROM conf__paginas p
             LEFT JOIN conf__modulos m ON p.modulo_id = m.modulo_id
-            WHERE p.tabla_estado_registro_id = 1 
-            ORDER BY m.modulo, p.orden, p.pagina";
+            WHERE p.tabla_estado_registro_id = 1";
+
+    if (!empty($modulo_id)) {
+        $modulo_id = intval($modulo_id);
+        $sql .= " AND p.modulo_id = $modulo_id";
+    }
+
+    $sql .= " ORDER BY m.modulo, p.orden, p.pagina";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -84,7 +90,9 @@ function obtenerArbolFunciones($conexion, $modulo_id = null, $pagina_id = null, 
 {
     $modulosData = obtenerModulosParaFiltro($conexion);
     
-    // Obtener páginas
+    // Obtener páginas. OJO: no se filtra acá por pagina_id — para poder ubicar
+    // la página filtrada dentro de la jerarquía hace falta también su cadena
+    // completa de páginas padre.
     $sql = "SELECT p.*, m.modulo, i.icono_clase
             FROM conf__paginas p
             LEFT JOIN conf__modulos m ON p.modulo_id = m.modulo_id
@@ -95,17 +103,31 @@ function obtenerArbolFunciones($conexion, $modulo_id = null, $pagina_id = null, 
         $modulo_id = intval($modulo_id);
         $sql .= " AND p.modulo_id = $modulo_id";
     }
-    if ($pagina_id) {
-        $pagina_id = intval($pagina_id);
-        $sql .= " AND p.pagina_id = $pagina_id";
-    }
     $sql .= " ORDER BY p.modulo_id, p.orden, p.pagina";
     
     $res = mysqli_query($conexion, $sql);
-    $paginas = [];
+    $paginasPorId = [];
     while ($fila = mysqli_fetch_assoc($res)) {
-        $paginas[] = $fila;
+        $paginasPorId[$fila['pagina_id']] = $fila;
     }
+
+    // Si se filtró una página puntual, nos quedamos solo con ella y toda su
+    // cadena de páginas padre (así el árbol puede ubicarla en su rama real,
+    // sin mostrar el resto de páginas del módulo)
+    $pagina_id_filtro = null;
+    if ($pagina_id) {
+        $pagina_id_filtro = intval($pagina_id);
+        $idsPermitidos = [];
+        $actualId = $pagina_id_filtro;
+        $tope = 0; // corta ante una cadena de padre_id mal formada (ciclo)
+        while ($actualId && isset($paginasPorId[$actualId]) && $tope < 50) {
+            $idsPermitidos[$actualId] = true;
+            $actualId = $paginasPorId[$actualId]['padre_id'];
+            $tope++;
+        }
+        $paginasPorId = array_intersect_key($paginasPorId, $idsPermitidos);
+    }
+    $paginas = array_values($paginasPorId);
     
     // Obtener funciones
     $sqlFunciones = "SELECT pf.*, 
@@ -153,7 +175,7 @@ function obtenerArbolFunciones($conexion, $modulo_id = null, $pagina_id = null, 
         ];
         
         $moduloNode['children'] = construirArbolFuncionesRecursivo(
-            $paginas, $funcionesPorPagina, $modulo['modulo_id'], null
+            $paginas, $funcionesPorPagina, $modulo['modulo_id'], null, $pagina_id_filtro
         );
         
         if (!empty($moduloNode['children'])) {
@@ -163,7 +185,7 @@ function obtenerArbolFunciones($conexion, $modulo_id = null, $pagina_id = null, 
     return $arbol;
 }
 
-function construirArbolFuncionesRecursivo($paginas, $funcionesPorPagina, $modulo_id, $padre_id = null)
+function construirArbolFuncionesRecursivo($paginas, $funcionesPorPagina, $modulo_id, $padre_id = null, $pagina_id_filtro = null)
 {
     $result = [];
     foreach ($paginas as $pagina) {
@@ -191,7 +213,7 @@ function construirArbolFuncionesRecursivo($paginas, $funcionesPorPagina, $modulo
             ];
             
             // Subpáginas
-            $hijos = construirArbolFuncionesRecursivo($paginas, $funcionesPorPagina, $modulo_id, $pagina['pagina_id']);
+            $hijos = construirArbolFuncionesRecursivo($paginas, $funcionesPorPagina, $modulo_id, $pagina['pagina_id'], $pagina_id_filtro);
             if (!empty($hijos)) {
                 $paginaNode['children'] = array_merge($paginaNode['children'], $hijos);
             }
@@ -269,7 +291,8 @@ function construirArbolFuncionesRecursivo($paginas, $funcionesPorPagina, $modulo
                 }
             }
             
-            if (!empty($paginaNode['children'])) {
+            $esPaginaFiltrada = $pagina_id_filtro && ($pagina['pagina_id'] == $pagina_id_filtro);
+            if (!empty($paginaNode['children']) || $esPaginaFiltrada) {
                 $result[] = $paginaNode;
             }
         }
@@ -287,6 +310,7 @@ function obtenerPaginasFunciones($conexion)
                 pf.*,
                 p.pagina as nombre_pagina,
                 p.url as ruta_pagina,
+                p.modulo_id as modulo_id,
                 m.modulo as nombre_modulo,
                 i.icono_nombre,
                 i.icono_clase,
