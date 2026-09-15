@@ -182,6 +182,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <span class="badge bg-primary rounded-pill ms-1" id="contador-productos">0</span>
                                                 </a>
                                             </li>
+                                            <li class="nav-item" id="tab-item-remitos" style="display: none;">
+                                                <a class="nav-link" id="tab-remitos" data-bs-toggle="tab" href="#remitos" role="tab">
+                                                    <i class="fas fa-truck me-1"></i>Remitos
+                                                    <span class="badge bg-primary rounded-pill ms-1" id="contador-remitos">0</span>
+                                                </a>
+                                            </li>
                                         </ul>
                                     </div>
                                     <div class="card-body">
@@ -280,7 +286,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <div class="row g-3 mt-1">
                                                     <div class="col-12">
                                                         <div class="row g-2">
-                                                            <div class="col-lg-3 col-md-6">
+                                                            <div class="col-lg col-md-4 col-6">
                                                                 <div class="info-box bg-light">
                                                                     <span class="info-box-icon bg-secondary"><i class="fas fa-coins"></i></span>
                                                                     <div class="info-box-content">
@@ -289,7 +295,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div class="col-lg-3 col-md-6">
+                                                            <div class="col-lg col-md-4 col-6">
                                                                 <div class="info-box bg-light">
                                                                     <span class="info-box-icon bg-danger"><i class="fas fa-circle-minus"></i></span>
                                                                     <div class="info-box-content">
@@ -298,7 +304,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div class="col-lg-3 col-md-6">
+                                                            <div class="col-lg col-md-4 col-6">
                                                                 <div class="info-box bg-light">
                                                                     <span class="info-box-icon bg-success"><i class="fas fa-calculator"></i></span>
                                                                     <div class="info-box-content">
@@ -307,12 +313,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div class="col-lg-3 col-md-6">
+                                                            <div class="col-lg col-md-4 col-6">
                                                                 <div class="info-box bg-light">
                                                                     <span class="info-box-icon bg-warning"><i class="fas fa-percent"></i></span>
                                                                     <div class="info-box-content">
                                                                         <span class="info-box-text fw-bold">Impuestos</span>
                                                                         <span class="info-box-number" id="impuestos_display_resumen">$0.00</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-lg col-md-4 col-6">
+                                                                <div class="info-box bg-light">
+                                                                    <span class="info-box-icon bg-info"><i class="fas fa-cubes"></i></span>
+                                                                    <div class="info-box-content">
+                                                                        <span class="info-box-text fw-bold">Cantidad</span>
+                                                                        <span class="info-box-number" id="cantidad_display_resumen">0</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -346,6 +361,39 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                             <!-- TAB 2: PRODUCTOS -->
                                             <div class="tab-pane fade" id="productos" role="tabpanel">
+
+                                                <!-- Resumen del pedido, versión compacta del de la solapa "Datos del Pedido" -->
+                                                <div class="card card-outline card-secondary mb-2">
+                                                    <div class="card-body py-1 px-2">
+                                                        <div class="row g-1 text-center">
+                                                            <div class="col">
+                                                                <div class="text-muted" style="font-size: 0.7rem;">Bruto</div>
+                                                                <div class="fw-bold small" id="bruto_display_resumen_mini">$0.00</div>
+                                                            </div>
+                                                            <div class="col">
+                                                                <div class="text-muted" style="font-size: 0.7rem;">Descuento</div>
+                                                                <div class="fw-bold small" id="descuento_display_resumen_mini">$0.00</div>
+                                                            </div>
+                                                            <div class="col">
+                                                                <div class="text-muted" style="font-size: 0.7rem;">Total Neto</div>
+                                                                <div class="fw-bold small" id="total_neto_display_resumen_mini">$0.00</div>
+                                                            </div>
+                                                            <div class="col">
+                                                                <div class="text-muted" style="font-size: 0.7rem;">Impuestos</div>
+                                                                <div class="fw-bold small" id="impuestos_display_resumen_mini">$0.00</div>
+                                                            </div>
+                                                            <div class="col">
+                                                                <div class="text-muted" style="font-size: 0.7rem;">Cantidad</div>
+                                                                <div class="fw-bold small" id="cantidad_display_resumen_mini">0</div>
+                                                            </div>
+                                                            <div class="col">
+                                                                <div class="text-muted" style="font-size: 0.7rem;">Total</div>
+                                                                <div class="fw-bold small text-primary" id="total_display_resumen_mini">$0.00</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
                                                 <!-- Barra de búsqueda y agregado (buscador por etiquetas, estilo "carrito",
                                                      mismo patrón que ventas_remitos) -->
                                                 <div class="card card-info card-outline mb-3">
@@ -355,7 +403,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="card-body py-2">
                                                         <div class="row g-2">
                                                             <div class="col-12">
-                                                                <label class="small fw-bold">Producto</label>
                                                                 <div class="input-group input-group-sm">
                                                                     <span class="input-group-text"><i class="fas fa-search"></i></span>
                                                                     <div class="form-control p-1" id="busqueda_producto_container" style="min-height: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; cursor: text;">
@@ -365,17 +412,34 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                         <i class="fas fa-times"></i>
                                                                     </button>
                                                                 </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="row g-2 mt-1 align-items-center">
+                                                            <div class="col-md-8">
                                                                 <small class="text-muted">
                                                                     Presioná <kbd>Espacio</kbd> para agregar una etiqueta (se combinan por código, nombre y compatibilidad).
                                                                 </small>
                                                             </div>
+                                                            <div class="col-md-4 d-none" id="col_detalle_lateral_titulo">
+                                                                <small class="text-muted fw-bold">
+                                                                    <i class="fas fa-cart-shopping me-1"></i>Ya incorporados
+                                                                </small>
+                                                            </div>
                                                         </div>
-                                                        <div id="resultados_busqueda" class="mt-2"></div>
+                                                        <div class="row g-2 mt-1">
+                                                            <div class="col-md-8" id="col_resultados_busqueda">
+                                                                <div id="resultados_busqueda"></div>
+                                                            </div>
+                                                            <div class="col-md-4 d-none" id="col_detalle_lateral">
+                                                                <div id="contenedor_detalle_lateral" style="max-height: 320px; overflow-y: auto;"></div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                <!-- Tabla de detalles -->
-                                                <div class="table-responsive">
+                                                <!-- Tabla de detalles completa: se oculta mientras el filtro está activo
+                                                     (ver panel lateral de arriba) y vuelve a mostrarse al limpiarlo -->
+                                                <div class="table-responsive" id="zona_detalle_completa">
                                                     <div id="contenedor-detalles">
                                                         <div class="detalles-vacio text-center p-4 border rounded bg-light">
                                                             <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
@@ -390,6 +454,78 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <button type="button" class="btn btn-sm btn-outline-warning" id="btnNuevoProductoRapido">
                                                         <i class="fas fa-bolt me-1"></i>Nuevo Producto Rápido
                                                     </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- TAB 3: REMITOS -->
+                                            <div class="tab-pane fade" id="remitos" role="tabpanel">
+
+                                                <!-- Remitos ya generados para este pedido -->
+                                                <div class="card card-outline card-primary mb-3">
+                                                    <div class="card-header py-1 bg-info bg-opacity-10">
+                                                        <h6 class="mb-0 small"><i class="fas fa-truck me-2"></i>Remitos generados</h6>
+                                                    </div>
+                                                    <div class="card-body py-2">
+                                                        <div id="contenedor-remitos-pedido">
+                                                            <div class="text-muted small text-center p-3">Todavía no hay remitos generados para este pedido.</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Cargar remito nuevo: reutiliza el motor de ventas_remitos vía AJAX
+                                                     cross-file, acotado a las líneas pendientes de ESTE pedido -->
+                                                <div class="card card-outline card-success mb-3" id="card-cargar-remito-nuevo">
+                                                    <div class="card-header py-1 bg-success bg-opacity-10">
+                                                        <h6 class="mb-0 small" id="titulo-card-remito"><i class="fas fa-plus-circle me-2"></i>Cargar Remito Nuevo</h6>
+                                                    </div>
+                                                    <div class="card-body py-2">
+                                                        <div class="row g-2">
+                                                            <div class="col-md-4">
+                                                                <label for="remito_punto_venta_id" class="form-label fw-bold small">Punto de Venta (Depósito) *</label>
+                                                                <select class="form-select form-select-sm" id="remito_punto_venta_id">
+                                                                    <option value="">Seleccionar</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label for="remito_comprobante_tipo_id" class="form-label fw-bold small">Tipo Comprobante *</label>
+                                                                <select class="form-select form-select-sm" id="remito_comprobante_tipo_id">
+                                                                    <option value="">Primero seleccione punto de venta</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label for="remito_f_emision" class="form-label fw-bold small">Fecha Emisión *</label>
+                                                                <input type="date" class="form-control form-control-sm" id="remito_f_emision">
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="mt-2" id="contenedor-remito-pendientes">
+                                                            <div class="text-muted small p-2">Elegí el punto de venta para ver las líneas pendientes de este pedido.</div>
+                                                        </div>
+
+                                                        <div class="table-responsive mt-2">
+                                                            <div id="contenedor-remito-detalle-nuevo">
+                                                                <div class="text-muted small text-center p-3 border rounded bg-light">
+                                                                    Todavía no agregaste líneas a este remito.
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="row g-2 mt-2">
+                                                            <div class="col-12">
+                                                                <label for="remito_observaciones" class="form-label fw-bold small">Observaciones</label>
+                                                                <textarea class="form-control form-control-sm" id="remito_observaciones" rows="1"></textarea>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="mt-2 text-end">
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnCancelarEdicionRemito">
+                                                                <i class="fas fa-times me-1"></i>Cancelar edición
+                                                            </button>
+                                                            <button type="button" class="btn btn-sm btn-success" id="btnGuardarRemitoDesdePedido">
+                                                                <i class="fas fa-save me-1"></i>Guardar Remito
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -500,6 +636,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
 
         /* ===== MODAL ===== */
+        #modalVentaPedido .modal-dialog.modal-xl:not(.modal-fullscreen) {
+            max-width: 1400px; /* modal-xl de Bootstrap se queda en ~1140px */
+        }
         .modal-fullscreen .modal-dialog {
             max-width: 100%;
             margin: 0;
@@ -606,14 +745,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
 
         /* ===== TABLA DE DETALLES Y RESULTADOS DE BÚSQUEDA ===== */
-        #contenedor-detalles, #resultados_busqueda {
+        #contenedor-detalles, #resultados_busqueda, #contenedor_detalle_lateral,
+        #contenedor-remitos-pedido, #contenedor-remito-pendientes, #contenedor-remito-detalle-nuevo {
             font-size: 0.85rem;
         }
-        #contenedor-detalles table, #resultados_busqueda table {
+        #contenedor-detalles table, #resultados_busqueda table, #contenedor_detalle_lateral table,
+        #contenedor-remitos-pedido table, #contenedor-remito-pendientes table, #contenedor-remito-detalle-nuevo table {
             border-radius: 8px;
             overflow: hidden;
         }
-        #contenedor-detalles thead th, #resultados_busqueda thead th {
+        #contenedor-detalles thead th, #resultados_busqueda thead th, #contenedor_detalle_lateral thead th,
+        #contenedor-remitos-pedido thead th, #contenedor-remito-pendientes thead th, #contenedor-remito-detalle-nuevo thead th {
             background: #f1f3f5 !important;
             border-bottom: 2px solid #dee2e6;
             font-weight: 600;
@@ -622,11 +764,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             letter-spacing: 0.3px;
             padding: 0.5rem 0.75rem;
         }
-        #contenedor-detalles tbody td, #resultados_busqueda tbody td {
+        #contenedor-detalles tbody td, #resultados_busqueda tbody td, #contenedor_detalle_lateral tbody td,
+        #contenedor-remitos-pedido tbody td, #contenedor-remito-pendientes tbody td, #contenedor-remito-detalle-nuevo tbody td {
             padding: 0.4rem 0.75rem;
             vertical-align: middle;
         }
-        #contenedor-detalles tbody tr:hover, #resultados_busqueda tbody tr:hover {
+        #contenedor-detalles tbody tr:hover, #resultados_busqueda tbody tr:hover, #contenedor_detalle_lateral tbody tr:hover,
+        #contenedor-remitos-pedido tbody tr:hover, #contenedor-remito-pendientes tbody tr:hover, #contenedor-remito-detalle-nuevo tbody tr:hover {
             background: #f8f9fa;
         }
         #contenedor-detalles tbody tr.table-info {
@@ -639,6 +783,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             background: #f8f9fa !important;
             border: 2px dashed #dee2e6 !important;
         }
+
+        /* Badges de ubicación en la tabla de pendientes de la solapa Remitos —
+           copiado tal cual de ventas_remitos.php para que se vea igual. */
+        .badge-ubicacion { font-size: 0.7rem; padding: 0.2rem 0.4rem; margin-bottom: 0.1rem; border-radius: 0.25rem; }
+        .badge-seccion { background-color: #dc3545 !important; color: #ffffff !important; }
+        .badge-estanteria { background-color: #ffc107 !important; color: #000000 !important; }
+        .badge-estante { background-color: #198754 !important; color: #ffffff !important; }
+        .badge-posicion { background-color: #6c757d !important; color: #ffffff !important; }
+        .ubicaciones-pendiente-container { display: flex; flex-direction: column; gap: 2px; }
 
         /* Stepper compacto de cantidad en la tabla de detalle (+/- no se envuelven en columnas angostas) */
         .cantidad-stepper {

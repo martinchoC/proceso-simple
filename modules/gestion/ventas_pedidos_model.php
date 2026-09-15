@@ -291,7 +291,7 @@ function ejecutarTransicionEstado($conexion, $venta_pedido_id, $accion_js, $empr
     try {
         $numero_asignado = null;
         
-        if ($accion_js === 'confirmar') {
+        if ($accion_js === 'confirmar_pedido') {
             
             if (empty($pedido['punto_venta_id'])) {
                 throw new Exception('El pedido no tiene punto de venta asignado. No se puede generar número de comprobante.');
@@ -428,24 +428,13 @@ function obtenerPedidosVenta($conexion, $empresa_idx, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
 
-    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
-    $result = mysqli_query($conexion, $sql_check);
-    $columns = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $columns[] = $row['Field'];
-    }
-
-    $estado_column = 'estado_registro';
-    if (!in_array('estado_registro', $columns)) {
-        if (in_array('nombre_estado', $columns)) {
-            $estado_column = 'nombre_estado';
-        } elseif (in_array('descripcion', $columns)) {
-            $estado_column = 'descripcion';
-        }
-    }
+    // El mismo estado_registro_id se repite en conf__tablas_estados_registros una
+    // vez por cada tabla_id — hace falta acotar por la tabla de este módulo,
+    // resuelta a partir de pagina_id (mismo mecanismo que ya usa obtenerComprobantesTipos).
+    $tabla_id = obtenerTablaOrigenPorPagina($conexion, $pagina_id);
 
     $sql = "SELECT vp.*, 
-                   er.$estado_column as estado_registro, 
+                   ter.tabla_estado_registro as estado_registro, 
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
                    ct.comprobante_tipo,
@@ -454,8 +443,10 @@ function obtenerPedidosVenta($conexion, $empresa_idx, $pagina_id)
                    s.sucursal_nombre,
                    pv.nombre as punto_venta_nombre, pv.codigo_fiscal as punto_venta_codigo
             FROM gestion__ventas_pedidos vp
-            LEFT JOIN conf__estados_registros er ON vp.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN conf__colores c ON er.color_id = c.color_id
+            LEFT JOIN conf__tablas_estados_registros ter
+                ON vp.tabla_estado_registro_id = ter.estado_registro_id AND ter.tabla_id = ?
+            LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores c ON ter.color_id = c.color_id
             LEFT JOIN gestion__comprobantes_tipos ct ON vp.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON vp.entidad_id = e.entidad_id
             LEFT JOIN gestion__monedas m ON vp.moneda_id = m.moneda_id
@@ -468,7 +459,7 @@ function obtenerPedidosVenta($conexion, $empresa_idx, $pagina_id)
     if (!$stmt)
         return [];
 
-    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "ii", $tabla_id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
@@ -825,26 +816,13 @@ function editarPedidoVenta($conexion, $id, $data)
             mysqli_stmt_close($stmt);
         }
 
-        $sql_delete = "DELETE FROM gestion__ventas_pedidos_detalles WHERE venta_pedido_id = ?";
-        $stmt_delete = mysqli_prepare($conexion, $sql_delete);
-        if (!$stmt_delete) {
-            throw new Exception("Error preparando delete de detalles: " . mysqli_error($conexion));
-        }
-        
-        mysqli_stmt_bind_param($stmt_delete, "i", $id);
-        if (!mysqli_stmt_execute($stmt_delete)) {
-            throw new Exception("Error eliminando detalles existentes: " . mysqli_stmt_error($stmt_delete));
-        }
-        mysqli_stmt_close($stmt_delete);
-        
-        if (isset($data['detalles']) && is_array($data['detalles']) && count($data['detalles']) > 0) {
-            $detalles_success = insertarDetallesPedido($conexion, $id, $empresa_idx_val, $data['detalles']);
-            
-            if (!$detalles_success) {
-                throw new Exception("Error al insertar los nuevos detalles");
-            }
-        } else {
+        if (!isset($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
             throw new Exception("Debe haber al menos un detalle en el pedido");
+        }
+
+        $sync_result = actualizarDetallesPedido($conexion, $id, $empresa_idx_val, $data['detalles']);
+        if (!$sync_result['resultado']) {
+            throw new Exception($sync_result['error']);
         }
 
         mysqli_commit($conexion);
@@ -857,44 +835,33 @@ function editarPedidoVenta($conexion, $id, $data)
     }
 }
 
-function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx)
+function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx, $pagina_id = 0)
 {
     $id = intval($id);
-
-    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
-    $result = mysqli_query($conexion, $sql_check);
-    $columns = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $columns[] = $row['Field'];
-    }
-
-    $estado_column = 'estado_registro';
-    if (!in_array('estado_registro', $columns)) {
-        if (in_array('nombre_estado', $columns)) {
-            $estado_column = 'nombre_estado';
-        } elseif (in_array('descripcion', $columns)) {
-            $estado_column = 'descripcion';
-        }
-    }
+    $tabla_id = obtenerTablaOrigenPorPagina($conexion, intval($pagina_id));
 
     $sql = "SELECT vp.*, vp.sucursal_id, vp.punto_venta_id,
-                   er.$estado_column as estado_registro, 
+                   ter.tabla_estado_registro as estado_registro, 
                    er.codigo_estandar,
                    ct.comprobante_tipo,
                    e.entidad_nombre, e.entidad_fantasia,
-                   m.moneda, m.simbolo
+                   m.moneda, m.simbolo,
+                   pv.nombre as punto_venta_nombre, pv.codigo_fiscal as punto_venta_codigo
             FROM gestion__ventas_pedidos vp
-            LEFT JOIN conf__estados_registros er ON vp.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__tablas_estados_registros ter
+                ON vp.tabla_estado_registro_id = ter.estado_registro_id AND ter.tabla_id = ?
+            LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
             LEFT JOIN gestion__comprobantes_tipos ct ON vp.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON vp.entidad_id = e.entidad_id
             LEFT JOIN gestion__monedas m ON vp.moneda_id = m.moneda_id
+            LEFT JOIN gestion__puntos_venta pv ON vp.punto_venta_id = pv.punto_venta_id AND pv.empresa_id = vp.empresa_id
             WHERE vp.venta_pedido_id = ? AND vp.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return null;
 
-    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_bind_param($stmt, "iii", $tabla_id, $id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $pedido = mysqli_fetch_assoc($result);
@@ -904,7 +871,7 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx)
         return null;
     }
 
-    $sql_detalles = "SELECT d.*, p.producto_codigo, p.producto_nombre,
+    $sql_detalles = "SELECT d.*, p.producto_codigo, p.producto_nombre, p.compatibilidad_texto,
                             p.iva_alicuota_id as producto_iva_id,
                             iva.porcentaje as iva_porcentaje
                      FROM gestion__ventas_pedidos_detalles d
@@ -928,6 +895,7 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx)
             'producto_id' => $detalle['producto_id'],
             'producto_codigo' => $detalle['producto_codigo'],
             'producto_nombre' => $detalle['producto_nombre'],
+            'compatibilidad_texto' => $detalle['compatibilidad_texto'] ?? '',
             'cantidad' => floatval($detalle['cantidad']),
             'cantidad_entregada' => floatval($detalle['cantidad_entregada'] ?? 0),
             'precio_unitario' => floatval($detalle['precio_unitario']),
@@ -949,7 +917,87 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx)
     return $pedido;
 }
 
-// Resuelve los tipos de comprobante habilitados para un combo, cruzando:
+// Lista los remitos ya generados que tocan a este pedido, agrupando por remito
+// con sus líneas (solo las que provienen de este pedido, vía venta_pedido_detalle_id).
+// Usado por la solapa "Remitos" del modal de pedidos.
+//
+// SUPUESTO A VERIFICAR: asume que ventas_remitos_model.php vive en el mismo
+// directorio que este archivo (mismo patrón que ambos usan para llegar a
+// db.php con `__DIR__ . '/../../db.php'`). Si la estructura real es otra,
+// ajustar esta ruta.
+require_once __DIR__ . '/ventas_remitos_model.php';
+
+function obtenerRemitosDePedido($conexion, $empresa_idx, $pedido_id, $pagina_idx_remitos)
+{
+    $empresa_idx = intval($empresa_idx);
+    $pedido_id = intval($pedido_id);
+    $tabla_id_remitos = obtenerTablaOrigenPorPagina($conexion, intval($pagina_idx_remitos));
+
+    $sql = "SELECT vr.venta_remito_id, vr.comprobante_nro, vr.f_emision, vr.tabla_estado_registro_id,
+                   ter.tabla_estado_registro as estado_registro, er.codigo_estandar,
+                   c.color_clase, c.bg_clase, c.text_clase,
+                   ct.comprobante_tipo,
+                   rd.venta_remito_detalle_id, rd.producto_id, p.producto_codigo, p.producto_nombre,
+                   rd.cantidad, rd.importe_linea
+            FROM gestion__ventas_remitos_detalles rd
+            INNER JOIN gestion__ventas_remitos vr ON rd.venta_remito_id = vr.venta_remito_id
+            INNER JOIN gestion__ventas_pedidos_detalles vpd ON rd.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+            LEFT JOIN gestion__productos p ON rd.producto_id = p.producto_id
+            LEFT JOIN conf__tablas_estados_registros ter
+                ON vr.tabla_estado_registro_id = ter.estado_registro_id AND ter.tabla_id = ?
+            LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores c ON ter.color_id = c.color_id
+            LEFT JOIN gestion__comprobantes_tipos ct ON vr.comprobante_tipo_id = ct.comprobante_tipo_id
+            WHERE vpd.venta_pedido_id = ? AND vr.empresa_id = ?
+            ORDER BY vr.f_emision DESC, vr.venta_remito_id DESC, rd.venta_remito_detalle_id";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando consulta remitos de pedido: " . mysqli_error($conexion));
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "iii", $tabla_id_remitos, $pedido_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $remitos = []; // indexado por venta_remito_id para agrupar líneas
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $rid = $fila['venta_remito_id'];
+        if (!isset($remitos[$rid])) {
+            $remitos[$rid] = [
+                'venta_remito_id' => $rid,
+                'comprobante_nro' => $fila['comprobante_nro'],
+                'comprobante_tipo' => $fila['comprobante_tipo'],
+                'f_emision' => $fila['f_emision'],
+                'estado_info' => [
+                    'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+                    'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+                    'color_clase' => $fila['color_clase'] ?? 'btn-dark',
+                    'bg_clase' => $fila['bg_clase'] ?? 'bg-dark',
+                    'text_clase' => $fila['text_clase'] ?? 'text-white'
+                ],
+                // Mismos botones (confirmar/anular/etc.) que ve la pantalla de
+                // remitos para este estado — se reutiliza esa función tal cual,
+                // en vez de adivinar o duplicar los accion_js de cada transición.
+                'botones' => obtenerBotonesPorEstadoRemito($conexion, $pagina_idx_remitos, $fila['tabla_estado_registro_id']),
+                'detalles' => []
+            ];
+        }
+        $remitos[$rid]['detalles'][] = [
+            'venta_remito_detalle_id' => $fila['venta_remito_detalle_id'],
+            'producto_codigo' => $fila['producto_codigo'],
+            'producto_nombre' => $fila['producto_nombre'],
+            'cantidad' => floatval($fila['cantidad']),
+            'importe_linea' => floatval($fila['importe_linea'])
+        ];
+    }
+    mysqli_stmt_close($stmt);
+
+    return array_values($remitos);
+}
+
+
 // 1) pagina_id -> conf__paginas.tabla_id -> subgrupos cuya tabla_id coincide
 //    (la tabla física cuelga del subgrupo, no del tipo: ver decisión de proyecto)
 // 2) esos tipos, intersectados con lo habilitado para el punto_venta_id elegido
@@ -1445,6 +1493,143 @@ function obtenerUltimoPrecioProducto($conexion, $producto_id, $entidad_id, $empr
     
 
     return ['success' => false];
+}
+
+// Sincroniza el detalle del pedido en un UPDATE/INSERT/DELETE dirigido, en vez de
+// borrar todo y reinsertar de cero (lo que generaba venta_pedido_detalle_id nuevos
+// en cada edición y rompía el vínculo con gestion__ventas_remitos_detalles.
+// venta_pedido_detalle_id de los remitos ya generados — los dejaba huérfanos).
+function actualizarDetallesPedido($conexion, $venta_pedido_id, $empresa_id, $detalles)
+{
+    if (!is_array($detalles) || count($detalles) === 0) {
+        return ['resultado' => false, 'error' => 'Debe haber al menos un detalle en el pedido'];
+    }
+
+    // ids ya existentes en la base + lo que ya tienen entregado, para decidir
+    // update vs. insert por línea, y para no permitir bajar o sacar algo que ya
+    // salió por remito.
+    $ids_existentes = [];
+    $sql_ids = "SELECT venta_pedido_detalle_id, cantidad_entregada FROM gestion__ventas_pedidos_detalles WHERE venta_pedido_id = ?";
+    $stmt_ids = mysqli_prepare($conexion, $sql_ids);
+    mysqli_stmt_bind_param($stmt_ids, "i", $venta_pedido_id);
+    mysqli_stmt_execute($stmt_ids);
+    $result_ids = mysqli_stmt_get_result($stmt_ids);
+    while ($row = mysqli_fetch_assoc($result_ids)) {
+        $ids_existentes[intval($row['venta_pedido_detalle_id'])] = floatval($row['cantidad_entregada']);
+    }
+    mysqli_stmt_close($stmt_ids);
+
+    $ids_recibidos = [];
+
+    foreach ($detalles as $detalle) {
+        if (empty($detalle['producto_id'])) {
+            return ['resultado' => false, 'error' => 'Producto inválido en una de las líneas'];
+        }
+
+        $cantidad = floatval($detalle['cantidad'] ?? 0);
+        if ($cantidad <= 0) {
+            return ['resultado' => false, 'error' => 'La cantidad debe ser mayor a 0 en todas las líneas'];
+        }
+
+        $producto_id_val = intval($detalle['producto_id']);
+        $precio_unitario = floatval($detalle['precio_unitario'] ?? 0);
+        $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 1;
+        $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 21);
+        $precio_unitario_bruto = $precio_unitario;
+        $descuento_general_pct = floatval($detalle['descuento_general_pct'] ?? 0);
+        $descuento_general = floatval($detalle['descuento_general'] ?? ($precio_unitario_bruto * $descuento_general_pct / 100));
+        $precio_unitario_neto = floatval($detalle['precio_unitario_neto'] ?? ($precio_unitario_bruto - $descuento_general));
+        $neto_gravado = floatval($detalle['neto_gravado'] ?? ($cantidad * $precio_unitario_neto));
+        $no_gravado = floatval($detalle['no_gravado'] ?? 0);
+        $exento = floatval($detalle['exento'] ?? 0);
+        $iva_importe = floatval($detalle['iva_importe'] ?? ($neto_gravado * $iva_porcentaje / 100));
+        $total_linea = floatval($detalle['total_linea'] ?? ($neto_gravado + $iva_importe + $no_gravado + $exento));
+
+        $vpd_id = intval($detalle['venta_pedido_detalle_id'] ?? 0);
+
+        if ($vpd_id > 0 && isset($ids_existentes[$vpd_id])) {
+            // Línea existente: UPDATE en el mismo id. cantidad_entregada nunca se
+            // toca acá — la administra únicamente el motor de remitos.
+            $ya_entregado = $ids_existentes[$vpd_id];
+            if ($cantidad < $ya_entregado - 0.0001) {
+                return ['resultado' => false, 'error' => "No se puede bajar la cantidad de un producto por debajo de lo ya remitido ($ya_entregado)."];
+            }
+
+            $sql_upd = "UPDATE gestion__ventas_pedidos_detalles SET
+                            producto_id = ?, cantidad = ?, precio_unitario = ?,
+                            descuento_general_pct = ?, descuento_general = ?,
+                            precio_unitario_bruto = ?, precio_unitario_neto = ?,
+                            neto_gravado = ?, iva_alicuota_id = ?, iva_porcentaje = ?,
+                            iva_importe = ?, no_gravado = ?, exento = ?, total_linea = ?
+                        WHERE venta_pedido_detalle_id = ? AND venta_pedido_id = ?";
+            $stmt = mysqli_prepare($conexion, $sql_upd);
+            if (!$stmt) {
+                return ['resultado' => false, 'error' => 'Error preparando update de detalle: ' . mysqli_error($conexion)];
+            }
+
+            mysqli_stmt_bind_param($stmt, "idddddddidddddii",
+                $producto_id_val, $cantidad, $precio_unitario,
+                $descuento_general_pct, $descuento_general,
+                $precio_unitario_bruto, $precio_unitario_neto,
+                $neto_gravado, $iva_alicuota_id, $iva_porcentaje,
+                $iva_importe, $no_gravado, $exento, $total_linea,
+                $vpd_id, $venta_pedido_id
+            );
+            if (!mysqli_stmt_execute($stmt)) {
+                $err = mysqli_stmt_error($stmt);
+                mysqli_stmt_close($stmt);
+                return ['resultado' => false, 'error' => 'Error actualizando detalle: ' . $err];
+            }
+            mysqli_stmt_close($stmt);
+            $ids_recibidos[] = $vpd_id;
+        } else {
+            // Línea nueva: INSERT. cantidad_entregada arranca en 0 acá sí, porque
+            // es genuinamente nueva.
+            $sql_ins = "INSERT INTO gestion__ventas_pedidos_detalles 
+                    (venta_pedido_id, producto_id, cantidad, cantidad_entregada, 
+                     precio_unitario, descuento_item_pct, descuento_general_pct, 
+                     descuento_general, descuento_item, precio_unitario_bruto, 
+                     precio_unitario_neto, neto_gravado, iva_alicuota_id, iva_porcentaje, 
+                     iva_importe, no_gravado, exento, total_linea, tabla_estado_registro_id) 
+                    VALUES (?, ?, ?, 0, ?, 0, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+            $stmt = mysqli_prepare($conexion, $sql_ins);
+            if (!$stmt) {
+                return ['resultado' => false, 'error' => 'Error preparando insert de detalle: ' . mysqli_error($conexion)];
+            }
+
+            mysqli_stmt_bind_param($stmt, "iidddddddiddddd",
+                $venta_pedido_id, $producto_id_val, $cantidad,
+                $precio_unitario, $descuento_general_pct, $descuento_general,
+                $precio_unitario_bruto, $precio_unitario_neto, $neto_gravado,
+                $iva_alicuota_id, $iva_porcentaje, $iva_importe,
+                $no_gravado, $exento, $total_linea
+            );
+            if (!mysqli_stmt_execute($stmt)) {
+                $err = mysqli_stmt_error($stmt);
+                mysqli_stmt_close($stmt);
+                return ['resultado' => false, 'error' => 'Error insertando detalle nuevo: ' . $err];
+            }
+            $ids_recibidos[] = mysqli_insert_id($conexion);
+            mysqli_stmt_close($stmt);
+        }
+    }
+
+    // Líneas que existían y no vinieron en este guardado: se sacaron desde el
+    // front. Se borran, salvo que ya tengan algo entregado — el front ya lo
+    // bloquea (ver btn-eliminar-detalle), pero no hay que confiar solo en eso.
+    foreach ($ids_existentes as $vpd_id => $ya_entregado) {
+        if (in_array($vpd_id, $ids_recibidos)) continue;
+        if ($ya_entregado > 0.0001) {
+            return ['resultado' => false, 'error' => "No se puede quitar un producto que ya tiene $ya_entregado unidades remitidas."];
+        }
+        $sql_del = "DELETE FROM gestion__ventas_pedidos_detalles WHERE venta_pedido_detalle_id = ? AND venta_pedido_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_del);
+        mysqli_stmt_bind_param($stmt, "ii", $vpd_id, $venta_pedido_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
+
+    return ['resultado' => true];
 }
 
 function insertarDetallesPedido($conexion, $venta_pedido_id, $empresa_id, $detalles)

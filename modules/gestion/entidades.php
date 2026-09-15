@@ -318,6 +318,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- Acceso web (carrito de pedidos) -->
+                                    <div class="card card-outline card-secondary mt-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-key me-1"></i>Acceso Web - Carrito de Pedidos
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="usuario-web-entidad">
+                                                <div class="text-center text-muted py-2">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>Verificando usuario...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     
                                     <!-- Modal para historial de clientes -->
                                     <div class="modal fade" id="modalHistorialCliente" tabindex="-1" aria-hidden="true">
@@ -1597,6 +1613,90 @@ $(document).ready(function () {
             }
         }, 'json');
     }
+
+    // Verificar/mostrar usuario web (carrito de pedidos) de la entidad
+    function cargarUsuarioWebEntidad() {
+        if (!entidadActualId) {
+            $('#usuario-web-entidad').html('<div class="text-muted">Seleccione una entidad primero</div>');
+            return;
+        }
+
+        $('#usuario-web-entidad').html('<div class="text-center text-muted py-2"><i class="fas fa-spinner fa-spin me-2"></i>Verificando usuario...</div>');
+
+        $.get('entidades_ajax.php', {
+            accion: 'verificar_usuario_web_entidad',
+            entidad_id: entidadActualId
+        }, function (res) {
+            if (res.tiene_usuario) {
+                var passwordHtml = res.password
+                    ? '<code>' + res.password + '</code>'
+                    : '<span class="text-muted">(ya no disponible)</span>';
+                var html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr><th width="40%">Usuario (CUIT):</th><td><code>${res.usuario}</code></td></tr>
+                                <tr><th>Contraseña:</th><td>${passwordHtml}</td></tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr><th width="40%">Email:</th><td>${res.email}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mt-2 mb-0 py-2">
+                        <small><i class="fas fa-exclamation-triangle me-1"></i>La contraseña se muestra en texto plano de forma temporal, mientras el carrito de pedidos no pasa a desarrollo/producción.</small>
+                    </div>
+                `;
+                $('#usuario-web-entidad').html(html);
+            } else if (res.sin_cuit) {
+                $('#usuario-web-entidad').html('<div class="alert alert-secondary mb-0 py-2"><small>La entidad no tiene CUIT cargado. Complételo en la solapa Datos para poder generar el acceso web.</small></div>');
+            } else {
+                $('#usuario-web-entidad').html(`
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Esta entidad todavía no tiene usuario de acceso web.</span>
+                        <button type="button" class="btn btn-sm btn-primary" id="btnAltaUsuarioWeb">
+                            <i class="fas fa-user-plus me-1"></i>Dar de alta usuario
+                        </button>
+                    </div>
+                `);
+            }
+        }, 'json').fail(function () {
+            $('#usuario-web-entidad').html('<div class="text-danger">Error al verificar el usuario web.</div>');
+        });
+    }
+
+    $(document).on('click', '#btnAltaUsuarioWeb', function () {
+        if (!entidadActualId) return;
+
+        var btn = $(this);
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Generando...');
+
+        $.post('entidades_ajax.php', {
+            accion: 'alta_usuario_web_entidad',
+            entidad_id: entidadActualId
+        }, function (res) {
+            if (res.resultado) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Usuario creado',
+                    text: 'Se generó el usuario y contraseña de acceso al carrito.',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+                cargarUsuarioWebEntidad();
+            } else {
+                Swal.fire('Error', res.error || 'No se pudo dar de alta el usuario', 'error');
+                btn.prop('disabled', false).html('<i class="fas fa-user-plus me-1"></i>Dar de alta usuario');
+            }
+        }, 'json').fail(function () {
+            Swal.fire('Error', 'Error al comunicarse con el servidor', 'error');
+            btn.prop('disabled', false).html('<i class="fas fa-user-plus me-1"></i>Dar de alta usuario');
+        });
+    });
 
     // Cargar cuentas contables para proveedores y clientes
     function cargarCuentasContables() {
@@ -3390,6 +3490,7 @@ $(document).ready(function () {
                 inicializarDataTableCondicionesProveedores(entidadActualId);
                 cargarCondicionClienteVigente();
                 cargarCondicionProveedorVigente();
+                cargarUsuarioWebEntidad();
                 inicializarDataTableSucursalesCompra(entidadActualId);
                 cargarTiposCliente();
                 
@@ -3470,6 +3571,7 @@ $(document).ready(function () {
         $('#contador-condiciones-proveedores').text('0').addClass('bg-secondary').removeClass('bg-primary');
         $('#condicion-cliente-vigente').html('<div class="col-12 text-center text-muted py-4">Seleccione una entidad primero</div>');
         $('#condicion-proveedor-vigente').html('<div class="col-12 text-center text-muted py-4">Seleccione una entidad primero</div>');
+        $('#usuario-web-entidad').html('<div class="text-muted">Seleccione una entidad primero</div>');
         
         // Resetear sucursales de compra
         if ($.fn.DataTable.isDataTable('#tablaSucursalesCompra')) {
@@ -3580,6 +3682,8 @@ $(document).ready(function () {
                                     }.bind(this), 2000);
                                 }
                             });
+                            // El CUIT pudo haber cambiado: refrescar estado de usuario web
+                            cargarUsuarioWebEntidad();
                         } else if (res.entidad_id) {
                             // NUEVA ENTIDAD: Inicializar todas las tablas
                             entidadActualId = res.entidad_id;
@@ -3590,6 +3694,7 @@ $(document).ready(function () {
                             inicializarDataTableCondicionesClientes(entidadActualId);
                             inicializarDataTableCondicionesProveedores(entidadActualId);
                             inicializarDataTableSucursalesCompra(entidadActualId);
+                            cargarUsuarioWebEntidad();
                         }
 
                         btnGuardar.prop('disabled', false).html(originalText);

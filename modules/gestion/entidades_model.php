@@ -1964,4 +1964,218 @@ function verificarAccesoWebCliente($conexion, $entidad_id) {
         'acceso_web_valor' => $condicion['acceso_web']
     ];
 }
+
+// ============================================
+// FUNCIONES PARA USUARIO WEB (ACCESO AL CARRITO DE PEDIDOS)
+// ============================================
+// Usuario del carrito = CUIT de la entidad (conf__usuarios.usuario).
+// conf__usuarios.password guarda el HASH (password_hash) usado para autenticar.
+// conf__usuarios.password_temporal guarda el texto plano SOLO como provisión
+// temporal para poder mostrarlo en pantalla mientras el carrito no pasa a
+// desarrollo/producción. Cuando eso ocurra: limpiar password_temporal
+// (UPDATE conf__usuarios SET password_temporal = NULL) y dejar de exponerlo
+// por AJAX. Requiere la columna agregada en alter_conf_usuarios_password_temporal.sql.
+
+/**
+ * Verificar si la entidad ya tiene usuario web dado de alta (usuario = cuit).
+ * Devuelve también password_temporal (texto plano) mientras exista, para
+ * mostrarlo en la solapa "Condiciones Clientes".
+ */
+function obtenerUsuarioWebEntidad($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+
+    $sql_entidad = "SELECT cuit FROM gestion__entidades WHERE entidad_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_entidad);
+    if (!$stmt) return ['tiene_usuario' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $entidad = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$entidad) {
+        return ['tiene_usuario' => false, 'error' => 'Entidad no encontrada'];
+    }
+
+    if (empty($entidad['cuit'])) {
+        return ['tiene_usuario' => false, 'sin_cuit' => true];
+    }
+
+    $cuit = strval($entidad['cuit']);
+
+    $sql = "SELECT usuario_id, usuario_nombre, usuario, email, password_temporal
+            FROM conf__usuarios
+            WHERE usuario = ?
+            LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['tiene_usuario' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "s", $cuit);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $usuario = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($usuario) {
+        return [
+            'tiene_usuario' => true,
+            'usuario_id' => $usuario['usuario_id'],
+            'usuario' => $usuario['usuario'],
+            'email' => $usuario['email'],
+            'usuario_nombre' => $usuario['usuario_nombre'],
+            'password' => $usuario['password_temporal'] // null si ya se limpió
+        ];
+    }
+
+    return ['tiene_usuario' => false, 'cuit' => $cuit];
+}
+
+/**
+ * Generar contraseña aleatoria (letras y números, sin caracteres ambiguos).
+ */
+function generarPasswordAleatoria($longitud = 10)
+{
+    $caracteres = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    $max = strlen($caracteres) - 1;
+    $password = '';
+    for ($i = 0; $i < $longitud; $i++) {
+        $password .= $caracteres[random_int(0, $max)];
+    }
+    return $password;
+}
+
+/**
+ * Dar de alta el usuario web de una entidad.
+ * usuario = cuit, email = email de la primer sucursal activa (menor sucursal_id),
+ * password aleatoria (hasheada en `password`, texto plano en `password_temporal`).
+ */
+function altaUsuarioWebEntidad($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+
+    $sql_entidad = "SELECT entidad_id, entidad_nombre, cuit FROM gestion__entidades WHERE entidad_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_entidad);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $entidad = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$entidad) {
+        return ['resultado' => false, 'error' => 'Entidad no encontrada'];
+    }
+
+    if (empty($entidad['cuit'])) {
+        return ['resultado' => false, 'error' => 'La entidad no tiene CUIT cargado. Complételo en la solapa Datos antes de dar de alta el usuario.'];
+    }
+
+    $cuit = strval($entidad['cuit']);
+
+    // No permitir duplicados
+    $sql_check = "SELECT usuario_id FROM conf__usuarios WHERE usuario = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "s", $cuit);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $existe = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($existe) {
+        return ['resultado' => false, 'error' => 'Ya existe un usuario dado de alta con ese CUIT'];
+    }
+
+    // Email de la primer sucursal activa (menor sucursal_id)
+    $sql_sucursal = "SELECT sucursal_email FROM gestion__entidades_sucursales
+                      WHERE entidad_id = ? AND tabla_estado_registro_id = 1
+                      ORDER BY sucursal_id ASC
+                      LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql_sucursal);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $sucursal = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$sucursal || empty($sucursal['sucursal_email'])) {
+        return ['resultado' => false, 'error' => 'No hay ninguna sucursal activa con email cargado para esta entidad'];
+    }
+
+    $email = $sucursal['sucursal_email'];
+    if (strlen($email) > 100) {
+        return ['resultado' => false, 'error' => 'El email de la sucursal supera los 100 caracteres permitidos en conf__usuarios'];
+    }
+
+    $password_plana = generarPasswordAleatoria(10);
+    $password_hash = password_hash($password_plana, PASSWORD_DEFAULT);
+    $usuario_nombre = $entidad['entidad_nombre'];
+    $estado_inicial = obtenerEstadoInicial($conexion);
+
+    // Perfil a asignar al usuario del carrito (fijo por ahora)
+    $empresa_perfil_id_carrito = 11;
+    $fecha_inicio = date('Y-m-d');
+    $fecha_fin = '2050-12-31';
+
+    mysqli_begin_transaction($conexion);
+
+    try {
+        $sql_insert = "INSERT INTO conf__usuarios
+                        (usuario_nombre, usuario, email, password, password_temporal, tabla_estado_registro_id)
+                        VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = mysqli_prepare($conexion, $sql_insert);
+        if (!$stmt) {
+            throw new Exception('Error al preparar la consulta de usuario: ' . mysqli_error($conexion));
+        }
+
+        mysqli_stmt_bind_param($stmt, "sssssi", $usuario_nombre, $cuit, $email, $password_hash, $password_plana, $estado_inicial);
+        if (!mysqli_stmt_execute($stmt)) {
+            $error = mysqli_error($conexion);
+            mysqli_stmt_close($stmt);
+            throw new Exception('Error al crear el usuario: ' . $error);
+        }
+        $usuario_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+
+        // Asignar perfil del carrito (conf__usuarios_perfiles)
+        $sql_perfil = "INSERT INTO conf__usuarios_perfiles
+                        (usuario_id, empresa_perfil_id, fecha_inicio, fecha_fin, usuario_creacion, tabla_estado_registro_id)
+                        VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt_perfil = mysqli_prepare($conexion, $sql_perfil);
+        if (!$stmt_perfil) {
+            throw new Exception('Error al preparar la consulta de perfil: ' . mysqli_error($conexion));
+        }
+
+        // usuario_creacion: sin convención de usuario de sesión disponible en este
+        // módulo por ahora -> se guarda NULL (columna nullable).
+        $usuario_creacion = null;
+        mysqli_stmt_bind_param($stmt_perfil, "iissii", $usuario_id, $empresa_perfil_id_carrito, $fecha_inicio, $fecha_fin, $usuario_creacion, $estado_inicial);
+        if (!mysqli_stmt_execute($stmt_perfil)) {
+            $error = mysqli_error($conexion);
+            mysqli_stmt_close($stmt_perfil);
+            throw new Exception('Error al asignar el perfil al usuario: ' . $error);
+        }
+        mysqli_stmt_close($stmt_perfil);
+
+        mysqli_commit($conexion);
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+
+    return [
+        'resultado' => true,
+        'usuario_id' => $usuario_id,
+        'usuario' => $cuit,
+        'email' => $email,
+        'password' => $password_plana,
+        'message' => 'Usuario web dado de alta correctamente'
+    ];
+}
 ?>

@@ -48,18 +48,6 @@ try {
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
             break;
 
-        case 'obtener_sucursales_empresa':
-            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
-            $sucursales = obtenerSucursalesEmpresaRemitos($conexion, $empresa_idx_local);
-            echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'obtener_depositos':
-            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
-            $depositos = obtenerDepositosEmpresa($conexion, $empresa_idx_local);
-            echo json_encode($depositos, JSON_UNESCAPED_UNICODE);
-            break;
-
         // Combo único: ya no depende de sucursal_id. Lista los PV de la empresa
         // cuya boca asociada es un depósito activo (ver plan acordado con Pablo:
         // se elimina el combo de sucursal y el de depósito, un solo select).
@@ -108,13 +96,27 @@ try {
         case 'obtener_pedidos_pendientes_cliente':
             $entidad_id = intval($_GET['entidad_id'] ?? 0);
             $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
+            $punto_venta_id_local = intval($_GET['punto_venta_id'] ?? 0);
+            // Opcional: acota los pendientes a un pedido puntual (usado desde la
+            // solapa "Remitos" del módulo de pedidos). Sin este parámetro, se
+            // mantiene el comportamiento de siempre: todos los pendientes del cliente.
+            $pedido_id_local = intval($_GET['pedido_id'] ?? 0);
 
             if (empty($entidad_id)) {
                 echo json_encode([], JSON_UNESCAPED_UNICODE);
                 break;
             }
 
-            $pedidos = obtenerPedidosPendientesCliente($conexion, $empresa_idx_local, $entidad_id);
+            // Si ya hay punto de venta elegido en el remito, se ordena/filtra por la
+            // ubicación del producto en la boca de ese PV (la relevante para armar el
+            // remito). Sin PV todavía, se listan/ordenan las ubicaciones de todas las bocas.
+            $boca_id_local = null;
+            if (!empty($punto_venta_id_local)) {
+                $ubicacion_pv = resolverBocaYSucursalPorPuntoVentaRemitos($conexion, $empresa_idx_local, $punto_venta_id_local);
+                $boca_id_local = $ubicacion_pv['boca_id'] ?? null;
+            }
+
+            $pedidos = obtenerPedidosPendientesCliente($conexion, $empresa_idx_local, $entidad_id, $boca_id_local, $pedido_id_local ?: null);
             echo json_encode($pedidos, JSON_UNESCAPED_UNICODE);
             break;
 

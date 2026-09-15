@@ -6,6 +6,9 @@ require_once __DIR__ . '/../../db.php';
 $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 0;
 $empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
+// Deep-link: permite abrir esta pantalla directo en modo edición de un remito
+// puntual (usado por la solapa "Remitos" del módulo de pedidos, vía target="_blank").
+$venta_remito_id_inicial = isset($_GET['venta_remito_id']) ? intval($_GET['venta_remito_id']) : 0;
 
 $pageTitle = "Remitos de Venta";
 $currentPage = 'ventas_remitos';
@@ -93,7 +96,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <tr>
                                                     <th width="100">Tipo</th>
                                                     <th width="120">Sucursal</th>
-                                                    <th width="120">Depósito</th>
                                                     <th width="120">Punto Venta</th>
                                                     <th width="120">Número</th>
                                                     <th width="200">Cliente</th>
@@ -168,23 +170,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="col-md-6">
                                                         <div class="row g-2">
                                                             <div class="col-md-6">
-                                                                <label for="sucursal_id" class="form-label fw-bold small">Sucursal *</label>
-                                                                <select class="form-select form-select-sm" id="sucursal_id" name="sucursal_id" required>
-                                                                    <option value="">Seleccionar sucursal</option>
-                                                                </select>
-                                                                <div class="invalid-feedback small">Seleccione sucursal</div>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label for="deposito_id" class="form-label fw-bold small">Depósito *</label>
-                                                                <select class="form-select form-select-sm" id="deposito_id" name="deposito_id" required>
-                                                                    <option value="">Seleccionar depósito</option>
-                                                                </select>
-                                                                <div class="invalid-feedback small">Seleccione depósito</div>
-                                                            </div>
-                                                            <div class="col-md-6">
                                                                 <label for="punto_venta_id" class="form-label fw-bold small">Punto de Venta *</label>
                                                                 <select class="form-select form-select-sm" id="punto_venta_id" name="punto_venta_id" required>
-                                                                    <option value="">Primero seleccione sucursal</option>
+                                                                    <option value="">Seleccionar punto de venta</option>
                                                                 </select>
                                                                 <div class="invalid-feedback small">Seleccione punto de venta</div>
                                                             </div>
@@ -497,7 +485,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .dataTables_paginate .paginate_button { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
         .btn-accion { margin-bottom: 2px; }
 
-        .pendiente-fila.pendiente-agotada { opacity: 0.5; }
+        /* Ubicación en "Pedidos pendientes de entrega": mismos colores que el ABM
+           de productos (.badge-ubicacion + badge-seccion/estanteria/estante/posicion). */
+        .badge-ubicacion { font-size: 0.7rem; padding: 0.2rem 0.4rem; margin-bottom: 0.1rem; border-radius: 0.25rem; }
+        .badge-seccion { background-color: #dc3545 !important; color: #ffffff !important; }
+        .badge-estanteria { background-color: #ffc107 !important; color: #000000 !important; }
+        .badge-estante { background-color: #198754 !important; color: #ffffff !important; }
+        .badge-posicion { background-color: #6c757d !important; color: #ffffff !important; }
+        .ubicaciones-pendiente-container { display: flex; flex-direction: column; gap: 2px; }
+
 
         @media (max-width: 768px) {
             .card-header .row > div { margin-bottom: 8px; text-align: center !important; }
@@ -522,6 +518,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script>
         const PAGINA_ID = <?= $pagina_id ?>;
         const EMPRESA_ID = <?= $empresa_id ?>;
+        const VENTA_REMITO_ID_INICIAL = <?= $venta_remito_id_inicial ?>;
         const MODULO_ID = <?= $modulo_id ?>;
     </script>
     <script src="ventas_remitos.js?v=<?= filemtime(__DIR__.'/ventas_remitos.js') ?>"></script>

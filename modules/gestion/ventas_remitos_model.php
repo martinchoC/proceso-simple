@@ -4,20 +4,29 @@ $conexion = $conn;
 
 // ============================================================
 // SUPUESTOS A VALIDAR CON EL ESQUEMA REAL (avisame si difieren):
-// - (2026-09-10, actualizado) El formulario ya NO usa sucursal_id ni deposito_id
-//   como combos independientes: se unificaron en un solo combo "Punto de Venta",
-//   restringido a los PV cuya boca asociada (gestion__puntos_venta.boca_id ->
-//   gestion__bocas) tiene es_deposito=1. sucursal_id y boca_id (ex deposito_id,
-//   requiere ALTER TABLE gestion__ventas_remitos CHANGE COLUMN deposito_id boca_id
-//   SMALLINT(5) UNSIGNED NOT NULL) se resuelven en el backend a partir del PV
-//   elegido, vía resolverBocaYSucursalPorPuntoVentaRemitos(). gestion__depositos
-//   sigue existiendo sólo para las funciones/acciones viejas que se dejaron sin
-//   uso (obtenerDepositosEmpresa, acción AJAX 'obtener_depositos').
+// - (2026-09-12, actualizado) gestion__depositos ya NO existe como tabla: se
+//   eliminaron obtenerDepositosEmpresa() y la acción AJAX 'obtener_depositos'.
+//   Por el mismo motivo se eliminó también obtenerSucursalesEmpresaRemitos()
+//   y la acción 'obtener_sucursales_empresa': el formulario quedó con un único
+//   combo "Punto de Venta", restringido a los PV cuya boca asociada
+//   (gestion__puntos_venta.boca_id -> gestion__bocas) tiene es_deposito=1.
+//   sucursal_id y boca_id se resuelven en el backend a partir del PV elegido,
+//   vía resolverBocaYSucursalPorPuntoVentaRemitos() — no vienen del formulario.
 // - gestion__ventas_remitos.comprobante_pv guarda directamente el punto_venta_id elegido
 //   (igual que ya hace gestion__comprobantes.comprobante_pv en syncComprobante() de
 //   ventas_pedidos_model.php), no un número de PV separado.
 // - "Pendiente de entrega" = gestion__ventas_pedidos_detalles.cantidad - cantidad_entregada,
 //   tal cual pidió Pablo. Se excluyen pedidos cuyo estado tenga codigo_estandar = 'CANCELADO'.
+// - (2026-09-12) cantidad_entregada se sigue reservando al agregar/editar el remito
+//   (con FOR UPDATE, ver insertarDetallesRemito) — eso no cambió. Lo que se agregó es
+//   gestion__ventas_pedidos.tabla_estado_registro_id: recién al CONFIRMAR el remito se
+//   decide, pedido por pedido, si quedó completo (11, sin ninguna línea con diferencia
+//   entre cantidad y cantidad_entregada) o todavía con diferencia (10). Ver
+//   actualizarEstadoPedidosPorEntregaRemito(), llamada desde ejecutarTransicionEstadoRemito
+//   tanto al confirmar como al cancelar/anular (ahí para recalcular hacia atrás).
+//   OJO: esto deja una ventana entre "agregar remito" (ya reservó cantidad_entregada)
+//   y "confirmar remito" (recién ahí se refleja en el estado del pedido) — si se prefiere
+//   que las dos cosas pasen juntas en un solo momento, avisar para unificarlo.
 // - La reversión de cantidad_entregada (al editar o al anular un remito) dispara cuando el
 //   estado destino de la transición tiene codigo_estandar 'CANCELADO' o 'ANULADO'. Si en
 //   conf__estados_registros usás otro código para "remito anulado", ajustar la comparación
@@ -470,14 +479,89 @@ function revertirCantidadEntregadaRemito($conexion, $venta_remito_id)
     }
 }
 
-// Devuelve, agrupados por pedido, los pedidos de venta del cliente con líneas pendientes
+// Recalcula, para cada pedido con al menos una línea vinculada a este remito, si
+// quedó completo (todas sus líneas con cantidad == cantidad_entregada, sin importar
+// si ese cantidad_entregada viene de este remito o de otros) o si todavía tiene
+// alguna línea con diferencia, y deja gestion__ventas_pedidos.tabla_estado_registro_id
+// en 11 (completo) o 10 (con diferencia) según corresponda.
+// Se llama al confirmar un remito (aplicar) y al cancelar/anular uno ya confirmado
+// (revertir): en ambos casos puede haber cambiado si el pedido está completo o no.
+function actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id)
+{
+    $venta_remito_id = intval($venta_remito_id);
+
+    $sql_pedidos = "SELECT DISTINCT vpd.venta_pedido_id
+                    FROM gestion__ventas_remitos_detalles vrd
+                    INNER JOIN gestion__ventas_pedidos_detalles vpd
+                        ON vpd.venta_pedido_detalle_id = vrd.venta_pedido_detalle_id
+                    WHERE vrd.venta_remito_id = ? AND vrd.venta_pedido_detalle_id IS NOT NULL";
+    $stmt = mysqli_prepare($conexion, $sql_pedidos);
+    if (!$stmt) {
+        throw new Exception("Error preparando búsqueda de pedidos afectados: " . mysqli_error($conexion));
+    }
+    mysqli_stmt_bind_param($stmt, "i", $venta_remito_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $pedido_ids = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $pedido_ids[] = intval($fila['venta_pedido_id']);
+    }
+    mysqli_stmt_close($stmt);
+
+    foreach ($pedido_ids as $pedido_id) {
+        $sql_check = "SELECT COUNT(*) as pendientes
+                      FROM gestion__ventas_pedidos_detalles
+                      WHERE venta_pedido_id = ? AND cantidad <> cantidad_entregada";
+        $stmt_check = mysqli_prepare($conexion, $sql_check);
+        if (!$stmt_check) {
+            throw new Exception("Error preparando verificación de pedido completo: " . mysqli_error($conexion));
+        }
+        mysqli_stmt_bind_param($stmt_check, "i", $pedido_id);
+        mysqli_stmt_execute($stmt_check);
+        $result_check = mysqli_stmt_get_result($stmt_check);
+        $fila_check = mysqli_fetch_assoc($result_check);
+        mysqli_stmt_close($stmt_check);
+
+        $estado_pedido = (intval($fila_check['pendientes']) === 0) ? 11 : 10;
+
+        $sql_upd_pedido = "UPDATE gestion__ventas_pedidos SET tabla_estado_registro_id = ? WHERE venta_pedido_id = ?";
+        $stmt_upd_pedido = mysqli_prepare($conexion, $sql_upd_pedido);
+        if (!$stmt_upd_pedido) {
+            throw new Exception("Error preparando actualización de estado del pedido: " . mysqli_error($conexion));
+        }
+        mysqli_stmt_bind_param($stmt_upd_pedido, "ii", $estado_pedido, $pedido_id);
+        if (!mysqli_stmt_execute($stmt_upd_pedido)) {
+            throw new Exception("Error actualizando estado del pedido: " . mysqli_stmt_error($stmt_upd_pedido));
+        }
+        mysqli_stmt_close($stmt_upd_pedido);
+    }
+}
+
+
 // de entrega (cantidad > cantidad_entregada). Excluye pedidos cancelados. No filtra por
 // entidad_sucursal_id: se listan todos los pendientes del cliente y el usuario elige a
 // mano qué líneas remitir (un pedido puede haberse cargado sin sucursal específica).
-function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id)
+//
+// (2026-09-12) Devuelve una lista PLANA de líneas (antes venía agrupada por pedido) para
+// poder ordenar de punta a punta por ubicación física del producto — mezclando líneas de
+// distintos pedidos si están en el mismo estante — en vez de por pedido/fecha. Cada línea
+// trae igual el numero/fecha/tipo de su pedido, así el front no perdió información.
+//
+// Ubicación: mismo esquema que el ABM de productos (gestion__productos_ubicaciones ->
+// gestion__sucursales_ubicaciones). Un producto puede tener ubicación en varias bocas; si
+// se pasa $boca_id (la boca del punto de venta elegido en el remito) se filtra y ordena
+// solo por esa boca, que es la relevante para quien arma el remito. Sin $boca_id (todavía
+// no se eligió punto de venta) se muestran/ordenan las ubicaciones de todas las bocas.
+function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $boca_id = null, $pedido_id = null)
 {
     $empresa_idx = intval($empresa_idx);
     $entidad_id = intval($entidad_id);
+    $boca_id = !empty($boca_id) ? intval($boca_id) : null;
+    // Filtro opcional: cuando se llama desde la solapa "Remitos" del módulo de
+    // pedidos, acota los pendientes a ESE pedido únicamente (no a todos los
+    // pendientes del cliente, que es el comportamiento de la pantalla de remitos
+    // standalone). Mismo patrón null-safe "= ? OR ? IS NULL" que ya usa boca_id acá.
+    $pedido_id = !empty($pedido_id) ? intval($pedido_id) : null;
 
     $sql = "SELECT vp.venta_pedido_id, vp.comprobante_nro, vp.f_emision,
                    ct.comprobante_tipo,
@@ -486,7 +570,62 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id)
                    vpd.cantidad, vpd.cantidad_entregada,
                    (vpd.cantidad - vpd.cantidad_entregada) as pendiente,
                    vpd.precio_unitario_bruto, vpd.descuento_general_pct, vpd.precio_unitario_neto,
-                   vpd.iva_alicuota_id, vpd.iva_porcentaje
+                   vpd.iva_alicuota_id, vpd.iva_porcentaje,
+                   COALESCE(
+                       (SELECT CONCAT('[', GROUP_CONCAT(
+                           JSON_OBJECT(
+                               'sucursal', COALESCE(su2.sucursal_nombre, ''),
+                               'boca', COALESCE(b.boca_nombre, ''),
+                               'seccion', COALESCE(su2_ubic.seccion, ''),
+                               'estanteria', COALESCE(su2_ubic.estanteria, ''),
+                               'estante', COALESCE(su2_ubic.estante, ''),
+                               'posicion', COALESCE(su2_ubic.posicion, ''),
+                               'descripcion', COALESCE(su2_ubic.descripcion, '')
+                           )
+                           ORDER BY su2.sucursal_nombre, su2_ubic.seccion, su2_ubic.estanteria, su2_ubic.estante, su2_ubic.posicion
+                           SEPARATOR ','
+                       ), ']')
+                       FROM gestion__productos_ubicaciones pu2
+                       INNER JOIN gestion__sucursales_ubicaciones su2_ubic ON pu2.sucursal_ubicacion_id = su2_ubic.sucursal_ubicacion_id
+                       LEFT JOIN gestion__sucursales su2 ON su2_ubic.sucursal_id = su2.sucursal_id
+                       LEFT JOIN gestion__bocas b ON su2_ubic.boca_id = b.boca_id
+                       WHERE pu2.producto_id = vpd.producto_id
+                       AND pu2.tabla_estado_registro_id = 1
+                       AND (su2_ubic.boca_id = ? OR ? IS NULL)
+                       ), '[]'
+                   ) as ubicaciones_detalle,
+                   (SELECT su3_ubic.seccion
+                    FROM gestion__productos_ubicaciones pu3
+                    INNER JOIN gestion__sucursales_ubicaciones su3_ubic ON pu3.sucursal_ubicacion_id = su3_ubic.sucursal_ubicacion_id
+                    WHERE pu3.producto_id = vpd.producto_id
+                    AND pu3.tabla_estado_registro_id = 1
+                    AND (su3_ubic.boca_id = ? OR ? IS NULL)
+                    ORDER BY su3_ubic.seccion, su3_ubic.estanteria, su3_ubic.estante, su3_ubic.posicion
+                    LIMIT 1) as orden_seccion,
+                   (SELECT su4_ubic.estanteria
+                    FROM gestion__productos_ubicaciones pu4
+                    INNER JOIN gestion__sucursales_ubicaciones su4_ubic ON pu4.sucursal_ubicacion_id = su4_ubic.sucursal_ubicacion_id
+                    WHERE pu4.producto_id = vpd.producto_id
+                    AND pu4.tabla_estado_registro_id = 1
+                    AND (su4_ubic.boca_id = ? OR ? IS NULL)
+                    ORDER BY su4_ubic.seccion, su4_ubic.estanteria, su4_ubic.estante, su4_ubic.posicion
+                    LIMIT 1) as orden_estanteria,
+                   (SELECT su5_ubic.estante
+                    FROM gestion__productos_ubicaciones pu5
+                    INNER JOIN gestion__sucursales_ubicaciones su5_ubic ON pu5.sucursal_ubicacion_id = su5_ubic.sucursal_ubicacion_id
+                    WHERE pu5.producto_id = vpd.producto_id
+                    AND pu5.tabla_estado_registro_id = 1
+                    AND (su5_ubic.boca_id = ? OR ? IS NULL)
+                    ORDER BY su5_ubic.seccion, su5_ubic.estanteria, su5_ubic.estante, su5_ubic.posicion
+                    LIMIT 1) as orden_estante,
+                   (SELECT su6_ubic.posicion
+                    FROM gestion__productos_ubicaciones pu6
+                    INNER JOIN gestion__sucursales_ubicaciones su6_ubic ON pu6.sucursal_ubicacion_id = su6_ubic.sucursal_ubicacion_id
+                    WHERE pu6.producto_id = vpd.producto_id
+                    AND pu6.tabla_estado_registro_id = 1
+                    AND (su6_ubic.boca_id = ? OR ? IS NULL)
+                    ORDER BY su6_ubic.seccion, su6_ubic.estanteria, su6_ubic.estante, su6_ubic.posicion
+                    LIMIT 1) as orden_posicion
             FROM gestion__ventas_pedidos_detalles vpd
             INNER JOIN gestion__ventas_pedidos vp ON vpd.venta_pedido_id = vp.venta_pedido_id
             INNER JOIN gestion__productos p ON vpd.producto_id = p.producto_id
@@ -496,7 +635,9 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id)
             AND vp.empresa_id = ?
             AND vpd.cantidad > vpd.cantidad_entregada
             AND (er.codigo_estandar IS NULL OR er.codigo_estandar != 'CANCELADO')
-            ORDER BY vp.f_emision, vp.venta_pedido_id, vpd.venta_pedido_detalle_id";
+            AND (vp.venta_pedido_id = ? OR ? IS NULL)
+            ORDER BY (orden_seccion IS NULL), orden_seccion, orden_estanteria, orden_estante, orden_posicion,
+                     vp.f_emision, vp.venta_pedido_id, vpd.venta_pedido_detalle_id";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -504,23 +645,30 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id)
         return [];
     }
 
-    mysqli_stmt_bind_param($stmt, "ii", $entidad_id, $empresa_idx);
+    mysqli_stmt_bind_param(
+        $stmt,
+        "iiiiiiiiiiiiii",
+        $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id,
+        $entidad_id, $empresa_idx, $pedido_id, $pedido_id
+    );
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
-    $pedidos = [];
+    $lineas = [];
     while ($fila = mysqli_fetch_assoc($result)) {
-        $pid = $fila['venta_pedido_id'];
-        if (!isset($pedidos[$pid])) {
-            $pedidos[$pid] = [
-                'venta_pedido_id' => $pid,
-                'comprobante_nro' => $fila['comprobante_nro'],
-                'comprobante_tipo' => $fila['comprobante_tipo'],
-                'f_emision' => $fila['f_emision'],
-                'detalles' => []
-            ];
+        $ubicaciones_detalle = [];
+        if (!empty($fila['ubicaciones_detalle']) && $fila['ubicaciones_detalle'] !== '[]') {
+            $decoded = json_decode($fila['ubicaciones_detalle'], true);
+            if (is_array($decoded)) {
+                $ubicaciones_detalle = $decoded;
+            }
         }
-        $pedidos[$pid]['detalles'][] = [
+
+        $lineas[] = [
+            'venta_pedido_id' => $fila['venta_pedido_id'],
+            'comprobante_nro' => $fila['comprobante_nro'],
+            'comprobante_tipo' => $fila['comprobante_tipo'],
+            'f_emision' => $fila['f_emision'],
             'venta_pedido_detalle_id' => $fila['venta_pedido_detalle_id'],
             'producto_id' => $fila['producto_id'],
             'producto_codigo' => $fila['producto_codigo'],
@@ -532,12 +680,13 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id)
             'descuento_general_pct' => floatval($fila['descuento_general_pct']),
             'precio_unitario_neto' => floatval($fila['precio_unitario_neto']),
             'iva_alicuota_id' => $fila['iva_alicuota_id'],
-            'iva_porcentaje' => floatval($fila['iva_porcentaje'] ?? 0)
+            'iva_porcentaje' => floatval($fila['iva_porcentaje'] ?? 0),
+            'ubicaciones_detalle' => $ubicaciones_detalle
         ];
     }
 
     mysqli_stmt_close($stmt);
-    return array_values($pedidos);
+    return $lineas;
 }
 
 
@@ -1182,6 +1331,11 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
 
                 $numero_asignado = $proximo_numero;
             }
+
+            // Recién al confirmar (queda numerado) se considera oficialmente entregado
+            // lo que este remito trae vinculado a pedidos: acá se decide si cada pedido
+            // afectado queda completo (11) o todavía con diferencia (10).
+            actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id);
         }
 
         // Si el estado destino es una cancelación/anulación, liberar el pendiente que
@@ -1190,6 +1344,9 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
         $codigo_destino = $info_destino['codigo_estandar'] ?? '';
         if (in_array($codigo_destino, ['CANCELADO', 'ANULADO'])) {
             revertirCantidadEntregadaRemito($conexion, $venta_remito_id);
+            // El pedido puede haber dejado de estar completo (o de tener algo entregado)
+            // al liberarse lo que aportaba este remito: se recalcula igual que al confirmar.
+            actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id);
         }
 
         $sql_update = "UPDATE gestion__ventas_remitos SET tabla_estado_registro_id = ? WHERE venta_remito_id = ?";
@@ -1276,8 +1433,7 @@ function obtenerComprobantesTiposRemitos($conexion, $empresa_idx, $pagina_id, $p
     return $tipos;
 }
 
-// Reemplaza a obtenerDepositosEmpresa()/obtenerSucursalesEmpresaRemitos() para el
-// combo único del formulario: puntos de venta de la empresa cuya boca asociada
+// Único combo del formulario: puntos de venta de la empresa cuya boca asociada
 // es un depósito (es_deposito=1) y está activa. boca_id es nullable en
 // gestion__puntos_venta, así que el INNER JOIN ya excluye los PV sin boca asignada.
 function obtenerPuntosVentaDepositoRemitos($conexion, $empresa_idx)
@@ -1346,59 +1502,6 @@ function resolverBocaYSucursalPorPuntoVentaRemitos($conexion, $empresa_idx, $pun
     return $fila ?: null;
 }
 
-// Sin uso desde el formulario de remitos (reemplazadas por
-// obtenerPuntosVentaDepositoRemitos). Se dejan definidas porque las acciones
-// AJAX 'obtener_depositos' y 'obtener_sucursales_empresa' todavía las invocan.
-function obtenerDepositosEmpresa($conexion, $empresa_idx)
-{
-    $empresa_idx = intval($empresa_idx);
-
-    $sql = "SELECT deposito_id, deposito_nombre
-            FROM gestion__depositos
-            WHERE empresa_id = ?
-            AND tabla_estado_registro_id = 1
-            ORDER BY deposito_nombre";
-
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt) {
-        error_log("Error preparando consulta de depósitos: " . mysqli_error($conexion));
-        return [];
-    }
-
-    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-
-    $depositos = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        $depositos[] = $fila;
-    }
-    mysqli_stmt_close($stmt);
-    return $depositos;
-}
-
-function obtenerSucursalesEmpresaRemitos($conexion, $empresa_idx)
-{
-    $sql = "SELECT sucursal_id, sucursal_nombre
-            FROM gestion__sucursales
-            WHERE empresa_id = ?
-            AND tabla_estado_registro_id = 1
-            ORDER BY sucursal_nombre";
-
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt) return [];
-
-    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-
-    $sucursales = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        $sucursales[] = $fila;
-    }
-    mysqli_stmt_close($stmt);
-    return $sucursales;
-}
 
 function obtenerClientesRemitos($conexion, $empresa_idx)
 {

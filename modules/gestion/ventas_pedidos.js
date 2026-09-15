@@ -14,9 +14,23 @@ $(document).ready(function () {
     
     // Variables para manejo de detalles
     var detalles = [];
+    var pedidoConfirmado = false; // true cuando tabla_estado_registro_id > 5: cambia "Cant." de la tabla de detalle a solo lectura
     var clienteActualId = null;
     var clienteSucursalActualId = null;
     var clienteCondicionComercial = null; // { lista_precio_id, condicion_pago_id, cliente_descuento_general, limite_credito }
+
+    // Solapa "Remitos": ventas_remitos.php/.js/.model tienen su propio pagina_idx
+    // (88 por defecto ahí) y su propio motor de estados, totalmente independiente
+    // del de este módulo (65 acá) — nunca reutilizar la variable `pagina_idx` de
+    // pedidos en llamadas a ventas_remitos_ajax.php.
+    var REMITOS_PAGINA_IDX = 88;
+    var remitosPedidoActual = [];    // remitos ya generados para este pedido (respuesta cruda)
+    var remitoPendientesPedido = []; // líneas pendientes de ESTE pedido (respuesta cruda)
+    var remitoDetallesNuevo = [];    // líneas elegidas para el remito en construcción
+    var remitoEditandoId = null;     // null = "Cargar Remito Nuevo"; con valor = editando ese remito
+    var pedidoPuntoVentaId = null;   // PV del pedido — el remito siempre lo respeta, nunca se elige otro
+    var pedidoPuntoVentaNombre = '';
+    var remitoLineasOriginalesPorVpd = {}; // venta_pedido_detalle_id -> cantidad que el remito en edición ya tenía reservada (corrige el pendiente mostrado)
 
     // Buscador de producto por etiquetas (mismo patrón que ventas_remitos y que el ABM
     // de productos): cada palabra se convierte en un "tag" dentro del campo al presionar
@@ -692,7 +706,7 @@ $(document).ready(function () {
         });
     }
 
-    function cargarClientesYSucursales() {
+    function cargarClientesYSucursales(callback) {
         $.ajax({
             url: 'ventas_pedidos_ajax.php',
             type: 'GET',
@@ -719,10 +733,12 @@ $(document).ready(function () {
                 }
                 
                 $('#entidad_combo').html(options);
+                if (typeof callback === 'function') callback();
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.error("Error cargando clientes y sucursales:", textStatus, errorThrown);
                 $('#entidad_combo').html('<option value="">Error al cargar</option>');
+                if (typeof callback === 'function') callback();
             }
         });
     }
@@ -807,10 +823,45 @@ $(document).ready(function () {
                 resetModal();
                 
                 cargarCombosFormulario();
-                cargarClientesYSucursales();
+                cargarClientesYSucursales(function() {
+                    if (res.entidad_id) {
+                        clienteActualId = res.entidad_id;
+                        cargarCondicionesComercialesCliente(res.entidad_id, false);
+                        
+                        if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
+                            $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
+                            clienteSucursalActualId = parseInt(res.entidad_sucursal_id);
+                        } else {
+                            $('#entidad_combo').val('P-' + res.entidad_id);
+                            clienteSucursalActualId = null;
+                        }
+                        
+                        var textoSeleccionado = $('#entidad_combo option:selected').text();
+                        $('#cliente_actual_nombre').text(textoSeleccionado || 'No seleccionado');
+                    }
+                    if (tagsProducto.length === 0) {
+                        $('#resultados_busqueda').empty();
+                    }
+
+                    // Encadenado acá adentro (no en paralelo): cargarPendientesRemitoPedido()
+                    // necesita clienteActualId ya seteado arriba. Si corría independiente,
+                    // esta llamada a veces terminaba antes que el callback de clientes
+                    // (consulta más liviana) y abortaba en silencio sin mandar la petición.
+                    pedidoPuntoVentaId = res.punto_venta_id;
+                    pedidoPuntoVentaNombre = res.punto_venta_nombre;
+                    fijarPuntoVentaRemito(pedidoPuntoVentaId, pedidoPuntoVentaNombre, function () {
+                        cargarTiposComprobanteRemito(pedidoPuntoVentaId, function () {
+                            cargarPendientesRemitoPedido();
+                        });
+                    });
+                });
                 
                 $('#venta_pedido_id').val(res.venta_pedido_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
+
+                mostrarTabRemitos(true);
+                cargarRemitosDelPedido(res.venta_pedido_id);
+                $('#remito_f_emision').val(new Date().toISOString().split('T')[0]);
                 
                 $('#f_emision').val(res.f_emision);
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
@@ -848,23 +899,8 @@ $(document).ready(function () {
                         });
                     }
                     
-                    if (res.entidad_id) {
-                        clienteActualId = res.entidad_id;
-                        cargarCondicionesComercialesCliente(res.entidad_id, false);
-                        
-                        if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
-                            $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
-                            clienteSucursalActualId = parseInt(res.entidad_sucursal_id);
-                        } else {
-                            $('#entidad_combo').val('P-' + res.entidad_id);
-                            clienteSucursalActualId = null;
-                        }
-                        
-                        var textoSeleccionado = $('#entidad_combo option:selected').text();
-                        $('#cliente_actual_nombre').text(textoSeleccionado || 'No seleccionado');
-                    }
-                    
                     if (res.detalles && res.detalles.length > 0) {
+                        pedidoConfirmado = (parseInt(res.tabla_estado_registro_id) || 0) > 5;
                         detalles = res.detalles.map(function(detalle, index) {
                             return {
                                 detalle_idx: index,
@@ -872,9 +908,11 @@ $(document).ready(function () {
                                 producto_id: detalle.producto_id,
                                 producto_codigo: detalle.producto_codigo,
                                 producto_nombre: detalle.producto_nombre,
+                                compatibilidad_texto: detalle.compatibilidad_texto || '',
                                 cantidad: detalle.cantidad,
                                 cantidad_entregada: detalle.cantidad_entregada || 0,
                                 precio_unitario: detalle.precio_unitario,
+                                precio_unitario_neto: detalle.precio_unitario_neto || detalle.precio_unitario,
                                 no_gravado: detalle.no_gravado || 0,
                                 exento: detalle.exento || 0,
                                 iva_alicuota_id: detalle.iva_alicuota_id,
@@ -888,7 +926,15 @@ $(document).ready(function () {
                         actualizarTotales();
                     }
 
-                    $('#formVentaPedido :input').prop('disabled', true);
+                    // La solapa Remitos NO se bloquea: cargar, editar o cancelar un remito
+                    // sigue siendo una acción válida aunque el pedido esté en modo
+                    // visualización (ej. "Entrega Parcial" — quedan productos por
+                    // entregar). Se excluye de raíz (con .not()) en vez de re-habilitar
+                    // después, porque la lista de remitos generados se arma por AJAX y
+                    // podía terminar de renderizarse antes o después de este disable
+                    // según qué tan rápido respondiera el servidor — con .not() no
+                    // importa el orden, nunca llega a deshabilitarse.
+                    $('#formVentaPedido :input').not('#remitos *').prop('disabled', true);
                     $('.btn-eliminar-detalle, #btnNuevoProductoRapido, #btnLimpiarTagsProducto, #btnNuevoCliente').prop('disabled', true);
 
                     $('.btn-eliminar-detalle, #btnNuevoProductoRapido').hide();
@@ -1061,7 +1107,6 @@ $(document).ready(function () {
                     <th class="text-center">IVA</th>
                     <th class="text-end">Precio Ref.</th>
                     <th class="text-center" width="110">Cantidad</th>
-                    <th class="text-center" width="90">Acción</th>
                 </tr>
             </thead>
             <tbody>`;
@@ -1069,6 +1114,12 @@ $(document).ready(function () {
         ultimosResultadosBusqueda.forEach(function (item, index) {
             var ivaPorcentaje = parseFloat(item.iva_porcentaje || 0);
             var precio = parseFloat(item.precio_neto || 0);
+
+            // La cantidad inicial del filtro refleja lo que ya está cargado en el
+            // pedido para este producto (0 si todavía no se agregó), en vez de
+            // arrancar siempre en 1.
+            var detalleExistente = detalles.find(function (d) { return d.producto_id == item.producto_id; });
+            var cantidadInicial = detalleExistente ? (parseFloat(detalleExistente.cantidad) || 0) : 0;
 
             html += `<tr class="resultado-libre-fila">
                 <td>${item.producto_codigo || ''}</td>
@@ -1078,22 +1129,12 @@ $(document).ready(function () {
                 <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
                 <td class="text-end">$${formatMoneda(precio)}</td>
                 <td>
-                    <input type="number" class="form-control form-control-sm no-spinner input-cantidad-producto"
-                        value="1.00" step="0.01" min="0.01">
-                </td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-success btn-agregar-producto"
-                        data-index="${index}"
-                        data-id="${item.producto_id}"
-                        data-codigo="${item.producto_codigo}"
-                        data-nombre="${item.producto_nombre}"
-                        data-precio-bruto="${parseFloat(item.precio_final || 0)}"
-                        data-descuento-pct="${parseFloat(item.descuento_general_pct || 0)}"
-                        data-iva-id="${item.iva_alicuota_id || ''}"
-                        data-iva="${ivaPorcentaje}"
-                        title="Agregar al pedido">
-                        <i class="fas fa-plus"></i>
-                    </button>
+                    <div class="cantidad-stepper mx-auto">
+                        <button type="button" class="btn-stepper btn-cantidad-filtro-menos" data-id="${item.producto_id}" tabindex="-1">&minus;</button>
+                        <input type="number" class="cantidad-stepper-input input-cantidad-producto"
+                            value="${cantidadInicial.toFixed(2)}" step="0.01" min="0">
+                        <button type="button" class="btn-stepper btn-cantidad-filtro-mas" data-id="${item.producto_id}" tabindex="-1">+</button>
+                    </div>
                 </td>
             </tr>`;
         });
@@ -1201,6 +1242,8 @@ $(document).ready(function () {
     }
 
     function ejecutarBusquedaProducto() {
+        sincronizarPanelLateral();
+
         if (!clienteActualId) {
             renderizarResultadosVacio('<i class="fas fa-arrow-up me-1"></i>Seleccione un cliente primero');
             return;
@@ -1242,6 +1285,7 @@ $(document).ready(function () {
         tagsProducto = [];
         renderizarTagsProducto();
         tagsProductoInput.val('');
+        sincronizarPanelLateral();
         if (clienteActualId) {
             $('#resultados_busqueda').empty();
         } else {
@@ -1257,11 +1301,12 @@ $(document).ready(function () {
 
     inicializarBuscadorTagsProducto();
 
-    $(document).on('click', '.btn-agregar-producto', function () {
-        var btn = $(this);
-        var fila = btn.closest('tr');
-        var cantidad = parseFloat(fila.find('.input-cantidad-producto').val());
-
+    // +/- de la fila de resultados de búsqueda: agregan o quitan una unidad
+    // directamente del pedido al clickear, sin pasar por el botón "Agregar".
+    // A diferencia del stepper de las líneas ya cargadas, acá no se pide
+    // confirmación al llegar a 0 — es la interacción rápida de "ir tocando"
+    // mientras se recorre el filtro.
+    function ajustarCantidadDesdeFiltro(productoId, delta) {
         if (!clienteActualId) {
             Swal.fire({
                 icon: "warning",
@@ -1271,73 +1316,72 @@ $(document).ready(function () {
             });
             return;
         }
-        if (!cantidad || cantidad <= 0) {
-            Swal.fire({
-                icon: "warning",
-                title: "Cantidad inválida",
-                text: "La cantidad debe ser mayor a 0",
-                confirmButtonText: "Entendido"
-            });
-            return;
-        }
 
-        var productoId = parseInt(btn.data('id'));
         var existente = detalles.find(function (d) { return d.producto_id == productoId; });
 
-        var mensajeToast = 'Producto agregado';
-
         if (existente) {
-            // Ya hay una línea para este producto: se suma la cantidad en lugar de
-            // duplicar la línea (precio, descuento e IVA no cambian).
-            existente.cantidad = (parseFloat(existente.cantidad) || 0) + cantidad;
-            existente.neto_gravado = existente.cantidad * existente.precio_unitario_neto;
-            existente.iva_importe = existente.neto_gravado * (existente.iva_porcentaje / 100);
-            existente.total_linea = existente.neto_gravado + existente.iva_importe + (existente.no_gravado || 0) + (existente.exento || 0);
-            mensajeToast = 'Cantidad sumada a la línea existente';
+            var nuevaCantidad = Math.round(((parseFloat(existente.cantidad) || 0) + delta) * 100) / 100;
+            if (nuevaCantidad <= 0) {
+                detalles = detalles.filter(function (d) { return d.detalle_idx != existente.detalle_idx; });
+            } else {
+                existente.cantidad = nuevaCantidad;
+                existente.neto_gravado = existente.cantidad * existente.precio_unitario_neto;
+                existente.iva_importe = existente.neto_gravado * (existente.iva_porcentaje / 100);
+                existente.total_linea = existente.neto_gravado + existente.iva_importe + (existente.no_gravado || 0) + (existente.exento || 0);
+            }
         } else {
-            var precioBruto = parseFloat(btn.data('precio-bruto')) || 0;
-            var descuentoGeneralPct = parseFloat(btn.data('descuento-pct')) || 0;
+            if (delta <= 0) return; // nada cargado, no hay qué restar
+
+            var item = ultimosResultadosBusqueda.find(function (p) { return p.producto_id == productoId; });
+            if (!item) return;
+
+            var precioBruto = parseFloat(item.precio_final || 0);
+            var descuentoGeneralPct = parseFloat(item.descuento_general_pct || 0);
             var descuentoGeneralImporte = precioBruto * (descuentoGeneralPct / 100);
             var precioUnitarioNeto = precioBruto - descuentoGeneralImporte;
-            var iva = parseFloat(btn.data('iva')) || 0;
-            var ivaId = btn.data('iva-id') || null;
-            var noGravado = 0;
-            var exento = 0;
+            var iva = parseFloat(item.iva_porcentaje || 0);
+            var ivaId = item.iva_alicuota_id || null;
 
-            var netoGravado = cantidad * precioUnitarioNeto;
+            var netoGravado = delta * precioUnitarioNeto;
             var ivaImporte = netoGravado * (iva / 100);
-            var totalLinea = netoGravado + ivaImporte + noGravado + exento;
 
             detalles.push({
                 detalle_idx: 'temp_' + new Date().getTime() + '_' + Math.random(),
                 venta_pedido_detalle_id: 0,
                 producto_id: productoId,
-                producto_codigo: btn.data('codigo'),
-                producto_nombre: btn.data('nombre'),
-                cantidad: cantidad,
+                producto_codigo: item.producto_codigo,
+                producto_nombre: item.producto_nombre,
+                compatibilidad_texto: item.compatibilidad_texto || '',
+                cantidad: delta,
                 cantidad_entregada: 0,
                 precio_unitario: precioBruto,
                 descuento_general_pct: descuentoGeneralPct,
                 descuento_general: descuentoGeneralImporte,
                 precio_unitario_neto: precioUnitarioNeto,
-                no_gravado: noGravado,
-                exento: exento,
+                no_gravado: 0,
+                exento: 0,
                 iva_alicuota_id: ivaId ? parseInt(ivaId) : null,
                 iva_porcentaje: iva,
                 neto_gravado: netoGravado,
                 iva_importe: ivaImporte,
-                total_linea: totalLinea
+                total_linea: netoGravado + ivaImporte
             });
         }
 
         renderizarDetalles();
         actualizarTotales();
 
-        // Estilo carrito: se deja la lista de resultados como está, para poder seguir
-        // agregando el mismo u otros productos; solo se reinicia la cantidad de la fila.
-        fila.find('.input-cantidad-producto').val('1.00');
+        var actualizado = detalles.find(function (d) { return d.producto_id == productoId; });
+        var cantidadMostrada = actualizado ? (parseFloat(actualizado.cantidad) || 0) : 0;
+        $('.btn-cantidad-filtro-mas[data-id="' + productoId + '"]').closest('tr').find('.input-cantidad-producto').val(cantidadMostrada.toFixed(2));
+    }
 
-        Swal.fire({ icon: 'success', title: mensajeToast, showConfirmButton: false, timer: 1000, toast: true, position: 'top-end' });
+    $(document).on('click', '.btn-cantidad-filtro-menos', function () {
+        ajustarCantidadDesdeFiltro(parseInt($(this).data('id')), -1);
+    });
+
+    $(document).on('click', '.btn-cantidad-filtro-mas', function () {
+        ajustarCantidadDesdeFiltro(parseInt($(this).data('id')), 1);
     });
 
     function renderizarDetalles() {
@@ -1351,6 +1395,8 @@ $(document).ready(function () {
                 <small class="text-muted">Seleccione un producto para comenzar</small>
             </div>`;
             $('#contenedor-detalles').html(htmlVacio);
+            sincronizarPanelLateral();
+            actualizarVisibilidadCargarRemitoNuevo();
             return;
         }
         
@@ -1361,9 +1407,7 @@ $(document).ready(function () {
                     <th>Código</th>
                     <th>Detalle</th>
                     <th class="text-center">Cant.</th>
-                    <th class="text-end">Precio Unit.</th>
-                    <th class="text-end">Desc. %</th>
-                    <th class="text-end">Desc. $</th>
+                    <th class="text-center">Pendiente</th>
                     <th class="text-end">Precio Neto</th>
                     <th class="text-center">IVA %</th>
                     <th class="text-end">IVA $</th>
@@ -1378,25 +1422,33 @@ $(document).ready(function () {
             var claseFila = esNuevo ? 'table-info' : '';
             
             var nombreProducto = detalle.producto_nombre || '';
+
+            // Una vez confirmado el pedido, "Cant." pasa a ser un dato fijo (no
+            // tiene sentido seguir editando cantidades ahí); antes de confirmar
+            // sigue siendo el stepper +/- de siempre.
+            var celdaCantidad = pedidoConfirmado
+                ? `<span class="fw-bold">${formatMoneda(detalle.cantidad)}</span>`
+                : `<div class="cantidad-stepper mx-auto">
+                        <button type="button" class="btn-stepper btn-cantidad-menos" data-idx="${detalle.detalle_idx}" tabindex="-1">&minus;</button>
+                        <input type="number" class="cantidad-stepper-input input-cantidad-detalle"
+                            data-idx="${detalle.detalle_idx}" value="${detalle.cantidad}" step="0.01" min="0">
+                        <button type="button" class="btn-stepper btn-cantidad-mas" data-idx="${detalle.detalle_idx}" tabindex="-1">+</button>
+                    </div>`;
             
             html += `
             <tr class="${claseFila}" data-idx="${detalle.detalle_idx}">
                 <td>${detalle.producto_codigo || ''}</td>
                 <td>
                     <div class="fw-bold">${nombreProducto.substring(0, 35)}${nombreProducto.length > 35 ? '...' : ''}</div>
+                    ${detalle.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(detalle.compatibilidad_texto)}</small>` : ''}
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                 </td>
-                <td class="text-center">
-                    <div class="cantidad-stepper mx-auto">
-                        <button type="button" class="btn-stepper btn-cantidad-menos" data-idx="${detalle.detalle_idx}" tabindex="-1">&minus;</button>
-                        <input type="number" class="cantidad-stepper-input input-cantidad-detalle"
-                            data-idx="${detalle.detalle_idx}" value="${detalle.cantidad}" step="0.01" min="0">
-                        <button type="button" class="btn-stepper btn-cantidad-mas" data-idx="${detalle.detalle_idx}" tabindex="-1">+</button>
-                    </div>
-                </td>
-                <td class="text-end">$${formatMoneda(detalle.precio_unitario)}</td>
-                <td class="text-end">${formatMoneda(detalle.descuento_general_pct)}%</td>
-                <td class="text-end">$${formatMoneda(detalle.descuento_general)}</td>
+                <td class="text-center">${celdaCantidad}</td>
+                <td class="text-center">${(function () {
+                    var pendiente = (parseFloat(detalle.cantidad) || 0) - (parseFloat(detalle.cantidad_entregada) || 0);
+                    if (pendiente < 0.0001) return formatMoneda(0);
+                    return `<span class="text-danger fw-bold">${formatMoneda(pendiente)}</span>`;
+                })()}</td>
                 <td class="text-end">$${formatMoneda(detalle.precio_unitario_neto)}</td>
                 <td class="text-center">${detalle.iva_porcentaje.toFixed(2)}%</td>
                 <td class="text-end">$${formatMoneda(detalle.iva_importe)}</td>
@@ -1415,6 +1467,57 @@ $(document).ready(function () {
         </table>`;
         
         $('#contenedor-detalles').html(html);
+        sincronizarPanelLateral();
+        actualizarVisibilidadCargarRemitoNuevo();
+    }
+
+    // Panel lateral compacto (Código, Detalle, Precio Neto, Total) que se muestra
+    // al costado del buscador mientras el filtro está activo, para ver de un
+    // vistazo lo ya incorporado sin perder de vista los resultados de búsqueda.
+    // Al limpiar el filtro, se oculta y vuelve la tabla completa de abajo.
+    function renderizarDetalleLateral() {
+        var cont = $('#contenedor_detalle_lateral');
+
+        if (detalles.length === 0) {
+            cont.html('<div class="text-muted small text-center p-2">Todavía no hay productos en el pedido.</div>');
+            return;
+        }
+
+        var html = `<table class="table table-sm table-bordered table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Detalle</th>
+                    <th class="text-center">Cantidad</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        detalles.forEach(function (detalle) {
+            var nombreProducto = detalle.producto_nombre || '';
+            html += `<tr>
+                <td>${detalle.producto_codigo || ''}</td>
+                <td>${nombreProducto.substring(0, 25)}${nombreProducto.length > 25 ? '...' : ''}</td>
+                <td class="text-center">${formatMoneda(detalle.cantidad)}</td>
+                <td class="text-end fw-bold">$${formatMoneda(detalle.total_linea)}</td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        cont.html(html);
+    }
+
+    function sincronizarPanelLateral() {
+        var filtroActivo = tagsProducto.length > 0;
+        if (filtroActivo) {
+            $('#col_detalle_lateral, #col_detalle_lateral_titulo').removeClass('d-none');
+            $('#zona_detalle_completa').addClass('d-none');
+            renderizarDetalleLateral();
+        } else {
+            $('#col_detalle_lateral, #col_detalle_lateral_titulo').addClass('d-none');
+            $('#zona_detalle_completa').removeClass('d-none');
+        }
     }
 
     // Sube/baja la cantidad de una línea ya cargada, recalculando neto/IVA/total.
@@ -1426,6 +1529,20 @@ $(document).ready(function () {
         if (!detalle) return;
 
         if (isNaN(nuevaCantidad)) {
+            renderizarDetalles();
+            return;
+        }
+
+        // Mientras el pedido sigue editable (estado <= 5), se puede seguir ajustando
+        // la cantidad, pero nunca por debajo de lo que ya salió físicamente por remito.
+        var yaEntregado = parseFloat(detalle.cantidad_entregada) || 0;
+        if (nuevaCantidad < yaEntregado - 0.0001) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Cantidad inválida',
+                text: 'No se puede bajar de ' + formatMoneda(yaEntregado) + ': ya se remitieron esa cantidad de unidades.',
+                confirmButtonText: 'Entendido'
+            });
             renderizarDetalles();
             return;
         }
@@ -1493,6 +1610,7 @@ $(document).ready(function () {
         var totalExento = 0;
         var totalImpuestos = 0;
         var totalDescuentos = 0;
+        var totalCantidad = 0;
         
         detalles.forEach(function(detalle) {
             totalNeto += detalle.neto_gravado || 0;
@@ -1500,6 +1618,7 @@ $(document).ready(function () {
             totalNoGravado += detalle.no_gravado || 0;
             totalExento += detalle.exento || 0;
             totalDescuentos += (detalle.descuento_general || 0) * (detalle.cantidad || 0);
+            totalCantidad += parseFloat(detalle.cantidad) || 0;
         });
         
         var totalGeneral = totalNeto + totalImpuestos + totalNoGravado + totalExento;
@@ -1518,6 +1637,15 @@ $(document).ready(function () {
         $('#total_neto_display_resumen').text(formatMoneda(totalNeto));
         $('#impuestos_display_resumen').text(formatMoneda(totalImpuestos));
         $('#total_display_resumen').text(formatMoneda(totalGeneral));
+        $('#cantidad_display_resumen').text(formatMoneda(totalCantidad));
+
+        // Y en la versión compacta arriba de "Agregar Producto" (solapa Productos)
+        $('#bruto_display_resumen_mini').text(formatMoneda(totalBruto));
+        $('#descuento_display_resumen_mini').text(formatMoneda(totalDescuentos));
+        $('#total_neto_display_resumen_mini').text(formatMoneda(totalNeto));
+        $('#impuestos_display_resumen_mini').text(formatMoneda(totalImpuestos));
+        $('#total_display_resumen_mini').text(formatMoneda(totalGeneral));
+        $('#cantidad_display_resumen_mini').text(formatMoneda(totalCantidad));
 
         $('#contador-productos').text(detalles.length);
     }
@@ -1537,6 +1665,19 @@ $(document).ready(function () {
 
     $(document).on('click', '.btn-eliminar-detalle', function() {
         var idx = $(this).data('idx');
+        var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
+        if (!detalle) return;
+
+        var yaEntregado = parseFloat(detalle.cantidad_entregada) || 0;
+        if (yaEntregado > 0.0001) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No se puede eliminar',
+                text: 'Ya se remitieron ' + formatMoneda(yaEntregado) + ' unidades de este producto. Reducí la cantidad hasta ese valor en vez de eliminarlo.',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
         
         Swal.fire({
             title: '¿Eliminar producto?',
@@ -1635,6 +1776,9 @@ $(document).ready(function () {
 
     function resetModal() {
         $('#formVentaPedido')[0].reset();
+        pedidoConfirmado = false;
+        pedidoPuntoVentaId = null;
+        pedidoPuntoVentaNombre = '';
         $('#venta_pedido_id').val('');
         $('#entidad_id').val('');
         $('#entidad_sucursal_id').val('');
@@ -1671,6 +1815,8 @@ $(document).ready(function () {
         $('#btnImprimirDesdeEdicion').remove();
         
         window.sucursalIdEditar = null;
+
+        resetSolapaRemitos();
     }
 
     $(document).on('click', '#btnNuevo', function () {
@@ -1696,10 +1842,45 @@ $(document).ready(function () {
                 resetModal();
                 
                 cargarCombosFormulario();
-                cargarClientesYSucursales();
+                cargarClientesYSucursales(function() {
+                    if (res.entidad_id) {
+                        clienteActualId = res.entidad_id;
+                        cargarCondicionesComercialesCliente(res.entidad_id, false);
+                        
+                        if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
+                            $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
+                            clienteSucursalActualId = parseInt(res.entidad_sucursal_id);
+                        } else {
+                            $('#entidad_combo').val('P-' + res.entidad_id);
+                            clienteSucursalActualId = null;
+                        }
+                        
+                        var textoSeleccionado = $('#entidad_combo option:selected').text();
+                        $('#cliente_actual_nombre').text(textoSeleccionado || 'No seleccionado');
+                        // El cliente queda fijo una vez guardado el pedido; no se puede cambiar en edición.
+                        $('#entidad_combo').prop('disabled', true).attr('title', 'El cliente no se puede modificar una vez guardado el pedido');
+                    }
+                    if (tagsProducto.length === 0) {
+                        $('#resultados_busqueda').empty();
+                    }
+
+                    // Encadenado acá adentro (no en paralelo): ver comentario equivalente
+                    // en cargarPedidoParaVisualizar.
+                    pedidoPuntoVentaId = res.punto_venta_id;
+                    pedidoPuntoVentaNombre = res.punto_venta_nombre;
+                    fijarPuntoVentaRemito(pedidoPuntoVentaId, pedidoPuntoVentaNombre, function () {
+                        cargarTiposComprobanteRemito(pedidoPuntoVentaId, function () {
+                            cargarPendientesRemitoPedido();
+                        });
+                    });
+                });
                 
                 $('#venta_pedido_id').val(res.venta_pedido_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
+
+                mostrarTabRemitos(true);
+                cargarRemitosDelPedido(res.venta_pedido_id);
+                $('#remito_f_emision').val(new Date().toISOString().split('T')[0]);
                 
                 $('#f_emision').val(res.f_emision);
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
@@ -1748,25 +1929,8 @@ $(document).ready(function () {
                         });
                     }
                     
-                    if (res.entidad_id) {
-                        clienteActualId = res.entidad_id;
-                        cargarCondicionesComercialesCliente(res.entidad_id, false);
-                        
-                        if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
-                            $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
-                            clienteSucursalActualId = parseInt(res.entidad_sucursal_id);
-                        } else {
-                            $('#entidad_combo').val('P-' + res.entidad_id);
-                            clienteSucursalActualId = null;
-                        }
-                        
-                        var textoSeleccionado = $('#entidad_combo option:selected').text();
-                        $('#cliente_actual_nombre').text(textoSeleccionado || 'No seleccionado');
-                        // El cliente queda fijo una vez guardado el pedido; no se puede cambiar en edición.
-                        $('#entidad_combo').prop('disabled', true).attr('title', 'El cliente no se puede modificar una vez guardado el pedido');
-                    }
-                    
                     if (res.detalles && res.detalles.length > 0) {
+                        pedidoConfirmado = (parseInt(res.tabla_estado_registro_id) || 0) > 5;
                         detalles = res.detalles.map(function(detalle, index) {
                             return {
                                 detalle_idx: index,
@@ -1774,6 +1938,7 @@ $(document).ready(function () {
                                 producto_id: detalle.producto_id,
                                 producto_codigo: detalle.producto_codigo,
                                 producto_nombre: detalle.producto_nombre,
+                                compatibilidad_texto: detalle.compatibilidad_texto || '',
                                 cantidad: detalle.cantidad,
                                 cantidad_entregada: detalle.cantidad_entregada || 0,
                                 precio_unitario: detalle.precio_unitario,
@@ -1793,7 +1958,7 @@ $(document).ready(function () {
                         actualizarTotales();
                     }
                     
-                    if (res.comprobante_nro && res.comprobante_nro > 0) {
+                    if (pedidoConfirmado) {
                         $('.btn-secondary[data-bs-dismiss="modal"]').hide();
                         $('.btn-eliminar-detalle, #btnNuevoProductoRapido, #btnLimpiarTagsProducto').hide();
                         $('#busqueda_producto').prop('disabled', true);
@@ -2084,6 +2249,785 @@ $(document).ready(function () {
                     confirmButtonText: "Entendido"
                 });
                 btn.prop('disabled', false).html(originalText);
+            }
+        });
+    });
+
+    // ============================================================
+    // SOLAPA "REMITOS"
+    // ============================================================
+    // Todo lo que sigue pega directo contra ventas_remitos_ajax.php (cross-file),
+    // reutilizando el motor de remitos tal cual está — no se duplica numeración,
+    // sincronización de comprobante, ni actualización de cantidad_entregada.
+    // La única función nueva del lado del servidor es obtenerRemitosDePedido()
+    // en ventas_pedidos_model.php, que solo LISTA (no escribe nada).
+
+    // Vuelve a traer cantidad_entregada por línea desde el pedido (sin recargar
+    // todo el modal) para que "Entregado" y la visibilidad de "Cargar Remito
+    // Nuevo" queden al día apenas se guarda/cancela un remito desde esta solapa.
+    function refrescarCantidadesEntregadas(pedidoId) {
+        if (!pedidoId) return;
+        $.ajax({
+            url: 'ventas_pedidos_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener', venta_pedido_id: pedidoId, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (res) {
+                if (!res || !res.detalles) return;
+                res.detalles.forEach(function (d) {
+                    var local = detalles.find(function (x) { return x.venta_pedido_detalle_id == d.venta_pedido_detalle_id; });
+                    if (local) local.cantidad_entregada = parseFloat(d.cantidad_entregada) || 0;
+                });
+                renderizarDetalles();
+            }
+        });
+    }
+
+    function mostrarTabRemitos(mostrar) {
+        $('#tab-item-remitos').toggle(!!mostrar);
+    }
+
+    // Se calcula directo de cantidad vs. cantidad_entregada por línea, no de un
+    // texto de estado tipo "Entrega Total" — comparar contra una etiqueta hardcodeada
+    // es frágil (ya nos pasó con 'confirmar' vs 'confirmar_pedido'); esto es la
+    // fuente de verdad real.
+    function actualizarVisibilidadCargarRemitoNuevo() {
+        var entregaCompleta = detalles.length > 0 && detalles.every(function (d) {
+            return (parseFloat(d.cantidad_entregada) || 0) >= (parseFloat(d.cantidad) || 0) - 0.0001;
+        });
+        $('#card-cargar-remito-nuevo').toggle(!entregaCompleta);
+    }
+
+    function resetSolapaRemitos() {
+        remitosPedidoActual = [];
+        remitoPendientesPedido = [];
+        remitoDetallesNuevo = [];
+        remitoEditandoId = null;
+        remitoLineasOriginalesPorVpd = {};
+        $('#contenedor-remitos-pedido').html('<div class="text-muted small text-center p-3">Todavía no hay remitos generados para este pedido.</div>');
+        $('#contador-remitos').text('0');
+        $('#remito_punto_venta_id').html('<option value="">Seleccionar</option>');
+        $('#remito_comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>');
+        $('#remito_observaciones').val('');
+        $('#contenedor-remito-pendientes').html('<div class="text-muted small p-2">Elegí el punto de venta para ver las líneas pendientes de este pedido.</div>');
+        $('#titulo-card-remito').html('<i class="fas fa-plus-circle me-2"></i>Cargar Remito Nuevo');
+        $('#btnCancelarEdicionRemito').addClass('d-none');
+        $('#card-cargar-remito-nuevo').show();
+        renderizarRemitoDetalleNuevo();
+        mostrarTabRemitos(false);
+    }
+
+    function formatFechaCorta(fecha) {
+        if (!fecha) return '';
+        var partes = fecha.split('-');
+        if (partes.length !== 3) return fecha;
+        return partes[2] + '/' + partes[1] + '/' + partes[0];
+    }
+
+    // ---------- Remitos ya generados para este pedido ----------
+    function cargarRemitosDelPedido(pedidoId) {
+        if (!pedidoId) {
+            remitosPedidoActual = [];
+            renderizarRemitosPedido();
+            return;
+        }
+        $.ajax({
+            url: 'ventas_pedidos_ajax.php',
+            type: 'GET',
+            data: {
+                accion: 'obtener_remitos_pedido',
+                venta_pedido_id: pedidoId,
+                pagina_idx_remitos: REMITOS_PAGINA_IDX,
+                empresa_idx: empresa_idx
+            },
+            dataType: 'json',
+            success: function (res) {
+                remitosPedidoActual = res || [];
+                renderizarRemitosPedido();
+            },
+            error: function () {
+                $('#contenedor-remitos-pedido').html(
+                    '<div class="text-danger small p-2"><i class="fas fa-triangle-exclamation me-1"></i>Error al consultar los remitos de este pedido.</div>'
+                );
+            }
+        });
+    }
+
+    function renderizarRemitosPedido() {
+        $('#contador-remitos').text(remitosPedidoActual.length);
+
+        if (remitosPedidoActual.length === 0) {
+            $('#contenedor-remitos-pedido').html('<div class="text-muted small text-center p-3">Todavía no hay remitos generados para este pedido.</div>');
+            return;
+        }
+
+        var html = '';
+        remitosPedidoActual.forEach(function (remito) {
+            var estado = remito.estado_info || {};
+            var numero = remito.comprobante_nro > 0
+                ? `${remito.comprobante_tipo || 'Remito'} #${remito.comprobante_nro}`
+                : `${remito.comprobante_tipo || 'Remito'} (sin numerar)`;
+
+            var botonesHtml = '';
+            (remito.botones || []).forEach(function (boton) {
+                var claseBoton = 'btn-sm me-1 ';
+                if (boton.bg_clase && boton.text_clase) {
+                    claseBoton += boton.bg_clase + ' ' + boton.text_clase;
+                } else if (boton.color_clase) {
+                    claseBoton += boton.color_clase;
+                } else {
+                    claseBoton += 'btn-outline-primary';
+                }
+                var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
+                var titulo = boton.descripcion || boton.nombre_funcion;
+
+                if (boton.accion_js === 'editar') {
+                    botonesHtml += `<button type="button" class="btn ${claseBoton} btn-editar-remito-inline"
+                        data-id="${remito.venta_remito_id}"
+                        title="${titulo}">${icono}</button>`;
+                } else if (boton.accion_js === 'visualizar') {
+                    botonesHtml += `<button type="button" class="btn ${claseBoton} btn-ver-resumen-remito"
+                        data-id="${remito.venta_remito_id}"
+                        title="${titulo}">${icono}</button>`;
+                } else {
+                    botonesHtml += `<button type="button" class="btn ${claseBoton} btn-accion-remito"
+                        data-id="${remito.venta_remito_id}"
+                        data-accion="${boton.accion_js}"
+                        data-confirmable="${boton.es_confirmable || 0}"
+                        data-comprobante="${numero}"
+                        title="${titulo}">${icono}</button>`;
+                }
+            });
+
+            var filasDetalle = '';
+            (remito.detalles || []).forEach(function (d) {
+                filasDetalle += `<tr>
+                    <td>${d.producto_codigo || ''}</td>
+                    <td>${d.producto_nombre || ''}</td>
+                    <td class="text-center">${formatMoneda(d.cantidad)}</td>
+                    <td class="text-end">$${formatMoneda(d.importe_linea)}</td>
+                </tr>`;
+            });
+
+            // Confirmado (numerado) = arranca resumido/colapsado, con botón para
+            // expandir. Sin numerar (borrador) sigue expandido siempre, porque
+            // suele ser el que se está terminando de armar.
+            var confirmado = remito.comprobante_nro > 0;
+            var collapseId = 'collapse-remito-' + remito.venta_remito_id;
+            var botonToggle = confirmado
+                ? `<button type="button" class="btn btn-sm btn-outline-secondary me-2 btn-toggle-remito-resumen"
+                        data-bs-toggle="collapse" data-bs-target="#${collapseId}" title="Ver/ocultar detalle">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>`
+                : '';
+
+            html += `<div class="border rounded mb-2 p-2">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-1">
+                    <div>
+                        ${botonToggle}
+                        <strong>${numero}</strong>
+                        <span class="text-muted small ms-2">${formatFechaCorta(remito.f_emision)}</span>
+                        <span class="badge ${estado.bg_clase || 'bg-dark'} ${estado.text_clase || 'text-white'} ms-2">${estado.estado_registro || 'Sin estado'}</span>
+                    </div>
+                    <div>${botonesHtml}</div>
+                </div>
+                <div class="collapse${confirmado ? '' : ' show'}" id="${collapseId}">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr><th>Código</th><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Importe</th></tr>
+                        </thead>
+                        <tbody>${filasDetalle}</tbody>
+                    </table>
+                </div>
+            </div>`;
+        });
+
+        $('#contenedor-remitos-pedido').html(html);
+    }
+
+    // Solo gira el ícono; el propio Bootstrap ya maneja mostrar/ocultar vía
+    // data-bs-toggle="collapse" en el botón.
+    $(document).on('click', '.btn-toggle-remito-resumen', function () {
+        $(this).find('i').toggleClass('fa-chevron-down fa-chevron-up');
+    });
+
+    $(document).on('click', '.btn-accion-remito', function () {
+        var remitoId = $(this).data('id');
+        var accionJs = $(this).data('accion');
+        var confirmable = $(this).data('confirmable');
+        var comprobanteInfo = $(this).data('comprobante') || ('Remito #' + remitoId);
+
+        function ejecutar() {
+            $.post('ventas_remitos_ajax.php', {
+                accion: 'ejecutar_accion',
+                venta_remito_id: remitoId,
+                accion_js: accionJs,
+                empresa_idx: empresa_idx,
+                pagina_idx: REMITOS_PAGINA_IDX
+            }, function (res) {
+                if (res.success) {
+                    Swal.fire({ icon: 'success', title: res.message || 'Acción ejecutada', showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
+                    var pedidoId = $('#venta_pedido_id').val();
+                    cargarRemitosDelPedido(pedidoId);
+                    cargarPendientesRemitoPedido();
+                    refrescarCantidadesEntregadas(pedidoId);
+                    if (tabla) tabla.ajax.reload(null, false);
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: res.error || 'Error al ejecutar la acción', confirmButtonText: 'Entendido' });
+                }
+            }, 'json').fail(function () {
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor', confirmButtonText: 'Entendido' });
+            });
+        }
+
+        if (confirmable == 1) {
+            Swal.fire({
+                title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
+                html: `¿Está seguro de <strong>${accionJs}</strong> el remito<br><strong>${comprobanteInfo}</strong>?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: `Sí, ${accionJs}`,
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                allowOutsideClick: false
+            }).then(function (result) {
+                if (result.isConfirmed) ejecutar();
+            });
+        } else {
+            ejecutar();
+        }
+    });
+
+    // ---------- Editar remito inline (sin saltar a ventas_remitos.php) ----------
+    // Reutiliza la MISMA tarjeta "Cargar Remito Nuevo": la llena con los datos del
+    // remito elegido y cambia su modo a edición (título, botón de guardar y un
+    // botón para cancelar y volver a "nuevo"). editarRemitoVenta() en el backend
+    // ya rechaza editar un remito confirmado/numerado, así que ese botón no
+    // aparece para esos casos (viene de obtenerBotonesPorEstadoRemito).
+    // ---------- Ver resumen de un remito, inline (sin pestaña nueva) ----------
+    // Es de solo lectura, así que no hace falta reconstruir el formulario completo
+    // de ventas_remitos (con el riesgo de ids duplicados que eso implica) — alcanza
+    // con traer los datos y mostrarlos en un resumen.
+    function verResumenRemitoInline(remitoId) {
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener', venta_remito_id: remitoId, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (res) {
+                if (!res || !res.venta_remito_id) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Error al obtener datos del remito', confirmButtonText: 'Entendido' });
+                    return;
+                }
+
+                var numero = res.comprobante_nro > 0
+                    ? `${res.comprobante_tipo || 'Remito'} #${res.comprobante_nro}`
+                    : `${res.comprobante_tipo || 'Remito'} (sin numerar)`;
+
+                var filasDetalle = '';
+                var total = 0;
+                (res.detalles || []).forEach(function (d) {
+                    var importe = parseFloat(d.importe_linea) || 0;
+                    total += importe;
+                    filasDetalle += `<tr>
+                        <td>${d.producto_codigo || ''}</td>
+                        <td class="text-start">${d.producto_nombre || ''}</td>
+                        <td class="text-center">${formatMoneda(d.cantidad)}</td>
+                        <td class="text-end">$${formatMoneda(importe)}</td>
+                    </tr>`;
+                });
+
+                var html = `
+                    <div class="text-start small">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6"><strong>Punto de Venta:</strong> ${res.punto_venta_nombre || '-'}</div>
+                            <div class="col-6"><strong>Fecha:</strong> ${formatFechaCorta(res.f_emision)}</div>
+                            <div class="col-6"><strong>Cliente:</strong> ${res.entidad_nombre || '-'}</div>
+                            <div class="col-6"><strong>Depósito:</strong> ${res.boca_nombre || '-'}</div>
+                        </div>
+                        ${res.observaciones ? `<div class="mb-2"><strong>Observaciones:</strong> ${escapeHtml(res.observaciones)}</div>` : ''}
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr><th>Código</th><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Importe</th></tr>
+                            </thead>
+                            <tbody>${filasDetalle}</tbody>
+                            <tfoot>
+                                <tr class="fw-bold"><td colspan="3" class="text-end">Total</td><td class="text-end">$${formatMoneda(total)}</td></tr>
+                            </tfoot>
+                        </table>
+                    </div>`;
+
+                Swal.fire({
+                    title: numero,
+                    html: html,
+                    width: 650,
+                    confirmButtonText: 'Cerrar'
+                });
+            },
+            error: function () {
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo obtener el remito', confirmButtonText: 'Entendido' });
+            }
+        });
+    }
+
+    $(document).on('click', '.btn-ver-resumen-remito', function () {
+        verResumenRemitoInline($(this).data('id'));
+    });
+
+    function cargarRemitoParaEditarDesdePedido(remitoId) {
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener', venta_remito_id: remitoId, empresa_idx: empresa_idx },
+            dataType: 'json',
+            success: function (res) {
+                if (!res || !res.venta_remito_id) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Error al obtener datos del remito', confirmButtonText: 'Entendido' });
+                    return;
+                }
+
+                remitoEditandoId = res.venta_remito_id;
+                remitoLineasOriginalesPorVpd = {};
+
+                remitoDetallesNuevo = (res.detalles || []).map(function (d) {
+                    if (d.venta_pedido_detalle_id) {
+                        remitoLineasOriginalesPorVpd[d.venta_pedido_detalle_id] =
+                            (remitoLineasOriginalesPorVpd[d.venta_pedido_detalle_id] || 0) + (parseFloat(d.cantidad) || 0);
+                    }
+                    return {
+                        venta_pedido_detalle_id: d.venta_pedido_detalle_id,
+                        producto_id: d.producto_id,
+                        producto_codigo: d.producto_codigo,
+                        producto_nombre: d.producto_nombre,
+                        cantidad: parseFloat(d.cantidad) || 0
+                    };
+                });
+                renderizarRemitoDetalleNuevo();
+
+                $('#remito_f_emision').val(res.f_emision);
+                $('#remito_observaciones').val(res.observaciones);
+
+                fijarPuntoVentaRemito(pedidoPuntoVentaId, pedidoPuntoVentaNombre, function () {
+                    cargarTiposComprobanteRemito(pedidoPuntoVentaId, function () {
+                        $('#remito_comprobante_tipo_id').val(res.comprobante_tipo_id);
+                        cargarPendientesRemitoPedido();
+                    });
+                });
+
+                $('#titulo-card-remito').html('<i class="fas fa-pen me-2"></i>Editando Remito' +
+                    (res.comprobante_nro > 0 ? ' #' + res.comprobante_nro : ' (sin numerar)'));
+                $('#btnCancelarEdicionRemito').removeClass('d-none');
+                // Editar un remito ya cargado sigue siendo válido aunque la entrega del
+                // pedido esté completa (ej. corregir algo) — se fuerza a visible incluso
+                // si actualizarVisibilidadCargarRemitoNuevo() la había ocultado.
+                $('#card-cargar-remito-nuevo').show();
+                $('#tab-remitos').get(0).click();
+
+                Swal.fire({ icon: 'info', title: 'Remito cargado para editar', showConfirmButton: false, timer: 1200, toast: true, position: 'top-end' });
+            },
+            error: function () {
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo obtener el remito', confirmButtonText: 'Entendido' });
+            }
+        });
+    }
+
+    $(document).on('click', '.btn-editar-remito-inline', function () {
+        cargarRemitoParaEditarDesdePedido($(this).data('id'));
+    });
+
+    function cancelarEdicionRemito() {
+        remitoEditandoId = null;
+        remitoLineasOriginalesPorVpd = {};
+        remitoDetallesNuevo = [];
+        renderizarRemitoDetalleNuevo();
+        $('#remito_observaciones').val('');
+        $('#remito_punto_venta_id').val('');
+        $('#remito_comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>');
+        $('#remito_f_emision').val(new Date().toISOString().split('T')[0]);
+        $('#titulo-card-remito').html('<i class="fas fa-plus-circle me-2"></i>Cargar Remito Nuevo');
+        $('#btnCancelarEdicionRemito').addClass('d-none');
+        actualizarVisibilidadCargarRemitoNuevo();
+        cargarPendientesRemitoPedido();
+    }
+
+    $(document).on('click', '#btnCancelarEdicionRemito', function () {
+        cancelarEdicionRemito();
+    });
+
+    // ---------- Cargar remito nuevo ----------
+    // El remito siempre respeta el punto de venta del propio pedido — no se
+    // elige de una lista, para no poder remitir desde un depósito distinto al
+    // que corresponde a este pedido/cliente.
+    function fijarPuntoVentaRemito(puntoVentaId, puntoVentaNombre, callback) {
+        if (puntoVentaId) {
+            $('#remito_punto_venta_id').html(
+                `<option value="${puntoVentaId}" selected>${puntoVentaNombre || ('PV ' + puntoVentaId)}</option>`
+            ).prop('disabled', true);
+        } else {
+            $('#remito_punto_venta_id').html('<option value="">Pedido sin punto de venta asignado</option>').prop('disabled', true);
+        }
+        if (typeof callback === 'function') callback();
+    }
+
+    function cargarTiposComprobanteRemito(puntoVentaId, callback) {
+        if (!puntoVentaId) {
+            $('#remito_comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>');
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: {
+                accion: 'obtener_comprobantes_tipos',
+                punto_venta_id: puntoVentaId,
+                pagina_idx: REMITOS_PAGINA_IDX,
+                empresa_idx: empresa_idx
+            },
+            dataType: 'json',
+            success: function (data) {
+                if (data && data.length > 0) {
+                    var options = data.length === 1 ? '' : '<option value="">Seleccionar</option>';
+                    data.forEach(function (item) {
+                        options += `<option value="${item.comprobante_tipo_id}">${item.comprobante_tipo}</option>`;
+                    });
+                    $('#remito_comprobante_tipo_id').html(options);
+                    if (data.length === 1) $('#remito_comprobante_tipo_id').val(data[0].comprobante_tipo_id);
+                } else {
+                    $('#remito_comprobante_tipo_id').html('<option value="">Sin tipos habilitados para este punto de venta</option>');
+                }
+                if (typeof callback === 'function') callback();
+            },
+            error: function () {
+                $('#remito_comprobante_tipo_id').html('<option value="">Error al cargar</option>');
+                if (typeof callback === 'function') callback();
+            }
+        });
+    }
+
+    $(document).on('change', '#remito_punto_venta_id', function () {
+        cargarTiposComprobanteRemito($(this).val());
+        cargarPendientesRemitoPedido();
+    });
+
+    function cargarPendientesRemitoPedido() {
+        var pedidoId = $('#venta_pedido_id').val();
+        var puntoVentaId = $('#remito_punto_venta_id').val();
+
+        if (!clienteActualId || !pedidoId) {
+            remitoPendientesPedido = [];
+            renderizarPendientesRemitoPedido();
+            return;
+        }
+
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'GET',
+            data: {
+                accion: 'obtener_pedidos_pendientes_cliente',
+                entidad_id: clienteActualId,
+                pedido_id: pedidoId,
+                punto_venta_id: puntoVentaId || '',
+                empresa_idx: empresa_idx
+            },
+            dataType: 'json',
+            success: function (data) {
+                remitoPendientesPedido = data || [];
+
+                // Al editar: una línea que ESTE remito cubrió por completo (sin nada
+                // pendiente en otro lado) no viene en la respuesta, porque el backend
+                // todavía no revirtió su cantidad_entregada — recién se revierte al
+                // guardar. Sin este agregado, sacarla del borrador no la vuelve a
+                // mostrar como disponible para remitir. Se completa con los datos que
+                // ya tiene la solapa Productos (misma fuente que "Pendiente" de esa
+                // tabla), con pendiente=0 de base: la corrección de
+                // renderizarPendientesRemitoPedido() ya suma lo que este remito tenía
+                // reservado para llegar al total real.
+                if (remitoEditandoId) {
+                    Object.keys(remitoLineasOriginalesPorVpd).forEach(function (vpdId) {
+                        var yaListada = remitoPendientesPedido.some(function (p) {
+                            return p.venta_pedido_detalle_id == vpdId;
+                        });
+                        if (yaListada) return;
+
+                        var lineaPedido = detalles.find(function (d) {
+                            return d.venta_pedido_detalle_id == vpdId;
+                        });
+                        if (!lineaPedido) return;
+
+                        remitoPendientesPedido.push({
+                            venta_pedido_detalle_id: lineaPedido.venta_pedido_detalle_id,
+                            producto_id: lineaPedido.producto_id,
+                            producto_codigo: lineaPedido.producto_codigo,
+                            producto_nombre: lineaPedido.producto_nombre,
+                            pendiente: 0,
+                            ubicaciones_detalle: []
+                        });
+                    });
+                }
+
+                renderizarPendientesRemitoPedido();
+            },
+            error: function () {
+                $('#contenedor-remito-pendientes').html(
+                    '<div class="text-danger small p-2"><i class="fas fa-triangle-exclamation me-1"></i>Error al consultar los pendientes.</div>'
+                );
+            }
+        });
+    }
+
+    function cantidadYaEnBorradorRemito(vpdId) {
+        var total = 0;
+        remitoDetallesNuevo.forEach(function (d) {
+            if (d.venta_pedido_detalle_id == vpdId) total += parseFloat(d.cantidad) || 0;
+        });
+        return total;
+    }
+
+    // Igual que "renderUbicacionesPendiente" de ventas_remitos.js — mismas clases de
+    // badge, que se copiaron al CSS de esta página para que se vean igual.
+    function renderUbicacionesRemitoPendiente(ubicaciones) {
+        if (!ubicaciones || !ubicaciones.length) {
+            return '<span class="text-muted small">Sin ubicación</span>';
+        }
+        var html = '<div class="ubicaciones-pendiente-container">';
+        ubicaciones.forEach(function (u) {
+            var partes = [];
+            if (u.seccion) partes.push(`<span class="badge badge-ubicacion badge-seccion">${u.seccion}</span>`);
+            if (u.estanteria) partes.push(`<span class="badge badge-ubicacion badge-estanteria">${u.estanteria}</span>`);
+            if (u.estante) partes.push(`<span class="badge badge-ubicacion badge-estante">${u.estante}</span>`);
+            if (u.posicion) partes.push(`<span class="badge badge-ubicacion badge-posicion">${u.posicion}</span>`);
+            if (partes.length > 0) {
+                html += `<div class="ubicacion-item d-flex flex-wrap align-items-center gap-1">${partes.join(' ')}</div>`;
+            }
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function renderizarPendientesRemitoPedido() {
+        var cont = $('#contenedor-remito-pendientes');
+
+        var filas = [];
+        remitoPendientesPedido.forEach(function (linea) {
+            var yaEnBorrador = cantidadYaEnBorradorRemito(linea.venta_pedido_detalle_id);
+            // En modo edición, linea.pendiente ya viene descontando lo que ESTE MISMO
+            // remito reservó la vez anterior (todavía no se revirtió, eso pasa recién
+            // al guardar). Sin esta corrección se restaría dos veces: una en el propio
+            // "pendiente" de la base, y otra acá al restar el borrador. Se suma de
+            // vuelta lo que este remito ya tenía para esa línea (mismo criterio que
+            // "pendiente_disponible" en obtenerRemitoVentaPorId).
+            var reservadoPorEsteRemito = (remitoEditandoId && remitoLineasOriginalesPorVpd[linea.venta_pedido_detalle_id])
+                ? remitoLineasOriginalesPorVpd[linea.venta_pedido_detalle_id] : 0;
+            var pendienteBase = linea.pendiente + reservadoPorEsteRemito;
+            var pendienteEfectivo = Math.max(0, pendienteBase - yaEnBorrador);
+            if (pendienteEfectivo <= 0.0001) return;
+            filas.push({ linea: linea, pendienteEfectivo: pendienteEfectivo });
+        });
+
+        if (filas.length === 0) {
+            cont.html('<div class="text-muted small p-2">No hay líneas pendientes de este pedido para remitir.</div>');
+            return;
+        }
+
+        var html = `<table class="table table-sm table-bordered table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th>Ubicación</th>
+                    <th class="text-end">Pendiente</th>
+                    <th class="text-center" width="110">Cantidad</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        filas.forEach(function (item) {
+            var linea = item.linea;
+            var pendienteEfectivo = item.pendienteEfectivo;
+            var cantidadEnBorrador = cantidadYaEnBorradorRemito(linea.venta_pedido_detalle_id);
+
+            html += `<tr>
+                <td>${linea.producto_codigo || ''}</td>
+                <td>${linea.producto_nombre || ''}</td>
+                <td>${renderUbicacionesRemitoPendiente(linea.ubicaciones_detalle)}</td>
+                <td class="text-end">${formatMoneda(pendienteEfectivo)}</td>
+                <td>
+                    <div class="cantidad-stepper mx-auto">
+                        <button type="button" class="btn-stepper btn-cantidad-remito-pendiente-menos" data-vpd-id="${linea.venta_pedido_detalle_id}" tabindex="-1">&minus;</button>
+                        <input type="number" class="cantidad-stepper-input" value="${cantidadEnBorrador.toFixed(2)}" step="0.01" min="0" readonly>
+                        <button type="button" class="btn-stepper btn-cantidad-remito-pendiente-mas" data-vpd-id="${linea.venta_pedido_detalle_id}" data-producto-id="${linea.producto_id}" data-codigo="${linea.producto_codigo || ''}" data-nombre="${linea.producto_nombre || ''}" tabindex="-1">+</button>
+                    </div>
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        cont.html(html);
+    }
+
+    // +/- de la fila de pendientes del remito: agregan o quitan una unidad
+    // directamente del borrador al clickear, mismo patrón que el filtro de
+    // productos de la solapa Productos — sin botón "Agregar" aparte.
+    function ajustarCantidadRemitoPendiente(vpdId, delta, datosLinea) {
+        var existente = remitoDetallesNuevo.find(function (d) { return d.venta_pedido_detalle_id == vpdId; });
+
+        if (existente) {
+            var nuevaCantidad = Math.round(((parseFloat(existente.cantidad) || 0) + delta) * 100) / 100;
+            if (nuevaCantidad <= 0) {
+                remitoDetallesNuevo = remitoDetallesNuevo.filter(function (d) { return d !== existente; });
+            } else {
+                existente.cantidad = nuevaCantidad;
+            }
+        } else {
+            if (delta <= 0) return; // nada cargado todavía, no hay qué restar
+            remitoDetallesNuevo.push({
+                venta_pedido_detalle_id: vpdId,
+                producto_id: datosLinea.producto_id,
+                producto_codigo: datosLinea.producto_codigo,
+                producto_nombre: datosLinea.producto_nombre,
+                cantidad: delta
+            });
+        }
+
+        renderizarRemitoDetalleNuevo();
+        renderizarPendientesRemitoPedido();
+    }
+
+    $(document).on('click', '.btn-cantidad-remito-pendiente-menos', function () {
+        ajustarCantidadRemitoPendiente(parseInt($(this).data('vpd-id')), -1);
+    });
+
+    $(document).on('click', '.btn-cantidad-remito-pendiente-mas', function () {
+        var btn = $(this);
+        ajustarCantidadRemitoPendiente(parseInt(btn.data('vpd-id')), 1, {
+            producto_id: btn.data('producto-id'),
+            producto_codigo: btn.data('codigo'),
+            producto_nombre: btn.data('nombre')
+        });
+    });
+
+    function renderizarRemitoDetalleNuevo() {
+        var cont = $('#contenedor-remito-detalle-nuevo');
+
+        if (remitoDetallesNuevo.length === 0) {
+            cont.html('<div class="text-muted small text-center p-3 border rounded bg-light">Todavía no agregaste líneas a este remito.</div>');
+            return;
+        }
+
+        var html = `<table class="table table-sm table-bordered mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th class="text-center">Cant.</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        remitoDetallesNuevo.forEach(function (d, idx) {
+            html += `<tr>
+                <td>${d.producto_codigo || ''}</td>
+                <td>${d.producto_nombre || ''}</td>
+                <td class="text-center">${formatMoneda(d.cantidad)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger btn-quitar-remito-nuevo" data-idx="${idx}" title="Quitar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+
+        html += '</tbody></table>';
+        cont.html(html);
+    }
+
+    $(document).on('click', '.btn-quitar-remito-nuevo', function () {
+        remitoDetallesNuevo.splice($(this).data('idx'), 1);
+        renderizarRemitoDetalleNuevo();
+        renderizarPendientesRemitoPedido();
+    });
+
+    $(document).on('click', '#btnGuardarRemitoDesdePedido', function () {
+        var btn = $(this);
+        var pedidoId = $('#venta_pedido_id').val();
+
+        if (!$('#remito_punto_venta_id').val()) {
+            Swal.fire({ icon: 'warning', title: 'Falta punto de venta', text: 'Elegí el punto de venta (depósito) del remito', confirmButtonText: 'Entendido' });
+            return;
+        }
+        if (!$('#remito_comprobante_tipo_id').val()) {
+            Swal.fire({ icon: 'warning', title: 'Falta tipo de comprobante', text: 'Elegí el tipo de comprobante del remito', confirmButtonText: 'Entendido' });
+            return;
+        }
+        if (!$('#remito_f_emision').val()) {
+            Swal.fire({ icon: 'warning', title: 'Falta la fecha', text: 'La fecha de emisión es obligatoria', confirmButtonText: 'Entendido' });
+            return;
+        }
+        if (remitoDetallesNuevo.length === 0) {
+            Swal.fire({ icon: 'warning', title: 'Sin líneas', text: 'Agregá al menos un producto al remito', confirmButtonText: 'Entendido' });
+            return;
+        }
+
+        var detallesParaEnviar = remitoDetallesNuevo.map(function (d) {
+            return {
+                producto_id: d.producto_id,
+                venta_pedido_detalle_id: d.venta_pedido_detalle_id,
+                cantidad: d.cantidad
+            };
+        });
+
+        var originalText = btn.html();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+        var datosPost = {
+            accion: remitoEditandoId ? 'editar' : 'agregar',
+            punto_venta_id: $('#remito_punto_venta_id').val(),
+            comprobante_tipo_id: $('#remito_comprobante_tipo_id').val(),
+            entidad_id: clienteActualId,
+            entidad_sucursal_id: clienteSucursalActualId || '',
+            f_emision: $('#remito_f_emision').val(),
+            observaciones: $('#remito_observaciones').val(),
+            detalles: JSON.stringify(detallesParaEnviar),
+            empresa_idx: empresa_idx,
+            pagina_idx: REMITOS_PAGINA_IDX
+        };
+        if (remitoEditandoId) {
+            datosPost.venta_remito_id = remitoEditandoId;
+        }
+
+        $.ajax({
+            url: 'ventas_remitos_ajax.php',
+            type: 'POST',
+            data: datosPost,
+            dataType: 'json',
+            success: function (res) {
+                btn.prop('disabled', false).html(originalText);
+                if (res.resultado) {
+                    Swal.fire({ icon: 'success', title: remitoEditandoId ? '¡Remito actualizado!' : '¡Remito guardado!', showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
+
+                    if (remitoEditandoId) {
+                        cancelarEdicionRemito(); // vuelve la tarjeta a modo "nuevo"
+                    } else {
+                        remitoDetallesNuevo = [];
+                        renderizarRemitoDetalleNuevo();
+                        $('#remito_observaciones').val('');
+                        cargarPendientesRemitoPedido();
+                    }
+
+                    cargarRemitosDelPedido(pedidoId);
+                    refrescarCantidadesEntregadas(pedidoId);
+                    if (tabla) tabla.ajax.reload(null, false);
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: res.error || 'Error al guardar el remito', confirmButtonText: 'Entendido' });
+                }
+            },
+            error: function () {
+                btn.prop('disabled', false).html(originalText);
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor', confirmButtonText: 'Entendido' });
             }
         });
     });

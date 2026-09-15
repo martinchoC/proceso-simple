@@ -107,11 +107,6 @@ $(document).ready(function () {
                     render: function (data) { return `<span>${data || ''}</span>`; }
                 },
                 {
-                    data: 'deposito_nombre',
-                    className: 'text-center',
-                    render: function (data) { return `<span>${data || ''}</span>`; }
-                },
-                {
                     data: 'punto_venta_nombre',
                     className: 'text-center',
                     render: function (data) { return `<span>${data || ''}</span>`; }
@@ -310,17 +305,11 @@ $(document).ready(function () {
         });
     }
 
-    function cargarPuntosVenta(sucursalId, callback) {
-        if (!sucursalId) {
-            $('#punto_venta_id').html('<option value="">Primero seleccione sucursal</option>').prop('disabled', true);
-            if (callback) callback();
-            return;
-        }
-
+    function cargarPuntosVenta(callback) {
         $.ajax({
             url: 'ventas_remitos_ajax.php',
             type: 'GET',
-            data: { accion: 'obtener_puntos_venta', sucursal_id: sucursalId, empresa_idx: empresa_idx },
+            data: { accion: 'obtener_puntos_venta', empresa_idx: empresa_idx },
             dataType: 'json',
             success: function (data) {
                 var options = '<option value="">Seleccionar punto de venta</option>';
@@ -372,16 +361,13 @@ $(document).ready(function () {
         });
     }
 
-    $('#sucursal_id').on('change', function () {
-        cargarPuntosVenta($(this).val(), function () {
-            // Al cambiar de sucursal el punto de venta anterior ya no es válido,
-            // así que los tipos de comprobante tampoco: se limpian hasta elegir PV de nuevo.
-            cargarTiposComprobante(null);
-        });
-    });
-
     $('#punto_venta_id').on('change', function () {
         cargarTiposComprobante($(this).val());
+        // Si el cliente ya estaba elegido, "Pedidos pendientes" se reordena/filtra
+        // por la ubicación de la boca del PV recién elegido.
+        if (clienteActualId) {
+            cargarPedidosPendientes(clienteActualId);
+        }
     });
 
     $('#entidad_combo').on('change', function () {
@@ -437,7 +423,12 @@ $(document).ready(function () {
         $.ajax({
             url: 'ventas_remitos_ajax.php',
             type: 'GET',
-            data: { accion: 'obtener_pedidos_pendientes_cliente', entidad_id: entidadId, empresa_idx: empresa_idx },
+            data: {
+                accion: 'obtener_pedidos_pendientes_cliente',
+                entidad_id: entidadId,
+                empresa_idx: empresa_idx,
+                punto_venta_id: $('#punto_venta_id').val() || ''
+            },
             dataType: 'json',
             success: function (data) {
                 pedidosPendientesCliente = data || [];
@@ -487,12 +478,21 @@ $(document).ready(function () {
         var cont = $('#contenedor-pendientes');
         var card = $('#card-pedidos-pendientes');
 
-        var totalLineasPendientes = (pedidosPendientesCliente || [])
-            .reduce(function (acc, pedido) { return acc + (pedido.detalles || []).length; }, 0);
+        // El backend ya devuelve las líneas ordenadas por ubicación (boca del punto de
+        // venta elegido, si ya se eligió). Acá solo se filtran las que ya se agotaron en
+        // este borrador: apenas se compromete toda la cantidad pendiente, la línea
+        // desaparece de la tabla.
+        var filas = [];
+        (pedidosPendientesCliente || []).forEach(function (linea) {
+            var yaComprometido = cantidadYaComprometida(linea.venta_pedido_detalle_id);
+            var pendienteEfectivo = Math.max(0, linea.pendiente - yaComprometido);
+            if (pendienteEfectivo <= 0.0001) return;
+            filas.push({ linea: linea, pendienteEfectivo: pendienteEfectivo });
+        });
 
-        // La tarjeta completa se oculta si no hay nada que mostrar (sin cliente, o cliente
-        // sin pedidos con entregas pendientes), en vez de ocupar lugar con un mensaje vacío.
-        if (!clienteActualId || totalLineasPendientes === 0) {
+        // La tarjeta completa se oculta si no hay nada que mostrar (sin cliente, cliente
+        // sin pedidos con entregas pendientes, o ya se comprometió todo en este remito).
+        if (!clienteActualId || filas.length === 0) {
             card.hide();
             cont.empty();
             return;
@@ -507,6 +507,7 @@ $(document).ready(function () {
                     <th>Fecha</th>
                     <th>Código</th>
                     <th>Producto</th>
+                    <th>Ubicación</th>
                     <th class="text-center">IVA</th>
                     <th class="text-end">Pendiente</th>
                     <th class="text-center" width="110">Cant. a remitir</th>
@@ -515,54 +516,73 @@ $(document).ready(function () {
             </thead>
             <tbody>`;
 
-        pedidosPendientesCliente.forEach(function (pedido) {
-            var numeroPedido = pedido.comprobante_nro > 0
-                ? `${pedido.comprobante_tipo || 'Pedido'} #${pedido.comprobante_nro}`
-                : `${pedido.comprobante_tipo || 'Pedido'} (sin numerar)`;
+        filas.forEach(function (item) {
+            var linea = item.linea;
+            var pendienteEfectivo = item.pendienteEfectivo;
+            var numeroPedido = linea.comprobante_nro > 0
+                ? `${linea.comprobante_tipo || 'Pedido'} #${linea.comprobante_nro}`
+                : `${linea.comprobante_tipo || 'Pedido'} (sin numerar)`;
+            var ivaPorcentaje = parseFloat(linea.iva_porcentaje || 0);
 
-            pedido.detalles.forEach(function (linea) {
-                var yaComprometido = cantidadYaComprometida(linea.venta_pedido_detalle_id);
-                var pendienteEfectivo = Math.max(0, linea.pendiente - yaComprometido);
-                var agotado = pendienteEfectivo <= 0.0001;
-                var ivaPorcentaje = parseFloat(linea.iva_porcentaje || 0);
-
-                html += `<tr class="pendiente-fila ${agotado ? 'pendiente-agotada' : ''}">
-                    <td>${numeroPedido}</td>
-                    <td>${formatFecha(pedido.f_emision)}</td>
-                    <td>${linea.producto_codigo || ''}</td>
-                    <td>${linea.producto_nombre || ''}</td>
-                    <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
-                    <td class="text-end">${formatMoneda(pendienteEfectivo)}</td>
-                    <td>
-                        <input type="number" class="form-control form-control-sm no-spinner input-cantidad-pendiente"
-                            value="${pendienteEfectivo.toFixed(2)}" step="0.01" min="0.01"
-                            max="${pendienteEfectivo}" ${agotado ? 'disabled' : ''}>
-                    </td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-success btn-agregar-pendiente" ${agotado ? 'disabled' : ''}
-                            data-vpd-id="${linea.venta_pedido_detalle_id}"
-                            data-producto-id="${linea.producto_id}"
-                            data-codigo="${linea.producto_codigo || ''}"
-                            data-nombre="${linea.producto_nombre || ''}"
-                            data-precio="${linea.precio_unitario_neto}"
-                            data-precio-bruto="${linea.precio_unitario_bruto || 0}"
-                            data-descuento-pct="${linea.descuento_general_pct || 0}"
-                            data-iva-id="${linea.iva_alicuota_id || ''}"
-                            data-iva="${ivaPorcentaje}"
-                            data-pedido-id="${pedido.venta_pedido_id}"
-                            data-pedido-nro="${pedido.comprobante_nro}"
-                            data-pedido-tipo="${pedido.comprobante_tipo || ''}"
-                            data-pendiente="${pendienteEfectivo}"
-                            title="${agotado ? 'Ya incluido en este remito' : 'Agregar al remito'}">
-                            <i class="fas fa-${agotado ? 'check' : 'plus'}"></i>
-                        </button>
-                    </td>
-                </tr>`;
-            });
+            html += `<tr class="pendiente-fila">
+                <td>${numeroPedido}</td>
+                <td>${formatFecha(linea.f_emision)}</td>
+                <td>${linea.producto_codigo || ''}</td>
+                <td>${linea.producto_nombre || ''}</td>
+                <td>${renderUbicacionesPendiente(linea.ubicaciones_detalle)}</td>
+                <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                <td class="text-end">${formatMoneda(pendienteEfectivo)}</td>
+                <td>
+                    <input type="number" class="form-control form-control-sm no-spinner input-cantidad-pendiente"
+                        value="${pendienteEfectivo.toFixed(2)}" step="0.01" min="0.01"
+                        max="${pendienteEfectivo}">
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-success btn-agregar-pendiente"
+                        data-vpd-id="${linea.venta_pedido_detalle_id}"
+                        data-producto-id="${linea.producto_id}"
+                        data-codigo="${linea.producto_codigo || ''}"
+                        data-nombre="${linea.producto_nombre || ''}"
+                        data-precio="${linea.precio_unitario_neto}"
+                        data-precio-bruto="${linea.precio_unitario_bruto || 0}"
+                        data-descuento-pct="${linea.descuento_general_pct || 0}"
+                        data-iva-id="${linea.iva_alicuota_id || ''}"
+                        data-iva="${ivaPorcentaje}"
+                        data-pedido-id="${linea.venta_pedido_id}"
+                        data-pedido-nro="${linea.comprobante_nro}"
+                        data-pedido-tipo="${linea.comprobante_tipo || ''}"
+                        data-pendiente="${pendienteEfectivo}"
+                        title="Agregar al remito">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </td>
+            </tr>`;
         });
 
         html += '</tbody></table>';
         cont.html(html);
+    }
+
+    // Mismos badges (colores y clases) que usa el ABM de productos para mostrar
+    // sección/estantería/estante/posición. Si el producto tiene ubicación en más de
+    // una boca (no se filtró por PV, o directamente tiene varias), se listan todas.
+    function renderUbicacionesPendiente(ubicaciones) {
+        if (!ubicaciones || !ubicaciones.length) {
+            return '<span class="text-muted small">Sin ubicación</span>';
+        }
+        var html = '<div class="ubicaciones-pendiente-container">';
+        ubicaciones.forEach(function (u) {
+            var partes = [];
+            if (u.seccion) partes.push(`<span class="badge badge-ubicacion badge-seccion">${u.seccion}</span>`);
+            if (u.estanteria) partes.push(`<span class="badge badge-ubicacion badge-estanteria">${u.estanteria}</span>`);
+            if (u.estante) partes.push(`<span class="badge badge-ubicacion badge-estante">${u.estante}</span>`);
+            if (u.posicion) partes.push(`<span class="badge badge-ubicacion badge-posicion">${u.posicion}</span>`);
+            if (partes.length > 0) {
+                html += `<div class="ubicacion-item d-flex flex-wrap align-items-center gap-1">${partes.join(' ')}</div>`;
+            }
+        });
+        html += '</div>';
+        return html;
     }
 
     $(document).on('click', '.btn-agregar-pendiente', function () {
@@ -1004,11 +1024,8 @@ $(document).ready(function () {
     // la edición in-place de cantidad de una línea que viene de un pedido.
     function obtenerPendienteOriginal(ventaPedidoDetalleId) {
         for (var i = 0; i < pedidosPendientesCliente.length; i++) {
-            var pedido = pedidosPendientesCliente[i];
-            for (var j = 0; j < (pedido.detalles || []).length; j++) {
-                if (pedido.detalles[j].venta_pedido_detalle_id == ventaPedidoDetalleId) {
-                    return parseFloat(pedido.detalles[j].pendiente) || 0;
-                }
+            if (pedidosPendientesCliente[i].venta_pedido_detalle_id == ventaPedidoDetalleId) {
+                return parseFloat(pedidosPendientesCliente[i].pendiente) || 0;
             }
         }
         return null; // no se encontró (no debería pasar en uso normal)
@@ -1162,25 +1179,7 @@ $(document).ready(function () {
 
     // ========== COMBOS DEL FORMULARIO ==========
     function cargarCombosFormulario() {
-        $.get('ventas_remitos_ajax.php', { accion: 'obtener_sucursales_empresa', empresa_idx: empresa_idx }, function (data) {
-            var options = '<option value="">Seleccionar sucursal</option>';
-            if (data && data.length > 0) {
-                data.forEach(function (item) {
-                    options += `<option value="${item.sucursal_id}">${item.sucursal_nombre}</option>`;
-                });
-            }
-            $('#sucursal_id').html(options);
-        }, 'json');
-
-        $.get('ventas_remitos_ajax.php', { accion: 'obtener_depositos', empresa_idx: empresa_idx }, function (data) {
-            var options = '<option value="">Seleccionar depósito</option>';
-            if (data && data.length > 0) {
-                data.forEach(function (item) {
-                    options += `<option value="${item.deposito_id}">${item.deposito_nombre}</option>`;
-                });
-            }
-            $('#deposito_id').html(options);
-        }, 'json');
+        cargarPuntosVenta();
 
         // El combo de tipo de comprobante depende del punto de venta elegido
         // (ver cargarTiposComprobante): sin PV no hay contra qué intersectar
@@ -1236,7 +1235,7 @@ $(document).ready(function () {
         $('#entidad_id').val('');
         $('#entidad_sucursal_id').val('');
         $('#entidad_combo').prop('disabled', false).removeAttr('title');
-        $('#punto_venta_id').html('<option value="">Primero seleccione sucursal</option>').prop('disabled', true);
+        $('#punto_venta_id').html('<option value="">Seleccionar punto de venta</option>').prop('disabled', true);
         $('#comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>').prop('disabled', true);
         $('#formVentaRemito').removeClass('was-validated');
 
@@ -1320,20 +1319,13 @@ $(document).ready(function () {
                 poblarDetallesDesdeRespuesta(res);
 
                 setTimeout(function () {
-                    $('#deposito_id').val(res.deposito_id);
-
-                    if (res.sucursal_id) {
-                        $('#sucursal_id').val(res.sucursal_id);
-                        cargarPuntosVenta(res.sucursal_id, function () {
-                            if (res.comprobante_pv) {
-                                $('#punto_venta_id').val(res.comprobante_pv);
-                                // Recién con el combo poblado tiene sentido setear el
-                                // tipo de comprobante guardado (antes se pisaba contra
-                                // un select todavía vacío y quedaba en blanco).
-                                cargarTiposComprobante(res.comprobante_pv, function () {
-                                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
-                                });
-                            }
+                    if (res.comprobante_pv) {
+                        $('#punto_venta_id').val(res.comprobante_pv);
+                        // Recién con el combo poblado tiene sentido setear el
+                        // tipo de comprobante guardado (antes se pisaba contra
+                        // un select todavía vacío y quedaba en blanco).
+                        cargarTiposComprobante(res.comprobante_pv, function () {
+                            $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                         });
                     }
 
@@ -1496,8 +1488,6 @@ $(document).ready(function () {
         formData.append('empresa_idx', empresa_idx);
         formData.append('pagina_idx', pagina_idx);
         formData.append('venta_remito_id', id || '');
-        formData.append('sucursal_id', $('#sucursal_id').val() || '');
-        formData.append('deposito_id', $('#deposito_id').val() || '');
         formData.append('punto_venta_id', $('#punto_venta_id').val() || '');
         formData.append('comprobante_tipo_id', $('#comprobante_tipo_id').val() || '');
         formData.append('entidad_id', clienteActualId);
@@ -1555,6 +1545,12 @@ $(document).ready(function () {
 
     inicializarDataTable();
     cargarBotonAgregar();
+
+    // Deep-link desde la solapa "Remitos" del módulo de pedidos: si llegó con
+    // un id por URL, abrir directo en edición sin esperar a que cargue la grilla.
+    if (VENTA_REMITO_ID_INICIAL > 0) {
+        cargarRemitoParaEditar(VENTA_REMITO_ID_INICIAL);
+    }
 
     $('[title]').tooltip({ trigger: 'hover', placement: 'top' });
 });

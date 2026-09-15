@@ -206,12 +206,28 @@ try {
                 break;
             }
 
-            $pedido = obtenerPedidoVentaPorId($conexion, $id, $empresa_idx);
+            $pedido = obtenerPedidoVentaPorId($conexion, $id, $empresa_idx, $pagina_idx);
             if ($pedido) {
                 echo json_encode($pedido, JSON_UNESCAPED_UNICODE);
             } else {
                 echo json_encode(['error' => 'Pedido de venta no encontrado'], JSON_UNESCAPED_UNICODE);
             }
+            break;
+
+        // Solapa "Remitos" del modal de pedido: lista los remitos ya generados
+        // que tocan a este pedido. pagina_idx_remitos es la página de
+        // ventas_remitos (88 por defecto ahí), NO la de este módulo — son
+        // motores de estado independientes con sus propias transiciones.
+        case 'obtener_remitos_pedido':
+            $pedido_id = intval($_GET['venta_pedido_id'] ?? 0);
+            $pagina_idx_remitos = intval($_GET['pagina_idx_remitos'] ?? 88);
+            if (empty($pedido_id)) {
+                echo json_encode([], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+
+            $remitos = obtenerRemitosDePedido($conexion, $empresa_idx, $pedido_id, $pagina_idx_remitos);
+            echo json_encode($remitos, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_comprobantes_tipos':
