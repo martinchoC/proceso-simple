@@ -222,7 +222,8 @@ function construirArbolPaginasRecursivo($paginas, $modulo_id, $padre_id = null)
                     'url' => $pagina['url'],
                     'orden' => $pagina['orden'],
                     'modulo_id' => $pagina['modulo_id'],
-                    'pagina_nombre' => $pagina['pagina']
+                    'pagina_nombre' => $pagina['pagina'],
+                    'es_acceso_directo' => $pagina['es_acceso_directo']
                 ],
                 'children' => construirArbolPaginasRecursivo($paginas, $modulo_id, $pagina['pagina_id']),
                 'state' => [
@@ -454,11 +455,12 @@ function agregarpagina($conexion, $data)
     $padre_id = (!empty($data['padre_id']) && is_numeric($data['padre_id'])) ? intval($data['padre_id']) : 'NULL';
     $modulo_id = intval($data['modulo_id']);
     $tabla_estado_registro_id = intval($data['tabla_estado_registro_id'] ?? 1);
+    $es_acceso_directo = !empty($data['es_acceso_directo']) ? 1 : 0;
 
     $sql = "INSERT INTO conf__paginas 
-            (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id) 
+            (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id, es_acceso_directo) 
             VALUES 
-            ('$pagina', '$url', '$pagina_descripcion', '$orden', '$tabla_id', $padre_id, $modulo_id, $tabla_estado_registro_id,'$icono_id')";
+            ('$pagina', '$url', '$pagina_descripcion', '$orden', '$tabla_id', $padre_id, $modulo_id, $tabla_estado_registro_id,'$icono_id', $es_acceso_directo)";
 
     return mysqli_query($conexion, $sql);
 }
@@ -478,6 +480,7 @@ function editarpagina($conexion, $id, $data)
     $padre_id = (!empty($data['padre_id']) && is_numeric($data['padre_id'])) ? intval($data['padre_id']) : 'NULL';
     $modulo_id = is_numeric($data['modulo_id']) ? $data['modulo_id'] : 'NULL';
     $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
+    $es_acceso_directo = !empty($data['es_acceso_directo']) ? 1 : 0;
 
     $sql = "UPDATE conf__paginas SET
         pagina='$pagina',
@@ -488,7 +491,8 @@ function editarpagina($conexion, $id, $data)
         icono_id='$icono_id',
         padre_id=$padre_id,
         modulo_id=$modulo_id,
-        tabla_estado_registro_id=$tabla_estado_registro_id
+        tabla_estado_registro_id=$tabla_estado_registro_id,
+        es_acceso_directo=$es_acceso_directo
         WHERE pagina_id=$id";
 
     return mysqli_query($conexion, $sql);

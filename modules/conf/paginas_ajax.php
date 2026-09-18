@@ -125,7 +125,8 @@ switch ($accion) {
             'icono_id' => $_GET['icono_id'] ?? '',
             'padre_id' => $_GET['padre_id'] ?? null,
             'modulo_id' => $_GET['modulo_id'] ?? null,
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1,
+            'es_acceso_directo' => $_GET['es_acceso_directo'] ?? 0
         ];
         
         if (empty($data['pagina']) || empty($data['modulo_id'])) {
@@ -161,7 +162,8 @@ switch ($accion) {
             'icono_id' => $_GET['icono_id'] ?? 'default',
             'modulo_id' => $_GET['modulo_id'] ?? null,
             'padre_id' => $_GET['padre_id'] ?? null,
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
+            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1,
+            'es_acceso_directo' => $_GET['es_acceso_directo'] ?? 0
         ];
         
         $resultado = editarpagina($conexion, $id, $data);

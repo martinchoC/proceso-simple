@@ -2178,4 +2178,68 @@ function altaUsuarioWebEntidad($conexion, $entidad_id)
         'message' => 'Usuario web dado de alta correctamente'
     ];
 }
+
+/**
+ * Regenerar la contraseña del usuario web de una entidad (usuario = cuit ya existente).
+ * No toca usuario/email/perfil, solo password (hash) y password_temporal (texto plano).
+ */
+function regenerarPasswordUsuarioWebEntidad($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+
+    $sql_entidad = "SELECT cuit FROM gestion__entidades WHERE entidad_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_entidad);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $entidad = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$entidad || empty($entidad['cuit'])) {
+        return ['resultado' => false, 'error' => 'La entidad no tiene CUIT cargado'];
+    }
+
+    $cuit = strval($entidad['cuit']);
+
+    $sql_check = "SELECT usuario_id FROM conf__usuarios WHERE usuario = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "s", $cuit);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $usuario = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$usuario) {
+        return ['resultado' => false, 'error' => 'Esta entidad todavía no tiene usuario de acceso web'];
+    }
+
+    $usuario_id = $usuario['usuario_id'];
+    $password_plana = generarPasswordAleatoria(10);
+    $password_hash = password_hash($password_plana, PASSWORD_DEFAULT);
+
+    $sql_update = "UPDATE conf__usuarios SET password = ?, password_temporal = ? WHERE usuario_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error al preparar la consulta: ' . mysqli_error($conexion)];
+
+    mysqli_stmt_bind_param($stmt, "ssi", $password_hash, $password_plana, $usuario_id);
+    $success = mysqli_stmt_execute($stmt);
+
+    if (!$success) {
+        $error = mysqli_error($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al regenerar la contraseña: ' . $error];
+    }
+    mysqli_stmt_close($stmt);
+
+    return [
+        'resultado' => true,
+        'usuario' => $cuit,
+        'password' => $password_plana,
+        'message' => 'Contraseña regenerada correctamente'
+    ];
+}
 ?>

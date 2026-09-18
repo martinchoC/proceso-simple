@@ -532,6 +532,17 @@ case 'listar_condiciones_proveedor':
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
         break;
 
+    case 'regenerar_password_usuario_web_entidad':
+        $entidad_id = intval($_POST['entidad_id'] ?? 0);
+        if (empty($entidad_id)) {
+            echo json_encode(['resultado' => false, 'error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+
+        $resultado = regenerarPasswordUsuarioWebEntidad($conexion, $entidad_id);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
 
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);

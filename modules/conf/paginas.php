@@ -110,6 +110,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <th>Tabla</th>
                                                         <th>Orden</th>
                                                         <th>Estado</th>
+                                                        <th>Acceso Directo</th>
                                                         <th>Funciones</th>
                                                         <th>Acciones</th>
                                                     </tr>
@@ -180,12 +181,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <option value="">Ninguno (página principal)</option>
                             </select>
                         </div>
-                        <div class="col-md-12">
+                        <div class="col-md-6">
                             <label>Estado</label>
                             <select class="form-control" id="tabla_estado_registro_id" name="tabla_estado_registro_id">
                                 <option value="1">Activo</option>
                                 <option value="2">Inactivo</option>
                             </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="es_acceso_directo" name="es_acceso_directo">
+                                <label class="form-check-label" for="es_acceso_directo">Es acceso directo</label>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -927,6 +934,7 @@ function editarPagina(paginaId) {
             $('#pagina_descripcion').val(res.pagina_descripcion);
             $('#orden').val(res.orden);
             $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id || 1);
+            $('#es_acceso_directo').prop('checked', parseInt(res.es_acceso_directo) === 1);
             
             cargarModulos(res.modulo_id, function() {
                 cargarTablas(res.tabla_id);
@@ -1060,6 +1068,13 @@ $(document).ready(function(){
                 data: 'tabla_estado_registro_id',
                 render: function(data) {
                     return data == 1 ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-danger">Inactivo</span>';
+                }
+            },
+            { 
+                data: 'es_acceso_directo',
+                className: "text-center",
+                render: function(data) {
+                    return data == 1 ? '<span class="badge bg-primary"><i class="fas fa-bolt"></i> Sí</span>' : '<span class="text-muted">-</span>';
                 }
             },
             { 
@@ -1304,7 +1319,8 @@ $(document).ready(function(){
             icono_id: $('#icono_id').val(),
             padre_id: $('#padre_id').val() || null,
             modulo_id: $('#modulo_id').val(),
-            tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1
+            tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1,
+            es_acceso_directo: $('#es_acceso_directo').is(':checked') ? 1 : 0
         };
         
         $.ajax({

@@ -1639,10 +1639,13 @@ $(document).ready(function () {
                                 <tr><th>Contraseña:</th><td>${passwordHtml}</td></tr>
                             </table>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6 d-flex align-items-center justify-content-between">
                             <table class="table table-sm table-borderless mb-0">
                                 <tr><th width="40%">Email:</th><td>${res.email}</td></tr>
                             </table>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="btnRegenerarPasswordUsuarioWeb" title="Regenerar contraseña">
+                                <i class="fas fa-sync-alt me-1"></i>Regenerar contraseña
+                            </button>
                         </div>
                     </div>
                     <div class="alert alert-warning mt-2 mb-0 py-2">
@@ -1695,6 +1698,48 @@ $(document).ready(function () {
         }, 'json').fail(function () {
             Swal.fire('Error', 'Error al comunicarse con el servidor', 'error');
             btn.prop('disabled', false).html('<i class="fas fa-user-plus me-1"></i>Dar de alta usuario');
+        });
+    });
+
+    $(document).on('click', '#btnRegenerarPasswordUsuarioWeb', function () {
+        if (!entidadActualId) return;
+
+        var btn = $(this);
+
+        Swal.fire({
+            icon: 'warning',
+            title: '¿Regenerar contraseña?',
+            text: 'La contraseña actual dejará de funcionar de inmediato. Va a tener que informarle la nueva al cliente.',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, regenerar',
+            cancelButtonText: 'Cancelar'
+        }).then(function (confirmacion) {
+            if (!confirmacion.isConfirmed) return;
+
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Regenerando...');
+
+            $.post('entidades_ajax.php', {
+                accion: 'regenerar_password_usuario_web_entidad',
+                entidad_id: entidadActualId
+            }, function (res) {
+                if (res.resultado) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Contraseña regenerada',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                    cargarUsuarioWebEntidad();
+                } else {
+                    Swal.fire('Error', res.error || 'No se pudo regenerar la contraseña', 'error');
+                    btn.prop('disabled', false).html('<i class="fas fa-sync-alt me-1"></i>Regenerar contraseña');
+                }
+            }, 'json').fail(function () {
+                Swal.fire('Error', 'Error al comunicarse con el servidor', 'error');
+                btn.prop('disabled', false).html('<i class="fas fa-sync-alt me-1"></i>Regenerar contraseña');
+            });
         });
     });
 

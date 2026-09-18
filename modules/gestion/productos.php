@@ -151,6 +151,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="150">Submodelos</th>
                                                     <th width="100">Años</th>
                                                     <th width="200">Ubicaciones</th>
+                                                    <th width="140">Cód. Proveedor</th>
                                                     <th width="80">Imagen</th>
                                                     <!-- Las columnas de cada lista de precios se agregan acá dinámicamente por JS (ver cargarListasPreciosYTabla) -->
                                                     <th width="120" class="text-center">Acciones</th>
@@ -258,18 +259,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <label for="producto_descripcion" class="form-label form-label-sm">Descripción
                                                     Extendida</label>
                                                 <textarea class="form-control form-control-sm" id="producto_descripcion"
-                                                    name="producto_descripcion" rows="2"></textarea>
+                                                    name="producto_descripcion" rows="2" style="min-height: 62px; resize: vertical;"></textarea>
                                             </div>
                                         </div>
 
                                         <div class="row g-2 mt-1">
-                                            <div class="col-md-6">
-                                                <select class="form-select form-select-sm" id="producto_categoria_id"
-                                                    name="producto_categoria_id" required>
-                                                    <option value="">Categoría *</option>
-                                                </select>
-                                                <div class="invalid-feedback">Seleccione una categoría</div>
-                                            </div>
                                             <div class="col-md-6">
                                                 <select class="form-select form-select-sm" id="unidad_medida_id"
                                                     name="unidad_medida_id">
@@ -1222,7 +1216,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .precios-listas-container { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
         .precio-lista-item { line-height: 1.1; padding: 2px 0; }
         .precio-lista-item + .precio-lista-item { border-top: 1px dashed #dee2e6; padding-top: 4px; }
-        .precio-lista-item small { font-size: 0.72rem; }
+        .precio-lista-item { font-size: 0.72rem; }
 
         /* DataTables Responsive: columnas ocultas se muestran en una fila expandible (+) */
         #tablaProductos.dtr-inline.collapsed > tbody > tr > td.dtr-control,
@@ -1712,7 +1706,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             // ========== FUNCIONES DE CARGAS DE DATOS ==========
 
-            function cargarTiposProducto() {
+            function cargarTiposProducto(valorPorDefecto) {
                 $.get('productos_ajax.php', { accion: 'obtener_tipos_producto', empresa_idx: empresa_idx }, function(tipos) {
                     var select = $('#producto_tipo_id');
                     select.empty().append('<option value="">Tipo *</option>');
@@ -1721,18 +1715,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             select.append(`<option value="${tipo.producto_tipo_id}">${tipo.producto_tipo} (${tipo.producto_tipo_codigo})</option>`);
                         });
                     }
-                }, 'json');
-            }
-
-            function cargarCategoriasProducto() {
-                $.get('productos_ajax.php', { accion: 'obtener_categorias', empresa_idx: empresa_idx }, function(categorias) {
-                    var select = $('#producto_categoria_id');
-                    select.empty().append('<option value="">Categoría *</option>');
-                    if (categorias && categorias.length > 0) {
-                        categorias.forEach(function(categoria) {
-                            select.append(`<option value="${categoria.producto_categoria_id}">${categoria.producto_categoria_nombre}</option>`);
-                        });
-                    }
+                    // Producto nuevo: tipo por defecto (producto_tipo_id = 1). En modo edición
+                    // no se pasa valorPorDefecto acá — el valor real lo pisa el setTimeout
+                    // de cargarProductoParaEditar una vez resuelto el fetch del producto.
+                    if (valorPorDefecto) select.val(String(valorPorDefecto));
                 }, 'json');
             }
 
@@ -3063,13 +3049,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#garantia').val(res.garantia || '');
                         $('#controla_stock').prop('checked', res.controla_stock == 1);
                         cargarTiposProducto();
-                        cargarCategoriasProducto();
                         cargarUnidadesMedida();
                         cargarIvaAlicuotas();
                         cargarCuentasContables();
                         setTimeout(function() {
                             $('#producto_tipo_id').val(res.producto_tipo_id);
-                            $('#producto_categoria_id').val(res.producto_categoria_id);
                             $('#unidad_medida_id').val(res.unidad_medida_id || '');
                             $('#cont_cuenta_id').val(res.cont_cuenta_id || '');
                             $('#iva_alicuota_id').val(res.iva_alicuota_id || '');
@@ -3095,7 +3079,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#cont_cuenta_id').empty().append('<option value="">Cuenta Contable</option>');
                 $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
                 $('#producto_tipo_id').empty().append('<option value="">Tipo *</option>');
-                $('#producto_categoria_id').empty().append('<option value="">Categoría *</option>');
                 $('#unidad_medida_id').empty().append('<option value="">Unidad de Medida</option>');
                 $('#controla_stock').prop('checked', true);
                 if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
@@ -3198,9 +3181,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 // Insertar en el thead un <th> coloreado por cada lista (siempre después de "Imagen" y antes de "Acciones")
-                // Índice 7 = "Imagen" (0:Código, 1:Nombre, 2:Marcas, 3:Modelos, 4:Submodelos, 5:Años, 6:Ubicaciones, 7:Imagen)
+                // Índice 8 = "Imagen" (0:Código, 1:Nombre, 2:Marcas, 3:Modelos, 4:Submodelos, 5:Años, 6:Ubicaciones, 7:Cód.Proveedor, 8:Imagen)
                 $('#tablaProductos thead th.th-lista-precio').remove();
-                var $thAnterior = $('#tablaProductos thead th').eq(7);
+                var $thAnterior = $('#tablaProductos thead th').eq(8);
                 listasPrecios.forEach(function(lista) {
                     var color = colorPorLista(lista.lista_precio_id, lista.lista_precio_nombre);
                     var $th = $('<th class="th-lista-precio text-center" width="120"></th>')
@@ -3211,7 +3194,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 // Índices para exportar (todas las columnas visibles menos "Acciones", que siempre es la última)
-                var totalColumnas = 9 + listasPrecios.length; // 8 fijas antes del precio (Código, Nombre, Marcas, Modelos, Submodelos, Años, Ubicaciones, Imagen) + N listas + Acciones
+                var totalColumnas = 10 + listasPrecios.length; // 9 fijas antes del precio (Código, Nombre, Marcas, Modelos, Submodelos, Años, Ubicaciones, Cód.Proveedor, Imagen) + N listas + Acciones
                 var exportCols = [];
                 for (var ie = 0; ie < totalColumnas - 1; ie++) exportCols.push(ie);
 
@@ -3419,6 +3402,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         },
                         {
+                            data: 'proveedores_detalle', width: '140px', responsivePriority: 11,
+                            orderable: false, searchable: false,
+                            render: function(data, type) {
+                                if (type === 'export') {
+                                    if (!data || !data.length) return '';
+                                    return data.map(function(p) { return p.codigo_proveedor; }).join(' | ');
+                                }
+                                if (!data || !data.length) return '<span class="text-muted">-</span>';
+                                return data.map(function(p) {
+                                    var titulo = (p.entidad_nombre || 'Proveedor').replace(/"/g, '&quot;');
+                                    return '<span class="badge bg-secondary d-block mb-1" title="' + titulo + '">' + p.codigo_proveedor + '</span>';
+                                }).join('');
+                            }
+                        },
+                        {
                             data: 'imagen_id_principal', width: '80px', className: 'text-center', orderable: false, searchable: false, responsivePriority: 10,
                             render: function(data, type, row) {
                                 if (type === 'export') return data ? 'Sí' : 'No';
@@ -3586,8 +3584,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $(document).on('click', '#btnNuevo', function() {
                     resetModal();
                     $('#modalLabel').text('Nuevo Producto');
-                    cargarTiposProducto();
-                    cargarCategoriasProducto();
+                    cargarTiposProducto(1);
                     cargarUnidadesMedida();
                     cargarIvaAlicuotas(1);
                     cargarCuentasContables(131);
@@ -4087,7 +4084,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     if (!$('#producto_codigo').val().trim()) { $('#producto_codigo').addClass('is-invalid'); return false; }
                     if (!$('#producto_nombre').val().trim()) { $('#producto_nombre').addClass('is-invalid'); return false; }
                     if (!$('#producto_tipo_id').val()) { $('#producto_tipo_id').addClass('is-invalid'); return false; }
-                    if (!$('#producto_categoria_id').val()) { $('#producto_categoria_id').addClass('is-invalid'); return false; }
                     var btnGuardar = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
                     $.ajax({
                         url: 'productos_ajax.php',
@@ -4099,7 +4095,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             producto_nombre: $('#producto_nombre').val().trim(),
                             codigo_barras: $('#codigo_barras').val(),
                             producto_descripcion: $('#producto_descripcion').val(),
-                            producto_categoria_id: $('#producto_categoria_id').val(),
                             producto_tipo_id: $('#producto_tipo_id').val(),
                             unidad_medida_id: $('#unidad_medida_id').val() || null,
                             cont_cuenta_id: $('#cont_cuenta_id').val() || null,
@@ -4161,7 +4156,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Cargar datos iniciales
             cargarBotonAgregar();
             cargarTiposProducto();
-            cargarCategoriasProducto();
             cargarUnidadesMedida();
             cargarMarcas();
             cargarSucursales();

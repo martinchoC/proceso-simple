@@ -324,18 +324,26 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             // p.compatibilidad_busqueda, materializada por trigger sobre
             // gestion__productos_compatibilidad — reemplaza los 3 EXISTS+JOIN
             // que antes se repetían por cada palabra buscada.
+            // El código de proveedor se busca en p.proveedores_busqueda,
+            // materializada por recalcularProveedoresBusqueda() cada vez que
+            // se agrega/edita/elimina un proveedor del producto — reemplaza
+            // el EXISTS contra gestion__productos_proveedores que hacía table
+            // scan de esa tabla por cada palabra buscada (sin índice en
+            // producto_id, era carísimo con el catálogo completo).
             $search_conditions = [
                 "p.producto_codigo LIKE ?",
                 "p.producto_nombre LIKE ?",
                 "p.codigo_barras LIKE ?",
+                "p.producto_descripcion LIKE ?",
                 "er.$estado_column LIKE ?",
-                "p.compatibilidad_busqueda LIKE ?"
+                "p.compatibilidad_busqueda LIKE ?",
+                "p.proveedores_busqueda LIKE ?"
             ];
 
             $where_conditions[] = "(" . implode(" OR ", $search_conditions) . ")";
 
-            // Agregar 5 parámetros por cada palabra (uno por cada condición)
-            for ($i = 0; $i < 5; $i++) {
+            // Agregar 7 parámetros por cada palabra (uno por cada condición)
+            for ($i = 0; $i < 7; $i++) {
                 $where_params[] = $palabra_like;
                 $where_types .= "s";
             }
@@ -541,6 +549,22 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
              FROM gestion__productos_ubicaciones pu3
              WHERE pu3.producto_id = p.producto_id
              AND pu3.tabla_estado_registro_id = 1) as total_ubicaciones,
+            COALESCE(
+                (SELECT CONCAT('[', GROUP_CONCAT(
+                    JSON_OBJECT(
+                        'entidad_nombre', COALESCE(e2.entidad_nombre, ''),
+                        'codigo_proveedor', COALESCE(pp2.codigo_proveedor, '')
+                    )
+                    ORDER BY e2.entidad_nombre, pp2.codigo_proveedor
+                    SEPARATOR ','
+                ), ']')
+                FROM gestion__productos_proveedores pp2
+                LEFT JOIN gestion__entidades e2 ON pp2.entidad_id = e2.entidad_id
+                WHERE pp2.producto_id = p.producto_id
+                AND pp2.empresa_id = p.empresa_id
+                AND pp2.tabla_estado_registro_id = 1
+                ), '[]'
+            ) as proveedores_detalle,
             (SELECT ci.imagen_id
              FROM gestion__productos_imagenes pi
              INNER JOIN conf__imagenes ci ON pi.imagen_id = ci.imagen_id
@@ -666,6 +690,24 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         }
         
         $fila['total_ubicaciones'] = intval($fila['total_ubicaciones'] ?? 0);
+
+        // Proveedores: uno o varios códigos de proveedor activos para este
+        // producto (gestion__productos_proveedores, tabla_estado_registro_id=1
+        // = activo). Un producto puede tener el mismo código repetido en más
+        // de un proveedor, por eso se muestra junto al nombre de la entidad.
+        $proveedores_detalle = [];
+        if (!empty($fila['proveedores_detalle']) && $fila['proveedores_detalle'] !== '[]') {
+            $decoded = json_decode($fila['proveedores_detalle'], true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $item) {
+                    $proveedores_detalle[] = [
+                        'entidad_nombre' => $item['entidad_nombre'] ?? '',
+                        'codigo_proveedor' => $item['codigo_proveedor'] ?? ''
+                    ];
+                }
+            }
+        }
+        $fila['proveedores_detalle'] = $proveedores_detalle;
 
         // Precios por lista: se traen TODAS las listas de precios activas que
         // tengan un precio cargado para este producto (gestion__listas_precios_productos
@@ -1115,10 +1157,15 @@ function agregarProducto($conexion, $data)
     $producto_nombre = mysqli_real_escape_string($conexion, trim($data['producto_nombre'] ?? ''));
     $codigo_barras = mysqli_real_escape_string($conexion, trim($data['codigo_barras'] ?? ''));
     $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
-    $producto_categoria_id = intval($data['producto_categoria_id'] ?? 0);
     $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
     $iva_alicuota_id = intval($data['iva_alicuota_id'] ?? 0);
+    // Default de negocio: si no llega tipo de producto al dar de alta, se asume 1.
+    // Se resuelve acá (no solo en el JS) para que la regla valga también si el
+    // endpoint se invoca directo, sin depender del combo del formulario.
     $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
+    if ($producto_tipo_id <= 0) {
+        $producto_tipo_id = 1;
+    }
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
     $lado = mysqli_real_escape_string($conexion, trim($data['lado'] ?? ''));
     $material = mysqli_real_escape_string($conexion, trim($data['material'] ?? ''));
@@ -1136,14 +1183,6 @@ function agregarProducto($conexion, $data)
 
     if (empty($producto_nombre)) {
         return ['resultado' => false, 'error' => 'El nombre del producto es obligatorio'];
-    }
-
-    if ($producto_tipo_id == 0) {
-        return ['resultado' => false, 'error' => 'El tipo de producto es obligatorio'];
-    }
-
-    if ($producto_categoria_id == 0) {
-        return ['resultado' => false, 'error' => 'La categoría del producto es obligatoria'];
     }
 
     if (strlen($producto_codigo) > 50) {
@@ -1176,9 +1215,9 @@ function agregarProducto($conexion, $data)
     // Insertar nuevo producto
    $sql = "INSERT INTO gestion__productos 
         (empresa_id, producto_codigo, producto_nombre, codigo_barras, producto_descripcion, 
-         producto_categoria_id, producto_tipo_id, unidad_medida_id, cont_cuenta_id, iva_alicuota_id, lado, material, color, 
+         producto_tipo_id, unidad_medida_id, cont_cuenta_id, iva_alicuota_id, lado, material, color, 
          peso, dimensiones, garantia, controla_stock, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -1186,13 +1225,12 @@ function agregarProducto($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "issssiiiiiisssdsii",
+        "issssiiiisssdssii", // 17 tipos ↔ 17 parámetros (verificado tras quitar producto_categoria_id)
         $empresa_id,
         $producto_codigo,
         $producto_nombre,
         $codigo_barras,
         $producto_descripcion,
-        $producto_categoria_id,
         $producto_tipo_id,
         $unidad_medida_id,
         $cont_cuenta_id,
@@ -1228,7 +1266,6 @@ function editarProducto($conexion, $id, $data)
     $producto_nombre = mysqli_real_escape_string($conexion, trim($data['producto_nombre'] ?? ''));
     $codigo_barras = mysqli_real_escape_string($conexion, trim($data['codigo_barras'] ?? ''));
     $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
-    $producto_categoria_id = intval($data['producto_categoria_id'] ?? 0);
     $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
     $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
@@ -1253,10 +1290,6 @@ function editarProducto($conexion, $id, $data)
 
     if ($producto_tipo_id == 0) {
         return ['resultado' => false, 'error' => 'El tipo de producto es obligatorio'];
-    }
-
-    if ($producto_categoria_id == 0) {
-        return ['resultado' => false, 'error' => 'La categoría del producto es obligatoria'];
     }
 
     if (strlen($producto_codigo) > 50) {
@@ -1311,7 +1344,6 @@ function editarProducto($conexion, $id, $data)
             producto_nombre = ?, 
             codigo_barras = ?, 
             producto_descripcion = ?, 
-            producto_categoria_id = ?, 
             producto_tipo_id = ?, 
             unidad_medida_id = ?, 
             cont_cuenta_id = ?, 
@@ -1331,18 +1363,18 @@ function editarProducto($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
 
-    // Bind parameters - AHORA CON 16 SET + 1 WHERE = 17 PARÁMETROS
+    // Bind parameters - AHORA CON 15 SET + 1 WHERE = 16 PARÁMETROS
+    // (se quitó producto_categoria_id del ABM: 16 tipos ↔ 16 parámetros)
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssiiiiiisssdsii",  // 17 caracteres: ssssiiiiiisssdsii
+        "ssssiiiisssdssii",
         $producto_codigo,
         $producto_nombre,
         $codigo_barras,
         $producto_descripcion,
-        $producto_categoria_id,
         $producto_tipo_id,
         $unidad_medida_id,
-        $cont_cuenta_id,        
+        $cont_cuenta_id,
         $iva_alicuota_id,
         $lado,
         $material,
@@ -1350,8 +1382,8 @@ function editarProducto($conexion, $id, $data)
         $peso,
         $dimensiones,
         $garantia,
-        $controla_stock,  // <--- PARÁMETRO 16
-        $id               // <--- PARÁMETRO 17
+        $controla_stock,  // <--- PARÁMETRO 15
+        $id               // <--- PARÁMETRO 16
     );
 
     $success = mysqli_stmt_execute($stmt);
@@ -1397,14 +1429,12 @@ function obtenerProductoPorId($conexion, $id, $empresa_idx)
     $sql = "SELECT p.*, er.$estado_column as estado_registro, er.codigo_estandar,
                pt.producto_tipo, pt.producto_tipo_codigo,
                um.unidad_nombre, um.unidad_abreviatura,
-               pc.producto_categoria_nombre,
                ia.iva_alicuota, ia.porcentaje, ia.es_gravado, ia.es_exento, ia.es_no_gravado,
                cc.cont_cuenta_id, cc.codigo as cuenta_codigo, cc.nombre as cuenta_nombre
         FROM gestion__productos p
         LEFT JOIN conf__estados_registros er ON p.tabla_estado_registro_id = er.estado_registro_id
         LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
         LEFT JOIN gestion__unidades_medida um ON p.unidad_medida_id = um.unidad_medida_id
-        LEFT JOIN gestion__productos_categorias pc ON p.producto_categoria_id = pc.producto_categoria_id
         LEFT JOIN gestion__impuestos__iva_alicuotas ia ON p.iva_alicuota_id = ia.iva_alicuota_id
         LEFT JOIN gestion__cont_cuentas cc ON p.cont_cuenta_id = cc.cont_cuenta_id
         WHERE p.producto_id = ? AND p.empresa_id = ?";
@@ -2612,6 +2642,44 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx)
 
 // ========== FUNCIONES PARA PROVEEDORES (SOLO CÓDIGO) ==========
 
+// ✅ Recalcula la columna materializada gestion__productos.proveedores_busqueda
+// a partir de gestion__productos_proveedores (solo filas activas). Debe llamarse
+// SIEMPRE que se agrega, edita o elimina (soft-delete) un proveedor de producto
+// — mismo patrón que recalcularCompatibilidadProducto() para compatibilidad_busqueda,
+// pero acá no hay procedure: es una sola UPDATE con subconsulta correlacionada,
+// más simple porque no hay expansión de rangos (años) que resolver.
+function recalcularProveedoresBusqueda($conexion, $producto_id)
+{
+    $producto_id = intval($producto_id);
+    if ($producto_id <= 0) {
+        return false;
+    }
+
+    $sql = "UPDATE gestion__productos p
+            SET p.proveedores_busqueda = (
+                SELECT GROUP_CONCAT(DISTINCT pp.codigo_proveedor SEPARATOR ' ')
+                FROM gestion__productos_proveedores pp
+                WHERE pp.producto_id = p.producto_id
+                AND pp.tabla_estado_registro_id = 1
+                AND pp.codigo_proveedor IS NOT NULL
+                AND pp.codigo_proveedor <> ''
+            )
+            WHERE p.producto_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando UPDATE proveedores_busqueda: " . mysqli_error($conexion));
+        return false;
+    }
+    mysqli_stmt_bind_param($stmt, "i", $producto_id);
+    $ok = mysqli_stmt_execute($stmt);
+    if (!$ok) {
+        error_log("Error ejecutando UPDATE proveedores_busqueda($producto_id): " . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
+    return $ok;
+}
+
 // ✅ Obtener proveedores de un producto
 function obtenerProveedoresProducto($conexion, $producto_id, $empresa_idx)
 {
@@ -2770,6 +2838,7 @@ function agregarProveedorProducto($conexion, $data)
     if ($success) {
         $producto_proveedor_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
+        recalcularProveedoresBusqueda($conexion, $producto_id);
         return ['resultado' => true, 'producto_proveedor_id' => $producto_proveedor_id];
     } else {
         mysqli_stmt_close($stmt);
@@ -2784,7 +2853,7 @@ function editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empr
     $codigo_proveedor = mysqli_real_escape_string($conexion, trim($data['codigo_proveedor'] ?? ''));
     
     // Verificar que el registro exista y pertenezca a la empresa
-    $sql_check = "SELECT producto_proveedor_id FROM gestion__productos_proveedores 
+    $sql_check = "SELECT producto_proveedor_id, producto_id FROM gestion__productos_proveedores 
                   WHERE producto_proveedor_id = ? AND empresa_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql_check);
@@ -2824,6 +2893,7 @@ function editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empr
     mysqli_stmt_close($stmt);
     
     if ($success) {
+        recalcularProveedoresBusqueda($conexion, $proveedor['producto_id']);
         return ['resultado' => true];
     } else {
         return ['resultado' => false, 'error' => 'Error al actualizar: ' . mysqli_error($conexion)];
@@ -2834,7 +2904,28 @@ function editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empr
 function eliminarProveedorProducto($conexion, $producto_proveedor_id, $empresa_idx)
 {
     $producto_proveedor_id = intval($producto_proveedor_id);
-    
+
+    // Se necesita el producto_id para recalcular proveedores_busqueda después
+    // de la baja; de paso, esto valida que el registro exista y pertenezca a
+    // la empresa antes de tocar nada (antes el UPDATE de abajo no lo validaba:
+    // si el id no existía o era de otra empresa, igual devolvía éxito).
+    $sql_check = "SELECT producto_id FROM gestion__productos_proveedores 
+                  WHERE producto_proveedor_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error en la consulta'];
+    }
+    mysqli_stmt_bind_param($stmt, "ii", $producto_proveedor_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $fila = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$fila) {
+        return ['success' => false, 'error' => 'Registro no encontrado'];
+    }
+    $producto_id = $fila['producto_id'];
+
     $sql = "UPDATE gestion__productos_proveedores 
             SET tabla_estado_registro_id = 2
             WHERE producto_proveedor_id = ? AND empresa_id = ?";
@@ -2849,6 +2940,7 @@ function eliminarProveedorProducto($conexion, $producto_proveedor_id, $empresa_i
     mysqli_stmt_close($stmt);
     
     if ($success) {
+        recalcularProveedoresBusqueda($conexion, $producto_id);
         return ['success' => true];
     } else {
         return ['success' => false, 'error' => 'Error al eliminar el proveedor'];

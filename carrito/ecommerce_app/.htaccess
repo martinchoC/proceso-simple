@@ -1,0 +1,13 @@
+# Red de seguridad: si esta carpeta terminara DENTRO de public_html, nada de su
+# contenido debe ser accesible por HTTP (código fuente, .env, logs, SQL).
+# La ubicación recomendada sigue siendo fuera de public_html.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
+
+Options -Indexes

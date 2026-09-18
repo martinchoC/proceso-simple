@@ -1,0 +1,20 @@
+La aplicacion NO crea ni modifica tablas.
+
+  - Lee del ERP: productos, precios, entidades, tipos de cliente,
+    sucursales, usuarios.
+  - Escribe unicamente el pedido confirmado:
+        gestion__comprobantes
+        gestion__ventas_pedidos
+        gestion__ventas_pedidos_detalles
+        gestion__comprobantes_numeradores   (numeracion del comprobante)
+  - El carrito y el control de intentos de login viven en la sesion PHP,
+    no en la base.
+
+Los scripts de esta carpeta son de DIAGNOSTICO y de ALTA DE DATOS
+(habilitar un cliente, revisar permisos). Ninguno es obligatorio para
+que la tienda funcione, y ninguno crea tablas nuevas del storefront.
+
+Si en la base quedaron tablas ecom__* de una version anterior, ya no se
+usan y se pueden borrar:
+    ecom__usuarios_entidades, ecom__login_intentos,
+    ecom__carritos, ecom__carritos_items, ecom__pedidos

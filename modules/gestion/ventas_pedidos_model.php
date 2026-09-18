@@ -356,6 +356,9 @@ function ejecutarTransicionEstado($conexion, $venta_pedido_id, $accion_js, $empr
                                  FROM gestion__ventas_pedidos
                                  WHERE venta_pedido_id = ?";
         $stmt = mysqli_prepare($conexion, $sql_pedido_completo);
+        if (!$stmt) {
+            throw new Exception('Error preparando consulta de datos completos: ' . mysqli_error($conexion));
+        }
         mysqli_stmt_bind_param($stmt, "i", $venta_pedido_id);
         mysqli_stmt_execute($stmt);
         $result_pedido = mysqli_stmt_get_result($stmt);
@@ -1896,7 +1899,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
             error_log("Error preparando UPDATE: " . mysqli_error($conexion));
             return null;
         }
-        mysqli_stmt_bind_param($stmt, "iiiiiiisssiddddddddddiisi",
+        mysqli_stmt_bind_param($stmt, "iiiiiiisssiddddddddddisii",
             $empresa_id, $sucursal_id, $comprobante_pv,
             $comprobante_tipo_id, $comprobante_nro,
             $entidad_id, $entidad_sucursal_id,
