@@ -61,29 +61,43 @@ try {
 
         case 'listar':
             $entidad_id = intval($_GET['entidad_id'] ?? 0);
-            if (empty($entidad_id)) {
-                echo json_encode(['listas_precios' => [], 'filas' => []], JSON_UNESCAPED_UNICODE);
-                break;
-            }
-            $precios = obtenerPreciosProveedor($conexion, $empresa_idx, $entidad_id, $pagina_idx);
+            $filtros = [
+                'filtro_codigo' => $_GET['filtro_codigo'] ?? '',
+                'filtro_marca' => $_GET['filtro_marca'] ?? '',
+                'filtro_modelo' => $_GET['filtro_modelo'] ?? '',
+                'filtro_submodelo' => $_GET['filtro_submodelo'] ?? ''
+            ];
+            $precios = obtenerPreciosProveedor($conexion, $empresa_idx, $entidad_id, $pagina_idx, $filtros);
             echo json_encode($precios, JSON_UNESCAPED_UNICODE);
             break;
 
-        case 'buscar_productos_sin_precio':
+        case 'obtener_marcas':
+            echo json_encode(obtenerMarcas($conexion), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_modelos':
+            echo json_encode(obtenerModelosPorMarca($conexion, $_GET['marca_id'] ?? 0), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_submodelos':
+            echo json_encode(obtenerSubmodelosPorModelo($conexion, $_GET['modelo_id'] ?? 0), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'buscar_productos_catalogo':
             $entidad_id = intval($_GET['entidad_id'] ?? 0);
             $q = $_GET['q'] ?? '';
             if (empty($entidad_id)) {
                 echo json_encode([], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            $productos = buscarProductosProveedorSinPrecio($conexion, $empresa_idx, $entidad_id, $q);
+            $productos = buscarProductosCatalogo($conexion, $empresa_idx, $entidad_id, $q);
             echo json_encode($productos, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'agregar':
         case 'editar':
             $data = [
-                'producto_proveedor_id' => intval($_POST['producto_proveedor_id'] ?? 0),
+                'producto_id' => intval($_POST['producto_id'] ?? 0),
                 'empresa_id' => $empresa_idx,
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'precio_lista' => floatval($_POST['precio_lista'] ?? -1),
@@ -132,6 +146,8 @@ try {
             break;
 
         case 'actualizar_costo':
+            // Solo costo — NO toca listas de precio (para eso están los
+            // otros 2 botones de la fila).
             $producto_id = intval($_POST['producto_id'] ?? 0);
             $entidad_id = intval($_POST['entidad_id'] ?? 0);
             $costo_neto_compra = floatval($_POST['costo_neto_compra'] ?? -1);
@@ -141,12 +157,79 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'actualizar_precio_venta':
+            // Solo lista(s) de precios — usa el costo YA registrado (o el
+            // propuesto, si el producto no tiene costo todavía), sin tocar
+            // gestion__productos_costos. Para cuando cambió la REGLA, no el costo.
+            $producto_id = intval($_POST['producto_id'] ?? 0);
+            $entidad_id = intval($_POST['entidad_id'] ?? 0);
+            $costo_neto_compra = floatval($_POST['costo_neto_compra'] ?? -1);
+
+            $categorias = obtenerCategoriasPorProductos($conexion, [$producto_id]);
+            $categoria_id = $categorias[$producto_id] ?? 0;
+            $contexto = obtenerContextoCalculoPrecios($conexion, $empresa_idx, $entidad_id);
+
+            $resultado = actualizarSoloPreciosVenta($conexion, $producto_id, $categoria_id, $empresa_idx, $entidad_id, $costo_neto_compra, $usuario_id, $contexto);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'actualizar_costo_y_precio':
+            $producto_id = intval($_POST['producto_id'] ?? 0);
+            $entidad_id = intval($_POST['entidad_id'] ?? 0);
+            $costo_neto_compra = floatval($_POST['costo_neto_compra'] ?? -1);
+            $moneda_id = intval($_POST['moneda_id'] ?? 1);
+
+            $categorias = obtenerCategoriasPorProductos($conexion, [$producto_id]);
+            $categoria_id = $categorias[$producto_id] ?? 0;
+            $contexto = obtenerContextoCalculoPrecios($conexion, $empresa_idx, $entidad_id);
+
+            $resultado = aplicarActualizacionCostoYPrecios($conexion, $producto_id, $categoria_id, $empresa_idx, $entidad_id, $costo_neto_compra, $moneda_id, $usuario_id, $contexto);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'actualizar_costos_masivo':
             $entidad_id = intval($_POST['entidad_id'] ?? 0);
             if (empty($entidad_id)) {
                 manejarError('Debe indicar el proveedor', 400);
             }
             $resultado = actualizarCostosMasivoProveedor($conexion, $empresa_idx, $entidad_id, $usuario_id);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'actualizar_solo_costos_masivo':
+            $entidad_id = intval($_POST['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                manejarError('Debe indicar el proveedor', 400);
+            }
+            $resultado = actualizarSoloCostosMasivoProveedor($conexion, $empresa_idx, $entidad_id, $usuario_id);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'actualizar_solo_precios_masivo':
+            $entidad_id = intval($_POST['entidad_id'] ?? 0);
+            if (empty($entidad_id)) {
+                manejarError('Debe indicar el proveedor', 400);
+            }
+            $resultado = actualizarSoloPreciosVentaMasivoProveedor($conexion, $empresa_idx, $entidad_id, $pagina_idx, $usuario_id);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'aplicar_porcentaje_lista':
+            $entidad_id = intval($_POST['entidad_id'] ?? 0);
+            $porcentaje = $_POST['porcentaje'] ?? null;
+            if (empty($entidad_id)) {
+                manejarError('Debe indicar el proveedor', 400);
+            }
+            if ($porcentaje === null || $porcentaje === '' || !is_numeric($porcentaje)) {
+                manejarError('Debe indicar un porcentaje válido', 400);
+            }
+            $filtros = [
+                'filtro_codigo' => $_POST['filtro_codigo'] ?? '',
+                'filtro_marca' => $_POST['filtro_marca'] ?? '',
+                'filtro_modelo' => $_POST['filtro_modelo'] ?? '',
+                'filtro_submodelo' => $_POST['filtro_submodelo'] ?? ''
+            ];
+            $resultado = aplicarPorcentajeListaFiltrados($conexion, $empresa_idx, $entidad_id, $pagina_idx, $filtros, $porcentaje, $usuario_id);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

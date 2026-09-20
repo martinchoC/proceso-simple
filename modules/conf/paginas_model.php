@@ -243,18 +243,48 @@ function construirArbolPaginasRecursivo($paginas, $modulo_id, $padre_id = null)
 function actualizarOrdenPagina($conexion, $pagina_id, $padre_id = null, $posicion = null)
 {
     $pagina_id = intval($pagina_id);
+    if ($pagina_id <= 0) {
+        return false;
+    }
     
     // Si se especifica un padre, actualizarlo
     if ($padre_id !== null && $padre_id !== '#' && $padre_id !== '') {
-        // Verificar que no sea un módulo
-        if (strpos($padre_id, 'modulo_') === false) {
-            $padre_id = intval($padre_id);
-            $sql_padre = "UPDATE conf__paginas SET padre_id = $padre_id WHERE pagina_id = $pagina_id";
-            mysqli_query($conexion, $sql_padre);
+        $str_padre = (string)$padre_id;
+        if (strpos($str_padre, 'modulo_') !== false) {
+            // Se movió a la raíz de un módulo
+            $mod_id = intval(str_replace('modulo_', '', $str_padre));
+            $sql_padre = "UPDATE conf__paginas SET padre_id = 0, modulo_id = ? WHERE pagina_id = ?";
+            $stmt = mysqli_prepare($conexion, $sql_padre);
+            if ($stmt) {
+                mysqli_stmt_bind_param($stmt, "ii", $mod_id, $pagina_id);
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+            }
         } else {
-            // Si es un módulo, establecer padre como NULL
-            $sql_padre = "UPDATE conf__paginas SET padre_id = NULL WHERE pagina_id = $pagina_id";
-            mysqli_query($conexion, $sql_padre);
+            // Se movió bajo otra página
+            $nuevo_padre_id = intval(str_replace('pagina_', '', $str_padre));
+            // Obtener el modulo_id del nuevo padre para mantener consistencia
+            $res_p = mysqli_query($conexion, "SELECT modulo_id FROM conf__paginas WHERE pagina_id = $nuevo_padre_id");
+            $row_p = mysqli_fetch_assoc($res_p);
+            $mod_id = $row_p && !empty($row_p['modulo_id']) ? intval($row_p['modulo_id']) : null;
+            
+            if ($mod_id) {
+                $sql_padre = "UPDATE conf__paginas SET padre_id = ?, modulo_id = ? WHERE pagina_id = ?";
+                $stmt = mysqli_prepare($conexion, $sql_padre);
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "iii", $nuevo_padre_id, $mod_id, $pagina_id);
+                    mysqli_stmt_execute($stmt);
+                    mysqli_stmt_close($stmt);
+                }
+            } else {
+                $sql_padre = "UPDATE conf__paginas SET padre_id = ? WHERE pagina_id = ?";
+                $stmt = mysqli_prepare($conexion, $sql_padre);
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "ii", $nuevo_padre_id, $pagina_id);
+                    mysqli_stmt_execute($stmt);
+                    mysqli_stmt_close($stmt);
+                }
+            }
         }
     }
     
@@ -266,49 +296,45 @@ function actualizarOrdenPagina($conexion, $pagina_id, $padre_id = null, $posicio
         $sql_actual = "SELECT padre_id, modulo_id FROM conf__paginas WHERE pagina_id = $pagina_id";
         $res_actual = mysqli_query($conexion, $sql_actual);
         $fila_actual = mysqli_fetch_assoc($res_actual);
-        $padre_actual = $fila_actual['padre_id'] ?: null;
-        $modulo_actual = $fila_actual['modulo_id'];
-        
-        // Construir condición para páginas del mismo nivel
-        $condicion = "modulo_id = $modulo_actual";
-        if ($padre_actual) {
-            $condicion .= " AND padre_id = $padre_actual";
-        } else {
-            $condicion .= " AND (padre_id IS NULL OR padre_id = 0)";
-        }
-        
-        // Obtener todas las páginas del mismo nivel, excluyendo la actual
-        $sql = "SELECT pagina_id, orden FROM conf__paginas WHERE $condicion AND pagina_id != $pagina_id ORDER BY orden";
-        $res = mysqli_query($conexion, $sql);
-        $paginas = [];
-        while ($fila = mysqli_fetch_assoc($res)) {
-            $paginas[] = $fila;
-        }
-        
-        // Recalcular órdenes
-        $nuevo_orden = 0;
-        $insertado = false;
-        
-        // Insertar la página en la posición indicada
-        for ($i = 0; $i <= count($paginas); $i++) {
-            if (!$insertado && $i == $posicion) {
-                $sql_update = "UPDATE conf__paginas SET orden = $nuevo_orden WHERE pagina_id = $pagina_id";
-                mysqli_query($conexion, $sql_update);
-                $nuevo_orden++;
-                $insertado = true;
+        if ($fila_actual) {
+            $padre_actual = intval($fila_actual['padre_id']);
+            $modulo_actual = intval($fila_actual['modulo_id']);
+            
+            // Obtener todas las páginas del mismo nivel, excluyendo la actual
+            $sql = "SELECT pagina_id, orden FROM conf__paginas 
+                    WHERE modulo_id = $modulo_actual AND padre_id = $padre_actual AND pagina_id != $pagina_id 
+                    ORDER BY orden, pagina";
+            $res = mysqli_query($conexion, $sql);
+            $paginas = [];
+            while ($fila = mysqli_fetch_assoc($res)) {
+                $paginas[] = $fila;
             }
             
-            if ($i < count($paginas)) {
-                $sql_update = "UPDATE conf__paginas SET orden = $nuevo_orden WHERE pagina_id = " . $paginas[$i]['pagina_id'];
-                mysqli_query($conexion, $sql_update);
-                $nuevo_orden++;
+            // Recalcular órdenes
+            $nuevo_orden = 0;
+            $insertado = false;
+            
+            // Insertar la página en la posición indicada
+            for ($i = 0; $i <= count($paginas); $i++) {
+                if (!$insertado && $i == $posicion) {
+                    $sql_update = "UPDATE conf__paginas SET orden = $nuevo_orden WHERE pagina_id = $pagina_id";
+                    mysqli_query($conexion, $sql_update);
+                    $nuevo_orden++;
+                    $insertado = true;
+                }
+                
+                if ($i < count($paginas)) {
+                    $sql_update = "UPDATE conf__paginas SET orden = $nuevo_orden WHERE pagina_id = " . intval($paginas[$i]['pagina_id']);
+                    mysqli_query($conexion, $sql_update);
+                    $nuevo_orden++;
+                }
             }
-        }
-        
-        // Si no se insertó (porque la posición es al final)
-        if (!$insertado) {
-            $sql_update = "UPDATE conf__paginas SET orden = $nuevo_orden WHERE pagina_id = $pagina_id";
-            mysqli_query($conexion, $sql_update);
+            
+            // Si no se insertó (porque la posición es al final)
+            if (!$insertado) {
+                $sql_update = "UPDATE conf__paginas SET orden = $nuevo_orden WHERE pagina_id = $pagina_id";
+                mysqli_query($conexion, $sql_update);
+            }
         }
     }
     
@@ -420,7 +446,7 @@ function paginaTieneFunciones($conexion, $pagina_id)
     return $fila['total'] > 0;
 }
 
-function obtenerpaginas($conexion)
+function obtenerpaginas($conexion, $modulo_id = null)
 {
     $sql = "SELECT p.*,  m.modulo,  padre.pagina as padre_nombre, 
                    conf__tablas.tabla_nombre, conf__iconos.icono_nombre, 
@@ -430,8 +456,14 @@ function obtenerpaginas($conexion)
             LEFT JOIN conf__modulos m ON p.modulo_id = m.modulo_id
             LEFT JOIN conf__paginas padre ON p.padre_id = padre.pagina_id
             LEFT JOIN conf__tablas ON p.tabla_id = conf__tablas.tabla_id
-            LEFT JOIN conf__iconos ON p.icono_id = conf__iconos.icono_id
-            ORDER BY p.orden, p.pagina ";
+            LEFT JOIN conf__iconos ON p.icono_id = conf__iconos.icono_id";
+
+    if ($modulo_id !== null && $modulo_id !== '' && $modulo_id > 0) {
+        $modulo_id = intval($modulo_id);
+        $sql .= " WHERE p.modulo_id = $modulo_id";
+    }
+
+    $sql .= " ORDER BY p.modulo_id, p.orden, p.pagina";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -446,56 +478,105 @@ function agregarpagina($conexion, $data)
         return false;
     }
 
-    $pagina = mysqli_real_escape_string($conexion, $data['pagina']);
-    $url = mysqli_real_escape_string($conexion, $data['url']);
-    $pagina_descripcion = mysqli_real_escape_string($conexion, $data['pagina_descripcion']);
-    $orden = mysqli_real_escape_string($conexion, $data['orden']);
-    $tabla_id = mysqli_real_escape_string($conexion, $data['tabla_id']);
-    $icono_id = mysqli_real_escape_string($conexion, $data['icono_id']);
-    $padre_id = (!empty($data['padre_id']) && is_numeric($data['padre_id'])) ? intval($data['padre_id']) : 'NULL';
+    $pagina = trim($data['pagina']);
+    $url = trim($data['url'] ?? '');
+    $pagina_descripcion = trim($data['pagina_descripcion'] ?? '');
+    $orden = isset($data['orden']) && is_numeric($data['orden']) ? intval($data['orden']) : 0;
+    $tabla_id = !empty($data['tabla_id']) && is_numeric($data['tabla_id']) && intval($data['tabla_id']) > 0 ? intval($data['tabla_id']) : null;
+    $padre_id = !empty($data['padre_id']) && is_numeric($data['padre_id']) ? intval($data['padre_id']) : 0;
     $modulo_id = intval($data['modulo_id']);
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id'] ?? 1);
+    $tabla_estado_registro_id = isset($data['tabla_estado_registro_id']) && is_numeric($data['tabla_estado_registro_id']) ? intval($data['tabla_estado_registro_id']) : 1;
+    $icono_id = !empty($data['icono_id']) && is_numeric($data['icono_id']) ? intval($data['icono_id']) : 0;
     $es_acceso_directo = !empty($data['es_acceso_directo']) ? 1 : 0;
 
     $sql = "INSERT INTO conf__paginas 
             (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id, es_acceso_directo) 
-            VALUES 
-            ('$pagina', '$url', '$pagina_descripcion', '$orden', '$tabla_id', $padre_id, $modulo_id, $tabla_estado_registro_id,'$icono_id', $es_acceso_directo)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    return mysqli_query($conexion, $sql);
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando agregarpagina: " . mysqli_error($conexion));
+        return false;
+    }
+
+    mysqli_stmt_bind_param($stmt, "sssiisiiii", 
+        $pagina, 
+        $url, 
+        $pagina_descripcion, 
+        $orden, 
+        $tabla_id, 
+        $padre_id, 
+        $modulo_id, 
+        $tabla_estado_registro_id, 
+        $icono_id, 
+        $es_acceso_directo
+    );
+
+    $res = mysqli_stmt_execute($stmt);
+    if (!$res) {
+        error_log("Error ejecutando agregarpagina: " . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
+    return $res;
 }
 
 function editarpagina($conexion, $id, $data)
 {
-    if (empty($data['pagina']) || empty($data['modulo_id'])) {
+    $id = intval($id);
+    if ($id <= 0 || empty($data['pagina']) || empty($data['modulo_id'])) {
         return false;
     }
-    $id = intval($id);
-    $pagina = mysqli_real_escape_string($conexion, $data['pagina']);
-    $url = mysqli_real_escape_string($conexion, $data['url']);
-    $pagina_descripcion = mysqli_real_escape_string($conexion, $data['pagina_descripcion']);
-    $orden = mysqli_real_escape_string($conexion, $data['orden']);
-    $tabla_id = mysqli_real_escape_string($conexion, $data['tabla_id']);
-    $icono_id = mysqli_real_escape_string($conexion, $data['icono_id']);
-    $padre_id = (!empty($data['padre_id']) && is_numeric($data['padre_id'])) ? intval($data['padre_id']) : 'NULL';
-    $modulo_id = is_numeric($data['modulo_id']) ? $data['modulo_id'] : 'NULL';
-    $tabla_estado_registro_id = intval($data['tabla_estado_registro_id']);
+
+    $pagina = trim($data['pagina']);
+    $url = trim($data['url'] ?? '');
+    $pagina_descripcion = trim($data['pagina_descripcion'] ?? '');
+    $orden = isset($data['orden']) && is_numeric($data['orden']) ? intval($data['orden']) : 0;
+    $tabla_id = !empty($data['tabla_id']) && is_numeric($data['tabla_id']) && intval($data['tabla_id']) > 0 ? intval($data['tabla_id']) : null;
+    $padre_id = !empty($data['padre_id']) && is_numeric($data['padre_id']) ? intval($data['padre_id']) : 0;
+    $modulo_id = intval($data['modulo_id']);
+    $tabla_estado_registro_id = isset($data['tabla_estado_registro_id']) && is_numeric($data['tabla_estado_registro_id']) ? intval($data['tabla_estado_registro_id']) : 1;
+    $icono_id = !empty($data['icono_id']) && is_numeric($data['icono_id']) ? intval($data['icono_id']) : 0;
     $es_acceso_directo = !empty($data['es_acceso_directo']) ? 1 : 0;
 
     $sql = "UPDATE conf__paginas SET
-        pagina='$pagina',
-        url='$url',
-        pagina_descripcion='$pagina_descripcion',
-        orden='$orden',
-        tabla_id='$tabla_id',
-        icono_id='$icono_id',
-        padre_id=$padre_id,
-        modulo_id=$modulo_id,
-        tabla_estado_registro_id=$tabla_estado_registro_id,
-        es_acceso_directo=$es_acceso_directo
-        WHERE pagina_id=$id";
+            pagina = ?,
+            url = ?,
+            pagina_descripcion = ?,
+            orden = ?,
+            tabla_id = ?,
+            icono_id = ?,
+            padre_id = ?,
+            modulo_id = ?,
+            tabla_estado_registro_id = ?,
+            es_acceso_directo = ?
+            WHERE pagina_id = ?";
 
-    return mysqli_query($conexion, $sql);
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando editarpagina: " . mysqli_error($conexion));
+        return false;
+    }
+
+    mysqli_stmt_bind_param($stmt, "sssiisiiiii",
+        $pagina,
+        $url,
+        $pagina_descripcion,
+        $orden,
+        $tabla_id,
+        $icono_id,
+        $padre_id,
+        $modulo_id,
+        $tabla_estado_registro_id,
+        $es_acceso_directo,
+        $id
+    );
+
+    $res = mysqli_stmt_execute($stmt);
+    if (!$res) {
+        error_log("Error ejecutando editarpagina: " . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
+    return $res;
 }
 
 function eliminarpagina($conexion, $id)

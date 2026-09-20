@@ -26,16 +26,19 @@ $(function () {
             proveedorActualNombre = $(this).find(':selected').text();
 
             var haySeleccion = !!proveedorActualId;
-            $('#btnAgregarPrecio, #btnImportarExcel, #btnActualizarCostosMasivo').prop('disabled', !haySeleccion);
+            $('#btnAgregarPrecio, #btnImportarExcel, #btnActualizarCostosMasivo, #btnActualizarSoloCostosMasivo, #btnActualizarSoloPreciosMasivo, #btnAplicarPorcentajeCostos').prop('disabled', !haySeleccion);
 
-            if (haySeleccion) {
-                listasPreciosActivas = []; // fuerza reconstruir columnas para el proveedor nuevo
-                cargarYMostrarTabla();
-            }
+            // Cambiar de proveedor (o pasar a "todos") fuerza reconstruir
+            // columnas — puede cambiar si mostramos o no la columna Proveedor.
+            listasPreciosActivas = [];
+            intentarCargarTabla();
         });
 
         $('#btnAgregarPrecio').on('click', abrirModalAgregar);
         $('#btnActualizarCostosMasivo').on('click', actualizarCostosMasivo);
+        $('#btnActualizarSoloCostosMasivo').on('click', function () { actualizarMasivoGenerico('actualizar_solo_costos_masivo', 'Actualizar costos', 'Se va a recalcular y fijar el costo de <strong>todos los productos activos y filtrados</strong> de este proveedor. No toca las listas de precio de venta.'); });
+        $('#btnActualizarSoloPreciosMasivo').on('click', function () { actualizarMasivoGenerico('actualizar_solo_precios_masivo', 'Actualizar precios de venta', 'Se va a recalcular el precio de venta de <strong>todos los productos activos</strong> de este proveedor, usando el costo YA registrado de cada uno. No toca gestion__productos_costos.'); });
+        $('#btnAplicarPorcentajeCostos').on('click', aplicarPorcentajeCostos);
         $('#btnGuardarPrecioProveedor').on('click', guardarPrecioProveedor);
         $('#btnImportarExcel').on('click', function () {
             resetModalImportacion();
@@ -43,6 +46,8 @@ $(function () {
         });
         $('#inputArchivoExcel').on('change', leerArchivoExcel);
         $('#btnProcesarImportacion').on('click', procesarImportacionEnLotes);
+
+        inicializarFiltrosCompatibilidad();
 
         $('#buscadorProductoProveedor').on('keyup', debounce(buscarProductosProveedor, 300));
 
@@ -61,7 +66,15 @@ $(function () {
         });
 
         $(document).on('click', '.btn-actualizar-costo', function () {
-            actualizarCostoProducto($(this).data('row'));
+            actualizarFila($(this).data('row'), 'actualizar_costo');
+        });
+
+        $(document).on('click', '.btn-actualizar-precio-venta', function () {
+            actualizarFila($(this).data('row'), 'actualizar_precio_venta');
+        });
+
+        $(document).on('click', '.btn-actualizar-costo-y-precio', function () {
+            actualizarFila($(this).data('row'), 'actualizar_costo_y_precio');
         });
     }
 
@@ -102,14 +115,104 @@ $(function () {
         });
     }
 
+    /* ============================ Filtros de compatibilidad ============================ */
+
+    function inicializarFiltrosCompatibilidad() {
+        $.get({ url: 'proveedor_precios_ajax.php', dataType: 'json', data: { accion: 'obtener_marcas' } })
+            .done(function (data) {
+                var options = '<option value="">Todas las marcas</option>';
+                (Array.isArray(data) ? data : []).forEach(function (m) {
+                    options += '<option value="' + m.marca_id + '">' + escapeHtml(m.marca_nombre) + '</option>';
+                });
+                $('#filtroMarca').html(options);
+            });
+
+        $('#filtroCodigo').on('keyup', debounce(function () {
+            intentarCargarTabla();
+        }, 400));
+
+        $('#filtroMarca').on('change', function () {
+            var marcaId = $(this).val();
+            $('#filtroModelo').html('<option value="">Todos los modelos</option>').prop('disabled', !marcaId);
+            $('#filtroSubmodelo').html('<option value="">Todos los submodelos</option>').prop('disabled', true);
+
+            if (marcaId) {
+                $.get({ url: 'proveedor_precios_ajax.php', dataType: 'json', data: { accion: 'obtener_modelos', marca_id: marcaId } })
+                    .done(function (data) {
+                        var options = '<option value="">Todos los modelos</option>';
+                        (Array.isArray(data) ? data : []).forEach(function (m) {
+                            options += '<option value="' + m.modelo_id + '">' + escapeHtml(m.modelo_nombre) + '</option>';
+                        });
+                        $('#filtroModelo').html(options).prop('disabled', false);
+                    });
+            }
+
+            intentarCargarTabla();
+        });
+
+        $('#filtroModelo').on('change', function () {
+            var modeloId = $(this).val();
+            $('#filtroSubmodelo').html('<option value="">Todos los submodelos</option>').prop('disabled', !modeloId);
+
+            if (modeloId) {
+                $.get({ url: 'proveedor_precios_ajax.php', dataType: 'json', data: { accion: 'obtener_submodelos', modelo_id: modeloId } })
+                    .done(function (data) {
+                        var options = '<option value="">Todos los submodelos</option>';
+                        (Array.isArray(data) ? data : []).forEach(function (s) {
+                            options += '<option value="' + s.submodelo_id + '">' + escapeHtml(s.submodelo_nombre) + '</option>';
+                        });
+                        $('#filtroSubmodelo').html(options).prop('disabled', false);
+                    });
+            }
+
+            intentarCargarTabla();
+        });
+
+        $('#filtroSubmodelo').on('change', function () {
+            intentarCargarTabla();
+        });
+    }
+
+    // Punto único de entrada para disparar una búsqueda: si hay proveedor
+    // elegido, siempre busca; si no hay proveedor, solo busca cuando algún
+    // filtro tiene valor (para no traer el catálogo completo × cada
+    // proveedor). Sin proveedor Y sin filtro, muestra el estado vacío.
+    function intentarCargarTabla() {
+        var hayFiltro = !!($('#filtroCodigo').val() || $('#filtroMarca').val() || $('#filtroModelo').val() || $('#filtroSubmodelo').val());
+
+        if (!proveedorActualId && !hayFiltro) {
+            mostrarEstadoVacioSinBusqueda();
+            return;
+        }
+
+        cargarYMostrarTabla();
+    }
+
+    function mostrarEstadoVacioSinBusqueda() {
+        if (tabla) {
+            tabla.clear().draw();
+        }
+        $('#avisoSinBusqueda').removeClass('d-none');
+    }
+
     // Trae {listas_precios, filas} del servidor. Se usa tanto para la carga
     // inicial (que además define las columnas dinámicas) como para cualquier
     // recarga posterior (guardar, importar, cambiar estado, botón Recargar).
     function cargarYMostrarTabla(callback) {
+        $('#avisoSinBusqueda').addClass('d-none');
         $.get({
             url: 'proveedor_precios_ajax.php',
             dataType: 'json',
-            data: { accion: 'listar', empresa_idx: empresa_idx, pagina_idx: pagina_idx, entidad_id: proveedorActualId }
+            data: {
+                accion: 'listar',
+                empresa_idx: empresa_idx,
+                pagina_idx: pagina_idx,
+                entidad_id: proveedorActualId,
+                filtro_codigo: $('#filtroCodigo').val() || '',
+                filtro_marca: $('#filtroMarca').val() || '',
+                filtro_modelo: $('#filtroModelo').val() || '',
+                filtro_submodelo: $('#filtroSubmodelo').val() || ''
+            }
         }).done(function (res) {
             var filas = (res && Array.isArray(res.filas)) ? res.filas : [];
             var listas = (res && Array.isArray(res.listas_precios)) ? res.listas_precios : [];
@@ -142,7 +245,9 @@ $(function () {
         var PALETA_LISTAS = ['#dc3545', '#198754', '#0d6efd', '#fd7e14', '#6f42c1', '#20c997', '#d63384', '#6c757d'];
 
         var theadFila1 = '<tr>' +
-            '<th rowspan="2">Cód. Prov.</th><th rowspan="2">Código</th><th rowspan="2">Producto</th><th rowspan="2">Descripción</th>' +
+            '<th rowspan="2">Proveedor</th>' +
+            '<th rowspan="2">Cód. Prov.</th><th rowspan="2">Código</th><th rowspan="2">Producto</th>' +
+            '<th rowspan="2">Marca</th><th rowspan="2">Modelo</th><th rowspan="2">Submodelo</th>' +
             '<th rowspan="2" class="text-end">Precio Lista</th><th rowspan="2" class="text-end">Desc. %</th>' +
             '<th rowspan="2" class="text-end">Costo Neto Compra</th><th rowspan="2" class="text-end">Último Costo</th>' +
             '<th rowspan="2">Vigente desde</th>';
@@ -152,27 +257,63 @@ $(function () {
             theadFila1 += '<th colspan="2" class="text-center text-white" style="background-color:' + color + ';">' + escapeHtml(lp.lista_precio_nombre) + '</th>';
             theadFila2 += '<th class="text-end">Actual</th><th class="text-end">Debería ser</th>';
         });
-        theadFila1 += '<th rowspan="2" width="180" class="text-center">Acciones</th></tr>';
+        theadFila1 += '<th rowspan="2" width="260" class="text-center">Acciones</th></tr>';
         theadFila2 += '</tr>';
         $('#tablaProveedorPrecios thead').html(theadFila1 + theadFila2);
 
         var columnasBase = [
+            {
+                // Proveedor de ESTA fila (ppp.entidad_id) — necesaria sobre todo
+                // en la vista sin proveedor elegido, donde una búsqueda por
+                // código/marca/modelo puede traer el mismo producto ofrecido
+                // por varios proveedores distintos.
+                data: 'entidad_nombre',
+                defaultContent: '<span class="text-muted">-</span>'
+            },
             { data: 'codigo_proveedor', defaultContent: '' },
             { data: 'producto_codigo', defaultContent: '' },
             { data: 'producto_nombre' },
-            { data: 'producto_descripcion', defaultContent: '', render: function (d) { return d ? escapeHtml(d) : ''; } },
+            { data: 'marcas_compatibles', defaultContent: '<span class="text-muted">-</span>', render: function (d) { return d ? escapeHtml(d) : '<span class="text-muted">-</span>'; } },
+            { data: 'modelos_compatibles', defaultContent: '<span class="text-muted">-</span>', render: function (d) { return d ? escapeHtml(d) : '<span class="text-muted">-</span>'; } },
+            { data: 'submodelos_compatibles', defaultContent: '<span class="text-muted">-</span>', render: function (d) { return d ? escapeHtml(d) : '<span class="text-muted">-</span>'; } },
             { data: 'precio_lista', className: 'text-end', render: function (d) { return formatearMoneda(d); } },
             { data: 'descuento_general_pct', className: 'text-end', render: function (d) { return (parseFloat(d) || 0).toFixed(2) + ' %'; } },
-            { data: 'costo_neto_compra', className: 'text-end', render: function (d) { return '<strong>' + formatearMoneda(d) + '</strong>'; } },
+            {
+                // Costo neto de compra "debería ser" (según el precio de lista
+                // actual del proveedor). Se resalta si difiere del "Último
+                // Costo Registrado" (columna siguiente) — mismo umbral (0.99)
+                // que usamos para "Debería ser" en las listas de venta.
+                data: null,
+                className: 'text-end',
+                render: function (row) {
+                    var neto = row.costo_neto_compra;
+                    var registrado = row.costo_actual_registrado;
+                    var difiere = registrado !== null && registrado !== undefined && Math.abs(registrado - neto) > 0.99;
+                    return '<strong class="' + (difiere ? 'text-danger' : '') + '">' + formatearMoneda(neto) + '</strong>';
+                }
+            },
             {
                 // Último costo que ya está registrado en gestion__productos_costos,
                 // para comparar contra la columna anterior ANTES de tocar
                 // "Actualizar costo". null = el producto todavía no tiene costo cargado.
-                data: 'costo_actual_registrado',
+                // Se resalta en rojo cuando difiere del costo neto de compra
+                // recién calculado — así salta a la vista qué productos están
+                // desactualizados sin tener que comparar columna por columna.
+                data: null,
                 className: 'text-end',
-                render: function (d) { return (d === null || d === undefined) ? '<span class="text-muted">Sin costo</span>' : formatearMoneda(d); }
+                render: function (row) {
+                    var registrado = row.costo_actual_registrado;
+                    if (registrado === null || registrado === undefined) {
+                        return '<span class="text-muted">Sin costo</span>';
+                    }
+                    var difiere = Math.abs(registrado - row.costo_neto_compra) > 0.99;
+                    return '<span class="' + (difiere ? 'text-danger fw-bold' : '') + '">' + formatearMoneda(registrado) + '</span>';
+                }
             },
-            { data: 'f_vigencia_desde' }
+            {
+                data: 'f_vigencia_desde',
+                render: function (d) { return formatearFecha(d); }
+            }
         ];
 
         // Un par de columnas (Actual / Debería ser) por cada lista de precios
@@ -199,9 +340,9 @@ $(function () {
                     }
                     // Resalta si el precio "debería ser" difiere del actual, para
                     // que salte a la vista sin tener que comparar columna por columna.
-                    // Umbral de 0.1: diferencias menores (redondeos) no se marcan
+                    // Umbral de 0.99: diferencias menores (redondeos, centavos) no se marcan
                     // como "distinto" — solo salta a la vista si realmente cambia.
-                    var difiere = actual !== null && actual !== undefined && Math.abs(actual - deberiaSer) > 0.1;
+                    var difiere = actual !== null && actual !== undefined && Math.abs(actual - deberiaSer) > 0.99;
                     var clase = difiere ? 'text-danger fw-bold' : '';
                     return '<span class="' + clase + '">' + formatearMoneda(deberiaSer) + '</span>';
                 }
@@ -214,11 +355,24 @@ $(function () {
             render: function (row) {
                 var rowJson = encodeURIComponent(JSON.stringify(row));
                 var html = '<div class="btn-group">';
-                html += '<button class="btn btn-sm btn-outline-secondary btn-editar-precio" data-row="' + rowJson + '" title="Editar precio"><i class="fas fa-pen"></i></button>';
                 html += '<button class="btn btn-sm btn-outline-info btn-ver-historial" data-id="' + row.producto_proveedor_id + '" title="Ver historial"><i class="fas fa-history"></i></button>';
-                html += '<button class="btn btn-sm btn-outline-success btn-actualizar-costo" data-row="' + rowJson + '" title="Actualizar costo del producto"><i class="fas fa-sync-alt"></i></button>';
+                html += '<button class="btn btn-sm btn-outline-success btn-actualizar-costo" data-row="' + rowJson + '" title="Actualizar costo"><i class="fas fa-sync-alt"></i></button>';
+                html += '<button class="btn btn-sm btn-outline-primary btn-actualizar-precio-venta" data-row="' + rowJson + '" title="Actualizar precio de venta (con el costo actual)"><i class="fas fa-tags"></i></button>';
+                html += '<button class="btn btn-sm btn-outline-warning btn-actualizar-costo-y-precio" data-row="' + rowJson + '" title="Actualizar costo y precio de venta"><i class="fas fa-bolt"></i></button>';
 
+                // Botones que vienen del motor de estados (conf__paginas_funciones,
+                // pagina_id=92) — sin hardcodear "Editar" acá: si la función que
+                // viene de la tabla es accion_js === 'editar' (no es una transición
+                // de estado, abre el formulario), usa abrirModalEditar() con la fila
+                // completa; el resto sigue yendo por ejecutarAccionEstado() como
+                // siempre.
                 (row.botones || []).forEach(function (btn) {
+                    if (btn.accion_js === 'editar') {
+                        html += '<button class="btn btn-sm ' + (btn.color_clase || 'btn-outline-secondary') + ' btn-editar-precio" ' +
+                            'data-row="' + rowJson + '" title="' + escapeHtml(btn.descripcion || btn.nombre_funcion) + '">' +
+                            '<i class="' + (btn.icono_clase || 'fas fa-pen') + '"></i></button>';
+                        return;
+                    }
                     html += '<button class="btn btn-sm ' + (btn.color_clase || 'btn-outline-primary') + ' btn-estado-accion" ' +
                         'data-id="' + row.producto_proveedor_precio_id + '" data-accion="' + btn.accion_js + '" title="' + escapeHtml(btn.descripcion || btn.nombre_funcion) + '">' +
                         '<i class="' + (btn.icono_clase || 'fas fa-cog') + '"></i></button>';
@@ -231,39 +385,22 @@ $(function () {
 
         tabla = $('#tablaProveedorPrecios').DataTable({
             data: filasIniciales || [],
-            // Mismo patrón que tablaVentasPedidos: dom + initComplete inyectando
-            // el "Mostrar N registros" / buscador en el card-header, y una
-            // instancia oculta de Buttons (excel/pdf/csv/print) que los botones
-            // manuales del toolbar disparan por su clase. stateSave queda afuera
-            // acá: como la tabla se reconstruye entera cuando cambian las
-            // columnas (cambio de proveedor), guardar estado de columnas viejas
-            // no tiene sentido.
+            // Sin buscador propio de DataTables ("Buscar:") — ya filtramos
+            // server-side con Código/Marca/Modelo/Submodelo, tener los dos
+            // mecanismos a la vez confundía. "Mostrar N registros" pasa a
+            // convivir con la paginación, abajo de la tabla, usando los
+            // tokens nativos 'l'/'p' (ya vienen con estilo Bootstrap acá,
+            // no hace falta reconstruirlos a mano como antes). stateSave
+            // queda afuera: la tabla se reconstruye entera cuando cambian
+            // las columnas (proveedor nuevo / cantidad de listas distinta).
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                '<"row mt-2"<"col-sm-12 col-md-3"l><"col-sm-12 col-md-9"p>>' +
                 '<"clear">',
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             order: [[1, 'asc']],
             responsive: true,
-            scrollX: true,
             initComplete: function () {
-                setTimeout(function () {
-                    if ($('#tablaProveedorPrecios_length').html().trim() === '') {
-                        var selectHtml = '<label>Mostrar <select name="tablaProveedorPrecios_length" aria-controls="tablaProveedorPrecios" class="form-select form-select-sm"><option value="10" selected>10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
-                        $('#tablaProveedorPrecios_length').html(selectHtml);
-                        $('#tablaProveedorPrecios_length select').on('change', function () {
-                            tabla.page.len($(this).val()).draw();
-                        });
-                    }
-                    if ($('#tablaProveedorPrecios_filter').html().trim() === '') {
-                        var filterHtml = '<label>Buscar:<input type="search" class="form-control form-control-sm" aria-controls="tablaProveedorPrecios"></label>';
-                        $('#tablaProveedorPrecios_filter').html(filterHtml);
-                        $('#tablaProveedorPrecios_filter input').on('keyup', function () {
-                            tabla.search($(this).val()).draw();
-                        });
-                    }
-                }, 100);
-
                 // Instancia de Buttons oculta (no se agrega al DOM visible):
                 // solo la usamos para que los botones del card-header
                 // (#btnExportarExcel, etc.) la disparen por clase.
@@ -297,8 +434,9 @@ $(function () {
 
 
     function abrirModalAgregar() {
-        $('#producto_proveedor_id').val('');
+        $('#producto_id').val('');
         $('#producto_proveedor_precio_id').val('');
+        $('#entidad_id_edicion').val('');
         $('#precio_lista').val('');
         $('#f_vigencia_desde').val(new Date().toISOString().slice(0, 10));
         productoSeleccionado = null;
@@ -315,8 +453,9 @@ $(function () {
     function abrirModalEditar(rowEncoded) {
         var row = JSON.parse(decodeURIComponent(rowEncoded));
 
-        $('#producto_proveedor_id').val(row.producto_proveedor_id);
+        $('#producto_id').val(row.producto_id);
         $('#producto_proveedor_precio_id').val(row.producto_proveedor_precio_id);
+        $('#entidad_id_edicion').val(row.entidad_id);
         $('#precio_lista').val(row.precio_lista);
         $('#moneda_id').val(row.moneda_id);
         $('#f_vigencia_desde').val(new Date().toISOString().slice(0, 10));
@@ -327,7 +466,7 @@ $(function () {
         $('#productoSeleccionadoNombre').text(row.producto_nombre);
         $('#productoSeleccionadoCodigo').text(' (' + row.codigo_proveedor + ')');
 
-        $('#modalPrecioProveedorTitulo').text('Editar Precio — ' + proveedorActualNombre);
+        $('#modalPrecioProveedorTitulo').text('Editar Precio — ' + (row.entidad_nombre || proveedorActualNombre));
         $('#modalPrecioProveedor').modal('show');
     }
 
@@ -338,17 +477,34 @@ $(function () {
             return;
         }
 
-        $.get('proveedor_precios_ajax.php', { accion: 'buscar_productos_sin_precio', empresa_idx: empresa_idx, entidad_id: proveedorActualId, q: q }, function (data) {
+        // Busca en TODO gestion__productos (antes solo entre lo ya vinculado
+        // a este proveedor — un producto que el proveedor todavía no tenía
+        // cargado no aparecía nunca). Cada resultado indica si ya está
+        // vinculado y si ya tiene precio para este proveedor puntual.
+        $.get('proveedor_precios_ajax.php', { accion: 'buscar_productos_catalogo', empresa_idx: empresa_idx, entidad_id: proveedorActualId, q: q }, function (data) {
             var html = '';
             if (!data || !data.length) {
-                html = '<div class="text-muted small p-2">Sin resultados (o el producto ya tiene precio cargado).</div>';
+                html = '<div class="text-muted small p-2">Sin resultados.</div>';
             } else {
                 data.forEach(function (p) {
+                    if (p.ya_tiene_precio) {
+                        html += '<div class="list-group-item disabled">' +
+                            '<strong>' + escapeHtml(p.producto_nombre) + '</strong> ' +
+                            '<span class="text-muted small">Cód: ' + escapeHtml(p.producto_codigo || '-') + '</span>' +
+                            '<span class="badge bg-secondary ms-2">Ya tiene precio — editalo desde la tabla</span>' +
+                            '</div>';
+                        return;
+                    }
+                    var avisoVinculo = !p.vinculo_existente
+                        ? '<span class="badge bg-info ms-2">Se va a vincular a este proveedor</span>'
+                        : '';
                     html += '<button type="button" class="list-group-item list-group-item-action btn-seleccionar-producto" ' +
-                        'data-producto-proveedor-id="' + p.producto_proveedor_id + '" ' +
+                        'data-producto-id="' + p.producto_id + '" ' +
                         'data-nombre="' + escapeHtml(p.producto_nombre) + '" data-codigo="' + escapeHtml(p.codigo_proveedor || '') + '">' +
                         '<strong>' + escapeHtml(p.producto_nombre) + '</strong> ' +
-                        '<span class="text-muted small">Cód. proveedor: ' + escapeHtml(p.codigo_proveedor || '-') + '</span>' +
+                        '<span class="text-muted small">Cód: ' + escapeHtml(p.producto_codigo || '-') +
+                        (p.codigo_proveedor ? ' — Cód. proveedor: ' + escapeHtml(p.codigo_proveedor) : '') + '</span>' +
+                        avisoVinculo +
                         '</button>';
                 });
             }
@@ -359,24 +515,28 @@ $(function () {
     $(document).on('click', '.btn-seleccionar-producto', function () {
         var $btn = $(this);
         productoSeleccionado = {
-            producto_proveedor_id: $btn.data('producto-proveedor-id'),
+            producto_id: $btn.data('producto-id'),
             producto_nombre: $btn.data('nombre'),
             codigo_proveedor: $btn.data('codigo')
         };
-        $('#producto_proveedor_id').val(productoSeleccionado.producto_proveedor_id);
+        $('#producto_id').val(productoSeleccionado.producto_id);
 
         $('#bloqueBuscarProducto').addClass('d-none');
         $('#bloqueProductoSeleccionado').removeClass('d-none');
         $('#productoSeleccionadoNombre').text(productoSeleccionado.producto_nombre);
-        $('#productoSeleccionadoCodigo').text(' (' + productoSeleccionado.codigo_proveedor + ')');
+        $('#productoSeleccionadoCodigo').text(productoSeleccionado.codigo_proveedor ? ' (' + productoSeleccionado.codigo_proveedor + ')' : '');
     });
 
     function guardarPrecioProveedor() {
-        var producto_proveedor_id = $('#producto_proveedor_id').val();
+        var producto_id = $('#producto_id').val();
         var precio_lista = parseFloat($('#precio_lista').val());
+        // Al editar, la fila ya trae su propio proveedor (puede no ser el
+        // que está elegido en el filtro principal, en la vista sin
+        // proveedor); al agregar, siempre es el elegido en el filtro.
+        var entidad_id = $('#entidad_id_edicion').val() || proveedorActualId;
 
-        if (!producto_proveedor_id) {
-            return Swal.fire('Atención', 'Debe seleccionar un producto del proveedor.', 'warning');
+        if (!producto_id) {
+            return Swal.fire('Atención', 'Debe seleccionar un producto.', 'warning');
         }
         if (isNaN(precio_lista) || precio_lista < 0) {
             return Swal.fire('Atención', 'El precio de lista debe ser un número mayor o igual a 0.', 'warning');
@@ -388,8 +548,8 @@ $(function () {
             accion: accion,
             empresa_idx: empresa_idx,
             pagina_idx: pagina_idx,
-            producto_proveedor_id: producto_proveedor_id,
-            entidad_id: proveedorActualId,
+            producto_id: producto_id,
+            entidad_id: entidad_id,
             precio_lista: precio_lista,
             moneda_id: $('#moneda_id').val(),
             f_vigencia_desde: $('#f_vigencia_desde').val()
@@ -445,8 +605,8 @@ $(function () {
                 data.forEach(function (h) {
                     $tbody.append(
                         '<tr>' +
-                        '<td>' + h.f_vigencia_desde + '</td>' +
-                        '<td>' + (h.f_vigencia_hasta || '-') + '</td>' +
+                        '<td>' + formatearFecha(h.f_vigencia_desde) + '</td>' +
+                        '<td>' + (h.f_vigencia_hasta ? formatearFecha(h.f_vigencia_hasta) : '-') + '</td>' +
                         '<td>' + formatearMoneda(h.precio_lista) + '</td>' +
                         '<td>' + (h.simbolo || '') + '</td>' +
                         '<td>' + h.origen_carga + '</td>' +
@@ -461,30 +621,57 @@ $(function () {
 
     /* ============================ Actualizar costo del producto ============================ */
 
-    function actualizarCostoProducto(rowEncoded) {
+    // tipo: 'actualizar_costo' | 'actualizar_precio_venta' | 'actualizar_costo_y_precio'
+    function actualizarFila(rowEncoded, tipo) {
         var row = JSON.parse(decodeURIComponent(rowEncoded));
 
+        var textos = {
+            actualizar_costo: {
+                titulo: 'Actualizar costo',
+                html: 'Se va a fijar el costo de <strong>' + escapeHtml(row.producto_nombre) + '</strong> (proveedor <strong>' + escapeHtml(row.entidad_nombre || '') + '</strong>) en ' +
+                      '<strong>' + formatearMoneda(row.costo_neto_compra) + '</strong> (precio de lista menos el descuento de compra vigente).' +
+                      '<br><small class="text-muted">Esto NO toca las listas de precio de venta.</small>'
+            },
+            actualizar_precio_venta: {
+                titulo: 'Actualizar precio de venta',
+                html: 'Se va a recalcular el precio de venta de <strong>' + escapeHtml(row.producto_nombre) + '</strong> en cada lista con regla aplicable, ' +
+                      'usando el costo YA registrado del producto (sin tocar gestion__productos_costos).' +
+                      '<br><small class="text-muted">Usar cuando cambió la regla de la lista de precios, no el costo.</small>'
+            },
+            actualizar_costo_y_precio: {
+                titulo: 'Actualizar costo y precio de venta',
+                html: 'Se va a fijar el costo de <strong>' + escapeHtml(row.producto_nombre) + '</strong> en ' +
+                      '<strong>' + formatearMoneda(row.costo_neto_compra) + '</strong>, y actualizar el precio de venta en cada lista con regla aplicable.' +
+                      '<br><small class="text-muted">Si el costo no cambió, no se toca nada (ni costo ni listas) — para actualizar solo el precio de venta, usar el otro botón.</small>'
+            }
+        };
+        var t = textos[tipo];
+
         Swal.fire({
-            title: 'Actualizar costo del producto',
-            html: 'Se va a fijar el costo de <strong>' + escapeHtml(row.producto_nombre) + '</strong> en ' +
-                  '<strong>' + formatearMoneda(row.costo_neto_compra) + '</strong> (precio de lista menos el descuento de compra vigente).' +
-                  '<br><small class="text-muted">Esto NO recalcula automáticamente la lista de precios de venta al cliente — eso queda pendiente hasta definir el motor de reglas.</small>',
+            title: t.titulo,
+            html: t.html,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, actualizar costo'
+            confirmButtonText: 'Sí, actualizar'
         }).then(function (result) {
             if (!result.isConfirmed) return;
 
             $.post('proveedor_precios_ajax.php', {
-                accion: 'actualizar_costo',
+                accion: tipo,
                 empresa_idx: empresa_idx,
                 producto_id: row.producto_id,
-                entidad_id: proveedorActualId,
+                entidad_id: row.entidad_id,
                 costo_neto_compra: row.costo_neto_compra,
                 moneda_id: row.moneda_id
             }, function (res) {
                 if (res.success) {
-                    Swal.fire({ icon: 'success', title: res.message, timer: 1500, showConfirmButton: false });
+                    var detalle = '';
+                    if (tipo !== 'actualizar_costo') {
+                        detalle = ' (' + res.precios_actualizados + ' lista(s) de precio actualizada(s)' +
+                            (res.precios_sin_regla ? ', ' + res.precios_sin_regla + ' sin regla' : '') + ')';
+                    }
+                    Swal.fire({ icon: 'success', title: res.message + detalle, timer: 2200, showConfirmButton: false });
+                    cargarYMostrarTabla();
                 } else {
                     Swal.fire('Error', res.message, 'error');
                 }
@@ -492,13 +679,49 @@ $(function () {
         });
     }
 
+    // Genérica para los 2 botones masivos nuevos (solo costos / solo
+    // precios de venta) — misma estructura que actualizarCostosMasivo, solo
+    // cambia la acción y los textos.
+    function actualizarMasivoGenerico(accion, titulo, descripcionHtml) {
+        if (!proveedorActualId) return;
+
+        Swal.fire({
+            title: titulo,
+            html: descripcionHtml,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, actualizar'
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+
+            Swal.fire({ title: 'Actualizando…', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+
+            $.post('proveedor_precios_ajax.php', {
+                accion: accion,
+                empresa_idx: empresa_idx,
+                pagina_idx: pagina_idx,
+                entidad_id: proveedorActualId
+            }, function (res) {
+                if (res.success) {
+                    Swal.fire({ icon: 'success', title: res.message });
+                    cargarYMostrarTabla();
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
+            }, 'json').fail(function () {
+                Swal.fire('Error', 'No se pudo completar la actualización.', 'error');
+            });
+        });
+    }
+
     function actualizarCostosMasivo() {
         if (!proveedorActualId) return;
 
         Swal.fire({
-            title: 'Actualizar costos de TODOS los productos',
-            html: 'Se va a recalcular y fijar el costo (precio de lista menos el descuento de compra vigente) de <strong>todos los productos activos</strong> de <strong>' + escapeHtml(proveedorActualNombre) + '</strong>.' +
-                  '<br><small class="text-muted">Esto NO recalcula la lista de precios de venta al cliente.</small>',
+            title: 'Actualizar costos y listas de precios de TODOS los productos',
+            html: 'Se va a recalcular y fijar el costo (precio de lista menos el descuento de compra vigente) de <strong>todos los productos activos</strong> de <strong>' + escapeHtml(proveedorActualNombre) + '</strong>, ' +
+                  'y actualizar el precio de venta en cada lista de precios con regla aplicable.' +
+                  '<br><small class="text-muted">Los productos cuyo costo ya está al día se saltean (no se tocan ni costo ni precios).</small>',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Sí, actualizar todos'
@@ -507,14 +730,10 @@ $(function () {
 
             Swal.fire({ title: 'Actualizando…', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
 
-            $.post({
-                url: 'proveedor_precios_ajax.php',
-                dataType: 'json',
-                data: {
-                    accion: 'actualizar_costos_masivo',
-                    empresa_idx: empresa_idx,
-                    entidad_id: proveedorActualId
-                }
+            $.post('proveedor_precios_ajax.php', {
+                accion: 'actualizar_costos_masivo',
+                empresa_idx: empresa_idx,
+                entidad_id: proveedorActualId
             }, function (res) {
                 if (res.success) {
                     Swal.fire({ icon: 'success', title: res.message });
@@ -524,6 +743,56 @@ $(function () {
                 }
             }, 'json').fail(function () {
                 Swal.fire('Error', 'No se pudo completar la actualización masiva.', 'error');
+            });
+        });
+    }
+
+    // % de cambio: ajusta el PRECIO DE LISTA DEL PROVEEDOR (no el costo del
+    // producto) de los productos filtrados en pantalla. El costo del
+    // producto lo actualizan después los otros botones (individual o
+    // masivo), mirando el costo_neto_compra ya recalculado.
+    function aplicarPorcentajeCostos() {
+        if (!proveedorActualId) return;
+
+        var porcentaje = parseFloat($('#porcentajeAjusteCostos').val());
+        if (isNaN(porcentaje)) {
+            return Swal.fire('Atención', 'Ingresá un porcentaje válido (puede ser negativo).', 'warning');
+        }
+
+        Swal.fire({
+            title: 'Aplicar ' + (porcentaje >= 0 ? '+' : '') + porcentaje + '% al precio de lista',
+            html: 'Se va a ajustar el <strong>precio de lista del proveedor</strong> (no el costo del producto) de <strong>todos los productos que están filtrados</strong> en la grilla en este momento ' +
+                  '(proveedor <strong>' + escapeHtml(proveedorActualNombre) + '</strong>' +
+                  ($('#filtroCodigo').val() || $('#filtroMarca').val() || $('#filtroModelo').val() || $('#filtroSubmodelo').val() ? ', con los filtros de código/marca/modelo/submodelo activos' : ', sin filtros adicionales — todos sus productos') + ').' +
+                  '<br><small class="text-muted">El costo del producto no se toca acá — usá "Actualizar Costos" (individual o masivo) después, si corresponde.</small>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, aplicar'
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+
+            Swal.fire({ title: 'Aplicando…', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+
+            $.post('proveedor_precios_ajax.php', {
+                accion: 'aplicar_porcentaje_lista',
+                empresa_idx: empresa_idx,
+                pagina_idx: pagina_idx,
+                entidad_id: proveedorActualId,
+                porcentaje: porcentaje,
+                filtro_codigo: $('#filtroCodigo').val() || '',
+                filtro_marca: $('#filtroMarca').val() || '',
+                filtro_modelo: $('#filtroModelo').val() || '',
+                filtro_submodelo: $('#filtroSubmodelo').val() || ''
+            }, function (res) {
+                if (res.success) {
+                    Swal.fire({ icon: 'success', title: res.message });
+                    cargarYMostrarTabla();
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
+            }, 'json').fail(function (xhr) {
+                console.error('Error HTTP aplicando porcentaje:', xhr.status, xhr.responseText);
+                Swal.fire('Error', 'No se pudo aplicar el porcentaje.', 'error');
             });
         });
     }
@@ -659,6 +928,12 @@ $(function () {
         var m = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
         return '';
+    }
+
+    function formatearFecha(valor) {
+        if (!valor) return '';
+        var partes = String(valor).split('-'); // 'YYYY-MM-DD' -> 'DD/MM/YYYY'
+        return partes.length === 3 ? (partes[2] + '/' + partes[1] + '/' + partes[0]) : valor;
     }
 
     function formatearMoneda(valor) {

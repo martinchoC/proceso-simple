@@ -126,14 +126,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text"><i class="fas fa-search"></i></span>
                                                     <div class="form-control p-1" id="buscadorTagsContainer" style="min-height: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; cursor: text;">
-                                                        <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Escribe palabras y presiona espacio...">
+                                                        <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Escribí una palabra o frase y presioná Enter...">
                                                     </div>
                                                     <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTags" title="Limpiar todos los filtros">
                                                         <i class="fas fa-times"></i>
                                                     </button>
                                                 </div>
                                                 <small class="text-muted">
-                                                    Presioná <kbd>Espacio</kbd> para agregar una etiqueta (se combinan). La <i class="fas fa-times"></i> limpia todos los filtros.
+                                                    Presioná <kbd>Enter</kbd> para agregar una etiqueta (se combinan). Podés usar frases con espacios, ej. <em>disco rígido</em>. La <i class="fas fa-times"></i> limpia todos los filtros.
                                                     <span id="infoFiltros" class="badge bg-light text-dark ms-1" style="display:none;"></span>
                                                 </small>
                                             </div>
@@ -2133,22 +2133,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     if (e.target === this || $(e.target).is('#buscadorTagsContainer')) tagsInput.focus();
                 });
 
-                // Usar 'input' en lugar de 'keydown' para mejor respuesta
-                tagsInput.on('input', function(e) {
-                    var value = $(this).val().trim();
-                    if (value.includes(' ')) {
-                        var palabras = value.split(/\s+/);
-                        palabras.forEach(function(palabra) {
-                            if (palabra.length > 0) agregarTag(palabra);
-                        });
-                        $(this).val('');
-                        ejecutarBusquedaTags();
-                    }
-                });
-
+                // El espacio NO cierra la etiqueta: se escribe normalmente para poder
+                // buscar frases compuestas ("disco rígido"). La etiqueta se confirma
+                // con Enter.
                 tagsInput.on('keydown', function(e) {
                     var value = $(this).val().trim();
-                    if (e.key === ' ' || e.key === 'Space') {
+                    if (e.key === 'Enter') {
                         e.preventDefault();
                         if (value.length > 0) {
                             agregarTag(value);
@@ -2158,36 +2148,29 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     } else if (e.key === 'Backspace' && value === '' && tags.length > 0) {
                         eliminarTag(tags.length - 1);
                         ejecutarBusquedaTags();
-                    } else if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (value.length > 0) {
-                            agregarTag(value);
-                            $(this).val('');
-                            ejecutarBusquedaTags();
-                        }
                     } else if (e.key === 'Escape') {
                         $(this).blur();
                     }
                 });
 
+                // Al pegar, el texto queda en el input (normalizado a una sola línea)
+                // esperando el Enter — así un pegado multi-palabra sigue siendo UNA
+                // etiqueta, igual que si se tipeara.
                 tagsInput.on('paste', function() {
                     setTimeout(function() {
-                        var value = tagsInput.val().trim();
-                        if (value) {
-                            var palabras = value.split(/\s+/);
-                            palabras.forEach(function(palabra) {
-                                if (palabra.length > 0) agregarTag(palabra);
-                            });
-                            tagsInput.val('');
-                            ejecutarBusquedaTags();
-                        }
+                        var value = tagsInput.val().replace(/\s+/g, ' ').trim();
+                        tagsInput.val(value);
                     }, 10);
                 });
 
             }
 
             function agregarTag(texto) {
-                texto = texto.trim();
+                // Normalizamos espacios internos y sacamos las comillas dobles: el
+                // término viaja al backend entrecomillado cuando tiene espacios
+                // (ver ejecutarBusquedaTags), así que una comilla dentro del texto
+                // rompería el parseo de la frase.
+                texto = String(texto).replace(/"/g, '').replace(/\s+/g, ' ').trim();
                 if (!texto) return;
                 var duplicado = tags.some(function(tag) { return tag.toLowerCase() === texto.toLowerCase(); });
                 if (duplicado) { tagsInput.val(''); return; }
@@ -2234,8 +2217,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 return div.innerHTML;
             }
 
+            // Arma el string que se manda al backend. Las etiquetas de una sola
+            // palabra van sueltas; las compuestas van entre comillas para que el
+            // modelo las trate como UNA frase y no como palabras sueltas en AND.
+            function serializarTags(lista) {
+                return lista.map(function(tag) {
+                    return tag.indexOf(' ') >= 0 ? '"' + tag + '"' : tag;
+                }).join(' ');
+            }
+
+            // Inversa de serializarTags(): reconstruye las etiquetas desde el string
+            // de búsqueda (usado al restaurar el estado guardado del DataTable).
+            function deserializarTags(texto) {
+                var resultado = [];
+                var re = /"([^"]*)"|(\S+)/g;
+                var m;
+                while ((m = re.exec(texto)) !== null) {
+                    var termino = (m[1] !== undefined ? m[1] : m[2]).trim();
+                    if (termino.length > 0) resultado.push(termino);
+                }
+                return resultado;
+            }
+
             function ejecutarBusquedaTags() {
-                var terminoBusqueda = tags.join(' ');
+                var terminoBusqueda = serializarTags(tags);
                 if (tabla) {
                     if (tags.length > 0) {
                         $('#buscadorTagsContainer').attr('title', 'Buscando ' + tags.length + ' palabra(s): ' + tags.join(', '));
@@ -3457,9 +3462,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         this.api().buttons().container().appendTo('#exportButtonsContainer');
                         
                         if (currentSearch && currentSearch.length > 0) {
-                            var palabras = currentSearch.split(/\s+/);
-                            palabras.forEach(function(palabra) {
-                                if (palabra.length > 0) agregarTag(palabra);
+                            deserializarTags(currentSearch).forEach(function(termino) {
+                                agregarTag(termino);
                             });
                             setTimeout(function() { ejecutarBusquedaTags(); }, 100);
                         }

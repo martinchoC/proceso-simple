@@ -1,0 +1,2256 @@
+<?php
+require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
+
+/**
+ * Modelo para gestión de entidades y sucursales
+ * Las sucursales usan las mismas acciones que las entidades
+ */
+
+// ✅ Obtener funciones configuradas para la página desde conf__paginas_funciones
+function obtenerFuncionesPagina($conexion, $pagina_id)
+{
+    $pagina_id = intval($pagina_id);
+
+    $sql = "SELECT pf.*, i.icono_clase, c.color_clase, c.bg_clase, c.text_clase
+            FROM conf__paginas_funciones pf
+            LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
+            LEFT JOIN conf__colores c ON pf.color_id = c.color_id
+            WHERE pf.pagina_id = ? 
+            AND pf.tabla_estado_registro_id = 1 -- Solo funciones activas
+            ORDER BY pf.tabla_estado_registro_origen_id, pf.orden";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $pagina_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $funciones = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $funciones[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $funciones;
+}
+
+// ✅ Obtener información de un estado específico
+function obtenerInfoEstado($conexion, $estado_registro_id)
+{
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    if (in_array('estado_registro', $columns)) {
+        $sql = "SELECT estado_registro, codigo_estandar 
+                FROM conf__estados_registros 
+                WHERE estado_registro_id = ?";
+    } elseif (in_array('nombre_estado', $columns)) {
+        $sql = "SELECT nombre_estado as estado_registro, codigo_estandar 
+                FROM conf__estados_registros 
+                WHERE estado_registro_id = ?";
+    } elseif (in_array('descripcion', $columns)) {
+        $sql = "SELECT descripcion as estado_registro, codigo_estandar 
+                FROM conf__estados_registros 
+                WHERE estado_registro_id = ?";
+    } else {
+        return [
+            'estado_registro' => 'Estado ' . $estado_registro_id,
+            'codigo_estandar' => 'ESTADO_' . $estado_registro_id
+        ];
+    }
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return null;
+
+    mysqli_stmt_bind_param($stmt, "i", $estado_registro_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $info = mysqli_fetch_assoc($result);
+
+    mysqli_stmt_close($stmt);
+    return $info;
+}
+
+// ✅ Obtener botones disponibles según el estado actual. $funciones_precargadas
+// evita repetir la consulta a conf__paginas_funciones fila por fila cuando se
+// llama dentro de un loop (ver obtenerEntidades): la lista de funciones de
+// una página es la misma para TODAS las filas del listado, solo cambia el
+// estado_actual_id que se compara contra el origen de cada función.
+function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id, $funciones_precargadas = null)
+{
+    $funciones = $funciones_precargadas !== null ? $funciones_precargadas : obtenerFuncionesPagina($conexion, $pagina_id);
+    $botones = [];
+
+    foreach ($funciones as $funcion) {
+        if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
+            $botones[] = [
+                'nombre_funcion' => $funcion['nombre_funcion'],
+                'accion_js' => $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']),
+                'icono_clase' => $funcion['icono_clase'],
+                'color_clase' => $funcion['color_clase'] ?? 'btn-outline-primary',
+                'bg_clase' => $funcion['bg_clase'] ?? '',
+                'text_clase' => $funcion['text_clase'] ?? '',
+                'descripcion' => $funcion['descripcion'],
+                'estado_destino_id' => $funcion['tabla_estado_registro_destino_id'],
+                'es_confirmable' => ($funcion['tabla_estado_registro_destino_id'] != $funcion['tabla_estado_registro_origen_id']) ? 1 : 0
+            ];
+        }
+    }
+
+    return $botones;
+}
+
+// ✅ Obtener botón "Agregar" específico para la página
+function obtenerBotonAgregar($conexion, $pagina_id)
+{
+    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+
+    foreach ($funciones as $funcion) {
+        if ($funcion['tabla_estado_registro_origen_id'] == 0) {
+            return [
+                'nombre_funcion' => $funcion['nombre_funcion'],
+                'accion_js' => $funcion['accion_js'] ?? 'agregar',
+                'icono_clase' => $funcion['icono_clase'],
+                'color_clase' => $funcion['color_clase'] ?? 'btn-primary',
+                'bg_clase' => $funcion['bg_clase'] ?? '',
+                'text_clase' => $funcion['text_clase'] ?? '',
+                'descripcion' => $funcion['descripcion']
+            ];
+        }
+    }
+
+    return [
+        'nombre_funcion' => 'Agregar',
+        'accion_js' => 'agregar',
+        'icono_clase' => 'fas fa-plus',
+        'color_clase' => 'btn-primary',
+        'bg_clase' => 'btn-primary',
+        'text_clase' => 'text-white'
+    ];
+}
+
+// ✅ Obtener estado inicial para nuevos registros
+function obtenerEstadoInicial($conexion)
+{
+    $sql = "SELECT estado_registro_id 
+            FROM conf__estados_registros 
+            WHERE valor_estandar IS NOT NULL
+            ORDER BY valor_estandar ASC 
+            LIMIT 1";
+
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) {
+        return 1;
+    }
+
+    $fila = mysqli_fetch_assoc($result);
+    return $fila ? $fila['estado_registro_id'] : 1;
+}
+
+// ✅ Ejecutar transición de estado basada en conf__paginas_funciones (para entidades y sucursales)
+function ejecutarTransicionEstado($conexion, $registro_id, $accion_js, $empresa_idx, $pagina_id, $tipo = 'entidad')
+{
+    $registro_id = intval($registro_id);
+    $pagina_id = intval($pagina_id);
+
+    // Determinar la tabla según el tipo
+    $tabla = ($tipo === 'sucursal') ? 'gestion__entidades_sucursales' : 'gestion__entidades';
+    $id_field = ($tipo === 'sucursal') ? 'sucursal_id' : 'entidad_id';
+    
+    $sql_check = "SELECT $id_field, tabla_estado_registro_id 
+                  FROM $tabla 
+                  WHERE $id_field = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt)
+        return ['success' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $registro_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $registro = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$registro)
+        return ['success' => false, 'error' => 'Registro no encontrado'];
+
+    $estado_actual_id = $registro['tabla_estado_registro_id'];
+
+    $sql_funcion = "SELECT pf.* 
+                    FROM conf__paginas_funciones pf
+                    WHERE pf.pagina_id = ? 
+                    AND pf.tabla_estado_registro_origen_id = ? 
+                    AND pf.accion_js = ?
+                    LIMIT 1";
+
+    $stmt = mysqli_prepare($conexion, $sql_funcion);
+    if (!$stmt)
+        return ['success' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "iis", $pagina_id, $estado_actual_id, $accion_js);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $funcion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$funcion)
+        return ['success' => false, 'error' => 'Acción no permitida para este estado'];
+
+    $estado_destino_id = $funcion['tabla_estado_registro_destino_id'];
+
+    if ($estado_destino_id == $estado_actual_id) {
+        return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
+    }
+
+    $sql_update = "UPDATE $tabla 
+                   SET tabla_estado_registro_id = ? 
+                   WHERE $id_field = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt)
+        return ['success' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $registro_id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['success' => true, 'message' => 'Estado actualizado correctamente'];
+    } else {
+        return ['success' => false, 'error' => 'Error al actualizar el estado'];
+    }
+}
+
+// ✅ Obtener todos los tipos de entidad
+function obtenerTiposEntidad($conexion)
+{
+    $sql = "SELECT et.*, er.estado_registro
+            FROM gestion__entidades_tipos et
+            LEFT JOIN conf__estados_registros er ON et.tabla_estado_registro_id = er.estado_registro_id
+            WHERE et.tabla_estado_registro_id IN (1, 2) -- Activos o similares
+            ORDER BY et.entidad_tipo";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $tipos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $tipos[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $tipos;
+}
+
+// ✅ Obtener todas las localidades
+function obtenerLocalidades($conexion)
+{
+    $sql = "SELECT l.*, er.estado_registro
+            FROM conf__localidades l
+            LEFT JOIN conf__estados_registros er ON l.tabla_estado_registro_id = er.estado_registro_id
+            WHERE l.tabla_estado_registro_id IN (1, 2) -- Activos o similares
+            ORDER BY l.localidad";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $localidades = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $localidades[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $localidades;
+}
+
+// ✅ Obtener todas las entidades
+function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
+{
+    $pagina_id = intval($pagina_id);
+
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+
+    $sql = "SELECT e.*, 
+                   er.$estado_column as estado_registro, 
+                   er.codigo_estandar,
+                   ec.color_clase, ec.bg_clase, ec.text_clase,
+                   et.entidad_tipo,
+                   l.localidad
+            FROM gestion__entidades e
+            LEFT JOIN conf__estados_registros er ON e.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            LEFT JOIN gestion__entidades_tipos et ON e.entidad_tipo_id = et.entidad_tipo_id
+            LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
+            WHERE e.empresa_id = ?
+              AND e.es_cliente = 1
+            ORDER BY e.entidad_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    // Se pide UNA sola vez, afuera del loop: antes se llamaba adentro (vía
+    // obtenerBotonesPorEstado) y repetía la misma consulta a
+    // conf__paginas_funciones por cada cliente listado (N+1) — con 300
+    // clientes eran 300 consultas idénticas de más.
+    $funciones_pagina = obtenerFuncionesPagina($conexion, $pagina_id);
+
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+
+        $fila['entidad_tipo_info'] = [
+            'entidad_tipo' => $fila['entidad_tipo'] ?? null,
+            'descripcion' => null,
+            'bg_clase' => 'bg-secondary',
+            'text_clase' => 'text-white'
+        ];
+
+        $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id'], $funciones_pagina);
+        $data[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+// ✅ Obtener todas las sucursales de una entidad
+function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_id)
+{
+    $pagina_id = intval($pagina_id);
+    $entidad_id = intval($entidad_id);
+
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+
+    $sql = "SELECT es.*, 
+                   er.$estado_column as estado_registro, 
+                   er.codigo_estandar,
+                   ec.color_clase, ec.bg_clase, ec.text_clase,
+                   l.localidad
+            FROM gestion__entidades_sucursales es
+            LEFT JOIN conf__estados_registros er ON es.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            LEFT JOIN conf__localidades l ON es.localidad_id = l.localidad_id
+            WHERE es.empresa_id = ? AND es.entidad_id = ?
+            ORDER BY es.sucursal_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_idx, $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+
+        $fila['localidad_info'] = [
+            'localidad' => $fila['localidad'] ?? null,
+            'localidad_id' => $fila['localidad_id'] ?? null
+        ];
+
+        // Las sucursales usan las mismas acciones que las entidades
+        $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
+        $data[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+// ✅ Agregar nueva entidad (con estado inicial) - SIN DESCUENTOS
+function agregarEntidad($conexion, $data)
+{
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $entidad_nombre = mysqli_real_escape_string($conexion, trim($data['entidad_nombre'] ?? ''));
+    $entidad_fantasia = mysqli_real_escape_string($conexion, trim($data['entidad_fantasia'] ?? ''));
+    $entidad_tipo_id = $data['entidad_tipo_id'] ? intval($data['entidad_tipo_id']) : null;
+    $cont_cuenta_id_proveedor = $data['cont_cuenta_id_proveedor'] ? intval($data['cont_cuenta_id_proveedor']) : null;
+    $cont_cuenta_id_cliente = $data['cont_cuenta_id_cliente'] ? intval($data['cont_cuenta_id_cliente']) : null;
+    $cuit = $data['cuit'] ? intval($data['cuit']) : null;
+    $sitio_web = mysqli_real_escape_string($conexion, trim($data['sitio_web'] ?? ''));
+    $domicilio_legal = mysqli_real_escape_string($conexion, trim($data['domicilio_legal'] ?? ''));
+    $localidad_id = $data['localidad_id'] ? intval($data['localidad_id']) : null;
+    
+    // CORRECCIÓN: Manejar correctamente los checkboxes
+    $es_proveedor = isset($data['es_proveedor']) && $data['es_proveedor'] ? 1 : 0;
+    $es_cliente = isset($data['es_cliente']) && $data['es_cliente'] ? 1 : 0;
+    
+    $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
+
+    if (empty($entidad_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre de la entidad es obligatorio'];
+    }
+
+    if (strlen($entidad_nombre) > 255) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 255 caracteres'];
+    }
+
+    if ($cuit && ($cuit < 0 || $cuit > 99999999999)) {
+        return ['resultado' => false, 'error' => 'CUIT inválido'];
+    }
+
+    $estado_inicial = obtenerEstadoInicial($conexion);
+
+    // Verificar duplicados (mismo nombre en la misma empresa)
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__entidades 
+                  WHERE empresa_id = ? AND LOWER(entidad_nombre) = LOWER(?)";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    $entidad_lower = strtolower($entidad_nombre);
+    mysqli_stmt_bind_param($stmt, "is", $empresa_id, $entidad_lower);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe una entidad con este nombre'];
+    }
+
+    // Insertar nueva entidad - SIN CAMPOS DE DESCUENTO
+    $sql = "INSERT INTO gestion__entidades 
+            (empresa_id, entidad_nombre, entidad_fantasia, entidad_tipo_id, cuit, sitio_web, 
+             domicilio_legal, localidad_id, cont_cuenta_id_proveedor, cont_cuenta_id_cliente, es_proveedor, es_cliente, observaciones, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "issiissiiiissi", 
+        $empresa_id, 
+        $entidad_nombre, 
+        $entidad_fantasia, 
+        $entidad_tipo_id,
+        $cuit,
+        $sitio_web,
+        $domicilio_legal,
+        $localidad_id,
+        $cont_cuenta_id_proveedor,
+        $cont_cuenta_id_cliente,
+        $es_proveedor,
+        $es_cliente,
+        $observaciones,
+        $estado_inicial
+    );
+    
+    $success = mysqli_stmt_execute($stmt);
+
+    if ($success) {
+        $entidad_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'entidad_id' => $entidad_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al crear la entidad'];
+    }
+}
+
+// ✅ Editar entidad existente - SIN DESCUENTOS
+function editarEntidad($conexion, $id, $data)
+{
+    $id = intval($id);
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
+    $entidad_nombre = mysqli_real_escape_string($conexion, trim($data['entidad_nombre'] ?? ''));
+    $entidad_fantasia = mysqli_real_escape_string($conexion, trim($data['entidad_fantasia'] ?? ''));
+    $entidad_tipo_id = $data['entidad_tipo_id'] ? intval($data['entidad_tipo_id']) : null;
+    $cont_cuenta_id_proveedor = $data['cont_cuenta_id_proveedor'] ? intval($data['cont_cuenta_id_proveedor']) : null;
+    $cont_cuenta_id_cliente = $data['cont_cuenta_id_cliente'] ? intval($data['cont_cuenta_id_cliente']) : null;
+    $cuit = $data['cuit'] ? intval($data['cuit']) : null;
+    $sitio_web = mysqli_real_escape_string($conexion, trim($data['sitio_web'] ?? ''));
+    $domicilio_legal = mysqli_real_escape_string($conexion, trim($data['domicilio_legal'] ?? ''));
+    $localidad_id = $data['localidad_id'] ? intval($data['localidad_id']) : null;
+    
+    // CORRECCIÓN CRÍTICA: Manejar correctamente los checkboxes desde $_POST
+    $es_proveedor = intval($data['es_proveedor'] ?? 0);
+    $es_cliente   = intval($data['es_cliente'] ?? 0);
+    
+    $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
+
+    if (empty($entidad_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre de la entidad es obligatorio'];
+    }
+
+    if (strlen($entidad_nombre) > 255) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 255 caracteres'];
+    }
+
+    if ($cuit && ($cuit < 0 || $cuit > 99999999999)) {
+        return ['resultado' => false, 'error' => 'CUIT inválido'];
+    }
+
+    // Verificar que la entidad exista
+    $sql_check = "SELECT entidad_id FROM gestion__entidades 
+                  WHERE entidad_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    mysqli_stmt_close($stmt);
+
+    if (mysqli_num_rows($result) == 0) {
+        return ['resultado' => false, 'error' => 'Registro no encontrado'];
+    }
+
+    // Verificar duplicados (mismo nombre en la misma empresa, excluyendo registro actual)
+    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__entidades 
+                      WHERE empresa_id = ? AND LOWER(entidad_nombre) = LOWER(?) 
+                      AND entidad_id != ?";
+    $stmt = mysqli_prepare($conexion, $sql_duplicate);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    $entidad_lower = strtolower($entidad_nombre);
+    mysqli_stmt_bind_param($stmt, "isi", $empresa_idx, $entidad_lower, $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe otra entidad con este nombre'];
+    }
+
+    // Actualizar entidad - SIN CAMPOS DE DESCUENTO
+    $sql = "UPDATE gestion__entidades 
+            SET entidad_nombre = ?, 
+                entidad_fantasia = ?, 
+                entidad_tipo_id = ?, 
+                cuit = ?, 
+                sitio_web = ?, 
+                domicilio_legal = ?, 
+                localidad_id = ?,
+                cont_cuenta_id_proveedor = ?,
+                cont_cuenta_id_cliente = ?, 
+                es_proveedor = ?, 
+                es_cliente = ?, 
+                observaciones = ?
+            WHERE entidad_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "ssiissiiiissi", 
+        $entidad_nombre, 
+        $entidad_fantasia, 
+        $entidad_tipo_id,
+        $cuit,
+        $sitio_web,
+        $domicilio_legal,
+        $localidad_id,
+        $cont_cuenta_id_proveedor,
+        $cont_cuenta_id_cliente,
+        $es_proveedor,
+        $es_cliente,
+        $observaciones,
+        $id
+    );
+    
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['resultado' => true];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar la entidad'];
+    }
+}
+
+
+
+// ✅ Agregar nueva sucursal (con estado inicial)
+function agregarSucursal($conexion, $data)
+{
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $sucursal_nombre = mysqli_real_escape_string($conexion, trim($data['sucursal_nombre'] ?? ''));
+    $sucursal_direccion = mysqli_real_escape_string($conexion, trim($data['sucursal_direccion'] ?? ''));
+    $localidad_id = $data['localidad_id'] ? intval($data['localidad_id']) : null;
+    $sucursal_telefono = mysqli_real_escape_string($conexion, trim($data['sucursal_telefono'] ?? ''));
+    $sucursal_email = mysqli_real_escape_string($conexion, trim($data['sucursal_email'] ?? ''));
+    $sucursal_contacto = mysqli_real_escape_string($conexion, trim($data['sucursal_contacto'] ?? ''));
+
+    if (empty($sucursal_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre de la sucursal es obligatorio'];
+    }
+
+    if (empty($entidad_id)) {
+        return ['resultado' => false, 'error' => 'ID de entidad no proporcionado'];
+    }
+
+    if (strlen($sucursal_nombre) > 150) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 150 caracteres'];
+    }
+
+    if ($sucursal_email && !filter_var($sucursal_email, FILTER_VALIDATE_EMAIL)) {
+        return ['resultado' => false, 'error' => 'Email inválido'];
+    }
+
+    $estado_inicial = obtenerEstadoInicial($conexion);
+
+    // Verificar duplicados (mismo nombre para la misma entidad)
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__entidades_sucursales 
+                  WHERE empresa_id = ? AND entidad_id = ? AND LOWER(sucursal_nombre) = LOWER(?)";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    $sucursal_lower = strtolower($sucursal_nombre);
+    mysqli_stmt_bind_param($stmt, "iis", $empresa_id, $entidad_id, $sucursal_lower);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe una sucursal con este nombre para esta entidad'];
+    }
+
+    // Insertar nueva sucursal
+    $sql = "INSERT INTO gestion__entidades_sucursales 
+            (empresa_id, entidad_id, sucursal_nombre, sucursal_direccion, localidad_id, 
+             sucursal_telefono, sucursal_email, sucursal_contacto, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "iississsi", 
+        $empresa_id, 
+        $entidad_id,
+        $sucursal_nombre,
+        $sucursal_direccion,
+        $localidad_id,
+        $sucursal_telefono,
+        $sucursal_email,
+        $sucursal_contacto,
+        $estado_inicial
+    );
+    
+    $success = mysqli_stmt_execute($stmt);
+
+    if ($success) {
+        $sucursal_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => true, 'sucursal_id' => $sucursal_id];
+    } else {
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al crear la sucursal'];
+    }
+}
+
+// ✅ Editar sucursal existente
+function editarSucursal($conexion, $id, $data)
+{
+    $id = intval($id);
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
+    $sucursal_nombre = mysqli_real_escape_string($conexion, trim($data['sucursal_nombre'] ?? ''));
+    $sucursal_direccion = mysqli_real_escape_string($conexion, trim($data['sucursal_direccion'] ?? ''));
+    $localidad_id = $data['localidad_id'] ? intval($data['localidad_id']) : null;
+    $sucursal_telefono = mysqli_real_escape_string($conexion, trim($data['sucursal_telefono'] ?? ''));
+    $sucursal_email = mysqli_real_escape_string($conexion, trim($data['sucursal_email'] ?? ''));
+    $sucursal_contacto = mysqli_real_escape_string($conexion, trim($data['sucursal_contacto'] ?? ''));
+
+    if (empty($sucursal_nombre)) {
+        return ['resultado' => false, 'error' => 'El nombre de la sucursal es obligatorio'];
+    }
+
+    if (strlen($sucursal_nombre) > 150) {
+        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 150 caracteres'];
+    }
+
+    if ($sucursal_email && !filter_var($sucursal_email, FILTER_VALIDATE_EMAIL)) {
+        return ['resultado' => false, 'error' => 'Email inválido'];
+    }
+
+    // Verificar que la sucursal exista
+    $sql_check = "SELECT sucursal_id, entidad_id FROM gestion__entidades_sucursales 
+                  WHERE sucursal_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $sucursal = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$sucursal) {
+        return ['resultado' => false, 'error' => 'Registro no encontrado'];
+    }
+
+    $entidad_id = $sucursal['entidad_id'];
+
+    // Verificar duplicados (mismo nombre para la misma entidad, excluyendo registro actual)
+    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__entidades_sucursales 
+                      WHERE empresa_id = ? AND entidad_id = ? AND LOWER(sucursal_nombre) = LOWER(?) 
+                      AND sucursal_id != ?";
+    $stmt = mysqli_prepare($conexion, $sql_duplicate);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    $sucursal_lower = strtolower($sucursal_nombre);
+    mysqli_stmt_bind_param($stmt, "iisi", $empresa_idx, $entidad_id, $sucursal_lower, $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe otra sucursal con este nombre para esta entidad'];
+    }
+
+    // Actualizar sucursal
+    $sql = "UPDATE gestion__entidades_sucursales 
+            SET sucursal_nombre = ?, 
+                sucursal_direccion = ?, 
+                localidad_id = ?, 
+                sucursal_telefono = ?, 
+                sucursal_email = ?, 
+                sucursal_contacto = ?
+            WHERE sucursal_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "ssisssi", 
+        $sucursal_nombre,
+        $sucursal_direccion,
+        $localidad_id,
+        $sucursal_telefono,
+        $sucursal_email,
+        $sucursal_contacto,
+        $id
+    );
+    
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['resultado' => true];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar la sucursal'];
+    }
+}
+
+// ✅ Obtener entidad específica
+function obtenerEntidadPorId($conexion, $id, $empresa_idx)
+{
+    $id = intval($id);
+
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+
+    $sql = "SELECT e.*, er.$estado_column as estado_registro, er.codigo_estandar,
+                   et.entidad_tipo, l.localidad
+            FROM gestion__entidades e
+            LEFT JOIN conf__estados_registros er ON e.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN gestion__entidades_tipos et ON e.entidad_tipo_id = et.entidad_tipo_id
+            LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
+            WHERE e.entidad_id = ? AND e.empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return null;
+
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $entidad = mysqli_fetch_assoc($result);
+
+    mysqli_stmt_close($stmt);
+    return $entidad;
+}
+
+// ✅ Obtener sucursal específica
+function obtenerSucursalPorId($conexion, $id, $empresa_idx)
+{
+    $id = intval($id);
+
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+
+    $sql = "SELECT es.*, er.$estado_column as estado_registro, er.codigo_estandar,
+                   l.localidad, e.entidad_nombre
+            FROM gestion__entidades_sucursales es
+            LEFT JOIN conf__estados_registros er ON es.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__localidades l ON es.localidad_id = l.localidad_id
+            LEFT JOIN gestion__entidades e ON es.entidad_id = e.entidad_id
+            WHERE es.sucursal_id = ? AND es.empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return null;
+
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $sucursal = mysqli_fetch_assoc($result);
+
+    mysqli_stmt_close($stmt);
+    return $sucursal;
+}
+// ============================================
+// FUNCIONES PARA CONDICIONES DE CLIENTES
+// ============================================
+
+// Obtener condiciones de pago
+function obtenerCondicionesPago($conexion) {
+    $sql = "SELECT cp.*, er.estado_registro
+            FROM gestion__condiciones_pago cp
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            WHERE cp.tabla_estado_registro_id IN (1, 2)
+            ORDER BY cp.condicion_pago";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $condiciones = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $condiciones[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $condiciones;
+}
+
+// Obtener listas de precios
+function obtenerListasPrecios($conexion) {
+    $sql = "SELECT lp.lista_precio_id, lp.lista_precio_nombre AS lista_precio, 
+                   lp.descripcion, lp.empresa_id, lp.lista_precio_codigo,
+                   lp.tabla_estado_registro_id, er.estado_registro
+            FROM gestion__listas_precios lp
+            LEFT JOIN conf__estados_registros er ON lp.tabla_estado_registro_id = er.estado_registro_id
+            WHERE lp.tabla_estado_registro_id IN (1, 2)  -- Estados activos
+            ORDER BY lp.lista_precio_nombre";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $listas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $listas[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $listas;
+}
+
+// Obtener categorías de proveedores (CORREGIDO: usar proveedor_categoria_id como clave)
+function obtenerCategoriasProveedores($conexion) {
+    $sql = "SELECT cp.*, er.estado_registro
+            FROM gestion__proveedores_categorias cp
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            WHERE cp.tabla_estado_registro_id IN (1, 2)
+            ORDER BY cp.proveedor_categoria";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $categorias = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        // Asegurar que devolvemos el campo correcto
+        $categorias[] = [
+            'proveedor_categoria_id' => $fila['proveedor_categoria_id'],
+            'proveedor_categoria' => $fila['proveedor_categoria'],
+            'estado_registro' => $fila['estado_registro'] ?? null
+        ];
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $categorias;
+}
+
+// Obtener condiciones de cliente para una entidad - CON TIPO DE CLIENTE
+function obtenerCondicionesCliente($conexion, $empresa_idx, $entidad_id, $pagina_id) {
+    $pagina_id = intval($pagina_id);
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cc.*, 
+                   cp.condicion_pago,
+                   lp.lista_precio_nombre AS lista_precio,
+                   ect.entidad_cliente_tipo,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_clientes cc
+            LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
+            LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+            LEFT JOIN gestion__entidades_clientes_tipos ect ON cc.entidad_cliente_tipo_id = ect.entidad_cliente_tipo_id
+            LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cc.entidad_id = ?
+            ORDER BY cc.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? ($fila['tabla_estado_registro_id'] == 1 ? 'Activo' : 'Inactivo'),
+            'codigo_estandar' => $fila['codigo_estandar'] ?? ($fila['tabla_estado_registro_id'] == 1 ? 'ACTIVO' : 'INACTIVO'),
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+// Obtener condiciones de proveedor para una entidad (CORREGIDO: usar proveedor_categoria_id)
+function obtenerCondicionesProveedor($conexion, $empresa_idx, $entidad_id, $pagina_id) {
+    $pagina_id = intval($pagina_id);
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cp.*, 
+                   cond.condicion_pago,
+                   cat.proveedor_categoria,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_proveedores cp
+            LEFT JOIN gestion__condiciones_pago cond ON cp.condicion_pago_id = cond.condicion_pago_id
+            LEFT JOIN gestion__proveedores_categorias cat ON cp.proveedor_categoria_id = cat.proveedor_categoria_id
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cp.entidad_id = ?
+            ORDER BY cp.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $color_clase = $fila['color_clase'] ?? 'btn-dark';
+        $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+        $text_clase = $fila['text_clase'] ?? 'text-white';
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+// Editar condición de cliente - NUEVA FUNCIÓN
+function editarCondicionCliente($conexion, $id, $data) {
+    $id = intval($id);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $condicion_pago_id = !empty($data['condicion_pago_id']) ? intval($data['condicion_pago_id']) : null;
+    $entidad_cliente_tipo_id = !empty($data['entidad_cliente_tipo_id']) ? intval($data['entidad_cliente_tipo_id']) : null;
+    $lista_precio_id = !empty($data['lista_precio_id']) ? intval($data['lista_precio_id']) : null;
+    $limite_credito = isset($data['limite_credito']) && $data['limite_credito'] !== '' ? floatval($data['limite_credito']) : null;
+    $cliente_descuento_general = isset($data['cliente_descuento_general']) && $data['cliente_descuento_general'] !== '' ? floatval($data['cliente_descuento_general']) : null;
+    $f_desde = trim($data['f_desde'] ?? '');
+    $f_hasta = !empty($data['f_hasta']) ? trim($data['f_hasta']) : null;
+    
+    if (empty($id)) {
+        return ['resultado' => false, 'error' => 'ID de condición no proporcionado'];
+    }
+    
+    if (empty($condicion_pago_id)) {
+        return ['resultado' => false, 'error' => 'La condición de pago es obligatoria'];
+    }
+    
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha desde es obligatoria'];
+    }
+    
+    $sql = "UPDATE gestion__entidades_condiciones_clientes 
+            SET condicion_pago_id = ?, 
+                entidad_cliente_tipo_id = ?,
+                lista_precio_id = ?, 
+                limite_credito = ?, 
+                cliente_descuento_general = ?, 
+                f_desde = ?, 
+                f_hasta = ?
+            WHERE entidad_condicion_cliente_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "iiddsssi", 
+        $condicion_pago_id,
+        $entidad_cliente_tipo_id,
+        $lista_precio_id,
+        $limite_credito,
+        $cliente_descuento_general,
+        $f_desde,
+        $f_hasta,
+        $id
+    );
+    
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success) {
+        return ['resultado' => true, 'message' => 'Condición actualizada correctamente'];
+    } else {
+        return ['resultado' => false, 'error' => 'Error al actualizar la condición'];
+    }
+}
+// Agregar condición de cliente - CORREGIDA DEFINITIVA
+function agregarCondicionCliente($conexion, $data) {
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $condicion_pago_id = !empty($data['condicion_pago_id']) ? intval($data['condicion_pago_id']) : null;
+    $entidad_cliente_tipo_id = !empty($data['entidad_cliente_tipo_id']) ? intval($data['entidad_cliente_tipo_id']) : null;
+    $lista_precio_id = !empty($data['lista_precio_id']) ? intval($data['lista_precio_id']) : null;
+    $limite_credito = isset($data['limite_credito']) && $data['limite_credito'] !== '' ? floatval($data['limite_credito']) : null;
+    $cliente_descuento_general = isset($data['cliente_descuento_general']) && $data['cliente_descuento_general'] !== '' ? floatval($data['cliente_descuento_general']) : null;
+    $f_desde = trim($data['f_desde'] ?? '');
+    $f_hasta = null;
+    
+    // Debug
+    error_log("agregarCondicionCliente - entidad_cliente_tipo_id: " . ($entidad_cliente_tipo_id ?? 'NULL'));
+    error_log("agregarCondicionCliente - f_desde: '$f_desde'");
+    
+    if (empty($entidad_id)) {
+        return ['resultado' => false, 'error' => 'ID de entidad no proporcionado'];
+    }
+    
+    if (empty($condicion_pago_id)) {
+        return ['resultado' => false, 'error' => 'La condición de pago es obligatoria'];
+    }
+    
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha desde es obligatoria'];
+    }
+    
+    // VALIDACIÓN 1: La fecha no puede ser menor al día actual
+    $hoy = date('Y-m-d');
+    if ($f_desde < $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha desde no puede ser menor al día de hoy'];
+    }
+    
+    // Obtener la última condición activa para cerrarla
+    $sql_ultima = "SELECT entidad_condicion_cliente_id, f_desde 
+                   FROM gestion__entidades_condiciones_clientes 
+                   WHERE entidad_id = ? AND tabla_estado_registro_id = 1
+                   ORDER BY f_desde DESC LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_ultima);
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $ultima = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($ultima) {
+        if ($f_desde < $ultima['f_desde']) {
+            return ['resultado' => false, 'error' => 'La nueva fecha no puede ser menor a la fecha de la condición anterior (' . date('d/m/Y', strtotime($ultima['f_desde'])) . ')'];
+        }
+    }
+    
+    // Iniciar transacción
+    mysqli_begin_transaction($conexion);
+    
+    try {
+        // 1. Cerrar la condición anterior si existe y la nueva fecha es mayor
+        if ($ultima && $f_desde >= $ultima['f_desde']) {
+            $sql_update = "UPDATE gestion__entidades_condiciones_clientes 
+                           SET f_hasta = ?, 
+                               tabla_estado_registro_id = 2 
+                           WHERE entidad_condicion_cliente_id = ?";
+            
+            $stmt = mysqli_prepare($conexion, $sql_update);
+            if (!$stmt) throw new Exception('Error al preparar actualización de condición anterior');
+            
+            mysqli_stmt_bind_param($stmt, "si", $f_desde, $ultima['entidad_condicion_cliente_id']);
+            $update_success = mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+            
+            if (!$update_success) throw new Exception('Error al cerrar condición anterior');
+        }
+        
+        // 2. Insertar nueva condición con estado activo
+        $estado_activo = 1;
+        
+        // ⚠️ IMPORTANTE: El orden de los campos debe coincidir EXACTAMENTE con la tabla
+        $sql_insert = "INSERT INTO gestion__entidades_condiciones_clientes 
+                       (entidad_id, condicion_pago_id, entidad_cliente_tipo_id, lista_precio_id, 
+                        limite_credito, cliente_descuento_general, f_desde, f_hasta, tabla_estado_registro_id) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = mysqli_prepare($conexion, $sql_insert);
+        if (!$stmt) throw new Exception('Error al preparar inserción: ' . mysqli_error($conexion));
+        
+        // ⚠️ El orden de bind debe coincidir con los ? en VALUES
+        // 1=entidad_id, 2=condicion_pago_id, 3=entidad_cliente_tipo_id, 4=lista_precio_id,
+        // 5=limite_credito, 6=cliente_descuento_general, 7=f_desde, 8=f_hasta, 9=tabla_estado_registro_id
+        mysqli_stmt_bind_param($stmt, "iiiiddssi", 
+            $entidad_id,
+            $condicion_pago_id,
+            $entidad_cliente_tipo_id,
+            $lista_precio_id,
+            $limite_credito,
+            $cliente_descuento_general,
+            $f_desde,
+            $f_hasta,
+            $estado_activo
+        );
+        
+        $insert_success = mysqli_stmt_execute($stmt);
+        if (!$insert_success) throw new Exception('Error al insertar condición: ' . mysqli_error($conexion));
+        
+        $condicion_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        
+        mysqli_commit($conexion);
+        
+        $mensaje = ($ultima && $f_desde > $ultima['f_desde']) 
+            ? 'Condición creada correctamente. La condición anterior ha sido cerrada con fecha hasta ' . date('d/m/Y', strtotime($f_desde)) . ' y desactivada.' 
+            : 'Condición creada correctamente.';
+        
+        return ['resultado' => true, 'condicion_id' => $condicion_id, 'message' => $mensaje];
+        
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// Agregar condición de proveedor - CORREGIDA
+function agregarCondicionProveedor($conexion, $data) {
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $condicion_pago_id = !empty($data['condicion_pago_id']) ? intval($data['condicion_pago_id']) : null;
+    $proveedor_categoria_id = !empty($data['proveedor_categoria_id']) ? intval($data['proveedor_categoria_id']) : null;
+    $proveedor_descuento_general = isset($data['proveedor_descuento_general']) && $data['proveedor_descuento_general'] !== '' ? floatval($data['proveedor_descuento_general']) : null;
+    $f_desde = trim($data['f_desde'] ?? '');
+    $f_hasta = null;
+    
+    // Debug
+    error_log("agregarCondicionProveedor - Datos recibidos: " . print_r($data, true));
+    error_log("f_desde: '$f_desde'");
+    
+    if (empty($entidad_id)) {
+        return ['resultado' => false, 'error' => 'ID de entidad no proporcionado'];
+    }
+    
+    if (empty($condicion_pago_id)) {
+        return ['resultado' => false, 'error' => 'La condición de pago es obligatoria'];
+    }
+    
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha desde es obligatoria'];
+    }
+    
+    // VALIDACIÓN 1: La fecha no puede ser menor al día actual
+    $hoy = date('Y-m-d');
+    if ($f_desde < $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha desde no puede ser menor al día de hoy'];
+    }
+    
+    // Obtener la última condición activa para cerrarla
+    $sql_ultima = "SELECT entidad_condicion_proveedor_id, f_desde 
+                   FROM gestion__entidades_condiciones_proveedores 
+                   WHERE entidad_id = ? AND tabla_estado_registro_id = 1
+                   ORDER BY f_desde DESC LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_ultima);
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $ultima = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($ultima) {
+        if ($f_desde < $ultima['f_desde']) {
+            return ['resultado' => false, 'error' => 'La nueva fecha no puede ser menor a la fecha de la condición anterior (' . date('d/m/Y', strtotime($ultima['f_desde'])) . ')'];
+        }
+    }
+    
+    // Iniciar transacción
+    mysqli_begin_transaction($conexion);
+    
+    try {
+        if ($ultima && $f_desde >= $ultima['f_desde']) {
+            $sql_update = "UPDATE gestion__entidades_condiciones_proveedores 
+                           SET f_hasta = ?, 
+                               tabla_estado_registro_id = 2 
+                           WHERE entidad_condicion_proveedor_id = ?";
+            
+            $stmt = mysqli_prepare($conexion, $sql_update);
+            if (!$stmt) throw new Exception('Error al preparar actualización de condición anterior');
+            
+            mysqli_stmt_bind_param($stmt, "si", $f_desde, $ultima['entidad_condicion_proveedor_id']);
+            $update_success = mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+            
+            if (!$update_success) throw new Exception('Error al cerrar condición anterior');
+        }
+        
+        $estado_activo = 1;
+        
+        $sql_insert = "INSERT INTO gestion__entidades_condiciones_proveedores 
+                       (entidad_id, condicion_pago_id, proveedor_categoria_id, proveedor_descuento_general, 
+                        f_desde, f_hasta, tabla_estado_registro_id) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = mysqli_prepare($conexion, $sql_insert);
+        if (!$stmt) throw new Exception('Error al preparar inserción');
+        
+        // CORRECCIÓN: i = integer, d = double, s = string
+        mysqli_stmt_bind_param($stmt, "iiidssi", 
+            $entidad_id,                      // i
+            $condicion_pago_id,               // i
+            $proveedor_categoria_id,          // i (puede ser NULL)
+            $proveedor_descuento_general,     // d (puede ser NULL)
+            $f_desde,                         // s
+            $f_hasta,                         // s (NULL)
+            $estado_activo                    // i
+        );
+        
+        $insert_success = mysqli_stmt_execute($stmt);
+        if (!$insert_success) throw new Exception('Error al insertar condición: ' . mysqli_error($conexion));
+        
+        $condicion_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        
+        mysqli_commit($conexion);
+        
+        $mensaje = ($ultima && $f_desde > $ultima['f_desde']) 
+            ? 'Condición creada correctamente. La condición anterior ha sido cerrada con fecha hasta ' . date('d/m/Y', strtotime($f_desde)) . ' y desactivada.' 
+            : 'Condición creada correctamente.';
+        
+        return ['resultado' => true, 'condicion_id' => $condicion_id, 'message' => $mensaje];
+        
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// Obtener condición de cliente por ID
+function obtenerCondicionClientePorId($conexion, $id) {
+    $id = intval($id);
+    
+    $sql = "SELECT * FROM gestion__entidades_condiciones_clientes 
+            WHERE entidad_condicion_cliente_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $condicion;
+}
+
+// Obtener condición de proveedor por ID (CORREGIDO)
+function obtenerCondicionProveedorPorId($conexion, $id) {
+    $id = intval($id);
+    
+    $sql = "SELECT * FROM gestion__entidades_condiciones_proveedores 
+            WHERE entidad_condicion_proveedor_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    return $condicion;
+}
+
+// Obtener condición de cliente VIGENTE (actual) - CON TIPO DE CLIENTE Y ACCESO WEB - CORREGIDA
+function obtenerCondicionClienteVigente($conexion, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    
+    // Verificar columnas de conf__estados_registros
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+    
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+    
+    $sql = "SELECT cc.*, 
+                   cp.condicion_pago,
+                   cp.condicion_pago_id,
+                   lp.lista_precio_nombre AS lista_precio,
+                   lp.lista_precio_id,
+                   ect.entidad_cliente_tipo,
+                   ect.entidad_cliente_tipo_id,
+                   ect.acceso_web,
+                   er.$estado_column as estado_registro,
+                   er.codigo_estandar
+            FROM gestion__entidades_condiciones_clientes cc
+            LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
+            LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+            LEFT JOIN gestion__entidades_clientes_tipos ect ON cc.entidad_cliente_tipo_id = ect.entidad_cliente_tipo_id
+            LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
+            WHERE cc.entidad_id = ? 
+            AND cc.tabla_estado_registro_id = 1
+            AND (cc.f_hasta IS NULL OR cc.f_hasta >= CURDATE())
+            AND cc.f_desde <= CURDATE()
+            ORDER BY cc.f_desde DESC
+            LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    
+    if ($condicion) {
+        $condicion['estado_info'] = [
+            'estado_registro' => $condicion['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $condicion['codigo_estandar'] ?? 'ACTIVO',
+            'bg_clase' => 'bg-success',
+            'text_clase' => 'text-white'
+        ];
+        
+        // Agregar información de acceso web
+        $condicion['acceso_web_label'] = $condicion['acceso_web'] == 1 ? 'Sí' : 'No';
+        $condicion['acceso_web_badge'] = $condicion['acceso_web'] == 1 
+            ? '<span class="badge bg-success">Acceso web</span>' 
+            : '<span class="badge bg-danger">Sin acceso web</span>';
+    }
+    
+    return $condicion;
+}
+
+// Obtener condición de proveedor VIGENTE (actual) para una entidad
+function obtenerCondicionProveedorVigente($conexion, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    
+    $sql = "SELECT cp.*, 
+                   cond.condicion_pago,
+                   cat.proveedor_categoria,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_condiciones_proveedores cp
+            LEFT JOIN gestion__condiciones_pago cond ON cp.condicion_pago_id = cond.condicion_pago_id
+            LEFT JOIN gestion__proveedores_categorias cat ON cp.proveedor_categoria_id = cat.proveedor_categoria_id
+            LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE cp.entidad_id = ? 
+            AND cp.tabla_estado_registro_id = 1 -- Solo activas
+            AND (cp.f_hasta IS NULL OR cp.f_hasta >= CURDATE())
+            AND cp.f_desde <= CURDATE()
+            ORDER BY cp.f_desde DESC
+            LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    
+    mysqli_stmt_close($stmt);
+    
+    if ($condicion) {
+        $color_clase = $condicion['color_clase'] ?? 'btn-dark';
+        $bg_clase = $condicion['bg_clase'] ?? 'bg-dark';
+        $text_clase = $condicion['text_clase'] ?? 'text-white';
+        
+        $condicion['estado_info'] = [
+            'estado_registro' => $condicion['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $condicion['codigo_estandar'] ?? 'ACTIVO',
+            'color_clase' => $color_clase,
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+    }
+    
+    return $condicion;
+}
+
+// Obtener HISTÓRICO de condiciones de cliente - CON TIPO DE CLIENTE Y ACCESO WEB
+function obtenerHistorialCondicionesCliente($conexion, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    
+    // Verificar columnas de conf__estados_registros
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+    
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+    
+    $sql = "SELECT cc.*, 
+                   cp.condicion_pago,
+                   lp.lista_precio_nombre AS lista_precio,
+                   ect.entidad_cliente_tipo,
+                   ect.acceso_web,
+                   er.$estado_column as estado_registro,
+                   er.codigo_estandar
+            FROM gestion__entidades_condiciones_clientes cc
+            LEFT JOIN gestion__condiciones_pago cp ON cc.condicion_pago_id = cp.condicion_pago_id
+            LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+            LEFT JOIN gestion__entidades_clientes_tipos ect ON cc.entidad_cliente_tipo_id = ect.entidad_cliente_tipo_id
+            LEFT JOIN conf__estados_registros er ON cc.tabla_estado_registro_id = er.estado_registro_id
+            WHERE cc.entidad_id = ? 
+            ORDER BY cc.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        // Determinar clases de badge según el estado
+        $bg_clase = 'bg-secondary';
+        $text_clase = 'text-white';
+        
+        if ($fila['tabla_estado_registro_id'] == 1) {
+            $bg_clase = 'bg-success';
+        } elseif ($fila['tabla_estado_registro_id'] == 2) {
+            $bg_clase = 'bg-danger';
+        }
+        
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+            'bg_clase' => $bg_clase,
+            'text_clase' => $text_clase
+        ];
+        
+        // Agregar acceso web
+        $fila['acceso_web_label'] = $fila['acceso_web'] == 1 ? 'Sí' : 'No';
+        $fila['acceso_web_badge'] = $fila['acceso_web'] == 1 
+            ? '<span class="badge bg-success">Accede</span>' 
+            : '<span class="badge bg-danger">No accede</span>';
+        
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+// ✅ Obtener cuentas contables para combo
+function obtenerCuentasContables($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT cont_cuenta_id, codigo, nombre, nivel
+            FROM gestion__cont_cuentas
+            WHERE empresa_id = ?
+            AND tabla_estado_registro_id = 1
+            AND es_imputable = 1
+            ORDER BY codigo";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $cuentas = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $cuentas[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $cuentas;
+}
+// ============================================
+// FUNCIONES PARA VINCULACIÓN ENTIDAD - SUCURSAL DE COMPRA
+// ============================================
+
+/**
+ * Obtener todas las sucursales de compra vinculadas a una entidad
+ */
+function obtenerSucursalesCompraPorEntidad($conexion, $empresa_idx, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT esc.*, 
+                   s.sucursal_nombre, s.direccion, s.telefono, s.email,
+                   l.localidad,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_sucursales_compra esc
+            LEFT JOIN gestion__sucursales s ON esc.sucursal_id = s.sucursal_id
+            LEFT JOIN conf__localidades l ON s.localidad_id = l.localidad_id
+            LEFT JOIN conf__estados_registros er ON esc.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE esc.empresa_id = ? 
+            AND esc.entidad_id = ? 
+            AND esc.tabla_estado_registro_id = 1  -- SOLO ACTIVAS
+            AND esc.f_hasta IS NULL               -- SOLO VIGENTES
+            ORDER BY esc.es_principal DESC, esc.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_idx, $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'ACTIVO',
+            'bg_clase' => $fila['bg_clase'] ?? 'bg-success',
+            'text_clase' => $fila['text_clase'] ?? 'text-white'
+        ];
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+/**
+ * Obtener todas las entidades vinculadas a una sucursal de compra
+ */
+function obtenerEntidadesPorSucursalCompra($conexion, $empresa_idx, $sucursal_id) {
+    $sucursal_id = intval($sucursal_id);
+    $empresa_idx = intval($empresa_idx);
+    
+    $sql = "SELECT esc.*, 
+                   e.entidad_nombre, e.entidad_fantasia, e.cuit,
+                   er.estado_registro,
+                   ec.color_clase, ec.bg_clase, ec.text_clase
+            FROM gestion__entidades_sucursales_compra esc
+            LEFT JOIN gestion__entidades e ON esc.entidad_id = e.entidad_id
+            LEFT JOIN conf__estados_registros er ON esc.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+            WHERE esc.empresa_id = ? AND esc.sucursal_id = ?
+            ORDER BY esc.f_desde DESC";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_idx, $sucursal_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $fila['estado_info'] = [
+            'estado_registro' => $fila['estado_registro'] ?? 'Activo',
+            'codigo_estandar' => $fila['codigo_estandar'] ?? 'ACTIVO',
+            'bg_clase' => $fila['bg_clase'] ?? 'bg-success',
+            'text_clase' => $fila['text_clase'] ?? 'text-white'
+        ];
+        $data[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+/**
+ * Agregar vinculación Entidad - Sucursal de compra - CORREGIDA
+ */
+function agregarVinculacionCompra($conexion, $data) {
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $sucursal_id = intval($data['sucursal_id'] ?? 0);
+    $es_principal = isset($data['es_principal']) && $data['es_principal'] ? 1 : 0;
+    $f_desde = trim($data['f_desde'] ?? '');
+    $f_hasta = !empty($data['f_hasta']) ? trim($data['f_hasta']) : null;
+    $observaciones = mysqli_real_escape_string($conexion, trim($data['observaciones'] ?? ''));
+    
+    // Debug
+    error_log("agregarVinculacionCompra - Datos recibidos: " . print_r($data, true));
+    error_log("f_desde: '$f_desde', f_hasta: '$f_hasta'");
+    
+    if (empty($entidad_id) || empty($sucursal_id) || empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'Faltan datos obligatorios (entidad, sucursal, fecha desde)'];
+    }
+    
+    // VALIDACIÓN 1: La fecha no puede ser menor al día actual
+    $hoy = date('Y-m-d');
+    if ($f_desde < $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha desde no puede ser menor al día de hoy'];
+    }
+    
+    // VALIDACIÓN 2: Si se especifica f_hasta, debe ser mayor o igual a f_desde
+    if ($f_hasta && $f_hasta < $f_desde) {
+        return ['resultado' => false, 'error' => 'La fecha hasta debe ser mayor o igual a la fecha desde'];
+    }
+    
+    // VALIDACIÓN 3: No se puede crear una vinculación con f_hasta en el pasado
+    if ($f_hasta && $f_hasta < $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha hasta no puede ser menor al día de hoy'];
+    }
+    
+    // Verificar si ya existe una vinculación activa para esta entidad-sucursal
+    $sql_check = "SELECT COUNT(*) as total FROM gestion__entidades_sucursales_compra 
+                  WHERE empresa_id = ? AND entidad_id = ? AND sucursal_id = ? 
+                  AND f_hasta IS NULL AND tabla_estado_registro_id = 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "iii", $empresa_id, $entidad_id, $sucursal_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if ($row['total'] > 0) {
+        return ['resultado' => false, 'error' => 'Ya existe una vinculación activa para esta entidad y sucursal'];
+    }
+    
+    // Contar cuántas vinculaciones activas tiene la entidad
+    $sql_count = "SELECT COUNT(*) as total, SUM(es_principal) as principales 
+                  FROM gestion__entidades_sucursales_compra 
+                  WHERE empresa_id = ? AND entidad_id = ? 
+                  AND f_hasta IS NULL AND tabla_estado_registro_id = 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql_count);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row_count = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    $total_activas = intval($row_count['total'] ?? 0);
+    $principales_activas = intval($row_count['principales'] ?? 0);
+    
+    // Si no hay sucursales activas, la nueva debe ser principal automáticamente
+    if ($total_activas === 0) {
+        $es_principal = 1;
+    }
+    
+    // Si el usuario marcó la nueva como principal, verificar que no haya otra principal
+    if ($es_principal == 1 && $principales_activas > 0) {
+        $sql_update = "UPDATE gestion__entidades_sucursales_compra 
+                       SET es_principal = 0 
+                       WHERE empresa_id = ? AND entidad_id = ? 
+                       AND es_principal = 1 AND tabla_estado_registro_id = 1";
+        $stmt = mysqli_prepare($conexion, $sql_update);
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $entidad_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+        }
+    }
+    
+    // Iniciar transacción
+    mysqli_begin_transaction($conexion);
+    
+    try {
+        // Insertar nueva vinculación
+        $estado_inicial = obtenerEstadoInicial($conexion);
+        
+        $sql = "INSERT INTO gestion__entidades_sucursales_compra 
+                (empresa_id, entidad_id, sucursal_id, es_principal, f_desde, f_hasta, observaciones, tabla_estado_registro_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception('Error al preparar la consulta: ' . mysqli_error($conexion));
+        }
+        
+        // CORRECCIÓN: i = integer, s = string
+        // El orden debe coincidir con los ? en la consulta SQL
+        mysqli_stmt_bind_param($stmt, "iiiisssi", 
+            $empresa_id,      // i
+            $entidad_id,      // i
+            $sucursal_id,     // i
+            $es_principal,    // i
+            $f_desde,         // s
+            $f_hasta,         // s (puede ser NULL)
+            $observaciones,   // s
+            $estado_inicial   // i
+        );
+        
+        $success = mysqli_stmt_execute($stmt);
+        
+        if ($success) {
+            $id = mysqli_insert_id($conexion);
+            mysqli_stmt_close($stmt);
+            mysqli_commit($conexion);
+            
+            $mensaje = $es_principal ? 'Vinculación creada como principal.' : 'Vinculación creada correctamente.';
+            return ['resultado' => true, 'vinculacion_id' => $id, 'message' => $mensaje];
+        } else {
+            throw new Exception('Error al insertar la vinculación: ' . mysqli_error($conexion));
+        }
+        
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        if (isset($stmt)) mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Cerrar (finalizar) una vinculación de compra
+ */
+/**
+ * Cerrar (finalizar) una vinculación de compra - CORREGIDA
+ */
+function cerrarVinculacionCompra($conexion, $vinculacion_id, $fecha_cierre = null) {
+    $vinculacion_id = intval($vinculacion_id);
+    
+    if (empty($vinculacion_id)) {
+        return ['resultado' => false, 'error' => 'ID de vinculación no proporcionado'];
+    }
+    
+    $fecha_cierre = $fecha_cierre ?? date('Y-m-d');
+    $fecha_cierre = mysqli_real_escape_string($conexion, $fecha_cierre);
+    
+    // Primero verificar que la vinculación existe y está activa
+    $sql_check = "SELECT entidad_sucursal_compra_id, f_hasta, tabla_estado_registro_id 
+                  FROM gestion__entidades_sucursales_compra 
+                  WHERE entidad_sucursal_compra_id = ?";
+    
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "i", $vinculacion_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $vinculacion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if (!$vinculacion) {
+        return ['resultado' => false, 'error' => 'Vinculación no encontrada'];
+    }
+    
+    // Si ya tiene fecha_hasta o está inactiva, no se puede cerrar
+    if (!is_null($vinculacion['f_hasta']) || $vinculacion['tabla_estado_registro_id'] != 1) {
+        return ['resultado' => false, 'error' => 'La vinculación ya está cerrada o inactiva'];
+    }
+    
+    // Actualizar la vinculación
+    $sql = "UPDATE gestion__entidades_sucursales_compra 
+            SET f_hasta = ?, tabla_estado_registro_id = 2 
+            WHERE entidad_sucursal_compra_id = ? 
+            AND f_hasta IS NULL 
+            AND tabla_estado_registro_id = 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "si", $fecha_cierre, $vinculacion_id);
+    $success = mysqli_stmt_execute($stmt);
+    $affected_rows = mysqli_stmt_affected_rows($stmt);
+    mysqli_stmt_close($stmt);
+    
+    if ($success && $affected_rows > 0) {
+        return ['resultado' => true, 'message' => 'Vinculación cerrada correctamente'];
+    } else {
+        return ['resultado' => false, 'error' => 'No se pudo cerrar la vinculación o ya estaba cerrada'];
+    }
+}
+// ============================================
+// FUNCIONES PARA TIPOS DE CLIENTE
+// ============================================
+
+/**
+ * Obtener todos los tipos de cliente para combo (con acceso_web)
+ */
+function obtenerTiposCliente($conexion) {
+    $sql = "SELECT ect.*, er.estado_registro
+            FROM gestion__entidades_clientes_tipos ect
+            LEFT JOIN conf__estados_registros er ON ect.tabla_estado_registro_id = er.estado_registro_id
+            WHERE ect.tabla_estado_registro_id = 1
+            ORDER BY ect.entidad_cliente_tipo";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    $tipos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        // Formatear para mostrar
+        $fila['display_text'] = $fila['entidad_cliente_tipo'] . ' (' . ($fila['acceso_web'] == 1 ? 'Acceso web' : 'Sin acceso web') . ')';
+        $tipos[] = $fila;
+    }
+    
+    mysqli_stmt_close($stmt);
+    return $tipos;
+}
+/**
+ * Verificar si un cliente tiene acceso a la web según su tipo
+ */
+function verificarAccesoWebCliente($conexion, $entidad_id) {
+    $entidad_id = intval($entidad_id);
+    
+    // Obtener la condición vigente del cliente
+    $sql = "SELECT cc.entidad_cliente_tipo_id, ect.acceso_web
+            FROM gestion__entidades_condiciones_clientes cc
+            LEFT JOIN gestion__entidades_clientes_tipos ect ON cc.entidad_cliente_tipo_id = ect.entidad_cliente_tipo_id
+            WHERE cc.entidad_id = ? 
+            AND cc.tabla_estado_registro_id = 1
+            AND (cc.f_hasta IS NULL OR cc.f_hasta >= CURDATE())
+            AND cc.f_desde <= CURDATE()
+            ORDER BY cc.f_desde DESC
+            LIMIT 1";
+    
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['acceso_web' => false, 'error' => 'Error en la consulta'];
+    
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    
+    if (!$condicion) {
+        return ['acceso_web' => false, 'error' => 'No se encontró condición vigente'];
+    }
+    
+    // Si no tiene tipo asignado, por defecto no tiene acceso
+    if (is_null($condicion['entidad_cliente_tipo_id'])) {
+        return ['acceso_web' => false, 'error' => 'Cliente sin tipo asignado', 'entidad_cliente_tipo_id' => null];
+    }
+    
+    return [
+        'acceso_web' => $condicion['acceso_web'] == 1,
+        'entidad_cliente_tipo_id' => $condicion['entidad_cliente_tipo_id'],
+        'acceso_web_valor' => $condicion['acceso_web']
+    ];
+}
+
+// ============================================
+// FUNCIONES PARA USUARIO WEB (ACCESO AL CARRITO DE PEDIDOS)
+// ============================================
+// Usuario del carrito = CUIT de la entidad (conf__usuarios.usuario).
+// conf__usuarios.password guarda el HASH (password_hash) usado para autenticar.
+// conf__usuarios.password_temporal guarda el texto plano SOLO como provisión
+// temporal para poder mostrarlo en pantalla mientras el carrito no pasa a
+// desarrollo/producción. Cuando eso ocurra: limpiar password_temporal
+// (UPDATE conf__usuarios SET password_temporal = NULL) y dejar de exponerlo
+// por AJAX. Requiere la columna agregada en alter_conf_usuarios_password_temporal.sql.
+
+/**
+ * Verificar si la entidad ya tiene usuario web dado de alta (usuario = cuit).
+ * Devuelve también password_temporal (texto plano) mientras exista, para
+ * mostrarlo en la solapa "Condiciones Clientes".
+ */
+function obtenerUsuarioWebEntidad($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+
+    $sql_entidad = "SELECT cuit FROM gestion__entidades WHERE entidad_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_entidad);
+    if (!$stmt) return ['tiene_usuario' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $entidad = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$entidad) {
+        return ['tiene_usuario' => false, 'error' => 'Entidad no encontrada'];
+    }
+
+    if (empty($entidad['cuit'])) {
+        return ['tiene_usuario' => false, 'sin_cuit' => true];
+    }
+
+    $cuit = strval($entidad['cuit']);
+
+    $sql = "SELECT usuario_id, usuario_nombre, usuario, email, password_temporal
+            FROM conf__usuarios
+            WHERE usuario = ?
+            LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['tiene_usuario' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "s", $cuit);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $usuario = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($usuario) {
+        return [
+            'tiene_usuario' => true,
+            'usuario_id' => $usuario['usuario_id'],
+            'usuario' => $usuario['usuario'],
+            'email' => $usuario['email'],
+            'usuario_nombre' => $usuario['usuario_nombre'],
+            'password' => $usuario['password_temporal'] // null si ya se limpió
+        ];
+    }
+
+    return ['tiene_usuario' => false, 'cuit' => $cuit];
+}
+
+/**
+ * Generar contraseña aleatoria (letras y números, sin caracteres ambiguos).
+ */
+function generarPasswordAleatoria($longitud = 10)
+{
+    $caracteres = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    $max = strlen($caracteres) - 1;
+    $password = '';
+    for ($i = 0; $i < $longitud; $i++) {
+        $password .= $caracteres[random_int(0, $max)];
+    }
+    return $password;
+}
+
+/**
+ * Dar de alta el usuario web de una entidad.
+ * usuario = cuit, email = email de la primer sucursal activa (menor sucursal_id),
+ * password aleatoria (hasheada en `password`, texto plano en `password_temporal`).
+ */
+function altaUsuarioWebEntidad($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+
+    $sql_entidad = "SELECT entidad_id, entidad_nombre, cuit FROM gestion__entidades WHERE entidad_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_entidad);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $entidad = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$entidad) {
+        return ['resultado' => false, 'error' => 'Entidad no encontrada'];
+    }
+
+    if (empty($entidad['cuit'])) {
+        return ['resultado' => false, 'error' => 'La entidad no tiene CUIT cargado. Complételo en la solapa Datos antes de dar de alta el usuario.'];
+    }
+
+    $cuit = strval($entidad['cuit']);
+
+    // No permitir duplicados
+    $sql_check = "SELECT usuario_id FROM conf__usuarios WHERE usuario = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "s", $cuit);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $existe = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($existe) {
+        return ['resultado' => false, 'error' => 'Ya existe un usuario dado de alta con ese CUIT'];
+    }
+
+    // Email de la primer sucursal activa (menor sucursal_id)
+    $sql_sucursal = "SELECT sucursal_email FROM gestion__entidades_sucursales
+                      WHERE entidad_id = ? AND tabla_estado_registro_id = 1
+                      ORDER BY sucursal_id ASC
+                      LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql_sucursal);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $sucursal = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$sucursal || empty($sucursal['sucursal_email'])) {
+        return ['resultado' => false, 'error' => 'No hay ninguna sucursal activa con email cargado para esta entidad'];
+    }
+
+    $email = $sucursal['sucursal_email'];
+    if (strlen($email) > 100) {
+        return ['resultado' => false, 'error' => 'El email de la sucursal supera los 100 caracteres permitidos en conf__usuarios'];
+    }
+
+    $password_plana = generarPasswordAleatoria(10);
+    $password_hash = password_hash($password_plana, PASSWORD_DEFAULT);
+    $usuario_nombre = $entidad['entidad_nombre'];
+    $estado_inicial = obtenerEstadoInicial($conexion);
+
+    // Perfil a asignar al usuario del carrito (fijo por ahora)
+    $empresa_perfil_id_carrito = 11;
+    $fecha_inicio = date('Y-m-d');
+    $fecha_fin = '2050-12-31';
+
+    mysqli_begin_transaction($conexion);
+
+    try {
+        $sql_insert = "INSERT INTO conf__usuarios
+                        (usuario_nombre, usuario, email, password, password_temporal, tabla_estado_registro_id)
+                        VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = mysqli_prepare($conexion, $sql_insert);
+        if (!$stmt) {
+            throw new Exception('Error al preparar la consulta de usuario: ' . mysqli_error($conexion));
+        }
+
+        mysqli_stmt_bind_param($stmt, "sssssi", $usuario_nombre, $cuit, $email, $password_hash, $password_plana, $estado_inicial);
+        if (!mysqli_stmt_execute($stmt)) {
+            $error = mysqli_error($conexion);
+            mysqli_stmt_close($stmt);
+            throw new Exception('Error al crear el usuario: ' . $error);
+        }
+        $usuario_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+
+        // Asignar perfil del carrito (conf__usuarios_perfiles)
+        $sql_perfil = "INSERT INTO conf__usuarios_perfiles
+                        (usuario_id, empresa_perfil_id, fecha_inicio, fecha_fin, usuario_creacion, tabla_estado_registro_id)
+                        VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt_perfil = mysqli_prepare($conexion, $sql_perfil);
+        if (!$stmt_perfil) {
+            throw new Exception('Error al preparar la consulta de perfil: ' . mysqli_error($conexion));
+        }
+
+        // usuario_creacion: sin convención de usuario de sesión disponible en este
+        // módulo por ahora -> se guarda NULL (columna nullable).
+        $usuario_creacion = null;
+        mysqli_stmt_bind_param($stmt_perfil, "iissii", $usuario_id, $empresa_perfil_id_carrito, $fecha_inicio, $fecha_fin, $usuario_creacion, $estado_inicial);
+        if (!mysqli_stmt_execute($stmt_perfil)) {
+            $error = mysqli_error($conexion);
+            mysqli_stmt_close($stmt_perfil);
+            throw new Exception('Error al asignar el perfil al usuario: ' . $error);
+        }
+        mysqli_stmt_close($stmt_perfil);
+
+        mysqli_commit($conexion);
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+
+    return [
+        'resultado' => true,
+        'usuario_id' => $usuario_id,
+        'usuario' => $cuit,
+        'email' => $email,
+        'password' => $password_plana,
+        'message' => 'Usuario web dado de alta correctamente'
+    ];
+}
+
+/**
+ * Regenerar la contraseña del usuario web de una entidad (usuario = cuit ya existente).
+ * No toca usuario/email/perfil, solo password (hash) y password_temporal (texto plano).
+ */
+function regenerarPasswordUsuarioWebEntidad($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+
+    $sql_entidad = "SELECT cuit FROM gestion__entidades WHERE entidad_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_entidad);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $entidad = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$entidad || empty($entidad['cuit'])) {
+        return ['resultado' => false, 'error' => 'La entidad no tiene CUIT cargado'];
+    }
+
+    $cuit = strval($entidad['cuit']);
+
+    $sql_check = "SELECT usuario_id FROM conf__usuarios WHERE usuario = ?";
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "s", $cuit);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $usuario = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if (!$usuario) {
+        return ['resultado' => false, 'error' => 'Esta entidad todavía no tiene usuario de acceso web'];
+    }
+
+    $usuario_id = $usuario['usuario_id'];
+    $password_plana = generarPasswordAleatoria(10);
+    $password_hash = password_hash($password_plana, PASSWORD_DEFAULT);
+
+    $sql_update = "UPDATE conf__usuarios SET password = ?, password_temporal = ? WHERE usuario_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql_update);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error al preparar la consulta: ' . mysqli_error($conexion)];
+
+    mysqli_stmt_bind_param($stmt, "ssi", $password_hash, $password_plana, $usuario_id);
+    $success = mysqli_stmt_execute($stmt);
+
+    if (!$success) {
+        $error = mysqli_error($conexion);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al regenerar la contraseña: ' . $error];
+    }
+    mysqli_stmt_close($stmt);
+
+    return [
+        'resultado' => true,
+        'usuario' => $cuit,
+        'password' => $password_plana,
+        'message' => 'Contraseña regenerada correctamente'
+    ];
+}
+?>
