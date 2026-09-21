@@ -88,4 +88,15 @@ final class Session
         }
         session_destroy();
     }
+
+    /**
+     * Cierra la sesión y escribe los datos liberando el cerrojo en disco para
+     * no bloquear peticiones concurrentes del mismo usuario (ej: descarga paralela de imágenes).
+     */
+    public function close(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+    }
 }

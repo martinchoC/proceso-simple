@@ -26,6 +26,7 @@
     --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .1);
     --shadow-lg: 0 12px 28px rgba(16, 24, 40, .14);
     --header-h: 68px;
+    --font-main: Verdana, Geneva, Tahoma, sans-serif;
 }
 
 *,
@@ -43,13 +44,20 @@ body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    font-size: 15px;
+    font-family: var(--font-main);
+    font-size: 13.5px;
     line-height: 1.5;
     min-height: 100vh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
+}
+
+input,
+button,
+select,
+textarea {
+    font-family: inherit;
 }
 
 .main {
@@ -310,7 +318,7 @@ h2 {
     min-width: 140px;
     border: 0;
     padding: .35rem .4rem;
-    font-size: .95rem;
+    font-size: .88rem;
     color: var(--text);
     background: transparent;
     font-family: inherit;
@@ -850,7 +858,7 @@ h2 {
 }
 
 .filtros-vehiculo-titulo {
-    font-size: .95rem;
+    font-size: .86rem;
     font-weight: 700;
     color: var(--text);
     margin: 0;
@@ -858,7 +866,7 @@ h2 {
 }
 
 .filtros-vehiculo-desc {
-    font-size: .78rem;
+    font-size: .72rem;
     color: var(--muted);
     margin: .2rem 0 0;
     line-height: 1.25;
@@ -884,18 +892,18 @@ h2 {
 
 .campo label {
     display: block;
-    font-size: .82rem;
+    font-size: .78rem;
     font-weight: 600;
     margin-bottom: .3rem;
 }
 
 .control {
     width: 100%;
-    padding: .55rem .7rem;
+    padding: .5rem .65rem;
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     font: inherit;
-    font-size: .92rem;
+    font-size: .84rem;
     background: #fff;
     color: var(--text);
 }
@@ -1057,12 +1065,12 @@ textarea.control {
 }
 
 .conteo-resultados strong {
-    font-size: 1.05rem;
+    font-size: .95rem;
 }
 
 .conteo-resultados span {
     color: var(--muted);
-    font-size: .9rem;
+    font-size: .82rem;
 }
 
 .vista-selectores {
@@ -1080,12 +1088,12 @@ textarea.control {
     display: inline-flex;
     align-items: center;
     gap: .4rem;
-    padding: .35rem .75rem;
+    padding: .3rem .65rem;
     border-radius: 6px;
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: .84rem;
+    font-size: .78rem;
     font-weight: 500;
     cursor: pointer;
     transition: all .15s ease;
@@ -1257,19 +1265,19 @@ textarea.control {
 }
 
 .producto-codigo {
-    font-size: .75rem;
+    font-size: .70rem;
     font-weight: 700;
     color: var(--brand-dark);
     background: var(--brand-soft);
     border: 1px solid #d4e0fc;
     border-radius: 4px;
-    padding: .15rem .45rem;
+    padding: .12rem .42rem;
     letter-spacing: .02em;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-main);
 }
 
 .producto-titulo {
-    font-size: .95rem;
+    font-size: .84rem;
     font-weight: 700;
     margin: 0;
     line-height: 1.35;
@@ -1291,7 +1299,7 @@ textarea.control {
 }
 
 .producto-compatibilidad {
-    font-size: .78rem;
+    font-size: .72rem;
     color: #64748b;
     line-height: 1.35;
     margin: .15rem 0 0;
@@ -1303,7 +1311,7 @@ textarea.control {
 
 .detalle-compatibilidad {
     margin: .4rem 0 .9rem;
-    font-size: .88rem;
+    font-size: .80rem;
     color: #475569;
     background: #f8fafc;
     border-left: 3px solid var(--brand);
@@ -1316,14 +1324,14 @@ textarea.control {
 }
 
 .precio {
-    font-size: 1.35rem;
+    font-size: 1.15rem;
     font-weight: 600;
     letter-spacing: -.02em;
     display: block;
 }
 
 .precio-nota {
-    font-size: .76rem;
+    font-size: .70rem;
     color: var(--muted);
 }
 
@@ -1331,9 +1339,9 @@ textarea.control {
     display: inline-block;
     background: var(--ok-soft);
     color: var(--ok);
-    font-size: .72rem;
+    font-size: .68rem;
     font-weight: 700;
-    padding: .12rem .45rem;
+    padding: .1rem .4rem;
     border-radius: 4px;
 }
 
@@ -1363,8 +1371,11 @@ textarea.control {
     box-shadow: 0 0 0 1px rgba(42, 91, 215, .2);
 }
 
-.producto-acciones .cantidad.cargando-cantidad {
-    opacity: .7;
+.producto-acciones .cantidad.cargando-cantidad,
+.cantidad.cargando-cantidad {
+    opacity: .65;
+    pointer-events: none;
+    transition: opacity .15s ease;
 }
 
 .producto-acciones .cantidad button {
@@ -1422,7 +1433,7 @@ textarea.control {
 
 .tabla-cabecera {
     display: grid;
-    grid-template-columns: 50px 110px minmax(200px, 1fr) 120px 130px;
+    grid-template-columns: 50px 110px minmax(200px, 1fr) 140px 130px;
     gap: .85rem;
     align-items: center;
     padding: .75rem 1rem;
@@ -1431,12 +1442,12 @@ textarea.control {
     border-bottom: 2px solid #cbd5e1;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     margin-bottom: -1px;
-    font-size: .78rem;
+    font-size: .70rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .05em;
     color: #475569;
-    min-width: 620px;
+    min-width: 640px;
 }
 
 .tabla-cabecera.oculto {
@@ -1477,12 +1488,12 @@ textarea.control {
     background: var(--surface);
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
-    min-width: 620px;
+    min-width: 640px;
 }
 
 .grilla.vista-lista .producto {
     display: grid;
-    grid-template-columns: 50px 110px minmax(200px, 1fr) 120px 130px;
+    grid-template-columns: 50px 110px minmax(200px, 1fr) 140px 130px;
     align-items: center;
     gap: .85rem;
     padding: .65rem 1rem;
@@ -1554,9 +1565,9 @@ textarea.control {
 }
 
 .grilla.vista-lista .producto-col-codigo .producto-codigo {
-    font-size: .86rem;
+    font-size: .76rem;
     font-weight: 700;
-    padding: .25rem .5rem;
+    padding: .2rem .45rem;
     background: #eef2ff;
     border: 1px solid #dce4f9;
     border-radius: 4px;
@@ -1571,7 +1582,7 @@ textarea.control {
 }
 
 .grilla.vista-lista .producto-titulo {
-    font-size: .92rem;
+    font-size: .82rem;
     line-height: 1.3;
     margin: 0;
 }
@@ -1595,8 +1606,8 @@ textarea.control {
 
 .badge-auto {
     display: inline-block;
-    padding: .22rem .5rem;
-    font-size: .74rem;
+    padding: .15rem .45rem;
+    font-size: .68rem;
     font-weight: 700;
     line-height: 1.25;
     border-radius: 4px;
@@ -1606,28 +1617,60 @@ textarea.control {
 }
 
 .badge-marca {
-    background-color: #00b9e8;
-    color: #fff;
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
 }
 
 .badge-modelo {
-    background-color: #1b8156;
-    color: #fff;
+    background-color: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
 }
 
 .badge-submodelo {
-    background-color: #f59e0b;
-    color: #fff;
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
 }
 
 .badge-anio {
-    background-color: #5d6778;
-    color: #fff;
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.detalle-compatibilidad-badges {
+    margin: .75rem 0 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    align-items: flex-start;
+}
+
+.detalle-compatibilidad-label {
+    font-size: .85rem;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.producto-info .linea-compat-pills {
+    margin-top: .35rem;
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.grilla:not(.vista-lista) .producto-info .linea-compat-pills {
+    max-height: 85px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding-right: 2px;
 }
 
 .dato-vacio {
     color: #cbd5e1;
-    font-size: .9rem;
+    font-size: .85rem;
 }
 
 .grilla.vista-lista .producto-col-precio {
@@ -1637,8 +1680,15 @@ textarea.control {
 }
 
 .grilla.vista-lista .producto-col-precio .precio {
-    font-size: 1.15rem;
+    font-size: 1.02rem;
     font-weight: 700;
+}
+
+.grilla.vista-lista .producto-col-precio .precio-nota {
+    font-size: .68rem;
+    display: block;
+    line-height: 1.2;
+    margin-top: .15rem;
 }
 
 .grilla.vista-lista .producto-acciones {
@@ -1649,14 +1699,14 @@ textarea.control {
 }
 
 .grilla.vista-lista .producto-acciones .cantidad button {
-    width: 30px;
-    height: 32px;
-    font-size: 1.1rem;
+    width: 28px;
+    height: 30px;
+    font-size: 1rem;
 }
 
 .grilla.vista-lista .producto-acciones .cantidad input {
-    height: 32px;
-    font-size: .92rem;
+    height: 30px;
+    font-size: .84rem;
 }
 
 @media (max-width: 860px) {
@@ -1813,20 +1863,94 @@ textarea.control {
     object-fit: contain;
 }
 
-.linea-nombre {
-    font-weight: 500;
+.linea-detalle {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
 }
 
-.linea-nombre a {
-    color: var(--text);
+.linea-cabecera-datos {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.linea-col-codigo {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 90px;
+    flex-shrink: 0;
+}
+
+.linea-col-descripcion {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.linea-col-label {
+    font-size: .8rem;
+    color: #4b5563;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.linea-codigo-texto {
+    font-size: .96rem;
+    font-weight: 800;
+    color: #000;
+    letter-spacing: .02em;
+    line-height: 1.25;
+}
+
+.linea-nombre-texto {
+    margin: 0;
+    font-size: .98rem;
+    font-weight: 800;
+    line-height: 1.25;
+    text-transform: uppercase;
+}
+
+.linea-nombre-texto a {
+    color: #000;
+    text-decoration: none;
+}
+
+.linea-nombre-texto a:hover {
+    color: var(--brand);
+    text-decoration: underline;
+}
+
+.linea-compat-pills {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    margin-top: .3rem;
+}
+
+.linea-compat-grupo {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
 }
 
 .linea-datos {
     display: flex;
     align-items: center;
     gap: .75rem;
-    margin-top: .45rem;
+    margin-top: .15rem;
     flex-wrap: wrap;
+}
+
+.linea-acciones-cantidad {
+    display: inline-flex;
+    align-items: center;
 }
 
 .linea-importe {
@@ -2118,6 +2242,50 @@ textarea.control {
 .tabla tfoot th {
     border-bottom: 0;
     padding-top: .5rem;
+}
+
+/* ── Fila de producto en detalle de pedido ───────────────────────────────── */
+
+.pedido-producto-fila {
+    display: flex;
+    align-items: flex-start;
+    gap: .85rem;
+    min-width: 250px;
+}
+
+.pedido-producto-codigo-wrap {
+    flex-shrink: 0;
+    padding-top: 1px;
+}
+
+.pedido-producto-codigo-wrap .producto-codigo {
+    font-size: .74rem;
+    font-weight: 700;
+    padding: .18rem .45rem;
+    background: #eef2ff;
+    border: 1px solid #dce4f9;
+    border-radius: 4px;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.pedido-producto-info-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    min-width: 0;
+}
+
+.pedido-producto-nombre {
+    font-size: .88rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.35;
+}
+
+.pedido-producto-info-wrap .linea-compat-pills {
+    margin-top: .15rem;
+    gap: .25rem;
 }
 
 .estado {

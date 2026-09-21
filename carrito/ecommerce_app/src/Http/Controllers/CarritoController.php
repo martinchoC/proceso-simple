@@ -19,14 +19,19 @@ final class CarritoController extends Controller
         $sucursalesCompra = $this->app->entidades()->sucursalesCompra($entidadId, $empresaId);
         $descuentoCliente = $this->app->precios()->descuentoGeneral($entidadId);
 
+        $resumen = $this->app->carrito()->resumen(
+            $this->app->guard()->usuarioId(),
+            $entidadId
+        );
+        $productoIds = array_map(static fn ($linea): int => $linea->productoId, $resumen->lineas);
+        $compatibilidades = $this->app->productos()->compatibilidadesPorProducto($productoIds, $empresaId);
+
         return $this->view('carrito/index', [
-            'resumen'           => $this->app->carrito()->resumen(
-                $this->app->guard()->usuarioId(),
-                $entidadId
-            ),
+            'resumen'           => $resumen,
             'sucursalesEntrega' => $sucursalesEntrega,
             'sucursalesCompra'  => $sucursalesCompra,
             'descuentoCliente'  => $descuentoCliente,
+            'compatibilidades'  => $compatibilidades,
         ]);
     }
 

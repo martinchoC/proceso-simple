@@ -167,7 +167,7 @@ $hayFiltros = $filtros['terminos'] !== [] || $hayFiltrosVehiculo;
                 </span>
               <?php endforeach; ?>
               <input type="text" id="q" class="buscador-input" maxlength="60" value=""
-                     placeholder="<?= $filtros['terminos'] === [] ? 'Buscar por código, nombre o descripción (Espacio para agregar filtro)…' : 'Escribí y presioná espacio…' ?>"
+                     placeholder="<?= $filtros['terminos'] === [] ? 'Buscar por código, nombre o descripción (Espacio para agregar filtro)…' : 'Escriba y presione espacio…' ?>"
                      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
             </div>
           </div>
@@ -266,7 +266,7 @@ $hayFiltros = $filtros['terminos'] !== [] || $hayFiltrosVehiculo;
           <span class="tabla-th col-foto" aria-hidden="true"></span>
           <span class="tabla-th col-codigo">Código</span>
           <span class="tabla-th col-nombre">Descripción</span>
-          <span class="tabla-th col-precio">Precio</span>
+          <span class="tabla-th col-precio">Precio de lista</span>
           <span class="tabla-th col-cantidad">Cantidad</span>
         </div>
 
@@ -299,7 +299,46 @@ $hayFiltros = $filtros['terminos'] !== [] || $hayFiltrosVehiculo;
                   <h2 class="producto-titulo">
                     <a href="<?= e(url('/productos/' . $pid)) ?>"><strong><?= e($producto['producto_nombre']) ?></strong></a>
                   </h2>
-                  <?php if (!empty($producto['compatibilidad_texto'])): ?>
+                  <?php $compat = $producto['compatibilidad'] ?? null; ?>
+                  <?php if ($compat !== null && (!empty($compat['combinaciones']) || !empty($compat['marcas']) || !empty($compat['modelos']))): ?>
+                    <?php if (!empty($compat['combinaciones'])): ?>
+                      <div class="linea-compat-pills">
+                        <?php foreach ($compat['combinaciones'] as $combo): ?>
+                          <div class="linea-compat-grupo">
+                            <?php if (!empty($combo['marca'])): ?>
+                              <span class="badge-auto badge-marca"><?= e($combo['marca']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['modelo'])): ?>
+                              <span class="badge-auto badge-modelo"><?= e($combo['modelo']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['submodelo'])): ?>
+                              <span class="badge-auto badge-submodelo"><?= e($combo['submodelo']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['anio'])): ?>
+                              <span class="badge-auto badge-anio"><?= e($combo['anio']) ?></span>
+                            <?php endif; ?>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php else: ?>
+                      <div class="linea-compat-pills">
+                        <div class="linea-compat-grupo">
+                          <?php foreach ($compat['marcas'] as $m): ?>
+                            <span class="badge-auto badge-marca"><?= e($m) ?></span>
+                          <?php endforeach; ?>
+                          <?php foreach ($compat['modelos'] as $mo): ?>
+                            <span class="badge-auto badge-modelo"><?= e($mo) ?></span>
+                          <?php endforeach; ?>
+                          <?php foreach ($compat['submodelos'] as $sm): ?>
+                            <span class="badge-auto badge-submodelo"><?= e($sm) ?></span>
+                          <?php endforeach; ?>
+                          <?php foreach ($compat['anios'] as $an): ?>
+                            <span class="badge-auto badge-anio"><?= e($an) ?></span>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+                    <?php endif; ?>
+                  <?php elseif (!empty($producto['compatibilidad_texto'])): ?>
                     <p class="producto-compatibilidad" title="<?= e($producto['compatibilidad_texto']) ?>">
                       <?= e($producto['compatibilidad_texto']) ?>
                     </p>
@@ -307,8 +346,7 @@ $hayFiltros = $filtros['terminos'] !== [] || $hayFiltrosVehiculo;
                 </div>
 
                 <div class="producto-col-precio">
-                  <span class="precio"><?= e(money((float) $producto['precio_final'])) ?></span>
-                  <span class="precio-nota">IVA incluido</span>
+                  <span class="precio"><?= e(money((float) ($producto['precio_lista'] ?? $producto['precio_neto_lista']))) ?></span>
                 </div>
 
                 <?php
@@ -386,6 +424,28 @@ $hayFiltros = $filtros['terminos'] !== [] || $hayFiltrosVehiculo;
                     <button type="button" class="carrito-item-mini-quitar" data-quitar-item="<?= (int) $linea->productoId ?>" title="Quitar del carrito">&times;</button>
                   </div>
                   <strong class="carrito-item-mini-nombre"><?= e($linea->nombre) ?></strong>
+                  <?php if (!empty($linea->compatibilidad)): ?>
+                    <?php if (!empty($linea->compatibilidad['combinaciones'])): ?>
+                      <div class="linea-compat-pills">
+                        <?php foreach ($linea->compatibilidad['combinaciones'] as $combo): ?>
+                          <div class="linea-compat-grupo">
+                            <?php if (!empty($combo['marca'])): ?>
+                              <span class="badge-auto badge-marca"><?= e($combo['marca']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['modelo'])): ?>
+                              <span class="badge-auto badge-modelo"><?= e($combo['modelo']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['submodelo'])): ?>
+                              <span class="badge-auto badge-submodelo"><?= e($combo['submodelo']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['anio'])): ?>
+                              <span class="badge-auto badge-anio"><?= e($combo['anio']) ?></span>
+                            <?php endif; ?>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php endif; ?>
+                  <?php endif; ?>
                   <span class="carrito-item-mini-cant"><?= $cantLinea ?> <?= ($cantLinea === 1.0) ? 'unidad' : 'unidades' ?></span>
 
                   <div class="carrito-item-mini-precios">

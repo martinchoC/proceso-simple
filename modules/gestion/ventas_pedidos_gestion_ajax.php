@@ -20,6 +20,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 });
 
 require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 require_once "ventas_pedidos_gestion_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
@@ -77,7 +78,7 @@ try {
 
             $puntos_venta_sucursal = obtenerPuntosVentaDepositoPorSucursal($conexion, $empresa_idx, $pedido['sucursal_id']);
 
-            $pendientes_pedido = obtenerPedidosPendientesCliente($conexion, $empresa_idx, $pedido['entidad_id'], null, $venta_pedido_id);
+            $pendientes_pedido = obtenerPedidosPendientesCliente($conexion, $empresa_idx, $pedido['entidad_id'], null, $venta_pedido_id, true);
 
             // Todos los pendientes del cliente, sin filtro de pedido, menos los de
             // este mismo pedido (ya están en la sección de arriba).
@@ -92,6 +93,17 @@ try {
                 'pendientes_pedido' => $pendientes_pedido,
                 'pendientes_otros' => $pendientes_otros
             ], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'actualizar_cantidad_detalle':
+            $resultado = actualizarCantidadDetallePedido(
+                $conexion,
+                intval($_POST['venta_pedido_id'] ?? 0),
+                intval($_POST['venta_pedido_detalle_id'] ?? 0),
+                floatval($_POST['cantidad'] ?? 0),
+                $empresa_idx
+            );
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         default:

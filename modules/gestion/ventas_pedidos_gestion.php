@@ -45,9 +45,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">
                                     <div class="card-header">
                                         <div class="row align-items-center">
-                                            <div class="col-md-2">
-                                                <div class="dataTables_length" id="tablaPedidosGestion_length"></div>
-                                            </div>
                                             <div class="col-md-3">
                                                 <div class="dataTables_filter" id="tablaPedidosGestion_filter"></div>
                                             </div>
@@ -95,14 +92,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <table id="tablaPedidosGestion" class="table table-striped table-bordered table-sm table-slim" style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="100">Tipo</th>
-                                                    <th width="120">Sucursal</th>
-                                                    <th width="120">Punto Venta</th>
-                                                    <th width="120">Número</th>
+                                                    <th width="55" class="text-center text-nowrap">Número</th>
                                                     <th width="200">Cliente</th>
+                                                    <th width="140">Sucursal</th>
                                                     <th width="100">Emisión</th>
-                                                    <th width="120">Entrega Est.</th>
-                                                    <th width="120">Total</th>
                                                     <th width="120">Estado</th>
                                                     <th width="100" class="text-center">Preparar</th>
                                                 </tr>
@@ -123,7 +116,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <!-- MODAL DE PICKING: se abre al elegir un pedido de la grilla    -->
     <!-- ============================================================ -->
     <div class="modal fade" id="modalPicking" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable modal-picking-ancho">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title"><i class="fas fa-dolly me-2"></i>Preparar pedido</h5>
@@ -136,7 +129,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="card-body py-2">
                             <div class="row g-2 text-center small">
                                 <div class="col">
-                                    <div class="text-muted" style="font-size: 0.7rem;">Sucursal</div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">Sucursal De Compra</div>
                                     <div class="fw-bold" id="picking_sucursal">-</div>
                                 </div>
                                 <div class="col">
@@ -167,9 +160,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" id="tab-picking-remitos" data-bs-toggle="tab" href="#tabpane-picking-remitos" role="tab">
-                                <i class="fas fa-truck me-1"></i>Remitos
-                                <span class="badge bg-primary rounded-pill ms-1" id="contador-picking-remitos">0</span>
+                            <a class="nav-link" id="tab-picking-detalle" data-bs-toggle="tab" href="#tabpane-picking-detalle" role="tab">
+                                <i class="fas fa-list me-1"></i>Detalle Del Pedido
                             </a>
                         </li>
                     </ul>
@@ -180,32 +172,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <!-- Pendientes de este pedido -->
                             <div class="card card-outline card-primary mb-3">
                                 <div class="card-header py-1 bg-primary bg-opacity-10">
-                                    <h6 class="mb-0 small"><i class="fas fa-box me-2"></i>Pendientes de este pedido</h6>
-                                </div>
-                                <div class="card-body py-2">
-                                    <div id="contenedor-picking-pendientes-pedido"></div>
-                                </div>
-                            </div>
-
-                            <!-- Pendientes de otros pedidos del mismo cliente -->
-                            <div class="card card-outline card-info mb-3" id="card-picking-pendientes-otros">
-                                <div class="card-header py-1 bg-info bg-opacity-10">
-                                    <h6 class="mb-0 small"><i class="fas fa-layer-group me-2"></i>Pendientes de otros pedidos del cliente</h6>
-                                </div>
-                                <div class="card-body py-2">
-                                    <div id="contenedor-picking-pendientes-otros"></div>
-                                </div>
-                            </div>
-
-                            <!-- Remito a cargar -->
-                            <div class="card card-outline card-success mb-3">
-                                <div class="card-header py-1 bg-success bg-opacity-10">
-                                    <h6 class="mb-0 small" id="titulo-card-remito-picking"><i class="fas fa-truck me-2"></i>Remito a cargar</h6>
+                                    <h6 class="mb-0 small"><i class="fas fa-box me-2"></i>Pendientes De Este Pedido</h6>
                                 </div>
                                 <div class="card-body py-2">
                                     <div class="row g-2 mb-2">
                                         <div class="col-md-4">
-                                            <label class="form-label fw-bold small">Punto de Venta (Depósito)</label>
+                                            <label class="form-label fw-bold small">Punto De Venta (Depósito)</label>
                                             <select class="form-select form-select-sm" id="picking_punto_venta_id"></select>
                                         </div>
                                         <div class="col-md-4">
@@ -218,64 +190,42 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <input type="date" class="form-control form-control-sm" id="picking_remito_f_emision">
                                         </div>
                                     </div>
-                                    <div id="contenedor-picking-remito-detalle">
-                                        <div class="text-muted small text-center p-3 border rounded bg-light">
-                                            Todavía no agregaste líneas a este remito.
+                                    <div id="contenedor-picking-pendientes-pedido"></div>
+                                    <div class="border-top mt-2 pt-2">
+                                        <div class="row g-2">
+                                            <div class="col-12">
+                                                <label class="form-label fw-bold small">Observaciones</label>
+                                                <textarea class="form-control form-control-sm" id="picking_remito_observaciones" rows="1"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 text-end">
+                                            <button type="button" class="btn btn-sm btn-success" id="btnGuardarRemitoPicking">
+                                                <i class="fas fa-save me-1"></i>Guardar Remito
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnConfirmarRemitoPicking">
+                                                <i class="fas fa-check-double me-1"></i>Confirmar Remito
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="row g-2 mt-2">
-                                        <div class="col-12">
-                                            <label class="form-label fw-bold small">Observaciones</label>
-                                            <textarea class="form-control form-control-sm" id="picking_remito_observaciones" rows="1"></textarea>
-                                        </div>
-                                    </div>
-                                    <div class="mt-2 text-end">
-                                        <button type="button" class="btn btn-sm btn-success" id="btnGuardarRemitoPicking">
-                                            <i class="fas fa-save me-1"></i>Guardar Remito
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-primary" id="btnConfirmarRemitoPicking">
-                                            <i class="fas fa-check-double me-1"></i>Confirmar Remito
-                                        </button>
-                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pendientes de otros pedidos del mismo cliente -->
+                            <div class="card card-outline card-info mb-3" id="card-picking-pendientes-otros">
+                                <div class="card-header py-1 bg-info bg-opacity-10">
+                                    <h6 class="mb-0 small"><i class="fas fa-layer-group me-2"></i>Pendientes De Otros Pedidos Del Cliente</h6>
+                                </div>
+                                <div class="card-body py-2">
+                                    <div id="contenedor-picking-pendientes-otros"></div>
                                 </div>
                             </div>
 
                         </div>
 
-                        <div class="tab-pane fade" id="tabpane-picking-remitos" role="tabpanel">
-
-                            <!-- Resumen pedido vs enviado -->
-                            <div class="card card-outline card-secondary mb-3">
-                                <div class="card-body py-2">
-                                    <div class="row g-2 text-center small">
-                                        <div class="col">
-                                            <div class="text-muted" style="font-size: 0.7rem;">Cant. Pedida</div>
-                                            <div class="fw-bold" id="resumen_cantidad_pedida">-</div>
-                                        </div>
-                                        <div class="col">
-                                            <div class="text-muted" style="font-size: 0.7rem;">Cant. Enviada</div>
-                                            <div class="fw-bold text-success" id="resumen_cantidad_enviada">-</div>
-                                        </div>
-                                        <div class="col">
-                                            <div class="text-muted" style="font-size: 0.7rem;">Cant. Pendiente</div>
-                                            <div class="fw-bold text-danger" id="resumen_cantidad_pendiente">-</div>
-                                        </div>
-                                        <div class="col">
-                                            <div class="text-muted" style="font-size: 0.7rem;">$ Pedido</div>
-                                            <div class="fw-bold" id="resumen_monto_pedido">-</div>
-                                        </div>
-                                        <div class="col">
-                                            <div class="text-muted" style="font-size: 0.7rem;">$ Enviado (aprox.)</div>
-                                            <div class="fw-bold text-success" id="resumen_monto_enviado">-</div>
-                                        </div>
-                                    </div>
-                                </div>
+                        <div class="tab-pane fade" id="tabpane-picking-detalle" role="tabpanel">
+                            <div id="contenedor-picking-detalle-pedido">
+                                <div class="text-muted small text-center p-3">No hay detalle disponible.</div>
                             </div>
-
-                            <div id="contenedor-picking-remitos-pedido">
-                                <div class="text-muted small text-center p-3">Todavía no hay remitos generados para este pedido.</div>
-                            </div>
-
                         </div>
                     </div>
 
@@ -288,26 +238,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 
     <style>
-        #contenedor-picking-pendientes-pedido, #contenedor-picking-pendientes-otros, #contenedor-picking-remito-detalle, #contenedor-picking-remitos-pedido {
+        #contenedor-picking-pendientes-pedido, #contenedor-picking-pendientes-otros, #contenedor-picking-remitos-pedido {
             font-size: 0.85rem;
         }
-        #contenedor-picking-pendientes-pedido table, #contenedor-picking-pendientes-otros table, #contenedor-picking-remito-detalle table, #contenedor-picking-remitos-pedido table {
+        #contenedor-picking-pendientes-pedido table, #contenedor-picking-pendientes-otros table, #contenedor-picking-remitos-pedido table {
             border-radius: 8px;
             overflow: hidden;
         }
-        #contenedor-picking-pendientes-pedido thead th, #contenedor-picking-pendientes-otros thead th, #contenedor-picking-remito-detalle thead th, #contenedor-picking-remitos-pedido thead th {
+        #contenedor-picking-pendientes-pedido thead th, #contenedor-picking-pendientes-otros thead th, #contenedor-picking-remitos-pedido thead th {
             background: #f1f3f5 !important;
             border-bottom: 2px solid #dee2e6;
             font-weight: 600;
             font-size: 0.75rem;
-            text-transform: uppercase;
             letter-spacing: 0.3px;
             padding: 0.5rem 0.75rem;
         }
-        #contenedor-picking-pendientes-pedido tbody td, #contenedor-picking-pendientes-otros tbody td, #contenedor-picking-remito-detalle tbody td, #contenedor-picking-remitos-pedido tbody td {
+        #contenedor-picking-pendientes-pedido tbody td, #contenedor-picking-pendientes-otros tbody td, #contenedor-picking-remitos-pedido tbody td {
             padding: 0.4rem 0.75rem;
             vertical-align: middle;
         }
+        .modal-picking-ancho { max-width: 95vw; }
         /* Mismo stepper +/- que ya usa ventas_pedidos.js — se copia el estilo para que se vea igual */
         .cantidad-stepper {
             display: inline-flex;
@@ -342,9 +292,44 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .badge-posicion { background-color: #6c757d !important; color: #ffffff !important; }
         .ubicaciones-pendiente-container { display: flex; flex-direction: column; gap: 2px; }
 
+        .confirmacion-remito-popup {
+            border-radius: 18px;
+            padding: 0 0 1.25rem;
+            overflow: hidden;
+        }
+        .confirmacion-remito { color: #243044; text-align: center; }
+        .confirmacion-remito-icon {
+            width: 68px;
+            height: 68px;
+            margin: 1.5rem auto 0.75rem;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: #d1fae5;
+            color: #047857;
+            font-size: 1.8rem;
+        }
+        .confirmacion-remito-eyebrow {
+            color: #64748b;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .confirmacion-remito h3 { margin: 0.25rem 0; font-weight: 700; }
+        .confirmacion-remito-numero { color: #475569; margin-bottom: 1rem; }
+        .confirmacion-remito-detalle { margin: 0 1.25rem; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+        .confirmacion-remito-tabla-wrap { max-height: 270px; overflow-y: auto; }
+        .confirmacion-remito-detalle table { margin-bottom: 0; }
+        .confirmacion-remito-detalle thead th { background: #f8fafc; color: #64748b; font-size: 0.75rem; }
+        .confirmacion-remito-boton { border-radius: 8px !important; padding: 0.55rem 1.6rem !important; }
+
         /* Pedidos en estado_registro_id=5 (pendientes de preparar): pastel para diferenciar sin saturar */
         #tablaPedidosGestion tr.fila-pendiente-preparar td {
             background-color: #eef1f5 !important;
+        }
+        #tablaPedidosGestion tr.fila-confirmado-pendiente-revision td {
+            font-weight: 700;
         }
     </style>
 

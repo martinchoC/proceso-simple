@@ -274,6 +274,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
             <div class="modal-footer">
+                <a id="btnIrAFuncionesModal" href="#" class="btn btn-primary"><i class="fas fa-cogs me-1"></i> Administrar Funciones</a>
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -316,6 +317,7 @@ var vistaActual = 'arbol'; // 'arbol' o 'tabla'
 function mostrarModalVerFunciones(pagina_id, pagina_nombre, pagina_descripcion) {
     $('#nombrePagina').text(pagina_nombre);
     $('#descripcionPagina').text(pagina_descripcion || 'Sin descripción');
+    $('#btnIrAFuncionesModal').attr('href', 'paginas_funciones.php?pagina_id=' + pagina_id);
     
     $('#cuerpoTablaFunciones').html(`
         <tr>
@@ -589,7 +591,33 @@ function copiarFunciones() {
     });
 }
 
-// Cargar módulos para el filtro y el formulario
+// Cargar módulos para el filtro principal (solo una vez)
+function cargarFiltroModulos(callback = null) {
+    $.ajax({
+        url: 'paginas_ajax.php',
+        type: 'GET',
+        data: {accion: 'obtener_Modulos'},
+        dataType: 'json',
+        success: function(res) {
+            if(res && res.length > 0) {
+                var filtroOptions = '<option value="">Todos los módulos</option>';
+                $.each(res, function(index, modulo) {
+                    filtroOptions += `<option value="${modulo.modulo_id}">${modulo.modulo}</option>`;
+                });
+                $('#filtroModulo').html(filtroOptions);
+                
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            }
+        },
+        error: function() {
+            $('#filtroModulo').html('<option value="">Error al cargar Módulos</option>');
+        }
+    });
+}
+
+// Cargar módulos para el formulario modal
 function cargarModulos(selectedId = null, callback = null) {
     $.ajax({
         url: 'paginas_ajax.php',
@@ -599,14 +627,11 @@ function cargarModulos(selectedId = null, callback = null) {
         success: function(res) {
             if(res && res.length > 0) {
                 var options = '<option value="">Seleccionar Módulo</option>';
-                var filtroOptions = '<option value="">Todos los módulos</option>';
                 $.each(res, function(index, modulo) {
                     var selected = (selectedId == modulo.modulo_id) ? 'selected' : '';
                     options += `<option value="${modulo.modulo_id}" ${selected}>${modulo.modulo}</option>`;
-                    filtroOptions += `<option value="${modulo.modulo_id}">${modulo.modulo}</option>`;
                 });
                 $('#modulo_id').html(options);
-                $('#filtroModulo').html(filtroOptions);
                 
                 if (typeof callback === 'function') {
                     callback();
@@ -615,7 +640,6 @@ function cargarModulos(selectedId = null, callback = null) {
         },
         error: function() {
             $('#modulo_id').html('<option value="">Error al cargar Módulos</option>');
-            $('#filtroModulo').html('<option value="">Error al cargar Módulos</option>');
         }
     });
 }
@@ -734,7 +758,7 @@ function cargarArbol(filtroModulo = null, textoBusqueda = null) {
                         },
                         multiple: false
                     },
-                    plugins: ['dnd', 'search', 'state', 'types', 'contextmenu'],
+                    plugins: ['dnd', 'search', 'types', 'contextmenu'],
                     dnd: {
                         is_draggable: function(node) {
                             return node.type !== 'modulo';
@@ -814,6 +838,13 @@ function cargarArbol(filtroModulo = null, textoBusqueda = null) {
                                         },
                                         icon: 'fas fa-edit'
                                     },
+                                    duplicate: {
+                                        label: 'Duplicar (usar como base de una página nueva)',
+                                        action: function() {
+                                            duplicarPagina(paginaId);
+                                        },
+                                        icon: 'fas fa-clone'
+                                    },
                                     viewFunctions: {
                                         label: 'Ver funciones',
                                         action: function() {
@@ -822,6 +853,13 @@ function cargarArbol(filtroModulo = null, textoBusqueda = null) {
                                             mostrarModalVerFunciones(paginaId, nombre, descripcion);
                                         },
                                         icon: 'fas fa-eye'
+                                    },
+                                    manageFunctions: {
+                                        label: 'Administrar funciones',
+                                        action: function() {
+                                            window.location.href = 'paginas_funciones.php?pagina_id=' + paginaId;
+                                        },
+                                        icon: 'fas fa-cogs'
                                     },
                                     delete: {
                                         label: 'Eliminar',
@@ -838,14 +876,12 @@ function cargarArbol(filtroModulo = null, textoBusqueda = null) {
                     }
                 });
                 
-                // Evento cuando se selecciona un nodo (doble click o click)
-                container.on('select_node.jstree', function(e, data) {
-                    console.log('Nodo seleccionado:', data.node);
-                    var node = data.node;
-                    
-                    if (node.type === 'pagina' || node.type === 'activo' || node.type === 'inactivo') {
-                        var paginaId = node.id.replace('pagina_', '');
-                        console.log('Editando página ID:', paginaId);
+                // Doble click para editar página en el árbol (evita abrir modal en selección simple o carga inicial)
+                container.on('dblclick.jstree', function(e) {
+                    var node = $(e.target).closest('li');
+                    var nodeId = node.attr('id');
+                    if (nodeId && nodeId.startsWith('pagina_')) {
+                        var paginaId = nodeId.replace('pagina_', '');
                         editarPagina(paginaId);
                     }
                 });
@@ -885,15 +921,6 @@ function cargarArbol(filtroModulo = null, textoBusqueda = null) {
 // Función para actualizar el orden en el árbol
 function actualizarOrdenArbol(nodeId, parentId, position) {
     var paginaId = nodeId.replace('pagina_', '');
-    var parentPaginaId = null;
-    
-    if (parentId && parentId !== '#') {
-        parentPaginaId = parentId.replace('pagina_', '');
-        if (parentId.startsWith('modulo_')) {
-            // Es un módulo, no se puede establecer como padre
-            parentPaginaId = null;
-        }
-    }
     
     $.ajax({
         url: 'paginas_ajax.php',
@@ -901,25 +928,23 @@ function actualizarOrdenArbol(nodeId, parentId, position) {
         data: {
             accion: 'actualizarOrden',
             pagina_id: paginaId,
-            padre_id: parentPaginaId,
+            padre_id: parentId,
             posicion: position
         },
         dataType: 'json',
         success: function(res) {
             if (res.resultado) {
-                // Recargar el árbol para reflejar los cambios
-                cargarArbol();
                 if (typeof tabla !== 'undefined' && tabla) {
                     tabla.ajax.reload(null, false);
                 }
             } else {
                 Swal.fire('Error', res.error || 'Error al actualizar el orden', 'error');
-                cargarArbol();
+                cargarArbol($('#filtroModulo').val());
             }
         },
         error: function() {
             Swal.fire('Error', 'Error de conexión al actualizar el orden', 'error');
-            cargarArbol();
+            cargarArbol($('#filtroModulo').val());
         }
     });
 }
@@ -947,6 +972,41 @@ function editarPagina(paginaId) {
             modal.show();
         } else {
             alert('Error al obtener datos');
+        }
+    }, 'json');
+}
+
+// Función para duplicar una página: trae los datos del registro origen y
+// precarga con ellos el formulario de "Nueva Página" (mismo módulo, tabla,
+// ícono, padre, orden, etc.), dejando #pagina_id vacío a propósito. Al
+// guardar, el handler de #btnGuardar ve pagina_id vacío y dispara 'agregar'
+// (INSERT), nunca pisa el registro original — el usuario ajusta lo que haga
+// falta (nombre, url, padre...) antes de confirmar.
+function duplicarPagina(paginaId) {
+    $.get('paginas_ajax.php', {accion: 'obtener', pagina_id: paginaId}, function(res){
+        if(res && res.pagina_id){
+            $('#formpagina')[0].reset();
+            $('#pagina_id').val('');
+            $('#pagina').val(res.pagina + ' (copia)');
+            $('#url').val(res.url);
+            $('#pagina_descripcion').val(res.pagina_descripcion);
+            $('#orden').val(res.orden);
+            $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id || 1);
+            $('#es_acceso_directo').prop('checked', parseInt(res.es_acceso_directo) === 1);
+
+            cargarModulos(res.modulo_id, function() {
+                cargarTablas(res.tabla_id);
+                cargarIconos(res.icono_id);
+                cargarPaginasPadre(res.padre_id, res.modulo_id);
+            });
+
+            $('#modalLabel').text('Duplicar Página (nueva, basada en "' + res.pagina + '")');
+            var modal = new bootstrap.Modal(document.getElementById('modalpagina'));
+            modal.show();
+            // Nombre preseleccionado: el usuario lo sobreescribe con solo tipear
+            setTimeout(function(){ $('#pagina').trigger('focus').select(); }, 300);
+        } else {
+            Swal.fire('Error', 'No se pudo obtener la página a duplicar', 'error');
         }
     }, 'json');
 }
@@ -987,6 +1047,7 @@ function eliminarPagina(paginaId) {
 
 $(document).ready(function(){
     // Inicializar selects
+    cargarFiltroModulos();
     cargarModulos();
     cargarTablas();
     cargarIconos();
@@ -1030,7 +1091,10 @@ $(document).ready(function(){
         ajax: {
             url: 'paginas_ajax.php',
             type: 'GET',
-            data: {accion: 'listar'},
+            data: function(d) {
+                d.accion = 'listar';
+                d.modulo_id = $('#filtroModulo').val();
+            },
             dataSrc: ''
         },
         language: {
@@ -1100,9 +1164,15 @@ $(document).ready(function(){
                 className: "text-center",
                 render: function(data, type, row){
                     return `
-                        <button class="btn btn-sm btn-primary btnEditar me-1" title="Editar">
+                        <button class="btn btn-sm btn-primary btnEditar me-1" title="Editar Página">
                             <i class="fa fa-pencil-alt"></i>
                         </button>
+                        <button class="btn btn-sm btn-secondary btnDuplicar me-1" title="Duplicar (precargar una página nueva con estos datos)">
+                            <i class="fa fa-clone"></i>
+                        </button>
+                        <a href="paginas_funciones.php?pagina_id=${row.pagina_id}&modulo_id=${row.modulo_id || ''}" class="btn btn-sm btn-outline-secondary me-1" title="Administrar Funciones">
+                            <i class="fa fa-cogs"></i>
+                        </a>
                         <button class="btn btn-sm btn-info btnCopiarFunciones me-1" title="Copiar Funciones">
                             <i class="fa fa-copy"></i>
                         </button>
@@ -1122,7 +1192,7 @@ $(document).ready(function(){
         $('#vistaTablaContainer').hide();
         $(this).removeClass('btn-outline-secondary').addClass('btn-outline-info');
         $('#vistaTabla').removeClass('btn-outline-info').addClass('btn-outline-secondary');
-        cargarArbol($('#filtroModulo').val(), $('#buscarPagina').val());
+        cargarArbol($('#filtroModulo').val());
     });
     
     $('#vistaTabla').click(function() {
@@ -1134,23 +1204,30 @@ $(document).ready(function(){
         tabla.ajax.reload();
     });
     
-    // Filtro por módulo para el árbol
+    // Filtro por módulo (aplica tanto a vista árbol como a tabla)
     $('#filtroModulo').change(function() {
+        var modId = $(this).val();
         if (vistaActual === 'arbol') {
-            cargarArbol($(this).val(), $('#buscarPagina').val());
+            cargarArbol(modId);
         } else {
             tabla.ajax.reload();
         }
     });
     
-    // Búsqueda en el árbol
-    $('#buscarPagina').on('keyup', function() {
+    // Búsqueda integrada para árbol (jstree search plugin) y tabla (DataTables search)
+    var timerBusqueda = null;
+    $('#buscarPagina').on('keyup input', function() {
+        var texto = $(this).val().trim();
         if (vistaActual === 'arbol') {
-            var texto = $(this).val();
-            if (texto.length > 2) {
-                cargarArbol($('#filtroModulo').val(), texto);
-            } else if (texto.length === 0) {
-                cargarArbol($('#filtroModulo').val());
+            if (timerBusqueda) clearTimeout(timerBusqueda);
+            timerBusqueda = setTimeout(function() {
+                if ($('#arbolPaginas').jstree(true)) {
+                    $('#arbolPaginas').jstree(true).search(texto);
+                }
+            }, 200);
+        } else {
+            if (typeof tabla !== 'undefined' && tabla) {
+                tabla.search(texto).draw();
             }
         }
     });
@@ -1196,7 +1273,12 @@ $(document).ready(function(){
         var data = tabla.row($(this).parents('tr')).data();
         editarPagina(data.pagina_id);
     });
-    
+
+    $('#tablapaginas tbody').on('click', '.btnDuplicar', function(){
+        var data = tabla.row($(this).parents('tr')).data();
+        duplicarPagina(data.pagina_id);
+    });
+
     $('#tablapaginas tbody').on('click', '.btnCopiarFunciones', function(){
         var data = tabla.row($(this).parents('tr')).data();
         
@@ -1325,7 +1407,7 @@ $(document).ready(function(){
         
         $.ajax({
             url: 'paginas_ajax.php',
-            type: 'GET',
+            type: 'POST',
             data: formData,
             dataType: 'json',
             success: function(res) {
@@ -1336,7 +1418,7 @@ $(document).ready(function(){
                     $('#formpagina')[0].reset();
                     $('#formpagina').removeClass('was-validated');
                     
-                    cargarArbol($('#filtroModulo').val(), $('#buscarPagina').val());
+                    cargarArbol($('#filtroModulo').val());
                     
                     if (typeof tabla !== 'undefined' && tabla) {
                         tabla.ajax.reload(null, false);
@@ -1379,7 +1461,7 @@ $(document).ready(function(){
     $('#btnNoCopiarFunciones').click(function(){
         var modal = bootstrap.Modal.getInstance(document.getElementById('modalCopiarFunciones'));
         modal.hide();
-        cargarArbol($('#filtroModulo').val(), $('#buscarPagina').val());
+        cargarArbol($('#filtroModulo').val());
         if (typeof tabla !== 'undefined' && tabla) {
             tabla.ajax.reload(null, false);
         }

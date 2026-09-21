@@ -97,9 +97,53 @@ echo $this->partial('layouts/header', [
         <?php foreach ($detalles as $detalle): ?>
           <tr>
             <td>
-              <div class="producto-nombre-wrap">
-                <strong><?= e($detalle['producto_nombre']) ?></strong>
-                <span class="producto-codigo"><?= e($detalle['producto_codigo']) ?></span>
+              <div class="pedido-producto-fila">
+                <div class="pedido-producto-codigo-wrap">
+                  <span class="producto-codigo"><?= e($detalle['producto_codigo']) ?></span>
+                </div>
+                <div class="pedido-producto-info-wrap">
+                  <strong class="pedido-producto-nombre"><?= e($detalle['producto_nombre']) ?></strong>
+                  <?php $compat = $detalle['compatibilidad'] ?? null; ?>
+                  <?php if ($compat !== null && (!empty($compat['combinaciones']) || !empty($compat['marcas']) || !empty($compat['modelos']))): ?>
+                    <?php if (!empty($compat['combinaciones'])): ?>
+                      <div class="linea-compat-pills">
+                        <?php foreach ($compat['combinaciones'] as $combo): ?>
+                          <div class="linea-compat-grupo">
+                            <?php if (!empty($combo['marca'])): ?>
+                              <span class="badge-auto badge-marca"><?= e($combo['marca']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['modelo'])): ?>
+                              <span class="badge-auto badge-modelo"><?= e($combo['modelo']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['submodelo'])): ?>
+                              <span class="badge-auto badge-submodelo"><?= e($combo['submodelo']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($combo['anio'])): ?>
+                              <span class="badge-auto badge-anio"><?= e($combo['anio']) ?></span>
+                            <?php endif; ?>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php else: ?>
+                      <div class="linea-compat-pills">
+                        <div class="linea-compat-grupo">
+                          <?php foreach ($compat['marcas'] as $m): ?>
+                            <span class="badge-auto badge-marca"><?= e($m) ?></span>
+                          <?php endforeach; ?>
+                          <?php foreach ($compat['modelos'] as $mo): ?>
+                            <span class="badge-auto badge-modelo"><?= e($mo) ?></span>
+                          <?php endforeach; ?>
+                          <?php foreach ($compat['submodelos'] as $sm): ?>
+                            <span class="badge-auto badge-submodelo"><?= e($sm) ?></span>
+                          <?php endforeach; ?>
+                          <?php foreach ($compat['anios'] as $an): ?>
+                            <span class="badge-auto badge-anio"><?= e($an) ?></span>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+                    <?php endif; ?>
+                  <?php endif; ?>
+                </div>
               </div>
             </td>
             <td class="num"><?= e(number_format((float) $detalle['cantidad'], 2, ',', '.')) ?></td>

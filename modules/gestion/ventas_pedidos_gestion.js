@@ -64,40 +64,17 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                '<"row"<"col-sm-12 col-md-5"l><"col-sm-12 col-md-7"ip>>' +
                 '<"clear">',
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             columns: [
                 {
-                    data: 'comprobante_tipo',
-                    className: 'text-center',
-                    render: function (data, type) {
-                        if (type === 'export') return data || '';
-                        return `<span>${data || ''}</span>`;
-                    }
-                },
-                {
-                    data: 'sucursal_nombre',
-                    className: 'text-center',
-                    render: function (data, type) {
-                        if (type === 'export') return data || '';
-                        return `<span>${data || ''}</span>`;
-                    }
-                },
-                {
-                    data: 'punto_venta_nombre',
-                    className: 'text-center',
-                    render: function (data, type) {
-                        if (type === 'export') return data || '';
-                        return `<span>${data || ''}</span>`;
-                    }
-                },
-                {
                     data: null,
-                    className: 'text-center',
+                    className: 'text-center text-nowrap',
                     render: function (data, type, row) {
                         var numero = row.comprobante_nro || '';
+                        if (type === 'sort' || type === 'type') return parseInt(row.comprobante_nro, 10) || 0;
                         if (type === 'export') return numero;
                         return `<span>${numero}</span>`;
                     }
@@ -111,29 +88,19 @@ $(document).ready(function () {
                     }
                 },
                 {
+                    data: 'sucursal_nombre',
+                    className: 'text-center',
+                    render: function (data, type) {
+                        if (type === 'export') return data || '';
+                        return `<span>${data || '-'}</span>`;
+                    }
+                },
+                {
                     data: 'f_emision',
                     className: 'text-center',
                     render: function (data, type) {
                         if (type !== 'display') return data;
                         return formatFechaCorta(data);
-                    }
-                },
-                {
-                    data: 'f_entrega_estimada',
-                    className: 'text-center',
-                    render: function (data, type) {
-                        if (type !== 'display' || !data) return data || '';
-                        return formatFechaCorta(data);
-                    }
-                },
-                {
-                    data: 'total',
-                    className: 'text-end',
-                    render: function (data, type) {
-                        var valor = parseFloat(data) || 0;
-                        if (type === 'export') return valor.toFixed(2);
-                        if (type === 'sort' || type === 'filter') return valor;
-                        return `<span class="text-primary">$${formatMoneda(valor)}</span>`;
                     }
                 },
                 {
@@ -161,10 +128,14 @@ $(document).ready(function () {
             language: {
                 url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
             },
-            order: [[5, 'desc']],
+            order: [[3, 'desc'], [0, 'desc']],
             rowCallback: function (row, data) {
                 if (parseInt(data.tabla_estado_registro_id, 10) === 5) {
                     $(row).addClass('fila-pendiente-preparar');
+                }
+                var estadoTexto = ((data.estado_info && data.estado_info.estado_registro) || '').toLowerCase();
+                if (estadoTexto === 'confirmado - pend.revisión' || estadoTexto === 'confirmado - pend.revision') {
+                    $(row).addClass('fila-confirmado-pendiente-revision');
                 }
             },
             initComplete: function () {
@@ -190,7 +161,7 @@ $(document).ready(function () {
                 }, 100);
 
                 $('#filtro_cliente').on('keyup', function () {
-                    tabla.column(4).search(this.value).draw();
+                    tabla.column(1).search(this.value).draw();
                 });
 
                 $('#filtro_sucursal').on('change', function () {
@@ -314,12 +285,12 @@ $(document).ready(function () {
                     });
                 } else if (puntosVenta.length === 1) {
                     $('#picking_punto_venta_id').html(
-                        `<option value="${puntosVenta[0].punto_venta_id}" selected>${puntosVenta[0].punto_venta_nombre}</option>`
+                        `<option value="${puntosVenta[0].punto_venta_id}" selected>${puntosVenta[0].punto_venta_nombre} (${puntosVenta[0].punto_venta_codigo || ''})</option>`
                     ).prop('disabled', true);
                     cargarTipoComprobanteRemito(puntosVenta[0].punto_venta_id);
                 } else {
                     var options = puntosVenta.map(function (pv) {
-                        return `<option value="${pv.punto_venta_id}">${pv.punto_venta_nombre}</option>`;
+                        return `<option value="${pv.punto_venta_id}">${pv.punto_venta_nombre} (${pv.punto_venta_codigo || ''})</option>`;
                     }).join('');
                     $('#picking_punto_venta_id').html(options).prop('disabled', false);
                     cargarTipoComprobanteRemito(puntosVenta[0].punto_venta_id);
@@ -389,6 +360,20 @@ $(document).ready(function () {
         return total;
     }
 
+    function cantidadEntregadaConfirmada(vpdId) {
+        var total = 0;
+        remitosPedidoActual.forEach(function (remito) {
+            var estado = remito.estado_info || {};
+            if (!['CONFIRMADO', 'PEND_FACT'].includes(estado.codigo_estandar)) return;
+            (remito.detalles || []).forEach(function (detalle) {
+                if (parseInt(detalle.venta_pedido_detalle_id, 10) === parseInt(vpdId, 10)) {
+                    total += parseFloat(detalle.cantidad) || 0;
+                }
+            });
+        });
+        return total;
+    }
+
     function ajustarCantidadPicking(vpdId, delta, datosLinea) {
         var existente = remitoDetallesNuevo.find(function (d) { return d.venta_pedido_detalle_id == vpdId; });
 
@@ -413,7 +398,6 @@ $(document).ready(function () {
 
         renderizarPendientesPedido();
         renderizarPendientesOtros();
-        renderizarRemitoDetalleNuevo();
     }
 
     $(document).on('click', '.btn-cantidad-picking-menos', function () {
@@ -442,8 +426,8 @@ $(document).ready(function () {
                 ? remitoLineasOriginalesPorVpd[linea.venta_pedido_detalle_id] : 0;
             var pendienteBase = (parseFloat(linea.pendiente) || 0) + reservadoPorEsteRemito;
             var pendienteEfectivo = Math.max(0, pendienteBase - yaEnBorrador);
-            if (pendienteEfectivo <= 0.0001) return;
-            filas.push({ linea: linea, pendienteEfectivo: pendienteEfectivo });
+            if (pendienteEfectivo <= 0.0001 && yaEnBorrador <= 0.0001) return;
+            filas.push({ linea: linea, pendienteEfectivo: pendienteEfectivo, enRemitoActual: yaEnBorrador });
         });
         return filas;
     }
@@ -463,9 +447,12 @@ $(document).ready(function () {
                     <th>Código</th>
                     <th>Producto</th>
                     <th>Ubicación</th>
+                    <th class="text-end">Cantidad</th>
+                    <th class="text-center text-danger" width="150">Ajustar Pedido</th>
                     <th class="text-end">Entregado</th>
-                    <th class="text-end">Pendiente</th>
-                    <th class="text-center" width="110">Cantidad</th>
+                    <th class="text-end">En Remito Actual</th>
+                    <th class="text-end">Pendiente De Entrega</th>
+                    <th class="text-center" width="110">A Preparar</th>
                 </tr>
             </thead>
             <tbody>`;
@@ -477,7 +464,18 @@ $(document).ready(function () {
                 <td>${linea.producto_codigo || ''}</td>
                 <td>${linea.producto_nombre || ''}</td>
                 <td>${renderUbicaciones(linea.ubicaciones_detalle)}</td>
-                <td class="text-end">${formatMoneda(linea.cantidad_entregada)}</td>
+                <td class="text-end">${formatMoneda(linea.cantidad)}</td>
+                <td>
+                    <div class="cantidad-stepper ajustar-pedido-stepper mx-auto">
+                        <button type="button" class="btn-stepper btn-ajustar-cantidad-menos text-danger" data-vpd-id="${linea.venta_pedido_detalle_id}" title="Disminuir cantidad">&minus;</button>
+                        <input type="number" class="cantidad-stepper-input input-ajustar-cantidad-pedido text-center"
+                            value="${parseFloat(linea.cantidad).toFixed(2)}" min="${parseFloat(linea.cantidad_entregada || 0).toFixed(2)}" step="0.01"
+                            data-vpd-id="${linea.venta_pedido_detalle_id}">
+                        <button type="button" class="btn-stepper btn-ajustar-cantidad-mas text-danger" data-vpd-id="${linea.venta_pedido_detalle_id}" title="Aumentar cantidad">+</button>
+                    </div>
+                </td>
+                <td class="text-end">${formatMoneda(cantidadEntregadaConfirmada(linea.venta_pedido_detalle_id))}</td>
+                <td class="text-end fw-bold text-primary">${formatMoneda(item.enRemitoActual)}</td>
                 <td class="text-end">${formatMoneda(item.pendienteEfectivo)}</td>
                 <td>
                     <div class="cantidad-stepper mx-auto">
@@ -497,6 +495,47 @@ $(document).ready(function () {
         html += '</tbody></table>';
         cont.html(html);
     }
+
+    function ajustarCantidadPedidoEnPantalla(btn, delta) {
+        var input = btn.closest('.ajustar-pedido-stepper').find('.input-ajustar-cantidad-pedido');
+        var cantidadAnterior = parseFloat(input.val()) || 0;
+        var cantidad = cantidadAnterior + delta;
+        var minimo = parseFloat(input.attr('min')) || 0;
+        cantidad = Math.max(minimo, Math.round(cantidad * 100) / 100);
+        if (cantidad === cantidadAnterior) return;
+        input.val(cantidad.toFixed(2));
+
+        var grupo = btn.closest('.ajustar-pedido-stepper');
+        grupo.find('button').prop('disabled', true);
+        $.post('ventas_pedidos_gestion_ajax.php', {
+            accion: 'actualizar_cantidad_detalle',
+            venta_pedido_id: pedidoActual.venta_pedido_id,
+            venta_pedido_detalle_id: input.data('vpd-id'),
+            cantidad: cantidad,
+            empresa_idx: empresa_idx,
+            pagina_idx: pagina_idx
+        }, function (res) {
+            if (!res || !res.success) {
+                input.val(cantidadAnterior.toFixed(2));
+                Swal.fire({ icon: 'error', title: 'No se pudo actualizar', text: (res && res.error) || 'Error al actualizar la cantidad.', confirmButtonText: 'Entendido' });
+                return;
+            }
+            abrirPedidoPicking(pedidoActual.venta_pedido_id);
+        }, 'json').fail(function () {
+            input.val(cantidadAnterior.toFixed(2));
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo actualizar la cantidad.', confirmButtonText: 'Entendido' });
+        }).always(function () {
+            grupo.find('button').prop('disabled', false);
+        });
+    }
+
+    $(document).on('click', '.btn-ajustar-cantidad-menos', function () {
+        ajustarCantidadPedidoEnPantalla($(this), -1);
+    });
+
+    $(document).on('click', '.btn-ajustar-cantidad-mas', function () {
+        ajustarCantidadPedidoEnPantalla($(this), 1);
+    });
 
     function renderizarPendientesOtros() {
         var cont = $('#contenedor-picking-pendientes-otros');
@@ -551,51 +590,6 @@ $(document).ready(function () {
         cont.html(html);
     }
 
-    function renderizarRemitoDetalleNuevo() {
-        var cont = $('#contenedor-picking-remito-detalle');
-
-        if (remitoDetallesNuevo.length === 0) {
-            cont.html('<div class="text-muted small text-center p-3 border rounded bg-light">Todavía no agregaste líneas a este remito.</div>');
-            return;
-        }
-
-        var html = `<table class="table table-sm table-bordered mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Origen</th>
-                    <th>Código</th>
-                    <th>Producto</th>
-                    <th class="text-center">Cant.</th>
-                    <th class="text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>`;
-
-        remitoDetallesNuevo.forEach(function (d, idx) {
-            html += `<tr>
-                <td>${d.origen_pedido ? `<span class="badge bg-secondary">${d.origen_pedido}</span>` : '<span class="badge bg-primary">Este pedido</span>'}</td>
-                <td>${d.producto_codigo || ''}</td>
-                <td>${d.producto_nombre || ''}</td>
-                <td class="text-center">${formatMoneda(d.cantidad)}</td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-danger btn-quitar-picking" data-idx="${idx}" title="Quitar">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>`;
-        });
-
-        html += '</tbody></table>';
-        cont.html(html);
-    }
-
-    $(document).on('click', '.btn-quitar-picking', function () {
-        remitoDetallesNuevo.splice($(this).data('idx'), 1);
-        renderizarPendientesPedido();
-        renderizarPendientesOtros();
-        renderizarRemitoDetalleNuevo();
-    });
-
     // ---------- Remitos ya generados de este pedido ----------
     // Reutiliza el endpoint que ya existe en ventas_pedidos_ajax.php — no se
     // duplica esa consulta acá.
@@ -613,11 +607,17 @@ $(document).ready(function () {
             success: function (res) {
                 remitosPedidoActual = res || [];
                 renderizarRemitosPicking();
+                renderizarPendientesPedido();
+                renderizarResumenPedidoVsEnviado();
+                renderizarDetallePedido();
                 if (typeof callback === 'function') callback();
             },
             error: function () {
                 remitosPedidoActual = [];
                 renderizarRemitosPicking();
+                renderizarPendientesPedido();
+                renderizarResumenPedidoVsEnviado();
+                renderizarDetallePedido();
                 if (typeof callback === 'function') callback();
             }
         });
@@ -698,7 +698,7 @@ $(document).ready(function () {
                 <div class="collapse${confirmado ? '' : ' show'}" id="${collapseId}">
                     <table class="table table-sm table-bordered mb-0">
                         <thead class="table-light">
-                            <tr><th>Código</th><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Importe</th></tr>
+                            <tr><th>Código</th><th>Producto</th><th class="text-center">Cantidad</th><th class="text-end">Importe</th></tr>
                         </thead>
                         <tbody>${filasDetalle}</tbody>
                     </table>
@@ -756,7 +756,7 @@ $(document).ready(function () {
                         ${res.observaciones ? `<div class="mb-2"><strong>Observaciones:</strong> ${escapeHtml(res.observaciones)}</div>` : ''}
                         <table class="table table-sm table-bordered mb-0">
                             <thead class="table-light">
-                                <tr><th>Código</th><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Importe</th></tr>
+                                <tr><th>Código</th><th>Producto</th><th class="text-center">Cantidad</th><th class="text-end">Importe</th></tr>
                             </thead>
                             <tbody>${filasDetalle}</tbody>
                             <tfoot>
@@ -818,16 +818,79 @@ $(document).ready(function () {
         }
     });
 
-    // Resumen "pedido vs enviado", en la solapa Remitos — se calcula del
-    // propio detalle del pedido (cantidad vs cantidad_entregada), no hace
-    // falta otra consulta.
+    function obtenerRemitosConfirmadosPorDetalle(vpdId) {
+        var remitos = [];
+        remitosPedidoActual.forEach(function (remito) {
+            if (!['CONFIRMADO', 'PEND_FACT'].includes((remito.estado_info || {}).codigo_estandar)) return;
+            var detalles = (remito.detalles || []).filter(function (detalle) {
+                return parseInt(detalle.venta_pedido_detalle_id, 10) === parseInt(vpdId, 10);
+            });
+            if (detalles.length > 0) {
+                remitos.push({ remito: remito, cantidad: detalles.reduce(function (total, detalle) {
+                    return total + (parseFloat(detalle.cantidad) || 0);
+                }, 0) });
+            }
+        });
+        return remitos;
+    }
+
+    function renderizarDetallePedido() {
+        var cont = $('#contenedor-picking-detalle-pedido');
+        var detalles = (pedidoActual && pedidoActual.detalles) || [];
+        if (detalles.length === 0) {
+            cont.html('<div class="text-muted small text-center p-3">No hay detalle disponible.</div>');
+            return;
+        }
+
+        var html = `<table class="table table-sm table-bordered table-hover mb-0">
+            <thead class="table-light"><tr>
+                <th>Código</th><th>Producto</th><th class="text-end">Cantidad Pedida</th>
+                <th class="text-end">Cantidad Entregada</th><th class="text-end">Pendiente</th>
+            </tr></thead><tbody>`;
+
+        detalles.forEach(function (detalle) {
+            var entregada = cantidadEntregadaConfirmada(detalle.venta_pedido_detalle_id);
+            var pendiente = Math.max(0, (parseFloat(detalle.cantidad) || 0) - entregada);
+            var remitos = obtenerRemitosConfirmadosPorDetalle(detalle.venta_pedido_detalle_id);
+            var collapseId = 'detalle-remitos-' + detalle.venta_pedido_detalle_id;
+            var remitosHtml = remitos.length ? remitos.map(function (item) {
+                var remito = item.remito;
+                var numero = remito.comprobante_nro > 0
+                    ? `${remito.comprobante_tipo || 'Remito'} #${remito.comprobante_nro}`
+                    : `${remito.comprobante_tipo || 'Remito'} (sin numerar)`;
+                return `<div class="d-flex justify-content-between border-bottom py-1">
+                    <span>${numero} - ${formatFechaCorta(remito.f_emision)}</span>
+                    <strong>${formatMoneda(item.cantidad)}</strong>
+                </div>`;
+            }).join('') : '<span class="text-muted">No hay remitos confirmados.</span>';
+
+            html += `<tr>
+                <td>${detalle.producto_codigo || ''}</td>
+                <td>${detalle.producto_nombre || ''}</td>
+                <td class="text-end">${formatMoneda(detalle.cantidad)}</td>
+                <td class="text-end">
+                    <button type="button" class="btn btn-link p-0 btn-detalle-entregado" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+                        ${formatMoneda(entregada)}
+                    </button>
+                </td>
+                <td class="text-end">${formatMoneda(pendiente)}</td>
+            </tr>
+            <tr class="collapse" id="${collapseId}">
+                <td colspan="5"><div class="small bg-light p-2">${remitosHtml}</div></td>
+            </tr>`;
+        });
+
+        cont.html(html + '</tbody></table>');
+    }
+
+    // Resumen "pedido vs enviado", en la solapa Remitos.
     function renderizarResumenPedidoVsEnviado() {
         var detalles = (pedidoActual && pedidoActual.detalles) || [];
         var cantidadPedida = 0, cantidadEnviada = 0, montoPedido = 0, montoEnviado = 0;
 
         detalles.forEach(function (d) {
             var cant = parseFloat(d.cantidad) || 0;
-            var entregada = parseFloat(d.cantidad_entregada) || 0;
+            var entregada = cantidadEntregadaConfirmada(d.venta_pedido_detalle_id);
             var total = parseFloat(d.total_linea) || 0;
             cantidadPedida += cant;
             cantidadEnviada += entregada;
@@ -846,16 +909,18 @@ $(document).ready(function () {
     // agregue en esta pantalla va DENTRO de ese remito (editar), no crea uno
     // nuevo — un pedido solo debería tener un remito "en construcción" por vez.
     function detectarYCargarRemitoAbierto() {
-        var remitoAbierto = remitosPedidoActual.find(function (r) { return !(r.comprobante_nro > 0); });
+        var remitoAbierto = remitosPedidoActual.find(function (r) {
+            var codigoEstado = (r.estado_info || {}).codigo_estandar;
+            return !(r.comprobante_nro > 0)
+                && ['ELIMINADO', 'CANCELADO', 'ANULADO', 'CONFIRMADO', 'PEND_FACT'].indexOf(codigoEstado) === -1;
+        });
 
         if (!remitoAbierto) {
             remitoEditandoId = null;
             remitoLineasOriginalesPorVpd = {};
             remitoDetallesNuevo = [];
-            $('#titulo-card-remito-picking').html('<i class="fas fa-truck me-2"></i>Remito a cargar');
             renderizarPendientesPedido();
             renderizarPendientesOtros();
-            renderizarRemitoDetalleNuevo();
             return;
         }
 
@@ -884,10 +949,8 @@ $(document).ready(function () {
                     };
                 });
 
-                $('#titulo-card-remito-picking').html('<i class="fas fa-truck me-2"></i>Remito a cargar — sumando a lo que ya tenía este remito abierto');
                 renderizarPendientesPedido();
                 renderizarPendientesOtros();
-                renderizarRemitoDetalleNuevo();
             }
         });
     }
@@ -967,20 +1030,25 @@ $(document).ready(function () {
         });
     }
 
-    function refrescarTrasGuardar() {
-        remitoEditandoId = null;
-        remitoLineasOriginalesPorVpd = {};
-        remitoDetallesNuevo = [];
+    function refrescarTrasGuardar(remitoId, limpiarRemito) {
+        if (limpiarRemito) {
+            remitoEditandoId = null;
+            remitoLineasOriginalesPorVpd = {};
+            remitoDetallesNuevo = [];
+        } else if (remitoId) {
+            remitoEditandoId = remitoId;
+        }
         $('#picking_remito_observaciones').val('');
+        bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-picking-preparar')).show();
         abrirPedidoPicking(pedidoActual.venta_pedido_id); // se queda en el pedido: refresca pendientes, PV y encabezado
         tabla.ajax.reload(null, false);
     }
 
     $(document).on('click', '#btnGuardarRemitoPicking', function () {
         var btn = $(this);
-        guardarRemitoPicking(btn, function () {
+        guardarRemitoPicking(btn, function (remitoId) {
             Swal.fire({ icon: 'success', title: '¡Remito guardado!', showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
-            refrescarTrasGuardar();
+            refrescarTrasGuardar(remitoId, false);
         });
     });
 
@@ -992,7 +1060,23 @@ $(document).ready(function () {
     // adivinar mal que el código interno.
     $(document).on('click', '#btnConfirmarRemitoPicking', function () {
         var btn = $(this);
-        guardarRemitoPicking(btn, function (remitoId) {
+        Swal.fire({
+            title: '¿Confirmar Remito?',
+            text: 'Al confirmar se numerará el remito y se registrará la entrega de sus productos.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, Confirmar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#198754',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true
+        }).then(function (confirmacion) {
+            if (!confirmacion.isConfirmed) {
+                Swal.fire({ icon: 'info', title: 'Confirmación Cancelada', text: 'El remito no fue confirmado.', showConfirmButton: false, timer: 1400, toast: true, position: 'top-end' });
+                return;
+            }
+
+            guardarRemitoPicking(btn, function (remitoId) {
             $.ajax({
                 url: 'ventas_pedidos_ajax.php',
                 type: 'GET',
@@ -1017,7 +1101,7 @@ $(document).ready(function () {
                             text: 'Se guardó, pero no se encontró una acción de "confirmar" disponible para su estado actual. Confirmalo manualmente si corresponde.',
                             confirmButtonText: 'Entendido'
                         });
-                        refrescarTrasGuardar();
+                        refrescarTrasGuardar(remitoId, false);
                         return;
                     }
 
@@ -1028,24 +1112,57 @@ $(document).ready(function () {
                         empresa_idx: empresa_idx,
                         pagina_idx: REMITOS_PAGINA_IDX
                     }, function (res2) {
-                        if (res2.success) {
-                            Swal.fire({ icon: 'success', title: '¡Remito guardado y confirmado!', showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
+                                    if (res2.success) {
+                                        $.get('ventas_remitos_ajax.php', {
+                                            accion: 'obtener',
+                                            venta_remito_id: remitoId,
+                                            empresa_idx: empresa_idx
+                                        }, function (remitoConfirmado) {
+                                            mostrarConfirmacionRemito(remitoId, res2, remitoConfirmado);
+                                        }, 'json').fail(function () {
+                                            mostrarConfirmacionRemito(remitoId, res2, remito);
+                                        });
                         } else {
                             Swal.fire({ icon: 'warning', title: 'Guardado, no se pudo confirmar', text: res2.error || 'Error al confirmar', confirmButtonText: 'Entendido' });
                         }
-                        refrescarTrasGuardar();
+                        refrescarTrasGuardar(remitoId, res2.success);
                     }, 'json').fail(function () {
                         Swal.fire({ icon: 'warning', title: 'Guardado, no se pudo confirmar', text: 'Error de conexión al intentar confirmar', confirmButtonText: 'Entendido' });
-                        refrescarTrasGuardar();
+                        refrescarTrasGuardar(remitoId, false);
                     });
                 },
                 error: function () {
                     Swal.fire({ icon: 'warning', title: 'Guardado, no se pudo confirmar', text: 'Error de conexión al buscar la acción de confirmar', confirmButtonText: 'Entendido' });
-                    refrescarTrasGuardar();
+                    refrescarTrasGuardar(remitoId, false);
                 }
+            });
             });
         });
     });
+
+    function mostrarConfirmacionRemito(remitoId, resultado, remitoActualizado) {
+        var remito = remitoActualizado || remitosPedidoActual.find(function (item) { return item.venta_remito_id == remitoId; });
+        var numero = (resultado && resultado.comprobante_nro) || (remito && remito.comprobante_nro) || 'Sin numerar';
+        var filas = '';
+        (remito && remito.detalles || []).forEach(function (detalle) {
+            filas += `<tr><td>${detalle.producto_codigo || ''}</td><td>${detalle.producto_nombre || ''}</td><td class="text-end">${formatMoneda(detalle.cantidad)}</td></tr>`;
+        });
+        var detalleHtml = filas ? `<div class="confirmacion-remito-tabla-wrap"><table class="table table-sm mb-0 text-start"><thead><tr><th>Código</th><th>Producto</th><th class="text-end">Cantidad</th></tr></thead><tbody>${filas}</tbody></table></div>` : '<div class="text-muted py-3">Sin detalle disponible.</div>';
+        Swal.fire({
+            title: '',
+            html: `<div class="confirmacion-remito">
+                <div class="confirmacion-remito-icon"><i class="fas fa-check"></i></div>
+                <div class="confirmacion-remito-eyebrow">Operación Completada</div>
+                <h3>Remito Confirmado</h3>
+                <div class="confirmacion-remito-numero">${remito && remito.comprobante_tipo || 'Remito'} <strong>N.º ${numero}</strong></div>
+                <div class="confirmacion-remito-detalle">${detalleHtml}</div>
+            </div>`,
+            width: 680,
+            showConfirmButton: true,
+            confirmButtonText: 'Aceptar',
+            customClass: { popup: 'confirmacion-remito-popup', confirmButton: 'confirmacion-remito-boton' }
+        });
+    }
 
     inicializarDataTable();
 });

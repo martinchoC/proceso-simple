@@ -36,9 +36,13 @@ final class Response
     }
 
     /** @param array<string,string> $headers */
-    public static function raw(string $body, string $contentType, array $headers = []): self
+    public static function raw(string $body, string $contentType = '', array $headers = [], int $status = 200): self
     {
-        return new self($body, 200, $headers + ['Content-Type' => $contentType]);
+        $h = $headers;
+        if ($contentType !== '') {
+            $h['Content-Type'] = $contentType;
+        }
+        return new self($body, $status, $h);
     }
 
     public function send(): void

@@ -19,6 +19,7 @@ final class LineaCarrito
         public readonly float $descuentoPct,
         public readonly int $ivaAlicuotaId,
         public readonly float $ivaPorcentaje,
+        public readonly array $compatibilidad = [],
     ) {
     }
 

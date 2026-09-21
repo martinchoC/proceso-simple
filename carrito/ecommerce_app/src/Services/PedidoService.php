@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Http\Exceptions\ValidationException;
 use App\Repositories\EntidadRepository;
 use App\Repositories\PedidoRepository;
+use App\Repositories\ProductoRepository;
 use App\Support\Config;
 use App\Support\Logger;
 use PDO;
@@ -28,6 +29,7 @@ final class PedidoService
     private readonly ?EntidadRepository $entidades;
     private readonly CarritoService $carrito;
     private readonly Logger $logger;
+    private readonly ?ProductoRepository $productos;
 
     public function __construct(
         PDO $pdo,
@@ -40,6 +42,7 @@ final class PedidoService
         $entidades = null;
         $carrito = null;
         $logger = null;
+        $productos = null;
 
         foreach ($args as $arg) {
             if ($arg instanceof EntidadRepository) {
@@ -48,12 +51,15 @@ final class PedidoService
                 $carrito = $arg;
             } elseif ($arg instanceof Logger) {
                 $logger = $arg;
+            } elseif ($arg instanceof ProductoRepository) {
+                $productos = $arg;
             }
         }
 
         $this->entidades = $entidades;
         $this->carrito = $carrito ?? throw new \InvalidArgumentException('CarritoService es requerido en PedidoService');
         $this->logger = $logger ?? new Logger('ecommerce', 'php://stdout');
+        $this->productos = $productos;
     }
 
     /**
@@ -227,15 +233,35 @@ final class PedidoService
     /** @return array{cabecera:array<string,mixed>,detalles:array<int,array<string,mixed>>,remitos:array<int,array<string,mixed>>}|null */
     public function detalle(int $ventaPedidoId, int $entidadId): ?array
     {
-        $cabecera = $this->pedidos->buscarDeEntidad($ventaPedidoId, $entidadId, Config::int('ecom.empresa_id'));
+        $empresaId = Config::int('ecom.empresa_id');
+        $cabecera = $this->pedidos->buscarDeEntidad($ventaPedidoId, $entidadId, $empresaId);
         if ($cabecera === null) {
             return null;
         }
 
+        $detalles = $this->pedidos->detalles($ventaPedidoId);
+        $remitos = $this->pedidos->remitosPorPedido($ventaPedidoId);
+
+        if ($this->productos !== null && $detalles !== []) {
+            $pids = array_map(static fn (array $d): int => (int) $d['producto_id'], $detalles);
+            $compatibilidades = $this->productos->compatibilidadesPorProducto($pids, $empresaId);
+            foreach ($detalles as &$det) {
+                $pid = (int) $det['producto_id'];
+                $det['compatibilidad'] = $compatibilidades[$pid] ?? [
+                    'marcas'        => [],
+                    'modelos'       => [],
+                    'submodelos'    => [],
+                    'anios'         => [],
+                    'combinaciones' => [],
+                ];
+            }
+            unset($det);
+        }
+
         return [
             'cabecera' => $cabecera,
-            'detalles' => $this->pedidos->detalles($ventaPedidoId),
-            'remitos'  => $this->pedidos->remitosPorPedido($ventaPedidoId),
+            'detalles' => $detalles,
+            'remitos'  => $remitos,
         ];
     }
 }

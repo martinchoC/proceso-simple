@@ -247,7 +247,8 @@ final class Kernel
     {
         return $this->singleton(CatalogoService::class, fn () => new CatalogoService(
             $this->productos(),
-            $this->preciosService()
+            $this->preciosService(),
+            $this->session()
         ));
     }
 
@@ -267,7 +268,8 @@ final class Kernel
             $this->pedidos(),
             $this->entidades(),
             $this->carrito(),
-            $this->logger
+            $this->logger,
+            $this->productos()
         ));
     }
 

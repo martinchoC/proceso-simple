@@ -311,12 +311,23 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     }
 
     // Filtro de búsqueda global
-        if (!empty($search)) {
-        // Dividir la búsqueda en palabras individuales
-        $palabras = preg_split('/\s+/', trim($search));
-        $palabras = array_filter($palabras, function($p) { return strlen($p) > 0; });
-        
-        // Para cada palabra, agregar una condición AND
+    $palabras = [];
+    if (!empty($search)) {
+        // Dividir la búsqueda en términos. El buscador por etiquetas manda las
+        // etiquetas compuestas entre comillas dobles ("disco rigido"): esas se
+        // toman como UN término (se busca la frase completa con LIKE), mientras
+        // que lo que va sin comillas se parte por espacios como siempre.
+        $palabras = [];
+        if (preg_match_all('/"([^"]*)"|(\S+)/', trim($search), $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $termino = trim(isset($match[2]) ? $match[2] : $match[1]);
+                if (strlen($termino) > 0) {
+                    $palabras[] = $termino;
+                }
+            }
+        }
+
+        // Para cada término, agregar una condición AND
         foreach ($palabras as $palabra) {
             $palabra_like = '%' . $palabra . '%';
             

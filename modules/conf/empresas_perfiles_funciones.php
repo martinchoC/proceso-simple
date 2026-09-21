@@ -91,7 +91,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </button>
                                         </div>
                                         <div class="mt-2 d-none" id="grupoGuardarIndividual">
-                                            <button class="btn btn-sm btn-primary w-100" id="btnGuardarIndividual">
+                                            <label for="selectAccionLote" class="form-label small text-muted mb-1">Acción en lote</label>
+                                            <select class="form-select form-select-sm" id="selectAccionLote">
+                                                <option value="">Elija una acción</option>
+                                                <option value="asignar">Asignar marcadas</option>
+                                                <option value="desasignar">Desasignar marcadas</option>
+                                            </select>
+                                            <button class="btn btn-sm btn-primary w-100 mt-2" id="btnAplicarAccionLote">
+                                                <i class="fas fa-bolt"></i> Aplicar elección
+                                            </button>
+                                            <label for="selectAccionModuloLote" class="form-label small text-muted mb-1 mt-3">Acción por módulo</label>
+                                            <select class="form-select form-select-sm" id="selectAccionModuloLote">
+                                                <option value="">Elija una acción</option>
+                                                <option value="asignar">Asignar módulo completo</option>
+                                                <option value="desasignar">Desasignar módulo completo</option>
+                                            </select>
+                                            <button class="btn btn-sm btn-warning w-100 mt-2" id="btnAplicarAccionModuloLote">
+                                                <i class="fas fa-layer-group"></i> Aplicar módulo
+                                            </button>
+                                            <button class="btn btn-sm btn-success w-100 mt-2" id="btnGuardarIndividual">
                                                 <i class="fas fa-save"></i> Guardar Cambios
                                             </button>
                                         </div>
@@ -348,6 +366,113 @@ $(document).ready(function() {
     $('#btnGuardarIndividual').click(function() {
         guardarCambiosIndividual();
     });
+
+    // Acción masiva con elección de asignar/desasignar funciones marcadas
+    $('#btnAplicarAccionLote').click(function() {
+        var accion = $('#selectAccionLote').val();
+        var perfilId = perfilesSeleccionados[0];
+
+        if (!accion) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Elija una acción',
+                text: 'Debe seleccionar si quiere asignar o desasignar las funciones marcadas.'
+            });
+            return;
+        }
+
+        if (!perfilId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Seleccione un perfil',
+                text: 'Debe seleccionar un perfil antes de aplicar la acción en lote.'
+            });
+            return;
+        }
+
+        var funcionesSeleccionadas = $('.check-funcion:checked').map(function() {
+            return $(this).val();
+        }).get();
+
+        if (funcionesSeleccionadas.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sin selección',
+                text: 'Debe marcar al menos una función para aplicar la acción en lote.'
+            });
+            return;
+        }
+
+        var textoConfirm = accion === 'asignar' ?
+            '¿Desea asignar las funciones marcadas al perfil seleccionado?' :
+            '¿Desea desasignar las funciones marcadas del perfil seleccionado?';
+
+        Swal.fire({
+            title: 'Acción masiva',
+            text: textoConfirm,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                aplicarAccionLote(perfilId, funcionesSeleccionadas, accion);
+            }
+        });
+    });
+
+    $('#btnAplicarAccionModuloLote').click(function() {
+        var accion = $('#selectAccionModuloLote').val();
+        var perfilId = perfilesSeleccionados[0];
+
+        if (!accion) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Elija una acción',
+                text: 'Debe seleccionar una acción para el módulo completo.'
+            });
+            return;
+        }
+
+        if (!perfilId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Seleccione un perfil',
+                text: 'Debe seleccionar un perfil antes de aplicar la acción del módulo.'
+            });
+            return;
+        }
+
+        var funcionesModulo = $('.check-funcion').map(function() {
+            return $(this).val();
+        }).get();
+
+        if (funcionesModulo.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sin funciones',
+                text: 'No hay funciones cargadas para este módulo.'
+            });
+            return;
+        }
+
+        var textoConfirm = accion === 'asignar' ?
+            '¿Desea asignar todas las funciones del módulo al perfil seleccionado?' :
+            '¿Desea desasignar todas las funciones del módulo del perfil seleccionado?';
+
+        Swal.fire({
+            title: 'Acción por módulo',
+            text: textoConfirm,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                aplicarAccionLote(perfilId, funcionesModulo, accion);
+            }
+        });
+    });
     
     // Función para cargar módulos
     function cargarModulos() {
@@ -514,8 +639,7 @@ $(document).ready(function() {
             
             // Construir cuerpo de tabla
             construirCuerpoIndividual(estructura, perfil);
-            
-            // Agregar filtro de búsqueda
+            sincronizarEstadoOriginalCheckboxes();
             agregarFiltroBusqueda();
             
             // Actualizar check all
@@ -669,7 +793,7 @@ $(document).ready(function() {
         }
         
         var html = `<tr class="${claseFila}">`;
-        html += `<td><input type="checkbox" class="check-funcion" value="${funcion.pagina_funcion_id}" ${checked}></td>`;
+        html += `<td><input type="checkbox" class="check-funcion" value="${funcion.pagina_funcion_id}" ${checked} data-original-checked="${funcion.asignada ? 'true' : 'false'}"></td>`;
         html += `<td class="${indentacion}"><i class="fas fa-cog"></i> ${funcion.nombre_funcion}</td>`;
         html += `<td class="descripcion-funcion"><small>${funcion.descripcion || ''}</small></td>`;
         html += `<td><small class="text-muted">${funcion.accion_js || ''}</small></td>`;
@@ -680,6 +804,97 @@ $(document).ready(function() {
         tbody.append(html);
     }
     
+    function aplicarAccionLote(perfilId, funcionesSeleccionadas, accion) {
+        var perfil = datosPerfiles[perfilId];
+
+        Swal.fire({
+            title: 'Procesando...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        $.get('empresas_perfiles_funciones_ajax.php', {
+            accion: 'obtener_paginas_funciones_por_empresa_perfil',
+            empresa_perfil_id: perfilId
+        }, function(funcionesDelPerfil) {
+            var mapeo = {};
+            if (funcionesDelPerfil && funcionesDelPerfil.length > 0) {
+                $.each(funcionesDelPerfil, function(i, funcion) {
+                    if (funcion && funcion.pagina_funcion_id) {
+                        mapeo[String(funcion.pagina_funcion_id)] = funcion.empresa_perfil_funcion_id;
+                    }
+                });
+            }
+
+            var procesadas = 0;
+            var errores = 0;
+            var total = funcionesSeleccionadas.length;
+
+            function procesarSiguiente() {
+                if (procesadas >= total) {
+                    Swal.close();
+                    if (errores === 0) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Éxito',
+                            text: accion === 'asignar' ? 'Las funciones seleccionadas fueron asignadas correctamente.' : 'Las funciones seleccionadas fueron desasignadas correctamente.',
+                            showConfirmButton: false,
+                            timer: 1600
+                        });
+                        mostrarVistaIndividual();
+                    } else {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Advertencia',
+                            text: `Se procesaron ${total - errores} de ${total} funciones. ${errores} fallaron.`
+                        });
+                    }
+                    return;
+                }
+
+                var funcionId = funcionesSeleccionadas[procesadas];
+
+                if (accion === 'asignar') {
+                    $.post('empresas_perfiles_funciones_ajax.php', {
+                        accion: 'asignar_pagina_funcion_empresa_perfil',
+                        empresa_id: perfil.empresa_id,
+                        empresa_perfil_id: perfilId,
+                        pagina_funcion_id: funcionId,
+                        asignado: 1
+                    }, function(res) {
+                        if (!res.resultado) {
+                            errores++;
+                        }
+                        procesadas++;
+                        procesarSiguiente();
+                    }, 'json');
+                } else {
+                    var empresaPerfilFuncionId = mapeo[String(funcionId)];
+                    if (!empresaPerfilFuncionId) {
+                        procesadas++;
+                        procesarSiguiente();
+                        return;
+                    }
+
+                    $.post('empresas_perfiles_funciones_ajax.php', {
+                        accion: 'actualizar_asignacion_pagina_funcion',
+                        empresa_perfil_funcion_id: empresaPerfilFuncionId,
+                        asignado: 0
+                    }, function(res) {
+                        if (!res.resultado) {
+                            errores++;
+                        }
+                        procesadas++;
+                        procesarSiguiente();
+                    }, 'json');
+                }
+            }
+
+            procesarSiguiente();
+        }, 'json');
+    }
+
     // Función para guardar cambios individuales
     function guardarCambiosIndividual() {
         if (perfilesSeleccionados.length === 0) {
@@ -710,7 +925,7 @@ $(document).ready(function() {
         $('.check-funcion').each(function() {
             var checkbox = $(this);
             var funcionId = checkbox.val();
-            var estabaMarcado = checkbox.prop('defaultChecked');
+            var estabaMarcado = checkbox.data('original-checked') === true;
             var estaMarcado = checkbox.is(':checked');
             
             if (estaMarcado && !estabaMarcado) {
@@ -1124,11 +1339,18 @@ $(document).ready(function() {
             });
         });
     }
+
+    function sincronizarEstadoOriginalCheckboxes() {
+        $('.check-funcion').each(function() {
+            $(this).data('original-checked', $(this).is(':checked'));
+        });
+    }
     
     // Función para actualizar check all
     function actualizarCheckAll(checkAllSelector, checkSelector) {
         $(checkAllSelector).off('change').on('change', function() {
-            $(checkSelector).prop('checked', $(this).prop('checked'));
+            var checked = $(this).prop('checked');
+            $(checkSelector).prop('checked', checked);
         });
         
         $(checkSelector).off('change').on('change', function() {

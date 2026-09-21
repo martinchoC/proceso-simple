@@ -552,7 +552,7 @@ function actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id)
 // se pasa $boca_id (la boca del punto de venta elegido en el remito) se filtra y ordena
 // solo por esa boca, que es la relevante para quien arma el remito. Sin $boca_id (todavía
 // no se eligió punto de venta) se muestran/ordenan las ubicaciones de todas las bocas.
-function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $boca_id = null, $pedido_id = null)
+function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $boca_id = null, $pedido_id = null, $incluir_lineas_completas = false)
 {
     $empresa_idx = intval($empresa_idx);
     $entidad_id = intval($entidad_id);
@@ -562,12 +562,25 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
     // pendientes del cliente, que es el comportamiento de la pantalla de remitos
     // standalone). Mismo patrón null-safe "= ? OR ? IS NULL" que ya usa boca_id acá.
     $pedido_id = !empty($pedido_id) ? intval($pedido_id) : null;
+    $incluir_lineas_completas = $incluir_lineas_completas ? 1 : 0;
 
     $sql = "SELECT vp.venta_pedido_id, vp.comprobante_nro, vp.f_emision,
                    ct.comprobante_tipo,
                    vpd.venta_pedido_detalle_id, vpd.producto_id,
                    p.producto_codigo, p.producto_nombre,
                    vpd.cantidad, vpd.cantidad_entregada,
+                   COALESCE((
+                       SELECT SUM(rd_confirmado.cantidad)
+                       FROM gestion__ventas_remitos_detalles rd_confirmado
+                       INNER JOIN gestion__ventas_remitos vr_confirmado
+                           ON vr_confirmado.venta_remito_id = rd_confirmado.venta_remito_id
+                       INNER JOIN conf__estados_registros er_confirmado
+                           ON er_confirmado.estado_registro_id = vr_confirmado.tabla_estado_registro_id
+                       WHERE rd_confirmado.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+                         AND rd_confirmado.tabla_estado_registro_id = 1
+                         AND vr_confirmado.empresa_id = vp.empresa_id
+                         AND er_confirmado.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT')
+                   ), 0) as cantidad_entregada_confirmada,
                    (vpd.cantidad - vpd.cantidad_entregada) as pendiente,
                    vpd.precio_unitario_bruto, vpd.descuento_general_pct, vpd.precio_unitario_neto,
                    vpd.iva_alicuota_id, vpd.iva_porcentaje,
@@ -633,7 +646,7 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
             LEFT JOIN conf__estados_registros er ON vp.tabla_estado_registro_id = er.estado_registro_id
             WHERE vp.entidad_id = ?
             AND vp.empresa_id = ?
-            AND vpd.cantidad > vpd.cantidad_entregada
+            AND (? = 1 OR vpd.cantidad > vpd.cantidad_entregada)
             AND (er.codigo_estandar IS NULL OR er.codigo_estandar != 'CANCELADO')
             AND (vp.venta_pedido_id = ? OR ? IS NULL)
             ORDER BY (orden_seccion IS NULL), orden_seccion, orden_estanteria, orden_estante, orden_posicion,
@@ -647,9 +660,9 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
 
     mysqli_stmt_bind_param(
         $stmt,
-        "iiiiiiiiiiiiii",
+        "iiiiiiiiiiiiiii",
         $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id,
-        $entidad_id, $empresa_idx, $pedido_id, $pedido_id
+        $entidad_id, $empresa_idx, $incluir_lineas_completas, $pedido_id, $pedido_id
     );
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
@@ -675,6 +688,7 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
             'producto_nombre' => $fila['producto_nombre'],
             'cantidad' => floatval($fila['cantidad']),
             'cantidad_entregada' => floatval($fila['cantidad_entregada']),
+            'cantidad_entregada_confirmada' => floatval($fila['cantidad_entregada_confirmada']),
             'pendiente' => floatval($fila['pendiente']),
             'precio_unitario_bruto' => floatval($fila['precio_unitario_bruto']),
             'descuento_general_pct' => floatval($fila['descuento_general_pct']),

@@ -96,11 +96,13 @@ final class CarritoService
         }
 
         $ids = array_map(static fn (array $i): int => (int) $i['producto_id'], $items);
+        $empresaId = Config::int('ecom.empresa_id');
         $datos = $this->productos->datosParaValorizar(
             $ids,
-            Config::int('ecom.empresa_id'),
+            $empresaId,
             $this->precios->listaPara($entidadId)
         );
+        $compatibilidades = $this->productos->compatibilidadesPorProducto($ids, $empresaId);
 
         $descuento = $this->precios->descuentoGeneral($entidadId);
         $lineas = [];
@@ -124,6 +126,13 @@ final class CarritoService
                 descuentoPct: $descuento,
                 ivaAlicuotaId: (int) $producto['iva_alicuota_id'],
                 ivaPorcentaje: (float) $producto['iva_porcentaje'],
+                compatibilidad: $compatibilidades[$productoId] ?? [
+                    'marcas'        => [],
+                    'modelos'       => [],
+                    'submodelos'    => [],
+                    'anios'         => [],
+                    'combinaciones' => [],
+                ],
             );
         }
 

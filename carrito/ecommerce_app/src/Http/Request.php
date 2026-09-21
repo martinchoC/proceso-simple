@@ -164,6 +164,12 @@ final class Request
         return str_contains($accept, 'application/json') || $xhr === 'xmlhttprequest';
     }
 
+    public function header(string $name, ?string $default = null): ?string
+    {
+        $serverKey = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+        return isset($_SERVER[$serverKey]) ? (string) $_SERVER[$serverKey] : $default;
+    }
+
     public function ip(): string
     {
         // Sin proxy de confianza configurado NO se lee X-Forwarded-For:

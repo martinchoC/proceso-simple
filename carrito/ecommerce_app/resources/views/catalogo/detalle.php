@@ -63,17 +63,58 @@ $pid = (int) $producto['producto_id'];
     <div class="panel">
       <span class="producto-codigo">Código <?= e($producto['producto_codigo']) ?></span>
       <h1><?= e($producto['producto_nombre']) ?></h1>
-      <?php if (!empty($producto['compatibilidad_texto'])): ?>
+      <?php $compat = $producto['compatibilidad'] ?? ['marcas' => [], 'modelos' => [], 'submodelos' => [], 'anios' => [], 'combinaciones' => []]; ?>
+      <?php if (!empty($compat['combinaciones']) || !empty($compat['marcas']) || !empty($compat['modelos'])): ?>
+        <div class="detalle-compatibilidad-badges">
+          <strong class="detalle-compatibilidad-label">Vehículo compatible:</strong>
+          <?php if (!empty($compat['combinaciones'])): ?>
+            <div class="linea-compat-pills">
+              <?php foreach ($compat['combinaciones'] as $combo): ?>
+                <div class="linea-compat-grupo">
+                  <?php if (!empty($combo['marca'])): ?>
+                    <span class="badge-auto badge-marca"><?= e($combo['marca']) ?></span>
+                  <?php endif; ?>
+                  <?php if (!empty($combo['modelo'])): ?>
+                    <span class="badge-auto badge-modelo"><?= e($combo['modelo']) ?></span>
+                  <?php endif; ?>
+                  <?php if (!empty($combo['submodelo'])): ?>
+                    <span class="badge-auto badge-submodelo"><?= e($combo['submodelo']) ?></span>
+                  <?php endif; ?>
+                  <?php if (!empty($combo['anio'])): ?>
+                    <span class="badge-auto badge-anio"><?= e($combo['anio']) ?></span>
+                  <?php endif; ?>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          <?php else: ?>
+            <div class="linea-compat-grupo">
+              <?php foreach ($compat['marcas'] as $m): ?>
+                <span class="badge-auto badge-marca"><?= e($m) ?></span>
+              <?php endforeach; ?>
+              <?php foreach ($compat['modelos'] as $mo): ?>
+                <span class="badge-auto badge-modelo"><?= e($mo) ?></span>
+              <?php endforeach; ?>
+              <?php foreach ($compat['submodelos'] as $sm): ?>
+                <span class="badge-auto badge-submodelo"><?= e($sm) ?></span>
+              <?php endforeach; ?>
+              <?php foreach ($compat['anios'] as $an): ?>
+                <span class="badge-auto badge-anio"><?= e($an) ?></span>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+        </div>
+      <?php elseif (!empty($producto['compatibilidad_texto'])): ?>
         <p class="detalle-compatibilidad">
           <strong>Compatibilidad:</strong> <?= e($producto['compatibilidad_texto']) ?>
         </p>
       <?php endif; ?>
 
       <div class="detalle-precio">
-        <span class="precio"><?= e(money((float) $producto['precio_final'])) ?></span>
+        <span class="precio"><?= e(money((float) ($producto['precio_lista'] ?? $producto['precio_neto_lista']))) ?></span>
         <span class="precio-nota">
-          IVA <?= e(number_format((float) $producto['iva_porcentaje'], 2, ',', '.')) ?>% incluido &middot;
-          neto <?= e(money((float) $producto['precio_neto_cliente'])) ?>
+          Precio de lista<?php if (!empty($producto['descuento_pct']) && (float) $producto['descuento_pct'] > 0): ?> &middot;
+          Descuento <?= number_format((float) $producto['descuento_pct'], 0) ?>% &middot;
+          Neto <?= e(money((float) $producto['precio_neto_cliente'])) ?><?php endif; ?>
         </span>
       </div>
 

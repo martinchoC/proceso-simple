@@ -848,6 +848,7 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx, $pagina_id = 0)
                    er.codigo_estandar,
                    ct.comprobante_tipo,
                    e.entidad_nombre, e.entidad_fantasia,
+                   s.sucursal_nombre,
                    m.moneda, m.simbolo,
                    pv.nombre as punto_venta_nombre, pv.codigo_fiscal as punto_venta_codigo
             FROM gestion__ventas_pedidos vp
@@ -856,6 +857,7 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx, $pagina_id = 0)
             LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
             LEFT JOIN gestion__comprobantes_tipos ct ON vp.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON vp.entidad_id = e.entidad_id
+            LEFT JOIN gestion__sucursales s ON vp.sucursal_id = s.sucursal_id AND s.empresa_id = vp.empresa_id
             LEFT JOIN gestion__monedas m ON vp.moneda_id = m.moneda_id
             LEFT JOIN gestion__puntos_venta pv ON vp.punto_venta_id = pv.punto_venta_id AND pv.empresa_id = vp.empresa_id
             WHERE vp.venta_pedido_id = ? AND vp.empresa_id = ?";
@@ -940,7 +942,8 @@ function obtenerRemitosDePedido($conexion, $empresa_idx, $pedido_id, $pagina_idx
                    ter.tabla_estado_registro as estado_registro, er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
                    ct.comprobante_tipo,
-                   rd.venta_remito_detalle_id, rd.producto_id, p.producto_codigo, p.producto_nombre,
+                   rd.venta_remito_detalle_id, rd.venta_pedido_detalle_id, rd.producto_id,
+                   p.producto_codigo, p.producto_nombre,
                    rd.cantidad, rd.importe_linea
             FROM gestion__ventas_remitos_detalles rd
             INNER JOIN gestion__ventas_remitos vr ON rd.venta_remito_id = vr.venta_remito_id
@@ -989,6 +992,7 @@ function obtenerRemitosDePedido($conexion, $empresa_idx, $pedido_id, $pagina_idx
         }
         $remitos[$rid]['detalles'][] = [
             'venta_remito_detalle_id' => $fila['venta_remito_detalle_id'],
+            'venta_pedido_detalle_id' => $fila['venta_pedido_detalle_id'],
             'producto_codigo' => $fila['producto_codigo'],
             'producto_nombre' => $fila['producto_nombre'],
             'cantidad' => floatval($fila['cantidad']),

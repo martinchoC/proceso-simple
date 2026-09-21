@@ -5,6 +5,7 @@
  * @var \App\Services\SessionGuard $auth
  */
 $sucursalesCompra = $sucursalesCompra ?? [];
+$compatibilidades = $compatibilidades ?? [];
 $descuentoCliente = (float) ($descuentoCliente ?? 0);
 $ivaPorcentaje = 21.0;
 if (!$resumen->vacio() && count($resumen->lineas) > 0) {
@@ -51,10 +52,10 @@ echo $this->partial('layouts/header', [
 <?php else: ?>
   <div class="carrito">
     <div class="panel">
-      <h2 class="panel-titulo"><?= $resumen->cantidadLineas() ?> producto(s)</h2>
+      <h2 class="panel-titulo" data-carrito-titulo><?= $resumen->cantidadLineas() ?> producto(s)</h2>
 
       <?php foreach ($resumen->lineas as $linea): ?>
-        <div class="linea">
+        <div class="linea" data-linea-id="<?= $linea->productoId ?>">
           <div class="linea-foto">
             <span class="producto-sinfoto">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -64,28 +65,78 @@ echo $this->partial('layouts/header', [
             </span>
           </div>
 
-          <div>
-            <p class="linea-nombre">
-              <a href="<?= e(url('/productos/' . $linea->productoId)) ?>"><?= e($linea->nombre) ?></a>
-            </p>
-            <span class="producto-codigo"><?= e($linea->codigo) ?></span>
+          <div class="linea-detalle">
+            <div class="linea-cabecera-datos">
+              <div class="linea-col-codigo">
+                <span class="linea-col-label">Código</span>
+                <strong class="linea-codigo-texto"><?= e($linea->codigo) ?></strong>
+              </div>
+              <div class="linea-col-descripcion">
+                <span class="linea-col-label">Descripción</span>
+                <h2 class="linea-nombre-texto">
+                  <a href="<?= e(url('/productos/' . $linea->productoId)) ?>"><?= e($linea->nombre) ?></a>
+                </h2>
+
+                <?php
+                  $compat = !empty($linea->compatibilidad) ? $linea->compatibilidad : ($compatibilidades[$linea->productoId] ?? null);
+                ?>
+                <?php if ($compat !== null): ?>
+                  <?php if (!empty($compat['combinaciones'])): ?>
+                    <div class="linea-compat-pills">
+                      <?php foreach ($compat['combinaciones'] as $combo): ?>
+                        <div class="linea-compat-grupo">
+                          <?php if (!empty($combo['marca'])): ?>
+                            <span class="badge-auto badge-marca"><?= e($combo['marca']) ?></span>
+                          <?php endif; ?>
+                          <?php if (!empty($combo['modelo'])): ?>
+                            <span class="badge-auto badge-modelo"><?= e($combo['modelo']) ?></span>
+                          <?php endif; ?>
+                          <?php if (!empty($combo['submodelo'])): ?>
+                            <span class="badge-auto badge-submodelo"><?= e($combo['submodelo']) ?></span>
+                          <?php endif; ?>
+                          <?php if (!empty($combo['anio'])): ?>
+                            <span class="badge-auto badge-anio"><?= e($combo['anio']) ?></span>
+                          <?php endif; ?>
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php elseif (!empty($compat['marcas']) || !empty($compat['modelos']) || !empty($compat['submodelos']) || !empty($compat['anios'])): ?>
+                    <div class="linea-compat-pills">
+                      <div class="linea-compat-grupo">
+                        <?php foreach ($compat['marcas'] as $m): ?>
+                          <span class="badge-auto badge-marca"><?= e($m) ?></span>
+                        <?php endforeach; ?>
+                        <?php foreach ($compat['modelos'] as $mo): ?>
+                          <span class="badge-auto badge-modelo"><?= e($mo) ?></span>
+                        <?php endforeach; ?>
+                        <?php foreach ($compat['submodelos'] as $sm): ?>
+                          <span class="badge-auto badge-submodelo"><?= e($sm) ?></span>
+                        <?php endforeach; ?>
+                        <?php foreach ($compat['anios'] as $an): ?>
+                          <span class="badge-auto badge-anio"><?= e($an) ?></span>
+                        <?php endforeach; ?>
+                      </div>
+                    </div>
+                  <?php endif; ?>
+                <?php endif; ?>
+              </div>
+            </div>
 
             <div class="linea-datos">
-              <form method="post" action="<?= e(url('/carrito/items/cantidad')) ?>" class="linea-datos">
-                <?= $csrf->field() ?>
-                <input type="hidden" name="producto_id" value="<?= $linea->productoId ?>">
-                <span class="cantidad" data-cantidad>
-                  <button type="button" data-paso="-1" aria-label="Restar">&minus;</button>
+              <div class="linea-acciones-cantidad" data-url-fijar="<?= e(url('/carrito/items/fijar')) ?>" data-producto-id="<?= $linea->productoId ?>">
+                <span class="cantidad con-unidades" data-cantidad>
+                  <button type="button" data-paso="-1" aria-label="Restar" <?= (float) $linea->cantidad <= 1 ? 'disabled' : '' ?>>&minus;</button>
                   <label class="solo-lectores" for="cant-<?= $linea->productoId ?>">Cantidad</label>
                   <input type="number" id="cant-<?= $linea->productoId ?>" name="cantidad"
+                         data-prod-id="<?= $linea->productoId ?>"
+                         data-cant-confirmada="<?= (int) $linea->cantidad ?>"
                          value="<?= e(rtrim(rtrim(number_format($linea->cantidad, 2, '.', ''), '0'), '.')) ?>"
                          min="1" max="99999" step="1">
                   <button type="button" data-paso="1" aria-label="Sumar">+</button>
                 </span>
-                <button type="submit" class="btn btn-plano">Actualizar</button>
-              </form>
+              </div>
 
-              <form method="post" action="<?= e(url('/carrito/items/eliminar')) ?>">
+              <form method="post" action="<?= e(url('/carrito/items/eliminar')) ?>" data-form-quitar>
                 <?= $csrf->field() ?>
                 <input type="hidden" name="producto_id" value="<?= $linea->productoId ?>">
                 <button type="submit" class="btn btn-peligro">Quitar</button>
@@ -96,22 +147,20 @@ echo $this->partial('layouts/header', [
           <div class="linea-importe">
             <div class="linea-precio-item">
               <span class="linea-precio-label">Precio de Lista:</span>
-              <span class="linea-precio-val">
+              <span class="linea-precio-val" data-precio-lista>
                 <?= e(money((float) $linea->cantidad > 1 ? $linea->precioListaTotal() : $linea->precioListaNeto)) ?>
                 <?php if ((float) $linea->cantidad > 1): ?>
                   <small class="mini-unitario">(<?= e(money($linea->precioListaNeto)) ?> c/u)</small>
                 <?php endif; ?>
               </span>
             </div>
-            <?php if ($linea->descuentoPct > 0): ?>
-              <div class="linea-precio-item">
-                <span class="linea-precio-label">Descuento (<?= number_format($linea->descuentoPct, 0) ?>%):</span>
-                <span class="linea-precio-val texto-descuento">&minus; <?= e(money($linea->descuentoTotal())) ?></span>
-              </div>
-            <?php endif; ?>
+            <div class="linea-precio-item <?= $linea->descuentoPct > 0 ? '' : 'oculto' ?>" data-fila-descuento>
+              <span class="linea-precio-label">Descuento (<span data-desc-pct><?= number_format($linea->descuentoPct, 0) ?></span>%):</span>
+              <span class="linea-precio-val texto-descuento" data-precio-descuento>&minus; <?= e(money($linea->descuentoTotal())) ?></span>
+            </div>
             <div class="linea-precio-item linea-precio-destacado">
               <span class="linea-precio-label">Neto:</span>
-              <strong class="linea-precio-val"><?= e(money($linea->netoGravado())) ?></strong>
+              <strong class="linea-precio-val" data-precio-neto><?= e(money($linea->netoGravado())) ?></strong>
             </div>
           </div>
         </div>
@@ -128,31 +177,29 @@ echo $this->partial('layouts/header', [
 
       <div class="resumen-fila">
         <span>Total Precio Lista</span>
-        <strong><?= e(money($resumen->subtotalBruto())) ?></strong>
+        <strong data-resumen-subtotal-bruto><?= e(money($resumen->subtotalBruto())) ?></strong>
       </div>
-      <?php if ($descuentoCliente > 0 || $resumen->descuentos() > 0): ?>
-        <div class="resumen-fila">
-          <span>Descuento (<?= number_format($descuentoCliente, 0) ?>%)</span>
-          <strong class="texto-descuento">
-            <?php if ($resumen->descuentos() > 0): ?>
-              &minus; <?= e(money($resumen->descuentos())) ?>
-            <?php else: ?>
-              <?= number_format($descuentoCliente, 0) ?>%
-            <?php endif; ?>
-          </strong>
-        </div>
-      <?php endif; ?>
+      <div class="resumen-fila <?= ($descuentoCliente > 0 || $resumen->descuentos() > 0) ? '' : 'oculto' ?>" data-resumen-fila-descuento>
+        <span>Descuento (<span data-resumen-descuento-pct><?= number_format($descuentoCliente, 0) ?></span>%)</span>
+        <strong class="texto-descuento" data-resumen-descuento-importe>
+          <?php if ($resumen->descuentos() > 0): ?>
+            &minus; <?= e(money($resumen->descuentos())) ?>
+          <?php else: ?>
+            <?= number_format($descuentoCliente, 0) ?>%
+          <?php endif; ?>
+        </strong>
+      </div>
       <div class="resumen-fila">
         <span>Total Neto</span>
-        <strong><?= e(money($resumen->subtotalNeto())) ?></strong>
+        <strong data-resumen-subtotal-neto><?= e(money($resumen->subtotalNeto())) ?></strong>
       </div>
       <div class="resumen-fila">
-        <span>IVA (<?= number_format($ivaPorcentaje, 0) ?>%)</span>
-        <strong><?= e(money($resumen->iva())) ?></strong>
+        <span>IVA (<span data-resumen-iva-pct><?= number_format($ivaPorcentaje, 0) ?></span>%)</span>
+        <strong data-resumen-iva><?= e(money($resumen->iva())) ?></strong>
       </div>
       <div class="resumen-total">
         <span>Total</span>
-        <strong><?= e(money($resumen->total())) ?></strong>
+        <strong data-resumen-total><?= e(money($resumen->total())) ?></strong>
       </div>
 
       <form method="post" action="<?= e(url('/pedidos')) ?>">

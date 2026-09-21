@@ -49,13 +49,7 @@ final class ProductoRepository extends Repository
                        p.iva_alicuota_id,
                        COALESCE(iva.porcentaje, 0) AS iva_porcentaje,
                        ' . self::PRECIO_VIGENTE . ' AS precio_neto,
-                       (SELECT pi.imagen_id
-                          FROM gestion__productos_imagenes pi
-                         WHERE pi.producto_id = p.producto_id
-                           AND pi.empresa_id = p.empresa_id
-                           AND pi.tabla_estado_registro_id = 1
-                         ORDER BY pi.es_principal DESC, pi.orden ASC, pi.producto_imagen_id ASC
-                         LIMIT 1) AS imagen_id
+                       NULL AS imagen_id
                   FROM gestion__productos p
              LEFT JOIN gestion__productos_categorias c
                     ON c.producto_categoria_id = p.producto_categoria_id
@@ -232,6 +226,123 @@ final class ProductoRepository extends Repository
            ORDER BY submodelo_nombre ASC',
             ['empresa_id' => $empresaId, 'modelo_id' => $modeloId]
         );
+    }
+
+    /**
+     * Carga en un solo query indexado la imagen principal de cada producto del lote (evita N+1 subconsultas).
+     *
+     * @param int[] $productoIds
+     * @return array<int,int> [producto_id => imagen_id]
+     */
+    public function imagenesPorProducto(array $productoIds, int $empresaId): array
+    {
+        $productoIds = array_values(array_filter(array_map('intval', $productoIds), static fn (int $id): bool => $id > 0));
+        if ($productoIds === []) {
+            return [];
+        }
+
+        [$in, $inParams] = $this->inPlaceholders($productoIds, 'pid_img');
+        $sql = "SELECT pi.producto_id, pi.imagen_id
+                  FROM gestion__productos_imagenes pi
+                 WHERE pi.empresa_id = :empresa_id
+                   AND pi.tabla_estado_registro_id = 1
+                   AND pi.producto_id IN ($in)
+              ORDER BY pi.es_principal DESC, pi.orden ASC, pi.producto_imagen_id ASC";
+
+        $rows = $this->all($sql, ['empresa_id' => $empresaId] + $inParams);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $pid = (int) $row['producto_id'];
+            if (!isset($map[$pid])) {
+                $map[$pid] = (int) $row['imagen_id'];
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param int[] $productoIds
+     * @return array<int,array{marcas:string[],modelos:string[],submodelos:string[],anios:string[]}>
+     */
+    public function compatibilidadesPorProducto(array $productoIds, int $empresaId): array
+    {
+        $productoIds = array_values(array_filter(array_map('intval', $productoIds), static fn (int $id): bool => $id > 0));
+        if ($productoIds === []) {
+            return [];
+        }
+
+        [$in, $inParams] = $this->inPlaceholders($productoIds, 'pid_c');
+        $sql = "SELECT pc.producto_id,
+                       m.marca_nombre,
+                       mo.modelo_nombre,
+                       sm.submodelo_nombre,
+                       pc.anio_desde,
+                       pc.anio_hasta
+                  FROM gestion__productos_compatibilidad pc
+             LEFT JOIN gestion__marcas m
+                    ON m.marca_id = pc.marca_id AND m.empresa_id = pc.empresa_id
+             LEFT JOIN gestion__modelos mo
+                    ON mo.modelo_id = pc.modelo_id AND mo.empresa_id = pc.empresa_id
+             LEFT JOIN gestion__submodelos sm
+                    ON sm.submodelo_id = pc.submodelo_id AND sm.empresa_id = pc.empresa_id
+                 WHERE pc.empresa_id = :empresa_id
+                   AND pc.tabla_estado_registro_id = 1
+                   AND pc.producto_id IN ($in)
+              ORDER BY pc.producto_id ASC, m.marca_nombre ASC, mo.modelo_nombre ASC, sm.submodelo_nombre ASC";
+
+        $rows = $this->all($sql, ['empresa_id' => $empresaId] + $inParams);
+
+        $resultado = [];
+        foreach ($rows as $row) {
+            $pid = (int) $row['producto_id'];
+            if (!isset($resultado[$pid])) {
+                $resultado[$pid] = [
+                    'marcas'        => [],
+                    'modelos'       => [],
+                    'submodelos'    => [],
+                    'anios'         => [],
+                    'combinaciones' => [],
+                ];
+            }
+
+            if (!empty($row['marca_nombre']) && !in_array($row['marca_nombre'], $resultado[$pid]['marcas'], true)) {
+                $resultado[$pid]['marcas'][] = (string) $row['marca_nombre'];
+            }
+            if (!empty($row['modelo_nombre']) && !in_array($row['modelo_nombre'], $resultado[$pid]['modelos'], true)) {
+                $resultado[$pid]['modelos'][] = (string) $row['modelo_nombre'];
+            }
+            if (!empty($row['submodelo_nombre']) && !in_array($row['submodelo_nombre'], $resultado[$pid]['submodelos'], true)) {
+                $resultado[$pid]['submodelos'][] = (string) $row['submodelo_nombre'];
+            }
+
+            $desde = (int) ($row['anio_desde'] ?? 0);
+            $hasta = (int) ($row['anio_hasta'] ?? 0);
+            $textoAnio = '';
+            if ($desde > 0) {
+                $textoAnio = ($hasta >= 2099 || $hasta === 0)
+                    ? "$desde - Actual"
+                    : ($desde === $hasta ? (string) $desde : "$desde - $hasta");
+                if (!in_array($textoAnio, $resultado[$pid]['anios'], true)) {
+                    $resultado[$pid]['anios'][] = $textoAnio;
+                }
+            }
+
+            $comb = [
+                'marca'     => (string) ($row['marca_nombre'] ?? ''),
+                'modelo'    => (string) ($row['modelo_nombre'] ?? ''),
+                'submodelo' => (string) ($row['submodelo_nombre'] ?? ''),
+                'anio'      => $textoAnio,
+            ];
+            if (!empty($comb['marca']) || !empty($comb['modelo']) || !empty($comb['submodelo']) || !empty($comb['anio'])) {
+                if (!in_array($comb, $resultado[$pid]['combinaciones'], true)) {
+                    $resultado[$pid]['combinaciones'][] = $comb;
+                }
+            }
+        }
+
+        return $resultado;
     }
 
     private function existePrecio(): string

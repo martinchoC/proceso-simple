@@ -114,3 +114,102 @@ function resolverAccionTransicion($conexion, $pagina_id, $estado_origen_id, $est
     }
     return null;
 }
+
+function actualizarCantidadDetallePedido($conexion, $venta_pedido_id, $venta_pedido_detalle_id, $cantidad, $empresa_idx)
+{
+    $venta_pedido_id = intval($venta_pedido_id);
+    $venta_pedido_detalle_id = intval($venta_pedido_detalle_id);
+    $cantidad = floatval($cantidad);
+    $empresa_idx = intval($empresa_idx);
+
+    if ($cantidad <= 0) {
+        return ['success' => false, 'error' => 'La cantidad debe ser mayor a 0.'];
+    }
+
+    mysqli_begin_transaction($conexion);
+
+    try {
+        $sql = "SELECT d.cantidad_entregada, d.precio_unitario, d.descuento_general_pct,
+                       d.descuento_general, d.precio_unitario_neto, d.iva_alicuota_id,
+                       d.iva_porcentaje, d.no_gravado, d.exento
+                FROM gestion__ventas_pedidos_detalles d
+                INNER JOIN gestion__ventas_pedidos vp ON vp.venta_pedido_id = d.venta_pedido_id
+                WHERE d.venta_pedido_detalle_id = ?
+                  AND d.venta_pedido_id = ?
+                  AND vp.empresa_id = ?
+                FOR UPDATE";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception('Error preparando la consulta del detalle.');
+        }
+        mysqli_stmt_bind_param($stmt, "iii", $venta_pedido_detalle_id, $venta_pedido_id, $empresa_idx);
+        mysqli_stmt_execute($stmt);
+        $detalle = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+
+        if (!$detalle) {
+            throw new Exception('Detalle de pedido no encontrado.');
+        }
+
+        $cantidad_reservada = floatval($detalle['cantidad_entregada']);
+        if ($cantidad < $cantidad_reservada - 0.0001) {
+            throw new Exception("La cantidad no puede ser menor a la cantidad ya reservada ($cantidad_reservada)." );
+        }
+
+        $precio_unitario = floatval($detalle['precio_unitario']);
+        $descuento_pct = floatval($detalle['descuento_general_pct']);
+        $descuento_unitario = $precio_unitario * $descuento_pct / 100;
+        $precio_neto = $precio_unitario - $descuento_unitario;
+        $neto_gravado = $cantidad * $precio_neto;
+        $iva_porcentaje = floatval($detalle['iva_porcentaje']);
+        $iva_importe = $neto_gravado * $iva_porcentaje / 100;
+        $no_gravado = floatval($detalle['no_gravado']);
+        $exento = floatval($detalle['exento']);
+        $total_linea = $neto_gravado + $iva_importe + $no_gravado + $exento;
+
+        $sql_update = "UPDATE gestion__ventas_pedidos_detalles
+                       SET cantidad = ?, descuento_general = ?, precio_unitario_neto = ?,
+                           neto_gravado = ?, iva_importe = ?, total_linea = ?
+                       WHERE venta_pedido_detalle_id = ? AND venta_pedido_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_update);
+        if (!$stmt) {
+            throw new Exception('Error preparando la actualización de cantidad.');
+        }
+        mysqli_stmt_bind_param($stmt, "ddddddii", $cantidad, $descuento_unitario, $precio_neto, $neto_gravado, $iva_importe, $total_linea, $venta_pedido_detalle_id, $venta_pedido_id);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception('Error actualizando la cantidad del pedido.');
+        }
+        mysqli_stmt_close($stmt);
+
+        $sql_totales = "UPDATE gestion__ventas_pedidos vp
+                        INNER JOIN (
+                            SELECT venta_pedido_id,
+                                   COALESCE(SUM(neto_gravado + no_gravado + exento), 0) AS subtotal,
+                                   COALESCE(SUM(descuento_general * cantidad), 0) AS descuentos,
+                                   COALESCE(SUM(iva_importe), 0) AS impuestos,
+                                   COALESCE(SUM(total_linea), 0) AS total
+                            FROM gestion__ventas_pedidos_detalles
+                            WHERE venta_pedido_id = ?
+                            GROUP BY venta_pedido_id
+                        ) t ON t.venta_pedido_id = vp.venta_pedido_id
+                        SET vp.subtotal = t.subtotal, vp.descuentos = t.descuentos,
+                            vp.impuestos = t.impuestos, vp.total = t.total
+                        WHERE vp.venta_pedido_id = ? AND vp.empresa_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_totales);
+        if (!$stmt) {
+            throw new Exception('Error preparando la actualización de totales.');
+        }
+        mysqli_stmt_bind_param($stmt, "iii", $venta_pedido_id, $venta_pedido_id, $empresa_idx);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception('Error actualizando los totales del pedido.');
+        }
+        mysqli_stmt_close($stmt);
+
+        mysqli_commit($conexion);
+        return ['success' => true, 'message' => 'Cantidad del pedido actualizada.'];
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        error_log('Error actualizando cantidad de detalle: ' . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
