@@ -330,7 +330,7 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         // Para cada término, agregar una condición AND
         foreach ($palabras as $palabra) {
             $palabra_like = '%' . $palabra . '%';
-            
+
             // La compatibilidad (marca+modelo+submodelo+año) se busca en
             // p.compatibilidad_busqueda, materializada por trigger sobre
             // gestion__productos_compatibilidad — reemplaza los 3 EXISTS+JOIN
@@ -341,23 +341,47 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             // el EXISTS contra gestion__productos_proveedores que hacía table
             // scan de esa tabla por cada palabra buscada (sin índice en
             // producto_id, era carísimo con el catálogo completo).
+            //
+            // p.compatibilidad_busqueda expande el rango de años AÑO POR AÑO
+            // (ej: "...2016 2017 2018 2019..."), justamente para que buscar
+            // "2015" encuentre un producto con rango 2000-2020. Efecto
+            // colateral: una palabra puramente numérica como "18" matchea por
+            // substring dentro de "2018", "1980", etc. — trae compatibilidades
+            // que no tienen nada que ver con el modelo buscado (ej: "renault
+            // 18" pensando en el modelo Renault 18 trae un Renault Estanciera
+            // 2000-2026 porque "2018" cae en ese rango). Para palabras 100%
+            // numéricas, se exige que el número aparezca como TOKEN completo
+            // (rodeado de espacios), no como substring de otro número.
+            if (ctype_digit($palabra)) {
+                $compat_condition = "CONCAT(' ', p.compatibilidad_busqueda, ' ') LIKE ?";
+                $compat_param = '% ' . $palabra . ' %';
+            } else {
+                $compat_condition = "p.compatibilidad_busqueda LIKE ?";
+                $compat_param = $palabra_like;
+            }
+
             $search_conditions = [
                 "p.producto_codigo LIKE ?",
                 "p.producto_nombre LIKE ?",
                 "p.codigo_barras LIKE ?",
                 "p.producto_descripcion LIKE ?",
                 "er.$estado_column LIKE ?",
-                "p.compatibilidad_busqueda LIKE ?",
+                $compat_condition,
                 "p.proveedores_busqueda LIKE ?"
             ];
 
             $where_conditions[] = "(" . implode(" OR ", $search_conditions) . ")";
 
-            // Agregar 7 parámetros por cada palabra (uno por cada condición)
-            for ($i = 0; $i < 7; $i++) {
-                $where_params[] = $palabra_like;
-                $where_types .= "s";
-            }
+            // 7 parámetros, uno por condición — el 6to (compatibilidad_busqueda)
+            // puede ser el patrón por token en vez del substring libre.
+            $where_params[] = $palabra_like;   // producto_codigo
+            $where_params[] = $palabra_like;   // producto_nombre
+            $where_params[] = $palabra_like;   // codigo_barras
+            $where_params[] = $palabra_like;   // producto_descripcion
+            $where_params[] = $palabra_like;   // estado
+            $where_params[] = $compat_param;   // compatibilidad_busqueda
+            $where_params[] = $palabra_like;   // proveedores_busqueda
+            $where_types .= "sssssss";
         }
     }
 
@@ -490,7 +514,11 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     //   (el texto de ESTA fila contiene W) OR (W no aparece en compatibilidad_busqueda)
     // — es decir: si W es una palabra "de compatibilidad" (aparece en el blob),
     // exigimos que esta fila puntual la contenga; si W no tiene nada que ver con
-    // compatibilidad (matcheó por nombre/código/estado), no se usa para filtrar filas.
+    // compatibilidad (matcheó por nombre/código/estado), no se usa para filtrar
+    // filas. Entre palabras es AND (no OR): buscás "chevrolet blazer" para UN
+    // vehículo puntual, así que la fila tiene que contener las dos, no alguna
+    // de las dos — si fuera OR, "chevrolet" solo ya alcanza para traer también
+    // la fila "Astra" del mismo producto, que nada tiene que ver con Blazer.
     if (!empty($palabras)) {
         foreach ($palabras as $palabra) {
             $palabra_like = '%' . $palabra . '%';
@@ -672,12 +700,12 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
                     $anio_desde = isset($item['anio_desde']) ? (int) $item['anio_desde'] : null;
                     $anio_hasta_raw = $item['anio_hasta'] ?? null;
                     if ($anio_hasta_raw === null) {
-                        $anio_texto = $anio_desde . ' - Actual';
+                        $anio_texto = $anio_desde . '-Actual';
                     } elseif ((int) $anio_hasta_raw >= 2100) {
                         // Sentinel de "sin tope" usado en gestion__productos_compatibilidad
-                        $anio_texto = $anio_desde . ' - Actual';
+                        $anio_texto = $anio_desde . '-Actual';
                     } else {
-                        $anio_texto = $anio_desde . ' - ' . (int) $anio_hasta_raw;
+                        $anio_texto = $anio_desde . '-' . (int) $anio_hasta_raw;
                     }
                     $compatibilidades[] = [
                         'marca' => $item['marca'] ?? '',

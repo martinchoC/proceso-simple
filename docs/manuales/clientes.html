@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Clientes</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 14px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert {
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 14px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #fff;
+    }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0 30px;
+    }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+        margin: 2px 4px 2px 0;
+    }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eef4ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral {
+        border-left: 3px solid var(--azul);
+        padding-left: 12px;
+        color: var(--texto-muted);
+        font-size: 0.92rem;
+        margin: 10px 0;
+    }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1><i class="fas fa-user-tie"></i> Manual de usuario: Clientes</h1>
+<p class="subtitulo">Cómo ver, dar de alta y gestionar tus clientes, sus condiciones comerciales y su acceso al carrito de pedidos online.</p>
+
+<div class="alert alert-info">
+    <strong>Antes de empezar:</strong> la pantalla <strong>Clientes</strong> no es una lista separada de tus clientes: es la misma lista de <strong>Entidades</strong> del sistema, mostrando únicamente las que están marcadas como cliente. Si diste de alta a alguien desde Entidades y lo marcaste "Es Cliente", ya lo vas a ver acá sin cargar nada de nuevo — y si editás sus datos desde cualquiera de las dos pantallas, el cambio se ve en ambas. Más detalle en <a href="#que-es">la siguiente sección</a>.
+</div>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es la pantalla Clientes?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados: Activo e Inactivo</a></li>
+        <li><a href="#agregar-editar">Agregar o editar un cliente</a></li>
+        <li><a href="#datos-principales">Pestaña: Datos Principales</a></li>
+        <li><a href="#sucursales">Pestaña: Sucursales</a></li>
+        <li><a href="#condiciones-clientes">Pestaña: Condiciones Clientes</a></li>
+        <li><a href="#acceso-web">Acceso web al carrito de pedidos</a></li>
+        <li><a href="#sucursales-compra">Pestaña: Sucursales de Compra</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es la pantalla Clientes?</h2>
+<p>Es el listado de todas las <strong>entidades</strong> (personas o empresas con las que trabajás) que están marcadas como cliente. Vive dentro del módulo <strong>Ventas</strong>, para que puedas encontrar y gestionar tus clientes sin tener que pasar por la pantalla general de Entidades — pero por debajo usa exactamente los mismos datos.</p>
+<p>Esto tiene una consecuencia práctica importante: si acá marcás a alguien como "Es Proveedor" además de cliente, ese cambio también se refleja en Entidades y en cualquier otra pantalla de proveedores. Y al revés: una entidad que sea cliente y proveedor a la vez la vas a ver tanto en el listado de Entidades como en este de Clientes.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Al entrar a <strong>Clientes</strong> ves un listado con todos tus clientes. Cada fila muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Nombre</td><td>Nombre legal del cliente</td></tr>
+    <tr><td>Fantasía</td><td>Nombre comercial, si tiene uno distinto al legal</td></tr>
+    <tr><td>Tipo</td><td>Categoría de la entidad (según lo configurado en el sistema)</td></tr>
+    <tr><td>CUIT</td><td>CUIT formateado, si está cargado</td></tr>
+    <tr><td>Proveedor / Cliente</td><td>Dos columnas con un ícono cada una: verde (✓) si la entidad cumple ese rol, gris (✕) si no. La columna "Proveedor" te sirve para detectar de un vistazo a los clientes que también son proveedores tuyos</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo (ver más abajo)</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles para esa fila, según su estado actual</td></tr>
+</table>
+<p>Podés buscar cualquier cliente escribiendo en el buscador arriba de la tabla, y ordenar por cualquier columna haciendo clic en su título. Las filas donde el cliente es <em>también proveedor</em> se resaltan en celeste para identificarlas rápido, y las filas de clientes inactivos se ven en gris.</p>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<p>Cada cliente tiene un estado que determina si está disponible para usarse en el resto del sistema (por ejemplo, para facturarle):</p>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<p>Un cliente nuevo siempre arranca en estado <strong>Activo</strong>. Lo pasás a <strong>Inactivo</strong> con el botón "Inhabilitar" cuando ya no operás con él, y podés volver a activarlo en cualquier momento con "Habilitar". No hay estados intermedios ni aprobaciones: es el mismo esquema simple de Activo/Inactivo que usa la pantalla Entidades.</p>
+
+<h2 id="agregar-editar">Agregar o editar un cliente</h2>
+<p>Arriba de la tabla está el botón para <span class="boton-ejemplo boton-primario">+ Agregar</span> un cliente nuevo. En cada fila del listado vas a ver, según el estado de ese cliente, algunos de estos botones:</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Editar</td><td>Abre la ficha completa del cliente para modificar cualquier dato</td><td>Siempre</td></tr>
+    <tr><td>Inhabilitar</td><td>Pasa el cliente a estado Inactivo (te pide confirmación antes de aplicarlo)</td><td>Solo si está Activo</td></tr>
+    <tr><td>Habilitar</td><td>Vuelve a poner el cliente en estado Activo (te pide confirmación antes de aplicarlo)</td><td>Solo si está Inactivo</td></tr>
+</table>
+<p>Al hacer clic en "Agregar" o "Editar" se abre una ficha con varias pestañas, que se explican a continuación. Recordá hacer clic en <span class="boton-ejemplo boton-primario">Guardar Entidad</span> al terminar de cargar los datos principales — recién ahí queda guardado el cliente y podés pasar a cargar sucursales o condiciones comerciales.</p>
+<div class="nota-lateral">Si intentás cargar una sucursal, una condición comercial o vincular una sucursal de compra antes de guardar los datos principales, el sistema te va a avisar que primero tenés que guardar.</div>
+
+<h2 id="datos-principales">Pestaña: Datos Principales</h2>
+<p>Acá cargás la información general del cliente:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Nombre Legal *</td><td>Razón social o nombre completo (obligatorio)</td></tr>
+    <tr><td>Nombre Fantasía</td><td>Nombre comercial, si es distinto al legal</td></tr>
+    <tr><td>Tipo de Entidad</td><td>Categoría según la clasificación del sistema</td></tr>
+    <tr><td>CUIT</td><td>11 dígitos, sin guiones</td></tr>
+    <tr><td>Sitio Web</td><td>Página web del cliente, si tiene</td></tr>
+    <tr><td>Domicilio Legal / Localidad</td><td>Dirección fiscal</td></tr>
+    <tr><td>Es Proveedor / Es Cliente</td><td>Marcá una, otra o ambas. Si además marcás "Es Proveedor", esa entidad va a aparecer también en el listado de proveedores — pero esta pantalla de Clientes no tiene una pestaña propia para cargar sus condiciones de compra: para eso hay que entrar a la pantalla Entidades</td></tr>
+    <tr><td>Cuenta Contable (Proveedor / Cliente)</td><td>Cuenta contable con la que se vincula esta entidad en cada rol</td></tr>
+    <tr><td>Observaciones</td><td>Notas libres, hasta 1000 caracteres</td></tr>
+</table>
+<div class="nota-lateral">El campo "Cuenta Contable (Proveedor)" aparece igual aunque el cliente no sea proveedor. Solo hace falta completarlo si también le comprás a esa entidad.</div>
+
+<h2 id="sucursales">Pestaña: Sucursales</h2>
+<p>Acá registrás los distintos domicilios comerciales que puede tener un mismo cliente (por ejemplo, varias sucursales de una misma cadena). Con <span class="boton-ejemplo boton-primario">+ Nueva Sucursal</span> cargás nombre, dirección, localidad, teléfono, email y persona de contacto de cada una. El contador junto a la solapa te muestra cuántas sucursales tiene cargadas el cliente.</p>
+
+<h2 id="condiciones-clientes">Pestaña: Condiciones Clientes</h2>
+<p>Acá se define <strong>en qué condiciones le vendés</strong> a este cliente:</p>
+<div class="card card-outline-primary">
+    <strong>Condición vigente</strong>
+    <p>La tarjeta superior muestra la condición comercial que está activa hoy: tipo de cliente, condición de pago, lista de precios, descuento general, límite de crédito, desde cuándo rige, y si tiene o no acceso al carrito de pedidos online.</p>
+</div>
+<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Condición</span> cargás una condición comercial nueva (con su fecha de inicio, y opcionalmente una fecha de fin si ya sabés hasta cuándo va a regir). Con <span class="boton-ejemplo boton-outline">Ver Historial</span> podés consultar todas las condiciones que tuvo este cliente a lo largo del tiempo, no solo la vigente.</p>
+<div class="nota-lateral">Dejar la fecha "Hasta" vacía significa que la condición sigue vigente hasta que se cargue una nueva.</div>
+
+<h2 id="acceso-web">Acceso web al carrito de pedidos</h2>
+<p>Dentro de la misma pestaña de Condiciones Clientes, más abajo, está el bloque de <strong>acceso web</strong>: si el cliente ya tiene usuario para hacer pedidos desde el carrito online, o si todavía no.</p>
+<ul>
+    <li>Si <strong>no tiene usuario</strong>, aparece el botón <span class="boton-ejemplo boton-primario">Dar de alta usuario</span>, que genera automáticamente un usuario (el CUIT del cliente) y una contraseña.</li>
+    <li>Si <strong>ya tiene usuario</strong>, se muestran el usuario, la contraseña y el email, junto con el botón <span class="boton-ejemplo boton-outline">Regenerar contraseña</span> por si el cliente la perdió o necesitás cambiarla — tené en cuenta que al regenerarla, la contraseña anterior deja de funcionar al instante, así que después hay que avisarle la nueva al cliente.</li>
+    <li>Si el cliente todavía no tiene CUIT cargado, el sistema te va a pedir que lo completes en la pestaña Datos Principales antes de poder generar el acceso web.</li>
+</ul>
+<div class="alert alert-warning">La contraseña se muestra en texto plano de forma temporal mientras el carrito de pedidos está en esta etapa del proyecto — tenelo en cuenta al compartir esta información.</div>
+
+<h2 id="sucursales-compra">Pestaña: Sucursales de Compra</h2>
+<p>Esta pestaña vincula al cliente con las sucursales <em>de tu propia empresa</em> (no confundir con la pestaña "Sucursales", que son los domicilios del cliente). Con <span class="boton-ejemplo boton-primario">Vincular Sucursal</span> elegís una de tus sucursales y marcás si es la principal para ese cliente.</p>
+<ul>
+    <li>Si es la primera vinculación que cargás para ese cliente, el sistema la marca como principal automáticamente.</li>
+    <li>Cada vinculación tiene su propia vigencia (desde/hasta). Mientras esté vigente, podés cerrarla con el botón <span class="boton-ejemplo boton-peligro">✕</span> de la tabla, que te pide confirmación antes de cerrarla.</li>
+</ul>
+<div class="nota-lateral">Esta pestaña es la misma herramienta que usa la pantalla Entidades para vincular sucursales de compra a un proveedor. Acá aparece igual para todas las entidades marcadas como cliente, aunque para la mayoría de los clientes no hace falta usarla.</div>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha de la tabla principal tenés el botón <span class="boton-ejemplo boton-outline">Exportar</span>, con las opciones Excel, PDF, CSV e Imprimir, para sacar el listado de clientes tal como lo estás viendo en pantalla (con los filtros y el orden que tengas aplicados). El botón de recargar (<span class="boton-ejemplo boton-outline">↻</span>), junto al de agregar, actualiza la tabla sin necesidad de recargar toda la página.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>¿"Clientes" y "Entidades" son pantallas distintas con datos distintos?</td>
+        <td>No. Son la misma información: "Clientes" muestra exactamente las entidades que tenés marcadas como "Es Cliente". Si no encontrás a alguien acá, puede ser que esté cargado en Entidades pero sin ese casillero marcado — o que directamente no esté cargado todavía. Cualquier dato que edites desde una de las dos pantallas (nombre, CUIT, domicilio, etc.) se actualiza también en la otra, porque es el mismo registro.</td>
+    </tr>
+    <tr>
+        <td>Marqué "Es Proveedor" en un cliente, ¿dónde cargo sus condiciones de compra?</td>
+        <td>Esta pantalla de Clientes no tiene una pestaña de "Condiciones Proveedores". Para cargar la condición de pago, categoría y descuento como proveedor, entrá a la pantalla Entidades y editá ahí esa misma entidad — vas a ver la pestaña correspondiente habilitada.</td>
+    </tr>
+    <tr>
+        <td>¿Qué pasa si inhabilito un cliente por error?</td>
+        <td>Podés volver a activarlo en cualquier momento con el botón "Habilitar" — no se pierde ningún dato cargado.</td>
+    </tr>
+    <tr>
+        <td>¿Las sucursales de la pestaña "Sucursales" son las mías o las del cliente?</td>
+        <td>Son del cliente que estás editando (sus propios domicilios comerciales). Las sucursales tuyas se vinculan aparte, en la pestaña "Sucursales de Compra".</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Ventas / Clientes. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -126,14 +126,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text"><i class="fas fa-search"></i></span>
                                                     <div class="form-control p-1" id="buscadorTagsContainer" style="min-height: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; cursor: text;">
-                                                        <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Escribí una palabra o frase y presioná Enter...">
+                                                        <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Escribí una palabra y presioná espacio...">
                                                     </div>
                                                     <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTags" title="Limpiar todos los filtros">
                                                         <i class="fas fa-times"></i>
                                                     </button>
                                                 </div>
                                                 <small class="text-muted">
-                                                    Presioná <kbd>Enter</kbd> para agregar una etiqueta (se combinan). Podés usar frases con espacios, ej. <em>disco rígido</em>. La <i class="fas fa-times"></i> limpia todos los filtros.
+                                                    Presioná <kbd>Espacio</kbd> para agregar una etiqueta (se combinan). Para nombres de dos palabras usá comillas, ej. <em>"renault 18"</em>, y luego espacio o <kbd>Enter</kbd> para confirmarla como una sola. La <i class="fas fa-times"></i> limpia todos los filtros.
                                                     <span id="infoFiltros" class="badge bg-light text-dark ms-1" style="display:none;"></span>
                                                 </small>
                                             </div>
@@ -1206,17 +1206,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
            con una mini-tabla de una fila por combinación real. Mismo font-size/
            padding en las 4 para que las filas se alineen entre columnas. */
         .compat-col-table { border-collapse: separate !important; border-spacing: 0 2px !important; font-size: 0.78rem; width: 100%; }
-        .compat-col-table td { padding: 0.15rem 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; border: none !important; border-radius: 0.2rem !important; font-weight: 700; }
+        .compat-col-table td { padding: 0.15rem 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; border: none !important; border-radius: 0.2rem !important; font-weight: 700; line-height: 1rem; }
         .compat-td-marca { background-color: #0dcaf0; color: #000; }
         .compat-td-modelo { background-color: #198754; color: #fff; }
-        .compat-td-submodelo { background-color: #ffc107; color: #000; }
-        .compat-td-anios { background-color: #6c757d; color: #fff; text-align: center; }
+        .compat-td-submodelo { background-color: #6c757d; color: #fff; }
+        .compat-td-anios { background-color: #ffc107; color: #000; text-align: center; }
 
-        /* Columna Precio: neto y c/IVA por cada lista de precios */
+        /* Columna Precio: neto grande + chip celeste compacto con el precio c/IVA */
         .precios-listas-container { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
-        .precio-lista-item { line-height: 1.1; padding: 2px 0; }
-        .precio-lista-item + .precio-lista-item { border-top: 1px dashed #dee2e6; padding-top: 4px; }
-        .precio-lista-item { font-size: 0.72rem; }
+        .precio-lista-item {
+            line-height: 1.2; padding: 2px 0;
+            display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+        }
+        .precio-lista-item + .precio-lista-item { border-top: 1px dashed #dee2e6; padding-top: 6px; }
+        .precio-neto { font-size: 0.9rem; font-weight: 700; color: #212529; }
+        .precio-iva-chip {
+            display: inline-block; white-space: nowrap;
+            background-color: #cfe2ff; color: #084298;
+            font-size: 0.9rem; font-weight: 700;
+            padding: 1px 8px; border-radius: 10px;
+        }
 
         /* DataTables Responsive: columnas ocultas se muestran en una fila expandible (+) */
         #tablaProductos.dtr-inline.collapsed > tbody > tr > td.dtr-control,
@@ -2133,12 +2142,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     if (e.target === this || $(e.target).is('#buscadorTagsContainer')) tagsInput.focus();
                 });
 
-                // El espacio NO cierra la etiqueta: se escribe normalmente para poder
-                // buscar frases compuestas ("disco rígido"). La etiqueta se confirma
-                // con Enter.
+                // El espacio confirma la etiqueta (comportamiento por defecto).
+                // Excepción: si hay una comilla doble sin cerrar en lo tecleado,
+                // estamos armando una frase compuesta ("renault 18") y el espacio
+                // se escribe normal — la etiqueta se confirma recién al cerrar la
+                // comilla (o con Enter, que siempre confirma pase lo que pase).
                 tagsInput.on('keydown', function(e) {
-                    var value = $(this).val().trim();
-                    if (e.key === 'Enter') {
+                    var valorActual = $(this).val();
+                    var value = valorActual.trim();
+                    var comillaAbierta = ((valorActual.match(/"/g) || []).length % 2) === 1;
+
+                    if (e.key === ' ' && !comillaAbierta) {
+                        e.preventDefault();
+                        if (value.length > 0) {
+                            agregarTag(value);
+                            $(this).val('');
+                            ejecutarBusquedaTags();
+                        }
+                    } else if (e.key === 'Enter') {
                         e.preventDefault();
                         if (value.length > 0) {
                             agregarTag(value);
@@ -2154,8 +2175,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 // Al pegar, el texto queda en el input (normalizado a una sola línea)
-                // esperando el Enter — así un pegado multi-palabra sigue siendo UNA
-                // etiqueta, igual que si se tipeara.
+                // esperando confirmación (espacio o Enter) — si el texto pegado tiene
+                // espacios y no se abrió con comillas, se va a partir en varias
+                // etiquetas apenas el usuario siga escribiendo o confirme.
                 tagsInput.on('paste', function() {
                     setTimeout(function() {
                         var value = tagsInput.val().replace(/\s+/g, ' ').trim();
@@ -2552,7 +2574,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             render: function(data) {
                                 var anioDesde = data.anio_desde || '';
                                 var anioHasta = data.anio_hasta == '0' ? 'Actual' : (data.anio_hasta || '');
-                                if (anioHasta && anioHasta !== 'Actual') return anioDesde + ' - ' + anioHasta;
+                                if (anioHasta && anioHasta !== 'Actual') return anioDesde + '-' + anioHasta;
                                 return anioDesde || '-';
                             }
                         },
@@ -3162,7 +3184,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 // Una columna de DataTable por cada lista de precios activa
                 var columnasListasPrecios = listasPrecios.map(function(lista) {
                     return {
-                        data: null, width: '120px', className: 'text-end', orderable: false, searchable: false, responsivePriority: 5,
+                        data: null, width: '150px', className: 'text-end', orderable: false, searchable: false, responsivePriority: 5,
                         render: function(data, type, row) {
                             var fmt = function(n) {
                                 return parseFloat(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -3178,8 +3200,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                             var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
                             return '<div class="precio-lista-item" title="IVA ' + iva + '%">' +
-                                        '<span class="fw-medium">$ ' + fmt(entry.precio_neto) + '</span>' +
-                                        '<small class="text-muted d-block lh-1">c/IVA $ ' + fmt(entry.precio_con_iva) + '</small>' +
+                                        '<span class="precio-neto">$ ' + fmt(entry.precio_neto) + '</span>' +
+                                        '<span class="precio-iva-chip">IVA $ ' + fmt(entry.precio_con_iva) + '</span>' +
                                     '</div>';
                         }
                     };
@@ -3416,8 +3438,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 }
                                 if (!data || !data.length) return '<span class="text-muted">-</span>';
                                 return data.map(function(p) {
-                                    var titulo = (p.entidad_nombre || 'Proveedor').replace(/"/g, '&quot;');
-                                    return '<span class="badge bg-secondary d-block mb-1" title="' + titulo + '">' + p.codigo_proveedor + '</span>';
+                                    var titulo = escapeHtml(p.entidad_nombre || 'Proveedor');
+                                    var codigo = escapeHtml(p.codigo_proveedor || '');
+                                    return '<span class="badge bg-secondary d-block mb-1" title="' + titulo + '">' + codigo + '</span>';
                                 }).join('');
                             }
                         },

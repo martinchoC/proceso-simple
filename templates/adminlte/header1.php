@@ -42,7 +42,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 ?>
 
 <!doctype html>
-<html lang="en">
+<html lang="es" translate="no">
 
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -54,8 +54,9 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <meta name="title" content="Developsam | Multigestion" />
   <meta name="author" content="Developsam" />
   <meta name="description" content="Developsam" />
+  <meta name="google" content="notranslate" />
 
-  <meta name="supported-color-schemes" content="light dark" />  
+  <meta name="supported-color-schemes" content="light dark" />
   <link rel="icon" type="image/png" href="<?= asset('img/logo.png') ?>">
   <link rel="shortcut icon" href="<?= asset('img/logo.png') ?>">
   <link href="<?= asset_local('css/dataTables.bootstrap5.min.css') ?>" rel="stylesheet" />
@@ -145,6 +146,20 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             window.location.href = '" . url('index.php') . "';
         </script>";
       exit;
+    }
+
+    $paginas_permitidas = [];
+    if ($current_empresa_id > 0) {
+      $paginas_permitidas = usuario_obtener_paginas_permitidas($conexion, $usuario_logueado_id, $current_empresa_id);
+
+      $pagina_actual_id = isset($pagina_idx) ? intval($pagina_idx) : 0;
+      if ($pagina_actual_id > 0 && !isset($paginas_permitidas[$pagina_actual_id])) {
+        echo "<script>
+              alert('Acceso Denegado: No tienes permisos para acceder a esta página.');
+              window.location.href = '" . url('index.php') . "';
+          </script>";
+        exit;
+      }
     }
     ?>
 
@@ -291,7 +306,13 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             aria-label="Main navigation" data-accordion="true" id="navigation">
 
             <?php
-            $current_url_full = $_SERVER['REQUEST_URI'];
+            // Antes se comparaba por subcadena contra REQUEST_URI (strpos), lo
+            // que marcaba como activa cualquier página cuya url fuera sufijo
+            // de otra (ej: "proveedores.php" queda "contenido" dentro de
+            // "productos_proveedores.php" y las marcaba activas a ambas).
+            // pagina_id es exacto y siempre viaja en el link del menú
+            // (?pagina_id=X), así que es la comparación correcta.
+            $current_pagina_id = intval($_GET['pagina_id'] ?? 0);
             $qs_sidebar = "&empresa_id=" . $current_empresa_id . "&modulo_id=" . $current_modulo_id;
 
             $modudo_idx = $current_modulo_id;
@@ -307,32 +328,55 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
               $res = mysqli_query($conexion, $sql);
 
               while ($row = mysqli_fetch_array($res)) {
+                $pagina_id_actual = (int) $row['pagina_id'];
+
                 $submenu_sql = "SELECT conf__paginas.*, conf__iconos.icono_clase
-                                FROM conf__paginas 
+                                FROM conf__paginas
                                 LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
-                                WHERE conf__paginas.padre_id = " . $row['pagina_id'] . " 
-                                AND conf__paginas.tabla_estado_registro_id = 1 
+                                WHERE conf__paginas.padre_id = " . $pagina_id_actual . "
+                                AND conf__paginas.tabla_estado_registro_id = 1
                                 ORDER BY conf__paginas.orden";
                 $submenu_res = mysqli_query($conexion, $submenu_sql);
-                $has_submenu = mysqli_num_rows($submenu_res) > 0;
+
+                $tiene_hijos_definidos = mysqli_num_rows($submenu_res) > 0;
+
+                $submenu_items = [];
+                while ($submenu_row = mysqli_fetch_array($submenu_res)) {
+                  if (isset($paginas_permitidas[(int) $submenu_row['pagina_id']])) {
+                    $submenu_items[] = $submenu_row;
+                  }
+                }
+
+                $has_submenu = count($submenu_items) > 0;
+
+                if ($tiene_hijos_definidos) {
+                  // Es un contenedor (tiene hijos definidos en conf__paginas): se muestra
+                  // únicamente si al menos uno de esos hijos está habilitado para el usuario.
+                  // No aplica el "acceso libre" de páginas sin funciones, porque acá lo que
+                  // importa es si hay contenido habilitado debajo, no la página en sí.
+                  if (!$has_submenu) {
+                    continue;
+                  }
+                } else {
+                  // Página hoja: se muestra según su propio permiso.
+                  if (!isset($paginas_permitidas[$pagina_id_actual])) {
+                    continue;
+                  }
+                }
 
                 $is_active = false;
                 if ($has_submenu) {
-                  mysqli_data_seek($submenu_res, 0);
-                  while ($submenu_row = mysqli_fetch_array($submenu_res)) {
-                    $submenu_url_clean = trim($submenu_row['url'], './');
-                    if (strpos($current_url_full, $submenu_url_clean) !== false) {
+                  foreach ($submenu_items as $submenu_row) {
+                    if ($current_pagina_id > 0 && (int) $submenu_row['pagina_id'] === $current_pagina_id) {
                       $is_active = true;
                       break;
                     }
                   }
-                  mysqli_data_seek($submenu_res, 0);
                 } else {
-                  $menu_url_clean = trim($row['url'], './');
-                  $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
+                  $is_active = ($current_pagina_id > 0 && $pagina_id_actual === $current_pagina_id);
                 }
 
-                $link_padre = $has_submenu ? '#' : $row['url'] . '?pagina_id=' . $row['pagina_id'] . $qs_sidebar;
+                $link_padre = $has_submenu ? '#' : $row['url'] . '?pagina_id=' . $pagina_id_actual . $qs_sidebar;
                 ?>
 
                 <li class="nav-item <?= $is_active ? 'menu-open' : '' ?>">
@@ -349,10 +393,9 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                   <?php if ($has_submenu): ?>
                     <ul class="nav nav-treeview"
                       style="padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
-                      <?php while ($submenu_row = mysqli_fetch_array($submenu_res)): ?>
+                      <?php foreach ($submenu_items as $submenu_row): ?>
                         <?php
-                        $submenu_url_clean = trim($submenu_row['url'], './');
-                        $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
+                        $is_submenu_active = ($current_pagina_id > 0 && (int) $submenu_row['pagina_id'] === $current_pagina_id);
                         ?>
                         <li class="nav-item">
                           <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?><?= $qs_sidebar ?>"
@@ -364,7 +407,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                             <?php endif; ?>
                           </a>
                         </li>
-                      <?php endwhile; ?>
+                      <?php endforeach; ?>
                     </ul>
                   <?php endif; ?>
                 </li>

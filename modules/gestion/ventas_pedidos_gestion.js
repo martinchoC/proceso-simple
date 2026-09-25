@@ -441,18 +441,19 @@ $(document).ready(function () {
             return;
         }
 
+        // Vista por defecto: solo lo que hace falta para picking (qué producto,
+        // dónde está, cuánto falta, cuánto preparar). Cantidad pedida, ajuste de
+        // pedido, entregado y en-remito-actual son datos administrativos/de
+        // auditoría — quedan atrás del ícono (i) por fila para no saturar.
         var html = `<table class="table table-sm table-bordered table-hover mb-0">
             <thead class="table-light">
                 <tr>
                     <th>Código</th>
                     <th>Producto</th>
                     <th>Ubicación</th>
-                    <th class="text-end">Cantidad</th>
-                    <th class="text-center text-danger" width="150">Ajustar Pedido</th>
-                    <th class="text-end">Entregado</th>
-                    <th class="text-end">En Remito Actual</th>
                     <th class="text-end">Pendiente De Entrega</th>
                     <th class="text-center" width="110">A Preparar</th>
+                    <th class="text-center" width="36"></th>
                 </tr>
             </thead>
             <tbody>`;
@@ -460,22 +461,11 @@ $(document).ready(function () {
         filas.forEach(function (item) {
             var linea = item.linea;
             var cantidadEnBorrador = cantidadYaEnBorrador(linea.venta_pedido_detalle_id);
+            var collapseId = 'detalle-pendiente-' + linea.venta_pedido_detalle_id;
             html += `<tr>
                 <td>${linea.producto_codigo || ''}</td>
                 <td>${linea.producto_nombre || ''}</td>
                 <td>${renderUbicaciones(linea.ubicaciones_detalle)}</td>
-                <td class="text-end">${formatMoneda(linea.cantidad)}</td>
-                <td>
-                    <div class="cantidad-stepper ajustar-pedido-stepper mx-auto">
-                        <button type="button" class="btn-stepper btn-ajustar-cantidad-menos text-danger" data-vpd-id="${linea.venta_pedido_detalle_id}" title="Disminuir cantidad">&minus;</button>
-                        <input type="number" class="cantidad-stepper-input input-ajustar-cantidad-pedido text-center"
-                            value="${parseFloat(linea.cantidad).toFixed(2)}" min="${parseFloat(linea.cantidad_entregada || 0).toFixed(2)}" step="0.01"
-                            data-vpd-id="${linea.venta_pedido_detalle_id}">
-                        <button type="button" class="btn-stepper btn-ajustar-cantidad-mas text-danger" data-vpd-id="${linea.venta_pedido_detalle_id}" title="Aumentar cantidad">+</button>
-                    </div>
-                </td>
-                <td class="text-end">${formatMoneda(cantidadEntregadaConfirmada(linea.venta_pedido_detalle_id))}</td>
-                <td class="text-end fw-bold text-primary">${formatMoneda(item.enRemitoActual)}</td>
                 <td class="text-end">${formatMoneda(item.pendienteEfectivo)}</td>
                 <td>
                     <div class="cantidad-stepper mx-auto">
@@ -487,6 +477,30 @@ $(document).ready(function () {
                             data-codigo="${linea.producto_codigo || ''}"
                             data-nombre="${linea.producto_nombre || ''}"
                             tabindex="-1">+</button>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-link p-0 btn-toggle-detalle-pendiente" data-bs-toggle="collapse" data-bs-target="#${collapseId}" title="Ver más detalle">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </td>
+            </tr>
+            <tr class="collapse" id="${collapseId}">
+                <td colspan="6" class="bg-light">
+                    <div class="row g-3 small align-items-center py-1">
+                        <div class="col-auto"><span class="text-muted">Cantidad Pedida:</span> <strong>${formatMoneda(linea.cantidad)}</strong></div>
+                        <div class="col-auto d-flex align-items-center gap-1">
+                            <span class="text-muted">Ajustar Pedido:</span>
+                            <div class="cantidad-stepper ajustar-pedido-stepper">
+                                <button type="button" class="btn-stepper btn-ajustar-cantidad-menos text-danger" data-vpd-id="${linea.venta_pedido_detalle_id}" title="Disminuir cantidad">&minus;</button>
+                                <input type="number" class="cantidad-stepper-input input-ajustar-cantidad-pedido text-center"
+                                    value="${parseFloat(linea.cantidad).toFixed(2)}" min="${parseFloat(linea.cantidad_entregada || 0).toFixed(2)}" step="0.01"
+                                    data-vpd-id="${linea.venta_pedido_detalle_id}">
+                                <button type="button" class="btn-stepper btn-ajustar-cantidad-mas text-danger" data-vpd-id="${linea.venta_pedido_detalle_id}" title="Aumentar cantidad">+</button>
+                            </div>
+                        </div>
+                        <div class="col-auto"><span class="text-muted">Entregado:</span> <strong>${formatMoneda(cantidadEntregadaConfirmada(linea.venta_pedido_detalle_id))}</strong></div>
+                        <div class="col-auto"><span class="text-muted">En Remito Actual:</span> <strong class="text-primary">${formatMoneda(item.enRemitoActual)}</strong></div>
                     </div>
                 </td>
             </tr>`;
@@ -710,6 +724,10 @@ $(document).ready(function () {
     }
 
     $(document).on('click', '.btn-toggle-remito-picking', function () {
+        $(this).find('i').toggleClass('fa-chevron-down fa-chevron-up');
+    });
+
+    $(document).on('click', '.btn-toggle-detalle-pendiente', function () {
         $(this).find('i').toggleClass('fa-chevron-down fa-chevron-up');
     });
 

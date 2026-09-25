@@ -253,6 +253,14 @@ $(document).ready(function(){
     var coloresOptions = [];
     var estadosOptions = {};
 
+    // El flujo de "Editar" hace dos llamadas AJAX encadenadas más un setTimeout
+    // antes de mostrar el modal. Si en el medio el usuario abre "Nueva Función",
+    // esa respuesta tardía terminaba pisando el modal recién reseteado (mostraba
+    // "Editar Función" con los datos de la fila vieja). Cada apertura de modal
+    // (Nuevo o Editar) saca un token nuevo; una respuesta que ya no es la más
+    // reciente se descarta en vez de aplicarse.
+    var modalToken = 0;
+
     // Función para mostrar vista previa del icono
     function actualizarVistaPreviaIcono() {
         var iconoId = $('#icono_id').val();
@@ -582,6 +590,8 @@ $(document).ready(function(){
     cargarOpciones();
 
     $('#btnNuevo').click(function(){
+        modalToken++; // invalida cualquier "Editar" pendiente de resolverse
+
         $('#formPaginaFuncion')[0].reset();
         $('#pagina_funcion_id').val('');
         
@@ -641,7 +651,8 @@ $(document).ready(function(){
    // EDITAR REGISTRO
 $('#tablaPaginasFunciones tbody').on('click', '.btnEditar', async function(){
     var data = tabla.row($(this).parents('tr')).data();
-    
+    var myToken = ++modalToken;
+
     try {
         const response = await $.ajax({
             url: 'paginas_funciones_ajax.php',
@@ -649,14 +660,21 @@ $('#tablaPaginasFunciones tbody').on('click', '.btnEditar', async function(){
             data: {accion: 'obtener', pagina_funcion_id: data.pagina_funcion_id},
             dataType: 'json'
         });
-        
+
         console.log('Datos recibidos para editar:', response);
-        
+
         // Verificar si hay error en la respuesta
         if (response.error) {
             throw new Error(response.error);
         }
-        
+
+        // Si mientras esperábamos la respuesta el usuario abrió otro modal
+        // (Nuevo u otra Edición), esta respuesta ya quedó vieja: se descarta
+        // sin tocar el formulario.
+        if (myToken !== modalToken) {
+            return;
+        }
+
         if(response) {
             // Llenar campos básicos
             $('#pagina_funcion_id').val(response.pagina_funcion_id);
@@ -694,9 +712,16 @@ $('#tablaPaginasFunciones tbody').on('click', '.btnEditar', async function(){
             if (tabla_id) {
                 $('#tabla_id').val(tabla_id);
                 await cargarEstadosPorTabla(tabla_id);
-                
+
+                if (myToken !== modalToken) {
+                    return; // se abrió otro modal mientras cargaban los estados
+                }
+
                 // Establecer valores de estados después de cargarlos
                 setTimeout(() => {
+                    if (myToken !== modalToken) {
+                        return;
+                    }
                     console.log('Estableciendo estados:', {
                         origen: response.tabla_estado_registro_origen_id,
                         destino: response.tabla_estado_registro_destino_id
@@ -708,7 +733,7 @@ $('#tablaPaginasFunciones tbody').on('click', '.btnEditar', async function(){
                 $('#tabla_id').val('');
                 $('#estado_registro_origen_id, #estado_registro_destino_id').empty().append('<option value="">Seleccionar estado</option>');
             }
-            
+
             $('#modalLabel').text('Editar Función de Página');
             var modal = new bootstrap.Modal(document.getElementById('modalPaginaFuncion'));
             modal.show();
@@ -725,12 +750,23 @@ $('#tablaPaginasFunciones tbody').on('click', '.btnEditar', async function(){
 
     $('#btnGuardar').click(function(){
         var form = document.getElementById('formPaginaFuncion');
-    
+
         if (!form.checkValidity()) {
             form.classList.add('was-validated');
+            // El checkValidity() nativo solo marca el campo en rojo; si la
+            // página elegida no tiene estados cargados (conf__tablas_estados_registros
+            // vacío para esa tabla) el usuario ve el modal "sin reaccionar" al
+            // tocar Guardar. Se agrega este aviso explícito para ese caso.
+            if (!$('#estado_registro_destino_id').val() && $('#estado_registro_destino_id option').length <= 1) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sin estados configurados',
+                    text: 'La tabla de esta página no tiene estados definidos en "Tablas - Estados Registros". Configúrelos antes de crear funciones.'
+                });
+            }
             return false;
         }
-        
+
         var id = $('#pagina_funcion_id').val();
         var accion = id ? 'editar' : 'agregar';
         var formData = {

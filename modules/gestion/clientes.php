@@ -95,17 +95,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
 
                                         <!-- DataTable -->
-                                        <table id="tablaEntidades" class="table table-striped table-bordered"
+                                        <table id="tablaEntidades" class="table table-striped table-bordered table-sm"
                                             style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="80">ID</th>
-                                                    <th width="150">Nombre</th>
-                                                    <th width="150">Fantasia</th>
+                                                    <th width="200">Nombre</th>
                                                     <th width="100">Tipo</th>
                                                     <th width="120">CUIT</th>
-                                                    <th width="80">Proveedor</th>
-                                                    <th width="80">Cliente</th>
+                                                    <th width="180">Condiciones Clientes</th>
                                                     <th width="120">Estado</th>
                                                     <th width="200" class="text-center">Acciones</th>
                                                 </tr>
@@ -715,7 +713,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .table td {
             vertical-align: middle;
         }
-        
+
+        /* Look compacto, alineado al de ventas_facturas.php */
+        #tablaEntidades {
+            font-size: 0.82rem;
+        }
+
         #tablaSucursales_wrapper {
             font-size: 0.9rem;
         }
@@ -2320,7 +2323,7 @@ $(document).ready(function () {
                     className: 'btn btn-success btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
+                        columns: [0, 1, 2, 3, 4, 5],
                         orthogonal: 'export'
                     }
                 },
@@ -2332,7 +2335,7 @@ $(document).ready(function () {
                     orientation: 'portrait',
                     pageSize: 'A4',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
+                        columns: [0, 1, 2, 3, 4, 5],
                         orthogonal: 'export'
                     }
                 },
@@ -2342,7 +2345,7 @@ $(document).ready(function () {
                     className: 'btn btn-primary btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7]
+                        columns: [0, 1, 2, 3, 4, 5]
                     }
                 },
                 {
@@ -2351,7 +2354,7 @@ $(document).ready(function () {
                     className: 'btn btn-secondary btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
+                        columns: [0, 1, 2, 3, 4, 5],
                         stripHtml: false
                     }
                 }
@@ -2365,18 +2368,10 @@ $(document).ready(function () {
                     data: 'entidad_nombre',
                     render: function (data, type, row) {
                         if (type === 'export') {
-                            return data;
+                            return data + (row.entidad_fantasia ? ' - ' + row.entidad_fantasia : '');
                         }
-                        return `<div class="fw-medium">${data}</div>`;
-                    }
-                },
-                {
-                    data: 'entidad_fantasia',
-                    render: function (data, type, row) {
-                        if (type === 'export') {
-                            return data || '';
-                        }
-                        return data ? `<div class="text-muted">${data}</div>` : '<span class="text-muted fst-italic">No especificado</span>';
+                        return `<div class="fw-medium">${data}</div>` +
+                            (row.entidad_fantasia ? `<small class="d-block text-muted">${row.entidad_fantasia}</small>` : '');
                     }
                 },
                 {
@@ -2413,33 +2408,29 @@ $(document).ready(function () {
                     }
                 },
                 {
-                    data: 'es_proveedor',
+                    data: 'condicion_cliente_info',
                     className: 'text-center',
                     render: function (data, type, row) {
+                        if (!data || !data.condicion_pago) {
+                            if (type === 'export') {
+                                return 'Sin condición vigente';
+                            }
+                            return '<span class="text-muted fst-italic">Sin condición vigente</span>';
+                        }
+
                         if (type === 'export') {
-                            return data == 1 ? 'Sí' : 'No';
+                            var texto = data.condicion_pago;
+                            if (data.cliente_descuento_general) {
+                                texto += ' (' + data.cliente_descuento_general + '% dto.)';
+                            }
+                            return texto;
                         }
-                        
-                        if (data == 1) {
-                            return '<i class="fas fa-check-circle text-success"></i>';
-                        } else {
-                            return '<i class="fas fa-times-circle text-secondary"></i>';
+
+                        var html = `<div class="fw-medium">${data.condicion_pago}</div>`;
+                        if (data.cliente_descuento_general) {
+                            html += `<span class="badge bg-info text-dark">${data.cliente_descuento_general}% dto.</span>`;
                         }
-                    }
-                },
-                {
-                    data: 'es_cliente',
-                    className: 'text-center',
-                    render: function (data, type, row) {
-                        if (type === 'export') {
-                            return data == 1 ? 'Sí' : 'No';
-                        }
-                        
-                        if (data == 1) {
-                            return '<i class="fas fa-check-circle text-success"></i>';
-                        } else {
-                            return '<i class="fas fa-times-circle text-secondary"></i>';
-                        }
+                        return html;
                     }
                 },
                 {
@@ -2459,7 +2450,7 @@ $(document).ready(function () {
                             return estado;
                         }
 
-                        var badgeClass = data.bg_clase ? 'badge ' + data.bg_clase : 'badge bg-dark';
+                        var badgeClass = data.bg_clase ? 'badge ' + data.bg_clase + ' text-dark' : 'badge bg-dark text-white';
                         return `<span class="${badgeClass}">${estado}</span>`;
                     }
                 },

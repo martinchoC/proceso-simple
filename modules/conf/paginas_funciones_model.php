@@ -18,7 +18,10 @@ function obtenerPaginas($conexion, $modulo_id = null)
         $sql .= " AND p.modulo_id = $modulo_id";
     }
 
-    $sql .= " ORDER BY m.modulo, p.orden, p.pagina";
+    // Alfabético por nombre de página (no por "orden", que es la posición en
+    // el árbol de navegación): esta lista alimenta selects de búsqueda
+    // ("Filtrar por Página" y el picker del modal), no una jerarquía.
+    $sql .= " ORDER BY m.modulo, p.pagina";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {

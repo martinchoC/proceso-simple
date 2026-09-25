@@ -1,8 +1,0 @@
-/.env
-/storage/logs/*.log
-/storage/cache/*
-!/storage/logs/.gitkeep
-!/storage/cache/.gitkeep
-/vendor/
-.DS_Store
-*.swp

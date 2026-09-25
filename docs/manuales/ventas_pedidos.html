@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Pedidos de Clientes</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 14px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert {
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 14px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #fff;
+    }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0 30px;
+    }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+        margin: 2px 4px 2px 0;
+    }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eef4ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral {
+        border-left: 3px solid var(--azul);
+        padding-left: 12px;
+        color: var(--texto-muted);
+        font-size: 0.92rem;
+        margin: 10px 0;
+    }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1><i class="fas fa-shopping-bag"></i> Manual de usuario: Pedidos de Clientes</h1>
+<p class="subtitulo">Cómo cargar, confirmar y hacer seguimiento inicial de los pedidos de venta a clientes.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es un Pedido de Cliente?</a></li>
+        <li><a href="#otra-pantalla">Esta pantalla vs. "Nuevos Pedidos de Clientes"</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Los estados de un pedido</a></li>
+        <li><a href="#cargar-pedido">Cargar un pedido nuevo</a></li>
+        <li><a href="#productos">Pestaña: Productos</a></li>
+        <li><a href="#producto-rapido">Crear un producto nuevo desde el pedido</a></li>
+        <li><a href="#guardar-confirmar">Guardar y confirmar el pedido</a></li>
+        <li><a href="#editar-visualizar">Editar o visualizar un pedido ya cargado</a></li>
+        <li><a href="#remitos">Pestaña: Remitos</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es un Pedido de Cliente?</h2>
+<p>Un <strong>Pedido de Cliente</strong> es lo que un cliente te encargó comprar: qué productos, en qué cantidad, a qué precio y para cuándo lo necesita. Acá lo cargás con todos sus datos (cliente, sucursal, productos) y lo vas llevando de <em>Borrador</em> a <em>Confirmado</em>, que es el punto en el que el pedido queda en firme y recibe su número de comprobante.</p>
+
+<h2 id="otra-pantalla">Esta pantalla vs. "Nuevos Pedidos de Clientes"</h2>
+<div class="alert alert-info">
+    <strong>Pedidos de Clientes</strong> (esta pantalla) es donde <strong>cargás y confirmás</strong> el pedido: elegís cliente, sucursal, punto de venta, cargás los productos con sus cantidades y precios, y lo confirmás cuando está listo. Es la pantalla de alta y edición completa.<br><br>
+    <strong>Nuevos Pedidos de Clientes</strong> es otra pantalla, aparte, que trabaja sobre los mismos pedidos pero está pensada para el <strong>seguimiento posterior</strong>: una vez que un pedido está Confirmado, es ahí donde pasa a prepararse y avanza hacia la entrega (En Preparación, Entrega Parcial, Entrega Total, Facturado). Si necesitás cargar un pedido nuevo o corregir sus datos y productos, usá esta pantalla. Si necesitás ver en qué etapa de preparación/entrega está un pedido ya confirmado, andá a "Nuevos Pedidos de Clientes".
+</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Al entrar a <strong>Pedidos de Clientes</strong> ves un listado con todos los pedidos cargados. Cada fila muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Tipo</td><td>Tipo de comprobante del pedido</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal propia desde la que se emite el pedido</td></tr>
+    <tr><td>Punto Venta</td><td>Punto de venta usado para numerar el comprobante</td></tr>
+    <tr><td>Número</td><td>Número de comprobante (queda en 0 hasta confirmar el pedido)</td></tr>
+    <tr><td>Cliente</td><td>Nombre del cliente y, debajo, su nombre de fantasía si tiene</td></tr>
+    <tr><td>Emisión</td><td>Fecha en la que se cargó el pedido</td></tr>
+    <tr><td>Entrega Est.</td><td>Fecha estimada de entrega, si se cargó una</td></tr>
+    <tr><td>Total</td><td>Importe total del pedido</td></tr>
+    <tr><td>Estado</td><td>Estado actual del pedido (ver más abajo)</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles para esa fila, según su estado actual</td></tr>
+</table>
+<p>Podés buscar por cliente o por estado escribiendo en los campos "Filtrar por cliente..." y "Filtrar por estado..." arriba de la tabla, y filtrar por sucursal o por punto de venta con los desplegables. Los pedidos <strong>Confirmados</strong> se resaltan en verde en el listado para ubicarlos de un vistazo.</p>
+<p>Los dos botones con ícono de reloj y de camión ("Pend. preparación" y "Entrega parcial") son accesos rápidos: al activarlos, filtran la tabla para mostrar solo los pedidos que están en esa situación. Se pueden combinar entre sí, y el botón <span class="boton-ejemplo boton-outline">✕</span> los limpia a los dos de una vez.</p>
+
+<h2 id="estados">Los estados de un pedido</h2>
+<p>Un pedido va pasando por distintos estados a lo largo de su vida. Desde <strong>esta</strong> pantalla se manejan los dos primeros (cargarlo y confirmarlo); el resto del recorrido —una vez confirmado— se sigue desde "Nuevos Pedidos de Clientes":</p>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Confirmado</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">En Preparación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Entrega Parcial</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Entrega Total</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Facturado</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+</div>
+<p>Las cajas grises (En Preparación, Entrega Parcial, Entrega Total, Facturado) son estados que un pedido alcanza después de confirmado, pero que se gestionan desde "Nuevos Pedidos de Clientes", no desde acá.</p>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa</th></tr>
+    <tr><td>Borrador</td><td>El pedido recién se cargó. Se puede seguir editando o eliminando libremente.</td></tr>
+    <tr><td>Confirmado - Pend.Revisión</td><td>El pedido quedó en firme: recibió su número de comprobante y queda a la espera de comenzar a prepararse.</td></tr>
+    <tr><td>En Preparación</td><td>El pedido está siendo preparado (se gestiona desde "Nuevos Pedidos de Clientes").</td></tr>
+    <tr><td>Entrega Parcial</td><td>Ya se entregó parte de lo pedido, pero todavía queda mercadería pendiente.</td></tr>
+    <tr><td>Entrega Total</td><td>Se entregó todo lo pedido.</td></tr>
+    <tr><td>Facturado</td><td>El pedido ya fue facturado.</td></tr>
+    <tr><td>Eliminado</td><td>El pedido se dio de baja desde el estado Borrador. Queda visible en el listado, pero sin más acciones disponibles.</td></tr>
+</table>
+<div class="nota-lateral">Un pedido Eliminado no desaparece del listado: sigue ahí como registro, pero ya no tiene ningún botón de acción disponible en esta pantalla.</div>
+
+<h2 id="cargar-pedido">Cargar un pedido nuevo</h2>
+<p>Con el botón <span class="boton-ejemplo boton-primario">+ Agregar</span> se abre el formulario del pedido, organizado en pestañas. La primera, <strong>Datos del Pedido</strong>, es donde cargás la cabecera:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Sucursal *</td><td>Tu sucursal desde la que se emite el pedido. Obligatoria.</td></tr>
+    <tr><td>Punto de Venta *</td><td>Se habilita al elegir la sucursal. Obligatorio.</td></tr>
+    <tr><td>Cliente / Sucursal *</td><td>El cliente al que corresponde el pedido (o una sucursal puntual de ese cliente, si tiene varias). Obligatorio.</td></tr>
+    <tr><td>Tipo Comprobante *</td><td>Se habilita al elegir el punto de venta; muestra solo los tipos habilitados para ese punto de venta. Obligatorio.</td></tr>
+    <tr><td>Número</td><td>Se completa solo, automáticamente, recién al confirmar el pedido — no se carga a mano.</td></tr>
+    <tr><td>Fecha Emisión *</td><td>Fecha del pedido. Obligatoria.</td></tr>
+    <tr><td>Entrega Estimada</td><td>Fecha en la que se espera entregar. Si se carga, tiene que ser igual o posterior a la fecha de emisión.</td></tr>
+    <tr><td>Moneda *</td><td>Moneda del pedido. Obligatoria.</td></tr>
+    <tr><td>Tipo Cambio</td><td>Se completa solo según la cotización de la moneda elegida; se puede ajustar a mano.</td></tr>
+    <tr><td>Condición de Pago</td><td>Se sugiere automáticamente según la condición comercial vigente del cliente elegido, pero se puede cambiar.</td></tr>
+    <tr><td>Dirección de Entrega</td><td>Dirección donde hay que entregar el pedido, si es distinta a la habitual.</td></tr>
+    <tr><td>Observaciones</td><td>Notas libres sobre el pedido.</td></tr>
+</table>
+<p>Debajo del formulario, un resumen con Bruto, Descuento, Total Neto, Impuestos, Cantidad y el Total general se va actualizando solo a medida que cargás productos en la pestaña siguiente.</p>
+<div class="nota-lateral">Una vez elegido el cliente y guardado el pedido, ya no se puede cambiar de cliente: para eso hay que cargar un pedido nuevo.</div>
+
+<h2 id="productos">Pestaña: Productos</h2>
+<p>Acá se cargan los productos del pedido. Primero hay que haber elegido el cliente en la pestaña anterior — si no, el sistema te avisa "Seleccione un cliente primero" y no deja buscar productos.</p>
+<p>El buscador funciona por etiquetas: escribís una palabra y presionás la barra espaciadora (o Enter) para convertirla en una etiqueta de búsqueda; podés combinar varias etiquetas (por código, nombre o compatibilidad del producto) para acotar el resultado. Cada resultado aparece en una fila con su código, nombre, porcentaje de IVA, precio de referencia y un control de cantidad con botones <strong>−</strong> y <strong>+</strong>: al tocarlos, el producto se agrega (o se suma/resta una unidad) directamente al pedido, sin pasos intermedios.</p>
+<div class="alert alert-warning">Si el cliente elegido no tiene una lista de precios vigente asignada, el sistema no deja buscar ni agregar productos hasta que se configure esa lista de precios para el cliente.</div>
+<p>Los productos ya agregados se muestran en una tabla con código, detalle, cantidad, cantidad pendiente de entrega, precio neto, IVA, importe de IVA y total de línea. Mientras el pedido no está confirmado, la cantidad de cada línea se edita con los mismos botones <strong>−</strong>/<strong>+</strong> o escribiéndola directamente. Si bajás la cantidad a 0, el sistema pregunta si querés eliminar el producto del pedido.</p>
+<p>Con el botón <span class="boton-ejemplo boton-peligro">🗑</span> de cada fila también se puede eliminar un producto directamente (pide confirmación antes de borrarlo).</p>
+<div class="nota-lateral">Si a un producto ya se le remitió (entregó) alguna cantidad, no se puede bajar su cantidad por debajo de lo ya entregado, ni eliminarlo del pedido — primero hay que revertir la entrega.</div>
+
+<h2 id="producto-rapido">Crear un producto nuevo desde el pedido</h2>
+<p>Si el producto que necesitás cargar todavía no existe en el sistema, el botón <span class="boton-ejemplo boton-outline">⚡ Nuevo Producto Rápido</span> (abajo de la tabla de productos) abre un formulario corto para crear uno sin salir del pedido: código, categoría y nombre son obligatorios, y opcionalmente código de barras, IVA, unidad de medida y descripción. Al guardarlo, el producto queda creado en el sistema — después hay que buscarlo por su código o nombre en el buscador de la pestaña Productos para agregarlo al pedido.</p>
+
+<h2 id="guardar-confirmar">Guardar y confirmar el pedido</h2>
+<p>Al hacer clic en <span class="boton-ejemplo boton-primario">Guardar Pedido</span>, el sistema valida que estén completos los campos obligatorios de la cabecera, que la fecha de entrega estimada (si se cargó) no sea anterior a la de emisión, y que haya al menos un producto cargado. El pedido queda guardado en estado <strong>Borrador</strong>, con el número de comprobante todavía en 0.</p>
+<p>Cuando el pedido ya está completo y lo querés dejar en firme, usás el botón <span class="boton-ejemplo boton-primario">Confirmar Pedido</span> desde el listado (no desde dentro del formulario). Ahí el sistema le asigna automáticamente el número de comprobante correspondiente al punto de venta y tipo de comprobante elegidos, y el pedido pasa a estado <strong>Confirmado - Pend.Revisión</strong>.</p>
+<div class="nota-lateral">Una vez confirmado, seguís pudiendo editar los datos y los productos del pedido mientras esté en ese estado — lo que ya no se puede es cambiar el cliente.</div>
+
+<h2 id="editar-visualizar">Editar o visualizar un pedido ya cargado</h2>
+<p>El botón <span class="boton-ejemplo boton-primario">Editar</span> abre el mismo formulario de carga con los datos del pedido para modificarlos. El botón <span class="boton-ejemplo boton-outline">Visualizar</span> abre el pedido en modo de solo lectura: todos los campos aparecen deshabilitados, no se puede tocar el detalle de productos y no aparece el botón de Guardar — es para consultar sin riesgo de modificar nada por error.</p>
+<p>Si el pedido ya tiene un número de comprobante asignado, dentro del formulario de edición aparece además un botón <span class="boton-ejemplo boton-outline">Imprimir</span> para sacarlo en una ventana aparte, sin cerrar el formulario.</p>
+
+<h2 id="remitos">Pestaña: Remitos</h2>
+<p>Esta pestaña aparece solo en pedidos ya guardados (no en uno nuevo todavía sin guardar). Muestra, arriba, los remitos (comprobantes de entrega) que ya se generaron para este pedido, con su propio estado. Más abajo está el bloque para <strong>cargar un remito nuevo</strong>: elegís el tipo de comprobante y la fecha, el sistema te muestra las líneas de producto que todavía tienen cantidad pendiente de entrega, y armás el remito con las cantidades que efectivamente se están entregando ahora.</p>
+<p>El remito siempre se emite desde el mismo punto de venta del pedido — no se puede elegir otro. Al guardar un remito, la cantidad entregada de cada línea del pedido se actualiza automáticamente, y eso es lo que hace bajar (o completar) la columna "Pendiente" de la pestaña Productos.</p>
+<div class="nota-lateral">Esta pestaña queda habilitada aunque estés visualizando el pedido en modo de solo lectura: cargar, editar o cancelar un remito es una acción aparte del resto del formulario.</div>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Agregar</td><td>Abre el formulario para cargar un pedido nuevo</td><td>Siempre (botón general, arriba de la tabla)</td></tr>
+    <tr><td>Editar</td><td>Abre el formulario del pedido para modificarlo</td><td>Pedido en Borrador o en Confirmado - Pend.Revisión</td></tr>
+    <tr><td>Eliminar</td><td>Da de baja el pedido (pasa a estado Eliminado)</td><td>Solo en Borrador</td></tr>
+    <tr><td>Confirmar Pedido</td><td>Asigna número de comprobante y deja el pedido en firme</td><td>Solo en Borrador</td></tr>
+    <tr><td>Visualizar</td><td>Abre el pedido en modo de solo lectura</td><td>Pedido Confirmado en adelante</td></tr>
+    <tr><td>Imprimir</td><td>Abre el comprobante para imprimir en una ventana aparte</td><td>Pedido Confirmado (con número asignado)</td></tr>
+    <tr><td>Entrega Parcial</td><td>Marca el pedido en el estado Entrega Parcial</td><td>Pedido En Preparación</td></tr>
+</table>
+<div class="nota-lateral">Los botones "Eliminar" y "Confirmar Pedido" piden confirmación antes de ejecutarse, con un mensaje que incluye el número de comprobante y el cliente del pedido en cuestión.</div>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba de la tabla principal está el grupo de botones para <span class="boton-ejemplo boton-outline">↻</span> recargar la tabla sin recargar toda la página, y para exportarla tal como se está viendo (con los filtros aplicados) a <span class="boton-ejemplo boton-outline">Excel</span>, <span class="boton-ejemplo boton-outline">PDF</span>, <span class="boton-ejemplo boton-outline">CSV</span> o <span class="boton-ejemplo boton-outline">Imprimir</span>.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>¿Por qué el campo Número aparece en 0 cuando cargo un pedido?</td>
+        <td>El número de comprobante recién se asigna cuando confirmás el pedido con "Confirmar Pedido". Mientras está en Borrador no tiene número todavía.</td>
+    </tr>
+    <tr>
+        <td>Confirmé un pedido por error, ¿lo puedo volver a Borrador?</td>
+        <td>Desde esta pantalla no hay un botón para revertir esa confirmación. Seguís pudiendo editar sus datos y productos estando en Confirmado, pero si necesitás deshacer la confirmación en sí, consultá con el equipo.</td>
+    </tr>
+    <tr>
+        <td>Eliminé un pedido por error, ¿se pierde la información?</td>
+        <td>No, el registro no se borra: queda en el listado con estado Eliminado. Pero desde esta pantalla no hay un botón para reactivarlo — consultá con el equipo si necesitás recuperarlo.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué no puedo cambiar el cliente de un pedido que ya guardé?</td>
+        <td>El cliente queda fijo una vez que el pedido se guarda por primera vez, porque de él dependen la lista de precios y las condiciones comerciales aplicadas a cada producto. Si te equivocaste de cliente, hay que cargar el pedido de nuevo.</td>
+    </tr>
+    <tr>
+        <td>¿Dónde veo si un pedido confirmado ya se está preparando o entregando?</td>
+        <td>En la pantalla "Nuevos Pedidos de Clientes", pensada específicamente para hacer seguimiento de los pedidos después de confirmados.</td>
+    </tr>
+    <tr>
+        <td>Busco un producto y no aparece ningún resultado, ¿qué puede ser?</td>
+        <td>Revisá que el cliente tenga una lista de precios vigente asignada (el sistema avisa con un mensaje si no la tiene) y que las etiquetas de búsqueda no sean demasiado específicas.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Ventas / Pedidos de Clientes. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

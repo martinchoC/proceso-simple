@@ -159,6 +159,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <span class="badge bg-primary rounded-pill ms-1" id="contador-productos">0</span>
                                                 </a>
                                             </li>
+                                            <!-- Solo visible cuando el remito está Pend. de Facturación o Facturación
+                                                 Parcial (lo decide JS según tabla_estado_registro_id al abrir el modal) -->
+                                            <li class="nav-item" id="tab-item-facturar" style="display: none;">
+                                                <a class="nav-link" id="tab-facturar" data-bs-toggle="tab" href="#facturar" role="tab">
+                                                    <i class="fas fa-file-invoice-dollar me-1"></i>Facturar
+                                                </a>
+                                            </li>
                                         </ul>
                                     </div>
                                     <div class="card-body">
@@ -295,6 +302,62 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                             <small class="text-muted">Agregá líneas desde los pedidos pendientes o cargá un producto sin pedido</small>
                                                         </div>
                                                     </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- TAB 3: FACTURAR — arma y guarda una factura (Borrador) a partir de las
+                                                 líneas pendientes de ESTE remito, sin salir de la pantalla de remitos.
+                                                 No usa <form> propio (evita anidar forms dentro de #formVentaRemito);
+                                                 sus inputs quedan siempre habilitados aunque el resto del modal esté
+                                                 en modo solo lectura — ver cargarRemitoComun() en ventas_remitos.js. -->
+                                            <div class="tab-pane fade" id="facturar" role="tabpanel">
+                                                <div class="alert alert-light border small" id="facturarRemitoInfo">Cargando datos del remito...</div>
+                                                <input type="hidden" id="facturar_venta_remito_id">
+
+                                                <!-- Facturas ya generadas a partir de este remito: se puede confirmar,
+                                                     ver o eliminar (según su estado) sin salir de acá. -->
+                                                <div class="card card-outline card-primary mb-3" id="cardFacturasDelRemito" style="display: none;">
+                                                    <div class="card-header py-1 bg-info bg-opacity-10">
+                                                        <h6 class="mb-0 small"><i class="fas fa-file-invoice-dollar me-2"></i>Facturas de este remito</h6>
+                                                    </div>
+                                                    <div class="card-body py-2" id="facturasDelRemitoContainer"></div>
+                                                </div>
+
+                                                <div class="card-header py-1 bg-success bg-opacity-10 rounded mb-2 d-flex justify-content-between align-items-center">
+                                                    <h6 class="mb-0 small" id="facturarFormTitulo"><i class="fas fa-plus-circle me-2"></i>Nueva Factura Desde Este Remito</h6>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnCancelarEdicionFacturaRemito">
+                                                        <i class="fas fa-times me-1"></i>Cancelar edición
+                                                    </button>
+                                                </div>
+                                                <!-- Líneas de la factura en edición que NO vienen de este remito (manuales u
+                                                     otro remito): se muestran de referencia y se conservan tal cual al guardar. -->
+                                                <div id="facturarLineasFijasContainer"></div>
+                                                <div class="row g-2 mb-2">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-bold small">Punto De Venta *</label>
+                                                        <select class="form-select form-select-sm" id="facturar_punto_venta_id">
+                                                            <option value="">Seleccionar</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-bold small">Tipo Comprobante *</label>
+                                                        <select class="form-select form-select-sm" id="facturar_comprobante_tipo_id">
+                                                            <option value="">Seleccionar PV</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label fw-bold small">Vencimiento *</label>
+                                                        <input type="date" class="form-control form-control-sm" id="facturar_f_vto">
+                                                    </div>
+                                                </div>
+                                                <div id="facturarLineasContainer">
+                                                    <div class="text-muted small text-center p-3 border rounded bg-light">Elegí punto de venta para continuar.</div>
+                                                </div>
+                                                <div id="facturarTotales"></div>
+                                                <div class="text-end mt-3">
+                                                    <button type="button" class="btn btn-sm btn-primary px-4" id="btnGuardarFacturaDesdeRemito">
+                                                        <i class="fas fa-save me-1"></i>Guardar Factura
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -494,6 +557,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .badge-posicion { background-color: #6c757d !important; color: #ffffff !important; }
         .ubicaciones-pendiente-container { display: flex; flex-direction: column; gap: 2px; }
 
+        /* Solapa "Facturar" del modal de remito */
+        #facturarLineasContainer table { font-size: 0.85rem; }
+        #facturarLineasContainer input[type="number"] { width: 90px; }
+        .facturar-totales-box { background: #f8f9fb; border: 1px solid #dee2e6; border-radius: 8px; padding: 0.5rem 0.6rem; margin-top: 0.75rem; display: flex; gap: 0.5rem; }
+        .facturar-totales-box .facturar-totales-item { flex: 1; text-align: center; }
+        .facturar-totales-box .facturar-totales-item .label { font-size: 0.66rem; text-transform: uppercase; color: #6c757d; display: block; }
+        .facturar-totales-box .facturar-totales-item .valor { font-weight: 600; }
+        .facturar-totales-box .facturar-totales-final { background: #1a73e8; color: #fff; border-radius: 6px; }
+        .facturar-totales-box .facturar-totales-final .label { color: #fff; opacity: .85; }
+        .facturar-totales-box .facturar-totales-final .valor { font-size: 1.1rem; }
 
         @media (max-width: 768px) {
             .card-header .row > div { margin-bottom: 8px; text-align: center !important; }

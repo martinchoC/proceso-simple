@@ -422,6 +422,15 @@ var arbolInstance = null;
 var vistaActual = 'arbol';
 var modalFuncion = null; // instancia única del modal, se crea una sola vez
 
+// Tanto "Editar" como "Nueva Función (con estados)" completan el formulario
+// de forma asíncrona (AJAX + setTimeout). Si mientras esa respuesta está en
+// vuelo el usuario abre OTRA acción (Nuevo, u otra fila para Editar), la
+// respuesta vieja llegaba igual y pisaba el modal ya reseteado — se veía
+// como que el modal "saltaba" solo a mostrar datos de la edición anterior.
+// Cada apertura de modal saca un token nuevo; una respuesta que ya no es la
+// más reciente se descarta en lugar de aplicarse.
+var modalToken = 0;
+
 // Mapa de colores Bootstrap
 const bootstrapColors = {
     'btn-primary': { bg: 'primary', text: 'white', hex: '#007bff' },
@@ -481,6 +490,12 @@ function updateButtonPreviews(colorClass, iconoClase, funcionNombre) {
 // ============================================================
 
 function cargarPaginas(selectedId = null, callback = null) {
+    // Esta función también se usa para refrescar el <select> de página DENTRO
+    // del modal (p. ej. desde editarFuncion). Como reconstruye las <option>
+    // de #filtroPagina de paso, hay que reaplicar su selección actual o el
+    // filtro del toolbar queda "sacado" cada vez que se edita una función.
+    var filtroPaginaActual = $('#filtroPagina').val();
+
     $.ajax({
         url: 'paginas_funciones_ajax.php',
         type: 'GET',
@@ -492,12 +507,13 @@ function cargarPaginas(selectedId = null, callback = null) {
                 var filtroOptions = '<option value="">Todas las páginas</option>';
                 $.each(res, function(index, pagina) {
                     var selected = (selectedId == pagina.pagina_id) ? 'selected' : '';
+                    var filtroSelected = (filtroPaginaActual == pagina.pagina_id) ? 'selected' : '';
                     options += `<option value="${pagina.pagina_id}" ${selected}>${pagina.pagina} (${pagina.url})</option>`;
-                    filtroOptions += `<option value="${pagina.pagina_id}">${pagina.pagina}</option>`;
+                    filtroOptions += `<option value="${pagina.pagina_id}" ${filtroSelected}>${pagina.pagina}</option>`;
                 });
                 $('#pagina_id').html(options);
                 $('#filtroPagina').html(filtroOptions);
-                
+
                 if (typeof callback === 'function') callback();
             }
         },
@@ -675,6 +691,8 @@ function cargarPaginasFiltro(moduloId = null) {
 // ============================================================
 
 function abrirModalNuevaFuncion(paginaId, paginaNombre, conEstadosPredefinidos = false) {
+    var myToken = ++modalToken; // invalida cualquier Editar/Nuevo anterior pendiente
+
     // Resetear formulario
     $('#formPaginaFuncion')[0].reset();
     $('#formPaginaFuncion').removeClass('was-validated');
@@ -696,6 +714,10 @@ function abrirModalNuevaFuncion(paginaId, paginaNombre, conEstadosPredefinidos =
     // Si tiene estados predefinidos
     if (conEstadosPredefinidos) {
         setTimeout(function() {
+            if (myToken !== modalToken) {
+                return; // se abrió otro modal mientras cargaban los selects
+            }
+
             // Estado origen: 0 (sin estado)
             $('#tabla_estado_registro_origen_id').val('0');
             
@@ -797,7 +819,11 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                         },
                         multiple: false
                     },
-                    plugins: ['search', 'state', 'types', 'contextmenu'],
+                    // Sin 'state': ese plugin persiste el nodo seleccionado y lo
+                    // vuelve a seleccionar solo al reinicializar el árbol — como
+                    // cargarArbol() reconstruye el árbol después de guardar, esto
+                    // reabría el modal de "Editar Función" justo después de cerrarlo.
+                    plugins: ['search', 'types', 'contextmenu'],
                     search: {
                         case_insensitive: true,
                         show_only_matches: true
@@ -954,7 +980,12 @@ function cargarArbol(filtroModulo = null, filtroPagina = null, textoBusqueda = n
                     // contextual (botón derecho). Si no se filtra acá, un click
                     // derecho dispara editarFuncion() dos veces: una por esta
                     // selección y otra si además se elige "Editar" del menú.
-                    if (data.event && data.event.type === 'contextmenu') {
+                    //
+                    // data.event también viene vacío/undefined cuando la selección
+                    // es programática (p. ej. un plugin de jstree restaurando el
+                    // nodo seleccionado al reinicializar el árbol) en vez de un
+                    // click real del usuario — se ignora también ese caso.
+                    if (!data.event || data.event.type === 'contextmenu') {
                         return;
                     }
                     var node = data.node;
@@ -1023,8 +1054,13 @@ function editarFuncion(funcionId) {
         return;
     }
     cargandoEdicion = true;
+    var myToken = ++modalToken; // invalida cualquier Nuevo/Editar anterior pendiente
 
     $.get('paginas_funciones_ajax.php', {accion: 'obtener', pagina_funcion_id: funcionId}, function(res){
+        if (myToken !== modalToken) {
+            return; // se abrió otro modal mientras esperábamos esta respuesta
+        }
+
         if(res){
             $('#pagina_funcion_id').val(res.pagina_funcion_id);
             $('#nombre_funcion').val(res.nombre_funcion);
@@ -1032,17 +1068,20 @@ function editarFuncion(funcionId) {
             $('#descripcion').val(res.descripcion);
             $('#orden').val(res.orden);
             $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id);
-            
+
             cargarPaginas(res.pagina_id);
             cargarIconos(res.icono_id);
             cargarColores(res.color_id);
             cargarFuncionesEstandar(res.funcion_estandar_id);
-            
+
             setTimeout(function() {
+                if (myToken !== modalToken) {
+                    return;
+                }
                 $('#tabla_estado_registro_origen_id').val(res.tabla_estado_registro_origen_id);
                 $('#tabla_estado_registro_destino_id').val(res.tabla_estado_registro_destino_id);
             }, 300);
-            
+
             $('#modalLabel').text('Editar Función');
             if (!modalFuncion) {
                 modalFuncion = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPaginaFuncion'));
@@ -1128,9 +1167,11 @@ $(document).ready(function(){
     
     // Evento: Botón Nueva Función
     $(document).on('click', '#btnNuevo', function(){
+        modalToken++; // invalida cualquier Editar pendiente de resolverse
+
         var paginaSeleccionada = $('#filtroPagina').val();
         var paginaNombre = $('#filtroPagina option:selected').text();
-        
+
         if (paginaSeleccionada && paginaSeleccionada !== '') {
             abrirModalNuevaFuncion(paginaSeleccionada, paginaNombre, true);
         } else {
@@ -1273,6 +1314,7 @@ $(document).ready(function(){
         dom: '<"row"<"col-md-6"l><"col-md-6"fB>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
         responsive: true,
         autoWidth: false,
+        order: [[11, 'asc']], // columna "Orden": la Vista Tabla siempre debe respetar el orden configurado, no el ID
         buttons: [
             {
                 extend: 'excelHtml5',

@@ -299,17 +299,34 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT e.*, 
-                   er.$estado_column as estado_registro, 
+    $sql = "SELECT e.*,
+                   er.$estado_column as estado_registro,
                    er.codigo_estandar,
                    ec.color_clase, ec.bg_clase, ec.text_clase,
                    et.entidad_tipo,
-                   l.localidad
+                   l.localidad,
+                   cp.proveedor_descuento_general,
+                   cp.f_desde AS condicion_proveedor_f_desde,
+                   cond.condicion_pago,
+                   cat.proveedor_categoria
             FROM gestion__entidades e
             LEFT JOIN conf__estados_registros er ON e.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
             LEFT JOIN gestion__entidades_tipos et ON e.entidad_tipo_id = et.entidad_tipo_id
             LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
+            LEFT JOIN gestion__entidades_condiciones_proveedores cp
+                   ON cp.entidad_condicion_proveedor_id = (
+                        SELECT cp2.entidad_condicion_proveedor_id
+                        FROM gestion__entidades_condiciones_proveedores cp2
+                        WHERE cp2.entidad_id = e.entidad_id
+                          AND cp2.tabla_estado_registro_id = 1
+                          AND (cp2.f_hasta IS NULL OR cp2.f_hasta >= CURDATE())
+                          AND cp2.f_desde <= CURDATE()
+                        ORDER BY cp2.f_desde DESC
+                        LIMIT 1
+                   )
+            LEFT JOIN gestion__condiciones_pago cond ON cp.condicion_pago_id = cond.condicion_pago_id
+            LEFT JOIN gestion__proveedores_categorias cat ON cp.proveedor_categoria_id = cat.proveedor_categoria_id
             WHERE e.empresa_id = ?
               AND e.es_proveedor = 1
             ORDER BY e.entidad_nombre";
@@ -347,6 +364,13 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
             'descripcion' => null,
             'bg_clase' => 'bg-secondary',
             'text_clase' => 'text-white'
+        ];
+
+        $fila['condicion_proveedor_info'] = [
+            'condicion_pago' => $fila['condicion_pago'] ?? null,
+            'proveedor_categoria' => $fila['proveedor_categoria'] ?? null,
+            'proveedor_descuento_general' => $fila['proveedor_descuento_general'] ?? null,
+            'f_desde' => $fila['condicion_proveedor_f_desde'] ?? null
         ];
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id'], $funciones_pagina);

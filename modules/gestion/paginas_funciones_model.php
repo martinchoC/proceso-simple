@@ -9,7 +9,7 @@ function obtenerPaginasFunciones($conexion)
                    c.nombre_color, c.color_clase, c.bg_clase, c.text_clase
             FROM conf__paginas_funciones pf
             LEFT JOIN conf__paginas p ON pf.pagina_id = p.pagina_id
-            LEFT JOIN conf__tablas t ON pf.tabla_id = t.tabla_id
+            LEFT JOIN conf__tablas t ON p.tabla_id = t.tabla_id
             LEFT JOIN conf__tablas_estados_registros eo ON pf.tabla_estado_registro_origen_id = eo.tabla_estado_registro_id
             LEFT JOIN conf__tablas_estados_registros ed ON pf.tabla_estado_registro_destino_id = ed.tabla_estado_registro_id
             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
@@ -86,10 +86,10 @@ function obtenerTablas($conexion)
 function obtenerEstadosPorTabla($conexion, $tabla_id)
 {
     $tabla_id = intval($tabla_id);
-    $sql = "SELECT er.tabla_estado_registro_id, er.estado_registro 
+    $sql = "SELECT er.tabla_estado_registro_id, er.tabla_estado_registro as estado_registro
             FROM conf__tablas_estados_registros er
             WHERE er.tabla_id = $tabla_id
-            ORDER BY er.orden, er.estado_registro";
+            ORDER BY er.orden, er.tabla_estado_registro";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -105,7 +105,6 @@ function agregarPaginaFuncion($conexion, $data)
     }
 
     $pagina_id = intval($data['pagina_id']);
-    $tabla_id = $data['tabla_id'] ? intval($data['tabla_id']) : 'NULL';
     $icono_id = $data['icono_id'] ? intval($data['icono_id']) : 'NULL';
     $color_id = $data['color_id'] ? intval($data['color_id']) : 'NULL';
     $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
@@ -116,10 +115,12 @@ function agregarPaginaFuncion($conexion, $data)
 
     $orden = intval($data['orden'] ?? 0);
 
-    $sql = "INSERT INTO conf__paginas_funciones 
-            (pagina_id, tabla_id, icono_id, color_id, nombre_funcion, accion_js, descripcion, 
-             tabla_estado_registro_origen_id, tabla_estado_registro_destino_id, orden) 
-            VALUES ($pagina_id, $tabla_id, $icono_id, $color_id, '$nombre_funcion', $accion_js, 
+    // Nota: conf__paginas_funciones no tiene columna tabla_id — la tabla se
+    // resuelve siempre a través de la página (conf__paginas.tabla_id).
+    $sql = "INSERT INTO conf__paginas_funciones
+            (pagina_id, icono_id, color_id, nombre_funcion, accion_js, descripcion,
+             tabla_estado_registro_origen_id, tabla_estado_registro_destino_id, orden)
+            VALUES ($pagina_id, $icono_id, $color_id, '$nombre_funcion', $accion_js,
                     '$descripcion', $estado_origen_id, $estado_destino_id, $orden)";
 
     return mysqli_query($conexion, $sql);
@@ -133,7 +134,6 @@ function editarPaginaFuncion($conexion, $id, $data)
 
     $id = intval($id);
     $pagina_id = intval($data['pagina_id']);
-    $tabla_id = $data['tabla_id'] ? intval($data['tabla_id']) : 'NULL';
     $icono_id = $data['icono_id'] ? intval($data['icono_id']) : 'NULL';
     $color_id = $data['color_id'] ? intval($data['color_id']) : 'NULL';
     $nombre_funcion = mysqli_real_escape_string($conexion, $data['nombre_funcion']);
@@ -144,9 +144,10 @@ function editarPaginaFuncion($conexion, $id, $data)
 
     $orden = intval($data['orden'] ?? 0);
 
+    // Nota: conf__paginas_funciones no tiene columna tabla_id — la tabla se
+    // resuelve siempre a través de la página (conf__paginas.tabla_id).
     $sql = "UPDATE conf__paginas_funciones SET
             pagina_id = $pagina_id,
-            tabla_id = $tabla_id,
             icono_id = $icono_id,
             color_id = $color_id,
             nombre_funcion = '$nombre_funcion',

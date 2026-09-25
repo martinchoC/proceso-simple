@@ -29,4 +29,5 @@ function url($path = '')
 }
 
 require_once ROOT_PATH . "/db.php";
+require_once ROOT_PATH . "/core/permisos.php";
 $conexion = $conn;

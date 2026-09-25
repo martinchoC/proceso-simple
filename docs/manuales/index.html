@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manuales de usuario — Índice</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 2rem; }
+    .modulo {
+        margin: 28px 0;
+    }
+    .modulo-titulo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0a58ca;
+        border-bottom: 2px solid var(--gris-borde);
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+    }
+    .modulo-badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #fff;
+        background: var(--texto-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    ul.paginas {
+        list-style: none;
+        margin: 10px 0 0;
+        padding: 0;
+    }
+    ul.paginas li {
+        border: 1px solid var(--gris-borde);
+        border-left: 4px solid var(--azul);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    ul.paginas li.pendiente {
+        border-left-color: var(--texto-muted);
+        opacity: 0.75;
+    }
+    ul.paginas .info { flex: 1; min-width: 200px; }
+    ul.paginas .nombre-pagina {
+        font-weight: 600;
+        margin: 0 0 2px;
+    }
+    ul.paginas .nombre-pagina a {
+        color: var(--azul);
+        text-decoration: none;
+    }
+    ul.paginas .nombre-pagina a:hover { text-decoration: underline; }
+    ul.paginas .descripcion {
+        color: var(--texto-muted);
+        font-size: 0.9rem;
+        margin: 0;
+    }
+    .badge-pendiente {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #664d03;
+        background: var(--amarillo);
+        white-space: nowrap;
+    }
+    .btn-manual {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 5px;
+        background: var(--azul);
+        color: #fff;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .btn-manual:hover { background: #0a58ca; }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1>Manuales de usuario</h1>
+<p class="subtitulo">Índice general, organizado por módulo y pantalla, tal como aparecen en el menú del sistema.</p>
+
+<div class="modulo">
+    <div class="modulo-titulo"><span class="modulo-badge">Ventas</span></div>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_pedidos_gestion.html">Nuevos Pedidos de Clientes</a></p>
+                <p class="descripcion">Tablero para preparar y entregar (total o parcialmente) los pedidos de clientes ya confirmados, generando remitos.</p>
+            </div>
+            <a class="btn-manual" href="ventas_pedidos_gestion.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_pedidos.html">Pedidos de Clientes</a></p>
+                <p class="descripcion">Cómo cargar, confirmar y hacer seguimiento inicial de los pedidos de venta a clientes.</p>
+            </div>
+            <a class="btn-manual" href="ventas_pedidos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_remitos.html">Remitos de Pedidos</a></p>
+                <p class="descripcion">Cómo registrar la entrega de mercadería a un cliente y cómo facturarla después, total o parcialmente.</p>
+            </div>
+            <a class="btn-manual" href="ventas_remitos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_facturas.html">Facturación</a></p>
+                <p class="descripcion">Cómo emitir Facturas, Notas de Crédito y Notas de Débito a clientes desde una sola pantalla, y cómo seguir su estado hasta la confirmación.</p>
+            </div>
+            <a class="btn-manual" href="ventas_facturas.html">Ver manual</a>
+        </li>
+        <li class="pendiente">
+            <div class="info">
+                <p class="nombre-pagina">Presupuestos</p>
+                <p class="descripcion">Ítem del menú desactivado: la pantalla (ventas_presupuestos.php) todavía no está implementada.</p>
+            </div>
+            <span class="badge-pendiente">Sin implementar</span>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="clientes.html">Clientes</a></p>
+                <p class="descripcion">Cómo ver, dar de alta y gestionar tus clientes, sus condiciones comerciales y su acceso al carrito de pedidos online.</p>
+            </div>
+            <a class="btn-manual" href="clientes.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="listas_precios_productos.html">Lista de Precios</a></p>
+                <p class="descripcion">Cómo cargar, editar y eliminar el precio de cada producto dentro de cada lista de precios, y cómo importar precios en forma masiva desde un Excel.</p>
+            </div>
+            <a class="btn-manual" href="listas_precios_productos.html">Ver manual</a>
+        </li>
+    </ul>
+</div>
+
+<div class="modulo">
+    <div class="modulo-titulo"><span class="modulo-badge">Seteo Empresas</span></div>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="entidades.html">Entidades Comerciales</a></p>
+                <p class="descripcion">Cómo dar de alta y gestionar clientes y proveedores, sus sucursales y condiciones comerciales. La pantalla "Clientes" de Ventas usa esta misma base de datos, filtrada.</p>
+            </div>
+            <a class="btn-manual" href="entidades.html">Ver manual</a>
+        </li>
+        <li class="pendiente">
+            <div class="info">
+                <p class="nombre-pagina">Listas de Precios - Ajustes</p>
+                <p class="descripcion">Ítem del menú desactivado: la pantalla (listas_precios_ajustes.php) todavía no está implementada.</p>
+            </div>
+            <span class="badge-pendiente">Sin implementar</span>
+        </li>
+    </ul>
+</div>
+
+<footer>
+    Este índice refleja el árbol de menú real del sistema (tabla <code>conf__paginas</code>), ordenado por módulo padre y luego por orden de aparición en el sidebar. Las pantallas marcadas "Sin implementar" están desactivadas del menú porque su archivo todavía no existe en el código.
+</footer>
+
+</body>
+</html>

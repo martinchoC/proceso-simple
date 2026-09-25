@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Remitos de Venta</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 14px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert {
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 14px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #fff;
+    }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0 30px;
+    }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+        margin: 2px 4px 2px 0;
+    }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eef4ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral {
+        border-left: 3px solid var(--azul);
+        padding-left: 12px;
+        color: var(--texto-muted);
+        font-size: 0.92rem;
+        margin: 10px 0;
+    }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1><i class="fas fa-truck-loading"></i> Manual de usuario: Remitos de Venta</h1>
+<p class="subtitulo">Cómo registrar la entrega de mercadería a un cliente y cómo facturarla después, total o parcialmente.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es un Remito de Venta?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados de un remito</a></li>
+        <li><a href="#botones">Botones de acción</a></li>
+        <li><a href="#agregar-editar">Agregar o editar un remito</a></li>
+        <li><a href="#datos-remito">Pestaña: Datos del Remito</a></li>
+        <li><a href="#productos">Pestaña: Productos</a></li>
+        <li><a href="#confirmar">Confirmar un remito</a></li>
+        <li><a href="#facturar">Pestaña: Facturar (facturación total o parcial)</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es un Remito de Venta?</h2>
+<p>Un <strong>Remito de Venta</strong> es el comprobante que se genera cuando le entregás mercadería a un cliente. No es la factura: es la constancia de que la mercadería salió de tu depósito y llegó al cliente, y podés emitirlo antes de facturar, o incluso sin llegar a facturar todo lo remitido en un solo paso.</p>
+<p>Lo habitual es que un remito nazca de un <strong>Pedido de Venta</strong> ya cargado: elegís qué líneas del pedido estás entregando ahora (puede ser todo o solo una parte) y el sistema arma el remito con eso. También podés agregar productos que no vienen de ningún pedido, por si necesitás entregar algo suelto.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Al entrar a <strong>Remitos de Venta</strong> ves un listado con todos los remitos cargados. Cada fila muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Tipo</td><td>Tipo de comprobante del remito</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal propia desde la que se entrega la mercadería</td></tr>
+    <tr><td>Punto Venta</td><td>Punto de venta usado para numerar el remito</td></tr>
+    <tr><td>Número</td><td>Número del comprobante. Queda en blanco hasta que el remito se Confirma</td></tr>
+    <tr><td>Cliente</td><td>Nombre legal y de fantasía del cliente</td></tr>
+    <tr><td>Emisión</td><td>Fecha del remito</td></tr>
+    <tr><td>Total</td><td>Total de la mercadería remitida (neto + IVA)</td></tr>
+    <tr><td>Estado</td><td>En qué etapa está el remito (ver más abajo)</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles para esa fila, según su estado actual</td></tr>
+</table>
+<p>Arriba de la tabla podés filtrar por cliente o por estado escribiendo en los campos correspondientes, y buscar u ordenar usando las herramientas propias de la tabla.</p>
+<div class="nota-lateral">Esta pantalla también se puede abrir directo sobre un remito puntual desde la solapa "Remitos" del módulo de Pedidos, sin tener que buscarlo en el listado.</div>
+
+<h2 id="estados">Estados de un remito</h2>
+<p>Un remito recorre estas etapas:</p>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Pendiente de Facturación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Facturado</div>
+</div>
+<p>Si facturás solo una parte de lo remitido, el remito pasa por un estado intermedio antes de llegar a Facturado:</p>
+<div class="flujo">
+    <div class="flujo-caja">Pendiente de Facturación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Facturación Parcial</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Facturado</div>
+</div>
+<p>Y desde Borrador, en vez de confirmarlo, también se puede dar de baja:</p>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+</div>
+<ul>
+    <li><strong>Borrador:</strong> el remito recién se cargó, todavía no tiene número y se puede editar o eliminar libremente.</li>
+    <li><strong>Pendiente de Facturación:</strong> el remito ya se Confirmó (tiene número definitivo) y todavía no se generó ninguna factura a partir de él.</li>
+    <li><strong>Facturación Parcial:</strong> ya se facturó una parte de lo remitido, pero queda cantidad sin facturar.</li>
+    <li><strong>Facturado:</strong> todo lo remitido ya quedó cubierto por una o más facturas.</li>
+    <li><strong>Eliminado:</strong> el remito se dio de baja estando en Borrador. No suma stock entregado ni afecta al pedido de origen.</li>
+</ul>
+
+<h2 id="botones">Botones de acción</h2>
+<p>Según el estado del remito, en su fila vas a ver algunos de estos botones:</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Editar</td><td>Abre la ficha completa del remito para modificar cualquier dato</td><td>Solo en Borrador</td></tr>
+    <tr><td>Confirmar</td><td>Le asigna el número definitivo al remito y lo pasa a Pendiente de Facturación. A partir de este momento el remito ya no se puede editar ni eliminar</td><td>Solo en Borrador</td></tr>
+    <tr><td>Eliminar</td><td>Da de baja el remito (pasa a Eliminado)</td><td>Solo en Borrador</td></tr>
+    <tr><td>Facturar</td><td>Abre el remito en la solapa "Facturar" para generar una factura con todo o parte de lo remitido (ver más abajo)</td><td>Pendiente de Facturación</td></tr>
+    <tr><td>Facturado</td><td>Abre el remito en la misma solapa "Facturar" — hace exactamente lo mismo que el botón "Facturar" (ver nota en Preguntas Frecuentes)</td><td>Pendiente de Facturación y Facturación Parcial</td></tr>
+    <tr><td>Visualizar</td><td>Abre la ficha del remito en modo de solo lectura, sin poder modificar nada</td><td>Facturación Parcial y Facturado</td></tr>
+    <tr><td>Imprimir</td><td>Reservado para más adelante — por ahora no genera ningún comprobante impreso ni PDF</td><td>Pendiente de Facturación y Facturado</td></tr>
+</table>
+
+<h2 id="agregar-editar">Agregar o editar un remito</h2>
+<p>Arriba de la tabla, a la izquierda, está el botón para agregar un remito nuevo. Al abrirlo (o al editar uno existente en Borrador) se abre una ficha con pestañas: <strong>Datos del Remito</strong>, <strong>Productos</strong> y, solo cuando corresponde, <strong>Facturar</strong>. Al terminar de cargar, hacé clic en <span class="boton-ejemplo boton-primario">Guardar Remito</span>.</p>
+<div class="nota-lateral">El cliente elegido queda fijo apenas se guarda el remito por primera vez: si te equivocaste de cliente, hay que eliminar el remito (mientras siga en Borrador) y cargar uno nuevo.</div>
+
+<h2 id="datos-remito">Pestaña: Datos del Remito</h2>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Punto de Venta *</td><td>Define con qué numeración se va a confirmar el remito. Solo aparecen los puntos de venta que tienen un depósito asociado</td></tr>
+    <tr><td>Tipo Comprobante *</td><td>Tipo de remito a emitir, según lo habilitado para ese punto de venta</td></tr>
+    <tr><td>Cliente / Sucursal *</td><td>A quién se le entrega la mercadería. Podés elegir el cliente en general o una de sus sucursales puntuales</td></tr>
+    <tr><td>Número</td><td>Se completa solo, recién cuando confirmás el remito</td></tr>
+    <tr><td>Fecha Emisión *</td><td>Fecha del remito</td></tr>
+    <tr><td>Observaciones</td><td>Notas libres sobre la entrega</td></tr>
+</table>
+<p>Debajo se muestra un resumen con el subtotal, el descuento, el neto, el IVA y el total del remito, que se actualiza automáticamente a medida que cargás productos en la pestaña siguiente.</p>
+
+<h2 id="productos">Pestaña: Productos</h2>
+<p>Acá cargás qué mercadería estás entregando. Hay dos formas de agregar líneas:</p>
+<h3>Pedidos pendientes de entrega</h3>
+<p>Si el cliente elegido tiene pedidos con mercadería todavía no entregada, aparece automáticamente un listado con esas líneas pendientes, ordenadas por la ubicación física del producto en el depósito (para facilitar el armado del pedido recorriendo las estanterías en orden). Por cada línea ves cuánto queda pendiente de ese pedido, y cargás la cantidad que estás entregando ahora — puede ser el total pendiente o solo una parte; lo que no entregues ahora queda disponible para un remito posterior.</p>
+<h3>Agregar producto sin pedido</h3>
+<p>Si necesitás entregar algo que no viene de ningún pedido, lo buscás por código, nombre o compatibilidad escribiendo palabras (cada palabra se agrega como una etiqueta con la tecla <kbd>Espacio</kbd>), y lo sumás con su propia cantidad. El precio se toma de la lista de precios vigente del cliente.</p>
+<div class="nota-lateral">Si el cliente no tiene una lista de precios vigente asignada, el sistema no va a dejar buscar ni agregar productos sin pedido hasta que se configure.</div>
+<p>Todo lo que vas agregando aparece en una tabla de detalle, donde cada línea muestra si viene de un pedido (con el número de pedido de origen) o si fue agregada sin pedido, y permite ajustar la cantidad o quitar la línea antes de guardar.</p>
+
+<h2 id="confirmar">Confirmar un remito</h2>
+<p>Mientras el remito está en Borrador podés editarlo todas las veces que necesites. Cuando ya está listo, usá el botón <strong>Confirmar</strong>: ahí el sistema le asigna el número definitivo y descuenta oficialmente del pedido de origen la cantidad entregada (si el pedido queda totalmente entregado, se marca como completo; si no, sigue figurando con saldo pendiente). Una vez confirmado, el remito pasa a Pendiente de Facturación y ya no se puede editar ni eliminar — solo consultar, imprimir o facturar.</p>
+
+<h2 id="facturar">Pestaña: Facturar (facturación total o parcial)</h2>
+<p>Un remito confirmado (en Pendiente de Facturación o en Facturación Parcial) tiene una solapa extra llamada <strong>Facturar</strong>, donde armás una factura a partir de lo remitido sin salir de esta pantalla.</p>
+<div class="card card-outline-primary">
+    <strong>Cómo funciona</strong>
+    <p>La solapa te muestra las líneas del remito que todavía no fueron facturadas, cada una con su cantidad pendiente de facturar precargada. Podés bajar esa cantidad si querés facturar solo una parte, elegir el punto de venta y el tipo de comprobante de la factura, y guardarla. La factura queda creada en Borrador — la vas a ver listada ahí mismo, en "Facturas de este remito", desde donde podés confirmarla, verla o eliminarla sin ir a buscarla a Facturación.</p>
+</div>
+<p>Un mismo remito puede tener más de una factura si lo facturás en partes. El estado del remito se actualiza solo, según cuánto de lo remitido ya quedó cubierto por facturas <strong>confirmadas</strong>:</p>
+<ul>
+    <li>Si todavía no confirmaste ninguna factura, o queda cantidad sin facturar, el remito queda (o vuelve a quedar) en <strong>Facturación Parcial</strong>.</li>
+    <li>Cuando la totalidad de lo remitido ya está cubierta por facturas confirmadas, el remito pasa solo a <strong>Facturado</strong>.</li>
+</ul>
+<div class="alert alert-info">Facturar una factura Borrador generada desde acá no es automático: hay que entrar a "Facturas de este remito" y confirmarla, igual que cualquier otra factura. Recién en ese momento se actualiza el estado del remito.</div>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha de la tabla principal tenés los botones para exportar el listado a <span class="boton-ejemplo boton-outline">Excel</span>, <span class="boton-ejemplo boton-outline">PDF</span>, <span class="boton-ejemplo boton-outline">CSV</span> o mandarlo a <span class="boton-ejemplo boton-outline">Imprimir</span>, tal como lo estás viendo en pantalla. El botón de recargar (<span class="boton-ejemplo boton-outline">↻</span>) actualiza la tabla sin recargar toda la página. Esto es distinto del botón "Imprimir" que aparece en cada fila, que por ahora no está implementado (ver Preguntas Frecuentes).</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>¿Cuál es la diferencia entre los botones "Facturar" y "Facturado" de la fila?</td>
+        <td>Ninguna en lo que hacen: los dos abren el remito directo en la solapa "Facturar". El nombre del botón depende del estado en el que está el remito en ese momento, pero el resultado de hacer clic es el mismo. El estado del remito (Facturación Parcial o Facturado) no lo decide el botón que tocaste, sino cuánto de lo remitido termine cubierto por facturas confirmadas.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo facturar solo una parte de lo que remití?</td>
+        <td>Sí. En la solapa "Facturar" podés bajar la cantidad de cada línea antes de guardar la factura. Lo que no factures ahora sigue disponible para una factura posterior sobre el mismo remito.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué no puedo editar un remito que ya confirmé?</td>
+        <td>Porque al confirmarlo ya se le asignó un número definitivo y ya se descontó del pedido de origen — es un comprobante oficial. Desde ese momento solo se puede consultar, imprimir o facturar, no editar ni eliminar.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo cambiar el cliente de un remito ya guardado?</td>
+        <td>No, el cliente queda fijo desde que se guarda el remito por primera vez. Si te equivocaste, eliminá el remito (mientras siga en Borrador) y cargá uno nuevo con el cliente correcto.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué el botón "Imprimir" no genera nada?</td>
+        <td>Todavía no está implementada la emisión del comprobante impreso o en PDF para remitos. El botón está reservado para cuando esa función esté disponible.</td>
+    </tr>
+    <tr>
+        <td>¿Qué pasa con el pedido original cuando genero un remito?</td>
+        <td>El sistema va descontando del pedido la cantidad que remitís. Mientras el remito está en Borrador, esa cantidad ya queda reservada; recién al Confirmar el remito se decide si el pedido quedó totalmente entregado o si todavía tiene saldo pendiente.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Ventas / Remitos de Venta. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -3,7 +3,7 @@ require_once "estados_registros_model.php";
 
 header('Content-Type: application/json');
 
-$accion = $_GET['accion'] ?? '';
+$accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 switch ($accion) {
     case 'obtenerColores':

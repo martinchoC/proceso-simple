@@ -1294,7 +1294,10 @@ $(document).ready(function () {
         actualizarTotales();
     }
 
-    function cargarRemitoComun(remitoId, soloVisualizar) {
+    // abrirEnFacturar: además de mostrar la solapa "Facturar" (que se muestra sola cuando el
+    // remito está Pend. de Facturación/Facturación Parcial), la deja activa de entrada — usada
+    // por los botones "Facturado"/"Facturado Parcial" de la fila.
+    function cargarRemitoComun(remitoId, soloVisualizar, abrirEnFacturar) {
         $.ajax({
             url: 'ventas_remitos_ajax.php',
             type: 'GET',
@@ -1358,16 +1361,41 @@ $(document).ready(function () {
                         $('#entidad_combo').prop('disabled', true); // sigue fijo aunque se pueda editar el resto
                         $('#btnGuardar, .btn-secondary[data-bs-dismiss="modal"]').show();
                     }
+
+                    // La solapa "Facturar" es un flujo aparte (arma y guarda una factura, no
+                    // modifica el remito en sí): sus campos quedan siempre habilitados, incluso
+                    // con el remito abierto en modo solo lectura.
+                    var estadoRemito = parseInt(res.tabla_estado_registro_id, 10);
+                    var puedeFacturar = estadoRemito === 13 || estadoRemito === 15; // Pend. de Facturación / Facturación Parcial
+                    $('#tab-item-facturar').toggle(puedeFacturar);
+                    if (puedeFacturar) {
+                        $('#facturar :input').prop('disabled', false);
+                        abrirPestanaFacturar(res.venta_remito_id, clienteActualId, clienteSucursalActualId, res.comprobante_nro);
+                    }
                 }, 400);
 
                 var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaRemito'), { backdrop: 'static', keyboard: false });
                 modal.show();
+
+                if (abrirEnFacturar) {
+                    setTimeout(function () {
+                        var tabTrigger = document.getElementById('tab-facturar');
+                        if (tabTrigger) bootstrap.Tab.getOrCreateInstance(tabTrigger).show();
+                    }, 450);
+                }
 
                 $('#modalVentaRemito').off('hidden.bs.modal').on('hidden.bs.modal', function () {
                     $('#formVentaRemito :input').prop('disabled', false);
                     $('.btn-eliminar-detalle, .btn-agregar-pendiente, .btn-agregar-libre, #btnLimpiarTagsProductoLibre').prop('disabled', false).show();
                     $('#busqueda_producto').prop('disabled', false);
                     $('#btnGuardar, .btn-secondary[data-bs-dismiss="modal"]').show();
+                    $('#tab-item-facturar').hide();
+                    $('#tab-datos').tab('show');
+                    lineasParaFacturar = [];
+                    resetFormularioFacturar(true);
+                    $('#facturarLineasContainer').html('<div class="text-muted small text-center p-3 border rounded bg-light">Elegí punto de venta para continuar.</div>');
+                    $('#cardFacturasDelRemito').hide();
+                    $('#facturasDelRemitoContainer').empty();
                 });
             },
             error: function (jqXHR, textStatus, errorThrown) {
@@ -1376,6 +1404,343 @@ $(document).ready(function () {
             }
         });
     }
+
+    // ============================================================
+    // SOLAPA "FACTURAR" — arma y guarda (vía ventas_facturas_ajax.php) una factura Borrador
+    // con las líneas pendientes de ESTE remito puntual, sin salir de ventas_remitos.php.
+    // ============================================================
+    var lineasParaFacturar = [];
+    // Distinto de null mientras la solapa "Facturar" está editando una factura EXISTENTE (en
+    // vez de armar una nueva) — ver cargarFacturaEnPestana().
+    var facturaEnEdicionId = null;
+
+    // Deja el formulario de la solapa "Facturar" listo para armar una factura NUEVA (no editar
+    // una existente). volverAAlta = true cuando se llama para "salir" del modo edición.
+    function resetFormularioFacturar(volverAAlta) {
+        facturaEnEdicionId = null;
+        $('#facturarFormTitulo').html('<i class="fas fa-plus-circle me-2"></i>Nueva Factura Desde Este Remito');
+        $('#btnCancelarEdicionFacturaRemito').addClass('d-none');
+        $('#btnGuardarFacturaDesdeRemito').show().prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar Factura');
+        $('#facturarLineasFijasContainer').empty();
+        $('#facturar_punto_venta_id, #facturar_comprobante_tipo_id, #facturar_f_vto').prop('disabled', false);
+        if (volverAAlta) {
+            $('#facturar_punto_venta_id').val('');
+            $('#facturar_comprobante_tipo_id').html('<option value="">Seleccionar PV</option>');
+        }
+    }
+
+    function abrirPestanaFacturar(remitoId, entidadId, entidadSucursalId, comprobanteNro) {
+        $('#facturar_venta_remito_id').val(remitoId);
+        resetFormularioFacturar(false);
+        $('#facturarRemitoInfo').html('Generando factura para el remito <strong>#' + (comprobanteNro || remitoId) + '</strong>. Las líneas ya vienen con la cantidad pendiente cargada — se pueden ajustar antes de guardar.');
+        if (!$('#facturar_f_vto').val()) $('#facturar_f_vto').val(new Date().toISOString().slice(0, 10));
+        lineasParaFacturar = [];
+        renderFacturarTotales();
+
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'puntos_venta', empresa_idx: empresa_idx }, function (rows) {
+            var html = '<option value="">Seleccionar</option>';
+            (rows || []).forEach(function (r) {
+                html += '<option value="' + r.punto_venta_id + '" data-sucursal-id="' + r.sucursal_id + '">' + r.nombre + (r.codigo_fiscal ? ' (' + r.codigo_fiscal + ')' : '') + '</option>';
+            });
+            $('#facturar_punto_venta_id').html(html);
+        });
+
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: empresa_idx, entidad_id: entidadId, entidad_sucursal_id: entidadSucursalId || 0, venta_remito_id: remitoId }, function (rows) {
+            renderLineasFacturar(rows);
+        });
+
+        cargarFacturasDeRemito(remitoId);
+    }
+
+    // Facturas que ya se generaron a partir de este remito (puede haber más de una si se
+    // facturó en partes) — con sus propios botones de acción por estado, para poder
+    // confirmarlas/verlas/eliminarlas sin salir de acá.
+    function cargarFacturasDeRemito(remitoId) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'facturas_de_remito', empresa_idx: empresa_idx, pagina_idx: 56, venta_remito_id: remitoId }, function (rows) {
+            renderFacturasDeRemito(rows);
+        });
+    }
+
+    function renderFacturasDeRemito(rows) {
+        if (!rows || !rows.length) {
+            $('#cardFacturasDelRemito').hide();
+            $('#facturasDelRemitoContainer').empty();
+            return;
+        }
+        $('#cardFacturasDelRemito').show();
+        var html = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead><tr><th>Número</th><th>Tipo</th><th>Emisión</th><th class="text-end">Total</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody>';
+        rows.forEach(function (f) {
+            var botonesHtml = '';
+            (f.botones || []).forEach(function (b) {
+                var clase = 'btn-sm me-1 ';
+                if (b.bg_clase && b.text_clase) clase += b.bg_clase + ' ' + b.text_clase;
+                else if (b.color_clase) clase += b.color_clase;
+                else clase += 'btn-outline-primary';
+                var icono = b.icono_clase ? '<i class="' + b.icono_clase + '"></i>' : b.nombre_funcion;
+                botonesHtml += '<button type="button" class="btn ' + clase + ' btn-accion-factura-remito" title="' + (b.descripcion || b.nombre_funcion) + '" data-id="' + f.venta_factura_id + '" data-accion="' + b.accion_js + '" data-confirmable="' + (b.es_confirmable || 0) + '">' + icono + '</button>';
+            });
+            html += '<tr><td>' + (f.comprobante_nro > 0 ? f.comprobante_nro : '-') + '</td><td>' + (f.comprobante_tipo || '') + '</td><td>' + f.f_emision + '</td><td class="text-end">$' + formatMoneda(f.importe_total) + '</td><td>' + (f.estado_registro || '') + '</td><td class="text-center"><div class="btn-group">' + botonesHtml + '</div></td></tr>';
+        });
+        $('#facturasDelRemitoContainer').html(html + '</tbody></table></div>');
+    }
+
+    $(document).on('click', '.btn-accion-factura-remito', function () {
+        var id = $(this).data('id');
+        var accionJs = $(this).data('accion');
+        var confirmable = $(this).data('confirmable');
+        var remitoId = $('#facturar_venta_remito_id').val();
+
+        if (accionJs === 'editar' || accionJs === 'visualizar') {
+            cargarFacturaEnPestana(id, accionJs === 'visualizar');
+            return;
+        }
+        if (accionJs === 'imprimir') {
+            Swal.fire({ icon: 'info', title: 'Impresión pendiente', text: 'La emisión del comprobante impreso/PDF todavía no está implementada.' });
+            return;
+        }
+
+        function ejecutar() {
+            $.post('ventas_facturas_ajax.php', { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: empresa_idx, pagina_idx: 56 }, function (res) {
+                if (res && res.success) {
+                    Swal.fire({ icon: 'success', title: '¡Listo!', text: res.message || 'Factura actualizada.', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
+                    // La factura confirmada puede haber cambiado el estado del remito (Facturado /
+                    // Facturación Parcial): refrescamos la lista de facturas y la grilla de fondo.
+                    cargarFacturasDeRemito(remitoId);
+                    tabla.ajax.reload(null, false);
+                } else {
+                    Swal.fire('Error', (res && res.error) || 'No se pudo ejecutar la acción.', 'error');
+                }
+            }, 'json').fail(function () { Swal.fire('Error', 'No se pudo ejecutar la acción.', 'error'); });
+        }
+
+        if (confirmable == 1) {
+            Swal.fire({
+                title: '¿' + accionJs.charAt(0).toUpperCase() + accionJs.slice(1) + '?',
+                text: '¿Confirmás ' + accionJs + ' esta factura?',
+                icon: 'question', showCancelButton: true, confirmButtonColor: '#3085d6', cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, ' + accionJs, cancelButtonText: 'Cancelar', reverseButtons: true, allowOutsideClick: false
+            }).then(function (result) { if (result.isConfirmed) ejecutar(); });
+        } else {
+            ejecutar();
+        }
+    });
+
+    // Líneas de la factura en edición que no pertenecen a este remito (manuales u originadas en
+    // otro remito): se listan solo de referencia — no hay picker para tocarlas acá — pero se
+    // conservan intactas en lineasParaFacturar para no perderlas al guardar (editar reemplaza
+    // TODO el detalle de la factura, no solo lo que se ve en esta solapa).
+    function renderLineasFijas(lineas) {
+        if (!lineas.length) { $('#facturarLineasFijasContainer').empty(); return; }
+        var html = '<div class="alert alert-secondary small py-2 px-2 mb-2"><strong>Otras líneas de esta factura</strong> (no vienen de este remito, se conservan sin cambios):<ul class="mb-0 mt-1">';
+        lineas.forEach(function (d) {
+            html += '<li>' + (d.producto_codigo || d.producto_id) + ' - ' + (d.producto_nombre || '') + ' × ' + (parseFloat(d.cantidad) || 0).toFixed(2) + '</li>';
+        });
+        $('#facturarLineasFijasContainer').html(html + '</ul></div>');
+    }
+
+    // Trae una factura EXISTENTE (ligada a este remito) a la solapa "Facturar" para editarla o
+    // verla ahí mismo — nunca se sale de ventas_remitos.php. soloVisualizar deja todo deshabilitado.
+    function cargarFacturaEnPestana(facturaId, soloVisualizar) {
+        var remitoId = $('#facturar_venta_remito_id').val();
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'obtener', venta_factura_id: facturaId, empresa_idx: empresa_idx, pagina_idx: 56 }, function (res) {
+            if (!res || !res.success || !res.data) { Swal.fire('Error', (res && res.error) || 'No se pudo obtener la factura.', 'error'); return; }
+            var f = res.data;
+            facturaEnEdicionId = facturaId;
+
+            var lineasFijas = (f.detalles || []).filter(function (d) { return Number(d.remito_id_origen || 0) !== Number(remitoId); });
+            lineasParaFacturar = lineasFijas.map(function (d) {
+                return {
+                    producto_id: d.producto_id,
+                    venta_remito_detalle_id: d.venta_remito_detalle_id || null,
+                    venta_pedido_detalle_id: d.venta_pedido_detalle_id || null,
+                    cantidad: parseFloat(d.cantidad) || 0,
+                    precio_unitario: parseFloat(d.precio_unitario) || 0,
+                    descuento_general_pct: parseFloat(d.descuento_general_pct) || 0,
+                    iva_alicuota_id: d.iva_alicuota_id || 1,
+                    iva_porcentaje: parseFloat(d.porcentaje_iva) || 0
+                };
+            });
+            renderLineasFijas(lineasFijas);
+
+            $('#facturarFormTitulo').html('<i class="fas fa-' + (soloVisualizar ? 'eye' : 'pencil-alt') + ' me-2"></i>' + (soloVisualizar ? 'Viendo' : 'Editando') + ' factura ' + (f.comprobante_tipo || '') + ' -' + (f.comprobante_nro || f.venta_factura_id));
+            $('#btnCancelarEdicionFacturaRemito').removeClass('d-none');
+            $('#btnGuardarFacturaDesdeRemito').toggle(!soloVisualizar).html('<i class="fas fa-save me-1"></i>Guardar Cambios');
+
+            $('#facturar_f_vto').val(f.f_vto || '').prop('disabled', soloVisualizar);
+            $('#facturar_punto_venta_id').prop('disabled', soloVisualizar).val(f.punto_venta_id);
+            $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', empresa_idx: empresa_idx, punto_venta_id: f.punto_venta_id }, function (rows) {
+                var html = '<option value="">Seleccionar tipo</option>';
+                (rows || []).forEach(function (r) {
+                    var sel = (String(r.comprobante_tipo_id) === String(f.comprobante_tipo_id)) ? ' selected' : '';
+                    html += '<option value="' + r.comprobante_tipo_id + '" data-fiscal="' + (r.comprobante_fiscal_id || 0) + '"' + sel + '>' + r.comprobante_tipo + (r.letra ? ' (' + r.letra + ')' : '') + '</option>';
+                });
+                $('#facturar_comprobante_tipo_id').html(html).prop('disabled', soloVisualizar);
+                renderFacturarTotales();
+            });
+
+            // remitos_pendientes con excluir_factura_id=facturaId: las líneas de ESTE remito que
+            // ya tiene la factura vuelven a aparecer como disponibles (con cantidad_propia
+            // marcando lo que ya tenía), igual que en la edición normal de ventas_facturas.js.
+            $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: empresa_idx, entidad_id: clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0, venta_remito_id: remitoId, excluir_factura_id: facturaId }, function (rows) {
+                renderLineasFacturar(rows);
+                if (soloVisualizar) $('#facturarLineasContainer :input, #facturarLineasContainer button').prop('disabled', true);
+            });
+        });
+    }
+
+    $(document).on('click', '#btnCancelarEdicionFacturaRemito', function () {
+        var remitoId = $('#facturar_venta_remito_id').val();
+        resetFormularioFacturar(true);
+        lineasParaFacturar = [];
+        renderFacturarTotales();
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: empresa_idx, entidad_id: clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0, venta_remito_id: remitoId }, function (rows) {
+            renderLineasFacturar(rows);
+        });
+    });
+
+    $(document).on('change', '#facturar_punto_venta_id', function () {
+        var pv = $(this).val();
+        if (!pv) { $('#facturar_comprobante_tipo_id').html('<option value="">Seleccionar PV</option>'); return; }
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', empresa_idx: empresa_idx, punto_venta_id: pv }, function (rows) {
+            var html = '<option value="">Seleccionar tipo</option>';
+            (rows || []).forEach(function (r) {
+                html += '<option value="' + r.comprobante_tipo_id + '" data-fiscal="' + (r.comprobante_fiscal_id || 0) + '">' + r.comprobante_tipo + (r.letra ? ' (' + r.letra + ')' : '') + '</option>';
+            });
+            $('#facturar_comprobante_tipo_id').html(html);
+            renderFacturarTotales();
+        });
+    });
+    $(document).on('change', '#facturar_comprobante_tipo_id', renderFacturarTotales);
+
+    function renderLineasFacturar(rows) {
+        if (!rows || !rows.length) {
+            $('#facturarLineasContainer').html('<div class="text-muted small text-center p-3 border rounded bg-light">Este remito no tiene líneas pendientes de facturar.</div>');
+            return;
+        }
+        var html = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead><tr><th>Código</th><th>Detalle</th><th class="text-end">Pendiente</th><th class="text-end">Cantidad</th><th class="text-end">Precio</th><th class="text-end">Desc.</th><th class="text-end">Total Neto</th></tr></thead><tbody>';
+        rows.forEach(function (r) {
+            // cantidad_propia > 0 = esta línea ya está en la factura que se está editando (se
+            // precarga con esa cantidad en vez de con el máximo pendiente, que ya la incluye).
+            var pendienteMax = parseFloat(r.cantidad_pendiente_facturar) || 0;
+            var propia = parseFloat(r.cantidad_propia) || 0;
+            var valorInicial = propia > 0 ? propia : pendienteMax;
+            var precio = parseFloat(r.precio_unitario_bruto) || 0;
+            html += '<tr><td>' + r.producto_codigo + '</td><td>' + r.producto_nombre + '</td>'
+                + '<td class="text-end">' + pendienteMax.toFixed(2) + '</td>'
+                + '<td class="text-end"><input type="number" class="form-control form-control-sm factura-remito-cantidad" data-detalle-id="' + r.venta_remito_detalle_id + '" data-producto-id="' + r.producto_id + '" data-pedido-detalle-id="' + (r.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + (r.descuento_general_pct || 0) + '" data-iva-id="' + (r.iva_alicuota_id || 1) + '" data-iva="' + (r.iva_porcentaje || 0) + '" value="' + valorInicial.toFixed(2) + '" min="0" max="' + pendienteMax + '" step="1"></td>'
+                + '<td class="text-end">$' + formatMoneda(precio) + '</td>'
+                + '<td class="text-end">' + (parseFloat(r.descuento_general_pct) || 0) + '%</td>'
+                + '<td class="text-end fw-bold fila-total-neto">$0.00</td></tr>';
+        });
+        $('#facturarLineasContainer').html(html + '</tbody></table></div>');
+        $('#facturarLineasContainer .factura-remito-cantidad').trigger('change');
+    }
+
+    $(document).on('change', '.factura-remito-cantidad', function () {
+        var el = $(this);
+        var valor = Math.max(0, Math.min(parseFloat(this.max) || 0, parseFloat(this.value) || 0));
+        this.value = valor.toFixed(2);
+        var detalleId = el.data('detalle-id');
+        lineasParaFacturar = lineasParaFacturar.filter(function (l) { return l.venta_remito_detalle_id !== detalleId; });
+        if (valor > 0) {
+            lineasParaFacturar.push({
+                producto_id: el.data('producto-id'),
+                venta_remito_detalle_id: detalleId,
+                venta_pedido_detalle_id: el.data('pedido-detalle-id') || null,
+                cantidad: valor,
+                precio_unitario: parseFloat(el.data('precio')) || 0,
+                descuento_general_pct: parseFloat(el.data('descuento-pct')) || 0,
+                iva_alicuota_id: parseInt(el.data('iva-id'), 10) || 1,
+                iva_porcentaje: parseFloat(el.data('iva')) || 0
+            });
+        }
+        var precioUnit = parseFloat(el.data('precio')) || 0;
+        var descPct = parseFloat(el.data('descuento-pct')) || 0;
+        var neto = precioUnit * (1 - descPct / 100);
+        el.closest('tr').find('.fila-total-neto').text('$' + formatMoneda(valor * neto));
+        renderFacturarTotales();
+    });
+
+    function renderFacturarTotales() {
+        var bruto = 0, descuento = 0, neto = 0, iva = 0;
+        var fiscal = parseInt($('#facturar_comprobante_tipo_id option:selected').data('fiscal') || 0, 10) > 0;
+        lineasParaFacturar.forEach(function (d) {
+            var b = d.cantidad * d.precio_unitario;
+            var desc = b * (d.descuento_general_pct || 0) / 100;
+            var n = b - desc;
+            bruto += b; descuento += desc; neto += n;
+            iva += fiscal ? n * (d.iva_porcentaje || 0) / 100 : 0;
+        });
+        var total = neto + iva;
+        $('#facturarTotales').html(
+            '<div class="facturar-totales-box">' +
+                '<div class="facturar-totales-item"><span class="label">Bruto</span><span class="valor">$' + formatMoneda(bruto) + '</span></div>' +
+                '<div class="facturar-totales-item"><span class="label">Descuento</span><span class="valor">$' + formatMoneda(descuento) + '</span></div>' +
+                '<div class="facturar-totales-item"><span class="label">Neto</span><span class="valor">$' + formatMoneda(neto) + '</span></div>' +
+                '<div class="facturar-totales-item"><span class="label">IVA</span><span class="valor">$' + formatMoneda(iva) + '</span></div>' +
+                '<div class="facturar-totales-item facturar-totales-final"><span class="label">Total</span><span class="valor">$' + formatMoneda(total) + '</span></div>' +
+            '</div>'
+        );
+    }
+
+    $(document).on('click', '#btnGuardarFacturaDesdeRemito', function () {
+        var btn = $(this);
+        var esEdicion = !!facturaEnEdicionId;
+        var puntoVenta = $('#facturar_punto_venta_id').val();
+        var tipoComprobante = $('#facturar_comprobante_tipo_id').val();
+        var fVto = $('#facturar_f_vto').val();
+        var fEmision = new Date().toISOString().slice(0, 10);
+
+        if (!puntoVenta || !tipoComprobante) { Swal.fire('Faltan datos', 'Elegí punto de venta y tipo de comprobante.', 'warning'); return; }
+        if (!lineasParaFacturar.length) { Swal.fire('Sin líneas', 'No hay líneas con cantidad para facturar.', 'warning'); return; }
+        if (!fVto) { Swal.fire('Falta la fecha de vencimiento', 'Ingresá la fecha de vencimiento de la factura.', 'warning'); return; }
+        if (fVto < fEmision) { Swal.fire('Fecha de vencimiento inválida', 'El vencimiento no puede ser anterior a la fecha de emisión.', 'warning'); return; }
+
+        var remitoId = $('#facturar_venta_remito_id').val();
+        var sucursalId = $('#facturar_punto_venta_id option:selected').data('sucursal-id') || '';
+        var payload = {
+            accion: esEdicion ? 'editar' : 'agregar', empresa_idx: empresa_idx, pagina_idx: 56,
+            entidad_id: clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0,
+            condicion_pago_id: 0, f_emision: fEmision, f_vto: fVto,
+            sucursal_id: sucursalId, punto_venta_id: puntoVenta, comprobante_tipo_id: tipoComprobante,
+            comprobante_nro: 0, moneda_id: 1,
+            observaciones: 'Generada desde remito ' + ($('#comprobante_nro').val() || remitoId),
+            detalles: JSON.stringify(lineasParaFacturar)
+        };
+        if (esEdicion) payload.venta_factura_id = facturaEnEdicionId;
+
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+        $.ajax({ url: 'ventas_facturas_ajax.php', type: 'POST', data: payload, dataType: 'json' })
+            .done(function (res) {
+                if (!res || !res.success) { Swal.fire('Error', (res && res.error) || (esEdicion ? 'No se pudo actualizar la factura.' : 'No se pudo generar la factura.'), 'error'); return; }
+                Swal.fire({
+                    icon: 'success', title: esEdicion ? 'Factura Actualizada' : 'Factura Generada',
+                    text: esEdicion ? (res.message || 'Se guardaron los cambios.') : ((res.message || 'Se generó la factura.') + ' Quedó en Borrador — la vas a ver abajo, en "Facturas de este remito", para confirmarla cuando quieras.'),
+                    toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
+                });
+                cargarFacturasDeRemito(remitoId);
+                tabla.ajax.reload(null, false);
+
+                if (esEdicion) {
+                    // Sigue EN la misma factura (recargada desde el servidor) — si el usuario
+                    // toca algo más y le da Guardar otra vez, tiene que seguir siendo un update
+                    // de esta factura, no un alta nueva. Antes acá se volvía al modo alta y
+                    // facturaEnEdicionId quedaba en null, duplicando la factura en el siguiente guardado.
+                    cargarFacturaEnPestana(facturaEnEdicionId, false);
+                } else {
+                    // Recién creada: vuelve al modo alta, lista para facturar más líneas de este
+                    // remito en una factura aparte si hace falta.
+                    resetFormularioFacturar(true);
+                    lineasParaFacturar = [];
+                    renderFacturarTotales();
+                    $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: empresa_idx, entidad_id: clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0, venta_remito_id: remitoId }, function (rows) {
+                        renderLineasFacturar(rows);
+                    });
+                }
+            })
+            .fail(function (xhr) { Swal.fire('Error', 'No se pudo guardar la factura: ' + (xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'error de servidor.'), 'error'); })
+            .always(function () { btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar Factura'); });
+    });
 
     function cargarRemitoParaEditar(id) { cargarRemitoComun(id, false); }
     function cargarRemitoParaVisualizar(id) { cargarRemitoComun(id, true); }
@@ -1391,6 +1756,13 @@ $(document).ready(function () {
             cargarRemitoParaEditar(remitoId);
         } else if (accionJs === 'visualizar') {
             cargarRemitoParaVisualizar(remitoId);
+        } else if (accionJs === 'facturar' || accionJs === 'facturado_parcial') {
+            // Estos dos NO son una transición de estado genérica: si el remito queda Facturado
+            // o en Facturación Parcial, tiene que ser porque hay una factura real detrás (lo
+            // decide vfActualizarEstadoRemitosDeFactura() al confirmarla), no porque alguien
+            // clickeó el botón acá. En vez de pegarle a ejecutar_accion, abrimos el remito (modo
+            // lectura para sus datos/productos) directo en la solapa "Facturar".
+            cargarRemitoComun(remitoId, true, true);
         } else if (confirmable == 1) {
             Swal.fire({
                 title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,

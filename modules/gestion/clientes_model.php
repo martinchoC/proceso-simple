@@ -299,17 +299,35 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT e.*, 
-                   er.$estado_column as estado_registro, 
+    $sql = "SELECT e.*,
+                   er.$estado_column as estado_registro,
                    er.codigo_estandar,
                    ec.color_clase, ec.bg_clase, ec.text_clase,
                    et.entidad_tipo,
-                   l.localidad
+                   l.localidad,
+                   cc.limite_credito,
+                   cc.cliente_descuento_general,
+                   cc.f_desde AS condicion_cliente_f_desde,
+                   cond.condicion_pago,
+                   lp.lista_precio_nombre AS lista_precio
             FROM gestion__entidades e
             LEFT JOIN conf__estados_registros er ON e.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
             LEFT JOIN gestion__entidades_tipos et ON e.entidad_tipo_id = et.entidad_tipo_id
             LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
+            LEFT JOIN gestion__entidades_condiciones_clientes cc
+                   ON cc.entidad_condicion_cliente_id = (
+                        SELECT cc2.entidad_condicion_cliente_id
+                        FROM gestion__entidades_condiciones_clientes cc2
+                        WHERE cc2.entidad_id = e.entidad_id
+                          AND cc2.tabla_estado_registro_id = 1
+                          AND (cc2.f_hasta IS NULL OR cc2.f_hasta >= CURDATE())
+                          AND cc2.f_desde <= CURDATE()
+                        ORDER BY cc2.f_desde DESC
+                        LIMIT 1
+                   )
+            LEFT JOIN gestion__condiciones_pago cond ON cc.condicion_pago_id = cond.condicion_pago_id
+            LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
             WHERE e.empresa_id = ?
               AND e.es_cliente = 1
             ORDER BY e.entidad_nombre";
@@ -347,6 +365,14 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
             'descripcion' => null,
             'bg_clase' => 'bg-secondary',
             'text_clase' => 'text-white'
+        ];
+
+        $fila['condicion_cliente_info'] = [
+            'condicion_pago' => $fila['condicion_pago'] ?? null,
+            'lista_precio' => $fila['lista_precio'] ?? null,
+            'limite_credito' => $fila['limite_credito'] ?? null,
+            'cliente_descuento_general' => $fila['cliente_descuento_general'] ?? null,
+            'f_desde' => $fila['condicion_cliente_f_desde'] ?? null
         ];
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id'], $funciones_pagina);

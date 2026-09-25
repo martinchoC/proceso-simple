@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Lista de Precios</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 14px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert {
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 14px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #fff;
+    }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0 30px;
+    }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+        margin: 2px 4px 2px 0;
+    }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eef4ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral {
+        border-left: 3px solid var(--azul);
+        padding-left: 12px;
+        color: var(--texto-muted);
+        font-size: 0.92rem;
+        margin: 10px 0;
+    }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1><i class="fas fa-tags"></i> Manual de usuario: Lista de Precios</h1>
+<p class="subtitulo">Cómo cargar, editar y eliminar el precio de cada producto dentro de cada lista de precios, y cómo importar precios en forma masiva desde un Excel.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#antes-de-empezar">Antes de empezar: la lista de precios tiene que existir</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#filtros">Filtros y búsqueda</a></li>
+        <li><a href="#cargar-editar">Cargar o editar el precio de un producto</a></li>
+        <li><a href="#eliminar">Eliminar un precio</a></li>
+        <li><a href="#importar-excel">Importar precios desde Excel</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#relacionadas">Pantallas relacionadas</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Lista de Precios</strong> (dentro del módulo Ventas) es donde cargás <strong>cuánto vale cada producto dentro de cada lista de precios</strong> que tengas configurada (por ejemplo, "Lista Mayorista" o "Lista Minorista"). Un mismo producto puede tener un precio distinto en cada lista: acá se ve todo junto, en una sola tabla, con la lista a la que pertenece cada precio.</p>
+
+<div class="alert alert-info">Esta pantalla no crea listas de precios nuevas, solo carga los <strong>precios de los productos dentro de las listas que ya existen</strong>. Ver la siguiente sección.</div>
+
+<h2 id="antes-de-empezar">Antes de empezar: la lista de precios tiene que existir</h2>
+<p>Esta pantalla y la pantalla <strong>Listas de Precios - Seteo</strong> son dos cosas distintas, aunque se llaman parecido:</p>
+<table class="tabla-referencia">
+    <tr><th>Pantalla</th><th>Para qué sirve</th></tr>
+    <tr><td>Listas de Precios - Seteo</td><td>Define los <strong>tipos de lista</strong> que existen (su código, su nombre, de dónde sale). Es donde se crea "Lista Mayorista", "Lista Minorista", etc.</td></tr>
+    <tr><td>Lista de Precios <em>(esta pantalla)</em></td><td>Carga el <strong>precio de cada producto</strong> dentro de una de esas listas ya creadas.</td></tr>
+</table>
+<div class="nota-lateral">Si al querer cargar un precio no encontrás la lista que necesitás en el selector "Lista de Precios", significa que todavía no fue creada. Hay que darla de alta primero en <strong>Listas de Precios - Seteo</strong> (menú Seteo Empresas) y recién después va a aparecer acá para poder cargarle precios.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Al entrar a <strong>Lista de Precios</strong> ves una tabla con todos los precios cargados, uno por fila (un mismo producto puede aparecer varias veces si tiene precio en más de una lista). Cada fila muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Lista</td><td>Nombre de la lista de precios a la que pertenece ese precio</td></tr>
+    <tr><td>Código</td><td>Código del producto</td></tr>
+    <tr><td>Producto</td><td>Nombre del producto</td></tr>
+    <tr><td>Compatibilidad</td><td>Marca, modelo, submodelo y años con los que es compatible el producto (si aplica)</td></tr>
+    <tr><td>Ubicación</td><td>Dónde está guardado el producto en el depósito (sucursal, sección, estantería, estante y posición). Si tiene más de dos ubicaciones cargadas, se muestra "+N más"</td></tr>
+    <tr><td>Imagen</td><td>Miniatura del producto, si tiene una foto cargada. Hacé clic sobre ella para verla más grande</td></tr>
+    <tr><td>Precio Unitario</td><td>El precio cargado, sin impuestos</td></tr>
+    <tr><td>Precio c/IVA</td><td>El precio anterior más el IVA del producto, calculado automáticamente por el sistema (pasá el mouse por encima para ver el porcentaje de IVA aplicado)</td></tr>
+    <tr><td>Última Actualización</td><td>Fecha y hora en que se cargó o modificó ese precio por última vez</td></tr>
+    <tr><td>Acciones</td><td>Botones para editar o eliminar ese precio</td></tr>
+</table>
+<p>La tabla trae los resultados de a 10 filas por página (podés cambiar la cantidad con el selector de la izquierda). No tiene el buscador general de otras pantallas: la búsqueda se hace con el buscador de palabras que se explica a continuación.</p>
+
+<h2 id="filtros">Filtros y búsqueda</h2>
+<p>Arriba de la tabla hay dos filas de filtros, todos se pueden combinar entre sí:</p>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Cómo funciona</th></tr>
+    <tr><td>Marca / Modelo / Submodelo</td><td>Filtran por la compatibilidad del producto (mismo criterio que en Productos). Modelo se habilita recién al elegir una Marca, y Submodelo al elegir un Modelo</td></tr>
+    <tr><td>Lista de Precios</td><td>Muestra solo los precios de la lista elegida</td></tr>
+    <tr><td>Buscador de palabras</td><td>Escribí una palabra y presioná <strong>Espacio</strong> (o Enter) para agregarla como una "etiqueta" de búsqueda. Podés cargar varias palabras: se buscan todas a la vez (código, producto, compatibilidad o nombre de lista que contengan <em>todas</em> las palabras cargadas)</td></tr>
+</table>
+<p>Cada palabra que agregás al buscador queda como una etiqueta con una <i class="fas fa-times"></i> para sacarla individualmente. El botón <span class="boton-ejemplo boton-outline"><i class="fas fa-times"></i></span>, junto al buscador, limpia <strong>todos</strong> los filtros de una vez (marca, modelo, submodelo, lista y las palabras buscadas) y se pone en rojo cuando hay algún filtro activo, indicando cuántos hay aplicados. Debajo de la tabla de filtros aparece un aviso con la cantidad de resultados encontrados, o un aviso de que no se encontró nada.</p>
+
+<h2 id="cargar-editar">Cargar o editar el precio de un producto</h2>
+<p>Arriba de la tabla, a la derecha, está el botón <span class="boton-ejemplo boton-primario">Nuevo Precio</span>. En cada fila del listado tenés estos botones:</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th></tr>
+    <tr><td><i class="fa fa-edit"></i> Editar</td><td>Abre la ficha de ese precio para modificarlo</td></tr>
+    <tr><td><i class="fa fa-trash"></i> Eliminar</td><td>Quita ese precio del listado (ver más abajo)</td></tr>
+</table>
+<p>Al hacer clic en "Nuevo Precio" o en "Editar" se abre una ficha con estos campos:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Lista de Precios *</td><td>Lista a la que va a pertenecer este precio (obligatorio, tiene que existir de antemano — ver "Antes de empezar")</td></tr>
+    <tr><td>Producto *</td><td>Producto al que le estás cargando el precio, identificado por código y nombre (obligatorio)</td></tr>
+    <tr><td>Precio Unitario *</td><td>Precio sin impuestos, en pesos (obligatorio, mayor a cero)</td></tr>
+    <tr><td>Ajuste ID</td><td>Campo numérico opcional de uso interno/técnico, pensado para vincular este precio a un ajuste masivo. Hoy no tiene efecto en el sistema: dejalo en blanco</td></tr>
+</table>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">Guardar</span> para confirmar. Si falta algún dato obligatorio, el sistema te lo marca en rojo sin guardar nada.</p>
+<div class="nota-lateral">No podés cargar dos veces el mismo producto en la misma lista: si ya existe un precio activo para ese producto en la lista elegida, el sistema te avisa "Ya existe un precio para este producto en la lista seleccionada" y tenés que editar el precio existente en vez de crear uno nuevo.</div>
+
+<h2 id="eliminar">Eliminar un precio</h2>
+<div class="flujo">
+    <div class="flujo-caja">Precio activo</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+</div>
+<p>Al hacer clic en <i class="fa fa-trash"></i> Eliminar, el sistema pide confirmación ("¿Eliminar precio? No se puede deshacer") antes de sacar ese precio del listado.</p>
+<div class="alert alert-warning">A diferencia de otras pantallas del sistema (como Entidades), acá <strong>no hay un botón para volver a activar</strong> un precio eliminado. Si eliminaste un precio por error, la forma de recuperarlo es cargarlo de nuevo con "Nuevo Precio".</div>
+
+<h2 id="importar-excel">Importar precios desde Excel</h2>
+<p>Si necesitás actualizar muchos precios de una sola vez (por ejemplo, una lista completa que te mandó un proveedor), usá <span class="boton-ejemplo boton-primario">Importar Excel</span>, arriba de la tabla.</p>
+<ol>
+    <li>Elegí la <strong>Lista de Precios *</strong> a la que se van a aplicar los precios del archivo.</li>
+    <li>Elegí el <strong>archivo Excel</strong> (.xlsx o .xls). El archivo tiene que tener el <strong>código del producto en la columna A</strong> y el <strong>precio en la columna C</strong>. Cualquier fila donde la columna A o la columna C no tengan un dato válido se descarta sola (por ejemplo, filas de título o encabezado).</li>
+    <li>Hacé clic en <span class="boton-ejemplo boton-primario">Procesar Importación</span>. Vas a ver una barra de progreso mientras el sistema procesa el archivo en tandas.</li>
+</ol>
+<p>Al terminar, el sistema muestra un resumen con la cantidad de precios <strong>actualizados</strong>, <strong>sin cambios</strong> (el precio ya era el mismo), <strong>no encontrados</strong> (el código no existe como producto) y <strong>con error</strong>. Además, descarga automáticamente un Excel llamado <em>resultado_importación_[fecha].xlsx</em> con el detalle fila por fila, para que puedas revisar qué pasó con cada código.</p>
+<div class="nota-lateral">Si un producto ya tenía precio en esa lista, el precio anterior no se pierde: queda guardado en el historial de precios del producto, y el nuevo precio del Excel pasa a ser el vigente.</div>
+<div class="nota-lateral">Si el mismo código de producto aparece más de una vez en el archivo, el sistema toma solo el último precio que encuentra para ese código.</div>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha de la tabla tenés los botones <span class="boton-ejemplo boton-outline"><i class="fas fa-file-excel"></i> Excel</span> y <span class="boton-ejemplo boton-outline"><i class="fas fa-file-pdf"></i> PDF</span> para exportar el listado (el PDF exporta solo Lista, Código, Producto, Precio Unitario y Última Actualización; el Excel exporta todas las columnas salvo la de Imagen).</p>
+<div class="alert alert-warning">Estos botones exportan <strong>únicamente los precios que se ven en la página actual de la tabla</strong> (por ejemplo, las 10 filas visibles), no todo el listado filtrado. Si necesitás exportar un listado completo más grande, subí la cantidad de filas por página antes de exportar, o consultá con el equipo técnico.</div>
+
+<h2 id="relacionadas">Pantallas relacionadas</h2>
+<table class="tabla-referencia">
+    <tr><th>Pantalla</th><th>Relación con Lista de Precios</th></tr>
+    <tr><td>Listas de Precios - Seteo</td><td>Define los tipos/nombres de lista que después vas a poder elegir acá. Es el paso previo obligatorio (ver "Antes de empezar")</td></tr>
+    <tr><td>Listas de Precios - Ajustes</td><td>Pantalla pensada para aplicar ajustes de precios en forma masiva (por porcentaje o importe) sobre una lista completa. Se menciona acá porque el campo "Ajuste ID" de esta pantalla está reservado para vincularse con ella en el futuro, pero hoy no tiene efecto</td></tr>
+    <tr><td>Productos, pestaña "Precios"</td><td>Desde la ficha de un producto también podés ver y cargar su precio en cada lista, sin salir de esa pantalla</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Cargué un producto en "Nuevo Precio" pero no encuentro la lista que necesito, ¿qué hago?</td>
+        <td>Esa lista todavía no fue creada. Andá a <strong>Listas de Precios - Seteo</strong> (menú Seteo Empresas) y dala de alta ahí primero; recién después va a aparecer en el selector "Lista de Precios" de esta pantalla.</td>
+    </tr>
+    <tr>
+        <td>Elimino un precio por error, ¿lo puedo recuperar?</td>
+        <td>El precio anterior no se borra físicamente de la base de datos, pero en esta pantalla no hay ningún botón para volver a activarlo. En la práctica, tenés que cargarlo de nuevo a mano con "Nuevo Precio" con el mismo valor que tenía antes.</td>
+    </tr>
+    <tr>
+        <td>¿Para qué sirve el campo "Ajuste ID" de la ficha de precio?</td>
+        <td>Hoy no tiene ningún efecto: podés dejarlo vacío siempre. Está reservado para una futura integración con ajustes masivos de precios.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué un mismo producto aparece varias veces en la tabla?</td>
+        <td>Porque tiene un precio cargado en más de una lista de precios. Cada fila es la combinación de un producto con una lista puntual, no el producto en general — fijate en la columna "Lista" para distinguirlas.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué al exportar a Excel no me aparecen todos los precios filtrados, solo unos pocos?</td>
+        <td>La exportación solo toma la página que estás viendo en pantalla. Subí la cantidad de filas por página (selector a la izquierda de la tabla) antes de exportar si necesitás más resultados en el archivo.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Ventas / Lista de Precios. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

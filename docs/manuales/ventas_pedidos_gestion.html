@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Gestión de Pedidos</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 14px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert {
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 14px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #fff;
+    }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0 30px;
+    }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+        margin: 2px 4px 2px 0;
+    }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eef4ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral {
+        border-left: 3px solid var(--azul);
+        padding-left: 12px;
+        color: var(--texto-muted);
+        font-size: 0.92rem;
+        margin: 10px 0;
+    }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1><i class="fas fa-dolly"></i> Manual de usuario: Gestión de Pedidos</h1>
+<p class="subtitulo">Cómo preparar y entregar (total o parcialmente) los pedidos de venta que ya fueron confirmados.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es Gestión de Pedidos?</a></li>
+        <li><a href="#diferencia">No confundir con "Pedidos de Clientes"</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Cómo avanza un pedido en esta pantalla</a></li>
+        <li><a href="#preparar">Preparar un pedido</a></li>
+        <li><a href="#pestana-preparar">Pestaña: Preparar</a></li>
+        <li><a href="#ajustar-cantidad">Las dos flechas +/- de cada línea: no confundir</a></li>
+        <li><a href="#guardar-confirmar">Guardar Remito vs. Confirmar Remito</a></li>
+        <li><a href="#pestana-detalle">Pestaña: Detalle Del Pedido</a></li>
+        <li><a href="#filtros">Filtros y exportación del listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es Gestión de Pedidos?</h2>
+<p>Es el tablero de trabajo del depósito. Acá no se cargan pedidos nuevos ni se editan sus datos generales: se preparan y se entregan los pedidos de venta que el vendedor <strong>ya confirmó</strong>. Para cada pedido, esta pantalla te deja armar la entrega (el remito) con lo que efectivamente se despacha, ya sea todo de una vez o en varias partes a lo largo de los días.</p>
+
+<h2 id="diferencia">No confundir con "Pedidos de Clientes"</h2>
+<div class="card card-outline-primary">
+    <p>En el sistema existen <strong>dos pantallas distintas que trabajan sobre los mismos pedidos</strong>, cada una pensada para un momento diferente del proceso:</p>
+    <table class="tabla-referencia">
+        <tr><th>Pantalla</th><th>Para qué usarla</th></tr>
+        <tr>
+            <td><strong>Pedidos de Clientes</strong></td>
+            <td>Dar de alta un pedido nuevo, cargar sus productos y cantidades, modificar sus datos generales mientras está en Borrador, y confirmarlo. También sirve para ver el pedido una vez que ya se entregó por completo (esta pantalla lo deja de mostrar).</td>
+        </tr>
+        <tr>
+            <td><strong>Gestión de Pedidos</strong> (esta pantalla)</td>
+            <td>Preparar la mercadería de un pedido ya confirmado y generar su entrega (remito), total o en partes.</td>
+        </tr>
+    </table>
+    <p style="margin-bottom:0">Si necesitás crear, modificar o anular un pedido: andá a <strong>Pedidos de Clientes</strong>. Si lo que necesitás es despachar la mercadería de un pedido que el vendedor ya confirmó: esta es la pantalla correcta.</p>
+</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Al entrar ves una grilla con los pedidos que están en curso. Cada fila muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Número</td><td>Número de comprobante del pedido</td></tr>
+    <tr><td>Cliente</td><td>Nombre del cliente y, debajo, su nombre de fantasía si tiene uno cargado</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal de tu empresa por la que se hizo el pedido</td></tr>
+    <tr><td>Emisión</td><td>Fecha en que se emitió el pedido</td></tr>
+    <tr><td>Estado</td><td>En qué punto del proceso de entrega está (ver la sección siguiente)</td></tr>
+    <tr><td>Preparar</td><td>Botón para abrir el pedido y empezar (o continuar) su entrega</td></tr>
+</table>
+<div class="alert alert-info">Esta pantalla <strong>no muestra todos los pedidos</strong>: solo lista los que están Confirmados y pendientes de revisar, En Preparación, o con Entrega Parcial. En cuanto un pedido queda totalmente entregado, sale de esta grilla — para volver a verlo, buscalo en "Pedidos de Clientes".</div>
+<p>Las filas de pedidos recién confirmados (que todavía nadie abrió para preparar) se ven con un fondo gris claro, para que salten a la vista como lo próximo a atender.</p>
+
+<h2 id="estados">Cómo avanza un pedido en esta pantalla</h2>
+<p>Un pedido llega a esta pantalla ya confirmado desde "Pedidos de Clientes", y sale de acá recién cuando queda completamente entregado (a partir de ese momento se sigue viendo, pero desde "Pedidos de Clientes"):</p>
+<div class="flujo">
+    <div class="flujo-caja inactivo">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Confirmado - Pend. Revisión</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">En Preparación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Entrega Parcial</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Entrega Total</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Facturado</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa</th></tr>
+    <tr><td>Borrador</td><td>El pedido todavía se está cargando en "Pedidos de Clientes". No aparece en esta pantalla.</td></tr>
+    <tr><td>Confirmado - Pend. Revisión</td><td>El vendedor ya confirmó el pedido y está esperando que alguien lo abra para empezar a prepararlo. Es el estado con el que llega un pedido nuevo a esta grilla (fila resaltada en gris).</td></tr>
+    <tr><td>En Preparación</td><td>Alguien ya abrió el pedido con el botón "Preparar". El sistema lo pasa a este estado automáticamente apenas se abre por primera vez, sin que haga falta ningún botón adicional.</td></tr>
+    <tr><td>Entrega Parcial</td><td>Ya se confirmó al menos una entrega (remito) de este pedido, pero todavía queda mercadería pendiente de despachar. El pedido sigue viéndose en esta pantalla para terminar de entregarlo.</td></tr>
+    <tr><td>Entrega Total</td><td>Se entregó todo lo pedido. El pedido desaparece de esta grilla (seguís viéndolo desde "Pedidos de Clientes").</td></tr>
+    <tr><td>Facturado</td><td>El pedido ya fue facturado. Ocurre en otra pantalla, después de la entrega; no se gestiona acá.</td></tr>
+</table>
+<div class="nota-lateral">El pasaje de Entrega Parcial a Entrega Total no lo elige nadie a mano: el sistema lo calcula solo, comparando lo pedido contra lo efectivamente confirmado en los remitos, cada vez que se confirma una entrega.</div>
+
+<h2 id="preparar">Preparar un pedido</h2>
+<p>En la grilla principal, cada pedido tiene un único botón disponible: <span class="boton-ejemplo boton-primario"><i class="fas fa-dolly"></i> Preparar</span>. Al hacer clic se abre la ventana "Preparar pedido", con los datos del pedido (sucursal, tipo y número de comprobante, fecha de emisión y estado) a la vista y de solo lectura arriba de todo.</p>
+<div class="alert alert-warning">Si la sucursal del pedido no tiene un depósito configurado y activo, el sistema te avisa "Sin depósito para esta sucursal" y no te deja cargar ninguna entrega hasta que se configure uno.</div>
+
+<h2 id="pestana-preparar">Pestaña: Preparar</h2>
+<p>Es la pestaña donde armás la entrega. Arriba elegís el <strong>Punto de Venta (Depósito)</strong> desde el que se despacha (si la sucursal solo tiene uno configurado, se completa solo), la <strong>Fecha Emisión</strong> de la entrega, y podés dejar una <strong>Observación</strong>. El tipo de comprobante se completa solo, sin que tengas que elegirlo.</p>
+<p>Debajo aparecen hasta dos bloques con los productos pendientes:</p>
+<ul>
+    <li><strong>Pendientes De Este Pedido:</strong> los productos que todavía faltan entregar de este mismo pedido.</li>
+    <li><strong>Pendientes De Otros Pedidos Del Cliente:</strong> solo aparece si ese mismo cliente tiene otros pedidos con productos pendientes. Te permite sumar esas líneas a la misma entrega, para no despachar por separado si el cliente va a recibir todo junto.</li>
+</ul>
+
+<h2 id="ajustar-cantidad">Las dos flechas +/- de cada línea: no confundir</h2>
+<p>En la tabla de "Pendientes De Este Pedido" cada producto tiene <strong>dos</strong> controles de +/- independientes, uno al lado del otro. Es el punto que más confunde de esta pantalla, así que conviene tenerlo claro:</p>
+<table class="tabla-referencia">
+    <tr><th>Control</th><th>Para qué sirve</th><th>Efecto</th></tr>
+    <tr><td><strong>Ajustar Pedido</strong> (en rojo)</td><td>Corregir la cantidad que el cliente pidió originalmente de ese producto (por ejemplo, si hay que reducirla porque no hay stock suficiente).</td><td>Cambia el pedido en sí, al instante — no hace falta guardar nada más. No se puede bajar por debajo de lo que ya se entregó o quedó reservado en una entrega guardada.</td></tr>
+    <tr><td><strong>A Preparar</strong> (columna final, en negro)</td><td>Elegir cuánto de lo pendiente vas a incluir en la entrega (remito) que estás armando ahora.</td><td>Solo queda guardado cuando hacés clic en "Guardar Remito" o "Confirmar Remito". Si cerrás la ventana sin guardar, se pierde.</td></tr>
+</table>
+<p>La tabla también muestra, por cada producto, cuánto ya se <strong>Entregó</strong> (de entregas confirmadas anteriores), cuánto quedó cargado en el <strong>Remito Actual</strong> (lo que ya guardaste en esta sesión de trabajo, si guardaste sin confirmar) y cuánto queda <strong>Pendiente De Entrega</strong> después de eso.</p>
+<div class="alert alert-warning">El botón "+" de "A Preparar" no bloquea que cargues más cantidad de la que figura en "Pendiente De Entrega" — prestá atención a esa columna antes de guardar o confirmar, sobre todo si estás sumando líneas de varios pedidos a la vez.</div>
+
+<h2 id="guardar-confirmar">Guardar Remito vs. Confirmar Remito</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th></tr>
+    <tr><td><span class="boton-ejemplo" style="background:#198754;border-color:#198754;color:#fff;">Guardar Remito</span></td><td>Guarda lo cargado como una entrega sin numerar todavía (un borrador de remito). Podés volver más tarde, reabrir el pedido y seguir sumando productos a esa misma entrega antes de confirmarla — no se crea una nueva cada vez.</td></tr>
+    <tr><td><span class="boton-ejemplo boton-primario">Confirmar Remito</span></td><td>Guarda y además numera y cierra la entrega: registra la salida de la mercadería y actualiza el estado del pedido (a Entrega Parcial o Entrega Total, según corresponda). Pide confirmación antes de aplicarse, porque no se puede deshacer desde acá.</td></tr>
+</table>
+<p>Al confirmar, el sistema muestra una pantalla de "Remito Confirmado" con el número asignado y el detalle de lo entregado.</p>
+<div class="nota-lateral">Es obligatorio cargar la fecha de emisión y elegir el punto de venta (depósito) antes de poder guardar o confirmar. Si no agregaste ningún producto en "A Preparar", el sistema no te deja continuar.</div>
+
+<h2 id="pestana-detalle">Pestaña: Detalle Del Pedido</h2>
+<p>Es una vista de solo lectura con el pedido completo, tal como se cargó: cada producto con su cantidad pedida, cuánto se entregó hasta ahora y cuánto queda pendiente. Haciendo clic sobre el número de la columna "Entregada" de cualquier producto, se despliega qué entrega (o entregas) confirmadas corresponden a esa cantidad, con su fecha.</p>
+
+<h2 id="filtros">Filtros y exportación del listado</h2>
+<p>Arriba de la grilla tenés los filtros por <strong>cliente</strong> (texto libre), <strong>sucursal</strong> y <strong>punto de venta</strong> (este último se completa según la sucursal elegida). El botón de recargar (<span class="boton-ejemplo boton-outline">↻</span>) actualiza la tabla sin salir de la pantalla, y el grupo de botones de exportación te deja sacar el listado en <strong>Excel</strong>, <strong>PDF</strong>, <strong>CSV</strong> o mandarlo directo a <strong>Imprimir</strong>, respetando los filtros que tengas aplicados en ese momento.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Confirmé un pedido en "Pedidos de Clientes" pero no lo encuentro acá.</td>
+        <td>Revisá los filtros de sucursal y punto de venta arriba de la grilla — puede estar filtrado. Si el pedido ya fue entregado por completo (Entrega Total), tampoco lo vas a ver acá: esta pantalla solo muestra los que todavía tienen algo pendiente de entregar.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué cambió el estado del pedido a "En Preparación" si yo no toqué ningún botón de estado?</td>
+        <td>Es automático: apenas abrís un pedido por primera vez con "Preparar", el sistema lo pasa de "Confirmado - Pend. Revisión" a "En Preparación" solo. No hay un botón separado para eso.</td>
+    </tr>
+    <tr>
+        <td>Cargué cantidades en "A Preparar" pero cerré la ventana sin guardar. ¿Se perdió?</td>
+        <td>Sí. Lo que se ve en la columna "A Preparar" solo queda guardado cuando usás "Guardar Remito" o "Confirmar Remito". Si en cambio ya habías guardado antes (aunque sea sin confirmar), eso sí se conserva y aparece reflejado en "Remito Actual" la próxima vez que abras el pedido.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo entregar productos de dos pedidos distintos del mismo cliente en un solo remito?</td>
+        <td>Sí. Para eso está el bloque "Pendientes De Otros Pedidos Del Cliente": sumá ahí las líneas que quieras despachar junto con las de este pedido y quedan en la misma entrega.</td>
+    </tr>
+    <tr>
+        <td>¿Qué diferencia hay entre bajar la cantidad con "Ajustar Pedido" y bajarla con "A Preparar"?</td>
+        <td>"Ajustar Pedido" corrige lo que el cliente pidió (cambia el pedido en sí, de inmediato). "A Preparar" solo decide cuánto de eso vas a incluir en la entrega que estás armando ahora; no toca el pedido.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Ventas / Gestión de Pedidos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

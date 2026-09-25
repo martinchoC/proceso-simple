@@ -71,6 +71,18 @@ try {
             echo json_encode($precios, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_dashboard':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            $filtros = [
+                'filtro_codigo' => $_GET['filtro_codigo'] ?? '',
+                'filtro_marca' => $_GET['filtro_marca'] ?? '',
+                'filtro_modelo' => $_GET['filtro_modelo'] ?? '',
+                'filtro_submodelo' => $_GET['filtro_submodelo'] ?? ''
+            ];
+            $dashboard = obtenerDashboardPreciosProveedor($conexion, $empresa_idx, $entidad_id, $filtros);
+            echo json_encode($dashboard, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'obtener_marcas':
             echo json_encode(obtenerMarcas($conexion), JSON_UNESCAPED_UNICODE);
             break;

@@ -76,6 +76,8 @@ $(function () {
         $(document).on('click', '.btn-actualizar-costo-y-precio', function () {
             actualizarFila($(this).data('row'), 'actualizar_costo_y_precio');
         });
+
+        $('#tab-dashboard-btn').on('shown.bs.tab', cargarDashboard);
     }
 
     function cargarProveedores() {
@@ -225,10 +227,21 @@ $(function () {
             }
 
             if (typeof callback === 'function') callback();
+
+            // Cualquier recarga del listado (guardar, cambiar estado, importar,
+            // masivos, botón Recargar) también refresca el dashboard si es la
+            // pestaña visible en este momento — para no dejarlo con datos viejos.
+            if (estaTabDashboardActiva()) {
+                cargarDashboard();
+            }
         }).fail(function (xhr) {
             console.error('Error cargando precios de proveedor:', xhr.status, xhr.responseText);
             Swal.fire('Error', 'No se pudo cargar el listado de precios.', 'error');
         });
+    }
+
+    function estaTabDashboardActiva() {
+        return $('#tab-dashboard').hasClass('active');
     }
 
     function inicializarDataTable(filasIniciales) {
@@ -246,18 +259,21 @@ $(function () {
 
         var theadFila1 = '<tr>' +
             '<th rowspan="2">Proveedor</th>' +
-            '<th rowspan="2">Cód. Prov.</th><th rowspan="2">Código</th><th rowspan="2">Producto</th>' +
-            '<th rowspan="2">Marca</th><th rowspan="2">Modelo</th><th rowspan="2">Submodelo</th>' +
+            '<th rowspan="2">Cód. Prov.</th><th rowspan="2">Código</th><th rowspan="2" width="280">Producto</th>' +
             '<th rowspan="2" class="text-end">Precio Lista</th><th rowspan="2" class="text-end">Desc. %</th>' +
             '<th rowspan="2" class="text-end">Costo Neto Compra</th><th rowspan="2" class="text-end">Último Costo</th>' +
+            '<th rowspan="2" class="text-end">% Var. Costo</th>' +
             '<th rowspan="2">Vigente desde</th>';
         var theadFila2 = '<tr>';
         listasPreciosActivas.forEach(function (lp, i) {
             var color = PALETA_LISTAS[i % PALETA_LISTAS.length];
-            theadFila1 += '<th colspan="2" class="text-center text-white" style="background-color:' + color + ';">' + escapeHtml(lp.lista_precio_nombre) + '</th>';
-            theadFila2 += '<th class="text-end">Actual</th><th class="text-end">Debería ser</th>';
+            theadFila1 += '<th colspan="3" class="text-center text-white" style="background-color:' + color + ';">' + escapeHtml(lp.lista_precio_nombre) + '</th>';
+            theadFila2 += '<th class="text-end">Actual</th><th class="text-end">Debería ser</th><th class="text-end">% Var.</th>';
         });
-        theadFila1 += '<th rowspan="2" width="260" class="text-center">Acciones</th></tr>';
+        // Acciones apiladas en 2 filas (ver render más abajo) — se achica el
+        // ancho de la columna respecto de antes, ahora que no necesita entrar
+        // todo en una sola fila de botones.
+        theadFila1 += '<th rowspan="2" width="160" class="text-center">Acciones</th></tr>';
         theadFila2 += '</tr>';
         $('#tablaProveedorPrecios thead').html(theadFila1 + theadFila2);
 
@@ -272,33 +288,37 @@ $(function () {
             },
             { data: 'codigo_proveedor', defaultContent: '' },
             { data: 'producto_codigo', defaultContent: '' },
-            { data: 'producto_nombre' },
-            { data: 'marcas_compatibles', defaultContent: '<span class="text-muted">-</span>', render: function (d) { return d ? escapeHtml(d) : '<span class="text-muted">-</span>'; } },
-            { data: 'modelos_compatibles', defaultContent: '<span class="text-muted">-</span>', render: function (d) { return d ? escapeHtml(d) : '<span class="text-muted">-</span>'; } },
-            { data: 'submodelos_compatibles', defaultContent: '<span class="text-muted">-</span>', render: function (d) { return d ? escapeHtml(d) : '<span class="text-muted">-</span>'; } },
+            {
+                // Debajo del nombre, la compatibilidad (marca, modelo,
+                // submodelo y años) en gris — una línea por combinación REAL
+                // (mismo criterio que productos.php: nunca se mezclan campos
+                // sueltos, cada línea es una fila real de
+                // gestion__productos_compatibilidad).
+                data: 'producto_nombre',
+                render: function (nombre, type, row) {
+                    if (type === 'export') return nombre;
+                    return renderNombreConCompatibilidad(nombre, row.compatibilidades_detalle);
+                }
+            },
             { data: 'precio_lista', className: 'text-end', render: function (d) { return formatearMoneda(d); } },
             { data: 'descuento_general_pct', className: 'text-end', render: function (d) { return (parseFloat(d) || 0).toFixed(2) + ' %'; } },
             {
                 // Costo neto de compra "debería ser" (según el precio de lista
-                // actual del proveedor). Se resalta si difiere del "Último
-                // Costo Registrado" (columna siguiente) — mismo umbral (0.99)
-                // que usamos para "Debería ser" en las listas de venta.
+                // actual del proveedor). Coloreado igual que "Último Costo
+                // Registrado" — son las dos puntas de la misma comparación; el
+                // % en sí va en su propia columna ("% Var. Costo").
                 data: null,
                 className: 'text-end',
                 render: function (row) {
                     var neto = row.costo_neto_compra;
                     var registrado = row.costo_actual_registrado;
-                    var difiere = registrado !== null && registrado !== undefined && Math.abs(registrado - neto) > 0.99;
-                    return '<strong class="' + (difiere ? 'text-danger' : '') + '">' + formatearMoneda(neto) + '</strong>';
+                    return '<strong class="' + claseColorVariacion(registrado, neto) + '">' + formatearMoneda(neto) + '</strong>';
                 }
             },
             {
                 // Último costo que ya está registrado en gestion__productos_costos,
                 // para comparar contra la columna anterior ANTES de tocar
                 // "Actualizar costo". null = el producto todavía no tiene costo cargado.
-                // Se resalta en rojo cuando difiere del costo neto de compra
-                // recién calculado — así salta a la vista qué productos están
-                // desactualizados sin tener que comparar columna por columna.
                 data: null,
                 className: 'text-end',
                 render: function (row) {
@@ -306,8 +326,17 @@ $(function () {
                     if (registrado === null || registrado === undefined) {
                         return '<span class="text-muted">Sin costo</span>';
                     }
-                    var difiere = Math.abs(registrado - row.costo_neto_compra) > 0.99;
-                    return '<span class="' + (difiere ? 'text-danger fw-bold' : '') + '">' + formatearMoneda(registrado) + '</span>';
+                    return '<span class="' + claseColorVariacion(registrado, row.costo_neto_compra) + '">' + formatearMoneda(registrado) + '</span>';
+                }
+            },
+            {
+                // % de variación entre Costo Neto de Compra y Último Costo
+                // Registrado — así salta a la vista qué productos están
+                // desactualizados y CUÁNTO, sin comparar columna por columna.
+                data: null,
+                className: 'text-end',
+                render: function (row) {
+                    return renderCeldaPorcentaje(row.costo_actual_registrado, row.costo_neto_compra);
                 }
             },
             {
@@ -316,49 +345,63 @@ $(function () {
             }
         ];
 
-        // Un par de columnas (Actual / Debería ser) por cada lista de precios
-        // activa. "Debería ser" NO considera promociones, acumulación ni
-        // prioridad (confirmado): toma costo_neto_compra y le aplica el
-        // porcentaje de la regla vigente que matchee por producto, categoría
-        // o proveedor — ver resolverReglaAplicable() en el _model.php.
+        // Un trío de columnas (Actual / Debería ser / % Var.) por cada lista
+        // de precios activa. "Debería ser" NO considera promociones,
+        // acumulación ni prioridad (confirmado): toma costo_neto_compra y le
+        // aplica el porcentaje de la regla vigente que matchee por producto,
+        // categoría o proveedor — ver resolverReglaAplicable() en el _model.php.
         listasPreciosActivas.forEach(function (lp) {
             var lid = lp.lista_precio_id;
             columnasBase.push({
+                // Coloreado igual que "Debería ser" — misma comparación; el %
+                // en sí va en la columna "% Var." de esta lista.
                 data: 'precios_por_lista.' + lid + '.precio_actual',
                 className: 'text-end',
-                render: function (d) { return (d === null || d === undefined) ? '<span class="text-muted">Sin precio</span>' : formatearMoneda(d); }
+                render: function (d, type, row) {
+                    if (d === null || d === undefined) return '<span class="text-muted">Sin precio</span>';
+                    var porLista = (row.precios_por_lista && row.precios_por_lista[lid]) || {};
+                    return '<span class="' + claseColorVariacion(d, porLista.precio_deberia_ser) + '">' + formatearMoneda(d) + '</span>';
+                }
             });
             columnasBase.push({
                 data: null,
                 className: 'text-end',
                 render: function (row) {
                     var porLista = (row.precios_por_lista && row.precios_por_lista[lid]) || {};
-                    var actual = porLista.precio_actual;
                     var deberiaSer = porLista.precio_deberia_ser;
                     if (deberiaSer === null || deberiaSer === undefined) {
                         return '<span class="text-muted">Sin regla</span>';
                     }
-                    // Resalta si el precio "debería ser" difiere del actual, para
-                    // que salte a la vista sin tener que comparar columna por columna.
-                    // Umbral de 0.99: diferencias menores (redondeos, centavos) no se marcan
-                    // como "distinto" — solo salta a la vista si realmente cambia.
-                    var difiere = actual !== null && actual !== undefined && Math.abs(actual - deberiaSer) > 0.99;
-                    var clase = difiere ? 'text-danger fw-bold' : '';
-                    return '<span class="' + clase + '">' + formatearMoneda(deberiaSer) + '</span>';
+                    return '<span class="' + claseColorVariacion(porLista.precio_actual, deberiaSer) + '">' + formatearMoneda(deberiaSer) + '</span>';
+                }
+            });
+            columnasBase.push({
+                // % de variación contra el precio actual — así dice CUÁNTO
+                // cambió, sin comparar columna por columna.
+                data: null,
+                className: 'text-end',
+                render: function (row) {
+                    var porLista = (row.precios_por_lista && row.precios_por_lista[lid]) || {};
+                    return renderCeldaPorcentaje(porLista.precio_actual, porLista.precio_deberia_ser);
                 }
             });
         });
 
         columnasBase.push({
+            // Apiladas en 2 filas para no obligar a la columna a ser tan
+            // ancha: arriba las 4 acciones fijas (historial + actualizar
+            // costo/precio), abajo los botones dinámicos del motor de
+            // estados (editar/inhabilitar/confirmar/etc, si hay alguno).
             data: null,
             orderable: false,
             render: function (row) {
                 var rowJson = encodeURIComponent(JSON.stringify(row));
-                var html = '<div class="btn-group">';
-                html += '<button class="btn btn-sm btn-outline-info btn-ver-historial" data-id="' + row.producto_proveedor_id + '" title="Ver historial"><i class="fas fa-history"></i></button>';
-                html += '<button class="btn btn-sm btn-outline-success btn-actualizar-costo" data-row="' + rowJson + '" title="Actualizar costo"><i class="fas fa-sync-alt"></i></button>';
-                html += '<button class="btn btn-sm btn-outline-primary btn-actualizar-precio-venta" data-row="' + rowJson + '" title="Actualizar precio de venta (con el costo actual)"><i class="fas fa-tags"></i></button>';
-                html += '<button class="btn btn-sm btn-outline-warning btn-actualizar-costo-y-precio" data-row="' + rowJson + '" title="Actualizar costo y precio de venta"><i class="fas fa-bolt"></i></button>';
+                var filaFija = '<div class="btn-group btn-group-sm">' +
+                    '<button class="btn btn-outline-info btn-ver-historial" data-id="' + row.producto_proveedor_id + '" title="Ver historial"><i class="fas fa-history"></i></button>' +
+                    '<button class="btn btn-outline-success btn-actualizar-costo" data-row="' + rowJson + '" title="Actualizar costo"><i class="fas fa-sync-alt"></i></button>' +
+                    '<button class="btn btn-outline-primary btn-actualizar-precio-venta" data-row="' + rowJson + '" title="Actualizar precio de venta (con el costo actual)"><i class="fas fa-tags"></i></button>' +
+                    '<button class="btn btn-outline-warning btn-actualizar-costo-y-precio" data-row="' + rowJson + '" title="Actualizar costo y precio de venta"><i class="fas fa-bolt"></i></button>' +
+                    '</div>';
 
                 // Botones que vienen del motor de estados (conf__paginas_funciones,
                 // pagina_id=92) — sin hardcodear "Editar" acá: si la función que
@@ -366,20 +409,21 @@ $(function () {
                 // de estado, abre el formulario), usa abrirModalEditar() con la fila
                 // completa; el resto sigue yendo por ejecutarAccionEstado() como
                 // siempre.
+                var botonesEstado = '';
                 (row.botones || []).forEach(function (btn) {
                     if (btn.accion_js === 'editar') {
-                        html += '<button class="btn btn-sm ' + (btn.color_clase || 'btn-outline-secondary') + ' btn-editar-precio" ' +
+                        botonesEstado += '<button class="btn ' + (btn.color_clase || 'btn-outline-secondary') + ' btn-editar-precio" ' +
                             'data-row="' + rowJson + '" title="' + escapeHtml(btn.descripcion || btn.nombre_funcion) + '">' +
                             '<i class="' + (btn.icono_clase || 'fas fa-pen') + '"></i></button>';
                         return;
                     }
-                    html += '<button class="btn btn-sm ' + (btn.color_clase || 'btn-outline-primary') + ' btn-estado-accion" ' +
+                    botonesEstado += '<button class="btn ' + (btn.color_clase || 'btn-outline-primary') + ' btn-estado-accion" ' +
                         'data-id="' + row.producto_proveedor_precio_id + '" data-accion="' + btn.accion_js + '" title="' + escapeHtml(btn.descripcion || btn.nombre_funcion) + '">' +
                         '<i class="' + (btn.icono_clase || 'fas fa-cog') + '"></i></button>';
                 });
+                var filaEstado = botonesEstado ? '<div class="btn-group btn-group-sm mt-1">' + botonesEstado + '</div>' : '';
 
-                html += '</div>';
-                return html;
+                return '<div class="d-flex flex-column align-items-center">' + filaFija + filaEstado + '</div>';
             }
         });
 
@@ -912,6 +956,143 @@ $(function () {
             $('#resumenImportacion').html(html);
             cargarYMostrarTabla();
         }
+    }
+
+    /* ============================ Compatibilidad ============================ */
+
+    // Debajo del nombre del producto, la compatibilidad (marca, modelo,
+    // submodelo y años) en gris — una línea por combinación REAL (mismo
+    // criterio que productos.php: nunca se mezclan campos sueltos, cada
+    // línea es una fila real de gestion__productos_compatibilidad).
+    // Se usa tanto en la grilla de Listado como en las tablas del Dashboard.
+    function renderNombreConCompatibilidad(nombre, detalle) {
+        var base = escapeHtml(nombre);
+        if (!detalle || !detalle.length) return base;
+        var lineas = detalle.map(function (c) {
+            var partes = [c.marca, c.modelo];
+            if (c.submodelo) partes.push(c.submodelo);
+            partes.push('(' + c.anios + ')');
+            return escapeHtml(partes.filter(Boolean).join(' '));
+        }).join('<br>');
+        return base + '<br><small class="text-muted">' + lineas + '</small>';
+    }
+
+    /* ============================ Variación Actual vs Debería ser ============================ */
+
+    // Mismos umbrales que resuelve server-side (obtenerDashboardPreciosProveedor):
+    // <=3% sin variación (no se marca, es ruido de redondeo), 3-10% leve,
+    // 10-25% moderada, >25% importante. Devuelve el nombre de color Bootstrap
+    // (sin prefijo bg-/text-) para poder aplicarlo tanto al punto como al texto.
+    function severidadVariacion(pctAbs) {
+        if (pctAbs <= 10) return 'primary';
+        if (pctAbs <= 25) return 'warning';
+        return 'danger';
+    }
+
+    // Calcula la variación % entre "actual" y "debería ser". Devuelve null si
+    // falta algún valor (nada que comparar) — el llamador decide qué hacer.
+    function calcularVariacion(actual, deberiaSer) {
+        if (actual === null || actual === undefined || !actual || deberiaSer === null || deberiaSer === undefined) {
+            return null;
+        }
+        var pct = ((deberiaSer - actual) / actual) * 100;
+        var pctAbs = Math.abs(pct);
+        return { pct: pct, pctAbs: pctAbs, severidad: severidadVariacion(pctAbs) };
+    }
+
+    // Clase de color para el VALOR que se está evaluando (Costo Neto de
+    // Compra, Último Costo, Actual, Debería ser) — sin indicador aparte: el
+    // número en sí lleva el color de la severidad. Vacío si no hay variación
+    // significativa (<=3%, ruido de redondeo) o falta algún dato.
+    function claseColorVariacion(actual, deberiaSer) {
+        var v = calcularVariacion(actual, deberiaSer);
+        return (v && v.pctAbs > 3) ? 'text-' + v.severidad : '';
+    }
+
+    // Celda de la columna "% Var.": el % de variación solo, coloreado según
+    // severidad (sin indicador/punto aparte — la columna en sí ya es el
+    // indicador).
+    function renderCeldaPorcentaje(actual, deberiaSer) {
+        var v = calcularVariacion(actual, deberiaSer);
+        if (!v) return '<span class="text-muted">-</span>';
+
+        var signo = v.pct >= 0 ? '+' : '';
+        var texto = signo + v.pct.toFixed(1) + '%';
+        if (v.pctAbs <= 3) return '<span class="text-muted">' + texto + '</span>';
+        return '<span class="text-' + v.severidad + ' fw-bold">' + texto + '</span>';
+    }
+
+    function cargarDashboard() {
+        var hayFiltro = !!($('#filtroCodigo').val() || $('#filtroMarca').val() || $('#filtroModelo').val() || $('#filtroSubmodelo').val());
+
+        if (!proveedorActualId && !hayFiltro) {
+            $('#avisoDashboardSinBusqueda').removeClass('d-none');
+            $('#contenidoDashboard').addClass('d-none');
+            return;
+        }
+        $('#avisoDashboardSinBusqueda').addClass('d-none');
+
+        $.get({
+            url: 'proveedor_precios_ajax.php',
+            dataType: 'json',
+            data: {
+                accion: 'obtener_dashboard',
+                empresa_idx: empresa_idx,
+                entidad_id: proveedorActualId,
+                filtro_codigo: $('#filtroCodigo').val() || '',
+                filtro_marca: $('#filtroMarca').val() || '',
+                filtro_modelo: $('#filtroModelo').val() || '',
+                filtro_submodelo: $('#filtroSubmodelo').val() || ''
+            }
+        }).done(function (dash) {
+            // Defensa en profundidad: el guard de arriba (hayFiltro/proveedorActualId)
+            // ya evita este caso en el uso normal, pero si el backend igual
+            // responde "requiere_filtro" (p. ej. otro consumidor del endpoint
+            // cambió el guard), no lo mostramos como "0 en todo".
+            if (dash && dash.requiere_filtro) {
+                $('#avisoDashboardSinBusqueda').removeClass('d-none');
+                $('#contenidoDashboard').addClass('d-none');
+                return;
+            }
+            pintarDashboard(dash);
+            $('#contenidoDashboard').removeClass('d-none');
+        }).fail(function (xhr) {
+            console.error('Error cargando dashboard:', xhr.status, xhr.responseText);
+            Swal.fire('Error', 'No se pudo cargar el dashboard.', 'error');
+        });
+    }
+
+    function pintarDashboard(dash) {
+        $('#dash_lista_general_nombre').text(dash.lista_general_nombre ? '(' + dash.lista_general_nombre + ')' : '');
+        pintarTablaVariaciones('#dash_tabla_top_costo', dash.top_variaciones_costo, 'costo_actual', 'costo_neto_compra');
+        pintarTablaVariaciones('#dash_tabla_top_lista_general', dash.top_variaciones_lista_general, 'precio_actual', 'precio_deberia_ser');
+    }
+
+    // Tabla de "mayores variaciones": mismo layout para costo y para la
+    // lista general, solo cambian los nombres de campo del par actual/debería-ser.
+    function pintarTablaVariaciones(selectorTabla, filas, campoActual, campoDeberiaSer) {
+        var $tbody = $(selectorTabla + ' tbody').empty();
+        if (!filas || !filas.length) {
+            $tbody.append('<tr><td colspan="5" class="text-center text-muted">Sin variaciones para mostrar.</td></tr>');
+            return;
+        }
+        filas.forEach(function (f) {
+            var actual = f[campoActual];
+            var deberiaSer = f[campoDeberiaSer];
+            // "Debería ser" coloreado igual que la columna Variación (misma
+            // comparación) — sin indicador aparte, el color del texto ya lo dice.
+            var claseValor = claseColorVariacion(actual, deberiaSer);
+
+            $tbody.append(
+                '<tr>' +
+                '<td>' + renderNombreConCompatibilidad(f.producto_nombre, f.compatibilidades_detalle) + '</td>' +
+                '<td>' + escapeHtml(f.entidad_nombre || '-') + '</td>' +
+                '<td class="text-end">' + formatearMoneda(actual) + '</td>' +
+                '<td class="text-end ' + claseValor + '">' + formatearMoneda(deberiaSer) + '</td>' +
+                '<td class="text-center">' + renderCeldaPorcentaje(actual, deberiaSer) + '</td>' +
+                '</tr>'
+            );
+        });
     }
 
     /* ============================ Utilidades ============================ */

@@ -32,7 +32,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <h3 class="mb-0">
                         <i class="fas fa-truck-loading me-2"></i>Precios de Proveedores
                     </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
                 </div>
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-end">
@@ -158,14 +157,63 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
                                     </div>
 
-                                    <div class="card-body">
+                                    <ul class="nav nav-tabs px-3 pt-2" id="tabsProveedorPrecios" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="tab-listado-btn" data-bs-toggle="tab" data-bs-target="#tab-listado" type="button" role="tab" aria-controls="tab-listado" aria-selected="true">
+                                                <i class="fas fa-list me-1"></i>Listado
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="tab-dashboard-btn" data-bs-toggle="tab" data-bs-target="#tab-dashboard" type="button" role="tab" aria-controls="tab-dashboard" aria-selected="false">
+                                                <i class="fas fa-chart-pie me-1"></i>Dashboard
+                                            </button>
+                                        </li>
+                                    </ul>
+
+                                    <div class="card-body tab-content" id="contenidoTabsProveedorPrecios">
                                         <input type="hidden" id="empresa_id_hidden" name="empresa_id_hidden" value="<?= $empresa_id ?>" />
                                         <input type="hidden" id="pagina_id_hidden" name="pagina_id_hidden" value="<?= $pagina_id ?>" />
 
-                                        <table id="tablaProveedorPrecios" class="table table-striped table-bordered table-sm table-slim" style="width:100%">
-                                            <thead class="table-light"></thead>
-                                            <tbody></tbody>
-                                        </table>
+                                        <div class="tab-pane fade show active" id="tab-listado" role="tabpanel" aria-labelledby="tab-listado-btn">
+                                            <table id="tablaProveedorPrecios" class="table table-striped table-bordered table-sm table-slim" style="width:100%">
+                                                <thead class="table-light"></thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+
+                                        <div class="tab-pane fade" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-dashboard-btn">
+                                            <div id="avisoDashboardSinBusqueda" class="alert alert-info">
+                                                Seleccioná un proveedor o aplicá un filtro para ver el dashboard.
+                                            </div>
+                                            <div id="contenidoDashboard" class="d-none">
+                                                <div class="card card-outline card-secondary mb-3">
+                                                    <div class="card-header py-2"><h6 class="mb-0">Mayores variaciones de costo</h6></div>
+                                                    <div class="card-body p-0" style="max-height:400px; overflow-y:auto;">
+                                                        <table class="table table-sm table-striped mb-0" id="dash_tabla_top_costo">
+                                                            <thead class="table-light">
+                                                                <tr><th>Producto</th><th>Proveedor</th><th class="text-end">Costo actual</th><th class="text-end">Debería ser</th><th class="text-center">Variación</th></tr>
+                                                            </thead>
+                                                            <tbody></tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+
+                                                <div class="card card-outline card-secondary mb-0">
+                                                    <div class="card-header py-2">
+                                                        <h6 class="mb-0">Mayores variaciones de lista general</h6>
+                                                        <small class="text-muted" id="dash_lista_general_nombre"></small>
+                                                    </div>
+                                                    <div class="card-body p-0" style="max-height:400px; overflow-y:auto;">
+                                                        <table class="table table-sm table-striped mb-0" id="dash_tabla_top_lista_general">
+                                                            <thead class="table-light">
+                                                                <tr><th>Producto</th><th>Proveedor</th><th class="text-end">Actual</th><th class="text-end">Debería ser</th><th class="text-center">Variación</th></tr>
+                                                            </thead>
+                                                            <tbody></tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

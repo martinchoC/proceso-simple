@@ -224,7 +224,8 @@ INSERT INTO `conf__empresas_perfiles` (`empresa_perfil_id`, `empresa_id`, `modul
 	(8, 2, 2, 3, 'Administrador', 1),
 	(9, 2, 2, 4, 'Administrativo 1', 1),
 	(10, 2, 1, 2, 'Administrador Parcial', 1),
-	(11, 2, 2, NULL, 'Cliente Mayorista', 1);
+	(11, 2, 2, NULL, 'Cliente Mayorista', 1),
+	(12, 2, 2, 4, 'Pedidos', 1);
 
 -- Volcando estructura para tabla gestion_multipyme.conf__empresas_perfiles_funciones
 CREATE TABLE IF NOT EXISTS `conf__empresas_perfiles_funciones` (
@@ -237,7 +238,7 @@ CREATE TABLE IF NOT EXISTS `conf__empresas_perfiles_funciones` (
   PRIMARY KEY (`empresa_perfil_funcion_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.conf__empresas_perfiles_funciones: ~358 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__empresas_perfiles_funciones: ~386 rows (aproximadamente)
 DELETE FROM `conf__empresas_perfiles_funciones`;
 INSERT INTO `conf__empresas_perfiles_funciones` (`empresa_perfil_funcion_id`, `empresa_id`, `empresa_perfil_id`, `pagina_funcion_id`, `asignado`, `fecha_asignacion`) VALUES
 	(1, 1, 2, 36, 1, '2025-12-27 13:57:43'),
@@ -625,7 +626,16 @@ INSERT INTO `conf__empresas_perfiles_funciones` (`empresa_perfil_funcion_id`, `e
 	(391, 2, 8, 421, 1, '2026-09-20 22:05:59'),
 	(392, 2, 8, 422, 1, '2026-09-20 22:05:59'),
 	(393, 2, 8, 423, 1, '2026-09-20 22:05:59'),
-	(394, 2, 8, 354, 1, '2026-09-20 22:06:29');
+	(394, 2, 8, 354, 1, '2026-09-20 22:06:29'),
+	(395, 2, 12, 406, 1, '2026-09-22 01:32:32'),
+	(396, 2, 12, 392, 1, '2026-09-22 01:32:35'),
+	(397, 2, 12, 408, 1, '2026-09-22 01:32:38'),
+	(398, 2, 12, 401, 1, '2026-09-22 01:33:16'),
+	(399, 2, 12, 405, 1, '2026-09-22 01:33:19'),
+	(400, 2, 12, 402, 1, '2026-09-22 01:33:23'),
+	(401, 2, 12, 403, 1, '2026-09-22 01:33:26'),
+	(402, 2, 12, 404, 1, '2026-09-22 01:33:28'),
+	(403, 2, 12, 407, 1, '2026-09-22 01:33:32');
 
 -- Volcando estructura para tabla gestion_multipyme.conf__estados_registros
 CREATE TABLE IF NOT EXISTS `conf__estados_registros` (
@@ -638,7 +648,7 @@ CREATE TABLE IF NOT EXISTS `conf__estados_registros` (
   PRIMARY KEY (`estado_registro_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.conf__estados_registros: ~13 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__estados_registros: ~12 rows (aproximadamente)
 DELETE FROM `conf__estados_registros`;
 INSERT INTO `conf__estados_registros` (`estado_registro_id`, `estado_registro`, `codigo_estandar`, `valor_estandar`, `color_id`, `orden_estandar`) VALUES
 	(1, 'Activo', 'ACTIVO', 1, 1, 1),
@@ -653,7 +663,8 @@ INSERT INTO `conf__estados_registros` (`estado_registro_id`, `estado_registro`, 
 	(10, 'Entrega Parcial', 'ENTREGA_PARCIAL', 60, 1, 60),
 	(11, 'Entrega Total', 'ENTREGA_TOTAL', 70, 1, 70),
 	(12, 'Facturado', 'FACTURADO', 80, 1, 80),
-	(13, 'Pendiente de Facturacion', 'PEND_FACT', 75, 1, 75);
+	(13, 'Pendiente de Facturacion', 'PEND_FACT', 75, 1, 75),
+	(15, 'Facturacion Parcial', 'FACT_PARC', 77, 1, 77);
 
 -- Volcando estructura para tabla gestion_multipyme.conf__iconos
 CREATE TABLE IF NOT EXISTS `conf__iconos` (
@@ -787,7 +798,7 @@ CREATE TABLE IF NOT EXISTS `conf__localidades` (
   KEY `localidad` (`provincia_id`,`localidad`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.conf__localidades: ~22.944 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__localidades: ~23.205 rows (aproximadamente)
 DELETE FROM `conf__localidades`;
 INSERT INTO `conf__localidades` (`localidad_id`, `localidad`, `cp`, `provincia_id`, `tabla_estado_registro_id`) VALUES
 	(1111, 'CABEZA DE CHANCHO', 3061, 29, 1),
@@ -24087,7 +24098,7 @@ INSERT INTO `conf__paginas_funciones` (`pagina_funcion_id`, `pagina_id`, `icono_
 	(279, 76, 40, 1, 1, 'Editar', 'editar', NULL, 1, 1, 10, '2026-04-02 20:05:30', 1),
 	(280, 76, 45, 4, 1, 'Inhabilitar', 'inactivar', NULL, 1, 2, 20, '2026-04-02 20:05:30', 1),
 	(281, 76, 46, 3, 1, 'Habilitar', 'habilitar', NULL, 2, 1, 100, '2026-04-02 20:05:30', 1),
-	(282, 77, 42, 3, 1, 'Agregar', 'agregar', NULL, 0, 3, 0, '2026-04-29 22:03:32', 1),
+	(282, 77, 42, 3, 1, 'Agregar', 'agregar', '', 0, 3, 0, '2026-09-22 02:32:20', 1),
 	(283, 77, 40, 1, 1, 'Editar', 'editar', NULL, 3, 3, 0, '2026-04-29 22:03:32', 1),
 	(284, 77, 36, 8, 1, 'Imprimir', 'imprimir', NULL, 5, 5, 0, '2026-04-29 22:03:32', 1),
 	(285, 77, 36, 8, 1, 'Imprimir', 'imprimir', NULL, 8, 8, 0, '2026-04-29 22:03:32', 1),
@@ -24108,9 +24119,9 @@ INSERT INTO `conf__paginas_funciones` (`pagina_funcion_id`, `pagina_id`, `icono_
 	(300, 80, 40, 1, 1, 'Editar', 'editar', NULL, 1, 1, 10, '2026-05-03 23:30:39', 1),
 	(301, 80, 45, 4, 1, 'Inhabilitar', 'inactivar', NULL, 1, 2, 20, '2026-05-03 23:30:39', 1),
 	(302, 80, 46, 3, 1, 'Habilitar', 'habilitar', NULL, 2, 1, 100, '2026-05-03 23:30:39', 1),
-	(303, 81, 42, 3, 1, 'Agregar', 'agregar', NULL, 0, 1, 0, '2026-05-03 23:33:05', 1),
+	(303, 81, 42, 3, 1, 'Agregar', 'agregar', '', 0, 1, 0, '2026-09-22 02:35:40', 1),
 	(304, 81, 37, 1, 1, 'Visualizar', 'visualizar', NULL, 0, 1, 1, '2026-05-03 23:33:05', 1),
-	(305, 81, 40, 1, 1, 'Editar', 'editar', NULL, 1, 1, 10, '2026-05-03 23:33:05', 1),
+	(305, 81, 40, 1, 1, 'Editar', 'editar', '', 1, 1, 10, '2026-09-22 02:30:07', 1),
 	(306, 81, 45, 4, 1, 'Inhabilitar', 'inactivar', NULL, 1, 2, 20, '2026-05-03 23:33:05', 1),
 	(307, 81, 46, 3, 1, 'Habilitar', 'habilitar', NULL, 2, 1, 100, '2026-05-03 23:33:05', 1),
 	(308, 82, 42, 3, 1, 'Agregar', 'agregar', NULL, 0, 1, 0, '2026-05-04 00:26:47', 1),
@@ -24170,7 +24181,6 @@ INSERT INTO `conf__paginas_funciones` (`pagina_funcion_id`, `pagina_id`, `icono_
 	(373, 2, 45, 4, 1, 'Inhabilitar', 'inactivar', NULL, 1, 2, 20, '2026-07-04 18:55:51', 1),
 	(374, 2, 46, 3, 1, 'Habilitar', 'habilitar', NULL, 2, 1, 100, '2026-07-04 18:55:51', 1),
 	(375, 57, 46, 2, 8, 'Visualizar', 'visualizar', '', 5, 5, 0, '2026-07-18 20:40:19', 1),
-	(376, 88, 37, 0, 8, 'Visualizar', 'visualizar', '', 13, 13, 0, '2026-09-12 20:10:04', 1),
 	(378, 55, 37, 7, 1, 'Visualizar', 'visualizar', '', 5, 5, 47, '2026-09-12 18:49:02', 1),
 	(379, 55, 37, 7, 1, 'Visualizar (copia)', 'visualizar', NULL, 10, 10, 47, '2026-09-12 18:51:56', 1),
 	(380, 55, 40, 1, 1, 'Editar (copia)', 'editar', NULL, 3, 3, 22, '2026-09-14 14:04:52', 1),
@@ -24197,7 +24207,10 @@ INSERT INTO `conf__paginas_funciones` (`pagina_funcion_id`, `pagina_id`, `icono_
 	(420, 94, 37, 1, 1, 'Visualizar', 'visualizar', NULL, 0, 1, 1, '2026-09-20 14:39:10', 1),
 	(421, 94, 40, 1, 1, 'Editar', 'editar', NULL, 1, 1, 10, '2026-09-20 14:39:10', 1),
 	(422, 94, 45, 4, 1, 'Inhabilitar', 'inactivar', NULL, 1, 2, 20, '2026-09-20 14:39:10', 1),
-	(423, 94, 46, 3, 1, 'Habilitar', 'habilitar', NULL, 2, 1, 100, '2026-09-20 14:39:10', 1);
+	(423, 94, 46, 3, 1, 'Habilitar', 'habilitar', NULL, 2, 1, 100, '2026-09-20 14:39:10', 1),
+	(424, 88, 8, 6, 1, 'Facturado Parcial', 'facturado_parcial', '', 13, 15, 30, '2026-09-22 02:14:51', 1),
+	(427, 88, 37, 7, 1, 'Visualizar', 'visualizar', '', 15, 15, 50, '2026-09-22 02:16:50', 1),
+	(428, 88, 46, 6, 1, 'Facturado', 'facturar', '', 15, 12, 52, '2026-09-22 02:17:54', 1);
 
 -- Volcando estructura para tabla gestion_multipyme.conf__paginas_funciones_estandar
 CREATE TABLE IF NOT EXISTS `conf__paginas_funciones_estandar` (
@@ -24271,7 +24284,7 @@ CREATE TABLE IF NOT EXISTS `conf__paises` (
   PRIMARY KEY (`pais_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 
--- Volcando datos para la tabla gestion_multipyme.conf__paises: ~1 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__paises: ~0 rows (aproximadamente)
 DELETE FROM `conf__paises`;
 INSERT INTO `conf__paises` (`pais_id`, `pais`, `tabla_estado_registro_id`) VALUES
 	(1, 'Argentina', 1);
@@ -24565,7 +24578,7 @@ CREATE TABLE IF NOT EXISTS `conf__tablas_comprobantes_subgrupos` (
   KEY `idx_comprobante_subgrupo_id` (`comprobante_subgrupo_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.conf__tablas_comprobantes_subgrupos: ~3 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__tablas_comprobantes_subgrupos: ~2 rows (aproximadamente)
 DELETE FROM `conf__tablas_comprobantes_subgrupos`;
 INSERT INTO `conf__tablas_comprobantes_subgrupos` (`tabla_comprobante_subgrupo_id`, `tabla_id`, `empresa_id`, `comprobante_subgrupo_id`, `tabla_estado_registro_id`) VALUES
 	(3, 82, 2, 17, 1),
@@ -24584,7 +24597,7 @@ CREATE TABLE IF NOT EXISTS `conf__tablas_estados_registros` (
   PRIMARY KEY (`tabla_estado_registro_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.conf__tablas_estados_registros: ~157 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__tablas_estados_registros: ~156 rows (aproximadamente)
 DELETE FROM `conf__tablas_estados_registros`;
 INSERT INTO `conf__tablas_estados_registros` (`tabla_estado_registro_id`, `tabla_id`, `estado_registro_id`, `tabla_estado_registro`, `color_id`, `es_inicial`, `orden`) VALUES
 	(1, 4, 1, 'Activo', 3, 0, 1),
@@ -24743,7 +24756,9 @@ INSERT INTO `conf__tablas_estados_registros` (`tabla_estado_registro_id`, `tabla
 	(212, 106, 1, 'Activo', 1, 1, 1),
 	(213, 106, 2, 'Inactivo', 1, 0, 10),
 	(214, 107, 1, 'Activo', 1, 1, 1),
-	(215, 107, 2, 'Inactivo', 1, 0, 10);
+	(215, 107, 2, 'Inactivo', 1, 0, 10),
+	(216, 81, 15, 'fact_parcial', 1, 0, 50),
+	(217, 81, 12, 'facturado', 1, 0, 60);
 
 -- Volcando estructura para tabla gestion_multipyme.conf__tablas_tipos
 CREATE TABLE IF NOT EXISTS `conf__tablas_tipos` (
@@ -24792,7 +24807,7 @@ CREATE TABLE IF NOT EXISTS `conf__unidades_medida` (
   PRIMARY KEY (`unidad_medida_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 
--- Volcando datos para la tabla gestion_multipyme.conf__unidades_medida: ~1 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__unidades_medida: ~0 rows (aproximadamente)
 DELETE FROM `conf__unidades_medida`;
 INSERT INTO `conf__unidades_medida` (`unidad_medida_id`, `unidad_nombre`, `tabla_estado_registro_id`) VALUES
 	(1, 'Unidades (u)', 1);
@@ -24812,7 +24827,7 @@ CREATE TABLE IF NOT EXISTS `conf__usuarios` (
   UNIQUE KEY `email` (`usuario`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.conf__usuarios: ~7 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__usuarios: ~8 rows (aproximadamente)
 DELETE FROM `conf__usuarios`;
 INSERT INTO `conf__usuarios` (`usuario_id`, `usuario_nombre`, `usuario`, `email`, `password`, `password_temporal`, `duracion_sid_minutos`, `tabla_estado_registro_id`, `creado_en`) VALUES
 	(1, 'Pablo Passoni', 'pablo', 'pablo.passoni@gmail.com', '$2y$10$9grixS1zun/fnIg.oSLRmuDqTHJzxWCdOSPC2LgkgBoz00HA0.enm', NULL, 60, 1, '2025-07-25 22:40:36'),
@@ -24821,7 +24836,8 @@ INSERT INTO `conf__usuarios` (`usuario_id`, `usuario_nombre`, `usuario`, `email`
 	(4, 'Cliente Mayorista 1', 'cliente001', 'pablo.passoni@gmail.com', '$2y$10$wzEXu7otIv2usPhFRjCseOFAWOl4bx3K0rk9/yugIwyBfSDCX53hm', NULL, 60, 1, '2026-03-21 15:51:58'),
 	(5, '  ABEJER WALTER', '23135648949', 'walter_abejer@yahoo.com.ar', '$2y$10$6wZtUJnolj7hIhD9RpWV5uw/8XJ41czfOe3Q2Vby93WglfX903cTK', 'CpqvJMQjeM', 60, 1, '2026-09-15 01:06:24'),
 	(6, '  ZAMUDIO EDUARDO ALEJANDRO', '20218626026', ' alejandrozam@fibertel.com.ar', '$2y$10$Bq8szRjC2.QHSCAIolr8NeBDsNmKeL5sqSX2DQWStlrtbQJKQbnvy', 'UG7Ckp6m96', 60, 1, '2026-09-15 01:12:39'),
-	(7, 'ACCESORIOS ARCHILLA (EDUARDO)', '20292706678', 'earchilla@gmail.com', '$2y$10$T2X0gpZww7PsDaVOY3fB0OSjsjBQsyi9vxB0feyeE7/kUTnvSamu2', 'bwfC4gT37K', 60, 1, '2026-09-17 02:58:22');
+	(7, 'ACCESORIOS ARCHILLA (EDUARDO)', '20292706678', 'earchilla@gmail.com', '$2y$10$T2X0gpZww7PsDaVOY3fB0OSjsjBQsyi9vxB0feyeE7/kUTnvSamu2', 'bwfC4gT37K', 60, 1, '2026-09-17 02:58:22'),
+	(8, 'Pedidos', 'pedidos', 'pablo.passoni@gmail.com', '$2y$10$xuZ3.9Z6rLX8f6Hj53P3WegrUY4K1ad6/fH4kbUny/Yb24ieNhSbG', NULL, 60, 1, '2026-09-21 21:45:21');
 
 -- Volcando estructura para tabla gestion_multipyme.conf__usuarios_perfiles
 CREATE TABLE IF NOT EXISTS `conf__usuarios_perfiles` (
@@ -24839,7 +24855,7 @@ CREATE TABLE IF NOT EXISTS `conf__usuarios_perfiles` (
   KEY `FK_conf__usuarios_perfiles_conf__estados_registros` (`tabla_estado_registro_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.conf__usuarios_perfiles: ~17 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.conf__usuarios_perfiles: ~19 rows (aproximadamente)
 DELETE FROM `conf__usuarios_perfiles`;
 INSERT INTO `conf__usuarios_perfiles` (`usuario_perfil_id`, `usuario_id`, `empresa_perfil_id`, `fecha_inicio`, `fecha_fin`, `fecha_creacion`, `usuario_creacion`, `fecha_actualizacion`, `usuario_actualizacion`, `tabla_estado_registro_id`) VALUES
 	(3, 1, 1, '2025-08-27', '2025-10-02', '2025-08-27 20:22:33', 1, '2025-08-27 21:49:37', 1, 2),
@@ -24859,7 +24875,8 @@ INSERT INTO `conf__usuarios_perfiles` (`usuario_perfil_id`, `usuario_id`, `empre
 	(17, 1, 6, '2026-03-27', '2030-09-27', '2026-03-27 22:25:13', 1, '2026-03-27 22:25:13', NULL, 1),
 	(18, 6, 11, '2026-09-14', '2050-09-15', '2026-09-15 01:15:34', 1, '2026-09-15 01:15:34', NULL, 1),
 	(19, 7, 11, '2026-09-17', '2050-12-31', '2026-09-17 02:58:22', NULL, '2026-09-17 02:58:22', NULL, 1),
-	(20, 1, 8, '2026-09-20', '2050-09-20', '2026-09-20 21:57:33', 1, '2026-09-20 21:57:33', NULL, 1);
+	(20, 1, 8, '2026-09-20', '2050-09-20', '2026-09-20 21:57:33', 1, '2026-09-20 21:57:33', NULL, 1),
+	(21, 8, 12, '2026-09-21', '2050-09-21', '2026-09-21 21:49:23', 1, '2026-09-21 21:49:23', NULL, 1);
 
 -- Volcando estructura para tabla gestion_multipyme.conf__usuarios_sesiones
 CREATE TABLE IF NOT EXISTS `conf__usuarios_sesiones` (
@@ -25224,7 +25241,11 @@ INSERT INTO `gestion__comprobantes` (`comprobante_id`, `tabla_origen_id`, `regis
 	(86, 81, 61, '', 2, 1, 40, 1, 0, NULL, 313, 52, '2026-09-20', '2026-09-20', NULL, 1, 1.000000, 6833.35, 0.00, 0.00, 6833.35, 0.00, 0.00, 1435.00, 0.00, 8268.35, 8268.35, 1, 3, '', '2026-09-20 19:22:16', '2026-09-20 19:22:35', 1, 1),
 	(87, 82, 32, 'ecommerce', 2, 1, 1, 1, 34, NULL, 313, 52, '2026-09-20', NULL, NULL, 1, 1.000000, 241817.93, 72545.38, 0.00, 169272.55, 0.00, 0.00, 35547.23, 0.00, 204819.78, 204819.78, 1, 5, NULL, '2026-09-20 21:20:29', '2026-09-20 21:20:29', 5, NULL),
 	(88, 82, 33, 'ecommerce', 2, 2, 1, 2, 3, NULL, 2820, 249, '2026-09-20', '2026-09-20', NULL, 1, 1.000000, 798396.20, 159679.30, 0.00, 638716.90, 0.00, 0.00, 134130.55, 0.00, 772847.45, 772847.45, 1, 9, '', '2026-09-20 21:21:41', '2026-09-20 21:22:17', 7, 1),
-	(89, 81, 62, '', 2, 2, 40, 2, 0, NULL, 2820, 249, '2026-09-20', '2026-09-20', NULL, 1, 1.000000, 127743.39, 0.00, 0.00, 127743.39, 0.00, 0.00, 26826.11, 0.00, 154569.50, 154569.50, 1, 3, '', '2026-09-20 21:26:00', '2026-09-20 21:26:03', 1, 1);
+	(89, 81, 62, '', 2, 2, 40, 2, 0, NULL, 2820, 249, '2026-09-20', '2026-09-20', NULL, 1, 1.000000, 127743.39, 0.00, 0.00, 127743.39, 0.00, 0.00, 26826.11, 0.00, 154569.50, 154569.50, 1, 3, '', '2026-09-20 21:26:00', '2026-09-20 21:26:03', 1, 1),
+	(90, 80, 1, '', 2, 1, 4, 1, 4, NULL, 313, 52, '2026-09-21', '2026-09-21', '2026-09-22', 1, 1.000000, 83645.26, 25093.58, 0.00, 58551.68, 0.00, 0.00, 12295.85, 0.00, 70847.54, 70847.54, 1, 4, '', '2026-09-21 16:51:40', '2026-09-22 01:40:29', 1, 1),
+	(91, 80, 12, '', 2, 1, 4, 1, 6, NULL, 313, 52, '2026-09-21', '2026-09-21', NULL, 1, 1.000000, 189183.86, 0.00, 0.00, 189183.86, 0.00, 0.00, 39728.61, 0.00, 228912.47, 228912.47, 1, 5, '', '2026-09-21 16:52:55', '2026-09-21 17:10:39', 1, 1),
+	(96, 80, 11, '', 2, 1, 4, 1, 5, NULL, 313, 52, '2026-09-21', '2026-09-21', NULL, 1, 1.000000, 9551.85, 0.00, 0.00, 9551.85, 0.00, 0.00, 2005.89, 0.00, 11557.74, 11557.74, 1, 4, '', '2026-09-21 17:24:37', '2026-09-21 17:25:02', 1, 1),
+	(101, 80, 21, '', 2, 1, 4, 1, 0, NULL, 313, 52, '2026-09-22', '2026-09-22', '2026-09-22', 1, 1.000000, 609555.48, 182866.64, 0.00, 426688.84, 0.00, 0.00, 89604.66, 0.00, 516293.49, 516293.49, 1, 3, '', '2026-09-22 02:04:11', '2026-09-22 14:56:19', 1, 1);
 
 -- Volcando estructura para tabla gestion_multipyme.gestion__comprobantes_detalles
 CREATE TABLE IF NOT EXISTS `gestion__comprobantes_detalles` (
@@ -25434,7 +25455,7 @@ CREATE TABLE IF NOT EXISTS `gestion__comprobantes_numeradores` (
   KEY `punto_venta_id` (`punto_venta_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__comprobantes_numeradores: ~11 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__comprobantes_numeradores: ~13 rows (aproximadamente)
 DELETE FROM `gestion__comprobantes_numeradores`;
 INSERT INTO `gestion__comprobantes_numeradores` (`numerador_id`, `empresa_id`, `punto_venta_id`, `comprobante_tipo_id`, `ultimo_numero`, `created_at`, `updated_at`) VALUES
 	(1, 2, 2, 17, 1, '2026-03-07 15:00:51', '2026-03-07 15:00:51'),
@@ -25447,7 +25468,10 @@ INSERT INTO `gestion__comprobantes_numeradores` (`numerador_id`, `empresa_id`, `
 	(8, 2, 1, 0, 1, '2026-09-10 23:16:36', '2026-09-10 23:16:36'),
 	(9, 2, 2, 1, 3, '2026-09-10 23:19:46', '2026-09-20 18:21:41'),
 	(10, 2, 1, 40, 47, '2026-09-12 17:04:26', '2026-09-20 16:28:18'),
-	(19, 2, 2, 40, 1, '2026-09-20 18:26:03', '2026-09-20 18:26:03');
+	(19, 2, 2, 40, 1, '2026-09-20 18:26:03', '2026-09-20 18:26:03'),
+	(20, 2, 0, 0, 2, '2026-09-21 12:22:30', '2026-09-21 12:22:31'),
+	(21, 2, 1, 4, 9, '2026-09-21 12:22:39', '2026-09-21 23:21:20'),
+	(22, 2, 3, 9, 1, '2026-09-21 14:02:24', '2026-09-21 14:02:24');
 
 -- Volcando estructura para tabla gestion_multipyme.gestion__comprobantes_subgrupos
 CREATE TABLE IF NOT EXISTS `gestion__comprobantes_subgrupos` (
@@ -25464,7 +25488,7 @@ CREATE TABLE IF NOT EXISTS `gestion__comprobantes_subgrupos` (
   PRIMARY KEY (`comprobante_subgrupo_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__comprobantes_subgrupos: ~14 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__comprobantes_subgrupos: ~13 rows (aproximadamente)
 DELETE FROM `gestion__comprobantes_subgrupos`;
 INSERT INTO `gestion__comprobantes_subgrupos` (`comprobante_subgrupo_id`, `empresa_id`, `comprobante_grupo_id`, `tabla_id`, `comprobante_subgrupo`, `codigo`, `comentario`, `orden`, `tabla_estado_registro_id`, `tipo_asiento_id`) VALUES
 	(1, 2, 1, 0, 'Facturación', 'FACT', NULL, 30, 1, NULL),
@@ -25517,7 +25541,7 @@ CREATE TABLE IF NOT EXISTS `gestion__comprobantes_tipos` (
   PRIMARY KEY (`comprobante_tipo_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__comprobantes_tipos: ~33 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__comprobantes_tipos: ~31 rows (aproximadamente)
 DELETE FROM `gestion__comprobantes_tipos`;
 INSERT INTO `gestion__comprobantes_tipos` (`comprobante_tipo_id`, `empresa_id`, `comprobante_grupo_id`, `comprobante_subgrupo_id`, `comprobante_fiscal_id`, `impacta_stock`, `impacta_contabilidad`, `impacta_ctacte`, `comprobante_tipo`, `codigo`, `letra`, `signo`, `comentario`, `orden`, `tabla_estado_registro_id`) VALUES
 	(1, 2, 1, 17, 0, 0, 0, 0, 'Pedido de Cliente', 'PC', '', '+', 'Pedido de Cliente', 10, 1),
@@ -26145,7 +26169,7 @@ CREATE TABLE IF NOT EXISTS `gestion__entidades` (
   KEY `es_cliente_id` (`es_cliente`,`entidad_nombre`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__entidades: ~513 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__entidades: ~511 rows (aproximadamente)
 DELETE FROM `gestion__entidades`;
 INSERT INTO `gestion__entidades` (`entidad_id`, `empresa_id`, `entidad_nombre`, `entidad_fantasia`, `entidad_tipo_id`, `cuit`, `sitio_web`, `domicilio_legal`, `localidad_id`, `cont_cuenta_id_proveedor`, `cont_cuenta_id_cliente`, `es_proveedor`, `es_cliente`, `observaciones`, `fecha_alta`, `usuario_alta`, `tabla_estado_registro_id`) VALUES
 	(3, 2, 'CONTRERAS DEMESIO', '', 2, 20075666722, '', '  PLANAS 631 0', 7755, 0, 111, 0, 1, '', '0000-00-00 00:00:00', 0, 1),
@@ -28115,7 +28139,7 @@ CREATE TABLE IF NOT EXISTS `gestion__listas_precios_productos` (
   KEY `idx_listas_precios_productos_estado` (`tabla_estado_registro_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__listas_precios_productos: ~11.606 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__listas_precios_productos: ~11.409 rows (aproximadamente)
 DELETE FROM `gestion__listas_precios_productos`;
 INSERT INTO `gestion__listas_precios_productos` (`lista_precio_producto_id`, `empresa_id`, `lista_precio_id`, `producto_id`, `producto_costo_id`, `precio_origen`, `porcentaje_general_aplicado`, `importe_general_aplicado`, `lista_precio_regla_id`, `porcentaje_regla_aplicado`, `importe_regla_aplicado`, `es_manual`, `precio_manual`, `precio_final`, `f_desde`, `f_hasta`, `observaciones`, `tabla_estado_registro_id`, `creado_por`, `creado_en`, `actualizado_en`) VALUES
 	(5580, 2, 1, 1, NULL, 0.000000, 0.000000, 0.000000, NULL, 0.000000, 0.000000, 1, 14500.000000, 14500.000000, '2026-08-30', NULL, NULL, 2, NULL, '2026-08-30 15:32:46', '2026-08-30 20:14:55'),
@@ -40940,7 +40964,7 @@ CREATE TABLE IF NOT EXISTS `gestion__monedas` (
   UNIQUE KEY `uk_empresa_codigo` (`empresa_id`,`codigo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__monedas: ~1 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__monedas: ~0 rows (aproximadamente)
 DELETE FROM `gestion__monedas`;
 INSERT INTO `gestion__monedas` (`moneda_id`, `empresa_id`, `codigo`, `moneda`, `simbolo`, `es_moneda_base`, `cantidad_decimales`, `cotizacion_actual`, `permite_editar_cotizacion`, `orden`, `tabla_estado_registro_id`) VALUES
 	(1, 2, 'ARS', 'Peso Argentino', '$', 1, 2, 1.000000, 0, 1, 1);
@@ -41037,12 +41061,19 @@ INSERT INTO `gestion__ordenes_compra_detalle` (`ordenes_compra_detalle_id`, `ord
 CREATE TABLE IF NOT EXISTS `gestion__perfiles_sucursales` (
   `perfil_sucursal_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `empresa_perfil_id` int(10) unsigned NOT NULL,
-  `sucursal_id` int(10) unsigned NOT NULL,
-  `punto_venta_id` int(10) unsigned DEFAULT NULL,
+  `sucursal_id` smallint(5) unsigned NOT NULL,
+  `punto_venta_id` smallint(5) unsigned DEFAULT NULL,
   `comprobante_tipo_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`perfil_sucursal_id`),
   UNIQUE KEY `uk_grant` (`empresa_perfil_id`,`sucursal_id`,`punto_venta_id`,`comprobante_tipo_id`),
-  KEY `idx_empresa_perfil` (`empresa_perfil_id`)
+  KEY `idx_empresa_perfil` (`empresa_perfil_id`),
+  KEY `fk_persuc_sucursal` (`sucursal_id`),
+  KEY `fk_persuc_pv` (`punto_venta_id`),
+  KEY `fk_persuc_tipo` (`comprobante_tipo_id`),
+  CONSTRAINT `fk_persuc_empresa_perfil` FOREIGN KEY (`empresa_perfil_id`) REFERENCES `conf__empresas_perfiles` (`empresa_perfil_id`),
+  CONSTRAINT `fk_persuc_pv` FOREIGN KEY (`punto_venta_id`) REFERENCES `gestion__puntos_venta` (`punto_venta_id`),
+  CONSTRAINT `fk_persuc_sucursal` FOREIGN KEY (`sucursal_id`) REFERENCES `gestion__sucursales` (`sucursal_id`),
+  CONSTRAINT `fk_persuc_tipo` FOREIGN KEY (`comprobante_tipo_id`) REFERENCES `gestion__comprobantes_tipos` (`comprobante_tipo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- Volcando datos para la tabla gestion_multipyme.gestion__perfiles_sucursales: ~0 rows (aproximadamente)
@@ -41080,7 +41111,7 @@ CREATE TABLE IF NOT EXISTS `gestion__productos` (
   KEY `idx_empresa_nombre` (`empresa_id`,`producto_nombre`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__productos: ~6.073 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__productos: ~6.163 rows (aproximadamente)
 DELETE FROM `gestion__productos`;
 INSERT INTO `gestion__productos` (`producto_id`, `empresa_id`, `producto_codigo`, `producto_nombre`, `codigo_barras`, `producto_descripcion`, `producto_categoria_id`, `cont_cuenta_id`, `producto_tipo_id`, `lado`, `material`, `color`, `peso`, `dimensiones`, `garantia`, `unidad_medida_id`, `iva_alicuota_id`, `impuesto_interno_porcentaje`, `impuesto_interno_fijo`, `controla_stock`, `es_servicio`, `tabla_estado_registro_id`, `compatibilidad_texto`, `compatibilidad_busqueda`, `proveedores_busqueda`) VALUES
 	(1, 2, '10000-A', 'AMORTIGUADOR DE CAPOT', '', 'AMORTIGUADOR DE CAPOT', 14, 131, 1, '0', '', '', NULL, '0', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION S-10 98/00 (1998-2000)', 'CHEVROLET CHEVROLET PICK UP Y CAMION S-10 98/00 (1998-2000) 1998 1999 2000', NULL),
@@ -41105,7 +41136,7 @@ INSERT INTO `gestion__productos` (`producto_id`, `empresa_id`, `producto_codigo`
 	(20, 2, '10011', 'BUJE BISAGRA PORTON C/JGO', '', 'BUJE BISAGRA PORTON C/JGO', 0, 0, 1, '', '', '', 0.00, '', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION S-10 (2000-2100)', 'CHEVROLET CHEVROLET PICK UP Y CAMION S-10 (2000-2100) 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025 2026', NULL),
 	(21, 2, '10015', 'BURLETE DE PUERTAS C/JUEGO', '', 'BURLETE DE PUERTAS C/JUEGO', 0, 0, 1, '', '', '', 0.00, '', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION 1960/66 (1960-1966)', 'CHEVROLET CHEVROLET PICK UP Y CAMION 1960/66 (1960-1966) 1960 1961 1962 1963 1964 1965 1966', '01-270010-09'),
 	(22, 2, '10016', 'BURLETE DE PUERTAS C/JUEGO', '', 'BURLETE DE PUERTAS C/JUEGO', 0, 0, 1, '', '', '', 0.00, '', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION 1967/73 (1967-1973)', 'CHEVROLET CHEVROLET PICK UP Y CAMION 1967/73 (1967-1973) 1967 1968 1969 1970 1971 1972 1973', '01-260020-09'),
-	(23, 2, '10017', 'BURLETE DE PUERTAS C/JUEGO', '', 'BURLETE DE PUERTAS C/JUEGO', 0, 0, 1, '', '', '', NULL, '', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION 1974/79 (1974-1979)', 'CHEVROLET CHEVROLET PICK UP Y CAMION 1974/79 (1974-1979) 1974 1975 1976 1977 1978 1979', 'JB1011'),
+	(23, 2, '10017', 'BURLETE DE PUERTAS C/JUEGO', '', 'BURLETE DE PUERTAS C/JUEGO', 0, 0, 1, '', '', '', NULL, '', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION (1974-1979)', 'CHEVROLET CHEVROLET PICK UP Y CAMION (1974-1979) 1974 1975 1976 1977 1978 1979', 'JB1011'),
 	(24, 2, '10018', 'BURLETE DE PUERTAS C/JUEGO', '', 'BURLETE DE PUERTAS C/JUEGO', 0, 0, 1, '', '', '', 0.00, '', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION 1985/87 (1985-1987)', 'CHEVROLET CHEVROLET PICK UP Y CAMION 1985/87 (1985-1987) 1985 1986 1987', NULL),
 	(25, 2, '10019', 'BURLETE DE PUERTAS C/JUEGO', '', 'BURLETE DE PUERTAS C/JUEGO', 0, 0, 1, '', '', '', 0.00, '', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION C-20/D-20 (2000-2100)', 'CHEVROLET CHEVROLET PICK UP Y CAMION C-20/D-20 (2000-2100) 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025 2026', NULL),
 	(26, 2, '10019-S', 'BURLETE DE PUERTA C/JUEGO', '', 'BURLETE DE PUERTA C/JUEGO', 0, 0, 1, '', '', '', 0.00, '', '', 1, 1, NULL, NULL, 1, 0, 1, 'CHEVROLET CHEVROLET PICK UP Y CAMION S-10/BLAZER (2000-2100)', 'CHEVROLET CHEVROLET PICK UP Y CAMION S-10/BLAZER (2000-2100) 2000 2001 2002 2003 2004 2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024 2025 2026', NULL),
@@ -47281,7 +47312,7 @@ CREATE TABLE IF NOT EXISTS `gestion__productos_compatibilidad` (
   KEY `producto_id` (`empresa_id`,`producto_id`,`marca_id`,`modelo_id`,`submodelo_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__productos_compatibilidad: ~5.940 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__productos_compatibilidad: ~5.920 rows (aproximadamente)
 DELETE FROM `gestion__productos_compatibilidad`;
 INSERT INTO `gestion__productos_compatibilidad` (`compatibilidad_id`, `empresa_id`, `producto_id`, `marca_id`, `modelo_id`, `submodelo_id`, `anio_desde`, `anio_hasta`, `tabla_estado_registro_id`) VALUES
 	(1, 2, 1, 1, 1, 1, '1998', '2000', 1),
@@ -47310,7 +47341,7 @@ INSERT INTO `gestion__productos_compatibilidad` (`compatibilidad_id`, `empresa_i
 	(24, 2, 20, 1, 1, 11, '2000', '2100', 1),
 	(25, 2, 21, 1, 1, 3, '1960', '1966', 1),
 	(26, 2, 22, 1, 1, 12, '1967', '1973', 1),
-	(27, 2, 23, 1, 1, 13, '1974', '1979', 1),
+	(27, 2, 23, 1, 1, NULL, '1974', '1979', 1),
 	(28, 2, 24, 1, 1, 14, '1985', '1987', 1),
 	(29, 2, 25, 1, 1, 10, '2000', '2100', 1),
 	(30, 2, 26, 1, 1, 15, '2000', '2100', 1),
@@ -53249,7 +53280,7 @@ CREATE TABLE IF NOT EXISTS `gestion__productos_costos` (
   CONSTRAINT `fk_productos_costos_origen` FOREIGN KEY (`producto_costo_origen_id`) REFERENCES `gestion__productos_costos_origenes` (`producto_costo_origen_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__productos_costos: ~288 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__productos_costos: ~285 rows (aproximadamente)
 DELETE FROM `gestion__productos_costos`;
 INSERT INTO `gestion__productos_costos` (`producto_costo_id`, `empresa_id`, `producto_id`, `entidad_id`, `costo_actual`, `moneda_id`, `producto_costo_origen_id`, `comprobante_id`, `f_actualizacion`, `observaciones`, `tabla_estado_registro_id`, `creado_por`, `creado_en`, `actualizado_en`) VALUES
 	(10, 2, 5470, 0, 700.000000, 1, 1, 19, '2026-07-18', 'Actualizado por compra (comprobante ID: 19)', 1, 1, '2026-05-09 18:54:08', '2026-07-18 19:31:49'),
@@ -53578,7 +53609,7 @@ CREATE TABLE IF NOT EXISTS `gestion__productos_costos_ajustes` (
   CONSTRAINT `fk_costos_ajustes_valor_tipo` FOREIGN KEY (`producto_costo_ajuste_valor_tipo_id`) REFERENCES `gestion__productos_costos_ajustes_valores_tipos` (`producto_costo_ajuste_valor_tipo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__productos_costos_ajustes: ~1 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__productos_costos_ajustes: ~0 rows (aproximadamente)
 DELETE FROM `gestion__productos_costos_ajustes`;
 INSERT INTO `gestion__productos_costos_ajustes` (`producto_costo_ajuste_id`, `empresa_id`, `producto_costo_ajuste_tipo_id`, `producto_costo_ajuste_valor_tipo_id`, `ajuste_descripcion`, `valor_ajuste`, `entidad_id`, `producto_id`, `proveedor_lista_costo_id`, `comprobante_id`, `f_informado`, `f_vigencia_desde`, `f_vigencia_hasta`, `requiere_aprobacion`, `f_aprobacion`, `aprobado_por`, `f_aplicacion`, `aplicado_por`, `observaciones`, `tabla_estado_registro_id`, `creado_por`, `creado_en`, `actualizado_en`) VALUES
 	(1, 2, 4, 1, 'pppp', NULL, 2, NULL, NULL, NULL, '2026-05-08', '2026-05-08', NULL, 1, NULL, NULL, NULL, NULL, '0', 1, NULL, '2026-05-08 23:43:08', '2026-05-08 23:43:08');
@@ -62161,7 +62192,7 @@ CREATE TABLE IF NOT EXISTS `gestion__productos_ubicaciones` (
   KEY `fk_pu_ubicacion` (`sucursal_ubicacion_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__productos_ubicaciones: ~1.503 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__productos_ubicaciones: ~1.501 rows (aproximadamente)
 DELETE FROM `gestion__productos_ubicaciones`;
 INSERT INTO `gestion__productos_ubicaciones` (`producto_ubicacion_id`, `producto_id`, `sucursal_ubicacion_id`, `tabla_estado_registro_id`) VALUES
 	(1, 1, 14, 2),
@@ -63708,7 +63739,7 @@ CREATE TABLE IF NOT EXISTS `gestion__puntos_venta` (
   KEY `emp_suc_boca` (`sucursal_id`,`empresa_id`,`boca_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__puntos_venta: ~3 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__puntos_venta: ~2 rows (aproximadamente)
 DELETE FROM `gestion__puntos_venta`;
 INSERT INTO `gestion__puntos_venta` (`punto_venta_id`, `empresa_id`, `sucursal_id`, `boca_id`, `nombre`, `descripcion`, `codigo_fiscal`, `es_web`, `fecha_creacion`, `usuario_creacion_id`, `tabla_estado_registro_id`) VALUES
 	(1, 2, 1, 1, 'Comercio Bahía Blanca', '', 1, 1, '2026-09-09 21:03:29', NULL, 1),
@@ -68397,6 +68428,24 @@ INSERT INTO `gestion__unidades_medida` (`unidad_medida_id`, `empresa_id`, `unida
 	(3, 0, 'Litro', 'l', 1),
 	(4, 0, 'Metro', 'm', 1);
 
+-- Volcando estructura para tabla gestion_multipyme.gestion__usuarios_sucursales_excepciones
+CREATE TABLE IF NOT EXISTS `gestion__usuarios_sucursales_excepciones` (
+  `usuario_excepcion_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `usuario_id` int(10) unsigned NOT NULL,
+  `sucursal_id` int(10) unsigned NOT NULL,
+  `punto_venta_id` int(10) unsigned DEFAULT NULL,
+  `comprobante_tipo_id` int(10) unsigned DEFAULT NULL,
+  `tipo_excepcion` enum('PERMITE','DENIEGA') NOT NULL,
+  `fecha_hasta` date DEFAULT NULL,
+  `usuario_alta_id` int(10) unsigned NOT NULL,
+  `f_alta` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`usuario_excepcion_id`),
+  KEY `idx_usuario_vigencia` (`usuario_id`,`fecha_hasta`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- Volcando datos para la tabla gestion_multipyme.gestion__usuarios_sucursales_excepciones: ~0 rows (aproximadamente)
+DELETE FROM `gestion__usuarios_sucursales_excepciones`;
+
 -- Volcando estructura para tabla gestion_multipyme.gestion__ventas_cobranzas
 CREATE TABLE IF NOT EXISTS `gestion__ventas_cobranzas` (
   `venta_cobranza_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -68462,8 +68511,13 @@ CREATE TABLE IF NOT EXISTS `gestion__ventas_facturas` (
   KEY `condicion_pago_id` (`condicion_pago_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__ventas_facturas: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__ventas_facturas: ~1 rows (aproximadamente)
 DELETE FROM `gestion__ventas_facturas`;
+INSERT INTO `gestion__ventas_facturas` (`venta_factura_id`, `empresa_id`, `sucursal_id`, `comprobante_tipo_id`, `punto_venta_id`, `comprobante_nro`, `comprobante_id`, `entidad_id`, `entidad_sucursal_id`, `condicion_pago_id`, `f_emision`, `f_contabilidad`, `f_vto`, `moneda_id`, `tipo_cambio`, `importe_bruto`, `descuento_general_pct`, `descuento_general`, `importe_neto`, `importe_exento`, `importe_no_gravado`, `importe_iva`, `importe_otros_impuestos`, `importe_total`, `observaciones`, `CAE`, `f_vto_CAE`, `tabla_estado_registro_id`) VALUES
+	(1, 2, 1, 4, 1, 4, 90, 313, 52, 1, '2026-09-21', '2026-09-21', '2026-09-22', 1, 1.000000, 83645.26, 0.00, 25093.58, 58551.68, 0.00, 0.00, 12295.85, 0.00, 70847.54, '', NULL, NULL, 4),
+	(11, 2, 1, 4, 1, 5, 96, 313, 52, 1, '2026-09-21', '2026-09-21', NULL, 1, 1.000000, 9551.85, 0.00, 0.00, 9551.85, 0.00, 0.00, 2005.89, 0.00, 11557.74, '', NULL, NULL, 4),
+	(12, 2, 1, 4, 1, 6, 91, 313, 52, 1, '2026-09-21', '2026-09-21', NULL, 1, 1.000000, 189183.86, 0.00, 0.00, 189183.86, 0.00, 0.00, 39728.61, 0.00, 228912.47, '', NULL, NULL, 5),
+	(21, 2, 1, 4, 1, 0, 101, 313, 52, 1, '2026-09-22', '2026-09-22', '2026-09-22', 1, 1.000000, 609555.48, 0.00, 182866.64, 426688.84, 0.00, 0.00, 89604.66, 0.00, 516293.49, '', NULL, NULL, 3);
 
 -- Volcando estructura para tabla gestion_multipyme.gestion__ventas_facturas_detalles
 CREATE TABLE IF NOT EXISTS `gestion__ventas_facturas_detalles` (
@@ -68492,8 +68546,24 @@ CREATE TABLE IF NOT EXISTS `gestion__ventas_facturas_detalles` (
   KEY `tabla_estado_registro_id` (`tabla_estado_registro_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__ventas_facturas_detalles: ~0 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__ventas_facturas_detalles: ~14 rows (aproximadamente)
 DELETE FROM `gestion__ventas_facturas_detalles`;
+INSERT INTO `gestion__ventas_facturas_detalles` (`venta_factura_detalle_id`, `venta_factura_id`, `producto_id`, `venta_remito_detalle_id`, `venta_pedido_detalle_id`, `cantidad`, `precio_unitario`, `descuento_general_pct`, `descuento_general`, `precio_unitario_neto`, `importe_neto`, `iva_alicuota_id`, `porcentaje_iva`, `importe_iva`, `importe_no_gravado`, `importe_exento`, `importe_linea`, `tabla_estado_registro_id`) VALUES
+	(38, 12, 311, 203, 203, 6.0000, 12081.300000, 0.00, 0.00, 12081.30, 72487.80, 1, 21.00, 15222.44, 0.00, 0.00, 87710.24, 1),
+	(39, 12, 313, 204, 204, 7.0000, 11092.620000, 0.00, 0.00, 11092.62, 77648.34, 1, 21.00, 16306.15, 0.00, 0.00, 93954.49, 1),
+	(40, 12, 2621, 207, 206, 4.0000, 9761.930000, 0.00, 0.00, 9761.93, 39047.72, 1, 21.00, 8200.02, 0.00, 0.00, 47247.74, 1),
+	(43, 11, 310, 209, 202, 1.0000, 9551.850000, 0.00, 0.00, 9551.85, 9551.85, 1, 21.00, 2005.89, 0.00, 0.00, 11557.74, 1),
+	(68, 1, 4236, 200, 201, 2.0000, 6864.230000, 30.00, 4118.54, 4804.96, 9609.92, 1, 21.00, 2018.08, 0.00, 0.00, 11628.01, 1),
+	(69, 1, 317, 201, 205, 3.0000, 16866.940000, 30.00, 15180.25, 11806.86, 35420.57, 1, 21.00, 7438.32, 0.00, 0.00, 42858.89, 1),
+	(70, 1, 310, 202, 202, 1.0000, 9551.850000, 30.00, 2865.56, 6686.30, 6686.30, 1, 21.00, 1404.12, 0.00, 0.00, 8090.42, 1),
+	(71, 1, 4232, 232, 207, 1.0000, 2.200000, 30.00, 0.66, 1.54, 1.54, 1, 21.00, 0.32, 0.00, 0.00, 1.86, 1),
+	(72, 1, 2621, 235, 208, 1.0000, 9761.930000, 30.00, 2928.58, 6833.35, 6833.35, 1, 21.00, 1435.00, 0.00, 0.00, 8268.35, 1),
+	(98, 21, 4232, 199, 200, 2.0000, 2.200000, 30.00, 1.32, 1.54, 3.08, 1, 21.00, 0.65, 0.00, 0.00, 3.73, 1),
+	(99, 21, 317, 201, 205, 3.0000, 16866.940000, 30.00, 15180.25, 11806.86, 35420.57, 1, 21.00, 7438.32, 0.00, 0.00, 42858.89, 1),
+	(100, 21, 4232, 232, 207, 1.0000, 2.200000, 30.00, 0.66, 1.54, 1.54, 1, 21.00, 0.32, 0.00, 0.00, 1.86, 1),
+	(101, 21, 1, NULL, NULL, 1.0000, 15952.860000, 30.00, 4785.86, 11167.00, 11167.00, 1, 21.00, 2345.07, 0.00, 0.00, 13512.07, 1),
+	(102, 21, 148, NULL, NULL, 6.0000, 2.200000, 30.00, 3.96, 1.54, 9.24, 1, 21.00, 1.94, 0.00, 0.00, 11.18, 1),
+	(103, 21, 5422, NULL, NULL, 5.0000, 108596.400000, 30.00, 162894.60, 76017.48, 380087.40, 1, 21.00, 79818.35, 0.00, 0.00, 459905.75, 1);
 
 -- Volcando estructura para tabla gestion_multipyme.gestion__ventas_pedidos
 CREATE TABLE IF NOT EXISTS `gestion__ventas_pedidos` (
@@ -68870,6 +68940,7 @@ CREATE TABLE IF NOT EXISTS `gestion__ventas_remitos_detalles` (
   `venta_pedido_detalle_id` int(11) DEFAULT NULL,
   `cantidad` decimal(15,4) NOT NULL,
   `facturado` bigint(20) NOT NULL DEFAULT 0,
+  `cantidad_facturada` decimal(15,4) NOT NULL DEFAULT 0.0000,
   `precio_unitario_bruto` decimal(18,6) NOT NULL DEFAULT 0.000000,
   `descuento_general_pct` decimal(5,2) NOT NULL DEFAULT 0.00,
   `descuento_general` decimal(20,2) NOT NULL DEFAULT 0.00,
@@ -68886,165 +68957,165 @@ CREATE TABLE IF NOT EXISTS `gestion__ventas_remitos_detalles` (
   KEY `iva_alicuota_id` (`iva_alicuota_id`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- Volcando datos para la tabla gestion_multipyme.gestion__ventas_remitos_detalles: ~156 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.gestion__ventas_remitos_detalles: ~151 rows (aproximadamente)
 DELETE FROM `gestion__ventas_remitos_detalles`;
-INSERT INTO `gestion__ventas_remitos_detalles` (`venta_remito_detalle_id`, `venta_remito_id`, `producto_id`, `venta_pedido_detalle_id`, `cantidad`, `facturado`, `precio_unitario_bruto`, `descuento_general_pct`, `descuento_general`, `precio_unitario_neto`, `importe_linea`, `iva_alicuota_id`, `iva_porcentaje`, `iva_importe`, `tabla_estado_registro_id`) VALUES
-	(1, 1, 4230, 1, 4.0000, 0, 11238.150000, 20.00, 2247.63, 8990.520000, 35962.080000, 1, 21.00, 7552.04, 1),
-	(2, 1, 4486, 2, 3.0000, 0, 12081.300000, 20.00, 2416.26, 9665.040000, 28995.120000, 1, 21.00, 6088.98, 1),
-	(3, 1, 4657, 3, 2.0000, 0, 10168.620000, 20.00, 2033.72, 8134.896000, 16269.792000, 1, 21.00, 3416.66, 1),
-	(4, 2, 4657, 3, 1.0000, 0, 10168.620000, 20.00, 2033.72, 8134.896000, 8134.896000, 1, 21.00, 1708.33, 1),
-	(5, 2, 4658, 4, 2.0000, 0, 21027.930000, 20.00, 4205.59, 16822.344000, 33644.688000, 1, 21.00, 7065.38, 1),
-	(6, 3, 3724, 5, 2.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
-	(7, 3, 3725, 6, 1.0000, 0, 11088.000000, 30.00, 3326.40, 7761.600000, 7761.600000, 1, 21.00, 1629.94, 1),
-	(8, 3, 3726, 7, 3.0000, 0, 15937.970000, 30.00, 4781.39, 11156.579000, 33469.737000, 1, 21.00, 7028.64, 1),
-	(9, 3, 3730, 8, 3.0000, 0, 17538.400000, 30.00, 5261.52, 12276.880000, 36830.640000, 1, 21.00, 7734.43, 1),
-	(10, 4, 3724, 5, 2.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
-	(11, 4, 3725, 6, 1.0000, 0, 11088.000000, 30.00, 3326.40, 7761.600000, 7761.600000, 1, 21.00, 1629.94, 1),
-	(12, 4, 3729, 10, 2.0000, 0, 59089.800000, 30.00, 17726.94, 41362.860000, 82725.720000, 1, 21.00, 17372.40, 1),
-	(13, 4, 3728, 9, 2.0000, 0, 59089.800000, 30.00, 17726.94, 41362.860000, 82725.720000, 1, 21.00, 17372.40, 1),
-	(14, 4, 3731, 11, 2.0000, 0, 9292.800000, 30.00, 2787.84, 6504.960000, 13009.920000, 1, 21.00, 2732.08, 1),
-	(16, 5, 5462, 33, 3.0000, 0, 1000.000000, 20.00, 200.00, 800.000000, 2400.000000, 1, 21.00, 504.00, 1),
-	(17, 5, 1, 34, 4.0000, 0, 15952.860000, 20.00, 3190.57, 12762.288000, 51049.152000, 1, 21.00, 10720.32, 1),
-	(18, 5, 4230, 12, 4.0000, 0, 11238.150000, 20.00, 2247.63, 8990.520000, 35962.080000, 1, 21.00, 7552.04, 1),
-	(19, 5, 1, 39, 2.0000, 0, 15952.860000, 20.00, 3190.57, 12762.288000, 25524.576000, 1, 21.00, 5360.16, 1),
-	(20, 6, 3731, 66, 2.0000, 0, 9292.800000, 30.00, 2787.84, 6504.960000, 13009.920000, 1, 21.00, 2732.08, 1),
-	(21, 6, 3732, 67, 2.0000, 0, 10600.080000, 30.00, 3180.02, 7420.056000, 14840.112000, 1, 21.00, 3116.42, 1),
-	(22, 6, 3736, 68, 6.0000, 0, 29260.000000, 30.00, 8778.00, 20482.000000, 122892.000000, 1, 21.00, 25807.32, 1),
-	(23, 6, 3756, 69, 1.0000, 0, 884.180000, 30.00, 265.25, 618.926000, 618.926000, 1, 21.00, 129.97, 1),
-	(24, 6, 3757, 70, 1.0000, 0, 32798.630000, 30.00, 9839.59, 22959.041000, 22959.041000, 1, 21.00, 4821.40, 1),
-	(25, 6, 3758, 71, 1.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 1.540000, 1, 21.00, 0.32, 1),
-	(26, 6, 3759, 72, 1.0000, 0, 12652.200000, 30.00, 3795.66, 8856.540000, 8856.540000, 1, 21.00, 1859.87, 1),
-	(27, 7, 5135, 85, 2.0000, 0, 25920.400000, 30.00, 7776.12, 18144.280000, 36288.560000, 1, 21.00, 7620.60, 1),
-	(28, 7, 3727, 76, 3.0000, 0, 15937.970000, 30.00, 4781.39, 11156.579000, 33469.737000, 1, 21.00, 7028.64, 1),
-	(29, 7, 5134, 84, 2.0000, 0, 25920.400000, 30.00, 7776.12, 18144.280000, 36288.560000, 1, 21.00, 7620.60, 1),
-	(30, 7, 3759, 83, 1.0000, 0, 12652.200000, 30.00, 3795.66, 8856.540000, 8856.540000, 1, 21.00, 1859.87, 1),
-	(31, 8, 3726, 75, 2.0000, 0, 15937.970000, 30.00, 4781.39, 11156.579000, 22313.158000, 1, 21.00, 4685.76, 1),
-	(32, 8, 3731, 77, 2.0000, 0, 9292.800000, 30.00, 2787.84, 6504.960000, 13009.920000, 1, 21.00, 2732.08, 1),
-	(33, 9, 3732, 78, 2.0000, 0, 10600.080000, 30.00, 3180.02, 7420.056000, 14840.112000, 1, 21.00, 3116.42, 1),
-	(34, 9, 3756, 80, 1.0000, 0, 884.180000, 30.00, 265.25, 618.926000, 618.926000, 1, 21.00, 129.97, 1),
-	(35, 10, 3736, 79, 6.0000, 0, 29260.000000, 30.00, 8778.00, 20482.000000, 122892.000000, 1, 21.00, 25807.32, 1),
-	(36, 10, 3757, 81, 1.0000, 0, 32798.630000, 30.00, 9839.59, 22959.041000, 22959.041000, 1, 21.00, 4821.40, 1),
-	(37, 11, 2, 40, 2.0000, 0, 15952.860000, 20.00, 3190.57, 12762.288000, 25524.576000, 1, 21.00, 5360.16, 1),
-	(38, 12, 3758, 82, 1.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 1.540000, 1, 21.00, 0.32, 1),
-	(39, 13, 5462, 98, 2.0000, 0, 1000.000000, 60.00, 600.00, 400.000000, 800.000000, 1, 21.00, 168.00, 1),
-	(40, 13, 1, 99, 3.0000, 0, 15952.860000, 60.00, 9571.72, 6381.144000, 19143.432000, 1, 21.00, 4020.12, 1),
-	(41, 14, 5462, 98, 2.0000, 0, 1000.000000, 60.00, 600.00, 400.000000, 800.000000, 1, 21.00, 168.00, 1),
-	(42, 15, 1, 100, 2.0000, 0, 15952.860000, 30.00, 4785.86, 11167.002000, 22334.004000, 1, 21.00, 4690.14, 1),
-	(43, 15, 3, 102, 2.0000, 0, 48684.640000, 30.00, 14605.39, 34079.248000, 68158.496000, 1, 21.00, 14313.28, 1),
-	(44, 16, 2, 101, 2.0000, 0, 15952.860000, 30.00, 4785.86, 11167.002000, 22334.004000, 1, 21.00, 4690.14, 1),
-	(45, 16, 4, 103, 2.0000, 0, 48684.640000, 30.00, 14605.39, 34079.248000, 68158.496000, 1, 21.00, 14313.28, 1),
-	(52, 18, 1, 104, 1.0000, 0, 15952.860000, 30.00, 4785.86, 11167.002000, 11167.002000, 1, 21.00, 2345.07, 1),
-	(53, 18, 3, 105, 2.0000, 0, 48684.640000, 30.00, 14605.39, 34079.248000, 68158.496000, 1, 21.00, 14313.28, 1),
-	(54, 18, 6, 106, 4.0000, 0, 48684.640000, 30.00, 14605.39, 34079.248000, 136316.992000, 1, 21.00, 28626.57, 1),
-	(55, 18, 5160, 107, 1.0000, 0, 45254.000000, 30.00, 13576.20, 31677.800000, 31677.800000, 1, 21.00, 6652.34, 1),
-	(56, 18, 537, 108, 2.0000, 0, 16535.990000, 30.00, 4960.80, 11575.193000, 23150.386000, 1, 21.00, 4861.58, 1),
-	(57, 18, 3384, 109, 4.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 6.160000, 1, 21.00, 1.29, 1),
-	(58, 18, 4709, 110, 2.0000, 0, 27570.860000, 30.00, 8271.26, 19299.602000, 38599.204000, 1, 21.00, 8105.83, 1),
-	(59, 18, 1176, 111, 2.0000, 0, 442.020000, 30.00, 132.61, 309.414000, 618.828000, 1, 21.00, 129.95, 1),
-	(66, 19, 6, 106, 1.0000, 0, 48684.640000, 30.00, 14605.39, 34079.248000, 34079.248000, 1, 21.00, 7156.64, 1),
-	(67, 19, 5160, 107, 1.0000, 0, 45254.000000, 30.00, 13576.20, 31677.800000, 31677.800000, 1, 21.00, 6652.34, 1),
-	(68, 19, 1, 104, 1.0000, 0, 15952.860000, 30.00, 4785.86, 11167.002000, 11167.002000, 1, 21.00, 2345.07, 1),
-	(69, 20, 1, 112, 2.0000, 0, 15952.860000, 20.00, 3190.57, 12762.288000, 25524.576000, 1, 21.00, 5360.16, 1),
-	(70, 20, 2, 113, 2.0000, 0, 15952.860000, 20.00, 3190.57, 12762.288000, 25524.576000, 1, 21.00, 5360.16, 1),
-	(71, 20, 7, 115, 2.0000, 0, 48289.270000, 20.00, 9657.85, 38631.416000, 77262.832000, 1, 21.00, 16225.19, 1),
-	(75, 21, 5, 114, 5.0000, 0, 48684.640000, 20.00, 9736.93, 38947.712000, 194738.560000, 1, 21.00, 40895.10, 1),
-	(76, 21, 7, 115, 1.0000, 0, 48289.270000, 20.00, 9657.85, 38631.416000, 38631.416000, 1, 21.00, 8112.60, 1),
-	(77, 21, 1, 112, 3.0000, 0, 15952.860000, 20.00, 3190.57, 12762.288000, 38286.864000, 1, 21.00, 8040.24, 1),
-	(78, 22, 1, 116, 2.0000, 0, 15952.860000, 30.00, 4785.86, 11167.002000, 22334.004000, 1, 21.00, 4690.14, 1),
-	(79, 22, 2, 117, 3.0000, 0, 15952.860000, 30.00, 4785.86, 11167.002000, 33501.006000, 1, 21.00, 7035.21, 1),
-	(80, 22, 3, 118, 10.0000, 0, 48684.640000, 30.00, 14605.39, 34079.248000, 340792.480000, 1, 21.00, 71566.42, 1),
-	(81, 23, 1, 116, 1.0000, 0, 15952.860000, 30.00, 4785.86, 11167.002000, 11167.002000, 1, 21.00, 2345.07, 1),
-	(82, 23, 6, 119, 3.0000, 0, 48684.640000, 30.00, 14605.39, 34079.248000, 102237.744000, 1, 21.00, 21469.93, 1),
-	(83, 23, 7, 120, 2.0000, 0, 48289.270000, 30.00, 14486.78, 33802.489000, 67604.978000, 1, 21.00, 14197.05, 1),
-	(84, 23, 8, 121, 2.0000, 0, 48289.270000, 30.00, 14486.78, 33802.489000, 67604.978000, 1, 21.00, 14197.05, 1),
-	(85, 23, 317, 122, 2.0000, 0, 16866.940000, 30.00, 5060.08, 11806.858000, 23613.716000, 1, 21.00, 4958.88, 1),
-	(86, 24, 6, 119, 4.0000, 0, 48684.640000, 30.00, 14605.39, 34079.248000, 136316.992000, 1, 21.00, 28626.57, 1),
-	(87, 24, 7, 120, 2.0000, 0, 48289.270000, 30.00, 14486.78, 33802.489000, 67604.978000, 1, 21.00, 14197.05, 1),
-	(88, 24, 8, 121, 2.0000, 0, 48289.270000, 30.00, 14486.78, 33802.489000, 67604.978000, 1, 21.00, 14197.05, 1),
-	(89, 24, 317, 122, 1.0000, 0, 16866.940000, 30.00, 5060.08, 11806.858000, 11806.858000, 1, 21.00, 2479.44, 1),
-	(90, 25, 3724, 123, 1.0000, 0, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
-	(91, 25, 3726, 125, 2.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 25500.752000, 1, 21.00, 5355.16, 1),
-	(92, 25, 3727, 126, 3.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 38251.128000, 1, 21.00, 8032.74, 1),
-	(93, 26, 3724, 123, 1.0000, 0, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
-	(94, 26, 3726, 125, 2.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 25500.752000, 1, 21.00, 5355.16, 1),
-	(95, 26, 3725, 124, 2.0000, 0, 11088.000000, 20.00, 2217.60, 8870.400000, 17740.800000, 1, 21.00, 3725.57, 1),
-	(96, 26, 3727, 126, 2.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 25500.752000, 1, 21.00, 5355.16, 1),
-	(97, 27, 3725, NULL, 1.0000, 0, 11088.000000, 30.00, 3326.40, 7761.600000, 7761.600000, 1, 21.00, 1629.94, 1),
-	(98, 27, 3724, 127, 2.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
-	(99, 28, 3724, 128, 2.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
-	(100, 28, 5425, 129, 2.0000, 0, 116028.000000, 30.00, 34808.40, 81219.600000, 162439.200000, 1, 21.00, 34112.23, 1),
-	(101, 29, 3724, 156, 1.0000, 0, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
-	(102, 29, 3725, 157, 1.0000, 0, 11088.000000, 20.00, 2217.60, 8870.400000, 8870.400000, 1, 21.00, 1862.78, 1),
-	(103, 30, 3724, 161, 1.0000, 0, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
-	(104, 30, 3727, 163, 1.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
-	(105, 31, 3724, 169, 2.0000, 0, 13044.570000, 20.00, 2608.91, 10435.656000, 20871.312000, 1, 21.00, 4382.98, 1),
-	(106, 31, 3726, 171, 1.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
-	(107, 31, 3727, 172, 1.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
-	(108, 32, 3724, 175, 1.0000, 0, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
-	(109, 33, 4466, 136, 1.0000, 0, 31255.400000, 30.00, 9376.62, 21878.780000, 21878.780000, 1, 21.00, 4594.54, 1),
-	(110, 33, 2912, 137, 1.0000, 0, 990.000000, 30.00, 297.00, 693.000000, 693.000000, 1, 21.00, 145.53, 1),
-	(111, 34, 2912, 137, 1.0000, 0, 990.000000, 30.00, 297.00, 693.000000, 693.000000, 1, 21.00, 145.53, 1),
-	(112, 35, 1116, 138, 2.0000, 0, 24796.530000, 30.00, 7438.96, 17357.571000, 34715.142000, 1, 21.00, 7290.18, 1),
-	(113, 36, 3724, 175, 1.0000, 0, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
-	(114, 36, 3726, 176, 1.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
-	(115, 36, 3727, 177, 2.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 25500.752000, 1, 21.00, 5355.16, 1),
-	(116, 36, 4230, 178, 1.0000, 0, 11238.150000, 20.00, 2247.63, 8990.520000, 8990.520000, 1, 21.00, 1888.01, 1),
-	(117, 37, 4326, 179, 1.0000, 0, 11238.150000, 20.00, 2247.63, 8990.520000, 8990.520000, 1, 21.00, 1888.01, 1),
-	(118, 38, 3724, 180, 2.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
-	(119, 38, 3726, 182, 3.0000, 0, 15937.970000, 30.00, 4781.39, 11156.579000, 33469.737000, 1, 21.00, 7028.64, 1),
-	(120, 38, 3725, 181, 1.0000, 0, 11088.000000, 30.00, 3326.40, 7761.600000, 7761.600000, 1, 21.00, 1629.94, 1),
-	(121, 39, 3724, 183, 2.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
-	(122, 39, 3726, 185, 2.0000, 0, 15937.970000, 30.00, 4781.39, 11156.579000, 22313.158000, 1, 21.00, 4685.76, 1),
-	(123, 40, 3725, 184, 2.0000, 0, 11088.000000, 30.00, 3326.40, 7761.600000, 15523.200000, 1, 21.00, 3259.87, 1),
-	(124, 40, 3727, 186, 7.0000, 0, 15937.970000, 30.00, 4781.39, 11156.579000, 78096.053000, 1, 21.00, 16400.17, 1),
-	(130, 42, 5462, 33, 1.0000, 0, 1000.000000, 20.00, 200.00, 800.000000, 800.000000, 1, 21.00, 168.00, 1),
-	(131, 42, 3726, 32, 1.0000, 0, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
-	(132, 42, 4326, 13, 2.0000, 0, 11238.150000, 20.00, 2247.63, 8990.520000, 17981.040000, 1, 21.00, 3776.02, 1),
-	(133, 41, 4658, 17, 2.0000, 0, 21027.930000, 20.00, 4205.59, 16822.344000, 33644.688000, 1, 21.00, 7065.38, 1),
-	(137, 43, 315, 96, 2.0000, 0, 67500.660000, 60.00, 40500.40, 27000.264000, 54000.528000, 1, 21.00, 11340.11, 1),
-	(138, 43, 3954, 94, 2.0000, 0, 14762.000000, 60.00, 8857.20, 5904.800000, 11809.600000, 1, 21.00, 2480.02, 1),
-	(142, 44, 3727, 192, 3.0000, 0, 15937.970000, 30.00, 4781.39, 11156.579000, 33469.737000, 1, 21.00, 7028.64, 1),
-	(143, 44, 3726, 191, 5.0000, 0, 15937.970000, 30.00, 4781.39, 11156.579000, 55782.895000, 1, 21.00, 11714.41, 1),
-	(144, 44, 3724, 189, 1.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 9131.199000, 1, 21.00, 1917.55, 1),
-	(149, 45, 3724, 189, 1.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 9131.199000, 1, 21.00, 1917.55, 1),
-	(150, 45, 3725, 190, 5.0000, 0, 11088.000000, 30.00, 3326.40, 7761.600000, 38808.000000, 1, 21.00, 8149.68, 1),
-	(151, 45, 3724, 187, 2.0000, 0, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
-	(152, 45, 3725, 188, 3.0000, 0, 11088.000000, 30.00, 3326.40, 7761.600000, 23284.800000, 1, 21.00, 4889.81, 1),
-	(164, 46, 2621, 193, 3.0000, 0, 9761.930000, 30.00, 2928.58, 6833.351000, 20500.053000, 1, 21.00, 4305.01, 1),
-	(165, 46, 5127, 197, 10.0000, 0, 18202.800000, 30.00, 5460.84, 12741.960000, 127419.600000, 1, 21.00, 26758.12, 1),
-	(166, 46, 5425, 194, 3.0000, 0, 116028.000000, 30.00, 34808.40, 81219.600000, 243658.800000, 1, 21.00, 51168.35, 1),
-	(177, 50, 2621, 193, 2.0000, 0, 9761.930000, 30.00, 2928.58, 6833.351000, 13666.702000, 1, 21.00, 2870.01, 1),
-	(178, 50, 722, 195, 1.0000, 0, 6.230000, 30.00, 1.87, 4.361000, 4.361000, 1, 21.00, 0.92, 1),
-	(179, 50, 4879, 196, 4.0000, 0, 15680.280000, 30.00, 4704.08, 10976.196000, 43904.784000, 1, 21.00, 9220.00, 1),
-	(180, 50, 5127, 197, 30.0000, 0, 18202.800000, 30.00, 5460.84, 12741.960000, 382258.800000, 1, 21.00, 80274.35, 1),
-	(189, 51, 4230, 198, 1.0000, 0, 11238.150000, 30.00, 3371.44, 7866.705000, 7866.705000, 1, 21.00, 1652.01, 1),
-	(190, 51, 4231, 199, 1.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 1.540000, 1, 21.00, 0.32, 1),
-	(191, 51, 4236, 201, 1.0000, 0, 6864.230000, 30.00, 2059.27, 4804.961000, 4804.961000, 1, 21.00, 1009.04, 1),
-	(192, 51, 4232, 200, 1.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 1.540000, 1, 21.00, 0.32, 1),
-	(197, 52, 4230, 198, 2.0000, 0, 11238.150000, 30.00, 3371.44, 7866.705000, 15733.410000, 1, 21.00, 3304.02, 1),
-	(198, 52, 4231, 199, 2.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 3.080000, 1, 21.00, 0.65, 1),
-	(199, 52, 4232, 200, 2.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 3.080000, 1, 21.00, 0.65, 1),
-	(200, 52, 4236, 201, 2.0000, 0, 6864.230000, 30.00, 2059.27, 4804.961000, 9609.922000, 1, 21.00, 2018.08, 1),
-	(201, 53, 317, 205, 6.0000, 0, 16866.940000, 30.00, 5060.08, 11806.858000, 70841.148000, 1, 21.00, 14876.64, 1),
-	(202, 53, 310, 202, 1.0000, 0, 9551.850000, 30.00, 2865.56, 6686.295000, 6686.295000, 1, 21.00, 1404.12, 1),
-	(203, 53, 311, 203, 6.0000, 0, 12081.300000, 30.00, 3624.39, 8456.910000, 50741.460000, 1, 21.00, 10655.71, 1),
-	(204, 53, 313, 204, 7.0000, 0, 11092.620000, 30.00, 3327.79, 7764.834000, 54353.838000, 1, 21.00, 11414.31, 1),
-	(207, 55, 2621, 206, 4.0000, 0, 9761.930000, 30.00, 2928.58, 6833.351000, 27333.404000, 1, 21.00, 5740.01, 1),
-	(208, 55, 317, 205, 2.0000, 0, 16866.940000, 30.00, 5060.08, 11806.858000, 23613.716000, 1, 21.00, 4958.88, 1),
-	(209, 55, 310, 202, 4.0000, 0, 9551.850000, 30.00, 2865.56, 6686.295000, 26745.180000, 1, 21.00, 5616.49, 1),
-	(219, 58, 4230, 198, 6.0000, 0, 11238.150000, 30.00, 3371.44, 7866.705000, 47200.230000, 1, 21.00, 9912.05, 1),
-	(220, 58, 4232, 200, 7.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 10.780000, 1, 21.00, 2.26, 1),
-	(221, 58, 4236, 201, 3.0000, 0, 6864.230000, 30.00, 2059.27, 4804.961000, 14414.883000, 1, 21.00, 3027.13, 1),
-	(227, 59, 4230, 198, 3.0000, 0, 11238.150000, 30.00, 3371.44, 7866.705000, 23600.115000, 1, 21.00, 4956.02, 1),
-	(228, 59, 4232, 200, 2.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 3.080000, 1, 21.00, 0.65, 1),
-	(229, 59, 4231, 199, 5.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 7.700000, 1, 21.00, 1.62, 1),
-	(232, 60, 4232, 207, 2.0000, 0, 2.200000, 30.00, 0.66, 1.540000, 3.080000, 1, 21.00, 0.65, 1),
-	(235, 61, 2621, 208, 1.0000, 0, 9761.930000, 30.00, 2928.58, 6833.351000, 6833.351000, 1, 21.00, 1435.00, 1),
-	(241, 62, 5425, 211, 1.0000, 0, 116028.000000, 20.00, 23205.60, 92822.400000, 92822.400000, 1, 21.00, 19492.70, 1),
-	(242, 62, 2621, 212, 1.0000, 0, 9761.930000, 20.00, 1952.39, 7809.544000, 7809.544000, 1, 21.00, 1640.00, 1),
-	(243, 62, 722, 213, 1.0000, 0, 6.230000, 20.00, 1.25, 4.984000, 4.984000, 1, 21.00, 1.05, 1),
-	(244, 62, 4879, 214, 1.0000, 0, 15680.280000, 20.00, 3136.06, 12544.224000, 12544.224000, 1, 21.00, 2634.29, 1),
-	(245, 62, 5127, 215, 1.0000, 0, 18202.800000, 20.00, 3640.56, 14562.240000, 14562.240000, 1, 21.00, 3058.07, 1);
+INSERT INTO `gestion__ventas_remitos_detalles` (`venta_remito_detalle_id`, `venta_remito_id`, `producto_id`, `venta_pedido_detalle_id`, `cantidad`, `facturado`, `cantidad_facturada`, `precio_unitario_bruto`, `descuento_general_pct`, `descuento_general`, `precio_unitario_neto`, `importe_linea`, `iva_alicuota_id`, `iva_porcentaje`, `iva_importe`, `tabla_estado_registro_id`) VALUES
+	(1, 1, 4230, 1, 4.0000, 0, 0.0000, 11238.150000, 20.00, 2247.63, 8990.520000, 35962.080000, 1, 21.00, 7552.04, 1),
+	(2, 1, 4486, 2, 3.0000, 0, 0.0000, 12081.300000, 20.00, 2416.26, 9665.040000, 28995.120000, 1, 21.00, 6088.98, 1),
+	(3, 1, 4657, 3, 2.0000, 0, 0.0000, 10168.620000, 20.00, 2033.72, 8134.896000, 16269.792000, 1, 21.00, 3416.66, 1),
+	(4, 2, 4657, 3, 1.0000, 0, 0.0000, 10168.620000, 20.00, 2033.72, 8134.896000, 8134.896000, 1, 21.00, 1708.33, 1),
+	(5, 2, 4658, 4, 2.0000, 0, 0.0000, 21027.930000, 20.00, 4205.59, 16822.344000, 33644.688000, 1, 21.00, 7065.38, 1),
+	(6, 3, 3724, 5, 2.0000, 0, 0.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
+	(7, 3, 3725, 6, 1.0000, 0, 0.0000, 11088.000000, 30.00, 3326.40, 7761.600000, 7761.600000, 1, 21.00, 1629.94, 1),
+	(8, 3, 3726, 7, 3.0000, 0, 0.0000, 15937.970000, 30.00, 4781.39, 11156.579000, 33469.737000, 1, 21.00, 7028.64, 1),
+	(9, 3, 3730, 8, 3.0000, 0, 0.0000, 17538.400000, 30.00, 5261.52, 12276.880000, 36830.640000, 1, 21.00, 7734.43, 1),
+	(10, 4, 3724, 5, 2.0000, 0, 0.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
+	(11, 4, 3725, 6, 1.0000, 0, 0.0000, 11088.000000, 30.00, 3326.40, 7761.600000, 7761.600000, 1, 21.00, 1629.94, 1),
+	(12, 4, 3729, 10, 2.0000, 0, 0.0000, 59089.800000, 30.00, 17726.94, 41362.860000, 82725.720000, 1, 21.00, 17372.40, 1),
+	(13, 4, 3728, 9, 2.0000, 0, 0.0000, 59089.800000, 30.00, 17726.94, 41362.860000, 82725.720000, 1, 21.00, 17372.40, 1),
+	(14, 4, 3731, 11, 2.0000, 0, 0.0000, 9292.800000, 30.00, 2787.84, 6504.960000, 13009.920000, 1, 21.00, 2732.08, 1),
+	(16, 5, 5462, 33, 3.0000, 0, 0.0000, 1000.000000, 20.00, 200.00, 800.000000, 2400.000000, 1, 21.00, 504.00, 1),
+	(17, 5, 1, 34, 4.0000, 0, 0.0000, 15952.860000, 20.00, 3190.57, 12762.288000, 51049.152000, 1, 21.00, 10720.32, 1),
+	(18, 5, 4230, 12, 4.0000, 0, 0.0000, 11238.150000, 20.00, 2247.63, 8990.520000, 35962.080000, 1, 21.00, 7552.04, 1),
+	(19, 5, 1, 39, 2.0000, 0, 0.0000, 15952.860000, 20.00, 3190.57, 12762.288000, 25524.576000, 1, 21.00, 5360.16, 1),
+	(20, 6, 3731, 66, 2.0000, 0, 0.0000, 9292.800000, 30.00, 2787.84, 6504.960000, 13009.920000, 1, 21.00, 2732.08, 1),
+	(21, 6, 3732, 67, 2.0000, 0, 0.0000, 10600.080000, 30.00, 3180.02, 7420.056000, 14840.112000, 1, 21.00, 3116.42, 1),
+	(22, 6, 3736, 68, 6.0000, 0, 0.0000, 29260.000000, 30.00, 8778.00, 20482.000000, 122892.000000, 1, 21.00, 25807.32, 1),
+	(23, 6, 3756, 69, 1.0000, 0, 0.0000, 884.180000, 30.00, 265.25, 618.926000, 618.926000, 1, 21.00, 129.97, 1),
+	(24, 6, 3757, 70, 1.0000, 0, 0.0000, 32798.630000, 30.00, 9839.59, 22959.041000, 22959.041000, 1, 21.00, 4821.40, 1),
+	(25, 6, 3758, 71, 1.0000, 0, 0.0000, 2.200000, 30.00, 0.66, 1.540000, 1.540000, 1, 21.00, 0.32, 1),
+	(26, 6, 3759, 72, 1.0000, 0, 0.0000, 12652.200000, 30.00, 3795.66, 8856.540000, 8856.540000, 1, 21.00, 1859.87, 1),
+	(27, 7, 5135, 85, 2.0000, 0, 0.0000, 25920.400000, 30.00, 7776.12, 18144.280000, 36288.560000, 1, 21.00, 7620.60, 1),
+	(28, 7, 3727, 76, 3.0000, 0, 0.0000, 15937.970000, 30.00, 4781.39, 11156.579000, 33469.737000, 1, 21.00, 7028.64, 1),
+	(29, 7, 5134, 84, 2.0000, 0, 0.0000, 25920.400000, 30.00, 7776.12, 18144.280000, 36288.560000, 1, 21.00, 7620.60, 1),
+	(30, 7, 3759, 83, 1.0000, 0, 0.0000, 12652.200000, 30.00, 3795.66, 8856.540000, 8856.540000, 1, 21.00, 1859.87, 1),
+	(31, 8, 3726, 75, 2.0000, 0, 0.0000, 15937.970000, 30.00, 4781.39, 11156.579000, 22313.158000, 1, 21.00, 4685.76, 1),
+	(32, 8, 3731, 77, 2.0000, 0, 0.0000, 9292.800000, 30.00, 2787.84, 6504.960000, 13009.920000, 1, 21.00, 2732.08, 1),
+	(33, 9, 3732, 78, 2.0000, 0, 0.0000, 10600.080000, 30.00, 3180.02, 7420.056000, 14840.112000, 1, 21.00, 3116.42, 1),
+	(34, 9, 3756, 80, 1.0000, 0, 0.0000, 884.180000, 30.00, 265.25, 618.926000, 618.926000, 1, 21.00, 129.97, 1),
+	(35, 10, 3736, 79, 6.0000, 0, 0.0000, 29260.000000, 30.00, 8778.00, 20482.000000, 122892.000000, 1, 21.00, 25807.32, 1),
+	(36, 10, 3757, 81, 1.0000, 0, 0.0000, 32798.630000, 30.00, 9839.59, 22959.041000, 22959.041000, 1, 21.00, 4821.40, 1),
+	(37, 11, 2, 40, 2.0000, 0, 0.0000, 15952.860000, 20.00, 3190.57, 12762.288000, 25524.576000, 1, 21.00, 5360.16, 1),
+	(38, 12, 3758, 82, 1.0000, 0, 0.0000, 2.200000, 30.00, 0.66, 1.540000, 1.540000, 1, 21.00, 0.32, 1),
+	(39, 13, 5462, 98, 2.0000, 0, 0.0000, 1000.000000, 60.00, 600.00, 400.000000, 800.000000, 1, 21.00, 168.00, 1),
+	(40, 13, 1, 99, 3.0000, 0, 0.0000, 15952.860000, 60.00, 9571.72, 6381.144000, 19143.432000, 1, 21.00, 4020.12, 1),
+	(41, 14, 5462, 98, 2.0000, 0, 0.0000, 1000.000000, 60.00, 600.00, 400.000000, 800.000000, 1, 21.00, 168.00, 1),
+	(42, 15, 1, 100, 2.0000, 0, 0.0000, 15952.860000, 30.00, 4785.86, 11167.002000, 22334.004000, 1, 21.00, 4690.14, 1),
+	(43, 15, 3, 102, 2.0000, 0, 0.0000, 48684.640000, 30.00, 14605.39, 34079.248000, 68158.496000, 1, 21.00, 14313.28, 1),
+	(44, 16, 2, 101, 2.0000, 0, 0.0000, 15952.860000, 30.00, 4785.86, 11167.002000, 22334.004000, 1, 21.00, 4690.14, 1),
+	(45, 16, 4, 103, 2.0000, 0, 0.0000, 48684.640000, 30.00, 14605.39, 34079.248000, 68158.496000, 1, 21.00, 14313.28, 1),
+	(52, 18, 1, 104, 1.0000, 0, 0.0000, 15952.860000, 30.00, 4785.86, 11167.002000, 11167.002000, 1, 21.00, 2345.07, 1),
+	(53, 18, 3, 105, 2.0000, 0, 0.0000, 48684.640000, 30.00, 14605.39, 34079.248000, 68158.496000, 1, 21.00, 14313.28, 1),
+	(54, 18, 6, 106, 4.0000, 0, 0.0000, 48684.640000, 30.00, 14605.39, 34079.248000, 136316.992000, 1, 21.00, 28626.57, 1),
+	(55, 18, 5160, 107, 1.0000, 0, 0.0000, 45254.000000, 30.00, 13576.20, 31677.800000, 31677.800000, 1, 21.00, 6652.34, 1),
+	(56, 18, 537, 108, 2.0000, 0, 0.0000, 16535.990000, 30.00, 4960.80, 11575.193000, 23150.386000, 1, 21.00, 4861.58, 1),
+	(57, 18, 3384, 109, 4.0000, 0, 0.0000, 2.200000, 30.00, 0.66, 1.540000, 6.160000, 1, 21.00, 1.29, 1),
+	(58, 18, 4709, 110, 2.0000, 0, 0.0000, 27570.860000, 30.00, 8271.26, 19299.602000, 38599.204000, 1, 21.00, 8105.83, 1),
+	(59, 18, 1176, 111, 2.0000, 0, 0.0000, 442.020000, 30.00, 132.61, 309.414000, 618.828000, 1, 21.00, 129.95, 1),
+	(66, 19, 6, 106, 1.0000, 0, 0.0000, 48684.640000, 30.00, 14605.39, 34079.248000, 34079.248000, 1, 21.00, 7156.64, 1),
+	(67, 19, 5160, 107, 1.0000, 0, 0.0000, 45254.000000, 30.00, 13576.20, 31677.800000, 31677.800000, 1, 21.00, 6652.34, 1),
+	(68, 19, 1, 104, 1.0000, 0, 0.0000, 15952.860000, 30.00, 4785.86, 11167.002000, 11167.002000, 1, 21.00, 2345.07, 1),
+	(69, 20, 1, 112, 2.0000, 0, 0.0000, 15952.860000, 20.00, 3190.57, 12762.288000, 25524.576000, 1, 21.00, 5360.16, 1),
+	(70, 20, 2, 113, 2.0000, 0, 0.0000, 15952.860000, 20.00, 3190.57, 12762.288000, 25524.576000, 1, 21.00, 5360.16, 1),
+	(71, 20, 7, 115, 2.0000, 0, 0.0000, 48289.270000, 20.00, 9657.85, 38631.416000, 77262.832000, 1, 21.00, 16225.19, 1),
+	(75, 21, 5, 114, 5.0000, 0, 0.0000, 48684.640000, 20.00, 9736.93, 38947.712000, 194738.560000, 1, 21.00, 40895.10, 1),
+	(76, 21, 7, 115, 1.0000, 0, 0.0000, 48289.270000, 20.00, 9657.85, 38631.416000, 38631.416000, 1, 21.00, 8112.60, 1),
+	(77, 21, 1, 112, 3.0000, 0, 0.0000, 15952.860000, 20.00, 3190.57, 12762.288000, 38286.864000, 1, 21.00, 8040.24, 1),
+	(78, 22, 1, 116, 2.0000, 0, 0.0000, 15952.860000, 30.00, 4785.86, 11167.002000, 22334.004000, 1, 21.00, 4690.14, 1),
+	(79, 22, 2, 117, 3.0000, 0, 0.0000, 15952.860000, 30.00, 4785.86, 11167.002000, 33501.006000, 1, 21.00, 7035.21, 1),
+	(80, 22, 3, 118, 10.0000, 0, 0.0000, 48684.640000, 30.00, 14605.39, 34079.248000, 340792.480000, 1, 21.00, 71566.42, 1),
+	(81, 23, 1, 116, 1.0000, 0, 0.0000, 15952.860000, 30.00, 4785.86, 11167.002000, 11167.002000, 1, 21.00, 2345.07, 1),
+	(82, 23, 6, 119, 3.0000, 0, 0.0000, 48684.640000, 30.00, 14605.39, 34079.248000, 102237.744000, 1, 21.00, 21469.93, 1),
+	(83, 23, 7, 120, 2.0000, 0, 0.0000, 48289.270000, 30.00, 14486.78, 33802.489000, 67604.978000, 1, 21.00, 14197.05, 1),
+	(84, 23, 8, 121, 2.0000, 0, 0.0000, 48289.270000, 30.00, 14486.78, 33802.489000, 67604.978000, 1, 21.00, 14197.05, 1),
+	(85, 23, 317, 122, 2.0000, 0, 0.0000, 16866.940000, 30.00, 5060.08, 11806.858000, 23613.716000, 1, 21.00, 4958.88, 1),
+	(86, 24, 6, 119, 4.0000, 0, 0.0000, 48684.640000, 30.00, 14605.39, 34079.248000, 136316.992000, 1, 21.00, 28626.57, 1),
+	(87, 24, 7, 120, 2.0000, 0, 0.0000, 48289.270000, 30.00, 14486.78, 33802.489000, 67604.978000, 1, 21.00, 14197.05, 1),
+	(88, 24, 8, 121, 2.0000, 0, 0.0000, 48289.270000, 30.00, 14486.78, 33802.489000, 67604.978000, 1, 21.00, 14197.05, 1),
+	(89, 24, 317, 122, 1.0000, 0, 0.0000, 16866.940000, 30.00, 5060.08, 11806.858000, 11806.858000, 1, 21.00, 2479.44, 1),
+	(90, 25, 3724, 123, 1.0000, 0, 0.0000, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
+	(91, 25, 3726, 125, 2.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 25500.752000, 1, 21.00, 5355.16, 1),
+	(92, 25, 3727, 126, 3.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 38251.128000, 1, 21.00, 8032.74, 1),
+	(93, 26, 3724, 123, 1.0000, 0, 0.0000, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
+	(94, 26, 3726, 125, 2.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 25500.752000, 1, 21.00, 5355.16, 1),
+	(95, 26, 3725, 124, 2.0000, 0, 0.0000, 11088.000000, 20.00, 2217.60, 8870.400000, 17740.800000, 1, 21.00, 3725.57, 1),
+	(96, 26, 3727, 126, 2.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 25500.752000, 1, 21.00, 5355.16, 1),
+	(97, 27, 3725, NULL, 1.0000, 0, 0.0000, 11088.000000, 30.00, 3326.40, 7761.600000, 7761.600000, 1, 21.00, 1629.94, 1),
+	(98, 27, 3724, 127, 2.0000, 0, 0.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
+	(99, 28, 3724, 128, 2.0000, 0, 0.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
+	(100, 28, 5425, 129, 2.0000, 0, 0.0000, 116028.000000, 30.00, 34808.40, 81219.600000, 162439.200000, 1, 21.00, 34112.23, 1),
+	(101, 29, 3724, 156, 1.0000, 0, 0.0000, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
+	(102, 29, 3725, 157, 1.0000, 0, 0.0000, 11088.000000, 20.00, 2217.60, 8870.400000, 8870.400000, 1, 21.00, 1862.78, 1),
+	(103, 30, 3724, 161, 1.0000, 0, 0.0000, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
+	(104, 30, 3727, 163, 1.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
+	(105, 31, 3724, 169, 2.0000, 0, 0.0000, 13044.570000, 20.00, 2608.91, 10435.656000, 20871.312000, 1, 21.00, 4382.98, 1),
+	(106, 31, 3726, 171, 1.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
+	(107, 31, 3727, 172, 1.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
+	(108, 32, 3724, 175, 1.0000, 0, 0.0000, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
+	(109, 33, 4466, 136, 1.0000, 0, 0.0000, 31255.400000, 30.00, 9376.62, 21878.780000, 21878.780000, 1, 21.00, 4594.54, 1),
+	(110, 33, 2912, 137, 1.0000, 0, 0.0000, 990.000000, 30.00, 297.00, 693.000000, 693.000000, 1, 21.00, 145.53, 1),
+	(111, 34, 2912, 137, 1.0000, 1, 1.0000, 990.000000, 30.00, 297.00, 693.000000, 693.000000, 1, 21.00, 145.53, 1),
+	(112, 35, 1116, 138, 2.0000, 1, 2.0000, 24796.530000, 30.00, 7438.96, 17357.571000, 34715.142000, 1, 21.00, 7290.18, 1),
+	(113, 36, 3724, 175, 1.0000, 0, 0.0000, 13044.570000, 20.00, 2608.91, 10435.656000, 10435.656000, 1, 21.00, 2191.49, 1),
+	(114, 36, 3726, 176, 1.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
+	(115, 36, 3727, 177, 2.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 25500.752000, 1, 21.00, 5355.16, 1),
+	(116, 36, 4230, 178, 1.0000, 0, 0.0000, 11238.150000, 20.00, 2247.63, 8990.520000, 8990.520000, 1, 21.00, 1888.01, 1),
+	(117, 37, 4326, 179, 1.0000, 0, 0.0000, 11238.150000, 20.00, 2247.63, 8990.520000, 8990.520000, 1, 21.00, 1888.01, 1),
+	(118, 38, 3724, 180, 2.0000, 1, 2.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
+	(119, 38, 3726, 182, 3.0000, 1, 3.0000, 15937.970000, 30.00, 4781.39, 11156.579000, 33469.737000, 1, 21.00, 7028.64, 1),
+	(120, 38, 3725, 181, 1.0000, 1, 1.0000, 11088.000000, 30.00, 3326.40, 7761.600000, 7761.600000, 1, 21.00, 1629.94, 1),
+	(121, 39, 3724, 183, 2.0000, 0, 0.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
+	(122, 39, 3726, 185, 2.0000, 0, 0.0000, 15937.970000, 30.00, 4781.39, 11156.579000, 22313.158000, 1, 21.00, 4685.76, 1),
+	(123, 40, 3725, 184, 2.0000, 0, 0.0000, 11088.000000, 30.00, 3326.40, 7761.600000, 15523.200000, 1, 21.00, 3259.87, 1),
+	(124, 40, 3727, 186, 7.0000, 0, 0.0000, 15937.970000, 30.00, 4781.39, 11156.579000, 78096.053000, 1, 21.00, 16400.17, 1),
+	(130, 42, 5462, 33, 1.0000, 0, 0.0000, 1000.000000, 20.00, 200.00, 800.000000, 800.000000, 1, 21.00, 168.00, 1),
+	(131, 42, 3726, 32, 1.0000, 0, 0.0000, 15937.970000, 20.00, 3187.59, 12750.376000, 12750.376000, 1, 21.00, 2677.58, 1),
+	(132, 42, 4326, 13, 2.0000, 0, 0.0000, 11238.150000, 20.00, 2247.63, 8990.520000, 17981.040000, 1, 21.00, 3776.02, 1),
+	(133, 41, 4658, 17, 2.0000, 0, 0.0000, 21027.930000, 20.00, 4205.59, 16822.344000, 33644.688000, 1, 21.00, 7065.38, 1),
+	(137, 43, 315, 96, 2.0000, 0, 0.0000, 67500.660000, 60.00, 40500.40, 27000.264000, 54000.528000, 1, 21.00, 11340.11, 1),
+	(138, 43, 3954, 94, 2.0000, 0, 0.0000, 14762.000000, 60.00, 8857.20, 5904.800000, 11809.600000, 1, 21.00, 2480.02, 1),
+	(142, 44, 3727, 192, 3.0000, 1, 3.0000, 15937.970000, 30.00, 4781.39, 11156.579000, 33469.737000, 1, 21.00, 7028.64, 1),
+	(143, 44, 3726, 191, 5.0000, 1, 5.0000, 15937.970000, 30.00, 4781.39, 11156.579000, 55782.895000, 1, 21.00, 11714.41, 1),
+	(144, 44, 3724, 189, 1.0000, 1, 1.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 9131.199000, 1, 21.00, 1917.55, 1),
+	(149, 45, 3724, 189, 1.0000, 1, 1.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 9131.199000, 1, 21.00, 1917.55, 1),
+	(150, 45, 3725, 190, 5.0000, 1, 5.0000, 11088.000000, 30.00, 3326.40, 7761.600000, 38808.000000, 1, 21.00, 8149.68, 1),
+	(151, 45, 3724, 187, 2.0000, 1, 2.0000, 13044.570000, 30.00, 3913.37, 9131.199000, 18262.398000, 1, 21.00, 3835.10, 1),
+	(152, 45, 3725, 188, 3.0000, 1, 3.0000, 11088.000000, 30.00, 3326.40, 7761.600000, 23284.800000, 1, 21.00, 4889.81, 1),
+	(164, 46, 2621, 193, 3.0000, 1, 3.0000, 9761.930000, 30.00, 2928.58, 6833.351000, 20500.053000, 1, 21.00, 4305.01, 1),
+	(165, 46, 5127, 197, 10.0000, 1, 10.0000, 18202.800000, 30.00, 5460.84, 12741.960000, 127419.600000, 1, 21.00, 26758.12, 1),
+	(166, 46, 5425, 194, 3.0000, 1, 3.0000, 116028.000000, 30.00, 34808.40, 81219.600000, 243658.800000, 1, 21.00, 51168.35, 1),
+	(177, 50, 2621, 193, 2.0000, 0, 0.0000, 9761.930000, 30.00, 2928.58, 6833.351000, 13666.702000, 1, 21.00, 2870.01, 1),
+	(178, 50, 722, 195, 1.0000, 0, 0.0000, 6.230000, 30.00, 1.87, 4.361000, 4.361000, 1, 21.00, 0.92, 1),
+	(179, 50, 4879, 196, 4.0000, 0, 0.0000, 15680.280000, 30.00, 4704.08, 10976.196000, 43904.784000, 1, 21.00, 9220.00, 1),
+	(180, 50, 5127, 197, 30.0000, 0, 0.0000, 18202.800000, 30.00, 5460.84, 12741.960000, 382258.800000, 1, 21.00, 80274.35, 1),
+	(189, 51, 4230, 198, 1.0000, 1, 1.0000, 11238.150000, 30.00, 3371.44, 7866.705000, 7866.705000, 1, 21.00, 1652.01, 1),
+	(190, 51, 4231, 199, 1.0000, 4, 1.0000, 2.200000, 30.00, 0.66, 1.540000, 1.540000, 1, 21.00, 0.32, 1),
+	(191, 51, 4236, 201, 1.0000, 4, 1.0000, 6864.230000, 30.00, 2059.27, 4804.961000, 4804.961000, 1, 21.00, 1009.04, 1),
+	(192, 51, 4232, 200, 1.0000, 11, 1.0000, 2.200000, 30.00, 0.66, 1.540000, 1.540000, 1, 21.00, 0.32, 1),
+	(197, 52, 4230, 198, 2.0000, 15, 2.0000, 11238.150000, 30.00, 3371.44, 7866.705000, 15733.410000, 1, 21.00, 3304.02, 1),
+	(198, 52, 4231, 199, 2.0000, 11, 2.0000, 2.200000, 30.00, 0.66, 1.540000, 3.080000, 1, 21.00, 0.65, 1),
+	(199, 52, 4232, 200, 2.0000, 1, 2.0000, 2.200000, 30.00, 0.66, 1.540000, 3.080000, 1, 21.00, 0.65, 1),
+	(200, 52, 4236, 201, 2.0000, 1, 2.0000, 6864.230000, 30.00, 2059.27, 4804.961000, 9609.922000, 1, 21.00, 2018.08, 1),
+	(201, 53, 317, 205, 6.0000, 1, 6.0000, 16866.940000, 30.00, 5060.08, 11806.858000, 70841.148000, 1, 21.00, 14876.64, 1),
+	(202, 53, 310, 202, 1.0000, 1, 1.0000, 9551.850000, 30.00, 2865.56, 6686.295000, 6686.295000, 1, 21.00, 1404.12, 1),
+	(203, 53, 311, 203, 6.0000, 12, 6.0000, 12081.300000, 30.00, 3624.39, 8456.910000, 50741.460000, 1, 21.00, 10655.71, 1),
+	(204, 53, 313, 204, 7.0000, 12, 7.0000, 11092.620000, 30.00, 3327.79, 7764.834000, 54353.838000, 1, 21.00, 11414.31, 1),
+	(207, 55, 2621, 206, 4.0000, 12, 4.0000, 9761.930000, 30.00, 2928.58, 6833.351000, 27333.404000, 1, 21.00, 5740.01, 1),
+	(208, 55, 317, 205, 2.0000, 12, 2.0000, 16866.940000, 30.00, 5060.08, 11806.858000, 23613.716000, 1, 21.00, 4958.88, 1),
+	(209, 55, 310, 202, 4.0000, 11, 4.0000, 9551.850000, 30.00, 2865.56, 6686.295000, 26745.180000, 1, 21.00, 5616.49, 1),
+	(219, 58, 4230, 198, 6.0000, 11, 6.0000, 11238.150000, 30.00, 3371.44, 7866.705000, 47200.230000, 1, 21.00, 9912.05, 1),
+	(220, 58, 4232, 200, 7.0000, 11, 7.0000, 2.200000, 30.00, 0.66, 1.540000, 10.780000, 1, 21.00, 2.26, 1),
+	(221, 58, 4236, 201, 3.0000, 11, 3.0000, 6864.230000, 30.00, 2059.27, 4804.961000, 14414.883000, 1, 21.00, 3027.13, 1),
+	(227, 59, 4230, 198, 3.0000, 11, 3.0000, 11238.150000, 30.00, 3371.44, 7866.705000, 23600.115000, 1, 21.00, 4956.02, 1),
+	(228, 59, 4232, 200, 2.0000, 11, 2.0000, 2.200000, 30.00, 0.66, 1.540000, 3.080000, 1, 21.00, 0.65, 1),
+	(229, 59, 4231, 199, 5.0000, 15, 5.0000, 2.200000, 30.00, 0.66, 1.540000, 7.700000, 1, 21.00, 1.62, 1),
+	(232, 60, 4232, 207, 2.0000, 1, 2.0000, 2.200000, 30.00, 0.66, 1.540000, 3.080000, 1, 21.00, 0.65, 1),
+	(235, 61, 2621, 208, 1.0000, 1, 1.0000, 9761.930000, 30.00, 2928.58, 6833.351000, 6833.351000, 1, 21.00, 1435.00, 1),
+	(241, 62, 5425, 211, 1.0000, 0, 0.0000, 116028.000000, 20.00, 23205.60, 92822.400000, 92822.400000, 1, 21.00, 19492.70, 1),
+	(242, 62, 2621, 212, 1.0000, 0, 0.0000, 9761.930000, 20.00, 1952.39, 7809.544000, 7809.544000, 1, 21.00, 1640.00, 1),
+	(243, 62, 722, 213, 1.0000, 0, 0.0000, 6.230000, 20.00, 1.25, 4.984000, 4.984000, 1, 21.00, 1.05, 1),
+	(244, 62, 4879, 214, 1.0000, 0, 0.0000, 15680.280000, 20.00, 3136.06, 12544.224000, 12544.224000, 1, 21.00, 2634.29, 1),
+	(245, 62, 5127, 215, 1.0000, 0, 0.0000, 18202.800000, 20.00, 3640.56, 14562.240000, 14562.240000, 1, 21.00, 3058.07, 1);
 
 -- Volcando estructura para tabla gestion_multipyme.ml__ambitos_organizacionales
 CREATE TABLE IF NOT EXISTS `ml__ambitos_organizacionales` (
@@ -69061,7 +69132,7 @@ CREATE TABLE IF NOT EXISTS `ml__ambitos_organizacionales` (
   CONSTRAINT `fk_ambito_tipo` FOREIGN KEY (`ambito_tipo_id`) REFERENCES `ml__ambitos_tipos` (`ambito_tipo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.ml__ambitos_organizacionales: ~1 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.ml__ambitos_organizacionales: ~0 rows (aproximadamente)
 DELETE FROM `ml__ambitos_organizacionales`;
 INSERT INTO `ml__ambitos_organizacionales` (`ambito_id`, `ambito_tipo_id`, `ambito_padre_id`, `codigo`, `nombre`, `tabla_estado_registro_id`) VALUES
 	(1, 1, NULL, 'GRUPO-001', 'Grupo Corporativo', 1);
@@ -69140,7 +69211,7 @@ CREATE TABLE IF NOT EXISTS `ml__jurisdicciones` (
   CONSTRAINT `fk_jur_tipo` FOREIGN KEY (`jurisdiccion_tipo_id`) REFERENCES `ml__jurisdicciones_tipos` (`jurisdiccion_tipo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.ml__jurisdicciones: ~1 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.ml__jurisdicciones: ~0 rows (aproximadamente)
 DELETE FROM `ml__jurisdicciones`;
 INSERT INTO `ml__jurisdicciones` (`jurisdiccion_id`, `jurisdiccion_tipo_id`, `jurisdiccion_padre_id`, `nombre`, `codigo`, `tabla_estado_registro_id`) VALUES
 	(1, 1, NULL, 'Argentina', 'AR', 1);
@@ -69603,7 +69674,7 @@ CREATE TABLE IF NOT EXISTS `xxx_gestion__listas_precios` (
   KEY `f_vigencia_hasta` (`f_vigencia_hasta`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Volcando datos para la tabla gestion_multipyme.xxx_gestion__listas_precios: ~1 rows (aproximadamente)
+-- Volcando datos para la tabla gestion_multipyme.xxx_gestion__listas_precios: ~0 rows (aproximadamente)
 DELETE FROM `xxx_gestion__listas_precios`;
 INSERT INTO `xxx_gestion__listas_precios` (`lista_precio_id`, `lista_precio`, `descripcion`, `empresa_id`, `lista_base_id`, `es_principal`, `metodo_calculo`, `margen_ganancia`, `tipo`, `estado`, `f_vigencia_desde`, `f_vigencia_hasta`, `f_alta`, `f_baja`, `f_actualizacion`, `usuario_id_alta`, `usuario_id_modificacion`, `ip_origen`) VALUES
 	(1, 'General', '', 2, NULL, 1, 'automatico', 65.00, 'venta', 'activa', '2025-10-01', NULL, '2025-10-04 17:49:25', NULL, '2026-03-17 20:12:15', 1, 1, '::1');
@@ -69684,177 +69755,6 @@ INSERT INTO `xxx_gestion__listas_precios_productos_historial` (`lista_precio_pro
 	(9, 3, 1, 13, 1.00, '2025-10-04 20:51:57', NULL, 3),
 	(10, 3, 1, 13, 1.00, '2025-10-04 20:50:04', '2025-10-04 20:51:57', NULL),
 	(11, 6, 1, 68, 1000.00, '2025-10-05 07:39:06', '2025-10-05 07:39:50', NULL);
-
--- Volcando estructura para procedimiento gestion_multipyme.sp_recalcular_compatibilidad_por_marca
-DELIMITER //
-CREATE PROCEDURE `sp_recalcular_compatibilidad_por_marca`(IN p_marca_id INT UNSIGNED)
-BEGIN
-    DECLARE v_done INT DEFAULT 0;
-    DECLARE v_producto_id BIGINT UNSIGNED;
-    DECLARE cur CURSOR FOR
-        SELECT DISTINCT producto_id
-        FROM gestion__productos_compatibilidad
-        WHERE marca_id = p_marca_id AND tabla_estado_registro_id = 1;
-    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
-
-    OPEN cur;
-    loop_marca: LOOP
-        FETCH cur INTO v_producto_id;
-        IF v_done THEN LEAVE loop_marca; END IF;
-        CALL sp_recalcular_compatibilidad_producto(v_producto_id);
-    END LOOP;
-    CLOSE cur;
-END//
-DELIMITER ;
-
--- Volcando estructura para procedimiento gestion_multipyme.sp_recalcular_compatibilidad_por_modelo
-DELIMITER //
-CREATE PROCEDURE `sp_recalcular_compatibilidad_por_modelo`(IN p_modelo_id INT UNSIGNED)
-BEGIN
-    DECLARE v_done INT DEFAULT 0;
-    DECLARE v_producto_id BIGINT UNSIGNED;
-    DECLARE cur CURSOR FOR
-        SELECT DISTINCT producto_id
-        FROM gestion__productos_compatibilidad
-        WHERE modelo_id = p_modelo_id AND tabla_estado_registro_id = 1;
-    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
-
-    OPEN cur;
-    loop_modelo: LOOP
-        FETCH cur INTO v_producto_id;
-        IF v_done THEN LEAVE loop_modelo; END IF;
-        CALL sp_recalcular_compatibilidad_producto(v_producto_id);
-    END LOOP;
-    CLOSE cur;
-END//
-DELIMITER ;
-
--- Volcando estructura para procedimiento gestion_multipyme.sp_recalcular_compatibilidad_por_submodelo
-DELIMITER //
-CREATE PROCEDURE `sp_recalcular_compatibilidad_por_submodelo`(IN p_submodelo_id INT UNSIGNED)
-BEGIN
-    DECLARE v_done INT DEFAULT 0;
-    DECLARE v_producto_id BIGINT UNSIGNED;
-    DECLARE cur CURSOR FOR
-        SELECT DISTINCT producto_id
-        FROM gestion__productos_compatibilidad
-        WHERE submodelo_id = p_submodelo_id AND tabla_estado_registro_id = 1;
-    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
-
-    OPEN cur;
-    loop_submodelo: LOOP
-        FETCH cur INTO v_producto_id;
-        IF v_done THEN LEAVE loop_submodelo; END IF;
-        CALL sp_recalcular_compatibilidad_producto(v_producto_id);
-    END LOOP;
-    CLOSE cur;
-END//
-DELIMITER ;
-
--- Volcando estructura para procedimiento gestion_multipyme.sp_recalcular_compatibilidad_producto
-DELIMITER //
-CREATE PROCEDURE `sp_recalcular_compatibilidad_producto`(IN p_producto_id BIGINT UNSIGNED)
-BEGIN
-    DECLARE v_done INT DEFAULT 0;
-    DECLARE v_marca_nombre VARCHAR(100);
-    DECLARE v_modelo_nombre VARCHAR(100);
-    DECLARE v_submodelo_nombre VARCHAR(100);
-    DECLARE v_anio_desde SMALLINT;
-    DECLARE v_anio_hasta SMALLINT;
-    DECLARE v_anio_hasta_cap INT;
-    DECLARE v_anio_actual INT;
-    DECLARE v_texto TEXT DEFAULT '';
-    DECLARE v_busqueda TEXT DEFAULT '';
-    DECLARE v_item_texto TEXT;
-    DECLARE v_y INT;
-
-    DECLARE cur CURSOR FOR
-        SELECT ma.marca_nombre, mo.modelo_nombre, sm.submodelo_nombre,
-               pc.anio_desde, pc.anio_hasta
-        FROM gestion__productos_compatibilidad pc
-        INNER JOIN gestion__marcas ma ON pc.marca_id = ma.marca_id
-        INNER JOIN gestion__modelos mo ON pc.modelo_id = mo.modelo_id
-        LEFT JOIN gestion__submodelos sm ON pc.submodelo_id = sm.submodelo_id
-        WHERE pc.producto_id = p_producto_id
-          AND pc.tabla_estado_registro_id = 1
-        ORDER BY ma.marca_nombre, mo.modelo_nombre;
-
-    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
-
-    SET v_anio_actual = YEAR(CURDATE());
-
-    OPEN cur;
-
-    read_loop: LOOP
-        FETCH cur INTO v_marca_nombre, v_modelo_nombre, v_submodelo_nombre, v_anio_desde, v_anio_hasta;
-        IF v_done THEN
-            LEAVE read_loop;
-        END IF;
-
-        SET v_item_texto = CONCAT(
-            v_marca_nombre, ' ', v_modelo_nombre,
-            IF(v_submodelo_nombre IS NOT NULL, CONCAT(' ', v_submodelo_nombre), ''),
-            ' (', v_anio_desde, '-', IFNULL(v_anio_hasta, 'act.'), ')'
-        );
-        SET v_texto = IF(v_texto = '', v_item_texto, CONCAT(v_texto, ' | ', v_item_texto));
-        SET v_busqueda = IF(v_busqueda = '', v_item_texto, CONCAT(v_busqueda, ' | ', v_item_texto));
-
-        -- CAMBIO: tope en año actual (antes: año actual + 2). Una
-        -- compatibilidad "vigente" (anio_hasta grande / 2100 por defecto)
-        -- ya no expande años futuros que todavía no llegaron — el EVENT
-        -- diario se encarga de sumarlos a medida que el calendario avanza.
-        SET v_anio_hasta_cap = LEAST(IFNULL(v_anio_hasta, v_anio_actual), v_anio_actual);
-        SET v_y = v_anio_desde;
-        WHILE v_y <= v_anio_hasta_cap DO
-            SET v_busqueda = CONCAT(v_busqueda, ' ', v_y);
-            SET v_y = v_y + 1;
-        END WHILE;
-
-    END LOOP;
-    CLOSE cur;
-
-    UPDATE gestion__productos
-       SET compatibilidad_texto = NULLIF(v_texto, ''),
-           compatibilidad_busqueda = NULLIF(v_busqueda, '')
-     WHERE producto_id = p_producto_id;
-END//
-DELIMITER ;
-
--- Volcando estructura para procedimiento gestion_multipyme.sp_refrescar_compatibilidad_vigentes
-DELIMITER //
-CREATE PROCEDURE `sp_refrescar_compatibilidad_vigentes`()
-BEGIN
-    DECLARE v_done INT DEFAULT 0;
-    DECLARE v_producto_id BIGINT UNSIGNED;
-
-    -- Solo productos con AL MENOS UNA fila de compatibilidad "abierta":
-    -- sin anio_hasta, o con anio_hasta en el año actual o más adelante.
-    -- Una compatibilidad ya cerrada en el pasado (ej. "2015-2018") nunca
-    -- gana años nuevos, así que no hace falta tocarla de nuevo.
-    DECLARE cur CURSOR FOR
-        SELECT DISTINCT producto_id
-        FROM gestion__productos_compatibilidad
-        WHERE tabla_estado_registro_id = 1
-          AND (anio_hasta IS NULL OR anio_hasta >= YEAR(CURDATE()));
-
-    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
-
-    OPEN cur;
-    loop_vigentes: LOOP
-        FETCH cur INTO v_producto_id;
-        IF v_done THEN LEAVE loop_vigentes; END IF;
-        CALL sp_recalcular_compatibilidad_producto(v_producto_id);
-    END LOOP;
-    CLOSE cur;
-END//
-DELIMITER ;
-
--- Volcando estructura para evento gestion_multipyme.ev_refrescar_compatibilidad_anual
-DELIMITER //
-CREATE EVENT `ev_refrescar_compatibilidad_anual` ON SCHEDULE EVERY 1 DAY STARTS '2026-09-06 03:00:00' ON COMPLETION PRESERVE ENABLE DO BEGIN
-    CALL sp_refrescar_compatibilidad_vigentes();
-END//
-DELIMITER ;
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Facturación</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 14px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert {
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 14px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #fff;
+    }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0 30px;
+    }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+        margin: 2px 4px 2px 0;
+    }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eef4ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral {
+        border-left: 3px solid var(--azul);
+        padding-left: 12px;
+        color: var(--texto-muted);
+        font-size: 0.92rem;
+        margin: 10px 0;
+    }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1><i class="fas fa-file-invoice-dollar"></i> Manual de usuario: Facturación</h1>
+<p class="subtitulo">Cómo emitir Facturas, Notas de Crédito y Notas de Débito a tus clientes desde una sola pantalla, y cómo seguir su estado hasta quedar confirmadas.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#tres-tipos">Factura, Nota de Crédito o Nota de Débito: cómo se elige</a></li>
+        <li><a href="#estados">Estados y flujo del comprobante</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#crear">Crear un comprobante nuevo</a></li>
+        <li><a href="#remitos">Facturar desde Remitos</a></li>
+        <li><a href="#editar-visualizar">Editar y visualizar un comprobante</a></li>
+        <li><a href="#confirmar-aprobar">Confirmar y Aprobar</a></li>
+        <li><a href="#eliminar">Eliminar un comprobante</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p>La pantalla de <strong>Facturación</strong> es donde emitís los tres tipos de comprobante que le das a un cliente: <strong>Facturas</strong>, <strong>Notas de Crédito</strong> y <strong>Notas de Débito</strong>. Los tres se cargan con el mismo formulario — no hay una pantalla separada para cada uno. Podés armar un comprobante a partir de remitos ya entregados y pendientes de facturar, agregar productos sueltos a mano, o combinar ambas cosas.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Al entrar ves un listado con todos los comprobantes cargados. Cada fila muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Número</td><td>Número del comprobante. Mientras el comprobante sigue en Borrador todavía no tiene uno asignado (ver más abajo)</td></tr>
+    <tr><td>Cliente</td><td>Nombre del cliente y, debajo, su nombre de fantasía si tiene uno</td></tr>
+    <tr><td>Tipo</td><td>Factura A/B/X, Nota de Crédito A/B/X o Nota de Débito A/B/X, según lo que se haya elegido al cargarlo</td></tr>
+    <tr><td>Emisión</td><td>Fecha de emisión</td></tr>
+    <tr><td>Condición De Pago</td><td>Condición de pago del cliente aplicada a ese comprobante</td></tr>
+    <tr><td>Total</td><td>Importe total del comprobante</td></tr>
+    <tr><td>Estado</td><td>Borrador, Pendiente de Aprobación, Confirmado o Eliminado (ver el flujo completo más abajo)</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles para esa fila, según su estado actual</td></tr>
+</table>
+<p>Arriba de la tabla están el botón <span class="boton-ejemplo boton-primario">+ Nueva Factura</span> para cargar un comprobante nuevo, y el botón de recargar (<span class="boton-ejemplo boton-outline">↻</span>) para actualizar el listado sin recargar toda la página.</p>
+
+<h2 id="tres-tipos">Factura, Nota de Crédito o Nota de Débito: cómo se elige</h2>
+<p>Esto suele ser lo más confuso al empezar a usar la pantalla, así que conviene tenerlo claro: <strong>no hay un botón separado para cada tipo de comprobante</strong>. Se elige adentro del mismo formulario "Nueva Factura De Cliente" (ese es el título del formulario siempre, incluso cuando el comprobante que estás armando termina siendo una Nota de Crédito o una Nota de Débito), con dos campos que van en cadena:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Qué define</th></tr>
+    <tr><td>Punto De Venta</td><td>El local o punto de venta desde el que se emite. Cada punto de venta tiene configurado de antemano qué tipos de comprobante puede emitir</td></tr>
+    <tr><td>Tipo Comprobante</td><td>Se completa <em>después</em> de elegir el Punto De Venta, y ahí aparecen todas las opciones habilitadas para ese punto: Factura, Nota de Crédito y Nota de Débito, cada una en su letra fiscal (A, B o X)</td></tr>
+</table>
+<div class="nota-lateral">Por ejemplo, un punto de venta puede tener habilitadas seis opciones en "Tipo Comprobante": Factura A, Nota de Crédito A, Nota de Débito A, Factura B, Nota de Crédito B y Nota de Débito B. Elegir una u otra es lo único que decide si estás emitiendo una factura, una nota de crédito o una nota de débito — el resto del formulario (elegir cliente, agregar productos, revisar totales) funciona exactamente igual para los tres.</div>
+<div class="alert alert-info">La letra (A, B o X) es una clasificación fiscal que ya viene configurada en el sistema según el punto de venta y el tipo de comprobante — no es algo que elijas vos en cada comprobante.</div>
+<p>Como el formulario es idéntico para los tres tipos, tené en cuenta que el sistema <strong>no</strong> cambia el signo del total ni el comportamiento de la carga de productos por elegir una Nota de Crédito en vez de una Factura: cargás cantidades y precios de la misma manera en los tres casos. Revisá bien el campo "Tipo Comprobante" antes de guardar.</p>
+
+<h2 id="estados">Estados y flujo del comprobante</h2>
+<p>Todo comprobante nuevo arranca como <strong>Borrador</strong>: podés seguir editándolo, agregarle o sacarle productos, y hasta eliminarlo. Recién cuando lo das por terminado y lo confirmás, avanza de estado y deja de poder modificarse:</p>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Pendiente de Aprobación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Confirmado</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+</div>
+<p>En criollo: <strong>Borrador</strong> es el comprobante todavía "en carpeta" (se puede tocar todo, o eliminarlo). Al apretar <strong>Confirmar</strong> pasa a <strong>Pendiente de Aprobación</strong> y ahí recién se le asigna el número definitivo. Al apretar <strong>Aprobada</strong> pasa a <strong>Confirmado</strong>, que es su estado final: ya no se puede editar, eliminar ni desconfirmar desde esta pantalla.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Editar</td><td>Abre el comprobante para modificar cliente, productos, cantidades, fechas, etc.</td><td>Solo mientras está en Borrador</td></tr>
+    <tr><td>Visualizar</td><td>Abre el comprobante en modo solo lectura, sin poder tocar nada</td><td>En cualquier estado</td></tr>
+    <tr><td>Confirmar</td><td>Fija los productos y montos, le asigna el número definitivo y lo pasa a Pendiente de Aprobación</td><td>Solo en Borrador</td></tr>
+    <tr><td>Aprobada</td><td>Pasa el comprobante a Confirmado, su estado final</td><td>Solo en Pendiente de Aprobación</td></tr>
+    <tr><td>Eliminar</td><td>Da de baja el comprobante y libera lo que tenía tomado de los remitos, para que vuelvan a estar disponibles para facturar</td><td>Solo en Borrador</td></tr>
+    <tr><td>Imprimir</td><td>Debería emitir el comprobante impreso/PDF (ver la limitación explicada más abajo)</td><td>Solo en Confirmado</td></tr>
+</table>
+<p>Estos mismos botones (salvo el que acabás de usar para llegar ahí) también están disponibles adentro del formulario, cuando abrís un comprobante para editarlo o visualizarlo — no hace falta cerrarlo y volver al listado para confirmarlo, aprobarlo o eliminarlo.</p>
+<div class="nota-lateral">Las acciones que cambian de estado (Confirmar, Aprobada, Eliminar) siempre piden una confirmación antes de ejecutarse. Editar, Visualizar e Imprimir no la piden.</div>
+
+<h2 id="crear">Crear un comprobante nuevo</h2>
+<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Factura</span> se abre el formulario en blanco. El orden recomendado para cargarlo:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Cliente</td><td>Al elegirlo se cargan automáticamente su condición de pago vigente, su lista de precios y su descuento general (se muestran en un cuadro celeste arriba del detalle), y se buscan sus remitos pendientes de facturar</td></tr>
+    <tr><td>Fecha Emisión</td><td>Por defecto trae la fecha de hoy</td></tr>
+    <tr><td>Vencimiento</td><td>Se calcula solo a partir de la condición de pago del cliente; nunca puede quedar antes que la fecha de emisión</td></tr>
+    <tr><td>Punto De Venta</td><td>Define qué tipos de comprobante vas a poder elegir a continuación</td></tr>
+    <tr><td>Tipo Comprobante</td><td>Acá elegís si es Factura, Nota de Crédito o Nota de Débito (ver la sección anterior)</td></tr>
+    <tr><td>Número</td><td>Muestra "Se asigna al confirmar" — no se completa a mano, se asigna solo cuando confirmás el comprobante</td></tr>
+</table>
+<p>Después cargás los productos, de dos formas que se pueden combinar:</p>
+<ul>
+    <li><strong>Desde remitos pendientes:</strong> la tabla "Remitos Pendientes De Facturar" lista las líneas de remitos ya entregados a ese cliente que todavía no se facturaron. Para incluir una línea, escribí la cantidad a facturar en su casillero (o usá los botones <strong>−</strong> / <strong>+</strong>); dejarla en 0 la saca del comprobante. La columna "Cantidad Pendiente" te muestra el máximo disponible de esa línea.</li>
+    <li><strong>Producto manual:</strong> en el buscador de la tarjeta de abajo, escribí código o nombre del producto, elegí uno de los resultados, ajustá cantidad, precio y descuento si hace falta, y hacé clic en <span class="boton-ejemplo boton-outline">Agregar</span>. Sirve para vender algo que no vino de ningún remito.</li>
+</ul>
+<div class="nota-lateral">El buscador de productos solo funciona una vez elegido el cliente, porque busca dentro de la lista de precios que le corresponde a ese cliente.</div>
+<p>Abajo del detalle vas viendo en todo momento el resumen de <strong>Bruto</strong>, <strong>Descuento</strong>, <strong>Neto</strong>, <strong>IVA</strong> y <strong>Total A Pagar</strong>, que se recalcula solo con cada cambio de cantidad. Con <span class="boton-ejemplo boton-primario">Guardar Factura</span> el comprobante queda grabado en estado Borrador.</p>
+
+<h2 id="remitos">Facturar desde Remitos</h2>
+<p>Además de abrir "Nueva Factura" desde esta pantalla, también podés llegar acá directamente desde la pantalla de <strong>Remitos</strong>: al apretar el botón "Facturado" o "Facturado Parcial" sobre un remito pendiente de facturación, se abre este mismo formulario con el cliente de ese remito ya elegido y sus líneas pendientes precargadas con la cantidad pendiente completa, listas para revisar y guardar. El resto de los remitos pendientes de ese cliente también aparecen en la lista, por si querés sumarlos a la misma factura.</p>
+<div class="nota-lateral">Un remito solo pasa a "Facturado" (o "Facturación Parcial", si quedó algo sin facturar) cuando <strong>confirmás</strong> la factura — guardarla como Borrador todavía no mueve el estado del remito.</div>
+
+<h2 id="editar-visualizar">Editar y visualizar un comprobante</h2>
+<p>Con <strong>Editar</strong> reabrís el comprobante con todos sus datos cargados, para modificar cliente, productos, fechas o punto de venta — solo disponible mientras está en Borrador. Con <strong>Visualizar</strong> lo abrís en modo lectura: en vez del buscador de remitos pendientes y el agregado manual, ves una tabla simple con los "Productos Incluidos" tal como quedaron cargados, sin poder tocar nada.</p>
+
+<h2 id="confirmar-aprobar">Confirmar y Aprobar</h2>
+<p>Al apretar <strong>Confirmar</strong> sobre un Borrador, el sistema le asigna el número definitivo del comprobante (correlativo por punto de venta y tipo) y lo pasa a "Pendiente de Aprobación". Al apretar <strong>Aprobada</strong>, pasa a "Confirmado", su estado final.</p>
+<div class="alert alert-warning">
+    <strong>Limitación actual:</strong> los botones "Confirmar" y "Aprobada" son pasos manuales del sistema — no hay todavía una conexión automática con ARCA (ex AFIP) que valide el comprobante ante el organismo fiscal. El número que se asigna al Confirmar es un correlativo interno del sistema, no un CAE. Tampoco está implementada la emisión del comprobante impreso o en PDF: el botón "Imprimir" (disponible una vez Confirmado) por ahora solo muestra un aviso de "Impresión pendiente", aclarando que depende de esa integración fiscal todavía no incorporada.
+</div>
+
+<h2 id="eliminar">Eliminar un comprobante</h2>
+<p>Con <strong>Eliminar</strong> das de baja un comprobante que todavía está en Borrador. Si había tomado cantidades de algún remito pendiente, esas cantidades se liberan automáticamente y vuelven a estar disponibles para facturarse en otro comprobante. Una vez que un comprobante pasó de Borrador, ya no se puede eliminar desde esta pantalla.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>¿Cómo elijo si estoy cargando una Factura, una Nota de Crédito o una Nota de Débito?</td>
+        <td>Con el campo "Tipo Comprobante" del formulario, que se completa después de elegir el "Punto De Venta". No hay una pantalla ni un botón separado para cada tipo.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué el título del formulario dice siempre "Nueva Factura De Cliente", aunque esté cargando una Nota de Crédito?</td>
+        <td>Es así en el sistema actualmente: el formulario es el mismo para los tres tipos de comprobante y su título no cambia según lo que elijas en "Tipo Comprobante". Fijate en ese campo, no en el título, para confirmar qué tipo estás cargando.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué el campo "Número" dice "Se asigna al confirmar"?</td>
+        <td>Porque el número definitivo recién se otorga cuando confirmás el comprobante (sale de Borrador). Así, un borrador que se descarta antes de confirmarse no deja "huecos" en la numeración.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo modificar un comprobante ya confirmado?</td>
+        <td>No desde esta pantalla. Una vez que sale de Borrador (Confirmar), solo quedan disponibles Visualizar, Aprobada (si corresponde) e Imprimir.</td>
+    </tr>
+    <tr>
+        <td>Guardé la factura pero el remito de origen sigue figurando como pendiente de facturar, ¿está mal?</td>
+        <td>No: el remito recién se actualiza a Facturado o Facturación Parcial cuando confirmás la factura, no al guardarla como Borrador.</td>
+    </tr>
+    <tr>
+        <td>Apreté "Imprimir" y no pasó nada, ¿es un error?</td>
+        <td>No es un error: esa función todavía no está implementada porque depende de la integración fiscal con ARCA/AFIP, que no está incorporada al sistema todavía. El botón muestra un aviso aclarándolo.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Ventas / Facturación. Este documento describe la pantalla tal como funciona en el sistema, incluidas sus limitaciones actuales; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

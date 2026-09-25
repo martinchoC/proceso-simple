@@ -116,7 +116,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <!-- MODAL DE PICKING: se abre al elegir un pedido de la grilla    -->
     <!-- ============================================================ -->
     <div class="modal fade" id="modalPicking" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable modal-picking-ancho">
+        <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title"><i class="fas fa-dolly me-2"></i>Preparar pedido</h5>
@@ -124,29 +124,55 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
                 <div class="modal-body">
 
-                    <!-- Datos principales del pedido: solo lectura -->
-                    <div class="card card-outline card-secondary mb-3">
-                        <div class="card-body py-2">
-                            <div class="row g-2 text-center small">
-                                <div class="col">
-                                    <div class="text-muted" style="font-size: 0.7rem;">Sucursal De Compra</div>
-                                    <div class="fw-bold" id="picking_sucursal">-</div>
+                    <!-- Cabecera del picking: dos recuadros con título de grupo (no por campo),
+                         cada uno con su color para distinguirlos de un vistazo. Primero el
+                         remito que se está armando (lo que hay que completar), después el
+                         pedido de referencia (solo lectura). -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-5">
+                            <div class="card card-outline card-primary mb-0 h-100">
+                                <div class="card-header py-1 bg-primary bg-opacity-10">
+                                    <h6 class="mb-0 small">Datos del Remito</h6>
                                 </div>
-                                <div class="col">
-                                    <div class="text-muted" style="font-size: 0.7rem;">Tipo Comprobante</div>
-                                    <div class="fw-bold" id="picking_comprobante_tipo">-</div>
+                                <div class="card-body py-2">
+                                    <div class="row g-2">
+                                        <div class="col-4">
+                                            <select class="form-select form-select-sm" id="picking_punto_venta_id" aria-label="Punto de venta"></select>
+                                        </div>
+                                        <div class="col-4">
+                                            <input type="text" class="form-control form-control-sm" id="picking_remito_tipo_texto" placeholder="Tipo comprobante" readonly>
+                                            <input type="hidden" id="picking_remito_comprobante_tipo_id">
+                                        </div>
+                                        <div class="col-4">
+                                            <input type="date" class="form-control form-control-sm" id="picking_remito_f_emision" aria-label="Fecha de emisión">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col">
-                                    <div class="text-muted" style="font-size: 0.7rem;">Número</div>
-                                    <div class="fw-bold" id="picking_comprobante_nro">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="card card-outline card-secondary mb-0 h-100">
+                                <div class="card-header py-1 bg-secondary bg-opacity-10">
+                                    <h6 class="mb-0 small">Datos Cabecera Pedido</h6>
                                 </div>
-                                <div class="col">
-                                    <div class="text-muted" style="font-size: 0.7rem;">Fecha Emisión</div>
-                                    <div class="fw-bold" id="picking_f_emision">-</div>
-                                </div>
-                                <div class="col">
-                                    <div class="text-muted" style="font-size: 0.7rem;">Estado</div>
-                                    <div id="picking_estado_badge">-</div>
+                                <div class="card-body py-2 d-flex align-items-center">
+                                    <div class="row g-2 text-center small w-100">
+                                        <div class="col">
+                                            <div class="fw-bold" id="picking_sucursal">-</div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="fw-bold" id="picking_comprobante_tipo">-</div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="fw-bold" id="picking_comprobante_nro">-</div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="fw-bold" id="picking_f_emision">-</div>
+                                        </div>
+                                        <div class="col">
+                                            <div id="picking_estado_badge">-</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -175,21 +201,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <h6 class="mb-0 small"><i class="fas fa-box me-2"></i>Pendientes De Este Pedido</h6>
                                 </div>
                                 <div class="card-body py-2">
-                                    <div class="row g-2 mb-2">
-                                        <div class="col-md-4">
-                                            <label class="form-label fw-bold small">Punto De Venta (Depósito)</label>
-                                            <select class="form-select form-select-sm" id="picking_punto_venta_id"></select>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label fw-bold small">Tipo Comprobante</label>
-                                            <input type="text" class="form-control form-control-sm" id="picking_remito_tipo_texto" readonly>
-                                            <input type="hidden" id="picking_remito_comprobante_tipo_id">
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label fw-bold small">Fecha Emisión *</label>
-                                            <input type="date" class="form-control form-control-sm" id="picking_remito_f_emision">
-                                        </div>
-                                    </div>
                                     <div id="contenedor-picking-pendientes-pedido"></div>
                                     <div class="border-top mt-2 pt-2">
                                         <div class="row g-2">
@@ -254,10 +265,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             padding: 0.5rem 0.75rem;
         }
         #contenedor-picking-pendientes-pedido tbody td, #contenedor-picking-pendientes-otros tbody td, #contenedor-picking-remitos-pedido tbody td {
-            padding: 0.4rem 0.75rem;
+            padding: 0.15rem 0.75rem;
             vertical-align: middle;
         }
-        .modal-picking-ancho { max-width: 95vw; }
+        /* Alto de fila estandarizado (pero compacto) en las tablas de productos
+           pendientes: sin el mínimo, una fila con varias ubicaciones (que crecen en
+           columna) queda mucho más alta que las demás y desalinea el resto de la tabla.
+           No aplica a la fila de detalle expandible (.collapse), que necesita su alto propio. */
+        #contenedor-picking-pendientes-pedido tbody tr:not(.collapse), #contenedor-picking-pendientes-otros tbody tr:not(.collapse) {
+            height: 32px;
+        }
+        #contenedor-picking-pendientes-pedido .ubicaciones-pendiente-container,
+        #contenedor-picking-pendientes-otros .ubicaciones-pendiente-container {
+            max-height: 26px;
+            overflow-y: auto;
+        }
         /* Mismo stepper +/- que ya usa ventas_pedidos.js — se copia el estilo para que se vea igual */
         .cantidad-stepper {
             display: inline-flex;

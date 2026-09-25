@@ -325,6 +325,21 @@ function obtenerDescuentosVigentesPorProveedores($conexion, $entidadIds)
  * ========================================================================= */
 function obtenerPreciosProveedor($conexion, $empresa_id, $entidad_id, $pagina_id, $filtros = [])
 {
+    return obtenerFilasPreciosProveedorCalculadas($conexion, $empresa_id, $entidad_id, $pagina_id, $filtros, true);
+}
+
+/*
+ * Núcleo compartido por el listado (obtenerPreciosProveedor, con botones por
+ * fila) y el dashboard (obtenerDashboardPreciosProveedor, sin botones): trae
+ * las mismas filas con el mismo costo_neto_compra / precio_deberia_ser que
+ * ve el usuario en la grilla, para que los números no difieran entre
+ * pestañas. $incluirBotones=false se salta obtenerBotonesPorEstado() por
+ * fila (una consulta cada una) cuando no hace falta pintar acciones, ya que
+ * la vista "todos los proveedores" del dashboard puede traer el catálogo
+ * completo.
+ */
+function obtenerFilasPreciosProveedorCalculadas($conexion, $empresa_id, $entidad_id, $pagina_id, $filtros, $incluirBotones)
+{
     $empresa_id = intval($empresa_id);
     $entidad_id = intval($entidad_id);
 
@@ -394,29 +409,36 @@ function obtenerPreciosProveedor($conexion, $empresa_id, $entidad_id, $pagina_id
     // botones, que sigue necesitando tabla_estado_registro_id). Se agrega
     // p.producto_categoria_id para el matching de reglas, ppp.entidad_id +
     // e.entidad_nombre (proveedor de ESTA fila — necesario en la vista sin
-    // proveedor elegido, donde puede haber varios por producto), y 3
-    // subconsultas correlacionadas de marca/modelo/submodelo.
+    // proveedor elegido, donde puede haber varios por producto), y
+    // compatibilidades_detalle: mismo criterio que productos_model.php (una
+    // entrada por fila REAL de marca+modelo+submodelo+años, vía JSON_OBJECT),
+    // no 3 GROUP_CONCAT DISTINCT sueltos por campo — eso mezclaría combos que
+    // no existen realmente si el producto tiene más de una compatibilidad.
     $sql = "SELECT ppp.producto_proveedor_precio_id, ppp.producto_proveedor_id, ppp.entidad_id,
                    e.entidad_nombre,
                    ppp.precio_lista, ppp.moneda_id, ppp.f_vigencia_desde,
                    ppp.origen_carga, ppp.archivo_importacion, ppp.tabla_estado_registro_id,
                    pp.codigo_proveedor, pp.producto_id,
                    p.producto_codigo, p.producto_nombre, p.producto_categoria_id,
-                   (SELECT GROUP_CONCAT(DISTINCT ma.marca_nombre ORDER BY ma.marca_nombre SEPARATOR ', ')
-                    FROM gestion__productos_compatibilidad pcm
-                    INNER JOIN gestion__marcas ma ON pcm.marca_id = ma.marca_id
-                    WHERE pcm.producto_id = p.producto_id AND pcm.empresa_id = p.empresa_id AND pcm.tabla_estado_registro_id = 1
-                   ) AS marcas_compatibles,
-                   (SELECT GROUP_CONCAT(DISTINCT mo.modelo_nombre ORDER BY mo.modelo_nombre SEPARATOR ', ')
-                    FROM gestion__productos_compatibilidad pcm
-                    INNER JOIN gestion__modelos mo ON pcm.modelo_id = mo.modelo_id
-                    WHERE pcm.producto_id = p.producto_id AND pcm.empresa_id = p.empresa_id AND pcm.tabla_estado_registro_id = 1
-                   ) AS modelos_compatibles,
-                   (SELECT GROUP_CONCAT(DISTINCT sm.submodelo_nombre ORDER BY sm.submodelo_nombre SEPARATOR ', ')
-                    FROM gestion__productos_compatibilidad pcm
-                    LEFT JOIN gestion__submodelos sm ON pcm.submodelo_id = sm.submodelo_id
-                    WHERE pcm.producto_id = p.producto_id AND pcm.empresa_id = p.empresa_id AND pcm.tabla_estado_registro_id = 1
-                   ) AS submodelos_compatibles
+                   COALESCE(
+                       (SELECT CONCAT('[', GROUP_CONCAT(
+                           JSON_OBJECT(
+                               'marca', ma.marca_nombre,
+                               'modelo', mo.modelo_nombre,
+                               'submodelo', sm.submodelo_nombre,
+                               'anio_desde', pcm.anio_desde,
+                               'anio_hasta', pcm.anio_hasta
+                           )
+                           ORDER BY ma.marca_nombre, mo.modelo_nombre, sm.submodelo_nombre, pcm.anio_desde
+                           SEPARATOR ','
+                       ), ']')
+                        FROM gestion__productos_compatibilidad pcm
+                        INNER JOIN gestion__marcas ma ON pcm.marca_id = ma.marca_id
+                        INNER JOIN gestion__modelos mo ON pcm.modelo_id = mo.modelo_id
+                        LEFT JOIN gestion__submodelos sm ON pcm.submodelo_id = sm.submodelo_id
+                        WHERE pcm.producto_id = p.producto_id AND pcm.empresa_id = p.empresa_id AND pcm.tabla_estado_registro_id = 1
+                       ), '[]'
+                   ) AS compatibilidades_detalle
             FROM gestion__productos_proveedores_precios ppp
             INNER JOIN gestion__productos_proveedores pp ON pp.producto_proveedor_id = ppp.producto_proveedor_id
             INNER JOIN gestion__productos p ON p.producto_id = pp.producto_id
@@ -475,6 +497,7 @@ function obtenerPreciosProveedor($conexion, $empresa_id, $entidad_id, $pagina_id
         $fila['descuento_general_pct'] = $descuento_general;
         $fila['costo_neto_compra'] = $costo_neto;
         $fila['costo_actual_registrado'] = $costosPorProducto[$producto_id] ?? null;
+        $fila['compatibilidades_detalle'] = decodificarCompatibilidadesDetalle($fila['compatibilidades_detalle'] ?? '[]');
 
         $deberianSerPorLista = calcularPreciosDeberianSerPorLista($listasPrecios, $reglasPorLista, $producto_id, $categoria_id, $fila_entidad_id, $costo_neto);
 
@@ -488,11 +511,153 @@ function obtenerPreciosProveedor($conexion, $empresa_id, $entidad_id, $pagina_id
         }
         $fila['precios_por_lista'] = $porLista;
 
-        $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
+        if ($incluirBotones) {
+            $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
+        }
         $data[] = $fila;
     }
 
     return ['listas_precios' => $listasPrecios, 'filas' => $data];
+}
+
+/*
+ * Decodifica el JSON de compatibilidades_detalle (una entrada por fila real
+ * de gestion__productos_compatibilidad, no por campo suelto) al mismo
+ * formato que productos_model.php: marca, modelo, submodelo y un texto de
+ * años ya armado ("1998-2000" o "1998-Actual" si no tiene tope o usa el
+ * sentinel >=2100 de "sin tope superior").
+ */
+function decodificarCompatibilidadesDetalle($json)
+{
+    $compatibilidades = [];
+    if (empty($json) || $json === '[]') {
+        return $compatibilidades;
+    }
+
+    $decoded = json_decode($json, true);
+    if (!is_array($decoded)) {
+        return $compatibilidades;
+    }
+
+    foreach ($decoded as $item) {
+        $anio_desde_raw = $item['anio_desde'] ?? null;
+        $anio_desde = $anio_desde_raw !== null ? (int)$anio_desde_raw : null;
+        $anio_hasta_raw = $item['anio_hasta'] ?? null;
+        if ($anio_hasta_raw === null || (int)$anio_hasta_raw >= 2100) {
+            $anio_texto = $anio_desde . '-Actual';
+        } else {
+            $anio_texto = $anio_desde . '-' . (int)$anio_hasta_raw;
+        }
+        $compatibilidades[] = [
+            'marca' => $item['marca'] ?? '',
+            'modelo' => $item['modelo'] ?? '',
+            'submodelo' => $item['submodelo'] ?? null,
+            'anios' => $anio_texto
+        ];
+    }
+
+    return $compatibilidades;
+}
+
+/*
+ * Dashboard de precios de proveedores (solapa "Dashboard" de
+ * proveedor_precios.php): sobre las mismas filas calculadas para el
+ * listado, arma el top 10 de mayores variaciones de costo (Costo Neto de
+ * Compra vs Último Costo Registrado) y el top 10 de mayores variaciones en
+ * la lista de precios "General" (Precio Actual vs Debería ser).
+ *
+ * La lista "general" se identifica por nombre ('General', case-insensitive);
+ * si la empresa la renombró o no existe, usa la primera lista activa como
+ * fallback (nunca deja la sección vacía por un nombre distinto) — el nombre
+ * efectivamente usado viaja en 'lista_general_nombre' para que el frontend
+ * lo aclare.
+ */
+function obtenerDashboardPreciosProveedor($conexion, $empresa_id, $entidad_id, $filtros = [])
+{
+    $resultado = obtenerFilasPreciosProveedorCalculadas($conexion, $empresa_id, $entidad_id, 0, $filtros, false);
+    $filas = $resultado['filas'];
+    $listasPrecios = $resultado['listas_precios'];
+
+    $dashboard = [
+        'top_variaciones_costo' => [],
+        'top_variaciones_lista_general' => [],
+        'lista_general_nombre' => null,
+        // Defensa en profundidad: el frontend ya evita llamar a este endpoint
+        // sin proveedor ni filtro (mostraría "0 resultados" indistinguible de
+        // "no hay variaciones"), pero si algún consumidor lo llama igual, que
+        // pueda distinguir ambos casos mirando esta bandera.
+        'requiere_filtro' => $resultado['requiere_filtro'] ?? false
+    ];
+
+    if (empty($filas)) {
+        return $dashboard;
+    }
+
+    $listaGeneral = null;
+    foreach ($listasPrecios as $lp) {
+        if (strcasecmp($lp['lista_precio_nombre'], 'General') === 0) {
+            $listaGeneral = $lp;
+            break;
+        }
+    }
+    if (!$listaGeneral && !empty($listasPrecios)) {
+        $listaGeneral = $listasPrecios[0];
+    }
+    $listaGeneralId = $listaGeneral['lista_precio_id'] ?? null;
+    $dashboard['lista_general_nombre'] = $listaGeneral['lista_precio_nombre'] ?? null;
+
+    $variacionesCosto = [];
+    $variacionesListaGeneral = [];
+
+    foreach ($filas as $fila) {
+        $costoNeto = (float)$fila['costo_neto_compra'];
+        $costoActual = $fila['costo_actual_registrado'];
+        $entidadNombre = $fila['entidad_nombre'] ?? '';
+        // Misma compatibilidad que ya viaja en el listado (decodificada en
+        // obtenerFilasPreciosProveedorCalculadas) — para que el frontend la
+        // muestre debajo del producto igual que en la solapa Listado.
+        $compatibilidad = $fila['compatibilidades_detalle'] ?? [];
+
+        if ($costoActual !== null) {
+            $costoActual = (float)$costoActual;
+            $pct = $costoActual != 0 ? (($costoNeto - $costoActual) / $costoActual) * 100 : 0;
+            $variacionesCosto[] = [
+                'producto_nombre' => $fila['producto_nombre'],
+                'compatibilidades_detalle' => $compatibilidad,
+                'entidad_nombre' => $entidadNombre,
+                'costo_actual' => $costoActual,
+                'costo_neto_compra' => $costoNeto,
+                'variacion_pct' => round($pct, 2)
+            ];
+        }
+
+        if ($listaGeneralId !== null) {
+            $porLista = $fila['precios_por_lista'][$listaGeneralId] ?? [];
+            $actual = $porLista['precio_actual'] ?? null;
+            $deberiaSer = $porLista['precio_deberia_ser'] ?? null;
+            if ($actual !== null && $deberiaSer !== null) {
+                $actual = (float)$actual;
+                $deberiaSer = (float)$deberiaSer;
+                $pct = $actual != 0 ? (($deberiaSer - $actual) / $actual) * 100 : 0;
+                $variacionesListaGeneral[] = [
+                    'producto_nombre' => $fila['producto_nombre'],
+                    'compatibilidades_detalle' => $compatibilidad,
+                    'entidad_nombre' => $entidadNombre,
+                    'precio_actual' => $actual,
+                    'precio_deberia_ser' => $deberiaSer,
+                    'variacion_pct' => round($pct, 2)
+                ];
+            }
+        }
+    }
+
+    usort($variacionesCosto, function ($a, $b) { return abs($b['variacion_pct']) <=> abs($a['variacion_pct']); });
+    $dashboard['top_variaciones_costo'] = array_slice($variacionesCosto, 0, 10);
+
+    usort($variacionesListaGeneral, function ($a, $b) { return abs($b['variacion_pct']) <=> abs($a['variacion_pct']); });
+    $dashboard['top_variaciones_lista_general'] = array_slice($variacionesListaGeneral, 0, 10);
+
+    return $dashboard;
 }
 
 /* =========================================================================
@@ -1589,14 +1754,19 @@ function actualizarCostosMasivoProveedor($conexion, $empresa_id, $entidad_id, $u
         return ['success' => true, 'actualizados' => 0, 'sin_cambios' => 0, 'errores' => 0, 'message' => 'Este proveedor no tiene precios cargados.'];
     }
 
-    // Precarga de costos actuales para poder saltear los que no cambian —
-    // sin esto, el botón reescribiría (y dejaría rastro en el historial de)
-    // TODOS los productos aunque el costo nuevo sea igual al que ya tienen.
-    // También precarga categorías (para el matching de reglas) y el
-    // contexto de cálculo (listas activas + reglas vigentes), UNA sola vez
-    // para todo el lote — evita repetir esas consultas producto por producto.
+    // Precarga de categorías (para el matching de reglas) y el contexto de
+    // cálculo (listas activas + reglas vigentes), UNA sola vez para todo el
+    // lote — evita repetir esas consultas producto por producto. Antes acá
+    // también se precargaban los costos actuales para SALTEAR por completo
+    // (sin llamar a aplicarActualizacionCostoYPrecios) los productos cuyo
+    // costo no cambiaba — pero eso también se saltaba la revisión de listas
+    // de precio (el ajuste de la lista 3 "Mostrador"), que tiene que correr
+    // SIEMPRE, cambie o no el costo (mismo criterio que ya aplica el botón
+    // individual "Ambos", ver el comentario en aplicarActualizacionCostoYPrecios).
+    // El filtro de "no reescribir si no cambió" ya lo hace por su cuenta
+    // actualizarCostoDesdeListaProveedor, así que este filtro acá era
+    // redundante Y estaba bloqueando Mostrador de más.
     $productoIds = array_values(array_unique(array_map(function ($f) { return (int)$f['producto_id']; }, $filas)));
-    $costosActuales = obtenerCostosActualesPorProductos($conexion, $empresa_id, $productoIds);
     $categoriasPorProducto = obtenerCategoriasPorProductos($conexion, $productoIds);
     $contexto = obtenerContextoCalculoPrecios($conexion, $empresa_id, $entidad_id);
 
@@ -1607,17 +1777,15 @@ function actualizarCostosMasivoProveedor($conexion, $empresa_id, $entidad_id, $u
     foreach ($filas as $fila) {
         $producto_id = (int)$fila['producto_id'];
         $costo_neto = round((float)$fila['precio_lista'] * (1 - ($descuento_general / 100)), 4);
-        $costo_actual = $costosActuales[$producto_id] ?? null;
-
-        if ($costo_actual !== null && abs($costo_actual - $costo_neto) < 0.99) {
-            $sin_cambios++;
-            continue;
-        }
-
         $categoria_id = $categoriasPorProducto[$producto_id] ?? 0;
+
         $res = aplicarActualizacionCostoYPrecios($conexion, $producto_id, $categoria_id, $empresa_id, $entidad_id, $costo_neto, $fila['moneda_id'], $usuario_id, $contexto);
         if ($res['success']) {
-            $actualizados++;
+            if (!empty($res['costo_actualizado'])) {
+                $actualizados++;
+            } else {
+                $sin_cambios++;
+            }
             $precios_actualizados_total += $res['precios_actualizados'];
         } else {
             $errores++;
@@ -1906,25 +2074,50 @@ if (!defined('AJUSTE_HARDCODEADO_LISTA_PRECIO_ID')) {
     define('AJUSTE_HARDCODEADO_LISTA_PRECIO_ID', 3);
 }
 
-function actualizarListasPreciosPorRegla($conexion, $producto_id, $categoria_id, $entidad_id, $costo_base, $producto_costo_id, $empresa_id, $usuario_id, $contexto, $porcentajeCambioCosto = null)
+// $costo_anterior_registrado / $costo_neto_compra_propuesto: para calcular
+// el % de incremento de costo que mueve la lista 3 (ver bloque de abajo).
+// Se piden como 2 valores separados (en vez de un solo % ya calculado) para
+// que el % salga SIEMPRE de "cuánto cambiaría el costo si se aplicara esta
+// lista de proveedor", sin importar si este llamado en particular escribe
+// o no un costo nuevo — antes solo se calculaba en el flujo "Actualizar
+// costo y precio" (que sí escribe costo), y "Actualizar precio de venta"
+// (que no lo toca) nunca pasaba nada acá, dejando la lista 3 sin actualizar.
+function actualizarListasPreciosPorRegla($conexion, $producto_id, $categoria_id, $entidad_id, $costo_base, $producto_costo_id, $empresa_id, $usuario_id, $contexto, $costo_anterior_registrado = null, $costo_neto_compra_propuesto = null)
 {
     $deberianSer = calcularPreciosDeberianSerPorLista($contexto['listas'], $contexto['reglas'], $producto_id, $categoria_id, $entidad_id, $costo_base);
 
-    // AJUSTE HARDCODEADO (ver constante arriba): si el precio de venta
-    // ACTUAL de la lista 3 ya difiere del que da la fórmula normal (regla
-    // sobre la lista base), NUNCA se resetea de golpe al valor de fórmula.
-    // - Si hay % de cambio de costo disponible (el costo del producto
-    //   cambió en esta misma operación): se ajusta el precio actual
-    //   proporcionalmente a ese %, preservando el desvío que ya tenía.
-    // - Si NO hay % disponible (el costo no cambió, o es la primera carga
-    //   de costo del producto): NO se toca la lista 3 en absoluto — antes
-    //   acá caía en la fórmula igual, que es justo el bug reportado.
+    // AJUSTE HARDCODEADO (ver constante arriba): trato asimétrico según de
+    // qué lado esté el desvío de la lista 3 contra la fórmula normal
+    // (regla sobre la lista base):
+    // - Precio actual MAYOR a la fórmula (desvío hacia arriba, p. ej. un
+    //   precio de mostrador puesto a propósito más alto por demanda): NUNCA
+    //   se resetea de golpe al valor de fórmula. Si se puede calcular el %
+    //   de incremento de costo (hay un costo anterior > 0 registrado, y un
+    //   costo propuesto para compararlo), se ajusta el precio actual
+    //   proporcionalmente a ese %, preservando el desvío. Si NO se puede
+    //   calcular (no hay costo anterior, primera carga de costo del
+    //   producto), no se toca la lista 3 en absoluto.
+    // - Precio actual MENOR o igual a la fórmula (o sin desvío real): se
+    //   deja $deberianSer[$lid3] tal cual lo calculó calcularPreciosDeberianSerPorLista
+    //   más arriba — sube al valor de fórmula como cualquier otra lista, no
+    //   hay motivo para preservar un precio de mostrador más bajo que el
+    //   que le correspondería.
     $lid3 = AJUSTE_HARDCODEADO_LISTA_PRECIO_ID;
     if (isset($deberianSer[$lid3]) && $deberianSer[$lid3]['precio'] !== null) {
         $preciosActuales = obtenerPreciosVentaActualesPorProductoYLista($conexion, $empresa_id, [$producto_id], [$lid3]);
         $precioActualLista3 = $preciosActuales[$producto_id][$lid3] ?? null;
 
-        if ($precioActualLista3 !== null && abs($precioActualLista3 - $deberianSer[$lid3]['precio']) > 0.99) {
+        if ($precioActualLista3 !== null && ($precioActualLista3 - $deberianSer[$lid3]['precio']) > 0.99) {
+            // Guarda simétrica en los dos lados de la comparación: sin esto,
+            // un costo propuesto en 0 (dato mal cargado, descuento de compra
+            // al 100%, etc.) daría un % de -100% y llevaría el precio de la
+            // lista 3 a $0 sin ningún piso.
+            $porcentajeCambioCosto = null;
+            if ($costo_anterior_registrado !== null && (float)$costo_anterior_registrado > 0
+                && $costo_neto_compra_propuesto !== null && (float)$costo_neto_compra_propuesto > 0) {
+                $porcentajeCambioCosto = (($costo_neto_compra_propuesto - (float)$costo_anterior_registrado) / (float)$costo_anterior_registrado) * 100;
+            }
+
             if ($porcentajeCambioCosto !== null) {
                 $deberianSer[$lid3]['precio'] = round($precioActualLista3 * (1 + ($porcentajeCambioCosto / 100)), 2);
             } else {
@@ -1969,9 +2162,15 @@ function actualizarSoloPreciosVenta($conexion, $producto_id, $categoria_id, $emp
     mysqli_stmt_close($stmt);
 
     $producto_costo_id = $actual ? (int)$actual['producto_costo_id'] : null;
-    $costo_base = $actual ? (float)$actual['costo_actual'] : $costo_neto_compra;
+    $costo_actual_registrado = $actual ? (float)$actual['costo_actual'] : null;
+    $costo_base = $costo_actual_registrado ?? $costo_neto_compra;
 
-    $res = actualizarListasPreciosPorRegla($conexion, $producto_id, $categoria_id, $entidad_id, $costo_base, $producto_costo_id, $empresa_id, $usuario_id, $contexto);
+    // Este botón no toca el costo, pero igual pasa costo_actual_registrado
+    // vs. costo_neto_compra (el propuesto por la lista de este proveedor)
+    // para que la lista 3 ("Mostrador") pueda ajustarse proporcionalmente
+    // si ya tenía un desvío manual — ver el comentario en
+    // actualizarListasPreciosPorRegla.
+    $res = actualizarListasPreciosPorRegla($conexion, $producto_id, $categoria_id, $entidad_id, $costo_base, $producto_costo_id, $empresa_id, $usuario_id, $contexto, $costo_actual_registrado, $costo_neto_compra);
 
     return [
         'success' => true,
@@ -1996,19 +2195,21 @@ function aplicarActualizacionCostoYPrecios($conexion, $producto_id, $categoria_i
     // primero el botón de costo por separado para "activarse", que es
     // justo el bug que estaba pasando.
 
-    // % en que cambió el costo (solo si realmente cambió y había un costo
-    // anterior > 0 para calcular el porcentaje) — se usa para el ajuste
-    // hardcodeado de lista_precio_id=3 dentro de actualizarListasPreciosPorRegla.
-    $porcentajeCambioCosto = null;
-    if (!empty($resCosto['actualizado']) && !empty($resCosto['costo_anterior']) && (float)$resCosto['costo_anterior'] > 0) {
-        $porcentajeCambioCosto = (($costo_neto_compra - (float)$resCosto['costo_anterior']) / (float)$resCosto['costo_anterior']) * 100;
-    }
-
-    $res = actualizarListasPreciosPorRegla($conexion, $producto_id, $categoria_id, $entidad_id, $costo_neto_compra, $resCosto['producto_costo_id'], $empresa_id, $usuario_id, $contexto, $porcentajeCambioCosto);
+    // costo_anterior (registrado ANTES de este write, ver
+    // actualizarCostoDesdeListaProveedor) vs. costo_neto_compra: el % de
+    // cambio se calcula dentro de actualizarListasPreciosPorRegla, para el
+    // ajuste hardcodeado de lista_precio_id=3 ("Mostrador").
+    $res = actualizarListasPreciosPorRegla($conexion, $producto_id, $categoria_id, $entidad_id, $costo_neto_compra, $resCosto['producto_costo_id'], $empresa_id, $usuario_id, $contexto, $resCosto['costo_anterior'] ?? null, $costo_neto_compra);
 
     $mensaje = !empty($resCosto['actualizado'])
         ? 'Costo y lista(s) de precios actualizados.'
         : 'El costo ya estaba al día; lista(s) de precios revisadas igual.';
 
-    return ['success' => true, 'message' => $mensaje, 'precios_actualizados' => $res['precios_actualizados'], 'precios_sin_regla' => $res['precios_sin_regla']];
+    return [
+        'success' => true,
+        'message' => $mensaje,
+        'costo_actualizado' => !empty($resCosto['actualizado']),
+        'precios_actualizados' => $res['precios_actualizados'],
+        'precios_sin_regla' => $res['precios_sin_regla']
+    ];
 }
