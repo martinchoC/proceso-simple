@@ -258,8 +258,9 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
         }
     }
 
-    // Construir WHERE clause
-    $where_conditions = ["p.empresa_id = ?"];
+    // Construir WHERE clause. productos.php solo lista productos con control de
+    // stock; los servicios y productos sin stock se ven en productos_generales.php.
+    $where_conditions = ["p.empresa_id = ?", "p.controla_stock = 1"];
     $where_params = [$empresa_idx];
     $where_types = "i";
 
@@ -1087,6 +1088,7 @@ function obtenerTiposProducto($conexion, $empresa_idx)
     $sql = "SELECT producto_tipo_id, producto_tipo, producto_tipo_codigo
             FROM gestion__productos_tipos
             WHERE tabla_estado_registro_id = 1
+            AND maneja_stock = 1 -- productos.php solo da de alta productos con control de stock
             ORDER BY producto_tipo";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -1103,6 +1105,40 @@ function obtenerTiposProducto($conexion, $empresa_idx)
 
     mysqli_stmt_close($stmt);
     return $tipos;
+}
+
+// ✅ Obtener las cuentas contables por defecto de un tipo de producto.
+// Sin filtro de empresa, igual que obtenerTiposProducto (el combo de tipos
+// no filtra por empresa). Si el tipo no existe, devuelve todo en null.
+function obtenerCuentasDefaultTipoProducto($conexion, $producto_tipo_id)
+{
+    $cuentas = [
+        'cont_cuenta_compra_default_id' => null,
+        'cont_cuenta_venta_default_id' => null,
+        'cont_cuenta_cmv_default_id' => null,
+    ];
+
+    $sql = "SELECT cont_cuenta_compra_default_id, cont_cuenta_venta_default_id, cont_cuenta_cmv_default_id
+            FROM gestion__productos_tipos
+            WHERE producto_tipo_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return $cuentas;
+
+    mysqli_stmt_bind_param($stmt, "i", $producto_tipo_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $fila = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    if ($fila) {
+        foreach ($cuentas as $campo => $valor) {
+            $cuentas[$campo] = $fila[$campo] !== null ? intval($fila[$campo]) : null;
+        }
+    }
+
+    return $cuentas;
 }
 
 // ✅ Obtener categorías de productos
@@ -1196,8 +1232,11 @@ function agregarProducto($conexion, $data)
     $producto_nombre = mysqli_real_escape_string($conexion, trim($data['producto_nombre'] ?? ''));
     $codigo_barras = mysqli_real_escape_string($conexion, trim($data['codigo_barras'] ?? ''));
     $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
-    $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
     $iva_alicuota_id = intval($data['iva_alicuota_id'] ?? 0);
+    // cont_cuenta_id ya no se edita desde el ABM, pero la columna es NOT NULL sin
+    // default: al dar de alta se asigna la cuenta contable por defecto (131), la
+    // misma que antes preseleccionaba el combo del formulario. En edición no se toca.
+    $cont_cuenta_id = 131;
     // Default de negocio: si no llega tipo de producto al dar de alta, se asume 1.
     // Se resuelve acá (no solo en el JS) para que la regla valga también si el
     // endpoint se invoca directo, sin depender del combo del formulario.
@@ -1234,6 +1273,14 @@ function agregarProducto($conexion, $data)
 
     $estado_inicial = obtenerEstadoInicial($conexion);
 
+    // Cuentas contables del producto: se heredan de los defaults del tipo de
+    // producto (gestion__productos_tipos) al dar de alta. La de CMV solo se
+    // completa si el producto controla stock (ver comentario de la columna).
+    $cuentas_tipo = obtenerCuentasDefaultTipoProducto($conexion, $producto_tipo_id);
+    $cont_cuenta_compra_id = $cuentas_tipo['cont_cuenta_compra_default_id'];
+    $cont_cuenta_venta_id = $cuentas_tipo['cont_cuenta_venta_default_id'];
+    $cont_cuenta_cmv_id = $controla_stock == 1 ? $cuentas_tipo['cont_cuenta_cmv_default_id'] : null;
+
     // Verificar duplicados (mismo código)
     $sql_check = "SELECT COUNT(*) as total FROM gestion__productos 
                   WHERE producto_codigo = ? AND empresa_id = ?";
@@ -1254,9 +1301,10 @@ function agregarProducto($conexion, $data)
     // Insertar nuevo producto
    $sql = "INSERT INTO gestion__productos 
         (empresa_id, producto_codigo, producto_nombre, codigo_barras, producto_descripcion, 
-         producto_tipo_id, unidad_medida_id, cont_cuenta_id, iva_alicuota_id, lado, material, color, 
+         producto_tipo_id, unidad_medida_id, cont_cuenta_id, cont_cuenta_compra_id, cont_cuenta_venta_id,
+         cont_cuenta_cmv_id, iva_alicuota_id, lado, material, color, 
          peso, dimensiones, garantia, controla_stock, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -1264,7 +1312,7 @@ function agregarProducto($conexion, $data)
 
     mysqli_stmt_bind_param(
         $stmt,
-        "issssiiiisssdssii", // 17 tipos ↔ 17 parámetros (verificado tras quitar producto_categoria_id)
+        "issssiiiiiiisssdssii", // 20 tipos ↔ 20 parámetros (cuentas contables: fija + defaults del tipo)
         $empresa_id,
         $producto_codigo,
         $producto_nombre,
@@ -1273,6 +1321,9 @@ function agregarProducto($conexion, $data)
         $producto_tipo_id,
         $unidad_medida_id,
         $cont_cuenta_id,
+        $cont_cuenta_compra_id,
+        $cont_cuenta_venta_id,
+        $cont_cuenta_cmv_id,
         $iva_alicuota_id,
         $lado,
         $material,
@@ -1307,7 +1358,6 @@ function editarProducto($conexion, $id, $data)
     $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
     $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
-    $cont_cuenta_id = !empty($data['cont_cuenta_id']) ? intval($data['cont_cuenta_id']) : null;
     $lado = mysqli_real_escape_string($conexion, trim($data['lado'] ?? ''));
     $material = mysqli_real_escape_string($conexion, trim($data['material'] ?? ''));
     $color = mysqli_real_escape_string($conexion, trim($data['color'] ?? ''));
@@ -1340,7 +1390,7 @@ function editarProducto($conexion, $id, $data)
     }
 
     // Verificar que el producto exista
-    $sql_check = "SELECT producto_id, empresa_id FROM gestion__productos 
+    $sql_check = "SELECT producto_id, empresa_id, controla_stock FROM gestion__productos 
                   WHERE producto_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
@@ -1354,6 +1404,12 @@ function editarProducto($conexion, $id, $data)
 
     if (!$row) {
         return ['resultado' => false, 'error' => 'Registro no encontrado'];
+    }
+
+    // Un producto sin control de stock (p.ej. un servicio) se edita desde
+    // productos_generales.php: guardarlo acá lo pasaría a controla_stock = 1.
+    if (intval($row['controla_stock']) !== 1) {
+        return ['resultado' => false, 'error' => 'Este producto no controla stock: editarlo desde Productos - Generales'];
     }
 
     $empresa_id = $row['empresa_id'];
@@ -1385,7 +1441,6 @@ function editarProducto($conexion, $id, $data)
             producto_descripcion = ?, 
             producto_tipo_id = ?, 
             unidad_medida_id = ?, 
-            cont_cuenta_id = ?, 
             iva_alicuota_id = ?, 
             lado = ?, 
             material = ?, 
@@ -1402,18 +1457,17 @@ function editarProducto($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     }
 
-    // Bind parameters - AHORA CON 15 SET + 1 WHERE = 16 PARÁMETROS
-    // (se quitó producto_categoria_id del ABM: 16 tipos ↔ 16 parámetros)
+    // Bind parameters - 14 SET + 1 WHERE = 15 PARÁMETROS
+    // (se quitaron producto_categoria_id y cont_cuenta_id del ABM: 15 tipos ↔ 15 parámetros)
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssiiiisssdssii",
+        "ssssiiisssdssii",
         $producto_codigo,
         $producto_nombre,
         $codigo_barras,
         $producto_descripcion,
         $producto_tipo_id,
         $unidad_medida_id,
-        $cont_cuenta_id,
         $iva_alicuota_id,
         $lado,
         $material,
@@ -1421,8 +1475,8 @@ function editarProducto($conexion, $id, $data)
         $peso,
         $dimensiones,
         $garantia,
-        $controla_stock,  // <--- PARÁMETRO 15
-        $id               // <--- PARÁMETRO 16
+        $controla_stock,  // <--- PARÁMETRO 14
+        $id               // <--- PARÁMETRO 15
     );
 
     $success = mysqli_stmt_execute($stmt);
@@ -2787,14 +2841,34 @@ function obtenerProveedorProductoPorId($conexion, $producto_proveedor_id, $empre
 }
 
 // ✅ Obtener entidades que son proveedores
+// ✅ ¿La entidad es un proveedor activo de la empresa? (es_proveedor = 1)
+function esEntidadProveedor($conexion, $entidad_id, $empresa_idx)
+{
+    $sql = "SELECT COUNT(*) AS total FROM gestion__entidades
+            WHERE entidad_id = ? AND empresa_id = ? AND es_proveedor = 1 AND tabla_estado_registro_id = 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return false;
+    }
+    $entidad_id = intval($entidad_id);
+    $empresa_idx = intval($empresa_idx);
+    mysqli_stmt_bind_param($stmt, "ii", $entidad_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    return intval($row['total'] ?? 0) > 0;
+}
+
 function obtenerEntidadesProveedores($conexion, $empresa_idx)
 {
     $empresa_idx = intval($empresa_idx);
     
-    // Buscar proveedores - ajusta según tu estructura real de gestion__entidades_tipos
+    // Solo proveedores activos de la empresa: gestion__entidades.es_proveedor = 1
+    // (mismo criterio que productos_proveedores_model.php::obtenerProveedoresCombo)
     $sql = "SELECT entidad_id, entidad_nombre, cuit
             FROM gestion__entidades
-            WHERE (empresa_id = 0 OR empresa_id = ?)
+            WHERE empresa_id = ?
+            AND es_proveedor = 1
             AND tabla_estado_registro_id = 1
             ORDER BY entidad_nombre";
     
@@ -2831,7 +2905,11 @@ function agregarProveedorProducto($conexion, $data)
     if ($entidad_id == 0) {
         return ['resultado' => false, 'error' => 'Proveedor no válido'];
     }
-    
+
+    if (!esEntidadProveedor($conexion, $entidad_id, $empresa_id)) {
+        return ['resultado' => false, 'error' => 'La entidad seleccionada no es un proveedor de la empresa'];
+    }
+
     // Verificar si ya existe este proveedor para el producto
     $sql_check = "SELECT COUNT(*) as total FROM gestion__productos_proveedores 
                   WHERE producto_id = ? 
@@ -2889,10 +2967,16 @@ function agregarProveedorProducto($conexion, $data)
 function editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empresa_idx)
 {
     $producto_proveedor_id = intval($producto_proveedor_id);
+    $empresa_idx = intval($empresa_idx);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
     $codigo_proveedor = mysqli_real_escape_string($conexion, trim($data['codigo_proveedor'] ?? ''));
-    
+
+    if ($entidad_id == 0) {
+        return ['resultado' => false, 'error' => 'Proveedor no válido'];
+    }
+
     // Verificar que el registro exista y pertenezca a la empresa
-    $sql_check = "SELECT producto_proveedor_id, producto_id FROM gestion__productos_proveedores 
+    $sql_check = "SELECT producto_proveedor_id, producto_id, entidad_id FROM gestion__productos_proveedores
                   WHERE producto_proveedor_id = ? AND empresa_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql_check);
@@ -2909,10 +2993,35 @@ function editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empr
     if (!$proveedor) {
         return ['resultado' => false, 'error' => 'Registro no encontrado'];
     }
-    
+
+    // Si cambia el proveedor: tiene que ser un proveedor de la empresa y no
+    // estar ya asignado a este producto (mismas reglas que el alta)
+    if ($entidad_id != intval($proveedor['entidad_id'])) {
+        if (!esEntidadProveedor($conexion, $entidad_id, $empresa_idx)) {
+            return ['resultado' => false, 'error' => 'La entidad seleccionada no es un proveedor de la empresa'];
+        }
+
+        $sql_dup = "SELECT COUNT(*) AS total FROM gestion__productos_proveedores
+                    WHERE producto_id = ? AND entidad_id = ? AND empresa_id = ?
+                    AND producto_proveedor_id <> ?";
+        $stmt = mysqli_prepare($conexion, $sql_dup);
+        if (!$stmt) {
+            return ['resultado' => false, 'error' => 'Error en la consulta'];
+        }
+        $producto_id = intval($proveedor['producto_id']);
+        mysqli_stmt_bind_param($stmt, "iiii", $producto_id, $entidad_id, $empresa_idx, $producto_proveedor_id);
+        mysqli_stmt_execute($stmt);
+        $dup = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+
+        if (intval($dup['total']) > 0) {
+            return ['resultado' => false, 'error' => 'Este proveedor ya está asignado al producto'];
+        }
+    }
+
     // Actualizar
-    $sql = "UPDATE gestion__productos_proveedores 
-            SET codigo_proveedor = ?
+    $sql = "UPDATE gestion__productos_proveedores
+            SET entidad_id = ?, codigo_proveedor = ?
             WHERE producto_proveedor_id = ? AND empresa_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -2922,7 +3031,8 @@ function editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empr
     
     mysqli_stmt_bind_param(
         $stmt,
-        "sii",
+        "isii",
+        $entidad_id,
         $codigo_proveedor,
         $producto_proveedor_id,
         $empresa_idx
@@ -2984,37 +3094,6 @@ function eliminarProveedorProducto($conexion, $producto_proveedor_id, $empresa_i
     } else {
         return ['success' => false, 'error' => 'Error al eliminar el proveedor'];
     }
-}
-// ✅ Obtener cuentas contables para combo
-
-// ✅ Obtener cuentas contables para combo
-function obtenerCuentasContables($conexion, $empresa_idx)
-{
-    $empresa_idx = intval($empresa_idx);
-    
-    $sql = "SELECT cont_cuenta_id, codigo, nombre, nivel
-            FROM gestion__cont_cuentas
-            WHERE empresa_id = ?
-            AND tabla_estado_registro_id = 1
-            AND es_imputable = 1
-            ORDER BY codigo";
-    
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt) {
-        return [];
-    }
-    
-    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    
-    $cuentas = [];
-    while ($fila = mysqli_fetch_assoc($result)) {
-        $cuentas[] = $fila;
-    }
-    
-    mysqli_stmt_close($stmt);
-    return $cuentas;
 }
 // ✅ Obtener bocas por sucursal
 function obtenerBocasPorSucursal($conexion, $sucursal_id, $empresa_idx)

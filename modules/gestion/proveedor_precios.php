@@ -168,6 +168,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <i class="fas fa-chart-pie me-1"></i>Dashboard
                                             </button>
                                         </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="tab-control-btn" data-bs-toggle="tab" data-bs-target="#tab-control" type="button" role="tab" aria-controls="tab-control" aria-selected="false">
+                                                <i class="fas fa-clipboard-check me-1"></i>Control
+                                                <span class="badge bg-warning text-dark ms-1 d-none" id="badgeControl"></span>
+                                            </button>
+                                        </li>
                                     </ul>
 
                                     <div class="card-body tab-content" id="contenidoTabsProveedorPrecios">
@@ -212,6 +218,29 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         </table>
                                                     </div>
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Solapa Control: productos vinculados al proveedor
+                                             (gestion__productos_proveedores) sin precio en la lista
+                                             del proveedor. No usa los filtros de código/marca/modelo:
+                                             siempre muestra el proveedor completo. -->
+                                        <div class="tab-pane fade" id="tab-control" role="tabpanel" aria-labelledby="tab-control-btn">
+                                            <div id="avisoControlSinProveedor" class="alert alert-info">
+                                                Seleccioná un proveedor para ver sus productos vinculados sin precio.
+                                            </div>
+                                            <div id="contenidoControl" class="d-none">
+                                                <p class="text-muted small mb-2">
+                                                    Productos vinculados a este proveedor que no tienen precio en su lista.
+                                                    Si el proveedor cambió el código de alguno, corregilo en el ABM de
+                                                    Productos-Proveedores y volvé a importar la lista.
+                                                </p>
+                                                <table class="table table-sm table-striped table-bordered" id="tablaControlSinPrecio" style="width:100%">
+                                                    <thead class="table-light">
+                                                        <tr><th>Cód. Prov.</th><th>Código</th><th>Producto</th><th class="text-center" width="80">Acciones</th></tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
                                             </div>
                                         </div>
                                     </div>
@@ -308,7 +337,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <!-- MODAL: Importar lista de precios (Excel)                     -->
             <!-- ============================================================ -->
             <div class="modal fade" id="modalImportarExcel" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
+                <div class="modal-dialog modal-xl">
                     <div class="modal-content">
                         <div class="modal-header bg-gradient-success text-white py-2">
                             <h5 class="modal-title">Importar lista de precios del proveedor</h5>
@@ -321,6 +350,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 vigencia — formato <code>AAAA-MM-DD</code> o celda con formato Fecha; si se deja vacía, se usa la fecha de hoy).
                                 Los códigos que no matcheen con este proveedor quedan
                                 listados aparte para vincular manualmente en el ABM de Productos-Proveedores.
+                                Al terminar, también se listan los productos vinculados a este proveedor cuyo
+                                código no vino en el archivo (posible cambio de código del proveedor).
                             </p>
                             <input type="file" id="inputArchivoExcel" class="form-control mb-3" accept=".xlsx,.xls">
                             <div class="progress mb-2 d-none" id="progressImportacion">

@@ -159,6 +159,7 @@ function obtenerResumenCorrelacion($conexion, $empresa_id)
                 SUM(CASE WHEN EXISTS (
                     SELECT 1 FROM gestion__productos_proveedores pp
                     WHERE pp.producto_id = p.producto_id
+                    AND pp.empresa_id = p.empresa_id
                     AND pp.tabla_estado_registro_id = 1
                 ) THEN 1 ELSE 0 END) AS con_vinculo
             FROM gestion__productos p
@@ -235,6 +236,7 @@ function obtenerCorrelacionPorMarca($conexion, $empresa_id, $limite = 10)
                 COUNT(DISTINCT CASE WHEN EXISTS (
                     SELECT 1 FROM gestion__productos_proveedores pp2
                     WHERE pp2.producto_id = pc.producto_id
+                    AND pp2.empresa_id = pc.empresa_id
                     AND pp2.tabla_estado_registro_id = 1
                 ) THEN pc.producto_id END) AS con_vinculo
             FROM gestion__productos_compatibilidad pc
@@ -284,6 +286,7 @@ function obtenerProveedoresSinVinculos($conexion, $empresa_id, $limite = 50)
             AND NOT EXISTS (
                 SELECT 1 FROM gestion__productos_proveedores pp
                 WHERE pp.entidad_id = e.entidad_id
+                AND pp.empresa_id = e.empresa_id
                 AND pp.tabla_estado_registro_id = 1
             )
             ORDER BY e.entidad_nombre
@@ -360,6 +363,7 @@ function obtenerProductosProveedoresPaginados($conexion, $empresa_idx, $opciones
         $where_conditions[] = "EXISTS (
             SELECT 1 FROM gestion__productos_proveedores ppf
             WHERE ppf.producto_id = p.producto_id
+            AND ppf.empresa_id = p.empresa_id
             AND ppf.entidad_id = ?
             AND ppf.tabla_estado_registro_id = 1
         )";
@@ -371,12 +375,14 @@ function obtenerProductosProveedoresPaginados($conexion, $empresa_idx, $opciones
         $where_conditions[] = "EXISTS (
             SELECT 1 FROM gestion__productos_proveedores ppc
             WHERE ppc.producto_id = p.producto_id
+            AND ppc.empresa_id = p.empresa_id
             AND ppc.tabla_estado_registro_id = 1
         )";
     } elseif ($filtro_vinculo === 'sin') {
         $where_conditions[] = "NOT EXISTS (
             SELECT 1 FROM gestion__productos_proveedores ppc
             WHERE ppc.producto_id = p.producto_id
+            AND ppc.empresa_id = p.empresa_id
             AND ppc.tabla_estado_registro_id = 1
         )";
     }
@@ -433,7 +439,8 @@ function obtenerProductosProveedoresPaginados($conexion, $empresa_idx, $opciones
                 p.producto_nombre,
                 p.compatibilidad_texto,
                 (SELECT COUNT(*) FROM gestion__productos_proveedores c
-                 WHERE c.producto_id = p.producto_id AND c.tabla_estado_registro_id = 1) AS cantidad_vinculos,
+                 WHERE c.producto_id = p.producto_id AND c.empresa_id = p.empresa_id
+                 AND c.tabla_estado_registro_id = 1) AS cantidad_vinculos,
                 COALESCE(
                     (SELECT CONCAT('[', GROUP_CONCAT(
                         JSON_OBJECT(

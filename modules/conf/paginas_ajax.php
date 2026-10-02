@@ -133,9 +133,11 @@ switch ($accion) {
             'padre_id' => isset($params['padre_id']) && is_numeric($params['padre_id']) ? intval($params['padre_id']) : 0,
             'modulo_id' => isset($params['modulo_id']) && is_numeric($params['modulo_id']) ? intval($params['modulo_id']) : null,
             'tabla_estado_registro_id' => isset($params['tabla_estado_registro_id']) && is_numeric($params['tabla_estado_registro_id']) ? intval($params['tabla_estado_registro_id']) : 1,
-            'es_acceso_directo' => !empty($params['es_acceso_directo']) ? 1 : 0
+            'pagina_patron_id' => isset($params['pagina_patron_id']) && is_numeric($params['pagina_patron_id']) && intval($params['pagina_patron_id']) > 0 ? intval($params['pagina_patron_id']) : 1,
+            'es_acceso_directo' => !empty($params['es_acceso_directo']) ? 1 : 0,
+            'orden_acceso_directo' => isset($params['orden_acceso_directo']) && is_numeric($params['orden_acceso_directo']) ? intval($params['orden_acceso_directo']) : null
         ];
-        
+
         if (empty($data['pagina']) || empty($data['modulo_id'])) {
             echo json_encode(['resultado' => false, 'error' => 'Nombre de página y módulo son obligatorios']);
             break;
@@ -171,9 +173,11 @@ switch ($accion) {
             'padre_id' => isset($params['padre_id']) && is_numeric($params['padre_id']) ? intval($params['padre_id']) : 0,
             'modulo_id' => isset($params['modulo_id']) && is_numeric($params['modulo_id']) ? intval($params['modulo_id']) : null,
             'tabla_estado_registro_id' => isset($params['tabla_estado_registro_id']) && is_numeric($params['tabla_estado_registro_id']) ? intval($params['tabla_estado_registro_id']) : 1,
-            'es_acceso_directo' => !empty($params['es_acceso_directo']) ? 1 : 0
+            'pagina_patron_id' => isset($params['pagina_patron_id']) && is_numeric($params['pagina_patron_id']) && intval($params['pagina_patron_id']) > 0 ? intval($params['pagina_patron_id']) : 1,
+            'es_acceso_directo' => !empty($params['es_acceso_directo']) ? 1 : 0,
+            'orden_acceso_directo' => isset($params['orden_acceso_directo']) && is_numeric($params['orden_acceso_directo']) ? intval($params['orden_acceso_directo']) : null
         ];
-        
+
         if ($id <= 0 || empty($data['pagina']) || empty($data['modulo_id'])) {
             echo json_encode(['resultado' => false, 'error' => 'Nombre de página y módulo son obligatorios']);
             break;

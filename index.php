@@ -1,4 +1,31 @@
 <?php
+require_once __DIR__ . '/config.php';
+
+if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true) {
+    header("Location: " . url('login.php'));
+    exit;
+}
+
+// Si el usuario solo tiene una combinación posible de empresa+módulo según sus perfiles
+// asignados, nos salteamos el panel de selección y vamos directo a esa pantalla.
+$empresas_modulos_usuario = usuario_obtener_empresas_modulos($conexion, (int) $_SESSION['usuario_id']);
+$combos_disponibles = [];
+foreach ($empresas_modulos_usuario as $empresa_id_disp => $empresa_disp) {
+    foreach ($empresa_disp['modulos'] as $modulo_disp) {
+        $combos_disponibles[] = ['empresa_id' => $empresa_id_disp, 'modulo' => $modulo_disp];
+    }
+}
+
+if (count($combos_disponibles) === 1) {
+    $unico_combo = $combos_disponibles[0];
+    $ruta_modulo = $unico_combo['modulo']['url'];
+    if (strpos($ruta_modulo, 'modules/') === false) {
+        $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
+    }
+    header("Location: " . url($ruta_modulo) . "?empresa_id=" . $unico_combo['empresa_id'] . "&modulo_id=" . $unico_combo['modulo']['id']);
+    exit;
+}
+
 require_once 'templates/adminlte/header1.php';
 ?>
 

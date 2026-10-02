@@ -188,11 +188,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <option value="2">Inactivo</option>
                             </select>
                         </div>
+                        <div class="col-md-6">
+                            <label>Patrón de Página</label>
+                            <input type="number" class="form-control" id="pagina_patron_id" name="pagina_patron_id" value="1" min="1"/>
+                        </div>
                         <div class="col-md-6 d-flex align-items-end">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="es_acceso_directo" name="es_acceso_directo">
                                 <label class="form-check-label" for="es_acceso_directo">Es acceso directo</label>
                             </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Orden Acceso Directo</label>
+                            <input type="number" class="form-control" id="orden_acceso_directo" name="orden_acceso_directo" min="0" disabled/>
                         </div>
                     </div>
                 </form>
@@ -303,6 +311,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+<style>
+    /* Indicador de acceso directo en el árbol (mismo ícono fa-bolt que la columna de la tabla) */
+    #arbolPaginas .jstree-anchor.acceso-directo::after {
+        content: "\f0e7";
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        font-size: 0.75em;
+        color: #fff;
+        background-color: var(--bs-primary, #0d6efd);
+        border-radius: 0.25rem;
+        padding: 0.1em 0.4em;
+        margin-left: 0.4em;
+        vertical-align: middle;
+    }
+</style>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
@@ -949,6 +972,15 @@ function actualizarOrdenArbol(nodeId, parentId, position) {
     });
 }
 
+// El orden de acceso directo solo aplica si la página es acceso directo
+function toggleOrdenAccesoDirecto() {
+    var esAcceso = $('#es_acceso_directo').is(':checked');
+    $('#orden_acceso_directo').prop('disabled', !esAcceso);
+    if (!esAcceso) {
+        $('#orden_acceso_directo').val('');
+    }
+}
+
 // Función para editar una página
 function editarPagina(paginaId) {
     $.get('paginas_ajax.php', {accion: 'obtener', pagina_id: paginaId}, function(res){
@@ -959,8 +991,11 @@ function editarPagina(paginaId) {
             $('#pagina_descripcion').val(res.pagina_descripcion);
             $('#orden').val(res.orden);
             $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id || 1);
+            $('#pagina_patron_id').val(res.pagina_patron_id || 1);
             $('#es_acceso_directo').prop('checked', parseInt(res.es_acceso_directo) === 1);
-            
+            $('#orden_acceso_directo').val(res.orden_acceso_directo ?? '');
+            toggleOrdenAccesoDirecto();
+
             cargarModulos(res.modulo_id, function() {
                 cargarTablas(res.tabla_id);
                 cargarIconos(res.icono_id);
@@ -992,7 +1027,10 @@ function duplicarPagina(paginaId) {
             $('#pagina_descripcion').val(res.pagina_descripcion);
             $('#orden').val(res.orden);
             $('#tabla_estado_registro_id').val(res.tabla_estado_registro_id || 1);
+            $('#pagina_patron_id').val(res.pagina_patron_id || 1);
             $('#es_acceso_directo').prop('checked', parseInt(res.es_acceso_directo) === 1);
+            $('#orden_acceso_directo').val(res.orden_acceso_directo ?? '');
+            toggleOrdenAccesoDirecto();
 
             cargarModulos(res.modulo_id, function() {
                 cargarTablas(res.tabla_id);
@@ -1246,10 +1284,13 @@ $(document).ready(function(){
         }
     });
     
+    $('#es_acceso_directo').on('change', toggleOrdenAccesoDirecto);
+
     // Botón nueva página
     $('#btnNuevo').click(function(){
         $('#formpagina')[0].reset();
         $('#pagina_id').val('');
+        toggleOrdenAccesoDirecto();
         $('#modalLabel').text('Nueva Página');
         
         cargarModulos();
@@ -1402,7 +1443,9 @@ $(document).ready(function(){
             padre_id: $('#padre_id').val() || null,
             modulo_id: $('#modulo_id').val(),
             tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1,
-            es_acceso_directo: $('#es_acceso_directo').is(':checked') ? 1 : 0
+            pagina_patron_id: $('#pagina_patron_id').val() || 1,
+            es_acceso_directo: $('#es_acceso_directo').is(':checked') ? 1 : 0,
+            orden_acceso_directo: $('#orden_acceso_directo').val()
         };
         
         $.ajax({

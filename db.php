@@ -1,4 +1,12 @@
 <?php
+// El date.timezone del servidor (php.ini) está en Europe/Berlin, no en horario
+// argentino. Sin esto, date('Y-m-d') queda varias horas adelantado respecto a
+// Argentina, y validaciones como "la fecha desde no puede ser menor a hoy"
+// (ver gestion/clientes_model.php::agregarCondicionCliente) rechazan guardados
+// legítimos durante la tarde/noche porque el servidor ya "cree" que es el día
+// siguiente.
+date_default_timezone_set('America/Argentina/Buenos_Aires');
+
 $envPath = __DIR__ . "/.env";
 
 if (!file_exists($envPath)) {

@@ -1432,6 +1432,102 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
 }
 
 /* =========================================================================
+ * Control de vínculos producto↔proveedor contra la lista de precios.
+ *
+ * Trae TODOS los vínculos activos de gestion__productos_proveedores de este
+ * proveedor (productos activos), con el precio cargado si lo hay. Lo usan:
+ *   - la solapa "Control" (obtenerControlVinculadosSinPrecio): vinculados
+ *     que no tienen fila en gestion__productos_proveedores_precios.
+ *   - el control post-importación (controlarVinculadosFueraDeImportacion):
+ *     vinculados cuyo codigo_proveedor no vino en el Excel — el caso típico
+ *     es que el proveedor le cambió el código al producto.
+ * ========================================================================= */
+function obtenerVinculosActivosProveedor($conexion, $empresa_id, $entidad_id)
+{
+    $sql = "SELECT pp.producto_proveedor_id, pp.producto_id, pp.codigo_proveedor,
+                   p.producto_codigo, p.producto_nombre,
+                   ppp.producto_proveedor_precio_id, ppp.precio_lista, ppp.f_vigencia_desde,
+                   ppp.archivo_importacion
+            FROM gestion__productos_proveedores pp
+            INNER JOIN gestion__productos p ON p.producto_id = pp.producto_id AND p.empresa_id = pp.empresa_id
+            LEFT JOIN gestion__productos_proveedores_precios ppp ON ppp.producto_proveedor_id = pp.producto_proveedor_id
+            WHERE pp.empresa_id = ? AND pp.entidad_id = ?
+              AND pp.tabla_estado_registro_id = 1
+              AND p.tabla_estado_registro_id = 1
+            ORDER BY p.producto_nombre";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando obtenerVinculosActivosProveedor: " . mysqli_error($conexion));
+        return [];
+    }
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $vinculos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $vinculos[] = $fila;
+    }
+    mysqli_stmt_close($stmt);
+    return $vinculos;
+}
+
+// Misma comparación que hace MySQL en el IN del import (collation
+// case-insensitive, sin espacios de más), pero del lado de PHP.
+function normalizarCodigoProveedor($codigo)
+{
+    return mb_strtoupper(trim((string)$codigo));
+}
+
+function obtenerControlVinculadosSinPrecio($conexion, $empresa_id, $entidad_id)
+{
+    $empresa_id = intval($empresa_id);
+    $entidad_id = intval($entidad_id);
+    if (empty($entidad_id)) {
+        return ['success' => false, 'message' => 'Debe indicar el proveedor', 'data' => []];
+    }
+
+    $sinPrecio = array_values(array_filter(
+        obtenerVinculosActivosProveedor($conexion, $empresa_id, $entidad_id),
+        function ($v) { return $v['producto_proveedor_precio_id'] === null; }
+    ));
+
+    return ['success' => true, 'data' => $sinPrecio, 'message' => ''];
+}
+
+/*
+ * $codigos = TODOS los codigo_proveedor del Excel (no un lote): el front lo
+ * llama una sola vez al terminar de procesar todos los lotes, porque un lote
+ * suelto no alcanza para saber qué códigos faltan en el archivo completo.
+ */
+function controlarVinculadosFueraDeImportacion($conexion, $empresa_id, $entidad_id, $codigos)
+{
+    $empresa_id = intval($empresa_id);
+    $entidad_id = intval($entidad_id);
+    if (empty($entidad_id)) {
+        return ['success' => false, 'message' => 'Debe indicar el proveedor', 'data' => []];
+    }
+
+    $enArchivo = [];
+    foreach ((array)$codigos as $codigo) {
+        $enArchivo[normalizarCodigoProveedor($codigo)] = true;
+    }
+
+    $faltantes = [];
+    foreach (obtenerVinculosActivosProveedor($conexion, $empresa_id, $entidad_id) as $v) {
+        $codigo = normalizarCodigoProveedor($v['codigo_proveedor']);
+        if ($codigo === '' || !isset($enArchivo[$codigo])) {
+            $faltantes[] = $v;
+        }
+    }
+
+    error_log("=== controlarVinculadosFueraDeImportacion entidad $entidad_id: " . count($enArchivo) . " códigos en archivo, " . count($faltantes) . " vinculados fuera del archivo ===");
+
+    return ['success' => true, 'data' => $faltantes, 'message' => ''];
+}
+
+/* =========================================================================
  * Botón "Actualizar costo del producto" (alcance confirmado: SOLO toca
  * gestion__productos_costos, NO recalcula gestion__listas_precios_productos
  * — ese recálculo queda pendiente de definir el motor de reglas, ver

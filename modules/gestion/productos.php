@@ -299,18 +299,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
                                         <div class="row g-2 mt-1 align-items-center">
                                             <div class="col-md-4">
-                                                <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" role="switch" 
-                                                        id="controla_stock" name="controla_stock" value="1" checked>
-                                                    <label class="form-check-label" for="controla_stock">
-                                                        <i class="fas fa-boxes me-1"></i>Controla Stock
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <select class="form-select form-select-sm" id="cont_cuenta_id" name="cont_cuenta_id">
-                                                    <option value="">Cuenta Contable</option>
-                                                </select>
+                                                <small class="text-muted" title="Los servicios y productos sin control de stock se administran desde Productos - Generales">
+                                                    <i class="fas fa-boxes me-1"></i>Controla stock (siempre)
+                                                </small>
                                             </div>
                                             <div class="col-md-4">
                                                 <select class="form-select form-select-sm" id="iva_alicuota_id" name="iva_alicuota_id">
@@ -1780,23 +1771,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            function cargarCuentasContables(valorPorDefecto) {
-                $.get('productos_ajax.php', { accion: 'obtener_cuentas_contables', empresa_idx: empresa_idx }, function(cuentas) {
-                    var select = $('#cont_cuenta_id');
-                    select.empty().append('<option value="">Cuenta Contable</option>');
-                    if (cuentas && cuentas.length > 0) {
-                        cuentas.forEach(function(cuenta) {
-                            var prefix = '';
-                            for (var i = 1; i < cuenta.nivel; i++) prefix += '&nbsp;&nbsp;';
-                            var texto = prefix + cuenta.codigo + ' - ' + cuenta.nombre;
-                            select.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
-                        });
-                    }
-                    // Producto nuevo: cuenta contable por defecto (cont_cuenta_id = 131).
-                    if (valorPorDefecto) select.val(String(valorPorDefecto));
-                }, 'json');
-            }
-
             function cargarMarcas() {
                 $.get('productos_ajax.php', { accion: 'obtener_marcas', empresa_idx: empresa_idx }, function(marcas) {
                     var selectFiltro = $('#filtroMarca');
@@ -2111,7 +2085,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            function cargarEntidadesProveedores() {
+            function cargarEntidadesProveedores(callback) {
                 $.get('productos_ajax.php', { accion: 'obtener_entidades_proveedores', empresa_idx: empresa_idx }, function(entidades) {
                     var select = $('#entidad_id');
                     select.empty().append('<option value="">Seleccionar proveedor...</option>');
@@ -2122,6 +2096,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             select.append(`<option value="${entidad.entidad_id}">${texto}</option>`);
                         });
                     }
+                    if (typeof callback === 'function') callback();
                 }, 'json');
             }
 
@@ -2874,22 +2849,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function mostrarModalProveedor(productoId, productoProveedorId) {
                 resetModalProveedor();
                 $('#proveedor_producto_id').val(productoId);
-                cargarEntidadesProveedores();
+                $('#entidad_id').prop('disabled', false);
                 if (productoProveedorId) {
                     $('#modalProveedorLabel').html('<i class="fas fa-edit me-2"></i>Editar Proveedor');
                     $('#producto_proveedor_id').val(productoProveedorId);
-                    setTimeout(function() {
+                    // En la edición se puede cambiar el proveedor además del código
+                    cargarEntidadesProveedores(function() {
                         $.get('productos_ajax.php', { accion: 'obtener_proveedor_producto_por_id', producto_proveedor_id: productoProveedorId, empresa_idx: empresa_idx }, function(res) {
                             if (res && res.producto_proveedor_id) {
                                 $('#entidad_id').val(res.entidad_id);
                                 $('#codigo_proveedor').val(res.codigo_proveedor || '');
-                                $('#entidad_id').prop('disabled', true);
                             }
                         }, 'json');
-                    }, 300);
+                    });
                 } else {
                     $('#modalProveedorLabel').html('<i class="fas fa-plus me-2"></i>Agregar Proveedor');
-                    $('#entidad_id').prop('disabled', false);
+                    cargarEntidadesProveedores();
                 }
                 new bootstrap.Modal(document.getElementById('modalProveedor')).show();
             }
@@ -3074,15 +3049,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#peso').val(res.peso || '');
                         $('#dimensiones').val(res.dimensiones || '');
                         $('#garantia').val(res.garantia || '');
-                        $('#controla_stock').prop('checked', res.controla_stock == 1);
                         cargarTiposProducto();
                         cargarUnidadesMedida();
                         cargarIvaAlicuotas();
-                        cargarCuentasContables();
                         setTimeout(function() {
                             $('#producto_tipo_id').val(res.producto_tipo_id);
                             $('#unidad_medida_id').val(res.unidad_medida_id || '');
-                            $('#cont_cuenta_id').val(res.cont_cuenta_id || '');
                             $('#iva_alicuota_id').val(res.iva_alicuota_id || '');
                             if (res.iva_alicuota_id) $('#iva_alicuota_id').trigger('change');
                         }, 500);
@@ -3103,11 +3075,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#formProducto').removeClass('was-validated');
                 $('#iva_alicuota_id').empty().append('<option value="">IVA Alícuota</option>');
                 $('#iva_info').html('<span class="text-muted">Seleccione una alícuota...</span>');
-                $('#cont_cuenta_id').empty().append('<option value="">Cuenta Contable</option>');
                 $('#iva_porcentaje').html('<span class="text-muted">0%</span>');
                 $('#producto_tipo_id').empty().append('<option value="">Tipo *</option>');
                 $('#unidad_medida_id').empty().append('<option value="">Unidad de Medida</option>');
-                $('#controla_stock').prop('checked', true);
                 if ($.fn.DataTable.isDataTable('#tablaCompatibilidad')) {
                     $('#tablaCompatibilidad').DataTable().destroy();
                     $('#tablaCompatibilidad tbody').empty();
@@ -3614,7 +3584,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     cargarTiposProducto(1);
                     cargarUnidadesMedida();
                     cargarIvaAlicuotas(1);
-                    cargarCuentasContables(131);
                     new bootstrap.Modal(document.getElementById('modalProducto')).show();
                     $('#producto_codigo').focus();
                 });
@@ -4124,7 +4093,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             producto_descripcion: $('#producto_descripcion').val(),
                             producto_tipo_id: $('#producto_tipo_id').val(),
                             unidad_medida_id: $('#unidad_medida_id').val() || null,
-                            cont_cuenta_id: $('#cont_cuenta_id').val() || null,
                             iva_alicuota_id: $('#iva_alicuota_id').val() || null,
                             lado: $('#lado').val(),
                             material: $('#material').val(),
@@ -4132,7 +4100,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             peso: $('#peso').val(),
                             dimensiones: $('#dimensiones').val(),
                             garantia: $('#garantia').val(),
-                            controla_stock: $('#controla_stock').is(':checked') ? 1 : 0,
                             empresa_idx: empresa_idx,
                             pagina_idx: pagina_idx
                         },
@@ -4187,7 +4154,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarMarcas();
             cargarSucursales();
             cargarIvaAlicuotas();
-            cargarCuentasContables();
 
             // Mostrar/ocultar ícono de búsqueda en el campo de código al cargar
             if ($('#filtroCodigo').val().trim().length > 0) {

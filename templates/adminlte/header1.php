@@ -91,52 +91,17 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
     $current_modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 0;
     $usuario_logueado_id = $_SESSION['usuario_id'];
 
-    $sql_modulos = "SELECT DISTINCT
-            e.empresa_id,
-            e.empresa,
-            m.modulo_id,
-            m.modulo,
-            m.modulo_url
-        FROM conf__empresas e
-        INNER JOIN conf__empresas_perfiles ep ON e.empresa_id = ep.empresa_id
-        INNER JOIN conf__usuarios_perfiles up ON ep.empresa_perfil_id = up.empresa_perfil_id
-        LEFT JOIN conf__empresas_modulos em ON e.empresa_id = em.empresa_id AND em.tabla_estado_registro_id = 1
-        LEFT JOIN conf__modulos m ON em.modulo_id = m.modulo_id AND m.tabla_estado_registro_id = 1
-        WHERE e.tabla_estado_registro_id = 1
-        AND ep.tabla_estado_registro_id = 1
-        AND up.tabla_estado_registro_id = 1
-        AND up.usuario_id = $usuario_logueado_id
-        ORDER BY e.empresa, m.modulo";
-
-    $res_modulos = mysqli_query($conexion, $sql_modulos);
-    $empresas_modulos = [];
+    $empresas_modulos = usuario_obtener_empresas_modulos($conexion, $usuario_logueado_id);
     $nombre_empresa_actual = "";
     $nombre_modulo_actual = "";
 
-    while ($row = mysqli_fetch_assoc($res_modulos)) {
-      $eid = $row['empresa_id'];
-      $mid = $row['modulo_id'];
-
-      if (!isset($empresas_modulos[$eid])) {
-        $empresas_modulos[$eid] = [
-          'nombre' => $row['empresa'],
-          'modulos' => []
-        ];
-      }
-
-      if ($eid == $current_empresa_id) {
-        $nombre_empresa_actual = $row['empresa'];
-        if ($mid == $current_modulo_id) {
-          $nombre_modulo_actual = $row['modulo'];
+    if (isset($empresas_modulos[$current_empresa_id])) {
+      $nombre_empresa_actual = $empresas_modulos[$current_empresa_id]['nombre'];
+      foreach ($empresas_modulos[$current_empresa_id]['modulos'] as $mod) {
+        if ($mod['id'] == $current_modulo_id) {
+          $nombre_modulo_actual = $mod['nombre'];
+          break;
         }
-      }
-
-      if (!empty($mid)) {
-        $empresas_modulos[$eid]['modulos'][] = [
-          'id' => $mid,
-          'nombre' => $row['modulo'],
-          'url' => $row['modulo_url']
-        ];
       }
     }
 
@@ -172,11 +137,234 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             </a>
           </li>
 
-          <li class="nav-item d-none d-md-block">
-            <span class="navbar-text fw-bold fs-5 ms-3 text-primary">
-              <?= htmlspecialchars($nombre_empresa_actual) ?>
-            </span>
+          <li class="nav-item d-flex align-items-center ms-2">
+            <select class="form-select form-select-sm shadow-sm" style="font-size: 0.85rem; max-width: 220px;"
+              aria-label="Empresa" onchange="if(this.value) window.location.href=this.value;">
+              <?php foreach ($empresas_modulos as $eid => $data): ?>
+                <?php
+                if (empty($data['modulos']))
+                  continue;
+                $primer_modulo = $data['modulos'][0];
+                $ruta_modulo = $primer_modulo['url'];
+                if (strpos($ruta_modulo, 'modules/') === false) {
+                  $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
+                }
+                $target_url = url($ruta_modulo) . "?empresa_id=" . $eid . "&modulo_id=" . $primer_modulo['id'];
+                $selected = ($eid == $current_empresa_id) ? 'selected' : '';
+                ?>
+                <option value="<?= $target_url ?>" <?= $selected ?>>
+                  <?= htmlspecialchars($data['nombre']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
           </li>
+
+          <li class="nav-item d-flex align-items-center ms-2">
+            <select class="form-select form-select-sm shadow-sm" style="font-size: 0.85rem; max-width: 200px;"
+              aria-label="Módulo activo" onchange="if(this.value) window.location.href=this.value;">
+              <?php
+              if (isset($empresas_modulos[$current_empresa_id]) && !empty($empresas_modulos[$current_empresa_id]['modulos'])):
+                foreach ($empresas_modulos[$current_empresa_id]['modulos'] as $mod):
+                  $ruta_modulo = $mod['url'];
+                  if (strpos($ruta_modulo, 'modules/') === false) {
+                    $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
+                  }
+                  $url_mod = url($ruta_modulo) . "?empresa_id=" . $current_empresa_id . "&modulo_id=" . $mod['id'];
+                  $selected = ($mod['id'] == $current_modulo_id) ? 'selected' : '';
+                  ?>
+                  <option value="<?= $url_mod ?>" <?= $selected ?>>
+                    <?= htmlspecialchars($mod['nombre']) ?>
+                  </option>
+                  <?php
+                endforeach;
+              endif;
+              ?>
+            </select>
+          </li>
+
+          <?php
+          // Accesos directos del módulo activo (conf__paginas.es_acceso_directo = 1),
+          // filtrados por los permisos del usuario en la empresa actual.
+          $accesos_directos = [];
+          if ($current_modulo_id > 0) {
+            $sql_ad = "SELECT p.pagina_id, p.pagina, p.url, i.icono_clase
+                       FROM conf__paginas p
+                       LEFT JOIN conf__iconos i ON p.icono_id = i.icono_id
+                       WHERE p.modulo_id = ?
+                         AND p.es_acceso_directo = 1
+                         AND p.tabla_estado_registro_id = 1
+                       ORDER BY p.orden_acceso_directo IS NULL, p.orden_acceso_directo, p.orden";
+            $stmt_ad = mysqli_prepare($conexion, $sql_ad);
+            if ($stmt_ad) {
+              mysqli_stmt_bind_param($stmt_ad, "i", $current_modulo_id);
+              mysqli_stmt_execute($stmt_ad);
+              $res_ad = mysqli_stmt_get_result($stmt_ad);
+              while ($row_ad = mysqli_fetch_assoc($res_ad)) {
+                if (!empty($row_ad['url']) && isset($paginas_permitidas[(int) $row_ad['pagina_id']])) {
+                  $accesos_directos[] = $row_ad;
+                }
+              }
+              mysqli_stmt_close($stmt_ad);
+            } else {
+              error_log("header1 accesos directos: " . mysqli_error($conexion));
+            }
+          }
+          $qs_acceso = "&empresa_id=" . $current_empresa_id . "&modulo_id=" . $current_modulo_id;
+          // Paleta de colores (RGB) que se asigna a cada acceso directo en forma cíclica
+          $colores_acceso = ['13, 110, 253', '25, 135, 84', '253, 126, 20', '111, 66, 193', '214, 51, 132', '13, 202, 240', '220, 53, 69', '32, 201, 151'];
+          foreach ($accesos_directos as $i_ad => $ad):
+            $ad_activo = strpos($_SERVER['REQUEST_URI'], trim($ad['url'], './')) !== false;
+            ?>
+            <li class="nav-item<?= $i_ad === 0 ? ' ms-2' : '' ?>">
+              <a class="nav-link acceso-directo<?= $ad_activo ? ' active' : '' ?>"
+                href="<?= htmlspecialchars($ad['url']) ?>?pagina_id=<?= (int) $ad['pagina_id'] ?><?= $qs_acceso ?>"
+                data-label="<?= htmlspecialchars($ad['pagina']) ?>" aria-label="<?= htmlspecialchars($ad['pagina']) ?>"
+                style="--ad-i: <?= (int) $i_ad ?>; --ad-rgb: <?= $colores_acceso[$i_ad % count($colores_acceso)] ?>;">
+                <i class="<?= htmlspecialchars($ad['icono_clase'] ?: 'bi bi-link-45deg') ?>"></i>
+              </a>
+            </li>
+          <?php endforeach; ?>
+          <?php if ($accesos_directos): ?>
+            <style>
+              /* Accesos directos de la barra superior */
+              .acceso-directo {
+                position: relative;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 2.6rem;
+                height: 2.6rem;
+                margin: 0 2px;
+                padding: 0 !important;
+                border-radius: 0.75rem;
+                color: rgb(var(--ad-rgb));
+                isolation: isolate;
+                transition: color .25s ease, transform .35s cubic-bezier(.34, 1.56, .64, 1);
+                animation: ad-entrada .45s cubic-bezier(.34, 1.56, .64, 1) backwards;
+                animation-delay: calc(var(--ad-i) * 60ms);
+              }
+
+              /* Fondo tipo "pastilla" que crece desde el centro */
+              .acceso-directo::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                z-index: -1;
+                border-radius: inherit;
+                background: linear-gradient(135deg, rgba(var(--ad-rgb), .2), rgba(var(--ad-rgb), .07));
+                box-shadow: 0 6px 16px -6px rgba(var(--ad-rgb), .6);
+                transform: scale(.4);
+                opacity: 0;
+                transition: transform .35s cubic-bezier(.34, 1.56, .64, 1), opacity .25s ease;
+              }
+
+              /* Etiqueta con el nombre de la página, se desliza desde abajo */
+              .acceso-directo::after {
+                content: attr(data-label);
+                position: absolute;
+                top: calc(100% + 8px);
+                left: 50%;
+                z-index: 1080;
+                padding: 4px 10px;
+                border-radius: 6px;
+                background: var(--bs-emphasis-color);
+                color: var(--bs-body-bg);
+                font-size: .75rem;
+                font-weight: 500;
+                white-space: nowrap;
+                pointer-events: none;
+                opacity: 0;
+                transform: translate(-50%, -6px) scale(.9);
+                transition: opacity .2s ease, transform .3s cubic-bezier(.34, 1.56, .64, 1);
+              }
+
+              .acceso-directo i {
+                font-size: 1.35rem;
+                line-height: 1;
+                transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
+              }
+
+              .acceso-directo:hover,
+              .acceso-directo:focus-visible {
+                color: rgb(var(--ad-rgb));
+                transform: translateY(-2px);
+              }
+
+              .acceso-directo:hover::before,
+              .acceso-directo:focus-visible::before {
+                transform: scale(1);
+                opacity: 1;
+              }
+
+              .acceso-directo:hover::after,
+              .acceso-directo:focus-visible::after {
+                opacity: 1;
+                transform: translate(-50%, 0) scale(1);
+                transition-delay: .15s;
+              }
+
+              .acceso-directo:hover i,
+              .acceso-directo:focus-visible i {
+                animation: ad-rebote .6s cubic-bezier(.34, 1.56, .64, 1);
+                transform: scale(1.15);
+              }
+
+              .acceso-directo:active {
+                transform: translateY(0) scale(.92);
+                transition-duration: .1s;
+              }
+
+              /* Página actual: pastilla visible y punto indicador */
+              .acceso-directo.active {
+                color: rgb(var(--ad-rgb)) !important;
+              }
+
+              .acceso-directo.active::before {
+                transform: scale(1);
+                opacity: 1;
+                box-shadow: none;
+              }
+
+              .acceso-directo.active i::after {
+                content: "";
+                position: absolute;
+                bottom: 3px;
+                left: 50%;
+                width: 4px;
+                height: 4px;
+                margin-left: -2px;
+                border-radius: 50%;
+                background: rgb(var(--ad-rgb));
+              }
+
+              @keyframes ad-rebote {
+                0% { transform: scale(1) rotate(0); }
+                30% { transform: scale(1.25) rotate(-10deg); }
+                60% { transform: scale(1.1) rotate(6deg); }
+                100% { transform: scale(1.15) rotate(0); }
+              }
+
+              @keyframes ad-entrada {
+                from { opacity: 0; transform: translateY(-8px) scale(.8); }
+                to { opacity: 1; transform: none; }
+              }
+
+              @media (prefers-reduced-motion: reduce) {
+                .acceso-directo,
+                .acceso-directo::before,
+                .acceso-directo::after,
+                .acceso-directo i {
+                  animation: none !important;
+                  transition: opacity .15s ease !important;
+                }
+
+                .acceso-directo:hover,
+                .acceso-directo:hover i {
+                  transform: none;
+                }
+              }
+            </style>
+          <?php endif; ?>
         </ul>
 
         <div class="ms-auto d-flex align-items-center">
@@ -184,7 +372,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             <li class="nav-item dropdown">
               <a class="nav-link" data-bs-toggle="dropdown" href="#">
                 <i class="bi bi-bell-fill"></i>
-                <span class="navbar-badge badge text-bg-warning">15</span>
+                <span class="navbar-badge badge text-bg-warning">0</span>
               </a>
               <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
                 <span class="dropdown-item dropdown-header">15 Notifications</span>
@@ -241,63 +429,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
       <div class="sidebar-brand">
         <a href="#" class="brand-link">
           <img src="<?= asset('img/logo.png') ?>" alt="Logo" class="brand-image opacity-75 shadow" />
-          <span class="brand-text fw-light">Multigestion</span>
+          <span class="brand-text fw-light"><?= htmlspecialchars($nombre_empresa_actual ?: 'Multigestion') ?></span>
         </a>
-      </div>
-
-      <div class="sidebar-info px-3 py-3 border-bottom border-secondary" style="background: rgba(0,0,0,0.1);">
-
-        <div class="mb-3">
-          <label class="form-label text-white-50 mb-1"
-            style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Módulo Activo</label>
-          <select class="form-select form-select-sm bg-dark text-light border-secondary shadow-sm"
-            style="font-size: 0.85rem;" onchange="if(this.value) window.location.href=this.value;">
-            <option value="">Seleccionar Módulo...</option>
-            <?php
-            if (isset($empresas_modulos[$current_empresa_id]) && !empty($empresas_modulos[$current_empresa_id]['modulos'])):
-              foreach ($empresas_modulos[$current_empresa_id]['modulos'] as $mod):
-                $ruta_modulo = $mod['url'];
-                if (strpos($ruta_modulo, 'modules/') === false) {
-                  $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
-                }
-                $url_mod = url($ruta_modulo) . "?empresa_id=" . $current_empresa_id . "&modulo_id=" . $mod['id'];
-                $selected = ($mod['id'] == $current_modulo_id) ? 'selected' : '';
-                ?>
-                <option value="<?= $url_mod ?>" <?= $selected ?>>
-                  <?= htmlspecialchars($mod['nombre']) ?>
-                </option>
-                <?php
-              endforeach;
-            endif;
-            ?>
-          </select>
-        </div>
-
-        <div>
-          <label class="form-label text-white-50 mb-1"
-            style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Empresa</label>
-          <select class="form-select form-select-sm bg-dark text-light border-secondary shadow-sm"
-            style="font-size: 0.85rem;" onchange="if(this.value) window.location.href=this.value;">
-            <option value="">Cambiar Empresa...</option>
-            <?php foreach ($empresas_modulos as $eid => $data): ?>
-              <?php
-              if (empty($data['modulos']))
-                continue;
-              $primer_modulo = $data['modulos'][0];
-              $ruta_modulo = $primer_modulo['url'];
-              if (strpos($ruta_modulo, 'modules/') === false) {
-                $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
-              }
-              $target_url = url($ruta_modulo) . "?empresa_id=" . $eid . "&modulo_id=" . $primer_modulo['id'];
-              $selected = ($eid == $current_empresa_id) ? 'selected' : '';
-              ?>
-              <option value="<?= $target_url ?>" <?= $selected ?>>
-                <?= htmlspecialchars($data['nombre']) ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-
       </div>
 
       <div class="sidebar-wrapper">
@@ -306,13 +439,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             aria-label="Main navigation" data-accordion="true" id="navigation">
 
             <?php
-            // Antes se comparaba por subcadena contra REQUEST_URI (strpos), lo
-            // que marcaba como activa cualquier página cuya url fuera sufijo
-            // de otra (ej: "proveedores.php" queda "contenido" dentro de
-            // "productos_proveedores.php" y las marcaba activas a ambas).
-            // pagina_id es exacto y siempre viaja en el link del menú
-            // (?pagina_id=X), así que es la comparación correcta.
-            $current_pagina_id = intval($_GET['pagina_id'] ?? 0);
+            $current_url_full = $_SERVER['REQUEST_URI'];
             $qs_sidebar = "&empresa_id=" . $current_empresa_id . "&modulo_id=" . $current_modulo_id;
 
             $modudo_idx = $current_modulo_id;
@@ -367,13 +494,15 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                 $is_active = false;
                 if ($has_submenu) {
                   foreach ($submenu_items as $submenu_row) {
-                    if ($current_pagina_id > 0 && (int) $submenu_row['pagina_id'] === $current_pagina_id) {
+                    $submenu_url_clean = trim($submenu_row['url'], './');
+                    if (strpos($current_url_full, $submenu_url_clean) !== false) {
                       $is_active = true;
                       break;
                     }
                   }
                 } else {
-                  $is_active = ($current_pagina_id > 0 && $pagina_id_actual === $current_pagina_id);
+                  $menu_url_clean = trim($row['url'], './');
+                  $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
                 }
 
                 $link_padre = $has_submenu ? '#' : $row['url'] . '?pagina_id=' . $pagina_id_actual . $qs_sidebar;
@@ -395,7 +524,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                       style="padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
                       <?php foreach ($submenu_items as $submenu_row): ?>
                         <?php
-                        $is_submenu_active = ($current_pagina_id > 0 && (int) $submenu_row['pagina_id'] === $current_pagina_id);
+                        $submenu_url_clean = trim($submenu_row['url'], './');
+                        $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
                         ?>
                         <li class="nav-item">
                           <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?><?= $qs_sidebar ?>"

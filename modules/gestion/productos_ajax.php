@@ -57,17 +57,6 @@ try {
             ], JSON_UNESCAPED_UNICODE);
             break;
         
-        case 'obtener_cuentas_contables':
-            error_log("=== DEBUG obtener_cuentas_contables ===");
-            error_log("empresa_idx: " . $empresa_idx);
-            
-            $cuentas = obtenerCuentasContables($conexion, $empresa_idx);
-            
-            error_log("Número de cuentas encontradas: " . count($cuentas));
-            error_log("Primera cuenta: " . print_r(array_slice($cuentas, 0, 1), true));
-            
-            echo json_encode($cuentas, JSON_UNESCAPED_UNICODE);
-            break;
         case 'obtener_bocas_por_sucursal':
                 $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
                 if ($sucursal_id <= 0) {
@@ -137,9 +126,10 @@ try {
                 'peso' => !empty($_POST['peso']) ? floatval($_POST['peso']) : null,
                 'dimensiones' => trim($_POST['dimensiones'] ?? ''),
                 'garantia' => trim($_POST['garantia'] ?? ''),
-                'cont_cuenta_id' => !empty($_POST['cont_cuenta_id']) ? intval($_POST['cont_cuenta_id']) : null,
                 'iva_alicuota_id' => $_POST['iva_alicuota_id'] !== '' ? $_POST['iva_alicuota_id'] : null,
-                'controla_stock' => isset($_POST['controla_stock']) ? 1 : 0,  // <--- AGREGAR
+                // productos.php solo maneja productos con control de stock; los servicios y
+                // productos sin stock se administran desde productos_generales.php
+                'controla_stock' => 1,
                 'pagina_idx' => $pagina_idx
             ];
 
@@ -162,9 +152,8 @@ try {
                 'peso' => !empty($_POST['peso']) ? floatval($_POST['peso']) : null,
                 'dimensiones' => trim($_POST['dimensiones'] ?? ''),
                 'garantia' => trim($_POST['garantia'] ?? ''),
-                'cont_cuenta_id' => !empty($_POST['cont_cuenta_id']) ? intval($_POST['cont_cuenta_id']) : null,
                 'iva_alicuota_id' => $_POST['iva_alicuota_id'] !== '' ? $_POST['iva_alicuota_id'] : null,
-                'controla_stock' => isset($_POST['controla_stock']) ? 1 : 0,  // <--- AGREGAR
+                'controla_stock' => 1,  // ver comentario en 'agregar'
                 'empresa_idx' => $empresa_idx
             ];
 
@@ -599,6 +588,7 @@ try {
         case 'editar_proveedor_producto':
             $producto_proveedor_id = intval($_POST['producto_proveedor_id'] ?? 0);
             $data = [
+                'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? '')
             ];
             $resultado = editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empresa_idx);

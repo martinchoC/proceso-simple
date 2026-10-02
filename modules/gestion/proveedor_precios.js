@@ -12,6 +12,7 @@ $(function () {
     var listasPreciosActivas = []; // [{lista_precio_id, lista_precio_nombre}], se fija la primera vez que se carga la tabla
     var productoSeleccionado = null; // { producto_proveedor_id, producto_nombre, producto_codigo }
     var loteImportacion = []; // filas crudas leídas del Excel, antes de trocear
+    var tablaControl = null; // DataTable de la solapa Control
 
     var TAMANIO_LOTE = 300; // mismo tamaño de lote que listas_precios_productos.php
 
@@ -32,6 +33,7 @@ $(function () {
             // columnas — puede cambiar si mostramos o no la columna Proveedor.
             listasPreciosActivas = [];
             intentarCargarTabla();
+            cargarControl();
         });
 
         $('#btnAgregarPrecio').on('click', abrirModalAgregar);
@@ -78,6 +80,14 @@ $(function () {
         });
 
         $('#tab-dashboard-btn').on('shown.bs.tab', cargarDashboard);
+        $('#tab-control-btn').on('shown.bs.tab', function () {
+            cargarControl();
+            if (tablaControl) tablaControl.columns.adjust();
+        });
+
+        $(document).on('click', '.btn-cargar-precio-control', function () {
+            abrirModalAgregarConProducto(JSON.parse(decodeURIComponent($(this).data('row'))));
+        });
     }
 
     function cargarProveedores() {
@@ -514,6 +524,18 @@ $(function () {
         $('#modalPrecioProveedor').modal('show');
     }
 
+    // Desde la solapa Control: el producto ya está vinculado a este
+    // proveedor, así que se saltea el buscador y va directo al precio.
+    function abrirModalAgregarConProducto(p) {
+        abrirModalAgregar();
+        productoSeleccionado = p;
+        $('#producto_id').val(p.producto_id);
+        $('#bloqueBuscarProducto').addClass('d-none');
+        $('#bloqueProductoSeleccionado').removeClass('d-none');
+        $('#productoSeleccionadoNombre').text(p.producto_nombre);
+        $('#productoSeleccionadoCodigo').text(p.codigo_proveedor ? ' (' + p.codigo_proveedor + ')' : '');
+    }
+
     function buscarProductosProveedor() {
         var q = $('#buscadorProductoProveedor').val().trim();
         if (q.length < 2 || !proveedorActualId) {
@@ -601,6 +623,7 @@ $(function () {
             if (res.success) {
                 $('#modalPrecioProveedor').modal('hide');
                 cargarYMostrarTabla();
+                cargarControl();
                 Swal.fire({ icon: 'success', title: res.message, timer: 1500, showConfirmButton: false });
             } else {
                 Swal.fire('Error', res.message, 'error');
@@ -953,9 +976,188 @@ $(function () {
                 html += '</tbody></table></div>';
             }
 
+            html += '<div id="resumenControlImportacion" class="mt-3 text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Controlando productos vinculados que no vinieron en el archivo…</div>';
+
             $('#resumenImportacion').html(html);
             cargarYMostrarTabla();
+            cargarControl();
+            controlarImportacion(acumulado.no_vinculados);
         }
+    }
+
+    // Una vez procesados TODOS los lotes: productos vinculados a este
+    // proveedor cuyo código no vino en el archivo. Si el proveedor le cambió
+    // el código a un producto, aparece acá (código viejo) y también en "no
+    // vinculados" (código nuevo) — se sugiere el par por similitud de
+    // descripción/código para que el usuario lo corrija en Productos-Proveedores.
+    function controlarImportacion(noVinculados) {
+        var codigos = loteImportacion.map(function (f) { return f.codigo_proveedor; });
+
+        $.post('proveedor_precios_ajax.php', {
+            accion: 'controlar_importacion',
+            empresa_idx: empresa_idx,
+            entidad_id: proveedorActualId,
+            codigos: JSON.stringify(codigos)
+        }, function (res) {
+            if (!res || !res.success) {
+                $('#resumenControlImportacion').html('<div class="alert alert-danger">No se pudo hacer el control: ' + escapeHtml((res && res.message) || 'respuesta inesperada') + '</div>');
+                return;
+            }
+            pintarControlImportacion(res.data || [], noVinculados || []);
+        }, 'json').fail(function (xhr) {
+            console.error('Error HTTP en controlar_importacion:', xhr.status, xhr.responseText);
+            $('#resumenControlImportacion').html('<div class="alert alert-danger">No se pudo hacer el control de productos vinculados.</div>');
+        });
+    }
+
+    function pintarControlImportacion(faltantes, noVinculados) {
+        var $cont = $('#resumenControlImportacion').removeClass('text-muted small');
+
+        if (!faltantes.length) {
+            $cont.html('<div class="alert alert-success mb-0"><i class="fas fa-check me-1"></i>Todos los productos vinculados a este proveedor vinieron en el archivo.</div>');
+            return;
+        }
+
+        var candidatos = noVinculados.map(function (n) {
+            return { n: n, tokens: tokenizar(n.descripcion), codigo: normalizarCodigo(n.codigo_proveedor) };
+        });
+        var conSugerencia = 0;
+
+        var filas = faltantes.map(function (f) {
+            var sug = sugerirCodigoNuevo(f, candidatos);
+            if (sug) conSugerencia++;
+            var celdaSug = sug
+                ? '<strong class="text-primary">' + escapeHtml(sug.codigo_proveedor) + '</strong><br><small class="text-muted">' + escapeHtml(sug.descripcion) + ' — ' + formatearMoneda(sug.precio) + '</small>'
+                : '<span class="text-muted">-</span>';
+            return '<tr>' +
+                '<td>' + (f.codigo_proveedor ? escapeHtml(f.codigo_proveedor) : '<span class="badge bg-secondary">Sin código</span>') + '</td>' +
+                '<td>' + escapeHtml(f.producto_codigo || '') + '</td>' +
+                '<td>' + escapeHtml(f.producto_nombre) + '</td>' +
+                '<td class="text-end">' + (f.precio_lista !== null ? formatearMoneda(f.precio_lista) : '<span class="text-muted">Sin precio</span>') + '</td>' +
+                '<td>' + celdaSug + '</td>' +
+                '</tr>';
+        });
+
+        var html = '<div class="alert alert-warning mb-2"><strong>' + faltantes.length + '</strong> producto(s) vinculado(s) a este proveedor no vinieron en el archivo' +
+            (conSugerencia ? ' — <strong>' + conSugerencia + '</strong> con un posible código nuevo entre los no vinculados' : '') +
+            '. Si el proveedor cambió el código, corregilo en Productos-Proveedores y volvé a importar. Sus precios no se modificaron.</div>';
+        html += '<div style="max-height:260px; overflow-y:auto;"><table class="table table-sm"><thead><tr>' +
+            '<th>Cód. Prov. actual</th><th>Código</th><th>Producto</th><th class="text-end">Precio actual</th><th>Posible código nuevo</th>' +
+            '</tr></thead><tbody>' + filas.join('') + '</tbody></table></div>';
+
+        $cont.html(html);
+    }
+
+    // Mejor candidato entre los códigos no vinculados del archivo: similitud
+    // de palabras (Jaccard) entre el nombre del producto y la descripción
+    // del Excel, más un plus si un código contiene al otro (p. ej.
+    // "AB123" → "AB123-N"). Por debajo del umbral no se sugiere nada.
+    function sugerirCodigoNuevo(faltante, candidatos) {
+        var tokensProducto = tokenizar(faltante.producto_nombre);
+        var codigoActual = normalizarCodigo(faltante.codigo_proveedor);
+        var mejor = null, mejorScore = 0;
+
+        candidatos.forEach(function (c) {
+            var score = similitudJaccard(tokensProducto, c.tokens);
+            if (codigoActual.length >= 3 && c.codigo.length >= 3 &&
+                (c.codigo.indexOf(codigoActual) !== -1 || codigoActual.indexOf(c.codigo) !== -1)) {
+                score += 0.3;
+            }
+            if (score > mejorScore) {
+                mejorScore = score;
+                mejor = c.n;
+            }
+        });
+
+        return mejorScore >= 0.4 ? mejor : null;
+    }
+
+    function tokenizar(texto) {
+        var set = {};
+        String(texto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .split(/[^a-z0-9]+/)
+            .forEach(function (t) { if (t.length > 1) set[t] = true; });
+        return set;
+    }
+
+    function similitudJaccard(a, b) {
+        var interseccion = 0, union = 0, k;
+        for (k in a) { union++; if (b[k]) interseccion++; }
+        for (k in b) { if (!a[k]) union++; }
+        return union ? interseccion / union : 0;
+    }
+
+    function normalizarCodigo(codigo) {
+        return String(codigo || '').trim().toUpperCase();
+    }
+
+    /* ============================ Solapa Control ============================ */
+
+    // Vinculados a este proveedor sin precio en su lista. Se refresca al
+    // cambiar de proveedor (también para el badge de la solapa, aunque no
+    // esté visible), al guardar un precio y al terminar una importación.
+    function cargarControl() {
+        if (!proveedorActualId) {
+            $('#avisoControlSinProveedor').removeClass('d-none');
+            $('#contenidoControl').addClass('d-none');
+            $('#badgeControl').addClass('d-none');
+            return;
+        }
+        var entidadPedida = proveedorActualId;
+
+        $.get({
+            url: 'proveedor_precios_ajax.php',
+            dataType: 'json',
+            data: { accion: 'listar_control', empresa_idx: empresa_idx, entidad_id: entidadPedida }
+        }).done(function (res) {
+            // Si el usuario cambió de proveedor mientras volvía la respuesta, se descarta.
+            if (entidadPedida !== proveedorActualId) return;
+            if (!res || !res.success) {
+                Swal.fire('Error', (res && res.message) || 'No se pudo cargar el control.', 'error');
+                return;
+            }
+            var filas = res.data || [];
+            $('#badgeControl').text(filas.length).toggleClass('d-none', !filas.length);
+            $('#avisoControlSinProveedor').addClass('d-none');
+            $('#contenidoControl').removeClass('d-none');
+            pintarTablaControl(filas);
+        }).fail(function (xhr) {
+            console.error('Error cargando control:', xhr.status, xhr.responseText);
+            Swal.fire('Error', 'No se pudo cargar el control de productos sin precio.', 'error');
+        });
+    }
+
+    function pintarTablaControl(filas) {
+        if (tablaControl) {
+            tablaControl.clear().rows.add(filas).draw();
+            return;
+        }
+        tablaControl = $('#tablaControlSinPrecio').DataTable({
+            data: filas,
+            pageLength: 25,
+            order: [[2, 'asc']],
+            columns: [
+                {
+                    data: 'codigo_proveedor',
+                    render: function (d, type) {
+                        if (type !== 'display') return d || '';
+                        return d ? escapeHtml(d) : '<span class="badge bg-secondary">Sin código</span>';
+                    }
+                },
+                { data: 'producto_codigo', defaultContent: '', render: function (d, type) { return type === 'display' ? escapeHtml(d) : d; } },
+                { data: 'producto_nombre', render: function (d, type) { return type === 'display' ? escapeHtml(d) : d; } },
+                {
+                    data: null,
+                    orderable: false,
+                    className: 'text-center',
+                    render: function (row) {
+                        return '<button class="btn btn-sm btn-outline-primary btn-cargar-precio-control" data-row="' + encodeURIComponent(JSON.stringify(row)) + '" title="Cargar precio">' +
+                            '<i class="fas fa-dollar-sign"></i></button>';
+                    }
+                }
+            ],
+            language: { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' }
+        });
     }
 
     /* ============================ Compatibilidad ============================ */

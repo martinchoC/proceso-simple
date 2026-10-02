@@ -157,6 +157,24 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
+        // Solapa "Control": productos vinculados al proveedor sin precio cargado.
+        case 'listar_control':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            echo json_encode(obtenerControlVinculadosSinPrecio($conexion, $empresa_idx, $entidad_id), JSON_UNESCAPED_UNICODE);
+            break;
+
+        // Post-importación: vinculados cuyo código no vino en el Excel
+        // (posible cambio de código del proveedor). Recibe TODOS los códigos
+        // del archivo en un solo POST, después de procesar todos los lotes.
+        case 'controlar_importacion':
+            $entidad_id = intval($_POST['entidad_id'] ?? 0);
+            $codigos = json_decode($_POST['codigos'] ?? '[]', true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($codigos)) {
+                manejarError('Error al decodificar los códigos: ' . json_last_error_msg(), 400);
+            }
+            echo json_encode(controlarVinculadosFueraDeImportacion($conexion, $empresa_idx, $entidad_id, $codigos), JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'actualizar_costo':
             // Solo costo — NO toca listas de precio (para eso están los
             // otros 2 botones de la fila).

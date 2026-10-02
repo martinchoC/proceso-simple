@@ -223,14 +223,23 @@ function construirArbolPaginasRecursivo($paginas, $modulo_id, $padre_id = null)
                     'orden' => $pagina['orden'],
                     'modulo_id' => $pagina['modulo_id'],
                     'pagina_nombre' => $pagina['pagina'],
-                    'es_acceso_directo' => $pagina['es_acceso_directo']
+                    'es_acceso_directo' => $pagina['es_acceso_directo'],
+                    'orden_acceso_directo' => $pagina['orden_acceso_directo']
                 ],
                 'children' => construirArbolPaginasRecursivo($paginas, $modulo_id, $pagina['pagina_id']),
                 'state' => [
                     'opened' => false
                 ]
             ];
-            
+
+            // El indicador de acceso directo se dibuja por CSS (clase en el <a>) para no ensuciar 'text'
+            if ($pagina['es_acceso_directo'] == 1) {
+                $node['a_attr'] = [
+                    'class' => 'acceso-directo',
+                    'title' => 'Acceso directo' . ($pagina['orden_acceso_directo'] !== null ? ' (orden ' . $pagina['orden_acceso_directo'] . ')' : '')
+                ];
+            }
+
             $result[] = $node;
         }
     }
@@ -488,10 +497,13 @@ function agregarpagina($conexion, $data)
     $tabla_estado_registro_id = isset($data['tabla_estado_registro_id']) && is_numeric($data['tabla_estado_registro_id']) ? intval($data['tabla_estado_registro_id']) : 1;
     $icono_id = !empty($data['icono_id']) && is_numeric($data['icono_id']) ? intval($data['icono_id']) : 0;
     $es_acceso_directo = !empty($data['es_acceso_directo']) ? 1 : 0;
+    $pagina_patron_id = !empty($data['pagina_patron_id']) && is_numeric($data['pagina_patron_id']) && intval($data['pagina_patron_id']) > 0 ? intval($data['pagina_patron_id']) : 1;
+    // Sin acceso directo no tiene sentido un orden de acceso directo
+    $orden_acceso_directo = $es_acceso_directo && isset($data['orden_acceso_directo']) && is_numeric($data['orden_acceso_directo']) ? intval($data['orden_acceso_directo']) : null;
 
-    $sql = "INSERT INTO conf__paginas 
-            (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id, es_acceso_directo) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO conf__paginas
+            (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id, pagina_patron_id, es_acceso_directo, orden_acceso_directo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -499,17 +511,19 @@ function agregarpagina($conexion, $data)
         return false;
     }
 
-    mysqli_stmt_bind_param($stmt, "sssiisiiii", 
-        $pagina, 
-        $url, 
-        $pagina_descripcion, 
-        $orden, 
-        $tabla_id, 
-        $padre_id, 
-        $modulo_id, 
-        $tabla_estado_registro_id, 
-        $icono_id, 
-        $es_acceso_directo
+    mysqli_stmt_bind_param($stmt, "sssiiiiiiiii",
+        $pagina,
+        $url,
+        $pagina_descripcion,
+        $orden,
+        $tabla_id,
+        $padre_id,
+        $modulo_id,
+        $tabla_estado_registro_id,
+        $icono_id,
+        $pagina_patron_id,
+        $es_acceso_directo,
+        $orden_acceso_directo
     );
 
     $res = mysqli_stmt_execute($stmt);
@@ -537,6 +551,9 @@ function editarpagina($conexion, $id, $data)
     $tabla_estado_registro_id = isset($data['tabla_estado_registro_id']) && is_numeric($data['tabla_estado_registro_id']) ? intval($data['tabla_estado_registro_id']) : 1;
     $icono_id = !empty($data['icono_id']) && is_numeric($data['icono_id']) ? intval($data['icono_id']) : 0;
     $es_acceso_directo = !empty($data['es_acceso_directo']) ? 1 : 0;
+    $pagina_patron_id = !empty($data['pagina_patron_id']) && is_numeric($data['pagina_patron_id']) && intval($data['pagina_patron_id']) > 0 ? intval($data['pagina_patron_id']) : 1;
+    // Sin acceso directo no tiene sentido un orden de acceso directo
+    $orden_acceso_directo = $es_acceso_directo && isset($data['orden_acceso_directo']) && is_numeric($data['orden_acceso_directo']) ? intval($data['orden_acceso_directo']) : null;
 
     $sql = "UPDATE conf__paginas SET
             pagina = ?,
@@ -548,7 +565,9 @@ function editarpagina($conexion, $id, $data)
             padre_id = ?,
             modulo_id = ?,
             tabla_estado_registro_id = ?,
-            es_acceso_directo = ?
+            pagina_patron_id = ?,
+            es_acceso_directo = ?,
+            orden_acceso_directo = ?
             WHERE pagina_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -557,7 +576,7 @@ function editarpagina($conexion, $id, $data)
         return false;
     }
 
-    mysqli_stmt_bind_param($stmt, "sssiisiiiii",
+    mysqli_stmt_bind_param($stmt, "sssiiiiiiiiii",
         $pagina,
         $url,
         $pagina_descripcion,
@@ -567,7 +586,9 @@ function editarpagina($conexion, $id, $data)
         $padre_id,
         $modulo_id,
         $tabla_estado_registro_id,
+        $pagina_patron_id,
         $es_acceso_directo,
+        $orden_acceso_directo,
         $id
     );
 

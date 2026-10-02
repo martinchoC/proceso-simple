@@ -44,17 +44,24 @@ function usuario_obtener_perfiles_empresa(mysqli $conexion, int $usuario_id, int
 }
 
 /**
- * Páginas a las que el usuario tiene acceso dentro de una empresa, combinando el permiso
- * base del perfil (conf__perfiles_funciones) con el override específico de la empresa
- * (conf__empresas_perfiles_funciones, que gana si existe).
+ * Páginas a las que el usuario tiene acceso dentro de una empresa.
  *
- * Solo quedan sin restricción (acceso libre) las páginas sin tabla de negocio asociada
- * (tabla_id = 0/NULL) y sin funciones definidas: son dashboards/menús contenedores puros
- * (p. ej. "Principal", "Ventas", "Compras"), no pantallas de datos. Una página CRUD real
- * (tabla_id != 0) que todavía no tiene funciones cargadas en conf__paginas_funciones NO
- * se considera de acceso libre: es una configuración incompleta, no un permiso abierto, y
- * debe denegarse por defecto hasta que se termine de dar de alta (ver CLAUDE.md: motor de
- * estados / botones).
+ * La única fuente de verdad es conf__empresas_perfiles_funciones (asignado = 1 para ese
+ * empresa_perfil_id): es el mismo criterio que ya usa el panel de administración de
+ * permisos para decidir qué función está "asignada" (ver
+ * modules/conf/empresas_perfiles_funciones_model.php, función
+ * obtenerPaginasFuncionesPorEmpresaPerfil / obtenerEstructuraCompletaPorEmpresaPerfil:
+ * ahí "asignada" es 1 únicamente si existe la fila en empresas_perfiles_funciones, sin
+ * mirar nunca conf__perfiles_funciones). Esa tabla base solo se usa como plantilla para
+ * sembrar empresas_perfiles_funciones al crear un empresa_perfil
+ * (heredarPaginasFuncionesDesdePerfilBase); no es un fallback en tiempo de ejecución, así
+ * que acá tampoco se consulta.
+ *
+ * No hay "acceso libre" para páginas sin funciones definidas: si una página de negocio
+ * (tabla_id != 0) todavía no tiene funciones cargadas, queda denegada hasta que se
+ * configure. Los menús contenedores (páginas con hijos en conf__paginas) no necesitan
+ * su propio permiso: header1.php los muestra u oculta según si al menos uno de sus hijos
+ * está permitido, independientemente de esta lista.
  *
  * @return array<int,true> pagina_id => true
  */
@@ -70,20 +77,6 @@ function usuario_obtener_paginas_permitidas(mysqli $conexion, int $usuario_id, i
         return $paginas_permitidas;
     }
 
-    $res = mysqli_query($conexion, "
-        SELECT p.pagina_id
-        FROM conf__paginas p
-        WHERE p.tabla_estado_registro_id = 1
-        AND (p.tabla_id IS NULL OR p.tabla_id = 0)
-        AND NOT EXISTS (
-            SELECT 1 FROM conf__paginas_funciones pf
-            WHERE pf.pagina_id = p.pagina_id AND pf.tabla_estado_registro_id = 1
-        )
-    ");
-    while ($row = mysqli_fetch_assoc($res)) {
-        $paginas_permitidas[(int) $row['pagina_id']] = true;
-    }
-
     $perfiles = usuario_obtener_perfiles_empresa($conexion, $usuario_id, $empresa_id);
     if (empty($perfiles)) {
         return $paginas_permitidas;
@@ -91,16 +84,14 @@ function usuario_obtener_paginas_permitidas(mysqli $conexion, int $usuario_id, i
 
     $sql = "SELECT DISTINCT pf.pagina_id
             FROM conf__paginas_funciones pf
-            LEFT JOIN conf__perfiles_funciones bpf
-                ON bpf.pagina_funcion_id = pf.pagina_funcion_id AND bpf.perfil_id = ?
-            LEFT JOIN conf__empresas_perfiles_funciones epf
+            INNER JOIN conf__empresas_perfiles_funciones epf
                 ON epf.pagina_funcion_id = pf.pagina_funcion_id AND epf.empresa_perfil_id = ?
             WHERE pf.tabla_estado_registro_id = 1
-            AND COALESCE(epf.asignado, bpf.asignado, 0) = 1";
+            AND epf.asignado = 1";
     $stmt = mysqli_prepare($conexion, $sql);
 
     foreach ($perfiles as $perfil) {
-        mysqli_stmt_bind_param($stmt, "ii", $perfil['perfil_id_base'], $perfil['empresa_perfil_id']);
+        mysqli_stmt_bind_param($stmt, "i", $perfil['empresa_perfil_id']);
         mysqli_stmt_execute($stmt);
         $res_pf = mysqli_stmt_get_result($stmt);
         while ($row = mysqli_fetch_assoc($res_pf)) {
@@ -124,4 +115,72 @@ function usuario_tiene_acceso_pagina(mysqli $conexion, int $usuario_id, int $emp
 
     $paginas_permitidas = usuario_obtener_paginas_permitidas($conexion, $usuario_id, $empresa_id);
     return isset($paginas_permitidas[$pagina_id]);
+}
+
+/**
+ * Empresas y módulos habilitados para el usuario según los perfiles que tiene asignados:
+ * no "todos los módulos habilitados en la empresa", sino específicamente el módulo de cada
+ * conf__empresas_perfiles del usuario (una fila de conf__usuarios_perfiles apunta a un
+ * empresa_perfil, y ese empresa_perfil tiene un modulo_id propio). Se usa tanto para el
+ * selector de empresa/módulo del sidebar como para decidir el redirect automático de
+ * index.php cuando el usuario solo tiene una combinación posible.
+ *
+ * @return array<int,array{nombre:string,modulos:array<int,array{id:int,nombre:string,url:string}>}>
+ */
+function usuario_obtener_empresas_modulos(mysqli $conexion, int $usuario_id): array
+{
+    $empresas_modulos = [];
+
+    if (in_array($usuario_id, USUARIOS_ACCESO_TOTAL, true)) {
+        $res = mysqli_query($conexion, "
+            SELECT e.empresa_id, e.empresa, m.modulo_id, m.modulo, m.modulo_url
+            FROM conf__empresas e
+            INNER JOIN conf__empresas_modulos em ON em.empresa_id = e.empresa_id AND em.tabla_estado_registro_id = 1
+            INNER JOIN conf__modulos m ON m.modulo_id = em.modulo_id AND m.tabla_estado_registro_id = 1
+            WHERE e.tabla_estado_registro_id = 1
+            ORDER BY e.empresa, m.modulo
+        ");
+    } else {
+        $sql = "SELECT DISTINCT
+                    e.empresa_id, e.empresa,
+                    m.modulo_id, m.modulo, m.modulo_url
+                FROM conf__usuarios_perfiles up
+                INNER JOIN conf__empresas_perfiles ep ON ep.empresa_perfil_id = up.empresa_perfil_id
+                INNER JOIN conf__empresas e ON e.empresa_id = ep.empresa_id
+                INNER JOIN conf__empresas_modulos em
+                    ON em.empresa_id = ep.empresa_id AND em.modulo_id = ep.modulo_id
+                    AND em.tabla_estado_registro_id = 1
+                INNER JOIN conf__modulos m ON m.modulo_id = em.modulo_id AND m.tabla_estado_registro_id = 1
+                WHERE up.usuario_id = ?
+                  AND up.tabla_estado_registro_id = 1
+                  AND ep.tabla_estado_registro_id = 1
+                  AND e.tabla_estado_registro_id = 1
+                  AND CURDATE() BETWEEN up.fecha_inicio AND up.fecha_fin
+                ORDER BY e.empresa, m.modulo";
+        $stmt = mysqli_prepare($conexion, $sql);
+        mysqli_stmt_bind_param($stmt, "i", $usuario_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+    }
+
+    while ($row = mysqli_fetch_assoc($res)) {
+        $eid = (int) $row['empresa_id'];
+        if (!isset($empresas_modulos[$eid])) {
+            $empresas_modulos[$eid] = [
+                'nombre' => $row['empresa'],
+                'modulos' => [],
+            ];
+        }
+        $empresas_modulos[$eid]['modulos'][] = [
+            'id' => (int) $row['modulo_id'],
+            'nombre' => $row['modulo'],
+            'url' => $row['modulo_url'],
+        ];
+    }
+
+    if (isset($stmt)) {
+        mysqli_stmt_close($stmt);
+    }
+
+    return $empresas_modulos;
 }

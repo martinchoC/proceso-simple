@@ -266,7 +266,11 @@ $(document).ready(function() {
         
         actualizarInfoSeleccion();
     });
-    
+
+    // Aplicar el modo inicial ('individual'): sin esto #grupoGuardarIndividual
+    // (Guardar Cambios / acciones en lote) queda oculto hasta cambiar el select
+    $('#selectModoVista').trigger('change');
+
     // Evento cuando cambia el módulo
     $('#selectModulo').change(function() {
         moduloIdActual = $(this).val();
