@@ -1,16 +1,55 @@
 // =====================================================================
-// Matriz legal y corporativa del grupo - Modelo de datos unificado v0.1
+// Matriz legal y corporativa del grupo - Modelo de datos unificado v0.3
 // Fuente: documento "Logica del proceso" (secciones 2 a 16)
+// Base: v0.2 + 06-hallazgos-del-proyecto.md + 08-diseno-m0.md
+//
+// DECISIONES VIGENTES
+// 1. Las 23 tablas ml__ del prototipo se REEMPLAZAN. Las 22 filas semilla del prototipo se descartan
+//    (no coinciden con el modelo nuevo); quedan en el respaldo. Verificar antes con COUNT(*), no con table_rows.
+// 2. tabla_estado_registro_id (smallint) guarda el id GENERICO de conf__estados_registros, sin FK.
+//    - Tablas de proceso corto y largo: columna sin DEFAULT; el codigo fija siempre el estado inicial.
+//    - Diccionarios con ABM propio y maestros: con DEFAULT 1 (Activo).
+//    - Relaciones, vigencias y catalogos fijos del sistema: sin columna de estado (se cierran con vigente_hasta).
+// 3. Auditoria: creado_en, creado_por, actualizado_en, actualizado_por.
+//    SQL: creado_en timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP;
+//    actualizado_en timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP (convencion del repositorio);
+//    creado_por y actualizado_por int, sin FK. Excepcion: ml__log_cambios y ml__auditoria_accesos (solo se agregan filas).
+// 4. Permisos: las FK de perfil van a conf__empresas_perfiles.empresa_perfil_id.
+// 5. Fechas y plazos: DATETIME en UTC; el huso horario de cada pais esta en ml__territorios.huso_horario.
+//    TIMESTAMP solo para auditoria. ml__ciclos usa DATETIME para inicio, vencimiento y cierre.
+// 6. Las FK hacia conf__empresas, conf__usuarios y conf__empresas_perfiles SE DECLARAN.
+//    Efecto: el borrado fisico de una empresa con datos de matriz falla (conf/empresas_model.php:90).
+//
+// TIPOS DE CLAVES (deben coincidir para declarar FOREIGN KEY)
+// - empresa_id: smallint unsigned (PK de conf__empresas)
+// - usuario_id: int (PK de conf__usuarios, con signo)
+// - empresa_perfil_id: int unsigned
+// - PK propias de ml__: int
+//
+// MOTOR Y JUEGO DE CARACTERES (se aplican en el SQL; DBML no los expresa)
+// - ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci en todas las tablas ml__.
+// - conf__empresas y conf__modulos son latin1; conf__perfiles y conf__empresas_perfiles usan utf8mb3_spanish2_ci:
+//   no cruzar por columnas de texto contra ellas sin COLLATE.
+//
+// COMPATIBILIDAD: produccion MySQL 8.0.46 y local MariaDB 10.4.22. Los scripts tienen que correr en los dos.
+// - Sin ADD INDEX IF NOT EXISTS (solo MariaDB), sin columnas JSON (se usa text), sin DEFAULT en columnas text.
+// - Nombres unicos en todo el esquema para CHECK y FK: ck_<tabla_abreviada>_<regla>, fk_<tabla_abreviada>_<columna>.
+// - Columnas generadas: AS (...) STORED, sin declarar NULL ni NOT NULL.
+//
+// REGLAS DE VIGENCIA Y ESTRUCTURA
+// - "Una sola abierta" (una pertenencia principal, un titular de entidad): columna generada STORED con UNIQUE
+//   (por ejemplo, IF(es_principal = 1 AND vigente_hasta IS NULL, territorio_id, NULL)). Se crea en el DDL de M0 (script 02).
+// - No solapamiento de vigencias futuras: trigger o validacion en la aplicacion, en el modulo dueno.
+// - Ambito con una sola clave completa segun ambito_tipo_id: CHECK. Las FK de esas columnas, sin CASCADE ni SET NULL.
+// - Unicidad con claves nulas ((grupo_id, empresa_id, codigo) en ml__entidades_tipos) y la de ciclos
+//   (varios ciclos por obligacion y periodo: original, complementario, seguimiento): validacion en la aplicacion.
 //
 // CONVENCIONES
 // - Prefijo ml__ para el dominio. conf__ = tablas existentes de gestion_multipyme (stubs al final).
-// - tabla_estado_registro_id = FK logica al catalogo de estados. Los estados NO van en el codigo.
-//   Estados de ciclo (8): pendiente, en curso, cumplido, cumplido fuera de plazo, vencido, incumplido, eximido, cancelado.
-//   Estados de tarea (7): inactiva, pendiente, en curso, en revision, cumplida, rechazada, cancelada.
 // - Toda relacion lleva vigente_desde y vigente_hasta (null = vigente). Nada se borra: se cierra con fecha.
-// - Un ambito se expresa con ambito_tipo_id y cuatro FK opcionales; solo una va completa segun el tipo.
-// - Auditoria estandar (creado_por, creado_en, modificado_por, modificado_en) se agrega en la fase SQL; no se dibuja.
-// - Los nombres de conf__* deben verificarse contra la base real de gestion_multipyme.
+// - Un ambito se expresa con ambito_tipo_id y cuatro FK opcionales; solo una va completa.
+// - Longitud maxima del nombre de tabla: 50 (conf__tablas.tabla_nombre).
+// - Seguridad del AJAX: la empresa sale de la sesion y se valida con usuario_tiene_acceso_pagina; nunca por parametro.
 //
 // CAMBIOS RESPECTO DE LOS BORRADORES ANTERIORES
 // - ml__obligaciones = obligacion DEFINIDA por la norma. ml__obligaciones_asignadas = la aplicada a una entidad.
@@ -31,9 +70,13 @@ Project ml_matriz_legal {
 
 Table ml__grupos {
   grupo_id int [pk, increment]
-  empresa_titular_id int [not null, ref: > conf__empresas.empresa_id, note: 'Empresa titular del sistema; sus perfiles son el catalogo base']
+  empresa_titular_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id, note: 'Empresa titular del grupo: la que administra la matriz']
   nombre varchar(150) [not null]
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__regiones_grupo {
@@ -42,59 +85,95 @@ Table ml__regiones_grupo {
   nombre varchar(150) [not null]
   vigente_desde date [not null]
   vigente_hasta date
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Region de gestion del grupo. Independiente de las regiones geograficas.'
 }
 
 Table ml__empresas_grupo {
   empresa_grupo_id int [pk, increment]
-  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
   grupo_id int [not null, ref: > ml__grupos.grupo_id]
   pais_territorio_id int [not null, ref: > ml__territorios.territorio_id, note: 'Pais donde opera la empresa']
   entidad_raiz_id int [ref: > ml__entidades.entidad_id, note: 'Entidad logica que representa a la empresa']
   vigente_desde date [not null, note: 'Ingreso al grupo']
   vigente_hasta date [note: 'Salida, fusion o escision']
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Pertenencia de una empresa al grupo. Si cambia el pais, se cierra la fila y se abre otra.'
 }
 
 Table ml__empresas_regiones {
   empresa_region_id int [pk, increment]
-  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
   region_grupo_id int [not null, ref: > ml__regiones_grupo.region_grupo_id]
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (empresa_id, vigente_hasta)
+  }
 }
 
 Table ml__empresas_nombres {
   empresa_nombre_id int [pk, increment]
-  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
   razon_social varchar(200) [not null]
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Un cambio de razon social es la misma empresa; el nombre anterior queda con sus fechas.'
+  indexes {
+    (empresa_id, vigente_hasta)
+  }
 }
 
 Table ml__empresas_eventos_tipos {
   empresa_evento_tipo_id int [pk, increment]
   codigo varchar(30) [not null, unique, note: 'INGRESO, SALIDA, FUSION, ESCISION']
   nombre varchar(100) [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__empresas_eventos {
   empresa_evento_id int [pk, increment]
   empresa_evento_tipo_id int [not null, ref: > ml__empresas_eventos_tipos.empresa_evento_tipo_id]
-  empresa_origen_id int [not null, ref: > conf__empresas.empresa_id]
-  empresa_destino_id int [ref: > conf__empresas.empresa_id, note: 'Absorbente en una fusion; empresa nueva en una escision']
+  empresa_origen_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  empresa_destino_id "smallint unsigned" [ref: > conf__empresas.empresa_id, note: 'Absorbente en una fusion; empresa nueva en una escision']
   fecha date [not null]
   observaciones text
-  registrado_por int [ref: > conf__usuarios.usuario_id]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__territorios_tipos {
   territorio_tipo_id int [pk, increment]
   codigo varchar(30) [not null, unique, note: 'MUNDO, REGION, SUBREGION, PAIS, PROVINCIA, ESTADO, LOCALIDAD']
   nombre varchar(100) [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__territorios {
@@ -103,7 +182,11 @@ Table ml__territorios {
   codigo varchar(50)
   nombre varchar(150) [not null]
   huso_horario varchar(64) [note: 'Zona horaria con que se miden los plazos. Se define en el pais.']
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Arbol de profundidad libre. La jerarquia vive en ml__territorios_pertenencias.'
 }
 
@@ -114,7 +197,15 @@ Table ml__territorios_pertenencias {
   es_principal boolean [not null, default: false, note: 'Una sola principal vigente por nodo: es la que consolida reportes']
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Un pais puede pertenecer a varias regiones o subregiones. Todas aplican normas; una consolida.'
+  indexes {
+    (territorio_id, vigente_hasta)
+    (territorio_superior_id, vigente_hasta)
+  }
 }
 
 Table ml__feriados {
@@ -122,20 +213,35 @@ Table ml__feriados {
   territorio_id int [not null, ref: > ml__territorios.territorio_id, note: 'Pais, o nodo local para un ajuste']
   fecha date [not null]
   nombre varchar(150) [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Calendario por pais con ajuste local. Mueve vencimientos.'
+  indexes {
+    (territorio_id, fecha) [unique]
+  }
 }
 
 Table ml__entidades_tipos {
   entidad_tipo_id int [pk, increment]
   grupo_id int [not null, ref: > ml__grupos.grupo_id]
-  empresa_id int [ref: > conf__empresas.empresa_id, note: 'Null = catalogo base del grupo; con valor = tipo propio de la empresa']
+  empresa_id "smallint unsigned" [ref: > conf__empresas.empresa_id, note: 'Null = catalogo base del grupo; con valor = tipo propio de la empresa']
   codigo varchar(50) [not null]
   nombre varchar(150) [not null]
   es_fisica boolean [not null, default: true]
   es_logica boolean [not null, default: false]
   es_movil boolean [not null, default: false]
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'El tipo EMPRESA es el de la entidad raiz de cada empresa.'
+  indexes {
+    (grupo_id, empresa_id, codigo)
+  }
 }
 
 Table ml__entidades {
@@ -148,17 +254,33 @@ Table ml__entidades {
   es_raiz boolean [not null, default: false, note: 'Entidad logica que representa a una empresa']
   vigente_desde date [not null]
   vigente_hasta date
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    codigo
+    entidad_padre_id
+  }
 }
 
 Table ml__entidades_empresas {
   entidad_empresa_id int [pk, increment]
   entidad_id int [not null, ref: > ml__entidades.entidad_id]
-  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
   es_titular boolean [not null, default: true, note: 'Una sola titular vigente; las demas la ven vinculada en solo lectura']
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Pertenencia de una entidad a una o mas empresas. Un traspaso cierra y abre filas.'
+  indexes {
+    (entidad_id, vigente_hasta)
+    (empresa_id, vigente_hasta)
+  }
 }
 
 Table ml__entidades_ubicaciones {
@@ -168,6 +290,14 @@ Table ml__entidades_ubicaciones {
   es_base boolean [not null, default: true, note: 'Base de la entidad; las demas filas son paises de operacion de una entidad movil']
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (entidad_id, es_base, vigente_hasta)
+    (territorio_id, vigente_hasta)
+  }
 }
 
 Table ml__datos_tipos {
@@ -175,6 +305,11 @@ Table ml__datos_tipos {
   codigo varchar(50) [not null, unique, note: 'EMPLEADOS, FACTURACION, TERMINACION_ID_FISCAL, VENCIMIENTO_PERMISO, etc.']
   nombre varchar(150) [not null]
   tipo_valor varchar(10) [not null, note: 'NUMERO, TEXTO o FECHA']
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__entidades_datos {
@@ -186,8 +321,14 @@ Table ml__entidades_datos {
   valor_fecha date
   vigente_desde date [not null]
   vigente_hasta date
-  cargado_por int [ref: > conf__usuarios.usuario_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Alimenta las condiciones de aplicabilidad y las reglas de vencimiento por dato o por fecha propia.'
+  indexes {
+    (entidad_id, dato_tipo_id, vigente_hasta)
+  }
 }
 
 // =====================================================================
@@ -198,30 +339,45 @@ Table ml__ambitos_tipos {
   ambito_tipo_id int [pk, increment]
   codigo varchar(30) [not null, unique, note: 'GRUPO, REGION_GRUPO, EMPRESA, TERRITORIO']
   nombre varchar(100) [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__usuarios_ambitos {
   usuario_ambito_id int [pk, increment]
   usuario_id int [not null, ref: > conf__usuarios.usuario_id]
-  perfil_id int [not null, ref: > conf__perfiles.perfil_id]
+  empresa_perfil_id "int unsigned" [not null, ref: > conf__empresas_perfiles.empresa_perfil_id]
   ambito_tipo_id int [not null, ref: > ml__ambitos_tipos.ambito_tipo_id]
   grupo_id int [ref: > ml__grupos.grupo_id]
   region_grupo_id int [ref: > ml__regiones_grupo.region_grupo_id]
-  empresa_id int [ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [ref: > conf__empresas.empresa_id]
   territorio_id int [ref: > ml__territorios.territorio_id, note: 'Cubre la region geografica']
   vigente_desde date [not null]
   vigente_hasta date
-  Note: 'Una persona puede tener varios ambitos a la vez, cada uno con su perfil y sus fechas.'
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  Note: 'Agrega el ambito a un perfil efectivo (conf__empresas_perfiles). Una persona puede tener varios ambitos a la vez, cada uno con su perfil y sus fechas.'
+  indexes {
+    (usuario_id, vigente_hasta)
+  }
 }
 
 Table ml__delegaciones {
   delegacion_id int [pk, increment]
   usuario_id int [not null, ref: > conf__usuarios.usuario_id, note: 'Quien delega']
   usuario_suplente_id int [not null, ref: > conf__usuarios.usuario_id]
-  perfil_id int [ref: > conf__perfiles.perfil_id, note: 'Null = todos sus perfiles']
+  empresa_perfil_id "int unsigned" [ref: > conf__empresas_perfiles.empresa_perfil_id, note: 'Null = todos sus perfiles']
   motivo varchar(255)
   vigente_desde date [not null]
   vigente_hasta date [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__opciones {
@@ -229,6 +385,10 @@ Table ml__opciones {
   codigo varchar(50) [not null, unique]
   nombre varchar(150) [not null]
   nivel varchar(20) [not null, note: 'GRUPO, OBLIGACION o DEPENDENCIA']
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Diez opciones configurables. Las de nivel GRUPO se guardan en ml__configuracion_grupo; las de OBLIGACION y DEPENDENCIA, en sus propias tablas.'
 }
 
@@ -238,6 +398,13 @@ Table ml__opciones_valores {
   codigo varchar(50) [not null]
   nombre varchar(200) [not null]
   es_defecto boolean [not null, default: false]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (opcion_id, codigo) [unique]
+  }
 }
 
 Table ml__configuracion_grupo {
@@ -247,14 +414,24 @@ Table ml__configuracion_grupo {
   opcion_valor_id int [not null, ref: > ml__opciones_valores.opcion_valor_id]
   vigente_desde date [not null]
   vigente_hasta date
-  definido_por int [ref: > conf__usuarios.usuario_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'La define el equipo corporativo. Cada cambio lleva fecha, aplica a lo futuro y queda en el registro de cambios.'
+  indexes {
+    (grupo_id, opcion_id, vigente_hasta)
+  }
 }
 
 Table ml__raci_roles {
   raci_rol_id int [pk, increment]
   codigo varchar(1) [not null, unique, note: 'R responsable, A aprobador, C consultado, I informado']
   nombre varchar(100) [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 // =====================================================================
@@ -265,6 +442,11 @@ Table ml__organismos {
   organismo_id int [pk, increment]
   nombre varchar(200) [not null]
   territorio_id int [ref: > ml__territorios.territorio_id]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__normas_tipos {
@@ -273,6 +455,11 @@ Table ml__normas_tipos {
   nombre varchar(100) [not null]
   es_legal boolean [not null, default: false, note: 'Si es legal, una excepcion exige fundamento y aprobacion del area legal']
   genera_obligaciones boolean [not null, default: true]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Los mantiene solo el grupo. Los procedimientos internos NO son un tipo de norma.'
 }
 
@@ -280,6 +467,11 @@ Table ml__normas_jerarquias {
   norma_jerarquia_id int [pk, increment]
   nombre varchar(100) [not null]
   nivel int [not null, note: 'Menor numero = mayor jerarquia. Se usa si el grupo elige resolver solapamientos por jerarquia']
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__normas {
@@ -296,14 +488,22 @@ Table ml__normas {
   ambito_tipo_id int [not null, ref: > ml__ambitos_tipos.ambito_tipo_id]
   grupo_id int [ref: > ml__grupos.grupo_id]
   region_grupo_id int [ref: > ml__regiones_grupo.region_grupo_id]
-  empresa_id int [ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [ref: > conf__empresas.empresa_id]
   territorio_id int [ref: > ml__territorios.territorio_id]
   requiere_norma_local boolean [not null, default: false, note: 'Si es true, sus obligaciones se activan al vincular la norma local']
   confidencial boolean [not null, default: false]
   vigente_desde date [not null]
   vigente_hasta date
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'El ambito se declara una vez y se hereda. Ninguna norma se asigna entidad por entidad.'
+  indexes {
+    codigo
+    (ambito_tipo_id, territorio_id)
+  }
 }
 
 Table ml__normas_versiones {
@@ -317,14 +517,26 @@ Table ml__normas_versiones {
   confidencial boolean [not null, default: false]
   vigente_desde date [not null]
   vigente_hasta date
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Una modificacion crea una version nueva sobre la misma norma. Los ciclos conservan la version con la que nacieron.'
+  indexes {
+    (norma_id, version) [unique]
+  }
 }
 
 Table ml__normas_relaciones_tipos {
   norma_relacion_tipo_id int [pk, increment]
   codigo varchar(30) [not null, unique, note: 'MODIFICA, REGLAMENTA, DEROGA, COMPLEMENTA, REEMPLAZA, DERIVA_DE, VERIFICA']
   nombre varchar(100) [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__normas_relaciones {
@@ -335,6 +547,10 @@ Table ml__normas_relaciones {
   descripcion text
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__normas_conflictos {
@@ -346,19 +562,27 @@ Table ml__normas_conflictos {
   decision text
   decidido_por int [ref: > conf__usuarios.usuario_id]
   decidido_en datetime
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Normas incompatibles: se marca el conflicto, se escala al area legal y su decision queda registrada.'
 }
 
 Table ml__procedimientos {
   procedimiento_id int [pk, increment]
-  empresa_id int [ref: > conf__empresas.empresa_id, note: 'Null = procedimiento del grupo']
+  empresa_id "smallint unsigned" [ref: > conf__empresas.empresa_id, note: 'Null = procedimiento del grupo']
   norma_id int [ref: > ml__normas.norma_id, note: 'Politica o norma a la que se vincula; no la genera']
   codigo varchar(80) [not null]
   nombre varchar(255) [not null]
   descripcion text
   confidencial boolean [not null, default: false]
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Soporte de las tareas. No es norma ni fuente de obligaciones.'
 }
 
@@ -373,7 +597,14 @@ Table ml__procedimientos_versiones {
   aprobado_en datetime
   vigente_desde date [not null]
   vigente_hasta date
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (procedimiento_id, version) [unique]
+  }
 }
 
 Table ml__procedimientos_instrucciones {
@@ -383,21 +614,35 @@ Table ml__procedimientos_instrucciones {
   titulo varchar(255) [not null]
   descripcion text
   es_obligatoria boolean [not null, default: true]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (procedimiento_version_id, orden) [unique]
+  }
 }
 
 Table ml__accesos_confidenciales {
   acceso_confidencial_id int [pk, increment]
   objeto_tabla varchar(64) [not null, note: 'ml__normas, ml__normas_versiones, ml__procedimientos o ml__evidencias']
   objeto_id int [not null]
-  perfil_id int [not null, ref: > conf__perfiles.perfil_id]
+  empresa_perfil_id "int unsigned" [not null, ref: > conf__empresas_perfiles.empresa_perfil_id]
   ambito_tipo_id int [not null, ref: > ml__ambitos_tipos.ambito_tipo_id]
   grupo_id int [ref: > ml__grupos.grupo_id]
   region_grupo_id int [ref: > ml__regiones_grupo.region_grupo_id]
-  empresa_id int [ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [ref: > conf__empresas.empresa_id]
   territorio_id int [ref: > ml__territorios.territorio_id]
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Quien puede ver un objeto confidencial. Referencia polimorfica por objeto_tabla y objeto_id.'
+  indexes {
+    (objeto_tabla, objeto_id)
+  }
 }
 
 Table ml__auditoria_accesos {
@@ -408,6 +653,9 @@ Table ml__auditoria_accesos {
   accedido_en datetime [not null]
   motivo varchar(255)
   Note: 'Registro del acceso de auditoria de la matriz a objetos confidenciales.'
+  indexes {
+    (objeto_tabla, objeto_id)
+  }
 }
 
 // =====================================================================
@@ -418,6 +666,11 @@ Table ml__criticidades {
   criticidad_id int [pk, increment]
   nombre varchar(50) [not null]
   peso int [not null, note: 'Se usa si el grupo pondera el indicador por criticidad']
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__periodicidades {
@@ -428,6 +681,11 @@ Table ml__periodicidades {
   intervalo_unidad varchar(10) [note: 'DIA, MES o ANIO']
   es_evento boolean [not null, default: false, note: 'Genera ciclo cuando un usuario con permiso registra el evento']
   fecha_fija_autoridad boolean [not null, default: false, note: 'La fecha la fija la autoridad']
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__vencimientos_reglas {
@@ -438,12 +696,17 @@ Table ml__vencimientos_reglas {
   dato_tipo_id int [ref: > ml__datos_tipos.dato_tipo_id, note: 'Dato que determina la fecha, si corresponde']
   desplazamiento_dias int [note: 'Por ejemplo -30 para renovar 30 dias antes']
   parametros text [note: 'JSON con el detalle: mapeo de valores, uso de feriados, etc.']
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__obligaciones {
   obligacion_id int [pk, increment]
   norma_id int [not null, ref: > ml__normas.norma_id]
-  empresa_id int [ref: > conf__empresas.empresa_id, note: 'Null = definida por la matriz; con valor = obligacion propia de la empresa']
+  empresa_id "smallint unsigned" [ref: > conf__empresas.empresa_id, note: 'Null = definida por la matriz; con valor = obligacion propia de la empresa']
   articulo_referencia varchar(100) [note: 'Referencia opcional al articulo']
   codigo varchar(80) [not null]
   descripcion text [not null]
@@ -455,8 +718,16 @@ Table ml__obligaciones {
   retencion_evidencias_meses int [note: 'Plazo de conservacion de evidencias']
   vigente_desde date [not null]
   vigente_hasta date
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Obligacion DEFINIDA. No se cierra por cumplimiento: termina por vigencia o derogacion.'
+  indexes {
+    (norma_id, codigo) [unique]
+    (norma_id, vigente_hasta)
+  }
 }
 
 Table ml__obligaciones_tipos_entidades {
@@ -466,6 +737,13 @@ Table ml__obligaciones_tipos_entidades {
   regla_json text [note: 'Condiciones adicionales: empleados, facturacion, tamano']
   vigente_desde date [not null, note: 'Permite vigencias graduales por tipo o tamano']
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (obligacion_id, entidad_tipo_id, vigente_desde)
+  }
 }
 
 Table ml__obligaciones_jurisdicciones {
@@ -474,6 +752,10 @@ Table ml__obligaciones_jurisdicciones {
   territorio_id int [not null, ref: > ml__territorios.territorio_id]
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Opcional: acota el alcance que ya da el ambito de la norma.'
 }
 
@@ -483,7 +765,14 @@ Table ml__obligaciones_dependencias {
   obligacion_predecesora_id int [not null, ref: > ml__obligaciones.obligacion_id]
   vigente_desde date [not null]
   vigente_hasta date
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'El ciclo de la dependiente no se activa hasta que el de la predecesora se cumple (logica Y).'
+  indexes {
+    (obligacion_id, obligacion_predecesora_id)
+  }
 }
 
 Table ml__obligaciones_alertas {
@@ -492,6 +781,10 @@ Table ml__obligaciones_alertas {
   dias_antes int [not null]
   destinatario varchar(20) [not null, note: 'RESPONSABLE o SUPERIOR']
   canal varchar(20) [not null, note: 'CORREO o SISTEMA']
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__tareas_plantillas {
@@ -503,16 +796,30 @@ Table ml__tareas_plantillas {
   offset_dias_inicio int
   offset_dias_vencimiento int
   procedimiento_id int [ref: > ml__procedimientos.procedimiento_id, note: 'Soporte que guia la tarea']
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Definicion de la tarea. Cada ciclo la instancia en ml__ciclos_tareas.'
+  indexes {
+    (obligacion_id, orden) [unique]
+  }
 }
 
 Table ml__tareas_plantillas_dependencias {
   tarea_plantilla_dependencia_id int [pk, increment]
   tarea_plantilla_id int [not null, ref: > ml__tareas_plantillas.tarea_plantilla_id]
   tarea_plantilla_predecesora_id int [not null, ref: > ml__tareas_plantillas.tarea_plantilla_id]
-  estado_activador_id int [not null, note: 'Estado de la predecesora que activa la tarea: cumplida (logica Y) o aprobada o rechazada (por resultado)']
+  estado_activador_id smallint [not null, note: 'Estado de la predecesora que activa la tarea: cumplida (logica Y) o aprobada o rechazada (por resultado)']
   obligatoria boolean [not null, default: true]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (tarea_plantilla_id, tarea_plantilla_predecesora_id) [unique]
+  }
 }
 
 // =====================================================================
@@ -523,13 +830,18 @@ Table ml__obligaciones_asignadas {
   obligacion_asignada_id int [pk, increment]
   obligacion_prevaleciente_id int [not null, ref: > ml__obligaciones.obligacion_id, note: 'Obligacion definida cuya exigencia rige tras consolidar solapamientos']
   entidad_id int [not null, ref: > ml__entidades.entidad_id]
-  empresa_id int [not null, ref: > conf__empresas.empresa_id, note: 'Empresa responsable en ese periodo; filtra la visibilidad']
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id, note: 'Empresa responsable en ese periodo; filtra la visibilidad']
   vigente_desde date [not null]
   vigente_hasta date
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Obligacion ASIGNADA a una entidad. De ella cuelgan los ciclos. Se crea por herencia, nunca a mano.'
   indexes {
     (entidad_id, obligacion_prevaleciente_id, vigente_desde)
+    (empresa_id, vigente_hasta)
   }
 }
 
@@ -537,6 +849,13 @@ Table ml__obligaciones_asignadas_origenes {
   obligacion_asignada_origen_id int [pk, increment]
   obligacion_asignada_id int [not null, ref: > ml__obligaciones_asignadas.obligacion_asignada_id]
   obligacion_id int [not null, ref: > ml__obligaciones.obligacion_id, note: 'Cada definicion que contribuye; se conserva para auditoria']
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (obligacion_asignada_id, obligacion_id) [unique]
+  }
 }
 
 Table ml__excepciones {
@@ -551,7 +870,16 @@ Table ml__excepciones {
   aprobada_en datetime
   vigente_desde date [not null]
   vigente_hasta date [not null, note: 'Toda excepcion vence; al vencer la obligacion vuelve a regir']
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (obligacion_asignada_id, vigente_hasta)
+    empresa_id
+  }
 }
 
 Table ml__recalculos_pendientes {
@@ -562,8 +890,11 @@ Table ml__recalculos_pendientes {
   fecha_efecto date [not null]
   creado_en datetime [not null]
   procesado_en datetime
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
   Note: 'Cola del motor: lo futuro se recalcula, lo pasado no se toca.'
+  indexes {
+    (tabla_estado_registro_id, fecha_efecto)
+  }
 }
 
 // =====================================================================
@@ -574,26 +905,37 @@ Table ml__ciclos_vinculos_tipos {
   ciclo_vinculo_tipo_id int [pk, increment]
   codigo varchar(30) [not null, unique, note: 'COMPLEMENTARIO, SEGUIMIENTO, RENOVACION']
   nombre varchar(100) [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__ciclos {
   ciclo_id int [pk, increment]
   obligacion_asignada_id int [not null, ref: > ml__obligaciones_asignadas.obligacion_asignada_id]
-  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
   entidad_id int [not null, ref: > ml__entidades.entidad_id]
   norma_version_id int [ref: > ml__normas_versiones.norma_version_id, note: 'Version con la que nacio el ciclo']
   ciclo_origen_id int [ref: > ml__ciclos.ciclo_id, note: 'Ciclo del que depende: el corregido, el auditado o el que se renueva']
   ciclo_vinculo_tipo_id int [ref: > ml__ciclos_vinculos_tipos.ciclo_vinculo_tipo_id]
   periodo_desde date [not null]
   periodo_hasta date [not null]
-  fecha_inicio date
-  fecha_vencimiento date [not null]
-  fecha_cierre date
+  fecha_inicio datetime
+  fecha_vencimiento datetime [not null, note: 'DATETIME en UTC; el huso horario esta en ml__territorios']
+  fecha_cierre datetime
   observaciones text
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Unidad auditable. No se edita historicamente: un error se corrige con un ciclo complementario.'
   indexes {
     (obligacion_asignada_id, periodo_desde)
+    (empresa_id, fecha_vencimiento)
+    entidad_id
+    ciclo_origen_id
   }
 }
 
@@ -610,16 +952,33 @@ Table ml__ciclos_tareas {
   fecha_inicio datetime
   fecha_vencimiento datetime
   fecha_cierre datetime
-  tabla_estado_registro_id int [not null, note: 'Incluye el estado inactiva: no hay una columna de activacion aparte']
+  tabla_estado_registro_id smallint [not null, note: 'Incluye el estado inactiva: no hay una columna de activacion aparte']
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'No existe sin ciclo. No hay subtareas.'
+  indexes {
+    ciclo_id
+    (empresa_id, tabla_estado_registro_id, fecha_vencimiento)
+  }
 }
 
 Table ml__ciclos_tareas_dependencias {
   ciclo_tarea_dependencia_id int [pk, increment]
   ciclo_tarea_id int [not null, ref: > ml__ciclos_tareas.ciclo_tarea_id]
   ciclo_tarea_predecesora_id int [not null, ref: > ml__ciclos_tareas.ciclo_tarea_id]
-  estado_activador_id int [not null, note: 'Resultado de la predecesora que activa la tarea']
+  estado_activador_id smallint [not null, note: 'Resultado de la predecesora que activa la tarea']
   obligatoria boolean [not null, default: true]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (ciclo_tarea_id, ciclo_tarea_predecesora_id) [unique]
+  }
 }
 
 Table ml__obligaciones_asignadas_raci {
@@ -629,6 +988,15 @@ Table ml__obligaciones_asignadas_raci {
   usuario_id int [not null, ref: > conf__usuarios.usuario_id]
   vigente_desde date [not null]
   vigente_hasta date
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (obligacion_asignada_id, raci_rol_id, usuario_id, vigente_desde) [unique]
+    (usuario_id, vigente_hasta)
+  }
 }
 
 Table ml__ciclos_raci {
@@ -638,6 +1006,15 @@ Table ml__ciclos_raci {
   usuario_id int [not null, ref: > conf__usuarios.usuario_id]
   vigente_desde date [not null]
   vigente_hasta date
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (ciclo_id, raci_rol_id, usuario_id, vigente_desde) [unique]
+    (usuario_id, vigente_hasta)
+  }
 }
 
 Table ml__ciclos_tareas_raci {
@@ -647,6 +1024,15 @@ Table ml__ciclos_tareas_raci {
   usuario_id int [not null, ref: > conf__usuarios.usuario_id]
   vigente_desde date [not null]
   vigente_hasta date
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (ciclo_tarea_id, raci_rol_id, usuario_id, vigente_desde) [unique]
+    (usuario_id, vigente_hasta)
+  }
 }
 
 Table ml__reasignaciones {
@@ -657,6 +1043,11 @@ Table ml__reasignaciones {
   motivo varchar(255)
   aplicada_por int [ref: > conf__usuarios.usuario_id]
   aplicada_en datetime
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Reasignacion en bloque de tareas. Hasta que se aplica, pasan al aprobador del RACI.'
 }
 
@@ -675,9 +1066,16 @@ Table ml__evidencias {
   valida_hasta date [note: 'Validez de la evidencia, como un certificado; avisa al acercarse']
   retener_hasta date [note: 'Segun el plazo de retencion de la obligacion']
   confidencial boolean [not null, default: false]
-  cargado_por int [ref: > conf__usuarios.usuario_id]
-  cargado_en datetime [not null]
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null, default: 1]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    ciclo_tarea_id
+    valida_hasta
+  }
 }
 
 Table ml__alertas {
@@ -689,7 +1087,16 @@ Table ml__alertas {
   canal varchar(20) [not null, note: 'CORREO o SISTEMA']
   programada_para datetime [not null]
   enviada_en datetime
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (programada_para, enviada_en)
+    usuario_id
+  }
 }
 
 Table ml__incidencias {
@@ -698,8 +1105,16 @@ Table ml__incidencias {
   descripcion text
   abierta_en datetime [not null]
   ciclo_seguimiento_id int [ref: > ml__ciclos.ciclo_id, note: 'Plan de accion como ciclo de seguimiento']
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  empresa_id "smallint unsigned" [not null, ref: > conf__empresas.empresa_id]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Se abre tras un vencimiento sin avance.'
+  indexes {
+    ciclo_id
+  }
 }
 
 Table ml__indicadores_cierres {
@@ -707,7 +1122,7 @@ Table ml__indicadores_cierres {
   grupo_id int [not null, ref: > ml__grupos.grupo_id]
   periodo_desde date [not null]
   periodo_hasta date [not null]
-  empresa_id int [ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [ref: > conf__empresas.empresa_id]
   region_grupo_id int [ref: > ml__regiones_grupo.region_grupo_id]
   territorio_id int [ref: > ml__territorios.territorio_id]
   ciclos_contados int [not null, note: 'Vencidos o cerrados del periodo, sin eximidos ni cancelados']
@@ -718,7 +1133,14 @@ Table ml__indicadores_cierres {
   por_vencer int [not null]
   ponderacion_opcion_valor_id int [ref: > ml__opciones_valores.opcion_valor_id, note: 'Ponderacion vigente al calcular: no se recalcula el pasado']
   calculado_en datetime [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Dos indicadores: a tiempo (a_tiempo / contados) y total ((a_tiempo + fuera_plazo) / contados). Consolidacion sumando ciclos.'
+  indexes {
+    (grupo_id, periodo_desde, periodo_hasta)
+  }
 }
 
 // =====================================================================
@@ -729,17 +1151,25 @@ Table ml__cargas_tipos {
   carga_tipo_id int [pk, increment]
   codigo varchar(30) [not null, unique, note: 'NORMAS, OBLIGACIONES, ENTIDADES']
   nombre varchar(100) [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__cargas {
   carga_id int [pk, increment]
   carga_tipo_id int [not null, ref: > ml__cargas_tipos.carga_tipo_id]
-  empresa_id int [ref: > conf__empresas.empresa_id]
+  empresa_id "smallint unsigned" [ref: > conf__empresas.empresa_id]
   archivo_ref varchar(500) [not null]
   validada_en datetime
   confirmada_por int [ref: > conf__usuarios.usuario_id]
   confirmada_en datetime
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Carga masiva por plantilla: validacion y vista previa antes de confirmar.'
 }
 
@@ -749,7 +1179,13 @@ Table ml__cargas_filas {
   nro_fila int [not null]
   contenido text
   errores text
-  tabla_estado_registro_id int [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
+  indexes {
+    (carga_id, nro_fila) [unique]
+  }
 }
 
 Table ml__cambios_masivos {
@@ -761,7 +1197,11 @@ Table ml__cambios_masivos {
   aprobado_por int [ref: > conf__usuarios.usuario_id]
   aprobado_en datetime
   aplicado_en datetime
-  tabla_estado_registro_id int [not null]
+  tabla_estado_registro_id smallint [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
 }
 
 Table ml__cambios_masivos_detalles {
@@ -770,7 +1210,14 @@ Table ml__cambios_masivos_detalles {
   entidad_id int [not null, ref: > ml__entidades.entidad_id]
   ciclos_afectados int [not null]
   tareas_afectadas int [not null]
+  creado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  creado_por int
+  actualizado_en timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  actualizado_por int
   Note: 'Vista previa del impacto: entidades, ciclos y tareas afectados.'
+  indexes {
+    cambio_masivo_id
+  }
 }
 
 // =====================================================================
@@ -787,6 +1234,10 @@ Table ml__log_cambios {
   usuario_id int [ref: > conf__usuarios.usuario_id]
   fecha datetime [not null]
   Note: 'Quien, cuando y que cambio en normas, obligaciones, reglas, perfiles y configuracion.'
+  indexes {
+    (tabla, registro_id)
+    fecha
+  }
 }
 
 // =====================================================================
@@ -794,18 +1245,23 @@ Table ml__log_cambios {
 // =====================================================================
 
 Table conf__empresas {
-  empresa_id int [pk]
-  Note: 'Existente. Verificar nombre y columnas contra la base real.'
+  empresa_id "smallint unsigned" [pk]
+  Note: 'Existente. PK smallint unsigned; tabla latin1. Las FK hacia ella deben usar este tipo.'
 }
 
 Table conf__usuarios {
   usuario_id int [pk]
-  Note: 'Existente. Verificar nombre y columnas contra la base real.'
+  Note: 'Existente. PK int con signo.'
 }
 
-Table conf__perfiles {
-  perfil_id int [pk]
-  Note: 'Existente. Los perfiles parten de los de la empresa titular; cada empresa puede crear los suyos.'
+Table conf__empresas_perfiles {
+  empresa_perfil_id "int unsigned" [pk]
+  Note: 'Existente. Perfil efectivo de una empresa (parte de conf__perfiles, el perfil base por modulo). Los permisos cuelgan de aqui.'
+}
+
+Table conf__estados_registros {
+  estado_registro_id "smallint unsigned" [pk]
+  Note: 'Existente. Catalogo generico de estados. tabla_estado_registro_id guarda este id (referencia logica, sin FK), igual que el resto del codigo.'
 }
 
 // =====================================================================
@@ -911,5 +1367,6 @@ TableGroup transversal {
 TableGroup existentes_gestion_multipyme {
   conf__empresas
   conf__usuarios
-  conf__perfiles
+  conf__empresas_perfiles
+  conf__estados_registros
 }

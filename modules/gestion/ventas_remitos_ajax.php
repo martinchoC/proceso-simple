@@ -135,6 +135,7 @@ try {
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
+                'consumidor_final_nombre' => trim($_POST['consumidor_final_nombre'] ?? ''),
                 'f_emision' => $_POST['f_emision'] ?? '',
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'detalles' => $detalles,
@@ -163,6 +164,7 @@ try {
                 'comprobante_tipo_id' => intval($_POST['comprobante_tipo_id'] ?? 0),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'entidad_sucursal_id' => intval($_POST['entidad_sucursal_id'] ?? 0),
+                'consumidor_final_nombre' => trim($_POST['consumidor_final_nombre'] ?? ''),
                 'f_emision' => $_POST['f_emision'] ?? '',
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'detalles' => $detalles,
@@ -223,18 +225,23 @@ try {
             }
             break;
 
+        // consumidor_final=1 (sin entidad_id): busca con la lista Mostrador, sin descuento.
         case 'buscar_productos_cliente':
             $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            $consumidor_final = intval($_GET['consumidor_final'] ?? 0) === 1;
             $q = $_GET['q'] ?? '';
             $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
 
-            if (empty($entidad_id)) {
+            if (empty($entidad_id) && !$consumidor_final) {
                 echo json_encode(['error' => null, 'productos' => []], JSON_UNESCAPED_UNICODE);
                 break;
             }
+            if ($consumidor_final) {
+                $entidad_id = 0;
+            }
 
-            $condicion_comercial = obtenerListaPrecioVigenteClienteRemitos($conexion, $entidad_id);
-            if (!$condicion_comercial || empty($condicion_comercial['lista_precio_id'])) {
+            $condicion_comercial = obtenerCondicionPrecioRemito($conexion, $empresa_idx_local, $entidad_id);
+            if (!$condicion_comercial) {
                 echo json_encode(['error' => 'sin_lista_precios', 'productos' => []], JSON_UNESCAPED_UNICODE);
                 break;
             }

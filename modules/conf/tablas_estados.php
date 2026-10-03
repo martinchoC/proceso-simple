@@ -52,7 +52,27 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     font-size: 0.75em;
     margin-left: 5px;
 }
+
+/* Vista jerárquica de tablas agrupadas */
+tr.grupo-header td, tr.dtrg-group td {
+    background-color: #f1f3f5 !important;
+    color: #212529 !important;
+    font-weight: 600;
+    cursor: pointer;
+    border-top: 2px solid #dee2e6;
+    user-select: none;
+    padding: 0.65rem 0.85rem;
+}
+tr.grupo-header:hover td, tr.dtrg-group:hover td {
+    background-color: #e2e6ea !important;
+}
+.icono-colapso {
+    width: 14px;
+    display: inline-block;
+    transition: transform 0.15s ease-in-out;
+}
 </style>
+<link rel="stylesheet" href="https://cdn.datatables.net/rowgroup/1.4.1/css/rowGroup.dataTables.min.css">
 
 <main class="app-main">
     <!--begin::App Content Header-->
@@ -88,8 +108,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="col-12">
                             <div class="card">                                
                                 <div class="card-body">
-                                    <button class="btn btn-primary mb-3" id="btnNuevo">Nuevo Estado</button>
-                                    <table id="tablaEstados" class="table table-striped table-bordered">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                        <div>
+                                            <button class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-1"></i> Nuevo Estado</button>
+                                            <button class="btn btn-outline-secondary ms-2" id="btnExpandirTodos" type="button" title="Desplegar todas las tablas">
+                                                <i class="fas fa-expand-alt me-1"></i> Desplegar todas
+                                            </button>
+                                            <button class="btn btn-outline-secondary ms-1" id="btnColapsarTodos" type="button" title="Plegar todas las tablas">
+                                                <i class="fas fa-compress-alt me-1"></i> Plegar todas
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <table id="tablaEstados" class="table table-striped table-bordered w-100">
                                         <thead>
                                             <tr>
                                                 <th>ID</th>
@@ -185,6 +215,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
   </div>
 </div>
 
+<script src="https://cdn.datatables.net/rowgroup/1.4.1/js/dataTables.rowGroup.min.js"></script>
 <script>
 // Mapa de colores Bootstrap
 const bootstrapColors = {
@@ -347,11 +378,89 @@ $(document).ready(function(){
         }
     });
     
+    // Estado de grupos expandidos (inicia vacío para que arranquen agrupadas y colapsadas)
+    var gruposExpandidos = new Set();
+
+    function aplicarColapsoGrupos() {
+        // 1. Actualizar iconos de cabeceras según gruposExpandidos
+        $('#tablaEstados tbody tr.dtrg-group, #tablaEstados tbody tr.grupo-header').each(function () {
+            var $tr = $(this);
+            var tablaNombre = $tr.attr('data-tabla-nombre');
+            if (!tablaNombre) {
+                tablaNombre = $tr.find('strong').text().trim();
+                if (tablaNombre) {
+                    $tr.attr('data-tabla-nombre', tablaNombre);
+                }
+            }
+
+            var expandida = Boolean(tablaNombre && gruposExpandidos.has(tablaNombre));
+            $tr.find('.icono-colapso')
+                .toggleClass('fa-chevron-down', expandida)
+                .toggleClass('fa-chevron-right', !expandida);
+        });
+
+        // 2. Mostrar u ocultar filas de datos según su propia tabla
+        $('#tablaEstados tbody tr').each(function () {
+            var $tr = $(this);
+            if ($tr.hasClass('dtrg-group') || $tr.hasClass('grupo-header')) {
+                $tr.show();
+                return;
+            }
+
+            var tablaNombre = $tr.attr('data-tabla-nombre');
+            if (!tablaNombre && tabla) {
+                try {
+                    var rowData = tabla.row($tr).data();
+                    if (rowData && rowData.tabla_nombre) {
+                        tablaNombre = rowData.tabla_nombre;
+                        $tr.attr('data-tabla-nombre', tablaNombre);
+                    }
+                } catch (e) {}
+            }
+
+            if (tablaNombre && gruposExpandidos.has(tablaNombre)) {
+                $tr.show();
+            } else {
+                $tr.hide();
+            }
+        });
+    }
+
     // Configuración de DataTable
     var tabla = $('#tablaEstados').DataTable({
-        pageLength: 25,
-        lengthMenu: [25, 50, 100, 200],
+        pageLength: 50,
+        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "Todas"]],
         dom: '<"row"<"col-md-6"l><"col-md-6"fB>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
+        orderFixed: {
+            pre: [[1, 'asc'], [6, 'asc']]
+        },
+        order: [[6, 'asc']],
+        createdRow: function (row, data, dataIndex) {
+            if (data && data.tabla_nombre) {
+                $(row).attr('data-tabla-nombre', data.tabla_nombre);
+            }
+        },
+        rowGroup: {
+            className: 'grupo-header',
+            dataSrc: 'tabla_nombre',
+            startRender: function (rows, group) {
+                var groupName = group || 'Sin tabla';
+                var tr = document.createElement('tr');
+                tr.className = 'grupo-header dtrg-group dtrg-start';
+                tr.setAttribute('data-tabla-nombre', groupName);
+                tr.style.cursor = 'pointer';
+
+                var td = document.createElement('td');
+                td.colSpan = 8;
+                td.innerHTML = '<i class="fas fa-chevron-right icono-colapso me-2 text-secondary"></i>' +
+                               '<i class="fas fa-table me-2 text-primary"></i>' +
+                               '<strong>' + groupName + '</strong>' +
+                               '<span class="badge bg-secondary ms-2">' + rows.count() + ' estados</span>';
+
+                tr.appendChild(td);
+                return tr;
+            }
+        },
         buttons: [
             {
                 extend: 'excelHtml5',
@@ -359,7 +468,7 @@ $(document).ready(function(){
                 titleAttr: 'Exportar a Excel',
                 className: 'btn btn-success btn-sm me-2',
                 exportOptions: {
-                    columns: ':visible'
+                    columns: [0, 1, 2, 3, 4, 5, 6, 7]
                 }
             },
             {
@@ -370,7 +479,7 @@ $(document).ready(function(){
                 orientation: 'landscape',
                 pageSize: 'A4',
                 exportOptions: {
-                    columns: ':visible'
+                    columns: [0, 1, 2, 3, 4, 5, 6, 7]
                 }
             }
         ],
@@ -413,6 +522,7 @@ $(document).ready(function(){
             { data: 'tabla_estado_registro_id' },
             { 
                 data: 'tabla_nombre',
+                visible: false,
                 render: function(data) {
                     return data || '<span class="text-muted">-</span>';
                 }
@@ -484,7 +594,40 @@ $(document).ready(function(){
                   `;
                 }
             }
-        ]
+        ],
+        drawCallback: function() {
+            aplicarColapsoGrupos();
+        }
+    });
+
+    // Click en la cabecera del grupo para alternar despliegue / colapso
+    $(document).on('click', '#tablaEstados tbody tr.grupo-header, #tablaEstados tbody tr.dtrg-group', function (e) {
+        if ($(e.target).closest('button, a, input, select').length) return;
+        var tablaNombre = $(this).attr('data-tabla-nombre') || $(this).find('strong').text().trim();
+        if (!tablaNombre) return;
+
+        if (gruposExpandidos.has(tablaNombre)) {
+            gruposExpandidos.delete(tablaNombre);
+        } else {
+            gruposExpandidos.add(tablaNombre);
+        }
+        aplicarColapsoGrupos();
+    });
+
+    // Botones para expandir y colapsar todos
+    $('#btnExpandirTodos').on('click', function () {
+        $('#tablaEstados tbody tr.grupo-header, #tablaEstados tbody tr.dtrg-group').each(function () {
+            var tablaNombre = $(this).attr('data-tabla-nombre') || $(this).find('strong').text().trim();
+            if (tablaNombre) {
+                gruposExpandidos.add(tablaNombre);
+            }
+        });
+        aplicarColapsoGrupos();
+    });
+
+    $('#btnColapsarTodos').on('click', function () {
+        gruposExpandidos.clear();
+        aplicarColapsoGrupos();
     });
 
    $('#btnNuevo').click(function(){

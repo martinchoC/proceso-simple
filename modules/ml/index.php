@@ -1,7 +1,8 @@
 <?php
 
-$pageTitle = "Gestión de Multiempresa";
-$modudo_idx = 2;
+$pageTitle = "Matriz Legal y Corporativa";
+$modudo_idx = 3;
+$pagina_idx = 64;
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 

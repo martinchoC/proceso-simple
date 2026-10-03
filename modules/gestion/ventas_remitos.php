@@ -197,6 +197,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                 </select>
                                                                 <div class="invalid-feedback small">Seleccione cliente o sucursal</div>
                                                             </div>
+                                                            <!-- Solo con "Consumidor Final" elegido en el combo (precio de mostrador, sin cliente) -->
+                                                            <div class="col-md-12" id="grupo_consumidor_final_nombre" style="display: none;">
+                                                                <label for="consumidor_final_nombre" class="form-label fw-bold small">Nombre del consumidor final *</label>
+                                                                <input type="text" class="form-control form-control-sm" id="consumidor_final_nombre" name="consumidor_final_nombre" maxlength="150" placeholder="Nombre y apellido / referencia">
+                                                                <div class="invalid-feedback small">Indique el nombre del consumidor final</div>
+                                                            </div>
                                                         </div>
                                                     </div>
 

@@ -17,11 +17,24 @@ $(function () {
     // venta_remito_id a preseleccionar (cantidad = pendiente) apenas se rendericen sus líneas —
     // usado por el deep-link ?remito_id= que manda ventas_remitos.php. Se consume una sola vez.
     var remitoParaAutoFacturar = null;
+    function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
+    // Consumidor final: opción "CF" del combo de cliente. Hacia el servidor viaja como
+    // entidad_id = 0 en las consultas (condición, remitos pendientes, productos) y como
+    // entidad_id vacío + consumidor_final_nombre al guardar.
+    function esConsumidorFinal() { return $('#factura_entidad_id').val() === 'CF'; }
+    function entidadIdConsulta() { return esConsumidorFinal() ? 0 : $('#factura_entidad_id').val(); }
+    function mostrarCampoConsumidorFinal(mostrar) {
+        $('#grupo_factura_consumidor_final').toggle(mostrar);
+        if (!mostrar) $('#factura_consumidor_final_nombre').val('');
+    }
     var tabla = $('#tablaFacturasCliente').DataTable({
         ajax: { url: 'ventas_facturas_ajax.php', data: { accion: 'listar', empresa_idx: EMPRESA_ID, pagina_idx: PAGINA_ID }, dataSrc: '' },
         columns: [
             { data: 'comprobante_nro', className: 'text-center' },
-            { data: null, render: function (d) { return (d.entidad_nombre || '') + (d.entidad_fantasia ? '<small class="d-block text-muted">' + d.entidad_fantasia + '</small>' : ''); } },
+            { data: null, render: function (d) {
+                if (!d.entidad_id) return esc(d.consumidor_final_nombre || '') + '<small class="d-block text-muted"><i class="fas fa-user me-1"></i>Consumidor Final</small>';
+                return (d.entidad_nombre || '') + (d.entidad_fantasia ? '<small class="d-block text-muted">' + d.entidad_fantasia + '</small>' : '');
+            } },
             { data: 'comprobante_tipo' }, { data: 'f_emision' }, { data: 'condicion_pago' },
             { data: 'importe_total', className: 'text-end', render: function (d) { return '$' + Number(d || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 }); } },
             { data: 'estado_registro' },
@@ -59,7 +72,7 @@ $(function () {
 
     function cargarClientes(cb) {
         $.getJSON('ventas_facturas_ajax.php', { accion: 'clientes', empresa_idx: EMPRESA_ID }, function (rows) {
-            var html = '<option value="">Seleccionar cliente</option>';
+            var html = '<option value="">Seleccionar cliente</option>' + '<option value="CF" data-sucursal-id="">Consumidor Final (precio de mostrador)</option>';
             (rows || []).forEach(function (r) {
                 var texto = r.entidad_nombre + (r.entidad_fantasia ? ' - ' + r.entidad_fantasia : '') + (r.sucursal_nombre ? ' / ' + r.sucursal_nombre : ' / Sin Sucursal');
                 html += '<option value="' + r.entidad_id + '" data-sucursal-id="' + (r.entidad_sucursal_id || '') + '">' + texto + '</option>';
@@ -124,7 +137,9 @@ $(function () {
     function mostrarCondicionCliente(c) {
         descuentoGeneralCliente = parseFloat(c && c.cliente_descuento_general) || 0;
         $('#factura_producto_descuento_pct').val(descuentoGeneralCliente.toFixed(2));
+        if (!c && esConsumidorFinal()) { $('#condicionClienteInfo').text('La empresa no tiene activa la lista de precios "Mostrador" (código MOST), que es la que se aplica a consumidores finales.'); return; }
         if (!c) { $('#condicionClienteInfo').text('El cliente no tiene condiciones comerciales vigentes.'); return; }
+        if (c.es_consumidor_final) { $('#condicionClienteInfo').html('<strong>Consumidor Final:</strong> precio de mostrador (' + esc(c.lista_precio_nombre || '-') + '), sin descuento, ' + esc(c.condicion_pago || 'contado') + '.'); return; }
         $('#condicionClienteInfo').html('<strong>Lista De Precios:</strong> ' + (c.lista_precio_nombre || '-') + ' &nbsp; <strong>Descuento:</strong> ' + descuentoGeneralCliente + '%');
     }
     function cargarCliente() {
@@ -132,8 +147,9 @@ $(function () {
         var sucursalClienteId = $('#factura_entidad_id option:selected').data('sucursal-id') || 0;
         detalles = []; renderDetalle();
         sincronizarVencimiento();
+        $('#grupo_factura_consumidor_final').toggle(id === 'CF');
         if (!id) { descuentoGeneralCliente = 0; $('#condicionClienteInfo').text('Seleccione un cliente para cargar sus condiciones comerciales.'); return; }
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'condicion_cliente', entidad_id: id, empresa_idx: EMPRESA_ID }, function (c) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'condicion_cliente', entidad_id: entidadIdConsulta(), empresa_idx: EMPRESA_ID }, function (c) {
             mostrarCondicionCliente(c);
             if (!c) return;
             $('#factura_condicion_pago_id').html('<option value="' + c.condicion_pago_id + '">' + (c.condicion_pago || 'Sin condición') + '</option>');
@@ -141,7 +157,7 @@ $(function () {
             if (fecha) { var f = new Date(fecha + 'T00:00:00'); f.setDate(f.getDate() + dias); $('#factura_f_vto').val(f.toISOString().slice(0, 10)); }
         });
         $('#factura_entidad_sucursal_id').val(sucursalClienteId);
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: EMPRESA_ID, entidad_id: id, entidad_sucursal_id: sucursalClienteId, excluir_factura_id: facturaEditId || 0 }, renderRemitos);
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: EMPRESA_ID, entidad_id: entidadIdConsulta(), entidad_sucursal_id: sucursalClienteId, excluir_factura_id: facturaEditId || 0 }, renderRemitos);
     }
     // Siempre arma la tabla completa (con <tbody>), aunque no haya remitos pendientes: si se
     // reemplaza el contenedor por un simple <div> de texto en ese caso, cualquier agregado
@@ -190,7 +206,8 @@ $(function () {
         var descuento = precio * descuentoPct / 100;
         var neto = parseFloat(item.precio_unitario_neto) || Math.max(0, precio - descuento);
         var valorInicial = cantidadPropia > 0 ? cantidadPropia.toFixed(2) : '0.00';
-        return '<tr><td>' + (manual ? '-' : (item.comprobante_nro || '-')) + '</td><td>' + (item.producto_codigo || item.producto_id) + '</td><td>' + (item.producto_nombre || 'Producto manual') + (manual ? ' <small class="text-muted">(Manual)</small>' : '') + '</td><td class="text-end cantidad-pendiente">' + (manual ? '-' : cantidadPendiente.toFixed(2)) + '</td><td class="text-end"><div class="factura-cantidad-stepper"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-menos" tabindex="-1">&minus;</button><input type="number" class="form-control form-control-sm factura-cantidad no-spinner" data-key="' + key + '" data-remito-detalle-id="' + (manual ? '' : item.venta_remito_detalle_id) + '" data-producto-id="' + item.producto_id + '" data-pedido-detalle-id="' + (item.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + descuentoPct + '" data-precio-neto="' + neto + '" data-iva-id="' + (item.iva_alicuota_id || 1) + '" data-iva="' + (item.iva_porcentaje || 0) + '" value="' + valorInicial + '" min="0" max="' + cantidadMax + '" step="1"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-mas" tabindex="-1">+</button></div></td><td class="text-end">$' + moneda(precio) + '</td><td class="text-end">$' + moneda(descuento) + '</td><td class="text-end">$' + moneda(neto) + '</td><td class="text-end fw-bold total-neto-renglon">$0.00</td></tr>';
+        var nroRemito = manual ? '-' : (item.comprobante_nro || '-') + (item.consumidor_final_nombre ? '<small class="d-block text-muted">' + esc(item.consumidor_final_nombre) + '</small>' : '');
+        return '<tr><td>' + nroRemito + '</td><td>' + (item.producto_codigo || item.producto_id) + '</td><td>' + (item.producto_nombre || 'Producto manual') + (manual ? ' <small class="text-muted">(Manual)</small>' : '') + '</td><td class="text-end cantidad-pendiente">' + (manual ? '-' : cantidadPendiente.toFixed(2)) + '</td><td class="text-end"><div class="factura-cantidad-stepper"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-menos" tabindex="-1">&minus;</button><input type="number" class="form-control form-control-sm factura-cantidad no-spinner" data-key="' + key + '" data-remito-detalle-id="' + (manual ? '' : item.venta_remito_detalle_id) + '" data-producto-id="' + item.producto_id + '" data-pedido-detalle-id="' + (item.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + descuentoPct + '" data-precio-neto="' + neto + '" data-iva-id="' + (item.iva_alicuota_id || 1) + '" data-iva="' + (item.iva_porcentaje || 0) + '" value="' + valorInicial + '" min="0" max="' + cantidadMax + '" step="1"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-mas" tabindex="-1">+</button></div></td><td class="text-end">$' + moneda(precio) + '</td><td class="text-end">$' + moneda(descuento) + '</td><td class="text-end">$' + moneda(neto) + '</td><td class="text-end fw-bold total-neto-renglon">$0.00</td></tr>';
     }
     // Única fuente de verdad de qué entra a la factura: la cantidad tipeada. Cantidad > 0 =
     // la línea se agrega/actualiza en `detalles`; 0 = se saca. Sin click de checkbox de por medio.
@@ -251,7 +268,7 @@ $(function () {
         actualizarVisibilidadRemitos();
     }
     $('#factura_f_emision').val(new Date().toISOString().slice(0, 10));
-    $('#factura_entidad_id').on('change', cargarCliente);
+    $('#factura_entidad_id').on('change', function () { mostrarCampoConsumidorFinal(esConsumidorFinal()); cargarCliente(); });
     $('#factura_f_emision').on('change', cargarCliente);
     $('#factura_punto_venta_id').on('change', cargarTiposPorPuntoVenta);
     var indiceActivoProducto = -1;
@@ -270,7 +287,7 @@ $(function () {
     $('#factura_producto_busqueda').on('input', function () {
         indiceActivoProducto = -1;
         var input = this, q = this.value, id = $('#factura_entidad_id').val(); if (q.length < 2 || !id) return $('#factura_productos_resultados').empty();
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'buscar_productos', empresa_idx: EMPRESA_ID, entidad_id: id, q: q }, function (rows) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'buscar_productos', empresa_idx: EMPRESA_ID, entidad_id: entidadIdConsulta(), q: q }, function (rows) {
             // Se dispara una búsqueda por tecla: si llega tarde la respuesta de un texto
             // anterior, se descarta para no pisar los resultados del texto actual.
             if (input.value !== q) return;
@@ -357,6 +374,7 @@ $(function () {
         habilitarFormulario(true);
         $('#modalFacturaCliente .modal-title').html('<i class="fas fa-file-invoice-dollar me-2"></i>Nueva Factura De Cliente');
         $('#formFacturaCliente')[0].reset();
+        mostrarCampoConsumidorFinal(false);
         $('#factura_f_emision').val(new Date().toISOString().slice(0, 10));
         sincronizarVencimiento();
         descuentoGeneralCliente = 0;
@@ -366,6 +384,13 @@ $(function () {
         $('#modalFacturaAccionesExtra').empty();
         detalles = []; renderDetalle();
         cargarPuntosVenta();
+        if (document.getElementById('tab-factura-btn')) {
+            bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-factura-btn')).show();
+        }
+        $('#badgeAsientoEstado').addClass('d-none');
+        $('#contenedorAsientoDetalle').hide();
+        $('#contenedorAsientoVacio').show();
+        $('#btnGenerarAsientoManual').hide();
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFacturaCliente')).show();
     }
     $('#btnNuevaFactura').on('click', function () {
@@ -386,6 +411,13 @@ $(function () {
             abrirFacturaNueva();
             remitoParaAutoFacturar = info.venta_remito_id;
             cargarClientes(function () {
+                if (!info.entidad_id) {
+                    $('#factura_entidad_id').val('CF');
+                    mostrarCampoConsumidorFinal(true);
+                    $('#factura_consumidor_final_nombre').val(info.consumidor_final_nombre || '');
+                    cargarCliente();
+                    return;
+                }
                 // El combo puede tener varias opciones para el mismo entidad_id (una por
                 // sucursal) — matchear por los dos, no alcanza con .val(entidad_id) solo.
                 var opcion = $('#factura_entidad_id option').filter(function () {
@@ -403,7 +435,9 @@ $(function () {
         var fEmision = $('#factura_f_emision').val(), fVto = $('#factura_f_vto').val();
         if (!fVto) { Swal.fire('Falta la fecha de vencimiento', 'Ingresá la fecha de vencimiento de la factura.', 'warning'); return; }
         if (fEmision && fVto < fEmision) { Swal.fire('Fecha de vencimiento inválida', 'El vencimiento no puede ser anterior a la fecha de emisión.', 'warning'); return; }
-        var payload = { accion: esEdicion ? 'editar' : 'agregar', empresa_idx: EMPRESA_ID, pagina_idx: PAGINA_ID, entidad_id: $('#factura_entidad_id').val(), entidad_sucursal_id: $('#factura_entidad_sucursal_id').val(), condicion_pago_id: $('#factura_condicion_pago_id').val(), f_emision: fEmision, f_vto: fVto, sucursal_id: $('#factura_sucursal_id').val(), punto_venta_id: $('#factura_punto_venta_id').val(), comprobante_tipo_id: $('#factura_comprobante_tipo_id').val(), comprobante_nro: 0, moneda_id: 1, observaciones: $('#factura_observaciones').val(), detalles: JSON.stringify(detalles) };
+        var consumidorFinalNombre = esConsumidorFinal() ? $.trim($('#factura_consumidor_final_nombre').val()) : '';
+        if (esConsumidorFinal() && !consumidorFinalNombre) { Swal.fire('Falta el nombre', 'Indicá el nombre del consumidor final.', 'warning'); return; }
+        var payload = { accion: esEdicion ? 'editar' : 'agregar', empresa_idx: EMPRESA_ID, pagina_idx: PAGINA_ID, entidad_id: esConsumidorFinal() ? '' : $('#factura_entidad_id').val(), entidad_sucursal_id: esConsumidorFinal() ? '' : $('#factura_entidad_sucursal_id').val(), consumidor_final_nombre: consumidorFinalNombre, condicion_pago_id: $('#factura_condicion_pago_id').val(), f_emision: fEmision, f_vto: fVto, sucursal_id: $('#factura_sucursal_id').val(), punto_venta_id: $('#factura_punto_venta_id').val(), comprobante_tipo_id: $('#factura_comprobante_tipo_id').val(), comprobante_nro: 0, moneda_id: 1, observaciones: $('#factura_observaciones').val(), detalles: JSON.stringify(detalles) };
         if (esEdicion) payload.venta_factura_id = facturaEditId;
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
         $.ajax({ url: 'ventas_facturas_ajax.php', type: 'POST', data: payload, dataType: 'json' }).done(function (res) { if (!res || !res.success) { Swal.fire('Error', (res && res.error) || 'No se pudo guardar la factura.', 'error'); return; } Swal.fire({ icon: 'success', title: esEdicion ? 'Factura Actualizada' : 'Factura Guardada', text: res.message || 'La factura se guardó correctamente.', confirmButtonText: 'Aceptar' }).then(function () { bootstrap.Modal.getInstance(document.getElementById('modalFacturaCliente')).hide(); tabla.ajax.reload(null, false); }); }).fail(function (xhr) { Swal.fire('Error', 'No se pudo guardar la factura: ' + (xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'error de servidor.'), 'error'); }).always(function () { btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar Factura'); });
@@ -445,7 +479,7 @@ $(function () {
             cargarPuntosVenta(function () { cargarPuntoVentaYTipoParaEdicion(f); });
 
             $.getJSON('ventas_facturas_ajax.php', { accion: 'clientes', empresa_idx: EMPRESA_ID }, function (rows) {
-                var html = '<option value="">Seleccionar cliente</option>';
+                var html = '<option value="">Seleccionar cliente</option>' + '<option value="CF" data-sucursal-id=""' + (f.entidad_id ? '' : ' selected') + '>Consumidor Final (precio de mostrador)</option>';
                 (rows || []).forEach(function (r) {
                     var sel = (String(r.entidad_id) === String(f.entidad_id) && String(r.entidad_sucursal_id || '') === String(f.entidad_sucursal_id || '')) ? ' selected' : '';
                     var texto = r.entidad_nombre + (r.entidad_fantasia ? ' - ' + r.entidad_fantasia : '') + (r.sucursal_nombre ? ' / ' + r.sucursal_nombre : ' / Sin Sucursal');
@@ -453,17 +487,23 @@ $(function () {
                 });
                 $('#factura_entidad_id').html(html);
                 $('#factura_entidad_sucursal_id').val(f.entidad_sucursal_id || '');
+                mostrarCampoConsumidorFinal(!f.entidad_id);
+                $('#factura_consumidor_final_nombre').val(f.consumidor_final_nombre || '');
                 $('#factura_condicion_pago_id').html('<option value="' + (f.condicion_pago_id || '') + '">' + (f.condicion_pago || 'Sin condición') + '</option>');
                 $('#factura_f_emision').val(f.f_emision);
                 $('#factura_f_vto').attr('min', f.f_emision || '').val(f.f_vto || f.f_emision || '');
                 $('#factura_observaciones').val(f.observaciones || '');
                 $('#factura_comprobante_nro').val(f.comprobante_nro > 0 ? f.comprobante_nro : 'Se asigna al confirmar');
-                $.getJSON('ventas_facturas_ajax.php', { accion: 'condicion_cliente', entidad_id: f.entidad_id, empresa_idx: EMPRESA_ID }, mostrarCondicionCliente);
+                $.getJSON('ventas_facturas_ajax.php', { accion: 'condicion_cliente', entidad_id: f.entidad_id || 0, empresa_idx: EMPRESA_ID }, mostrarCondicionCliente);
 
                 function finalizarApertura() {
                     habilitarFormulario(!readonly);
                     $('#modalFacturaCliente .modal-title').html('<i class="fas fa-file-invoice-dollar me-2"></i>' + (readonly ? 'Ver Factura' : 'Editar Factura') + ' ' + (f.comprobante_tipo || '') + ' -' + (f.comprobante_nro || f.venta_factura_id));
                     renderAccionesExtraModal(f.botones, readonly ? 'visualizar' : 'editar');
+                    if (document.getElementById('tab-factura-btn')) {
+                        bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-factura-btn')).show();
+                    }
+                    cargarAsientoContable(f.venta_factura_id, readonly);
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFacturaCliente')).show();
                 }
 
@@ -483,7 +523,7 @@ $(function () {
 
                 $('#cardAgregarProductoManual').show();
                 $('#tituloCardRemitosFactura').text('Remitos Pendientes De Facturar');
-                $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: EMPRESA_ID, entidad_id: f.entidad_id, entidad_sucursal_id: f.entidad_sucursal_id || 0, excluir_factura_id: facturaEditId }, function (pendientes) {
+                $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: EMPRESA_ID, entidad_id: f.entidad_id || 0, entidad_sucursal_id: f.entidad_sucursal_id || 0, excluir_factura_id: facturaEditId }, function (pendientes) {
                     renderRemitos(pendientes);
                     (f.detalles || []).forEach(function (d) {
                         if (!d.venta_remito_detalle_id) {
@@ -575,6 +615,77 @@ $(function () {
         } else {
             ejecutarAccionFactura(id, accionJs, comprobanteInfo);
         }
+    });
+
+    function cargarAsientoContable(facturaId, readonly) {
+        $('#badgeAsientoEstado').addClass('d-none');
+        $('#btnGenerarAsientoManual').hide();
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'obtener_asiento', venta_factura_id: facturaId, empresa_idx: EMPRESA_ID }, function (res) {
+            if (res && res.success && res.data) {
+                var a = res.data;
+                $('#badgeAsientoEstado').removeClass('d-none').text('Asiento #' + a.cont_asiento_id);
+                $('#asientoIdSpan').text(a.cont_asiento_id);
+                $('#asientoTipoSpan').text(a.cont_tipo_asiento || 'Automático');
+                $('#asientoEstadoSpan').text(a.estado_registro || 'Registrado');
+                $('#asientoFechaSpan').text(a.f_asiento ? a.f_asiento.split('-').reverse().join('/') : '-');
+                $('#asientoDescripcionSpan').text(a.descripcion || '');
+
+                var filasHtml = '';
+                (a.detalles || []).forEach(function (d) {
+                    var debe = parseFloat(d.debe) || 0;
+                    var haber = parseFloat(d.haber) || 0;
+                    filasHtml += '<tr>' +
+                        '<td class="font-monospace text-muted">' + (d.cuenta_codigo || '-') + '</td>' +
+                        '<td class="fw-semibold">' + (d.cuenta_nombre || ('Cuenta ' + d.cuenta_id)) + '</td>' +
+                        '<td class="text-end font-monospace ' + (debe > 0 ? 'fw-bold text-success' : 'text-muted') + '">' + (debe > 0 ? '$' + moneda(debe) : '-') + '</td>' +
+                        '<td class="text-end font-monospace ' + (haber > 0 ? 'fw-bold text-danger' : 'text-muted') + '">' + (haber > 0 ? '$' + moneda(haber) : '-') + '</td>' +
+                        '<td class="small text-muted">' + (d.descripcion || '') + '</td>' +
+                    '</tr>';
+                });
+                $('#tablaAsientoDetalles tbody').html(filasHtml);
+                var totDebe = parseFloat(a.total_debe) || 0;
+                var totHaber = parseFloat(a.total_haber) || 0;
+                $('#asientoTotalDebe').text('$' + moneda(totDebe));
+                $('#asientoTotalHaber').text('$' + moneda(totHaber));
+                var diff = Math.abs(totDebe - totHaber);
+                if (diff < 0.01) {
+                    $('#asientoBalanceBadge').html('<span class="badge bg-success"><i class="fas fa-check me-1"></i>Balanceado</span>');
+                } else {
+                    $('#asientoBalanceBadge').html('<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>Desbalanceado: $' + moneda(diff) + '</span>');
+                }
+
+                $('#contenedorAsientoVacio').hide();
+                $('#contenedorAsientoDetalle').show();
+            } else {
+                $('#contenedorAsientoDetalle').hide();
+                $('#contenedorAsientoVacio').show();
+                if (readonly) {
+                    $('#btnGenerarAsientoManual').show();
+                }
+            }
+        });
+    }
+
+    $(document).on('click', '#btnGenerarAsientoManual, #btnRefrescarAsiento', function () {
+        if (!facturaEditId) return;
+        var btn = $(this);
+        btn.prop('disabled', true);
+        $.post('ventas_facturas_ajax.php', {
+            accion: 'generar_asiento_contable',
+            venta_factura_id: facturaEditId,
+            empresa_idx: EMPRESA_ID
+        }, function (res) {
+            btn.prop('disabled', false);
+            if (res && res.success) {
+                Swal.fire({ icon: 'success', title: 'Asiento Contable', text: res.message || 'Asiento generado correctamente.', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
+                cargarAsientoContable(facturaEditId, true);
+            } else {
+                Swal.fire('Error', (res && res.error) || 'No se pudo generar el asiento contable.', 'error');
+            }
+        }, 'json').fail(function () {
+            btn.prop('disabled', false);
+            Swal.fire('Error', 'Error al comunicarse con el servidor.', 'error');
+        });
     });
 
     cargarClientes();

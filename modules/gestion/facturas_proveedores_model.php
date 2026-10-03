@@ -2493,6 +2493,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
             if ($importe > 0 && $detalle['cont_cuenta_id']) {
                 $detalles_asiento[] = [
                     'cuenta_id' => $detalle['cont_cuenta_id'],
+                    'producto_id' => intval($detalle['producto_id'] ?? 0) ?: null,
                     'importe' => $importe,
                     'descripcion' => 'Compra - Producto ID: ' . $detalle['producto_id']
                 ];
@@ -2668,16 +2669,22 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
                 error_log("Detalles antiguos eliminados del asiento ID: $asiento_id");
             }
             
-            // Insertar nuevos detalles
+            // Insertar nuevos detalles. entidad_id (el proveedor) va en todos los renglones;
+            // producto_id solo en los renglones de compra de un producto (NULL en IVA/proveedor/
+            // no gravado/exento, que son importes a nivel factura).
+            $entidad_det_id = intval($factura['entidad_id'] ?? 0) ?: null;
             $detalles_insertados = 0;
             foreach ($detalles_asiento as $det) {
-                $sql_det = "INSERT INTO gestion__cont_asientos_detalles 
-                            (cont_asiento_id, cuenta_id, importe_local, moneda_id, tipo_cambio, descripcion, tipo, estado, comprobante_id) 
-                            VALUES (?, ?, ?, ?, ?, ?, 'A', 'activo', ?)";
+                $sql_det = "INSERT INTO gestion__cont_asientos_detalles
+                            (cont_asiento_id, cuenta_id, entidad_id, producto_id, importe_local, moneda_id, tipo_cambio, descripcion, tipo, estado, comprobante_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'A', 'activo', ?)";
                 $stmt = mysqli_prepare($conexion, $sql_det);
-                mysqli_stmt_bind_param($stmt, "iididsi", 
-                    $asiento_id, 
-                    $det['cuenta_id'], 
+                $producto_det_id = $det['producto_id'] ?? null;
+                mysqli_stmt_bind_param($stmt, "iiiididsi",
+                    $asiento_id,
+                    $det['cuenta_id'],
+                    $entidad_det_id,
+                    $producto_det_id,
                     $det['importe'],
                     $factura['moneda_id'], 
                     $factura['tipo_cambio'], 

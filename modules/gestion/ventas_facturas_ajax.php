@@ -27,8 +27,9 @@ try {
         case 'tipos_por_punto_venta':
             echo json_encode(vfTiposPorPuntoVenta($conexion, $empresa_id, intval($_GET['punto_venta_id'] ?? 0), $pagina_id), JSON_UNESCAPED_UNICODE);
             break;
+        // entidad_id = 0: consumidor final (lista Mostrador, contado). Ídem remitos_pendientes y buscar_productos.
         case 'condicion_cliente':
-            echo json_encode(vfObtenerCondicionCliente($conexion, intval($_GET['entidad_id'] ?? 0), $empresa_id), JSON_UNESCAPED_UNICODE);
+            echo json_encode(vfObtenerCondicionDestinatario($conexion, intval($_GET['entidad_id'] ?? 0), $empresa_id), JSON_UNESCAPED_UNICODE);
             break;
         case 'remitos_pendientes':
             echo json_encode(vfRemitosPendientes($conexion, $empresa_id, intval($_GET['entidad_id'] ?? 0), intval($_GET['entidad_sucursal_id'] ?? 0), intval($_GET['excluir_factura_id'] ?? 0), intval($_GET['venta_remito_id'] ?? 0)), JSON_UNESCAPED_UNICODE);
@@ -75,6 +76,19 @@ try {
             $id = intval($_POST['venta_factura_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
             echo json_encode(vfEjecutarTransicionEstado($conexion, $id, $accion_js, $empresa_id, $pagina_id), JSON_UNESCAPED_UNICODE);
+            break;
+        case 'generar_asiento_contable':
+            $id = intval($_POST['venta_factura_id'] ?? $_GET['venta_factura_id'] ?? 0);
+            echo json_encode(vfGenerarAsientoContableFactura($conexion, $id, $empresa_id), JSON_UNESCAPED_UNICODE);
+            break;
+        case 'obtener_asiento':
+            $id = intval($_GET['venta_factura_id'] ?? $_POST['venta_factura_id'] ?? 0);
+            $asiento = vfObtenerAsientoFactura($conexion, $id, $empresa_id);
+            if ($asiento) {
+                echo json_encode(['success' => true, 'data' => $asiento], JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'No se encontró asiento contable para esta factura.'], JSON_UNESCAPED_UNICODE);
+            }
             break;
         default:
             http_response_code(400);

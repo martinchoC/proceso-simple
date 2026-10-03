@@ -87,8 +87,25 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <div class="app-wrapper">
 
     <?php
-    $current_empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 0;
-    $current_modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 0;
+    $current_empresa_id = (isset($_GET['empresa_id']) && intval($_GET['empresa_id']) > 0) 
+        ? intval($_GET['empresa_id']) 
+        : (isset($_SESSION['empresa_id']) ? intval($_SESSION['empresa_id']) : 0);
+
+    $current_modulo_id = (isset($_GET['modulo_id']) && intval($_GET['modulo_id']) > 0) 
+        ? intval($_GET['modulo_id']) 
+        : (isset($modudo_idx) && intval($modudo_idx) > 0 
+            ? intval($modudo_idx) 
+            : (isset($modulo_idx) && intval($modulo_idx) > 0 
+                ? intval($modulo_idx) 
+                : (isset($_SESSION['modulo_id']) ? intval($_SESSION['modulo_id']) : 0)));
+
+    if ($current_empresa_id > 0) {
+        $_SESSION['empresa_id'] = $current_empresa_id;
+    }
+    if ($current_modulo_id > 0) {
+        $_SESSION['modulo_id'] = $current_modulo_id;
+    }
+
     $usuario_logueado_id = $_SESSION['usuario_id'];
 
     $empresas_modulos = usuario_obtener_empresas_modulos($conexion, $usuario_logueado_id);

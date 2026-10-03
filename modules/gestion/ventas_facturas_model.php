@@ -14,7 +14,7 @@ function vfEstadoColumna($conexion) {
 function listarVentasFacturas($conexion, $empresa_id, $pagina_id) {
     $estado = vfEstadoColumna($conexion);
     $sql = "SELECT f.venta_factura_id, f.comprobante_nro, f.f_emision, f.importe_total,
-                   f.entidad_id, f.condicion_pago_id, er.$estado AS estado_registro,
+                   f.entidad_id, f.consumidor_final_nombre, f.condicion_pago_id, er.$estado AS estado_registro,
                    er.codigo_estandar, f.tabla_estado_registro_id, ct.comprobante_tipo, e.entidad_nombre,
                    e.entidad_fantasia, cp.condicion_pago
             FROM gestion__ventas_facturas f
@@ -129,6 +129,64 @@ function vfObtenerCondicionCliente($conexion, $entidad_id, $empresa_id) {
     return $row ?: null;
 }
 
+// Condición comercial de un consumidor final (factura sin cliente), con la misma forma que
+// vfObtenerCondicionCliente(): lista "Mostrador" de la empresa (por código, no por id), sin
+// descuento general, y la condición de pago de contado. Devuelve null si la empresa no
+// tiene la lista Mostrador activa.
+const VF_LISTA_PRECIO_CODIGO_MOSTRADOR = 'MOST';
+
+function vfObtenerCondicionConsumidorFinal($conexion, $empresa_id) {
+    $codigo = VF_LISTA_PRECIO_CODIGO_MOSTRADOR;
+    $sql = "SELECT lp.lista_precio_id, lp.lista_precio_nombre,
+                   cp.condicion_pago_id, cp.condicion_pago
+            FROM gestion__listas_precios lp
+            LEFT JOIN gestion__condiciones_pago cp
+                   ON cp.condicion_pago_id = (SELECT cp2.condicion_pago_id
+                                              FROM gestion__condiciones_pago cp2
+                                              WHERE cp2.empresa_id = lp.empresa_id AND cp2.tipo = 'CONTADO'
+                                                AND cp2.tabla_estado_registro_id = 1
+                                              ORDER BY cp2.orden LIMIT 1)
+            WHERE lp.empresa_id = ? AND lp.lista_precio_codigo = ? AND lp.tabla_estado_registro_id = 1
+            LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    mysqli_stmt_bind_param($stmt, 'is', $empresa_id, $codigo);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$row) return null;
+    $row['cliente_descuento_general'] = 0;
+    $row['dias_primer_vencimiento'] = 0;
+    $row['es_consumidor_final'] = 1;
+    return $row;
+}
+
+// Condición a aplicar según el destinatario: cliente (entidad_id > 0) o consumidor final (0).
+function vfObtenerCondicionDestinatario($conexion, $entidad_id, $empresa_id) {
+    $entidad_id = intval($entidad_id);
+    return $entidad_id > 0
+        ? vfObtenerCondicionCliente($conexion, $entidad_id, $empresa_id)
+        : vfObtenerCondicionConsumidorFinal($conexion, $empresa_id);
+}
+
+// Destinatario de la factura: cliente (entidad_id > 0, con o sin sucursal) o consumidor
+// final (entidad_id vacío + consumidor_final_nombre obligatorio, entidad_id se guarda NULL).
+// Mismo criterio que resolverDestinatarioRemito() en ventas_remitos_model.php.
+function vfResolverDestinatario($data) {
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    if ($entidad_id > 0) {
+        return [
+            'entidad_id' => $entidad_id,
+            'entidad_sucursal_id' => intval(($data['entidad_sucursal_id'] ?? null) ?: 0),
+            'consumidor_final_nombre' => null
+        ];
+    }
+    $nombre = trim($data['consumidor_final_nombre'] ?? '');
+    if ($nombre === '') return ['error' => 'Seleccione un cliente o indique el nombre del consumidor final.'];
+    if (mb_strlen($nombre) > 150) return ['error' => 'El nombre del consumidor final no puede superar los 150 caracteres.'];
+    return ['entidad_id' => null, 'entidad_sucursal_id' => 0, 'consumidor_final_nombre' => $nombre];
+}
+
 function vfClientes($conexion, $empresa_id) {
         $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia,
                                      es.sucursal_id AS entidad_sucursal_id, es.sucursal_nombre
@@ -221,8 +279,10 @@ function vfTiposPorPuntoVenta($conexion, $empresa_id, $punto_venta_id, $pagina_i
 // $venta_remito_id_filtro: si viene > 0, acota el resultado a las líneas pendientes de ESE
 // remito puntual (usado por la solapa "Facturar" del modal de ventas_remitos.php — ahí ya se
 // sabe de qué remito se trata, no hace falta traer el resto de los pendientes del cliente).
+// $entidad_id = 0: remitos a consumidor final (vr.entidad_id NULL), de cualquier nombre —
+// por eso se devuelve también vr.consumidor_final_nombre, para distinguirlos en pantalla.
 function vfRemitosPendientes($conexion, $empresa_id, $entidad_id, $entidad_sucursal_id = 0, $excluir_factura_id = 0, $venta_remito_id_filtro = 0) {
-    $sql = "SELECT vr.venta_remito_id, vr.comprobante_nro, vr.f_emision,
+    $sql = "SELECT vr.venta_remito_id, vr.comprobante_nro, vr.f_emision, vr.consumidor_final_nombre,
                    ct.comprobante_tipo, pv.nombre AS punto_venta_nombre,
                    rd.venta_remito_detalle_id, rd.venta_pedido_detalle_id,
                    rd.producto_id, p.producto_codigo, p.producto_nombre,
@@ -245,7 +305,7 @@ function vfRemitosPendientes($conexion, $empresa_id, $entidad_id, $entidad_sucur
                 WHERE venta_factura_id = ? AND venta_remito_detalle_id IS NOT NULL
                 GROUP BY venta_remito_detalle_id
             ) propia ON propia.venta_remito_detalle_id = rd.venta_remito_detalle_id
-                        WHERE vr.empresa_id = ? AND vr.entidad_id = ?
+                        WHERE vr.empresa_id = ? AND COALESCE(vr.entidad_id, 0) = ?
                             AND (? = 0 OR vr.entidad_sucursal_id = ?)
                             AND (? = 0 OR vr.venta_remito_id = ?)
               AND er.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT', 'FACT_PARC')
@@ -280,8 +340,9 @@ function vfCondicionPalabraBusquedaProducto($palabra) {
     return ["(" . implode(" OR ", $condiciones) . ")", $params, str_repeat("s", count($params))];
 }
 
+// $entidad_id = 0: consumidor final (lista Mostrador, ver vfObtenerCondicionConsumidorFinal()).
 function vfBuscarProductos($conexion, $empresa_id, $entidad_id, $q) {
-    $cond = vfObtenerCondicionCliente($conexion, $entidad_id, $empresa_id);
+    $cond = vfObtenerCondicionDestinatario($conexion, $entidad_id, $empresa_id);
     if (!$cond || empty($cond['lista_precio_id'])) return [];
     // Misma búsqueda de texto que el listado de productos.php (términos entre comillas
     // = frase completa, el resto se parte por espacios, AND entre términos), más el
@@ -633,7 +694,7 @@ function vfActualizarEstadoRemitosDeFactura($conexion, $venta_factura_id) {
 // con conocer el venta_remito_id de otra empresa para leer a qué cliente pertenece.
 function vfObtenerRemitoInfo($conexion, $empresa_id, $venta_remito_id) {
     $venta_remito_id = intval($venta_remito_id);
-    $sql = "SELECT venta_remito_id, entidad_id, entidad_sucursal_id, comprobante_nro
+    $sql = "SELECT venta_remito_id, entidad_id, entidad_sucursal_id, consumidor_final_nombre, comprobante_nro
             FROM gestion__ventas_remitos
             WHERE venta_remito_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
@@ -773,11 +834,16 @@ function vfInsertarDetallesFactura($conexion, $factura_id, $detalles) {
 
 function guardarVentaFactura($conexion, $empresa_id, $pagina_id, $data) {
     $detalles = $data['detalles'] ?? [];
-    if (!$data['entidad_id'] || count($detalles) === 0) return ['success' => false, 'error' => 'Seleccione un cliente y agregue al menos un producto.'];
+    $destinatario = vfResolverDestinatario($data);
+    if (isset($destinatario['error'])) return ['success' => false, 'error' => $destinatario['error']];
+    if (count($detalles) === 0) return ['success' => false, 'error' => 'Agregue al menos un producto.'];
     mysqli_begin_transaction($conexion);
     try {
-        $cond = vfObtenerCondicionCliente($conexion, intval($data['entidad_id']), $empresa_id);
-        $condicion_pago_id = intval(($data['condicion_pago_id'] ?? null) ?: ($cond['condicion_pago_id'] ?? 0));
+        $cond = vfObtenerCondicionDestinatario($conexion, intval($destinatario['entidad_id']), $empresa_id);
+        // Consumidor final: siempre contado (no tiene cuenta corriente), sin importar lo que mande el navegador.
+        $condicion_pago_id = $destinatario['entidad_id']
+            ? intval(($data['condicion_pago_id'] ?? null) ?: ($cond['condicion_pago_id'] ?? 0))
+            : intval($cond['condicion_pago_id'] ?? 0);
         $stmt_tipo = mysqli_prepare($conexion, "SELECT comprobante_fiscal_id FROM gestion__comprobantes_tipos WHERE comprobante_tipo_id = ? AND empresa_id = ? LIMIT 1");
         $tipo_id = intval($data['comprobante_tipo_id']);
         mysqli_stmt_bind_param($stmt_tipo, 'ii', $tipo_id, $empresa_id);
@@ -801,16 +867,17 @@ function guardarVentaFactura($conexion, $empresa_id, $pagina_id, $data) {
 
         $sql = "INSERT INTO gestion__ventas_facturas
                 (empresa_id, sucursal_id, comprobante_tipo_id, punto_venta_id, comprobante_nro,
-                 comprobante_id, entidad_id, entidad_sucursal_id, condicion_pago_id, f_emision,
+                 comprobante_id, entidad_id, entidad_sucursal_id, consumidor_final_nombre, condicion_pago_id, f_emision,
                  f_contabilidad, f_vto, moneda_id, tipo_cambio, importe_bruto, descuento_general_pct,
                  descuento_general, importe_neto, importe_exento, importe_no_gravado, importe_iva,
                  importe_otros_impuestos, importe_total, observaciones, tabla_estado_registro_id)
-                VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0, ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0, ?, ?, ?)";
         $stmt = mysqli_prepare($conexion, $sql);
         $sucursal = intval($data['sucursal_id']); $tipo = $tipo_id; $pv = $punto_venta_id;
-        $nro = $comprobante_nro; $entidad = intval($data['entidad_id']); $entidadSucursal = intval(($data['entidad_sucursal_id'] ?? null) ?: 0);
+        $nro = $comprobante_nro; $entidad = $destinatario['entidad_id']; $entidadSucursal = $destinatario['entidad_sucursal_id'];
+        $consumidorFinal = $destinatario['consumidor_final_nombre'];
         $moneda = intval(($data['moneda_id'] ?? null) ?: 1); $pct = floatval(($data['descuento_general_pct'] ?? null) ?: 0); $obs = trim($data['observaciones'] ?? '');
-        mysqli_stmt_bind_param($stmt, 'iiiiiiiisssidddddddsi', $empresa_id, $sucursal, $tipo, $pv, $nro, $entidad, $entidadSucursal, $condicion_pago_id, $f_emision, $f_emision, $f_vto, $moneda, $tipo_cambio, $bruto, $pct, $descuentos, $subtotal, $iva, $total, $obs, $estado);
+        mysqli_stmt_bind_param($stmt, 'iiiiiiisisssidddddddsi', $empresa_id, $sucursal, $tipo, $pv, $nro, $entidad, $entidadSucursal, $consumidorFinal, $condicion_pago_id, $f_emision, $f_emision, $f_vto, $moneda, $tipo_cambio, $bruto, $pct, $descuentos, $subtotal, $iva, $total, $obs, $estado);
         if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
         $factura_id = mysqli_insert_id($conexion); mysqli_stmt_close($stmt);
 
@@ -863,8 +930,10 @@ function vfEditarVentaFactura($conexion, $id, $empresa_id, $pagina_id, $data) {
     if (!$permitido) return ['success' => false, 'error' => 'La factura no se puede editar en su estado actual.'];
 
     $detalles = $data['detalles'] ?? [];
-    if (empty($data['entidad_id']) || count($detalles) === 0) {
-        return ['success' => false, 'error' => 'Seleccione un cliente y agregue al menos un producto.'];
+    $destinatario = vfResolverDestinatario($data);
+    if (isset($destinatario['error'])) return ['success' => false, 'error' => $destinatario['error']];
+    if (count($detalles) === 0) {
+        return ['success' => false, 'error' => 'Agregue al menos un producto.'];
     }
 
     mysqli_begin_transaction($conexion);
@@ -879,8 +948,10 @@ function vfEditarVentaFactura($conexion, $id, $empresa_id, $pagina_id, $data) {
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
 
-        $cond = vfObtenerCondicionCliente($conexion, intval($data['entidad_id']), $empresa_id);
-        $condicion_pago_id = intval(($data['condicion_pago_id'] ?? null) ?: ($cond['condicion_pago_id'] ?? 0));
+        $cond = vfObtenerCondicionDestinatario($conexion, intval($destinatario['entidad_id']), $empresa_id);
+        $condicion_pago_id = $destinatario['entidad_id']
+            ? intval(($data['condicion_pago_id'] ?? null) ?: ($cond['condicion_pago_id'] ?? 0))
+            : intval($cond['condicion_pago_id'] ?? 0);
         $tipo_id = intval($data['comprobante_tipo_id']);
         $stmt_tipo = mysqli_prepare($conexion, "SELECT comprobante_fiscal_id FROM gestion__comprobantes_tipos WHERE comprobante_tipo_id = ? AND empresa_id = ? LIMIT 1");
         mysqli_stmt_bind_param($stmt_tipo, 'ii', $tipo_id, $empresa_id);
@@ -897,20 +968,22 @@ function vfEditarVentaFactura($conexion, $id, $empresa_id, $pagina_id, $data) {
         list($detalles, $tot) = vfCalcularDetallesFactura($detalles, $comprobante_fiscal_id);
         $bruto = $tot['bruto']; $descuentos = $tot['descuentos']; $subtotal = $tot['subtotal']; $iva = $tot['iva']; $total = $tot['total'];
 
-        $sucursal = intval($data['sucursal_id']); $entidad = intval($data['entidad_id']); $entidadSucursal = intval(($data['entidad_sucursal_id'] ?? null) ?: 0);
+        $sucursal = intval($data['sucursal_id']); $entidad = $destinatario['entidad_id']; $entidadSucursal = $destinatario['entidad_sucursal_id'];
+        $consumidorFinal = $destinatario['consumidor_final_nombre'];
         $moneda = intval(($data['moneda_id'] ?? null) ?: 1); $pct = floatval(($data['descuento_general_pct'] ?? null) ?: 0); $obs = trim($data['observaciones'] ?? '');
 
         $sql = "UPDATE gestion__ventas_facturas SET
                     sucursal_id = ?, comprobante_tipo_id = ?, punto_venta_id = ?, entidad_id = ?, entidad_sucursal_id = ?,
+                    consumidor_final_nombre = ?,
                     condicion_pago_id = ?, f_emision = ?, f_contabilidad = ?, f_vto = ?, moneda_id = ?, tipo_cambio = ?,
                     importe_bruto = ?, descuento_general_pct = ?, descuento_general = ?, importe_neto = ?, importe_iva = ?,
                     importe_total = ?, observaciones = ?
                 WHERE venta_factura_id = ? AND empresa_id = ?";
         $stmt = mysqli_prepare($conexion, $sql);
         mysqli_stmt_bind_param(
-            $stmt, 'iiiiiisssidddddddsii',
+            $stmt, 'iiiiisisssidddddddsii',
             $sucursal, $tipo_id, $punto_venta_id, $entidad, $entidadSucursal,
-            $condicion_pago_id, $f_emision, $f_emision, $f_vto, $moneda, $tipo_cambio,
+            $consumidorFinal, $condicion_pago_id, $f_emision, $f_emision, $f_vto, $moneda, $tipo_cambio,
             $bruto, $pct, $descuentos, $subtotal, $iva,
             $total, $obs, $id, $empresa_id
         );
@@ -1028,6 +1101,14 @@ function vfEjecutarTransicionEstado($conexion, $venta_factura_id, $accion_js, $e
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
 
+        // Generar asiento contable automático al confirmar la factura
+        if ($accion_js === 'confirma') {
+            $res_asiento = vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_id, true);
+            if (!$res_asiento['success']) {
+                throw new Exception('Error generando asiento contable: ' . ($res_asiento['error'] ?? $res_asiento['message'] ?? 'Error desconocido'));
+            }
+        }
+
         mysqli_commit($conexion);
         $mensaje = 'Estado actualizado correctamente';
         if ($numero_asignado) $mensaje .= ' - Número asignado: ' . $numero_asignado;
@@ -1037,5 +1118,347 @@ function vfEjecutarTransicionEstado($conexion, $venta_factura_id, $accion_js, $e
         error_log('ERROR en vfEjecutarTransicionEstado: ' . $e->getMessage());
         return ['success' => false, 'error' => $e->getMessage()];
     }
+}
+
+function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_id, $en_transaccion = false) {
+    $venta_factura_id = intval($venta_factura_id);
+    $empresa_id = intval($empresa_id);
+
+    try {
+        // 1. Obtener cabecera de la factura
+        $sql = "SELECT f.*,
+                       ct.comprobante_tipo, ct.letra,
+                       e.entidad_nombre, e.cont_cuenta_id_cliente,
+                       pv.nombre AS pv_nombre
+                FROM gestion__ventas_facturas f
+                LEFT JOIN gestion__comprobantes_tipos ct ON f.comprobante_tipo_id = ct.comprobante_tipo_id
+                LEFT JOIN gestion__entidades e ON f.entidad_id = e.entidad_id
+                LEFT JOIN gestion__puntos_venta pv ON f.punto_venta_id = pv.punto_venta_id
+                WHERE f.venta_factura_id = ? AND f.empresa_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) throw new Exception('Error preparando consulta de factura: ' . mysqli_error($conexion));
+        mysqli_stmt_bind_param($stmt, "ii", $venta_factura_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $factura = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+
+        if (!$factura) {
+            return ['success' => false, 'error' => 'Factura no encontrada.'];
+        }
+
+        $comprobante_id = intval($factura['comprobante_id'] ?? 0);
+        if ($comprobante_id <= 0) {
+            return ['success' => false, 'error' => 'La factura no tiene comprobante fiscal sincronizado.'];
+        }
+
+        // 2. Armar descripción del asiento
+        $comprobante_tipo = $factura['comprobante_tipo'] ?? 'Factura';
+        $pv = str_pad(intval($factura['punto_venta_id'] ?? 0), 4, '0', STR_PAD_LEFT);
+        $nro = str_pad(intval($factura['comprobante_nro'] ?? 0), 8, '0', STR_PAD_LEFT);
+        $cliente = !empty($factura['entidad_id'])
+            ? trim($factura['entidad_nombre'] ?? 'Cliente')
+            : trim('Consumidor Final ' . ($factura['consumidor_final_nombre'] ?? ''));
+        $fecha_emision = date('d/m/Y', strtotime($factura['f_emision']));
+        $descripcion = "$comprobante_tipo $pv-$nro - $cliente - $fecha_emision";
+
+        // 3. Cuenta deudora del cliente (DEBE)
+        $cuenta_cliente_id = intval($factura['cont_cuenta_id_cliente'] ?? 0);
+        if ($cuenta_cliente_id <= 0) {
+            // Fallback estándar: 111 (1.1.02.01 - Deudores por Ventas)
+            $cuenta_cliente_id = 111;
+        }
+
+        // 4. Obtener detalle de productos
+        $sql_detalles = "SELECT d.*, 
+                                p.producto_codigo, p.producto_nombre, p.cont_cuenta_venta_id,
+                                pt.cont_cuenta_venta_default_id,
+                                pc.cont_cuenta_ingreso_id,
+                                iva.cont_cuenta_venta_id AS iva_cont_cuenta_venta_id
+                         FROM gestion__ventas_facturas_detalles d
+                         LEFT JOIN gestion__productos p ON d.producto_id = p.producto_id
+                         LEFT JOIN gestion__productos_tipos pt ON p.producto_tipo_id = pt.producto_tipo_id
+                         LEFT JOIN gestion__productos_categorias pc ON p.producto_categoria_id = pc.producto_categoria_id
+                         LEFT JOIN gestion__impuestos__iva_alicuotas iva ON d.iva_alicuota_id = iva.iva_alicuota_id
+                         WHERE d.venta_factura_id = ?
+                         ORDER BY d.venta_factura_detalle_id";
+        $stmt = mysqli_prepare($conexion, $sql_detalles);
+        if (!$stmt) throw new Exception('Error preparando consulta de detalles: ' . mysqli_error($conexion));
+        mysqli_stmt_bind_param($stmt, "i", $venta_factura_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $detalles = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $detalles[] = $r;
+        }
+        mysqli_stmt_close($stmt);
+
+        if (empty($detalles)) {
+            return ['success' => false, 'error' => 'La factura no posee líneas de detalle.'];
+        }
+
+        $movimientos = [];
+        $total_debe = 0.0;
+        $total_haber = 0.0;
+
+        // Movimiento 1: CLIENTE (DEBE +)
+        $total_factura = floatval($factura['importe_total'] ?? 0);
+        $movimientos[] = [
+            'cuenta_id' => $cuenta_cliente_id,
+            'importe' => $total_factura,
+            'descripcion' => 'Cliente: ' . $cliente
+        ];
+        $total_debe += $total_factura;
+
+        // Movimiento 2: VENTAS POR PRODUCTO (HABER -)
+        $iva_agrupado = [];
+        foreach ($detalles as $d) {
+            $cuenta_venta_id = intval($d['cont_cuenta_venta_id'] ?? 0);
+            if ($cuenta_venta_id <= 0) $cuenta_venta_id = intval($d['cont_cuenta_venta_default_id'] ?? 0);
+            if ($cuenta_venta_id <= 0) $cuenta_venta_id = intval($d['cont_cuenta_ingreso_id'] ?? 0);
+            if ($cuenta_venta_id <= 0) $cuenta_venta_id = 600; // 4.1.01 - Ventas Productos
+
+            $neto = floatval($d['importe_neto'] ?? 0);
+            if ($neto > 0) {
+                $descProd = 'Venta - ' . trim(($d['producto_codigo'] ?? '') . ' ' . ($d['producto_nombre'] ?? ''));
+                $movimientos[] = [
+                    'cuenta_id' => $cuenta_venta_id,
+                    'producto_id' => intval($d['producto_id'] ?? 0) ?: null,
+                    'importe' => -$neto,
+                    'descripcion' => $descProd
+                ];
+                $total_haber += $neto;
+            }
+
+            // No Gravado / Exento
+            $no_grav = floatval($d['importe_no_gravado'] ?? 0);
+            if ($no_grav > 0) {
+                $movimientos[] = [
+                    'cuenta_id' => $cuenta_venta_id,
+                    'producto_id' => intval($d['producto_id'] ?? 0) ?: null,
+                    'importe' => -$no_grav,
+                    'descripcion' => 'Venta No Gravado - ' . ($d['producto_nombre'] ?? '')
+                ];
+                $total_haber += $no_grav;
+            }
+            $exento = floatval($d['importe_exento'] ?? 0);
+            if ($exento > 0) {
+                $movimientos[] = [
+                    'cuenta_id' => $cuenta_venta_id,
+                    'producto_id' => intval($d['producto_id'] ?? 0) ?: null,
+                    'importe' => -$exento,
+                    'descripcion' => 'Venta Exento - ' . ($d['producto_nombre'] ?? '')
+                ];
+                $total_haber += $exento;
+            }
+
+            // IVA acumulado
+            $iva = floatval($d['importe_iva'] ?? 0);
+            if ($iva > 0) {
+                $alicuota_id = intval($d['iva_alicuota_id'] ?? 1);
+                $cta_iva = intval($d['iva_cont_cuenta_venta_id'] ?? 0);
+                if ($cta_iva <= 0) $cta_iva = 331; // 2.1.04.01 - IVA Débito Fiscal
+                $pct = floatval($d['porcentaje_iva'] ?? 0);
+
+                if (!isset($iva_agrupado[$alicuota_id])) {
+                    $iva_agrupado[$alicuota_id] = [
+                        'cuenta_id' => $cta_iva,
+                        'porcentaje' => $pct,
+                        'importe' => 0.0
+                    ];
+                }
+                $iva_agrupado[$alicuota_id]['importe'] += $iva;
+            }
+        }
+
+        // Movimiento 3: IVA DÉBITO FISCAL (HABER -)
+        foreach ($iva_agrupado as $alicuota_id => $info) {
+            $movimientos[] = [
+                'cuenta_id' => $info['cuenta_id'],
+                'importe' => -$info['importe'],
+                'descripcion' => 'IVA Débito Fiscal ' . number_format($info['porcentaje'], 1) . '%'
+            ];
+            $total_haber += $info['importe'];
+        }
+
+        // Control de balance (diferencia no mayor a 1 centavo)
+        if (abs($total_debe - $total_haber) > 0.01) {
+            return [
+                'success' => false,
+                'error' => "Asiento no balanceado: Debe=" . number_format($total_debe, 2) . ", Haber=" . number_format($total_haber, 2) . ", diferencia=" . number_format($total_debe - $total_haber, 2)
+            ];
+        }
+
+        if (!$en_transaccion) {
+            mysqli_begin_transaction($conexion);
+        }
+
+        try {
+            $timestamp = strtotime($factura['f_emision']);
+            $anio = intval(date('Y', $timestamp));
+            $mes = intval(date('m', $timestamp));
+            $estado_asiento = 3; // Registrado / Borrador contable
+            $sucursal_id = intval($factura['sucursal_id'] ?? 1);
+            $deposito_id = 1;
+            $entidad_id = intval($factura['entidad_id'] ?? 0);
+            $moneda_id = intval($factura['moneda_id'] ?? 1);
+            $tipo_cambio = floatval($factura['tipo_cambio'] ?? 1.0);
+            $usuario_id = intval($_SESSION['usuario_id'] ?? 0);
+
+            // Verificar si ya existe asiento para este comprobante
+            $sql_check = "SELECT cont_asiento_id FROM gestion__cont_asientos WHERE comprobante_id = ?";
+            $stmt = mysqli_prepare($conexion, $sql_check);
+            mysqli_stmt_bind_param($stmt, "i", $comprobante_id);
+            mysqli_stmt_execute($stmt);
+            $res_check = mysqli_stmt_get_result($stmt);
+            $row_check = mysqli_fetch_assoc($res_check);
+            mysqli_stmt_close($stmt);
+
+            $asiento_id = $row_check ? intval($row_check['cont_asiento_id']) : null;
+            $existe = !empty($asiento_id);
+
+            if ($existe) {
+                // UPDATE cabecera
+                $sql_upd = "UPDATE gestion__cont_asientos
+                            SET sucursal_id = ?, deposito_id = ?, entidad_id = ?,
+                                f_asiento = ?, anio = ?, mes = ?, descripcion = ?,
+                                moneda_id = ?, tipo_cambio = ?, usuario_modificacion_id = ?,
+                                tabla_estado_registro_id = ?
+                            WHERE cont_asiento_id = ?";
+                $stmt = mysqli_prepare($conexion, $sql_upd);
+                if (!$stmt) throw new Exception(mysqli_error($conexion));
+                mysqli_stmt_bind_param(
+                    $stmt, "iiisiisidiii",
+                    $sucursal_id, $deposito_id, $entidad_id,
+                    $factura['f_emision'], $anio, $mes, $descripcion,
+                    $moneda_id, $tipo_cambio, $usuario_id,
+                    $estado_asiento, $asiento_id
+                );
+                if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
+                mysqli_stmt_close($stmt);
+
+                // Borrar detalles anteriores
+                $stmt_del = mysqli_prepare($conexion, "DELETE FROM gestion__cont_asientos_detalles WHERE cont_asiento_id = ?");
+                mysqli_stmt_bind_param($stmt_del, "i", $asiento_id);
+                mysqli_stmt_execute($stmt_del);
+                mysqli_stmt_close($stmt_del);
+            } else {
+                // INSERT cabecera
+                $sql_ins = "INSERT INTO gestion__cont_asientos
+                            (empresa_id, sucursal_id, deposito_id, comprobante_id, entidad_id,
+                             cont_tipo_asiento_id, f_asiento, anio, mes, descripcion,
+                             moneda_id, tipo_cambio, usuario_creacion_id, tabla_estado_registro_id)
+                            VALUES (?, ?, ?, ?, ?, 2, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = mysqli_prepare($conexion, $sql_ins);
+                if (!$stmt) throw new Exception(mysqli_error($conexion));
+                mysqli_stmt_bind_param(
+                    $stmt, "iiiiisiisidii",
+                    $empresa_id, $sucursal_id, $deposito_id, $comprobante_id, $entidad_id,
+                    $factura['f_emision'], $anio, $mes, $descripcion,
+                    $moneda_id, $tipo_cambio, $usuario_id, $estado_asiento
+                );
+                if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
+                $asiento_id = mysqli_insert_id($conexion);
+                mysqli_stmt_close($stmt);
+            }
+
+            // Insertar líneas de detalle. entidad_id (el cliente) va en todos los renglones;
+            // producto_id solo en los renglones de venta de un producto (NULL en cliente/IVA).
+            $entidad_det_id = $entidad_id ?: null;
+            $sql_det_ins = "INSERT INTO gestion__cont_asientos_detalles
+                            (cont_asiento_id, cuenta_id, entidad_id, producto_id, importe_local, importe_ifrs, importe_impositivo,
+                             moneda_id, tipo_cambio, descripcion, tipo, estado, comprobante_id)
+                            VALUES (?, ?, ?, ?, ?, 0.00, 0.00, ?, ?, ?, 'A', 'activo', ?)";
+            foreach ($movimientos as $m) {
+                $stmt = mysqli_prepare($conexion, $sql_det_ins);
+                if (!$stmt) throw new Exception(mysqli_error($conexion));
+                $producto_det_id = $m['producto_id'] ?? null;
+                mysqli_stmt_bind_param(
+                    $stmt, "iiiididsi",
+                    $asiento_id,
+                    $m['cuenta_id'],
+                    $entidad_det_id,
+                    $producto_det_id,
+                    $m['importe'],
+                    $moneda_id,
+                    $tipo_cambio,
+                    $m['descripcion'],
+                    $comprobante_id
+                );
+                if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
+                mysqli_stmt_close($stmt);
+            }
+
+            if (!$en_transaccion) {
+                mysqli_commit($conexion);
+            }
+
+            return [
+                'success' => true,
+                'asiento_id' => $asiento_id,
+                'message' => $existe ? 'Asiento contable actualizado correctamente.' : 'Asiento contable generado correctamente.'
+            ];
+        } catch (Exception $e) {
+            if (!$en_transaccion) {
+                mysqli_rollback($conexion);
+            }
+            throw $e;
+        }
+    } catch (Exception $e) {
+        error_log("ERROR en vfGenerarAsientoContableFactura: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+function vfObtenerAsientoFactura($conexion, $venta_factura_id, $empresa_id) {
+    $venta_factura_id = intval($venta_factura_id);
+    $empresa_id = intval($empresa_id);
+
+    $sql = "SELECT a.cont_asiento_id, a.empresa_id, a.sucursal_id, a.deposito_id,
+                   a.comprobante_id, a.entidad_id, a.cont_tipo_asiento_id, a.f_asiento,
+                   a.anio, a.mes, a.descripcion, a.moneda_id, a.tipo_cambio,
+                   ta.cont_tipo_asiento, er.estado_registro
+            FROM gestion__cont_asientos a
+            INNER JOIN gestion__ventas_facturas f ON f.comprobante_id = a.comprobante_id
+            LEFT JOIN gestion__cont_tipos_asientos ta ON ta.cont_tipo_asiento_id = a.cont_tipo_asiento_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = a.tabla_estado_registro_id
+            WHERE f.venta_factura_id = ? AND f.empresa_id = ?
+            LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    mysqli_stmt_bind_param($stmt, "ii", $venta_factura_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $asiento = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+
+    if (!$asiento) return null;
+
+    $sql_det = "SELECT d.cont_asiento_id, d.cuenta_id, d.importe_local, d.descripcion,
+                       d.tipo, d.estado,
+                       c.codigo AS cuenta_codigo, c.nombre AS cuenta_nombre,
+                       IF(d.importe_local > 0, d.importe_local, 0) AS debe,
+                       IF(d.importe_local < 0, ABS(d.importe_local), 0) AS haber
+                FROM gestion__cont_asientos_detalles d
+                LEFT JOIN gestion__cont_cuentas c ON c.cont_cuenta_id = d.cuenta_id
+                WHERE d.cont_asiento_id = ?
+                ORDER BY d.importe_local DESC, d.cuenta_id ASC";
+    $stmt = mysqli_prepare($conexion, $sql_det);
+    if (!$stmt) return $asiento;
+    mysqli_stmt_bind_param($stmt, "i", $asiento['cont_asiento_id']);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $detalles = [];
+    $total_debe = 0;
+    $total_haber = 0;
+    while ($r = mysqli_fetch_assoc($res)) {
+        $total_debe += floatval($r['debe']);
+        $total_haber += floatval($r['haber']);
+        $detalles[] = $r;
+    }
+    mysqli_stmt_close($stmt);
+
+    $asiento['detalles'] = $detalles;
+    $asiento['total_debe'] = $total_debe;
+    $asiento['total_haber'] = $total_haber;
+    return $asiento;
 }
 ?>

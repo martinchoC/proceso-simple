@@ -7,7 +7,7 @@ function obtenerTablasEstadosRegistros($conexion) {
             LEFT JOIN conf__tablas t ON ter.tabla_id = t.tabla_id
             LEFT JOIN conf__colores c ON ter.color_id = c.color_id
             WHERE t.modulo_id=2
-            ORDER BY t.tabla_nombre";
+            ORDER BY t.tabla_nombre ASC, ter.orden ASC";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {

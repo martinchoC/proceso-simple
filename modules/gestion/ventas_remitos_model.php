@@ -872,6 +872,38 @@ function obtenerRemitoVentaPorId($conexion, $id, $empresa_idx)
     return $remito;
 }
 
+// Destinatario del remito: un cliente (entidad_id > 0, con o sin sucursal) o un
+// consumidor final (entidad_id = 0/vacío + consumidor_final_nombre obligatorio). En el
+// consumidor final entidad_id se persiste NULL y no lleva sucursal; en el cliente el
+// nombre libre se descarta (NULL) para que no queden los dos datos cargados a la vez.
+function resolverDestinatarioRemito($data)
+{
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+
+    if ($entidad_id > 0) {
+        $entidad_sucursal_id = intval($data['entidad_sucursal_id'] ?? 0);
+        return [
+            'entidad_id' => $entidad_id,
+            'entidad_sucursal_id' => $entidad_sucursal_id > 0 ? $entidad_sucursal_id : null,
+            'consumidor_final_nombre' => null
+        ];
+    }
+
+    $nombre = trim($data['consumidor_final_nombre'] ?? '');
+    if ($nombre === '') {
+        return ['error' => 'Debe seleccionar un cliente o indicar el nombre del consumidor final'];
+    }
+    if (mb_strlen($nombre) > 150) {
+        return ['error' => 'El nombre del consumidor final no puede superar los 150 caracteres'];
+    }
+
+    return [
+        'entidad_id' => null,
+        'entidad_sucursal_id' => null,
+        'consumidor_final_nombre' => $nombre
+    ];
+}
+
 function agregarRemitoVenta($conexion, $data)
 {
     if (!$conexion) {
@@ -880,8 +912,9 @@ function agregarRemitoVenta($conexion, $data)
     if (empty($data['f_emision'])) {
         return ['resultado' => false, 'error' => 'La fecha de emisión es obligatoria'];
     }
-    if (empty($data['entidad_id'])) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar un cliente'];
+    $destinatario = resolverDestinatarioRemito($data);
+    if (isset($destinatario['error'])) {
+        return ['resultado' => false, 'error' => $destinatario['error']];
     }
     if (empty($data['comprobante_tipo_id'])) {
         return ['resultado' => false, 'error' => 'Debe seleccionar el tipo de comprobante'];
@@ -913,17 +946,17 @@ function agregarRemitoVenta($conexion, $data)
 
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $comprobante_nro_val = 0;
-        $entidad_id_val = intval($data['entidad_id']);
-        $entidad_sucursal_id_val = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0)
-            ? intval($data['entidad_sucursal_id']) : null;
+        $entidad_id_val = $destinatario['entidad_id'];
+        $entidad_sucursal_id_val = $destinatario['entidad_sucursal_id'];
+        $consumidor_final_nombre_val = $destinatario['consumidor_final_nombre'];
         $f_emision_val = $data['f_emision'];
         $observaciones_val = isset($data['observaciones']) ? trim($data['observaciones']) : '';
 
         $sql = "INSERT INTO gestion__ventas_remitos
                 (empresa_id, sucursal_id, boca_id, comprobante_tipo_id, comprobante_pv,
                  comprobante_nro, comprobante_id, f_emision, entidad_id, entidad_sucursal_id,
-                 observaciones, tabla_estado_registro_id)
-                VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)";
+                 consumidor_final_nombre, observaciones, tabla_estado_registro_id)
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -932,7 +965,7 @@ function agregarRemitoVenta($conexion, $data)
 
         mysqli_stmt_bind_param(
             $stmt,
-            "iiiiiisiisi",
+            "iiiiiisiissi",
             $empresa_id_val,
             $sucursal_id_val,
             $boca_id_val,
@@ -942,6 +975,7 @@ function agregarRemitoVenta($conexion, $data)
             $f_emision_val,
             $entidad_id_val,
             $entidad_sucursal_id_val,
+            $consumidor_final_nombre_val,
             $observaciones_val,
             $estado_inicial_val
         );
@@ -1047,16 +1081,22 @@ function editarRemitoVenta($conexion, $id, $data)
         $boca_id_val = intval($ubicacion['boca_id']);
         $sucursal_id_val = intval($ubicacion['sucursal_id']);
 
+        $destinatario = resolverDestinatarioRemito($data);
+        if (isset($destinatario['error'])) {
+            throw new Exception($destinatario['error']);
+        }
+
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
-        $entidad_id_val = intval($data['entidad_id']);
-        $entidad_sucursal_id_val = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0)
-            ? intval($data['entidad_sucursal_id']) : null;
+        $entidad_id_val = $destinatario['entidad_id'];
+        $entidad_sucursal_id_val = $destinatario['entidad_sucursal_id'];
+        $consumidor_final_nombre_val = $destinatario['consumidor_final_nombre'];
         $f_emision_val = $data['f_emision'];
         $observaciones_val = isset($data['observaciones']) ? trim($data['observaciones']) : '';
 
         $sql = "UPDATE gestion__ventas_remitos
                 SET sucursal_id = ?, boca_id = ?, comprobante_tipo_id = ?, comprobante_pv = ?,
-                    f_emision = ?, entidad_id = ?, entidad_sucursal_id = ?, observaciones = ?
+                    f_emision = ?, entidad_id = ?, entidad_sucursal_id = ?,
+                    consumidor_final_nombre = ?, observaciones = ?
                 WHERE venta_remito_id = ? AND empresa_id = ?";
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -1064,7 +1104,7 @@ function editarRemitoVenta($conexion, $id, $data)
         }
         mysqli_stmt_bind_param(
             $stmt,
-            "iiiisiisii",
+            "iiiisiissii",
             $sucursal_id_val,
             $boca_id_val,
             $comprobante_tipo_id_val,
@@ -1072,6 +1112,7 @@ function editarRemitoVenta($conexion, $id, $data)
             $f_emision_val,
             $entidad_id_val,
             $entidad_sucursal_id_val,
+            $consumidor_final_nombre_val,
             $observaciones_val,
             $id,
             $empresa_idx_val
@@ -1162,8 +1203,12 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
         $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : null;
         $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
 
+        if ($venta_pedido_detalle_id && empty($entidad_id)) {
+            throw new Exception("Un remito a consumidor final no puede incluir líneas de pedidos de clientes");
+        }
+
         if ($venta_pedido_detalle_id) {
-            $sql_lock = "SELECT vpd.cantidad, vpd.cantidad_entregada, vp.entidad_id, vp.empresa_id,
+            $sql_lock ="SELECT vpd.cantidad, vpd.cantidad_entregada, vp.entidad_id, vp.empresa_id,
                                 p.producto_nombre,
                                 vpd.precio_unitario_bruto, vpd.descuento_general_pct,
                                 vpd.iva_alicuota_id, vpd.iva_porcentaje
@@ -1595,18 +1640,65 @@ function obtenerListaPrecioVigenteClienteRemitos($conexion, $entidad_id)
     return $row ?: null;
 }
 
+// Lista de precios que se aplica a los consumidores finales: la "Mostrador" de la
+// empresa, identificada por código (no por id, que cambia entre empresas).
+const LISTA_PRECIO_CODIGO_MOSTRADOR = 'MOST';
+
+function obtenerListaPrecioMostradorRemitos($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    $codigo = LISTA_PRECIO_CODIGO_MOSTRADOR;
+
+    $sql = "SELECT lista_precio_id
+            FROM gestion__listas_precios
+            WHERE empresa_id = ?
+            AND lista_precio_codigo = ?
+            AND tabla_estado_registro_id = 1
+            LIMIT 1";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+
+    mysqli_stmt_bind_param($stmt, "is", $empresa_idx, $codigo);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    return $row ? intval($row['lista_precio_id']) : null;
+}
+
+// Condición de precio para buscar productos "sin pedido": con cliente, su lista y
+// descuento general vigentes; sin cliente ($entidad_id = 0, consumidor final), la
+// lista Mostrador sin descuento. Devuelve null si no hay lista aplicable.
+function obtenerCondicionPrecioRemito($conexion, $empresa_idx, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+
+    if ($entidad_id > 0) {
+        $condicion = obtenerListaPrecioVigenteClienteRemitos($conexion, $entidad_id);
+        return (!$condicion || empty($condicion['lista_precio_id'])) ? null : $condicion;
+    }
+
+    $lista_mostrador_id = obtenerListaPrecioMostradorRemitos($conexion, $empresa_idx);
+    if (!$lista_mostrador_id) return null;
+
+    return ['lista_precio_id' => $lista_mostrador_id, 'cliente_descuento_general' => 0];
+}
+
 // El parámetro $q llega como una o más palabras separadas por espacio (los "tags" que
 // arma el buscador en ventas_remitos.js, mismo patrón que el buscador con tags del ABM
 // de productos: cada palabra es una condición AND independiente, y dentro de cada
 // palabra se busca con OR en código, nombre y compatibilidad). Así "poza corolla"
 // encuentra productos que mencionen ambas palabras sin importar en qué columna esté cada una.
+// $entidad_id = 0 busca para consumidor final (precio de mostrador, ver obtenerCondicionPrecioRemito).
 function buscarProductosClienteRemitos($conexion, $empresa_idx, $entidad_id, $q)
 {
     $entidad_id = intval($entidad_id);
     $empresa_idx = intval($empresa_idx);
 
-    $condicion = obtenerListaPrecioVigenteClienteRemitos($conexion, $entidad_id);
-    if (!$condicion || empty($condicion['lista_precio_id'])) {
+    $condicion = obtenerCondicionPrecioRemito($conexion, $empresa_idx, $entidad_id);
+    if (!$condicion) {
         return [];
     }
     $lista_precio_id = intval($condicion['lista_precio_id']);

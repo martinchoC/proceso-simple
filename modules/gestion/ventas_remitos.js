@@ -11,6 +11,9 @@ $(document).ready(function () {
     var detalles = [];
     var clienteActualId = null;
     var clienteSucursalActualId = null;
+    // Remito a consumidor final: sin cliente (entidad_id NULL), con nombre libre y
+    // precio de la lista Mostrador sin descuento. Excluyente con clienteActualId.
+    var esConsumidorFinal = false;
     var pedidosPendientesCliente = []; // respuesta cruda de obtener_pedidos_pendientes_cliente
 
     // ========== CANTIDAD YA COMPROMETIDA EN ESTE BORRADOR PARA UNA LÍNEA DE PEDIDO ==========
@@ -33,6 +36,17 @@ $(document).ready(function () {
         return detalles
             .filter(function (d) { return d.venta_pedido_detalle_id == ventaPedidoDetalleId && d.detalle_idx != detalleIdxExcluir; })
             .reduce(function (acc, d) { return acc + (parseFloat(d.cantidad) || 0); }, 0);
+    }
+
+    function tieneDestinatario() {
+        return !!clienteActualId || esConsumidorFinal;
+    }
+
+    // Texto del destinatario de una fila del listado: el cliente o, si es un remito a
+    // consumidor final (sin entidad_id), el nombre libre que se cargó.
+    function destinatarioFila(row) {
+        if (row.entidad_id) return row.entidad_nombre || row.entidad_fantasia || '';
+        return 'Consumidor Final' + (row.consumidor_final_nombre ? ' - ' + row.consumidor_final_nombre : '');
     }
 
     // ========== FUNCIONES DE DATATABLE ==========
@@ -122,7 +136,11 @@ $(document).ready(function () {
                 {
                     data: null,
                     render: function (data, type, row) {
-                        if (type === 'export') return data.entidad_nombre || '';
+                        if (type === 'export') return destinatarioFila(data);
+                        if (!data.entidad_id) {
+                            return `<div>${escapeHtml(data.consumidor_final_nombre || '')}</div>
+                                <small class="text-muted"><i class="fas fa-user me-1"></i>Consumidor Final</small>`;
+                        }
                         return `<div>${data.entidad_nombre || ''}</div>
                                 <small class="text-muted">${data.entidad_fantasia || ''}</small>`;
                     }
@@ -181,7 +199,7 @@ $(document).ready(function () {
                                 var icono = boton.icono_clase ? `<i class="${boton.icono_clase}"></i>` : '';
                                 var esConfirmable = boton.es_confirmable || 0;
                                 var comprobanteInfo = `${row.comprobante_tipo || ''} -${row.comprobante_nro || ''}`;
-                                var clienteInfo = row.entidad_nombre || row.entidad_fantasia || '';
+                                var clienteInfo = escapeHtml(destinatarioFila(row)).replace(/"/g, '&quot;');
 
                                 var botonHtml = `<button type="button" class="btn ${claseBoton} btn-accion"
                                                 title="${titulo}"
@@ -339,7 +357,8 @@ $(document).ready(function () {
             data: { accion: 'obtener_clientes_con_sucursales', empresa_idx: empresa_idx },
             dataType: 'json',
             success: function (data) {
-                var options = '<option value="">Seleccionar cliente o sucursal</option>';
+                var options = '<option value="">Seleccionar cliente o sucursal</option>'
+                    + '<option value="CF" data-entidad-id="" data-sucursal-id="">Consumidor Final (precio de mostrador)</option>';
                 if (data && data.length > 0) {
                     data.forEach(function (item) {
                         if (item.sucursales && item.sucursales.length > 0) {
@@ -350,8 +369,6 @@ $(document).ready(function () {
                             options += `<option value="P-${item.entidad_id}" data-entidad-id="${item.entidad_id}" data-sucursal-id="">${item.entidad_nombre}</option>`;
                         }
                     });
-                } else {
-                    options = '<option value="">No hay clientes disponibles</option>';
                 }
                 $('#entidad_combo').html(options);
             },
@@ -375,23 +392,33 @@ $(document).ready(function () {
         var entidadId = selectedOption.data('entidad-id');
         var sucursalId = selectedOption.data('sucursal-id');
         var valorCombo = $(this).val();
-        var clienteAnteriorId = clienteActualId;
+        var destinoAnterior = esConsumidorFinal ? 'CF' : clienteActualId;
 
-        if (valorCombo) {
+        if (valorCombo === 'CF') {
+            $('#entidad_id').val('');
+            $('#entidad_sucursal_id').val('');
+            clienteActualId = null;
+            clienteSucursalActualId = null;
+            esConsumidorFinal = true;
+        } else if (valorCombo) {
             var tipo = valorCombo.split('-')[0];
 
             $('#entidad_id').val(entidadId);
             $('#entidad_sucursal_id').val(tipo === 'S' ? sucursalId : '');
             clienteActualId = parseInt(entidadId);
             clienteSucursalActualId = tipo === 'S' ? parseInt(sucursalId) : null;
+            esConsumidorFinal = false;
         } else {
             $('#entidad_id').val('');
             $('#entidad_sucursal_id').val('');
             clienteActualId = null;
             clienteSucursalActualId = null;
+            esConsumidorFinal = false;
         }
+        mostrarCampoConsumidorFinal(esConsumidorFinal);
 
-        if (clienteAnteriorId !== clienteActualId) {
+        var destinoNuevo = esConsumidorFinal ? 'CF' : clienteActualId;
+        if (destinoAnterior !== destinoNuevo) {
             if (detalles.length > 0) {
                 detalles = [];
                 renderizarDetalles();
@@ -399,7 +426,7 @@ $(document).ready(function () {
                 Swal.fire({
                     icon: 'info',
                     title: 'Cliente cambiado',
-                    text: 'Se limpiaron los productos cargados: correspondían a los pedidos del cliente anterior.',
+                    text: 'Se limpiaron los productos cargados: sus pedidos y precios correspondían al cliente anterior.',
                     showConfirmButton: false,
                     timer: 2200,
                     toast: true,
@@ -411,6 +438,12 @@ $(document).ready(function () {
             resetBusquedaProductoLibre();
         }
     });
+
+    function mostrarCampoConsumidorFinal(mostrar) {
+        $('#grupo_consumidor_final_nombre').toggle(mostrar);
+        $('#consumidor_final_nombre').prop('required', mostrar);
+        if (!mostrar) $('#consumidor_final_nombre').val('');
+    }
 
     // ========== PEDIDOS PENDIENTES DEL CLIENTE ==========
     function cargarPedidosPendientes(entidadId) {
@@ -450,6 +483,10 @@ $(document).ready(function () {
     function cargarDescuentoGeneralCliente(entidadId) {
         var info = $('#descuento_general_info');
 
+        if (esConsumidorFinal) {
+            info.html('<i class="fas fa-store me-1"></i>Consumidor final: se aplica el <strong>precio de mostrador</strong>, sin descuento general.');
+            return;
+        }
         if (!entidadId) {
             info.html('<i class="fas fa-tag me-1"></i>Seleccione un cliente para ver su descuento general.');
             return;
@@ -830,7 +867,7 @@ $(document).ready(function () {
     }
 
     function ejecutarBusquedaProductoLibre() {
-        if (!clienteActualId) {
+        if (!tieneDestinatario()) {
             renderizarResultadosVacio('<i class="fas fa-arrow-up me-1"></i>Seleccione un cliente en la solapa "Datos del Remito"');
             return;
         }
@@ -843,9 +880,23 @@ $(document).ready(function () {
         $.ajax({
             url: 'ventas_remitos_ajax.php',
             type: 'GET',
-            data: { accion: 'buscar_productos_cliente', entidad_id: clienteActualId, q: q, empresa_idx: empresa_idx },
+            data: {
+                accion: 'buscar_productos_cliente',
+                entidad_id: clienteActualId || 0,
+                consumidor_final: esConsumidorFinal ? 1 : 0,
+                q: q,
+                empresa_idx: empresa_idx
+            },
             dataType: 'json',
             success: function (res) {
+                if (res && res.error === 'sin_lista_precios' && esConsumidorFinal) {
+                    renderizarResultadosVacio(
+                        `<span class="text-danger"><i class="fas fa-triangle-exclamation me-1"></i>
+                        La empresa no tiene activa la lista de precios "Mostrador" (código MOST), que es
+                        la que se aplica a consumidores finales.</span>`
+                    );
+                    return;
+                }
                 if (res && res.error === 'sin_lista_precios') {
                     renderizarResultadosVacio(
                         `<span class="text-danger"><i class="fas fa-triangle-exclamation me-1"></i>
@@ -868,7 +919,7 @@ $(document).ready(function () {
         tagsProductoLibre = [];
         renderizarTagsProductoLibre();
         tagsProductoLibreInput.val('');
-        if (clienteActualId) {
+        if (tieneDestinatario()) {
             $('#resultados_busqueda').empty();
         } else {
             renderizarResultadosVacio('<i class="fas fa-arrow-up me-1"></i>Seleccione un cliente en la solapa "Datos del Remito"');
@@ -888,8 +939,8 @@ $(document).ready(function () {
         var fila = btn.closest('tr');
         var cantidad = parseFloat(fila.find('.input-cantidad-libre').val());
 
-        if (!clienteActualId) {
-            Swal.fire({ icon: 'warning', title: 'Seleccione cliente', text: 'Debe seleccionar un cliente primero', confirmButtonText: 'Entendido' });
+        if (!tieneDestinatario()) {
+            Swal.fire({ icon: 'warning', title: 'Seleccione cliente', text: 'Debe seleccionar un cliente o Consumidor Final primero', confirmButtonText: 'Entendido' });
             return;
         }
         if (!cantidad || cantidad <= 0) {
@@ -1242,6 +1293,8 @@ $(document).ready(function () {
         detalles = [];
         clienteActualId = null;
         clienteSucursalActualId = null;
+        esConsumidorFinal = false;
+        mostrarCampoConsumidorFinal(false);
         pedidosPendientesCliente = [];
         renderizarDetalles();
         actualizarTotales();
@@ -1347,6 +1400,15 @@ $(document).ready(function () {
                         if (!soloVisualizar) {
                             cargarPedidosPendientes(clienteActualId);
                         }
+                    } else {
+                        // Remito a consumidor final: el nombre sigue editable mientras el
+                        // remito se pueda editar; el tipo de destinatario queda fijo.
+                        esConsumidorFinal = true;
+                        $('#entidad_combo').val('CF');
+                        mostrarCampoConsumidorFinal(true);
+                        $('#consumidor_final_nombre').val(res.consumidor_final_nombre || '');
+                        $('#entidad_combo').prop('disabled', true).attr('title', 'El cliente no se puede modificar una vez guardado el remito');
+                        cargarDescuentoGeneralCliente(null);
                     }
 
                     if (soloVisualizar) {
@@ -1380,7 +1442,7 @@ $(document).ready(function () {
                 if (abrirEnFacturar) {
                     setTimeout(function () {
                         var tabTrigger = document.getElementById('tab-facturar');
-                        if (tabTrigger) bootstrap.Tab.getOrCreateInstance(tabTrigger).show();
+                        if (tabTrigger && $('#tab-item-facturar').is(':visible')) bootstrap.Tab.getOrCreateInstance(tabTrigger).show();
                     }, 450);
                 }
 
@@ -1700,7 +1762,9 @@ $(document).ready(function () {
         var sucursalId = $('#facturar_punto_venta_id option:selected').data('sucursal-id') || '';
         var payload = {
             accion: esEdicion ? 'editar' : 'agregar', empresa_idx: empresa_idx, pagina_idx: 56,
-            entidad_id: clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0,
+            // Consumidor final: entidad_id vacío + nombre del remito; el servidor fuerza contado.
+            entidad_id: esConsumidorFinal ? '' : clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0,
+            consumidor_final_nombre: esConsumidorFinal ? $.trim($('#consumidor_final_nombre').val()) : '',
             condicion_pago_id: 0, f_emision: fEmision, f_vto: fVto,
             sucursal_id: sucursalId, punto_venta_id: puntoVenta, comprobante_tipo_id: tipoComprobante,
             comprobante_nro: 0, moneda_id: 1,
@@ -1827,8 +1891,12 @@ $(document).ready(function () {
             form.classList.add('was-validated');
             return false;
         }
-        if (!clienteActualId) {
-            Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'Debe seleccionar un cliente', confirmButtonText: 'Entendido' });
+        if (!tieneDestinatario()) {
+            Swal.fire({ icon: 'warning', title: 'Cliente requerido', text: 'Debe seleccionar un cliente o Consumidor Final', confirmButtonText: 'Entendido' });
+            return false;
+        }
+        if (esConsumidorFinal && !$.trim($('#consumidor_final_nombre').val())) {
+            Swal.fire({ icon: 'warning', title: 'Nombre requerido', text: 'Indique el nombre del consumidor final', confirmButtonText: 'Entendido' });
             return false;
         }
         if (detalles.length === 0) {
@@ -1862,8 +1930,9 @@ $(document).ready(function () {
         formData.append('venta_remito_id', id || '');
         formData.append('punto_venta_id', $('#punto_venta_id').val() || '');
         formData.append('comprobante_tipo_id', $('#comprobante_tipo_id').val() || '');
-        formData.append('entidad_id', clienteActualId);
+        formData.append('entidad_id', esConsumidorFinal ? '' : clienteActualId);
         formData.append('entidad_sucursal_id', clienteSucursalActualId !== null ? clienteSucursalActualId : '');
+        formData.append('consumidor_final_nombre', esConsumidorFinal ? $.trim($('#consumidor_final_nombre').val()) : '');
         formData.append('f_emision', $('#f_emision').val() || '');
         formData.append('observaciones', $('#observaciones').val() || '');
         formData.append('detalles', JSON.stringify(detallesEnviar));

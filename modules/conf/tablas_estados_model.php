@@ -53,7 +53,7 @@ function obtenerTablasEstados($conexion)
             LEFT JOIN conf__tablas ct ON cter.tabla_id = ct.tabla_id
             LEFT JOIN conf__estados_registros cer ON cter.estado_registro_id = cer.estado_registro_id
             LEFT JOIN conf__colores cc ON cter.color_id = cc.color_id
-            ORDER BY ct.tabla_nombre, cter.orden, cter.tabla_estado_registro";
+            ORDER BY ct.tabla_nombre ASC, cter.orden ASC";
 
     $res = mysqli_query($conexion, $sql);
     $data = [];
