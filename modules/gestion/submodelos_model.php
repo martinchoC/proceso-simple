@@ -471,4 +471,285 @@ function obtenerSubmodeloPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_close($stmt);
     return $submodelo;
 }
+
+// ✅ Resumen de productos por marca → modelo → submodelo (pestaña dashboard)
+// Se cuentan productos DISTINTOS activos con compatibilidad activa en
+// gestion__productos_compatibilidad. Los conteos de cada nivel se calculan
+// por separado (no se suman los hijos) porque un mismo producto puede ser
+// compatible con varios submodelos/modelos y se contaría dos veces.
+// Compatibilidades con submodelo_id NULL/0 aplican a todo el modelo y se
+// informan aparte como "sin submodelo".
+function obtenerResumenProductosJerarquia($conexion, $empresa_idx, $pagina_id)
+{
+    $empresa_idx = intval($empresa_idx);
+    $pagina_id = intval($pagina_id);
+    error_log("=== INICIO obtenerResumenProductosJerarquia empresa: $empresa_idx ===");
+
+    // submodelo_id va "crudo" (sin NULLIF): con una función sobre la columna
+    // el JOIN no puede usar idx_compat_submodelo. NULL y 0 = sin submodelo.
+    $sql_base = "SELECT pc.producto_id, pc.marca_id, pc.modelo_id, pc.submodelo_id
+                 FROM gestion__productos_compatibilidad pc
+                 INNER JOIN gestion__productos p ON p.producto_id = pc.producto_id
+                     AND p.empresa_id = pc.empresa_id
+                     AND p.tabla_estado_registro_id = 1
+                 WHERE pc.empresa_id = ? AND pc.tabla_estado_registro_id = 1";
+
+    $ejecutar = function ($sql, $tipos, ...$params) use ($conexion) {
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception('Error al preparar consulta: ' . mysqli_error($conexion));
+        }
+        mysqli_stmt_bind_param($stmt, $tipos, ...$params);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $filas = [];
+        while ($fila = mysqli_fetch_assoc($result)) {
+            $filas[] = $fila;
+        }
+        mysqli_stmt_close($stmt);
+        return $filas;
+    };
+
+    try {
+        // KPIs generales
+        $kpi_productos = $ejecutar(
+            "SELECT COUNT(*) AS total FROM gestion__productos
+             WHERE empresa_id = ? AND tabla_estado_registro_id = 1",
+            "i", $empresa_idx
+        );
+        $kpi_compat = $ejecutar(
+            "SELECT COUNT(DISTINCT x.producto_id) AS total FROM ($sql_base) x",
+            "i", $empresa_idx
+        );
+
+        // Nivel marca
+        $marcas = $ejecutar(
+            "SELECT ma.marca_id, ma.marca_nombre, ma.tabla_estado_registro_id,
+                    COUNT(DISTINCT x.producto_id) AS productos
+             FROM gestion__marcas ma
+             LEFT JOIN ($sql_base) x ON x.marca_id = ma.marca_id
+             WHERE ma.empresa_id = ?
+             GROUP BY ma.marca_id, ma.marca_nombre, ma.tabla_estado_registro_id
+             ORDER BY ma.marca_nombre",
+            "ii", $empresa_idx, $empresa_idx
+        );
+
+        // Nivel modelo
+        $modelos = $ejecutar(
+            "SELECT m.modelo_id, m.marca_id, m.modelo_nombre, m.tabla_estado_registro_id,
+                    COUNT(DISTINCT x.producto_id) AS productos,
+                    COUNT(DISTINCT CASE WHEN x.submodelo_id IS NULL OR x.submodelo_id = 0 THEN x.producto_id END) AS sin_submodelo
+             FROM gestion__modelos m
+             LEFT JOIN ($sql_base) x ON x.modelo_id = m.modelo_id
+             WHERE m.empresa_id = ?
+             GROUP BY m.modelo_id, m.marca_id, m.modelo_nombre, m.tabla_estado_registro_id
+             ORDER BY m.modelo_nombre",
+            "ii", $empresa_idx, $empresa_idx
+        );
+
+        // Nivel submodelo
+        $submodelos = $ejecutar(
+            "SELECT s.submodelo_id, s.modelo_id, s.submodelo_nombre, s.tabla_estado_registro_id,
+                    COUNT(DISTINCT x.producto_id) AS productos
+             FROM gestion__submodelos s
+             LEFT JOIN ($sql_base) x ON x.submodelo_id = s.submodelo_id
+             WHERE s.empresa_id = ?
+             GROUP BY s.submodelo_id, s.modelo_id, s.submodelo_nombre, s.tabla_estado_registro_id
+             ORDER BY s.submodelo_nombre",
+            "ii", $empresa_idx, $empresa_idx
+        );
+    } catch (Exception $e) {
+        error_log("obtenerResumenProductosJerarquia: " . $e->getMessage());
+        return ['success' => false, 'data' => null, 'message' => 'Error al obtener el resumen de productos'];
+    }
+
+    // Botones del submodelo según su estado (motor de estados, igual que en
+    // el listado). Se resuelven una vez por estado, no por fila.
+    $botones_por_estado = [];
+    $botones = function ($estado_id) use ($conexion, $pagina_id, &$botones_por_estado) {
+        if (!array_key_exists($estado_id, $botones_por_estado)) {
+            $botones_por_estado[$estado_id] = obtenerBotonesPorEstado($conexion, $pagina_id, $estado_id);
+        }
+        return $botones_por_estado[$estado_id];
+    };
+
+    // Estado legible de cada registro (para la lista "sin productos")
+    $estados = [];
+    $nombre_estado = function ($estado_id) use ($conexion, &$estados) {
+        if (!array_key_exists($estado_id, $estados)) {
+            $info = obtenerInfoEstado($conexion, $estado_id);
+            $estados[$estado_id] = $info['estado_registro'] ?? 'Sin estado';
+        }
+        return $estados[$estado_id];
+    };
+
+    // Armar el árbol
+    $subs_por_modelo = [];
+    foreach ($submodelos as $s) {
+        $estado_id = (int) $s['tabla_estado_registro_id'];
+        $botones_sub = $botones($estado_id);
+        $boton_editar = null;
+        foreach ($botones_sub as $b) {
+            if ($b['accion_js'] === 'editar') {
+                $boton_editar = $b;
+                break;
+            }
+        }
+        $subs_por_modelo[$s['modelo_id']][] = [
+            'id' => (int) $s['submodelo_id'],
+            'nombre' => $s['submodelo_nombre'],
+            'activo' => $estado_id === 1,
+            'estado' => $nombre_estado($estado_id),
+            'productos' => (int) $s['productos'],
+            'boton_editar' => $boton_editar
+        ];
+    }
+
+    // Listas planas de registros sin productos (dashboard, para depurarlos).
+    // Los submodelos "huérfanos" (modelo_id inexistente en la empresa) no
+    // aparecen en el árbol ni en el listado (INNER JOIN), así que se
+    // incluyen acá aunque tengan productos.
+    $marca_nombre = array_column($marcas, 'marca_nombre', 'marca_id');
+    $modelo_info = [];
+    foreach ($modelos as $m) {
+        $modelo_info[$m['modelo_id']] = $m;
+    }
+    $hijos = function ($filas, $campo) {
+        $c = [];
+        foreach ($filas as $f) {
+            $c[$f[$campo]] = ($c[$f[$campo]] ?? 0) + 1;
+        }
+        return $c;
+    };
+    $modelos_por_marca_cnt = $hijos($modelos, 'marca_id');
+    $subs_por_modelo_cnt = $hijos($submodelos, 'modelo_id');
+
+    $sin_productos = ['marcas' => [], 'modelos' => [], 'submodelos' => []];
+    foreach ($marcas as $ma) {
+        if ((int) $ma['productos'] > 0) continue;
+        $sin_productos['marcas'][] = [
+            'id' => (int) $ma['marca_id'],
+            'nombre' => $ma['marca_nombre'],
+            'estado' => $nombre_estado((int) $ma['tabla_estado_registro_id']),
+            'hijos' => $modelos_por_marca_cnt[$ma['marca_id']] ?? 0
+        ];
+    }
+    foreach ($modelos as $m) {
+        if ((int) $m['productos'] > 0) continue;
+        $sin_productos['modelos'][] = [
+            'id' => (int) $m['modelo_id'],
+            'nombre' => $m['modelo_nombre'],
+            'marca' => $marca_nombre[$m['marca_id']] ?? null,
+            'estado' => $nombre_estado((int) $m['tabla_estado_registro_id']),
+            'hijos' => $subs_por_modelo_cnt[$m['modelo_id']] ?? 0
+        ];
+    }
+    foreach ($submodelos as $s) {
+        $mo = $modelo_info[$s['modelo_id']] ?? null;
+        if ((int) $s['productos'] > 0 && $mo) continue;
+        $sin_productos['submodelos'][] = [
+            'id' => (int) $s['submodelo_id'],
+            'nombre' => $s['submodelo_nombre'],
+            'modelo' => $mo['modelo_nombre'] ?? null,
+            'marca' => $mo ? ($marca_nombre[$mo['marca_id']] ?? null) : null,
+            'huerfano' => $mo === null,
+            'productos' => (int) $s['productos'],
+            'estado' => $nombre_estado((int) $s['tabla_estado_registro_id']),
+            'botones' => $botones((int) $s['tabla_estado_registro_id'])
+        ];
+    }
+
+    $modelos_por_marca = [];
+    foreach ($modelos as $m) {
+        $modelos_por_marca[$m['marca_id']][] = [
+            'id' => (int) $m['modelo_id'],
+            'nombre' => $m['modelo_nombre'],
+            'activo' => (int) $m['tabla_estado_registro_id'] === 1,
+            'estado' => $nombre_estado((int) $m['tabla_estado_registro_id']),
+            'productos' => (int) $m['productos'],
+            'sin_submodelo' => (int) $m['sin_submodelo'],
+            'submodelos' => $subs_por_modelo[$m['modelo_id']] ?? []
+        ];
+    }
+
+    $arbol = [];
+    foreach ($marcas as $ma) {
+        $arbol[] = [
+            'id' => (int) $ma['marca_id'],
+            'nombre' => $ma['marca_nombre'],
+            'activo' => (int) $ma['tabla_estado_registro_id'] === 1,
+            'estado' => $nombre_estado((int) $ma['tabla_estado_registro_id']),
+            'productos' => (int) $ma['productos'],
+            'modelos' => $modelos_por_marca[$ma['marca_id']] ?? []
+        ];
+    }
+
+    $con_productos = function ($filas) {
+        return count(array_filter($filas, function ($f) {
+            return (int) $f['productos'] > 0;
+        }));
+    };
+
+    return [
+        'success' => true,
+        'data' => [
+            'kpis' => [
+                'productos_activos' => (int) ($kpi_productos[0]['total'] ?? 0),
+                'productos_con_compatibilidad' => (int) ($kpi_compat[0]['total'] ?? 0),
+                'marcas_total' => count($marcas),
+                'marcas_con_productos' => $con_productos($marcas),
+                'modelos_total' => count($modelos),
+                'modelos_con_productos' => $con_productos($modelos),
+                'submodelos_total' => count($submodelos),
+                'submodelos_con_productos' => $con_productos($submodelos)
+            ],
+            'marcas' => $arbol,
+            'sin_productos' => $sin_productos
+        ],
+        'message' => ''
+    ];
+}
+
+// ✅ Productos de un nodo hoja del resumen (carga diferida al expandir).
+// $tipo = 'submodelo' → $id es submodelo_id
+// $tipo = 'sin_submodelo' → $id es modelo_id (compatibilidades sin submodelo)
+function obtenerProductosNodoResumen($conexion, $empresa_idx, $tipo, $id)
+{
+    $empresa_idx = intval($empresa_idx);
+    $id = intval($id);
+
+    if ($id <= 0 || !in_array($tipo, ['submodelo', 'sin_submodelo'], true)) {
+        return ['success' => false, 'data' => [], 'message' => 'Parámetros inválidos'];
+    }
+
+    $filtro = $tipo === 'submodelo'
+        ? "pc.submodelo_id = ?"
+        : "pc.modelo_id = ? AND (pc.submodelo_id IS NULL OR pc.submodelo_id = 0)";
+
+    $sql = "SELECT DISTINCT p.producto_id, p.producto_codigo, p.producto_nombre, p.producto_descripcion
+            FROM gestion__productos_compatibilidad pc
+            INNER JOIN gestion__productos p ON p.producto_id = pc.producto_id
+                AND p.empresa_id = pc.empresa_id
+                AND p.tabla_estado_registro_id = 1
+            WHERE pc.empresa_id = ? AND pc.tabla_estado_registro_id = 1 AND $filtro
+            ORDER BY p.producto_codigo";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("obtenerProductosNodoResumen: " . mysqli_error($conexion));
+        return ['success' => false, 'data' => [], 'message' => 'Error en la consulta'];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_idx, $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $productos = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $productos[] = $fila;
+    }
+    mysqli_stmt_close($stmt);
+
+    return ['success' => true, 'data' => $productos, 'message' => ''];
+}
 ?>

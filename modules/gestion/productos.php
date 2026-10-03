@@ -90,7 +90,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <div class="col-md-3">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text"><i class="fas fa-tag"></i></span>
-                                                    <input type="text" class="form-control" id="filtroCodigo" placeholder="Código...">
+                                                    <input type="text" class="form-control" id="filtroCodigo" placeholder="Código o cód. proveedor..." title="Busca en el código del producto y en los códigos de proveedor">
                                                     <span class="input-group-text" id="codigoSearchIcon" style="display:none;"><i class="fas fa-search text-primary"></i></span>
                                                 </div>
                                             </div>

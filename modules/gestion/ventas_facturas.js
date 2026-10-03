@@ -86,7 +86,7 @@ $(function () {
             $('#factura_comprobante_tipo_id').html('<option value="">Seleccionar PV</option>');
             return;
         }
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', empresa_idx: EMPRESA_ID, punto_venta_id: pv }, function (rows) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', empresa_idx: EMPRESA_ID, pagina_idx: PAGINA_ID, punto_venta_id: pv }, function (rows) {
             var html = '<option value="">Seleccionar tipo</option>';
             (rows || []).forEach(function (r) { html += '<option value="' + r.comprobante_tipo_id + '" data-fiscal="' + (r.comprobante_fiscal_id || 0) + '">' + r.comprobante_tipo + (r.letra ? ' (' + r.letra + ')' : '') + '</option>'; });
             $('#factura_comprobante_tipo_id').html(html);
@@ -99,7 +99,7 @@ $(function () {
         var option = $('#factura_punto_venta_id option:selected');
         $('#factura_sucursal_id').val(option.data('sucursal-id') || '');
         if (!f.punto_venta_id) return;
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', empresa_idx: EMPRESA_ID, punto_venta_id: f.punto_venta_id }, function (rows) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', empresa_idx: EMPRESA_ID, pagina_idx: PAGINA_ID, punto_venta_id: f.punto_venta_id }, function (rows) {
             var html = '<option value="">Seleccionar tipo</option>';
             (rows || []).forEach(function (r) {
                 var sel = (String(r.comprobante_tipo_id) === String(f.comprobante_tipo_id)) ? ' selected' : '';
@@ -269,8 +269,19 @@ $(function () {
     }
     $('#factura_producto_busqueda').on('input', function () {
         indiceActivoProducto = -1;
-        var q = this.value, id = $('#factura_entidad_id').val(); if (q.length < 2 || !id) return $('#factura_productos_resultados').empty();
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'buscar_productos', empresa_idx: EMPRESA_ID, entidad_id: id, q: q }, function (rows) { productosEncontrados = rows || []; $('#factura_productos_resultados').html(productosEncontrados.map(function (p, i) { return '<button type="button" class="list-group-item list-group-item-action" data-index="' + i + '">' + p.producto_codigo + ' - ' + p.producto_nombre + '</button>'; }).join('')); });
+        var input = this, q = this.value, id = $('#factura_entidad_id').val(); if (q.length < 2 || !id) return $('#factura_productos_resultados').empty();
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'buscar_productos', empresa_idx: EMPRESA_ID, entidad_id: id, q: q }, function (rows) {
+            // Se dispara una búsqueda por tecla: si llega tarde la respuesta de un texto
+            // anterior, se descarta para no pisar los resultados del texto actual.
+            if (input.value !== q) return;
+            productosEncontrados = rows || [];
+            $('#factura_productos_resultados').html(productosEncontrados.map(function (p, i) {
+                return '<button type="button" class="list-group-item list-group-item-action" data-index="' + i + '">'
+                    + '<strong>' + $('<div>').text(p.producto_codigo || '').html() + '</strong> - ' + $('<div>').text(p.producto_nombre || '').html()
+                    + (p.compatibilidad_texto ? '<small class="d-block text-muted"><i class="fas fa-car-side me-1"></i>' + $('<div>').text(p.compatibilidad_texto).html() + '</small>' : '')
+                    + '</button>';
+            }).join(''));
+        });
     });
     // Navegación por teclado del autocompletar: flechas para recorrer los resultados,
     // Enter para elegir el resaltado (o el primero si todavía no se tocó ninguna flecha),

@@ -1,0 +1,915 @@
+// =====================================================================
+// Matriz legal y corporativa del grupo - Modelo de datos unificado v0.1
+// Fuente: documento "Logica del proceso" (secciones 2 a 16)
+//
+// CONVENCIONES
+// - Prefijo ml__ para el dominio. conf__ = tablas existentes de gestion_multipyme (stubs al final).
+// - tabla_estado_registro_id = FK logica al catalogo de estados. Los estados NO van en el codigo.
+//   Estados de ciclo (8): pendiente, en curso, cumplido, cumplido fuera de plazo, vencido, incumplido, eximido, cancelado.
+//   Estados de tarea (7): inactiva, pendiente, en curso, en revision, cumplida, rechazada, cancelada.
+// - Toda relacion lleva vigente_desde y vigente_hasta (null = vigente). Nada se borra: se cierra con fecha.
+// - Un ambito se expresa con ambito_tipo_id y cuatro FK opcionales; solo una va completa segun el tipo.
+// - Auditoria estandar (creado_por, creado_en, modificado_por, modificado_en) se agrega en la fase SQL; no se dibuja.
+// - Los nombres de conf__* deben verificarse contra la base real de gestion_multipyme.
+//
+// CAMBIOS RESPECTO DE LOS BORRADORES ANTERIORES
+// - ml__obligaciones = obligacion DEFINIDA por la norma. ml__obligaciones_asignadas = la aplicada a una entidad.
+// - Los ciclos cuelgan de la obligacion asignada, no de la definida.
+// - ml__tareas desaparece: la tarea se define en ml__tareas_plantillas y se instancia en ml__ciclos_tareas.
+// - Los procedimientos son soporte: no son normas ni generan obligaciones.
+// - Las subtareas no existen: toda unidad de trabajo es una tarea con dependencias.
+// =====================================================================
+
+Project ml_matriz_legal {
+  database_type: 'MySQL'
+  Note: 'Matriz legal, normativa y corporativa de un grupo de empresas gestionado por region'
+}
+
+// =====================================================================
+// M1 - TERRITORIO Y GRUPO
+// =====================================================================
+
+Table ml__grupos {
+  grupo_id int [pk, increment]
+  empresa_titular_id int [not null, ref: > conf__empresas.empresa_id, note: 'Empresa titular del sistema; sus perfiles son el catalogo base']
+  nombre varchar(150) [not null]
+  tabla_estado_registro_id int [not null]
+}
+
+Table ml__regiones_grupo {
+  region_grupo_id int [pk, increment]
+  grupo_id int [not null, ref: > ml__grupos.grupo_id]
+  nombre varchar(150) [not null]
+  vigente_desde date [not null]
+  vigente_hasta date
+  tabla_estado_registro_id int [not null]
+  Note: 'Region de gestion del grupo. Independiente de las regiones geograficas.'
+}
+
+Table ml__empresas_grupo {
+  empresa_grupo_id int [pk, increment]
+  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  grupo_id int [not null, ref: > ml__grupos.grupo_id]
+  pais_territorio_id int [not null, ref: > ml__territorios.territorio_id, note: 'Pais donde opera la empresa']
+  entidad_raiz_id int [ref: > ml__entidades.entidad_id, note: 'Entidad logica que representa a la empresa']
+  vigente_desde date [not null, note: 'Ingreso al grupo']
+  vigente_hasta date [note: 'Salida, fusion o escision']
+  tabla_estado_registro_id int [not null]
+  Note: 'Pertenencia de una empresa al grupo. Si cambia el pais, se cierra la fila y se abre otra.'
+}
+
+Table ml__empresas_regiones {
+  empresa_region_id int [pk, increment]
+  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  region_grupo_id int [not null, ref: > ml__regiones_grupo.region_grupo_id]
+  vigente_desde date [not null]
+  vigente_hasta date
+}
+
+Table ml__empresas_nombres {
+  empresa_nombre_id int [pk, increment]
+  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  razon_social varchar(200) [not null]
+  vigente_desde date [not null]
+  vigente_hasta date
+  Note: 'Un cambio de razon social es la misma empresa; el nombre anterior queda con sus fechas.'
+}
+
+Table ml__empresas_eventos_tipos {
+  empresa_evento_tipo_id int [pk, increment]
+  codigo varchar(30) [not null, unique, note: 'INGRESO, SALIDA, FUSION, ESCISION']
+  nombre varchar(100) [not null]
+}
+
+Table ml__empresas_eventos {
+  empresa_evento_id int [pk, increment]
+  empresa_evento_tipo_id int [not null, ref: > ml__empresas_eventos_tipos.empresa_evento_tipo_id]
+  empresa_origen_id int [not null, ref: > conf__empresas.empresa_id]
+  empresa_destino_id int [ref: > conf__empresas.empresa_id, note: 'Absorbente en una fusion; empresa nueva en una escision']
+  fecha date [not null]
+  observaciones text
+  registrado_por int [ref: > conf__usuarios.usuario_id]
+}
+
+Table ml__territorios_tipos {
+  territorio_tipo_id int [pk, increment]
+  codigo varchar(30) [not null, unique, note: 'MUNDO, REGION, SUBREGION, PAIS, PROVINCIA, ESTADO, LOCALIDAD']
+  nombre varchar(100) [not null]
+}
+
+Table ml__territorios {
+  territorio_id int [pk, increment]
+  territorio_tipo_id int [not null, ref: > ml__territorios_tipos.territorio_tipo_id]
+  codigo varchar(50)
+  nombre varchar(150) [not null]
+  huso_horario varchar(64) [note: 'Zona horaria con que se miden los plazos. Se define en el pais.']
+  tabla_estado_registro_id int [not null]
+  Note: 'Arbol de profundidad libre. La jerarquia vive en ml__territorios_pertenencias.'
+}
+
+Table ml__territorios_pertenencias {
+  territorio_pertenencia_id int [pk, increment]
+  territorio_id int [not null, ref: > ml__territorios.territorio_id, note: 'Nodo hijo']
+  territorio_superior_id int [not null, ref: > ml__territorios.territorio_id, note: 'Nodo superior']
+  es_principal boolean [not null, default: false, note: 'Una sola principal vigente por nodo: es la que consolida reportes']
+  vigente_desde date [not null]
+  vigente_hasta date
+  Note: 'Un pais puede pertenecer a varias regiones o subregiones. Todas aplican normas; una consolida.'
+}
+
+Table ml__feriados {
+  feriado_id int [pk, increment]
+  territorio_id int [not null, ref: > ml__territorios.territorio_id, note: 'Pais, o nodo local para un ajuste']
+  fecha date [not null]
+  nombre varchar(150) [not null]
+  Note: 'Calendario por pais con ajuste local. Mueve vencimientos.'
+}
+
+Table ml__entidades_tipos {
+  entidad_tipo_id int [pk, increment]
+  grupo_id int [not null, ref: > ml__grupos.grupo_id]
+  empresa_id int [ref: > conf__empresas.empresa_id, note: 'Null = catalogo base del grupo; con valor = tipo propio de la empresa']
+  codigo varchar(50) [not null]
+  nombre varchar(150) [not null]
+  es_fisica boolean [not null, default: true]
+  es_logica boolean [not null, default: false]
+  es_movil boolean [not null, default: false]
+  tabla_estado_registro_id int [not null]
+  Note: 'El tipo EMPRESA es el de la entidad raiz de cada empresa.'
+}
+
+Table ml__entidades {
+  entidad_id int [pk, increment]
+  entidad_tipo_id int [not null, ref: > ml__entidades_tipos.entidad_tipo_id]
+  entidad_padre_id int [ref: > ml__entidades.entidad_id, note: 'La jerarquia solo agrupa y consolida; no hereda obligaciones']
+  codigo varchar(80) [not null]
+  nombre varchar(200) [not null]
+  descripcion text
+  es_raiz boolean [not null, default: false, note: 'Entidad logica que representa a una empresa']
+  vigente_desde date [not null]
+  vigente_hasta date
+  tabla_estado_registro_id int [not null]
+}
+
+Table ml__entidades_empresas {
+  entidad_empresa_id int [pk, increment]
+  entidad_id int [not null, ref: > ml__entidades.entidad_id]
+  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  es_titular boolean [not null, default: true, note: 'Una sola titular vigente; las demas la ven vinculada en solo lectura']
+  vigente_desde date [not null]
+  vigente_hasta date
+  Note: 'Pertenencia de una entidad a una o mas empresas. Un traspaso cierra y abre filas.'
+}
+
+Table ml__entidades_ubicaciones {
+  entidad_ubicacion_id int [pk, increment]
+  entidad_id int [not null, ref: > ml__entidades.entidad_id]
+  territorio_id int [not null, ref: > ml__territorios.territorio_id]
+  es_base boolean [not null, default: true, note: 'Base de la entidad; las demas filas son paises de operacion de una entidad movil']
+  vigente_desde date [not null]
+  vigente_hasta date
+}
+
+Table ml__datos_tipos {
+  dato_tipo_id int [pk, increment]
+  codigo varchar(50) [not null, unique, note: 'EMPLEADOS, FACTURACION, TERMINACION_ID_FISCAL, VENCIMIENTO_PERMISO, etc.']
+  nombre varchar(150) [not null]
+  tipo_valor varchar(10) [not null, note: 'NUMERO, TEXTO o FECHA']
+}
+
+Table ml__entidades_datos {
+  entidad_dato_id int [pk, increment]
+  entidad_id int [not null, ref: > ml__entidades.entidad_id, note: 'Dato de la empresa = dato de su entidad raiz']
+  dato_tipo_id int [not null, ref: > ml__datos_tipos.dato_tipo_id]
+  valor_numero decimal(18,4)
+  valor_texto varchar(255)
+  valor_fecha date
+  vigente_desde date [not null]
+  vigente_hasta date
+  cargado_por int [ref: > conf__usuarios.usuario_id]
+  Note: 'Alimenta las condiciones de aplicabilidad y las reglas de vencimiento por dato o por fecha propia.'
+}
+
+// =====================================================================
+// M2 - CATALOGOS, PERFILES Y CONFIGURACION
+// =====================================================================
+
+Table ml__ambitos_tipos {
+  ambito_tipo_id int [pk, increment]
+  codigo varchar(30) [not null, unique, note: 'GRUPO, REGION_GRUPO, EMPRESA, TERRITORIO']
+  nombre varchar(100) [not null]
+}
+
+Table ml__usuarios_ambitos {
+  usuario_ambito_id int [pk, increment]
+  usuario_id int [not null, ref: > conf__usuarios.usuario_id]
+  perfil_id int [not null, ref: > conf__perfiles.perfil_id]
+  ambito_tipo_id int [not null, ref: > ml__ambitos_tipos.ambito_tipo_id]
+  grupo_id int [ref: > ml__grupos.grupo_id]
+  region_grupo_id int [ref: > ml__regiones_grupo.region_grupo_id]
+  empresa_id int [ref: > conf__empresas.empresa_id]
+  territorio_id int [ref: > ml__territorios.territorio_id, note: 'Cubre la region geografica']
+  vigente_desde date [not null]
+  vigente_hasta date
+  Note: 'Una persona puede tener varios ambitos a la vez, cada uno con su perfil y sus fechas.'
+}
+
+Table ml__delegaciones {
+  delegacion_id int [pk, increment]
+  usuario_id int [not null, ref: > conf__usuarios.usuario_id, note: 'Quien delega']
+  usuario_suplente_id int [not null, ref: > conf__usuarios.usuario_id]
+  perfil_id int [ref: > conf__perfiles.perfil_id, note: 'Null = todos sus perfiles']
+  motivo varchar(255)
+  vigente_desde date [not null]
+  vigente_hasta date [not null]
+}
+
+Table ml__opciones {
+  opcion_id int [pk, increment]
+  codigo varchar(50) [not null, unique]
+  nombre varchar(150) [not null]
+  nivel varchar(20) [not null, note: 'GRUPO, OBLIGACION o DEPENDENCIA']
+  Note: 'Diez opciones configurables. Las de nivel GRUPO se guardan en ml__configuracion_grupo; las de OBLIGACION y DEPENDENCIA, en sus propias tablas.'
+}
+
+Table ml__opciones_valores {
+  opcion_valor_id int [pk, increment]
+  opcion_id int [not null, ref: > ml__opciones.opcion_id]
+  codigo varchar(50) [not null]
+  nombre varchar(200) [not null]
+  es_defecto boolean [not null, default: false]
+}
+
+Table ml__configuracion_grupo {
+  configuracion_grupo_id int [pk, increment]
+  grupo_id int [not null, ref: > ml__grupos.grupo_id]
+  opcion_id int [not null, ref: > ml__opciones.opcion_id]
+  opcion_valor_id int [not null, ref: > ml__opciones_valores.opcion_valor_id]
+  vigente_desde date [not null]
+  vigente_hasta date
+  definido_por int [ref: > conf__usuarios.usuario_id]
+  Note: 'La define el equipo corporativo. Cada cambio lleva fecha, aplica a lo futuro y queda en el registro de cambios.'
+}
+
+Table ml__raci_roles {
+  raci_rol_id int [pk, increment]
+  codigo varchar(1) [not null, unique, note: 'R responsable, A aprobador, C consultado, I informado']
+  nombre varchar(100) [not null]
+}
+
+// =====================================================================
+// M3 - NORMAS Y SOPORTE
+// =====================================================================
+
+Table ml__organismos {
+  organismo_id int [pk, increment]
+  nombre varchar(200) [not null]
+  territorio_id int [ref: > ml__territorios.territorio_id]
+}
+
+Table ml__normas_tipos {
+  norma_tipo_id int [pk, increment]
+  codigo varchar(30) [not null, unique, note: 'LEGAL, REGULATORIA, CONVENIO, POLITICA, AUDITORIA_ESTANDAR']
+  nombre varchar(100) [not null]
+  es_legal boolean [not null, default: false, note: 'Si es legal, una excepcion exige fundamento y aprobacion del area legal']
+  genera_obligaciones boolean [not null, default: true]
+  Note: 'Los mantiene solo el grupo. Los procedimientos internos NO son un tipo de norma.'
+}
+
+Table ml__normas_jerarquias {
+  norma_jerarquia_id int [pk, increment]
+  nombre varchar(100) [not null]
+  nivel int [not null, note: 'Menor numero = mayor jerarquia. Se usa si el grupo elige resolver solapamientos por jerarquia']
+}
+
+Table ml__normas {
+  norma_id int [pk, increment]
+  norma_tipo_id int [not null, ref: > ml__normas_tipos.norma_tipo_id]
+  norma_jerarquia_id int [ref: > ml__normas_jerarquias.norma_jerarquia_id]
+  organismo_id int [ref: > ml__organismos.organismo_id]
+  codigo varchar(80) [not null]
+  titulo varchar(255) [not null]
+  descripcion text
+  idioma_original varchar(10)
+  titulo_traducido varchar(255)
+  idioma_traducido varchar(10)
+  ambito_tipo_id int [not null, ref: > ml__ambitos_tipos.ambito_tipo_id]
+  grupo_id int [ref: > ml__grupos.grupo_id]
+  region_grupo_id int [ref: > ml__regiones_grupo.region_grupo_id]
+  empresa_id int [ref: > conf__empresas.empresa_id]
+  territorio_id int [ref: > ml__territorios.territorio_id]
+  requiere_norma_local boolean [not null, default: false, note: 'Si es true, sus obligaciones se activan al vincular la norma local']
+  confidencial boolean [not null, default: false]
+  vigente_desde date [not null]
+  vigente_hasta date
+  tabla_estado_registro_id int [not null]
+  Note: 'El ambito se declara una vez y se hereda. Ninguna norma se asigna entidad por entidad.'
+}
+
+Table ml__normas_versiones {
+  norma_version_id int [pk, increment]
+  norma_id int [not null, ref: > ml__normas.norma_id]
+  version varchar(50) [not null]
+  fecha_publicacion date
+  archivo_ref varchar(500)
+  hash varchar(128)
+  es_vigente boolean [not null, default: false]
+  confidencial boolean [not null, default: false]
+  vigente_desde date [not null]
+  vigente_hasta date
+  tabla_estado_registro_id int [not null]
+  Note: 'Una modificacion crea una version nueva sobre la misma norma. Los ciclos conservan la version con la que nacieron.'
+}
+
+Table ml__normas_relaciones_tipos {
+  norma_relacion_tipo_id int [pk, increment]
+  codigo varchar(30) [not null, unique, note: 'MODIFICA, REGLAMENTA, DEROGA, COMPLEMENTA, REEMPLAZA, DERIVA_DE, VERIFICA']
+  nombre varchar(100) [not null]
+}
+
+Table ml__normas_relaciones {
+  norma_relacion_id int [pk, increment]
+  norma_origen_id int [not null, ref: > ml__normas.norma_id]
+  norma_destino_id int [not null, ref: > ml__normas.norma_id]
+  norma_relacion_tipo_id int [not null, ref: > ml__normas_relaciones_tipos.norma_relacion_tipo_id]
+  descripcion text
+  vigente_desde date [not null]
+  vigente_hasta date
+}
+
+Table ml__normas_conflictos {
+  norma_conflicto_id int [pk, increment]
+  norma_a_id int [not null, ref: > ml__normas.norma_id]
+  norma_b_id int [not null, ref: > ml__normas.norma_id]
+  descripcion text [not null]
+  escalado_a int [ref: > conf__usuarios.usuario_id, note: 'Area legal']
+  decision text
+  decidido_por int [ref: > conf__usuarios.usuario_id]
+  decidido_en datetime
+  tabla_estado_registro_id int [not null]
+  Note: 'Normas incompatibles: se marca el conflicto, se escala al area legal y su decision queda registrada.'
+}
+
+Table ml__procedimientos {
+  procedimiento_id int [pk, increment]
+  empresa_id int [ref: > conf__empresas.empresa_id, note: 'Null = procedimiento del grupo']
+  norma_id int [ref: > ml__normas.norma_id, note: 'Politica o norma a la que se vincula; no la genera']
+  codigo varchar(80) [not null]
+  nombre varchar(255) [not null]
+  descripcion text
+  confidencial boolean [not null, default: false]
+  tabla_estado_registro_id int [not null]
+  Note: 'Soporte de las tareas. No es norma ni fuente de obligaciones.'
+}
+
+Table ml__procedimientos_versiones {
+  procedimiento_version_id int [pk, increment]
+  procedimiento_id int [not null, ref: > ml__procedimientos.procedimiento_id]
+  version varchar(50) [not null]
+  archivo_ref varchar(500)
+  hash varchar(128)
+  resumen_cambios text
+  aprobado_por int [ref: > conf__usuarios.usuario_id]
+  aprobado_en datetime
+  vigente_desde date [not null]
+  vigente_hasta date
+  tabla_estado_registro_id int [not null]
+}
+
+Table ml__procedimientos_instrucciones {
+  instruccion_id int [pk, increment]
+  procedimiento_version_id int [not null, ref: > ml__procedimientos_versiones.procedimiento_version_id]
+  orden int [not null]
+  titulo varchar(255) [not null]
+  descripcion text
+  es_obligatoria boolean [not null, default: true]
+}
+
+Table ml__accesos_confidenciales {
+  acceso_confidencial_id int [pk, increment]
+  objeto_tabla varchar(64) [not null, note: 'ml__normas, ml__normas_versiones, ml__procedimientos o ml__evidencias']
+  objeto_id int [not null]
+  perfil_id int [not null, ref: > conf__perfiles.perfil_id]
+  ambito_tipo_id int [not null, ref: > ml__ambitos_tipos.ambito_tipo_id]
+  grupo_id int [ref: > ml__grupos.grupo_id]
+  region_grupo_id int [ref: > ml__regiones_grupo.region_grupo_id]
+  empresa_id int [ref: > conf__empresas.empresa_id]
+  territorio_id int [ref: > ml__territorios.territorio_id]
+  vigente_desde date [not null]
+  vigente_hasta date
+  Note: 'Quien puede ver un objeto confidencial. Referencia polimorfica por objeto_tabla y objeto_id.'
+}
+
+Table ml__auditoria_accesos {
+  auditoria_acceso_id int [pk, increment]
+  usuario_id int [not null, ref: > conf__usuarios.usuario_id]
+  objeto_tabla varchar(64) [not null]
+  objeto_id int [not null]
+  accedido_en datetime [not null]
+  motivo varchar(255)
+  Note: 'Registro del acceso de auditoria de la matriz a objetos confidenciales.'
+}
+
+// =====================================================================
+// M4 - OBLIGACIONES Y APLICABILIDAD
+// =====================================================================
+
+Table ml__criticidades {
+  criticidad_id int [pk, increment]
+  nombre varchar(50) [not null]
+  peso int [not null, note: 'Se usa si el grupo pondera el indicador por criticidad']
+}
+
+Table ml__periodicidades {
+  periodicidad_id int [pk, increment]
+  codigo varchar(30) [not null, unique]
+  nombre varchar(100) [not null]
+  intervalo_cantidad int [note: 'Cada N unidades']
+  intervalo_unidad varchar(10) [note: 'DIA, MES o ANIO']
+  es_evento boolean [not null, default: false, note: 'Genera ciclo cuando un usuario con permiso registra el evento']
+  fecha_fija_autoridad boolean [not null, default: false, note: 'La fecha la fija la autoridad']
+}
+
+Table ml__vencimientos_reglas {
+  vencimiento_regla_id int [pk, increment]
+  codigo varchar(50) [not null, unique]
+  nombre varchar(150) [not null]
+  tipo varchar(30) [not null, note: 'PERIODO, DATO_EMPRESA, FECHA_ENTIDAD o AVISO_AUTORIDAD']
+  dato_tipo_id int [ref: > ml__datos_tipos.dato_tipo_id, note: 'Dato que determina la fecha, si corresponde']
+  desplazamiento_dias int [note: 'Por ejemplo -30 para renovar 30 dias antes']
+  parametros text [note: 'JSON con el detalle: mapeo de valores, uso de feriados, etc.']
+}
+
+Table ml__obligaciones {
+  obligacion_id int [pk, increment]
+  norma_id int [not null, ref: > ml__normas.norma_id]
+  empresa_id int [ref: > conf__empresas.empresa_id, note: 'Null = definida por la matriz; con valor = obligacion propia de la empresa']
+  articulo_referencia varchar(100) [note: 'Referencia opcional al articulo']
+  codigo varchar(80) [not null]
+  descripcion text [not null]
+  periodicidad_id int [not null, ref: > ml__periodicidades.periodicidad_id]
+  vencimiento_regla_id int [not null, ref: > ml__vencimientos_reglas.vencimiento_regla_id]
+  criticidad_id int [ref: > ml__criticidades.criticidad_id]
+  requiere_revision boolean [not null, default: true, note: 'Opcion por obligacion']
+  requiere_evidencia boolean [not null, default: true, note: 'Opcion por obligacion']
+  retencion_evidencias_meses int [note: 'Plazo de conservacion de evidencias']
+  vigente_desde date [not null]
+  vigente_hasta date
+  tabla_estado_registro_id int [not null]
+  Note: 'Obligacion DEFINIDA. No se cierra por cumplimiento: termina por vigencia o derogacion.'
+}
+
+Table ml__obligaciones_tipos_entidades {
+  obligacion_tipo_entidad_id int [pk, increment]
+  obligacion_id int [not null, ref: > ml__obligaciones.obligacion_id]
+  entidad_tipo_id int [not null, ref: > ml__entidades_tipos.entidad_tipo_id]
+  regla_json text [note: 'Condiciones adicionales: empleados, facturacion, tamano']
+  vigente_desde date [not null, note: 'Permite vigencias graduales por tipo o tamano']
+  vigente_hasta date
+}
+
+Table ml__obligaciones_jurisdicciones {
+  obligacion_jurisdiccion_id int [pk, increment]
+  obligacion_id int [not null, ref: > ml__obligaciones.obligacion_id]
+  territorio_id int [not null, ref: > ml__territorios.territorio_id]
+  vigente_desde date [not null]
+  vigente_hasta date
+  Note: 'Opcional: acota el alcance que ya da el ambito de la norma.'
+}
+
+Table ml__obligaciones_dependencias {
+  obligacion_dependencia_id int [pk, increment]
+  obligacion_id int [not null, ref: > ml__obligaciones.obligacion_id]
+  obligacion_predecesora_id int [not null, ref: > ml__obligaciones.obligacion_id]
+  vigente_desde date [not null]
+  vigente_hasta date
+  Note: 'El ciclo de la dependiente no se activa hasta que el de la predecesora se cumple (logica Y).'
+}
+
+Table ml__obligaciones_alertas {
+  obligacion_alerta_id int [pk, increment]
+  obligacion_id int [not null, ref: > ml__obligaciones.obligacion_id]
+  dias_antes int [not null]
+  destinatario varchar(20) [not null, note: 'RESPONSABLE o SUPERIOR']
+  canal varchar(20) [not null, note: 'CORREO o SISTEMA']
+}
+
+Table ml__tareas_plantillas {
+  tarea_plantilla_id int [pk, increment]
+  obligacion_id int [not null, ref: > ml__obligaciones.obligacion_id]
+  orden int [not null]
+  titulo varchar(255) [not null]
+  descripcion text
+  offset_dias_inicio int
+  offset_dias_vencimiento int
+  procedimiento_id int [ref: > ml__procedimientos.procedimiento_id, note: 'Soporte que guia la tarea']
+  tabla_estado_registro_id int [not null]
+  Note: 'Definicion de la tarea. Cada ciclo la instancia en ml__ciclos_tareas.'
+}
+
+Table ml__tareas_plantillas_dependencias {
+  tarea_plantilla_dependencia_id int [pk, increment]
+  tarea_plantilla_id int [not null, ref: > ml__tareas_plantillas.tarea_plantilla_id]
+  tarea_plantilla_predecesora_id int [not null, ref: > ml__tareas_plantillas.tarea_plantilla_id]
+  estado_activador_id int [not null, note: 'Estado de la predecesora que activa la tarea: cumplida (logica Y) o aprobada o rechazada (por resultado)']
+  obligatoria boolean [not null, default: true]
+}
+
+// =====================================================================
+// M5 - MOTOR DE HERENCIA
+// =====================================================================
+
+Table ml__obligaciones_asignadas {
+  obligacion_asignada_id int [pk, increment]
+  obligacion_prevaleciente_id int [not null, ref: > ml__obligaciones.obligacion_id, note: 'Obligacion definida cuya exigencia rige tras consolidar solapamientos']
+  entidad_id int [not null, ref: > ml__entidades.entidad_id]
+  empresa_id int [not null, ref: > conf__empresas.empresa_id, note: 'Empresa responsable en ese periodo; filtra la visibilidad']
+  vigente_desde date [not null]
+  vigente_hasta date
+  tabla_estado_registro_id int [not null]
+  Note: 'Obligacion ASIGNADA a una entidad. De ella cuelgan los ciclos. Se crea por herencia, nunca a mano.'
+  indexes {
+    (entidad_id, obligacion_prevaleciente_id, vigente_desde)
+  }
+}
+
+Table ml__obligaciones_asignadas_origenes {
+  obligacion_asignada_origen_id int [pk, increment]
+  obligacion_asignada_id int [not null, ref: > ml__obligaciones_asignadas.obligacion_asignada_id]
+  obligacion_id int [not null, ref: > ml__obligaciones.obligacion_id, note: 'Cada definicion que contribuye; se conserva para auditoria']
+}
+
+Table ml__excepciones {
+  excepcion_id int [pk, increment]
+  obligacion_asignada_id int [not null, ref: > ml__obligaciones_asignadas.obligacion_asignada_id]
+  motivo text [not null]
+  fundamento text [note: 'Resolucion de la autoridad o inaplicabilidad probada; obligatorio en normas legales']
+  fundamento_ref varchar(500)
+  solicitada_por int [ref: > conf__usuarios.usuario_id]
+  aprobada_por int [ref: > conf__usuarios.usuario_id, note: 'Matriz regional']
+  aprobada_legal_por int [ref: > conf__usuarios.usuario_id, note: 'Area legal; obligatoria si la norma es legal']
+  aprobada_en datetime
+  vigente_desde date [not null]
+  vigente_hasta date [not null, note: 'Toda excepcion vence; al vencer la obligacion vuelve a regir']
+  tabla_estado_registro_id int [not null]
+}
+
+Table ml__recalculos_pendientes {
+  recalculo_pendiente_id int [pk, increment]
+  causa varchar(40) [not null, note: 'NORMA, OBLIGACION, ENTIDAD, PERTENENCIA, DATO u OPCION']
+  objeto_tabla varchar(64) [not null]
+  objeto_id int [not null]
+  fecha_efecto date [not null]
+  creado_en datetime [not null]
+  procesado_en datetime
+  tabla_estado_registro_id int [not null]
+  Note: 'Cola del motor: lo futuro se recalcula, lo pasado no se toca.'
+}
+
+// =====================================================================
+// M6 - CICLOS Y TAREAS
+// =====================================================================
+
+Table ml__ciclos_vinculos_tipos {
+  ciclo_vinculo_tipo_id int [pk, increment]
+  codigo varchar(30) [not null, unique, note: 'COMPLEMENTARIO, SEGUIMIENTO, RENOVACION']
+  nombre varchar(100) [not null]
+}
+
+Table ml__ciclos {
+  ciclo_id int [pk, increment]
+  obligacion_asignada_id int [not null, ref: > ml__obligaciones_asignadas.obligacion_asignada_id]
+  empresa_id int [not null, ref: > conf__empresas.empresa_id]
+  entidad_id int [not null, ref: > ml__entidades.entidad_id]
+  norma_version_id int [ref: > ml__normas_versiones.norma_version_id, note: 'Version con la que nacio el ciclo']
+  ciclo_origen_id int [ref: > ml__ciclos.ciclo_id, note: 'Ciclo del que depende: el corregido, el auditado o el que se renueva']
+  ciclo_vinculo_tipo_id int [ref: > ml__ciclos_vinculos_tipos.ciclo_vinculo_tipo_id]
+  periodo_desde date [not null]
+  periodo_hasta date [not null]
+  fecha_inicio date
+  fecha_vencimiento date [not null]
+  fecha_cierre date
+  observaciones text
+  tabla_estado_registro_id int [not null]
+  Note: 'Unidad auditable. No se edita historicamente: un error se corrige con un ciclo complementario.'
+  indexes {
+    (obligacion_asignada_id, periodo_desde)
+  }
+}
+
+Table ml__ciclos_tareas {
+  ciclo_tarea_id int [pk, increment]
+  ciclo_id int [not null, ref: > ml__ciclos.ciclo_id]
+  tarea_plantilla_id int [ref: > ml__tareas_plantillas.tarea_plantilla_id, note: 'Null si se agrego a un ciclo de seguimiento']
+  titulo varchar(255) [not null]
+  descripcion text
+  procedimiento_version_id int [ref: > ml__procedimientos_versiones.procedimiento_version_id, note: 'Version del soporte usada, para auditoria']
+  requiere_revision boolean [not null]
+  requiere_evidencia boolean [not null]
+  fecha_activacion datetime
+  fecha_inicio datetime
+  fecha_vencimiento datetime
+  fecha_cierre datetime
+  tabla_estado_registro_id int [not null, note: 'Incluye el estado inactiva: no hay una columna de activacion aparte']
+  Note: 'No existe sin ciclo. No hay subtareas.'
+}
+
+Table ml__ciclos_tareas_dependencias {
+  ciclo_tarea_dependencia_id int [pk, increment]
+  ciclo_tarea_id int [not null, ref: > ml__ciclos_tareas.ciclo_tarea_id]
+  ciclo_tarea_predecesora_id int [not null, ref: > ml__ciclos_tareas.ciclo_tarea_id]
+  estado_activador_id int [not null, note: 'Resultado de la predecesora que activa la tarea']
+  obligatoria boolean [not null, default: true]
+}
+
+Table ml__obligaciones_asignadas_raci {
+  obligacion_asignada_raci_id int [pk, increment]
+  obligacion_asignada_id int [not null, ref: > ml__obligaciones_asignadas.obligacion_asignada_id]
+  raci_rol_id int [not null, ref: > ml__raci_roles.raci_rol_id]
+  usuario_id int [not null, ref: > conf__usuarios.usuario_id]
+  vigente_desde date [not null]
+  vigente_hasta date
+}
+
+Table ml__ciclos_raci {
+  ciclo_raci_id int [pk, increment]
+  ciclo_id int [not null, ref: > ml__ciclos.ciclo_id]
+  raci_rol_id int [not null, ref: > ml__raci_roles.raci_rol_id]
+  usuario_id int [not null, ref: > conf__usuarios.usuario_id]
+  vigente_desde date [not null]
+  vigente_hasta date
+}
+
+Table ml__ciclos_tareas_raci {
+  ciclo_tarea_raci_id int [pk, increment]
+  ciclo_tarea_id int [not null, ref: > ml__ciclos_tareas.ciclo_tarea_id]
+  raci_rol_id int [not null, ref: > ml__raci_roles.raci_rol_id]
+  usuario_id int [not null, ref: > conf__usuarios.usuario_id]
+  vigente_desde date [not null]
+  vigente_hasta date
+}
+
+Table ml__reasignaciones {
+  reasignacion_id int [pk, increment]
+  usuario_origen_id int [not null, ref: > conf__usuarios.usuario_id]
+  usuario_destino_id int [not null, ref: > conf__usuarios.usuario_id]
+  fecha_efecto date [not null]
+  motivo varchar(255)
+  aplicada_por int [ref: > conf__usuarios.usuario_id]
+  aplicada_en datetime
+  Note: 'Reasignacion en bloque de tareas. Hasta que se aplica, pasan al aprobador del RACI.'
+}
+
+// =====================================================================
+// M7 - EJECUCION Y SEGUIMIENTO
+// =====================================================================
+
+Table ml__evidencias {
+  evidencia_id int [pk, increment]
+  ciclo_tarea_id int [not null, ref: > ml__ciclos_tareas.ciclo_tarea_id]
+  titulo varchar(255) [not null]
+  descripcion text
+  archivo_ref varchar(500) [not null]
+  hash varchar(128)
+  es_comprobante boolean [not null, default: false]
+  valida_hasta date [note: 'Validez de la evidencia, como un certificado; avisa al acercarse']
+  retener_hasta date [note: 'Segun el plazo de retencion de la obligacion']
+  confidencial boolean [not null, default: false]
+  cargado_por int [ref: > conf__usuarios.usuario_id]
+  cargado_en datetime [not null]
+  tabla_estado_registro_id int [not null]
+}
+
+Table ml__alertas {
+  alerta_id int [pk, increment]
+  ciclo_id int [ref: > ml__ciclos.ciclo_id]
+  ciclo_tarea_id int [ref: > ml__ciclos_tareas.ciclo_tarea_id]
+  evidencia_id int [ref: > ml__evidencias.evidencia_id]
+  usuario_id int [not null, ref: > conf__usuarios.usuario_id]
+  canal varchar(20) [not null, note: 'CORREO o SISTEMA']
+  programada_para datetime [not null]
+  enviada_en datetime
+  tabla_estado_registro_id int [not null]
+}
+
+Table ml__incidencias {
+  incidencia_id int [pk, increment]
+  ciclo_id int [not null, ref: > ml__ciclos.ciclo_id]
+  descripcion text
+  abierta_en datetime [not null]
+  ciclo_seguimiento_id int [ref: > ml__ciclos.ciclo_id, note: 'Plan de accion como ciclo de seguimiento']
+  tabla_estado_registro_id int [not null]
+  Note: 'Se abre tras un vencimiento sin avance.'
+}
+
+Table ml__indicadores_cierres {
+  indicador_cierre_id int [pk, increment]
+  grupo_id int [not null, ref: > ml__grupos.grupo_id]
+  periodo_desde date [not null]
+  periodo_hasta date [not null]
+  empresa_id int [ref: > conf__empresas.empresa_id]
+  region_grupo_id int [ref: > ml__regiones_grupo.region_grupo_id]
+  territorio_id int [ref: > ml__territorios.territorio_id]
+  ciclos_contados int [not null, note: 'Vencidos o cerrados del periodo, sin eximidos ni cancelados']
+  cumplidos_a_tiempo int [not null]
+  cumplidos_fuera_plazo int [not null]
+  incumplidos int [not null]
+  eximidos int [not null, note: 'Se informan aparte, con su motivo']
+  por_vencer int [not null]
+  ponderacion_opcion_valor_id int [ref: > ml__opciones_valores.opcion_valor_id, note: 'Ponderacion vigente al calcular: no se recalcula el pasado']
+  calculado_en datetime [not null]
+  Note: 'Dos indicadores: a tiempo (a_tiempo / contados) y total ((a_tiempo + fuera_plazo) / contados). Consolidacion sumando ciclos.'
+}
+
+// =====================================================================
+// M8 - CARGAS Y CAMBIOS MASIVOS
+// =====================================================================
+
+Table ml__cargas_tipos {
+  carga_tipo_id int [pk, increment]
+  codigo varchar(30) [not null, unique, note: 'NORMAS, OBLIGACIONES, ENTIDADES']
+  nombre varchar(100) [not null]
+}
+
+Table ml__cargas {
+  carga_id int [pk, increment]
+  carga_tipo_id int [not null, ref: > ml__cargas_tipos.carga_tipo_id]
+  empresa_id int [ref: > conf__empresas.empresa_id]
+  archivo_ref varchar(500) [not null]
+  validada_en datetime
+  confirmada_por int [ref: > conf__usuarios.usuario_id]
+  confirmada_en datetime
+  tabla_estado_registro_id int [not null]
+  Note: 'Carga masiva por plantilla: validacion y vista previa antes de confirmar.'
+}
+
+Table ml__cargas_filas {
+  carga_fila_id int [pk, increment]
+  carga_id int [not null, ref: > ml__cargas.carga_id]
+  nro_fila int [not null]
+  contenido text
+  errores text
+  tabla_estado_registro_id int [not null]
+}
+
+Table ml__cambios_masivos {
+  cambio_masivo_id int [pk, increment]
+  norma_version_id int [ref: > ml__normas_versiones.norma_version_id]
+  descripcion text [not null]
+  solicitado_por int [ref: > conf__usuarios.usuario_id]
+  requiere_aprobacion boolean [not null, default: true, note: 'Segun la opcion del grupo; la vista previa se muestra siempre']
+  aprobado_por int [ref: > conf__usuarios.usuario_id]
+  aprobado_en datetime
+  aplicado_en datetime
+  tabla_estado_registro_id int [not null]
+}
+
+Table ml__cambios_masivos_detalles {
+  cambio_masivo_detalle_id int [pk, increment]
+  cambio_masivo_id int [not null, ref: > ml__cambios_masivos.cambio_masivo_id]
+  entidad_id int [not null, ref: > ml__entidades.entidad_id]
+  ciclos_afectados int [not null]
+  tareas_afectadas int [not null]
+  Note: 'Vista previa del impacto: entidades, ciclos y tareas afectados.'
+}
+
+// =====================================================================
+// TRANSVERSAL
+// =====================================================================
+
+Table ml__log_cambios {
+  log_cambio_id int [pk, increment]
+  tabla varchar(64) [not null]
+  registro_id int [not null]
+  accion varchar(20) [not null]
+  antes_json text
+  despues_json text
+  usuario_id int [ref: > conf__usuarios.usuario_id]
+  fecha datetime [not null]
+  Note: 'Quien, cuando y que cambio en normas, obligaciones, reglas, perfiles y configuracion.'
+}
+
+// =====================================================================
+// TABLAS EXISTENTES DE gestion_multipyme (stubs solo para el diagrama)
+// =====================================================================
+
+Table conf__empresas {
+  empresa_id int [pk]
+  Note: 'Existente. Verificar nombre y columnas contra la base real.'
+}
+
+Table conf__usuarios {
+  usuario_id int [pk]
+  Note: 'Existente. Verificar nombre y columnas contra la base real.'
+}
+
+Table conf__perfiles {
+  perfil_id int [pk]
+  Note: 'Existente. Los perfiles parten de los de la empresa titular; cada empresa puede crear los suyos.'
+}
+
+// =====================================================================
+// GRUPOS DE TABLAS (un grupo por modulo)
+// =====================================================================
+
+TableGroup m1_territorio_y_grupo {
+  ml__grupos
+  ml__regiones_grupo
+  ml__empresas_grupo
+  ml__empresas_regiones
+  ml__empresas_nombres
+  ml__empresas_eventos_tipos
+  ml__empresas_eventos
+  ml__territorios_tipos
+  ml__territorios
+  ml__territorios_pertenencias
+  ml__feriados
+  ml__entidades_tipos
+  ml__entidades
+  ml__entidades_empresas
+  ml__entidades_ubicaciones
+  ml__datos_tipos
+  ml__entidades_datos
+}
+
+TableGroup m2_catalogos_perfiles_configuracion {
+  ml__ambitos_tipos
+  ml__usuarios_ambitos
+  ml__delegaciones
+  ml__opciones
+  ml__opciones_valores
+  ml__configuracion_grupo
+  ml__raci_roles
+}
+
+TableGroup m3_normas_y_soporte {
+  ml__organismos
+  ml__normas_tipos
+  ml__normas_jerarquias
+  ml__normas
+  ml__normas_versiones
+  ml__normas_relaciones_tipos
+  ml__normas_relaciones
+  ml__normas_conflictos
+  ml__procedimientos
+  ml__procedimientos_versiones
+  ml__procedimientos_instrucciones
+  ml__accesos_confidenciales
+  ml__auditoria_accesos
+}
+
+TableGroup m4_obligaciones {
+  ml__criticidades
+  ml__periodicidades
+  ml__vencimientos_reglas
+  ml__obligaciones
+  ml__obligaciones_tipos_entidades
+  ml__obligaciones_jurisdicciones
+  ml__obligaciones_dependencias
+  ml__obligaciones_alertas
+  ml__tareas_plantillas
+  ml__tareas_plantillas_dependencias
+}
+
+TableGroup m5_motor_de_herencia {
+  ml__obligaciones_asignadas
+  ml__obligaciones_asignadas_origenes
+  ml__excepciones
+  ml__recalculos_pendientes
+}
+
+TableGroup m6_ciclos_y_tareas {
+  ml__ciclos_vinculos_tipos
+  ml__ciclos
+  ml__ciclos_tareas
+  ml__ciclos_tareas_dependencias
+  ml__obligaciones_asignadas_raci
+  ml__ciclos_raci
+  ml__ciclos_tareas_raci
+  ml__reasignaciones
+}
+
+TableGroup m7_ejecucion_y_seguimiento {
+  ml__evidencias
+  ml__alertas
+  ml__incidencias
+  ml__indicadores_cierres
+}
+
+TableGroup m8_cargas_y_cambios_masivos {
+  ml__cargas_tipos
+  ml__cargas
+  ml__cargas_filas
+  ml__cambios_masivos
+  ml__cambios_masivos_detalles
+}
+
+TableGroup transversal {
+  ml__log_cambios
+}
+
+TableGroup existentes_gestion_multipyme {
+  conf__empresas
+  conf__usuarios
+  conf__perfiles
+}

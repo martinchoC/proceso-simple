@@ -1,0 +1,5 @@
+# Certificados, claves privadas y respuestas de WSAA (contienen Token/Sign):
+# nunca se sirven por HTTP. PHP los lee desde disco (arca/arca_lib.php).
+<FilesMatch "\.(key|crt|csr|pem|p12|xml)$">
+    Require all denied
+</FilesMatch>

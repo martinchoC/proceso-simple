@@ -32,12 +32,16 @@ function obtenerListasPreciosProductos($conexion, $params = [])
     $busqueda         = trim((string) ($params['busqueda'] ?? ''));
     $start            = max(0, intval($params['start'] ?? 0));
     $length           = intval($params['length'] ?? 10);
-    if ($length <= 0) {
+    if ($length === -1) {
+        // VERSION 2026-10-01: "Todos" del selector de cantidad (lengthMenu).
+        // Se devuelve el listado filtrado completo para que los botones
+        // Excel/PDF exporten todo; LIMIT con PHP_INT_MAX = sin tope efectivo.
+        $start  = 0;
+        $length = PHP_INT_MAX;
+    } elseif ($length <= 0) {
         $length = 10;
-    }
-    if ($length > 5000) {
-        // Tope de cordura: si el front manda "-1" (Todos) o algo fuera de
-        // rango, no volvemos a pedirle a MySQL 5.000 filas hidratadas de una.
+    } elseif ($length > 5000) {
+        // Tope de cordura para valores fuera del menú.
         $length = 5000;
     }
     $order_dir = (strtoupper((string) ($params['order_dir'] ?? 'ASC')) === 'DESC') ? 'DESC' : 'ASC';
@@ -649,5 +653,353 @@ function importarPreciosDesdeExcel($conexion, $lista_precio_id, $productos_preci
         'errores_count' => $errores_count,
         'detalle' => $detalle
     ];
+}
+
+// ===================== DASHBOARD =====================
+// VERSION 2026-09-30: pestaña "Dashboard" de listas_precios_productos.php.
+// Todo se calcula sobre precios ACTIVOS (lpp.tabla_estado_registro_id = 1)
+// de listas activas, filtrado por empresa. "Universo" de productos para
+// cobertura = productos activos de la empresa con aplica_venta = 1.
+// La fecha de referencia es lpp.actualizado_en (la misma que muestra la
+// columna "Última Actualización" de la grilla).
+
+define('DASH_LIMITE_DETALLE', 10000); // el modal es DataTable client-side; con ~10k filas sigue fluido
+
+function dashboardBucketsAntiguedad()
+{
+    return [
+        '0-30'    => ['label' => 'Hasta 30 días',  'min' => 0,   'max' => 30],
+        '31-90'   => ['label' => '31 a 90 días',   'min' => 31,  'max' => 90],
+        '91-180'  => ['label' => '91 a 180 días',  'min' => 91,  'max' => 180],
+        '181-365' => ['label' => '181 a 365 días', 'min' => 181, 'max' => 365],
+        '365+'    => ['label' => 'Más de 1 año',   'min' => 366, 'max' => 9999999],
+    ];
+}
+
+// FROM/WHERE común para métricas sobre precios (una fila por producto x lista).
+function dashboardBasePrecios($empresa_idx, $lista_id)
+{
+    $sql = "FROM gestion__listas_precios_productos lpp
+            INNER JOIN gestion__listas_precios lp
+                    ON lp.lista_precio_id = lpp.lista_precio_id
+                   AND lp.empresa_id = lpp.empresa_id
+                   AND lp.tabla_estado_registro_id = 1
+            INNER JOIN gestion__productos p
+                    ON p.producto_id = lpp.producto_id
+                   AND p.tabla_estado_registro_id = 1
+            LEFT JOIN gestion__productos_costos pc
+                   ON pc.empresa_id = lpp.empresa_id
+                  AND pc.producto_id = lpp.producto_id
+                  AND pc.tabla_estado_registro_id = 1
+            WHERE lpp.tabla_estado_registro_id = 1
+              AND lpp.empresa_id = ?";
+    $types = 'i';
+    $params = [$empresa_idx];
+    if ($lista_id > 0) {
+        $sql .= " AND lpp.lista_precio_id = ?";
+        $types .= 'i';
+        $params[] = $lista_id;
+    }
+    return [$sql, $types, $params];
+}
+
+// FROM/WHERE común para cobertura (una fila por producto del universo, con
+// la cantidad de listas en las que tiene precio activo).
+function dashboardBaseCobertura($empresa_idx, $lista_id)
+{
+    $filtro_lista = $lista_id > 0 ? " AND lpp.lista_precio_id = ?" : "";
+    $sql = "FROM gestion__productos p
+            LEFT JOIN (
+                SELECT lpp.producto_id, COUNT(DISTINCT lpp.lista_precio_id) AS listas_con_precio
+                FROM gestion__listas_precios_productos lpp
+                INNER JOIN gestion__listas_precios lp
+                        ON lp.lista_precio_id = lpp.lista_precio_id
+                       AND lp.empresa_id = lpp.empresa_id
+                       AND lp.tabla_estado_registro_id = 1
+                WHERE lpp.tabla_estado_registro_id = 1
+                  AND lpp.empresa_id = ? $filtro_lista
+                GROUP BY lpp.producto_id
+            ) cob ON cob.producto_id = p.producto_id
+            LEFT JOIN gestion__productos_costos pc
+                   ON pc.empresa_id = p.empresa_id
+                  AND pc.producto_id = p.producto_id
+                  AND pc.tabla_estado_registro_id = 1
+            WHERE p.empresa_id = ?
+              AND p.tabla_estado_registro_id = 1
+              AND p.aplica_venta = 1";
+    $types = 'i';
+    $params = [$empresa_idx];
+    if ($lista_id > 0) {
+        $types .= 'i';
+        $params[] = $lista_id;
+    }
+    $types .= 'i';
+    $params[] = $empresa_idx;
+    return [$sql, $types, $params];
+}
+
+function dashboardEjecutar($conexion, $sql, $types, $params)
+{
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("=== dashboard ERROR prepare: " . mysqli_error($conexion) . " ===");
+        throw new Exception('Error al preparar consulta del dashboard');
+    }
+    if ($types !== '') {
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    }
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $filas = [];
+    while ($fila = mysqli_fetch_assoc($res)) {
+        $filas[] = $fila;
+    }
+    mysqli_stmt_close($stmt);
+    return $filas;
+}
+
+function dashboardContarListas($conexion, $empresa_idx, $lista_id)
+{
+    $sql = "SELECT COUNT(*) AS total FROM gestion__listas_precios
+            WHERE empresa_id = ? AND tabla_estado_registro_id = 1";
+    $types = 'i';
+    $params = [$empresa_idx];
+    if ($lista_id > 0) {
+        $sql .= " AND lista_precio_id = ?";
+        $types .= 'i';
+        $params[] = $lista_id;
+    }
+    $filas = dashboardEjecutar($conexion, $sql, $types, $params);
+    return (int) ($filas[0]['total'] ?? 0);
+}
+
+function obtenerDashboardPrecios($conexion, $empresa_idx, $lista_id = 0)
+{
+    $empresa_idx = intval($empresa_idx);
+    $lista_id = intval($lista_id);
+    error_log("=== INICIO obtenerDashboardPrecios empresa: $empresa_idx lista: $lista_id ===");
+
+    $total_listas = dashboardContarListas($conexion, $empresa_idx, $lista_id);
+
+    // --- 1) Cobertura de productos ---
+    // Productos sin fila en "cob" no tienen precio (listas_con_precio NULL):
+    // SUM() ignora esos NULL en parcial/completa.
+    [$fromCob, $typesCob, $paramsCob] = dashboardBaseCobertura($empresa_idx, $lista_id);
+    $sql = "SELECT COUNT(*) AS productos_activos,
+                   SUM(cob.listas_con_precio IS NULL) AS sin_precio,
+                   SUM(cob.listas_con_precio < ?) AS cobertura_parcial,
+                   SUM(cob.listas_con_precio >= ?) AS cobertura_completa
+            $fromCob";
+    $cob = dashboardEjecutar($conexion, $sql, 'ii' . $typesCob, array_merge([$total_listas, $total_listas], $paramsCob))[0] ?? [];
+
+    // --- 2) Métricas sobre precios ---
+    [$from, $types, $params] = dashboardBasePrecios($empresa_idx, $lista_id);
+    $sql = "SELECT COUNT(*) AS precios_activos,
+                   SUM(DATEDIFF(CURDATE(), DATE(lpp.actualizado_en)) <= 30) AS actualizados_30,
+                   SUM(DATEDIFF(CURDATE(), DATE(lpp.actualizado_en)) > 90) AS desactualizados,
+                   ROUND(AVG(DATEDIFF(CURDATE(), DATE(lpp.actualizado_en)))) AS antiguedad_promedio,
+                   SUM(lpp.precio_final <= 0) AS precio_cero,
+                   SUM(pc.costo_actual > 0 AND lpp.precio_final > 0 AND lpp.precio_final < pc.costo_actual) AS bajo_costo,
+                   ROUND(AVG(CASE WHEN pc.costo_actual > 0 AND lpp.precio_final > 0
+                                  THEN (lpp.precio_final - pc.costo_actual) / pc.costo_actual * 100 END), 2) AS margen_promedio,
+                   MAX(lpp.actualizado_en) AS ultima_actualizacion,
+                   CURDATE() AS hoy
+            $from";
+    $met = dashboardEjecutar($conexion, $sql, $types, $params)[0] ?? [];
+
+    // --- 3) Distribución por día -> se pliega en PHP a meses y antigüedad ---
+    $sql = "SELECT DATE(lpp.actualizado_en) AS dia, COUNT(*) AS cantidad
+            $from
+            GROUP BY DATE(lpp.actualizado_en)";
+    $dias = dashboardEjecutar($conexion, $sql, $types, $params);
+
+    $hoy = new DateTime($met['hoy'] ?? 'today');
+    $inicio_ventana = (clone $hoy)->modify('first day of this month')->modify('-11 months');
+
+    $meses = [];
+    $cursor = clone $inicio_ventana;
+    for ($i = 0; $i < 12; $i++) {
+        $meses[$cursor->format('Y-m')] = 0;
+        $cursor->modify('+1 month');
+    }
+    $anteriores = 0;
+
+    $buckets = dashboardBucketsAntiguedad();
+    $antiguedad = array_fill_keys(array_keys($buckets), 0);
+
+    foreach ($dias as $d) {
+        if (empty($d['dia'])) {
+            continue;
+        }
+        $cantidad = (int) $d['cantidad'];
+        $fecha = new DateTime($d['dia']);
+        $mes = $fecha->format('Y-m');
+        if (isset($meses[$mes])) {
+            $meses[$mes] += $cantidad;
+        } elseif ($fecha < $inicio_ventana) {
+            $anteriores += $cantidad;
+        }
+
+        $dias_antiguedad = max(0, (int) $hoy->diff($fecha)->days);
+        foreach ($buckets as $clave => $b) {
+            if ($dias_antiguedad >= $b['min'] && $dias_antiguedad <= $b['max']) {
+                $antiguedad[$clave] += $cantidad;
+                break;
+            }
+        }
+    }
+
+    $serie_meses = [];
+    if ($anteriores > 0) {
+        $serie_meses[] = ['mes' => 'anteriores', 'cantidad' => $anteriores];
+    }
+    foreach ($meses as $mes => $cantidad) {
+        $serie_meses[] = ['mes' => $mes, 'cantidad' => $cantidad];
+    }
+
+    $serie_antiguedad = [];
+    foreach ($buckets as $clave => $b) {
+        $serie_antiguedad[] = ['bucket' => $clave, 'label' => $b['label'], 'cantidad' => $antiguedad[$clave]];
+    }
+
+    // --- 4) Cobertura por lista (siempre todas, no depende del filtro) ---
+    $sql = "SELECT lp.lista_precio_id, lp.lista_precio_nombre AS lista_nombre,
+                   COUNT(DISTINCT p.producto_id) AS con_precio,
+                   MAX(lpp.actualizado_en) AS ultima_actualizacion
+            FROM gestion__listas_precios lp
+            LEFT JOIN gestion__listas_precios_productos lpp
+                   ON lpp.lista_precio_id = lp.lista_precio_id
+                  AND lpp.empresa_id = lp.empresa_id
+                  AND lpp.tabla_estado_registro_id = 1
+            LEFT JOIN gestion__productos p
+                   ON p.producto_id = lpp.producto_id
+                  AND p.empresa_id = ?
+                  AND p.tabla_estado_registro_id = 1
+                  AND p.aplica_venta = 1
+            WHERE lp.empresa_id = ? AND lp.tabla_estado_registro_id = 1
+            GROUP BY lp.lista_precio_id, lp.lista_precio_nombre
+            ORDER BY lp.lista_precio_nombre";
+    $por_lista = dashboardEjecutar($conexion, $sql, 'ii', [$empresa_idx, $empresa_idx]);
+
+    return [
+        'kpis' => [
+            'productos_activos'    => (int) ($cob['productos_activos'] ?? 0),
+            'sin_precio'           => (int) ($cob['sin_precio'] ?? 0),
+            'cobertura_parcial'    => (int) ($cob['cobertura_parcial'] ?? 0),
+            'cobertura_completa'   => (int) ($cob['cobertura_completa'] ?? 0),
+            'total_listas'         => $total_listas,
+            'precios_activos'      => (int) ($met['precios_activos'] ?? 0),
+            'actualizados_30'      => (int) ($met['actualizados_30'] ?? 0),
+            'desactualizados'      => (int) ($met['desactualizados'] ?? 0),
+            'antiguedad_promedio'  => isset($met['antiguedad_promedio']) ? (int) $met['antiguedad_promedio'] : null,
+            'precio_cero'          => (int) ($met['precio_cero'] ?? 0),
+            'bajo_costo'           => (int) ($met['bajo_costo'] ?? 0),
+            'margen_promedio'      => isset($met['margen_promedio']) ? (float) $met['margen_promedio'] : null,
+            'ultima_actualizacion' => $met['ultima_actualizacion'] ?? null,
+        ],
+        'meses' => $serie_meses,
+        'antiguedad' => $serie_antiguedad,
+        'por_lista' => $por_lista,
+    ];
+}
+
+// Listado para el modal de detalle del dashboard.
+// $tipo: mes | antiguedad | actualizados_30 | desactualizados | bajo_costo |
+//        precio_cero (filas de precio) — sin_precio | parcial (filas de producto)
+function obtenerDashboardDetalle($conexion, $empresa_idx, $tipo, $valor, $lista_id = 0)
+{
+    $empresa_idx = intval($empresa_idx);
+    $lista_id = intval($lista_id);
+    $limite = DASH_LIMITE_DETALLE + 1; // +1 para detectar si se truncó
+    error_log("=== INICIO obtenerDashboardDetalle tipo: $tipo valor: $valor lista: $lista_id ===");
+
+    if ($tipo === 'sin_precio' || $tipo === 'parcial') {
+        [$from, $types, $params] = dashboardBaseCobertura($empresa_idx, $lista_id);
+        if ($tipo === 'sin_precio') {
+            $from .= " AND cob.listas_con_precio IS NULL";
+        } else {
+            $from .= " AND cob.listas_con_precio < ?";
+            $types .= 'i';
+            $params[] = dashboardContarListas($conexion, $empresa_idx, $lista_id);
+        }
+        $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre,
+                       pc.costo_actual,
+                       IFNULL(cob.listas_con_precio, 0) AS listas_con_precio
+                $from
+                ORDER BY p.producto_codigo
+                LIMIT ?";
+        $types .= 'i';
+        $params[] = $limite;
+        $filas = dashboardEjecutar($conexion, $sql, $types, $params);
+        $tipo_fila = 'producto';
+    } else {
+        [$from, $types, $params] = dashboardBasePrecios($empresa_idx, $lista_id);
+        $dias_expr = "DATEDIFF(CURDATE(), DATE(lpp.actualizado_en))";
+
+        switch ($tipo) {
+            case 'mes':
+                if ($valor === 'anteriores') {
+                    $from .= " AND lpp.actualizado_en < DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)";
+                } elseif (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', (string) $valor)) {
+                    $desde = $valor . '-01';
+                    $hasta = (new DateTime($desde))->modify('+1 month')->format('Y-m-d');
+                    $from .= " AND lpp.actualizado_en >= ? AND lpp.actualizado_en < ?";
+                    $types .= 'ss';
+                    $params[] = $desde;
+                    $params[] = $hasta;
+                } else {
+                    throw new Exception('Mes inválido');
+                }
+                break;
+            case 'antiguedad':
+                $buckets = dashboardBucketsAntiguedad();
+                if (!isset($buckets[$valor])) {
+                    throw new Exception('Rango de antigüedad inválido');
+                }
+                $from .= " AND $dias_expr BETWEEN ? AND ?";
+                $types .= 'ii';
+                $params[] = $buckets[$valor]['min'];
+                $params[] = $buckets[$valor]['max'];
+                break;
+            case 'actualizados_30':
+                $from .= " AND $dias_expr <= 30";
+                break;
+            case 'desactualizados':
+                $from .= " AND $dias_expr > 90";
+                break;
+            case 'bajo_costo':
+                $from .= " AND pc.costo_actual > 0 AND lpp.precio_final > 0 AND lpp.precio_final < pc.costo_actual";
+                break;
+            case 'precio_cero':
+                $from .= " AND lpp.precio_final <= 0";
+                break;
+            default:
+                throw new Exception('Tipo de detalle inválido');
+        }
+
+        $sql = "SELECT lpp.lista_precio_producto_id, lpp.lista_precio_id, lpp.producto_id,
+                       lp.lista_precio_nombre AS lista_nombre,
+                       p.producto_codigo, p.producto_nombre,
+                       lpp.precio_final AS precio_unitario,
+                       pc.costo_actual,
+                       CASE WHEN pc.costo_actual > 0
+                            THEN ROUND((lpp.precio_final - pc.costo_actual) / pc.costo_actual * 100, 2) END AS margen_pct,
+                       lpp.actualizado_en AS f_actualizacion,
+                       $dias_expr AS dias
+                $from
+                ORDER BY lpp.actualizado_en ASC, p.producto_codigo
+                LIMIT ?";
+        $types .= 'i';
+        $params[] = $limite;
+        $filas = dashboardEjecutar($conexion, $sql, $types, $params);
+        $tipo_fila = 'precio';
+    }
+
+    $truncado = count($filas) > DASH_LIMITE_DETALLE;
+    if ($truncado) {
+        array_pop($filas);
+    }
+
+    return ['tipo_fila' => $tipo_fila, 'filas' => $filas, 'truncado' => $truncado, 'limite' => DASH_LIMITE_DETALLE];
 }
 ?>

@@ -2,3 +2,6 @@
 conexion.php
 config/db.php
 modules/**/conexion.php
+# ARCA: certificados, claves privadas y respuestas de WSAA (Token/Sign)
+arca/**/cert/
+arca/**/respuesta/

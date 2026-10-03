@@ -1297,14 +1297,21 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
     mysqli_stmt_bind_param($stmt, "ii" . $tipos, ...$params);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
+    // Un mismo código del proveedor puede estar vinculado a VARIOS productos
+    // (el proveedor vende un artículo que aplica a más de un producto
+    // propio): código → lista de producto_proveedor_id, y el precio del
+    // Excel se aplica a todos. Clave normalizada igual que la comparación
+    // del IN de MySQL (case-insensitive, sin espacios de más), para no
+    // reportar como "no vinculado" un código que sí matcheó.
     $ppPorCodigo = [];
+    $ids = [];
     while ($row = mysqli_fetch_assoc($result)) {
-        $ppPorCodigo[$row['codigo_proveedor']] = $row['producto_proveedor_id'];
+        $ppPorCodigo[normalizarCodigoProveedor($row['codigo_proveedor'])][] = (int)$row['producto_proveedor_id'];
+        $ids[] = (int)$row['producto_proveedor_id'];
     }
     mysqli_stmt_close($stmt);
 
     // 2) Precargar los registros "actuales" existentes para esos producto_proveedor_id
-    $ids = array_values($ppPorCodigo);
     $actualPorId = [];
     if (!empty($ids)) {
         $placeholdersIds = implode(',', array_fill(0, count($ids), '?'));
@@ -1351,63 +1358,70 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
     $i_pp_id = 0; $i_precio = 0.0; $i_desde = ''; $i_archivo = ''; $i_usuario = 0; $i_estado = $estado_inicial;
     mysqli_stmt_bind_param($stmt_ins, "iiidssii", $i_pp_id, $empresa_id, $entidad_id, $i_precio, $i_desde, $i_archivo, $i_usuario, $i_estado);
 
-    $procesados = 0; $sin_cambios = 0; $errores_count = 0; $no_vinculados = [];
+    $procesados = 0; $sin_cambios = 0; $errores_count = 0; $no_vinculados = []; $codigos_multiples = 0;
 
     mysqli_begin_transaction($conexion);
     try {
         foreach ($filas as $codigo => $info) {
-            $producto_proveedor_id = $ppPorCodigo[$codigo] ?? null;
+            $productoProveedorIds = $ppPorCodigo[normalizarCodigoProveedor($codigo)] ?? [];
 
-            if (!$producto_proveedor_id) {
+            if (empty($productoProveedorIds)) {
                 $no_vinculados[] = ['codigo_proveedor' => $codigo, 'descripcion' => $info['descripcion'], 'precio' => $info['precio']];
                 continue;
             }
-
-            $registro_actual = $actualPorId[$producto_proveedor_id] ?? null;
-
-            if ($registro_actual && abs((float)$registro_actual['precio_lista'] - $info['precio']) < 0.99) {
-                $sin_cambios++;
-                continue;
+            if (count($productoProveedorIds) > 1) {
+                $codigos_multiples++;
             }
 
-            try {
-                if ($registro_actual) {
-                    $h_pp_id = $producto_proveedor_id;
-                    $h_precio = $registro_actual['precio_lista'];
-                    $h_moneda = $registro_actual['moneda_id'];
-                    $h_desde = $registro_actual['f_vigencia_desde'];
-                    // f_vigencia_hasta = el día anterior a la nueva vigencia. Si la
-                    // nueva fecha es igual o anterior a la vigencia que se está
-                    // cerrando (ej. dos cargas el mismo día), evitamos un rango
-                    // invertido: en ese caso, hasta = desde (mismo día).
-                    $h_hasta = date('Y-m-d', strtotime($info['f_vigencia_desde'] . ' -1 day'));
-                    if ($h_hasta < $h_desde) {
-                        $h_hasta = $h_desde;
-                    }
-                    $h_origen = $registro_actual['origen_carga'];
-                    $h_archivo = $registro_actual['archivo_importacion'];
-                    $h_usuario = $registro_actual['usuario_carga_id'];
-                    if (!mysqli_stmt_execute($stmt_hist)) {
-                        throw new Exception('Error guardando historial: ' . mysqli_stmt_error($stmt_hist));
-                    }
+            // procesados / sin_cambios cuentan por PRODUCTO vinculado, no por
+            // fila del Excel: un código con 2 productos suma 2.
+            foreach ($productoProveedorIds as $producto_proveedor_id) {
+                $registro_actual = $actualPorId[$producto_proveedor_id] ?? null;
 
-                    $u_precio = $info['precio']; $u_desde = $info['f_vigencia_desde']; $u_archivo = $archivo_nombre;
-                    $u_usuario = $usuario_id; $u_pp_id = $producto_proveedor_id;
-                    if (!mysqli_stmt_execute($stmt_upd)) {
-                        throw new Exception('Error actualizando precio: ' . mysqli_stmt_error($stmt_upd));
-                    }
-                } else {
-                    $i_pp_id = $producto_proveedor_id; $i_precio = $info['precio'];
-                    $i_desde = $info['f_vigencia_desde']; $i_archivo = $archivo_nombre; $i_usuario = $usuario_id;
-                    if (!mysqli_stmt_execute($stmt_ins)) {
-                        throw new Exception('Error insertando precio: ' . mysqli_stmt_error($stmt_ins));
-                    }
+                if ($registro_actual && abs((float)$registro_actual['precio_lista'] - $info['precio']) < 0.99) {
+                    $sin_cambios++;
+                    continue;
                 }
-                $procesados++;
-            } catch (Throwable $e) {
-                $errores_count++;
-                error_log("Error importando código $codigo: " . $e->getMessage());
-                continue;
+
+                try {
+                    if ($registro_actual) {
+                        $h_pp_id = $producto_proveedor_id;
+                        $h_precio = $registro_actual['precio_lista'];
+                        $h_moneda = $registro_actual['moneda_id'];
+                        $h_desde = $registro_actual['f_vigencia_desde'];
+                        // f_vigencia_hasta = el día anterior a la nueva vigencia. Si la
+                        // nueva fecha es igual o anterior a la vigencia que se está
+                        // cerrando (ej. dos cargas el mismo día), evitamos un rango
+                        // invertido: en ese caso, hasta = desde (mismo día).
+                        $h_hasta = date('Y-m-d', strtotime($info['f_vigencia_desde'] . ' -1 day'));
+                        if ($h_hasta < $h_desde) {
+                            $h_hasta = $h_desde;
+                        }
+                        $h_origen = $registro_actual['origen_carga'];
+                        $h_archivo = $registro_actual['archivo_importacion'];
+                        $h_usuario = $registro_actual['usuario_carga_id'];
+                        if (!mysqli_stmt_execute($stmt_hist)) {
+                            throw new Exception('Error guardando historial: ' . mysqli_stmt_error($stmt_hist));
+                        }
+
+                        $u_precio = $info['precio']; $u_desde = $info['f_vigencia_desde']; $u_archivo = $archivo_nombre;
+                        $u_usuario = $usuario_id; $u_pp_id = $producto_proveedor_id;
+                        if (!mysqli_stmt_execute($stmt_upd)) {
+                            throw new Exception('Error actualizando precio: ' . mysqli_stmt_error($stmt_upd));
+                        }
+                    } else {
+                        $i_pp_id = $producto_proveedor_id; $i_precio = $info['precio'];
+                        $i_desde = $info['f_vigencia_desde']; $i_archivo = $archivo_nombre; $i_usuario = $usuario_id;
+                        if (!mysqli_stmt_execute($stmt_ins)) {
+                            throw new Exception('Error insertando precio: ' . mysqli_stmt_error($stmt_ins));
+                        }
+                    }
+                    $procesados++;
+                } catch (Throwable $e) {
+                    $errores_count++;
+                    error_log("Error importando código $codigo (producto_proveedor_id $producto_proveedor_id): " . $e->getMessage());
+                    continue;
+                }
             }
         }
 
@@ -1427,6 +1441,7 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
         'procesados' => $procesados,
         'sin_cambios' => $sin_cambios,
         'errores_count' => $errores_count,
+        'codigos_multiples' => $codigos_multiples,
         'no_vinculados' => $no_vinculados
     ];
 }

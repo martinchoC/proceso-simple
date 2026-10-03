@@ -916,7 +916,7 @@ $(function () {
         var totalLotes = Math.ceil(loteImportacion.length / TAMANIO_LOTE);
         var loteActual = 0;
 
-        var acumulado = { procesados: 0, sin_cambios: 0, errores_count: 0, no_vinculados: [] };
+        var acumulado = { procesados: 0, sin_cambios: 0, errores_count: 0, codigos_multiples: 0, no_vinculados: [] };
 
         $('#progressImportacion').removeClass('d-none');
         $('#btnProcesarImportacion').prop('disabled', true);
@@ -943,6 +943,7 @@ $(function () {
                     acumulado.procesados += res.procesados;
                     acumulado.sin_cambios += res.sin_cambios;
                     acumulado.errores_count += res.errores_count;
+                    acumulado.codigos_multiples += res.codigos_multiples || 0;
                     acumulado.no_vinculados = acumulado.no_vinculados.concat(res.no_vinculados || []);
                 } else {
                     acumulado.errores_count += items.length;
@@ -963,9 +964,13 @@ $(function () {
         function finalizarImportacion() {
             $('#btnProcesarImportacion').prop('disabled', false);
 
-            var html = '<div class="alert alert-success">Procesados: ' + acumulado.procesados +
+            // Los contadores son por producto vinculado: un código del
+            // proveedor que aplica a 2 productos suma 2.
+            var html = '<div class="alert alert-success">Productos actualizados: ' + acumulado.procesados +
                 ' — Sin cambios: ' + acumulado.sin_cambios +
-                ' — Errores: ' + acumulado.errores_count + '</div>';
+                ' — Errores: ' + acumulado.errores_count +
+                (acumulado.codigos_multiples ? '<br><small>' + acumulado.codigos_multiples + ' código(s) del archivo aplicado(s) a más de un producto.</small>' : '') +
+                '</div>';
 
             if (acumulado.no_vinculados.length) {
                 html += '<div class="alert alert-warning"><strong>' + acumulado.no_vinculados.length + '</strong> códigos no vinculados a ningún producto de este proveedor:</div>';

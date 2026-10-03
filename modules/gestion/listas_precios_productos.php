@@ -73,6 +73,28 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
     }
 
+    /* Dashboard */
+    .dash-kpi-click {
+        cursor: pointer;
+        transition: box-shadow 0.15s, transform 0.15s;
+    }
+
+    .dash-kpi-click:hover {
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
+        transform: translateY(-1px);
+    }
+
+    .dash-kpi-click.dash-kpi-disabled {
+        cursor: default;
+        opacity: 0.6;
+        box-shadow: none;
+        transform: none;
+    }
+
+    #tablaDashListas tbody tr {
+        cursor: pointer;
+    }
+
     #buscadorTagsInput {
         background: transparent;
         border: none;
@@ -101,6 +123,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <div class="app-content">
         <div class="container-fluid">
+            <ul class="nav nav-tabs mb-3" id="tabsListasPrecios" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tabPreciosBtn" data-bs-toggle="tab" data-bs-target="#tabPrecios" type="button" role="tab">
+                        <i class="fas fa-list me-1"></i> Precios
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tabDashboardBtn" data-bs-toggle="tab" data-bs-target="#tabDashboard" type="button" role="tab">
+                        <i class="fas fa-chart-bar me-1"></i> Dashboard
+                    </button>
+                </li>
+            </ul>
+            <div class="tab-content">
+            <div class="tab-pane fade show active" id="tabPrecios" role="tabpanel">
             <div class="row">
                 <div class="col-12">
                     <div class="card">
@@ -182,6 +218,176 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+            </div><!-- /#tabPrecios -->
+
+            <!-- ========== PESTAÑA DASHBOARD ========== -->
+            <div class="tab-pane fade" id="tabDashboard" role="tabpanel">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                    <div class="input-group input-group-sm" style="max-width: 320px;">
+                        <span class="input-group-text" title="Lista de Precios"><i class="fas fa-list"></i></span>
+                        <select class="form-select" id="dashLista">
+                            <option value="">Todas las listas</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnDashActualizar" title="Actualizar indicadores">
+                        <i class="fas fa-sync-alt"></i> Actualizar
+                    </button>
+                    <small class="text-muted ms-auto" id="dashInfo"></small>
+                </div>
+
+                <!-- KPIs -->
+                <div class="row g-3 mb-3" id="dashKpis">
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card dash-kpi dash-kpi-click border-start border-4 border-danger h-100" data-tipo="sin_precio" title="Ver productos sin precio">
+                            <div class="card-body py-3">
+                                <div class="text-muted small"><i class="fas fa-tag me-1"></i> Productos sin precio</div>
+                                <div class="fs-3 fw-semibold" id="kpiSinPrecio">-</div>
+                                <div class="small text-muted" id="kpiSinPrecioSub">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card dash-kpi dash-kpi-click border-start border-4 border-warning h-100" data-tipo="parcial" id="kpiParcialCard" title="Ver productos con precio en algunas listas pero no en todas">
+                            <div class="card-body py-3">
+                                <div class="text-muted small"><i class="fas fa-adjust me-1"></i> Cobertura parcial</div>
+                                <div class="fs-3 fw-semibold" id="kpiParcial">-</div>
+                                <div class="small text-muted" id="kpiParcialSub">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card dash-kpi border-start border-4 border-success h-100">
+                            <div class="card-body py-3">
+                                <div class="text-muted small"><i class="fas fa-check-circle me-1"></i> Cobertura completa</div>
+                                <div class="fs-3 fw-semibold" id="kpiCobertura">-</div>
+                                <div class="progress mt-1" style="height: 6px;">
+                                    <div class="progress-bar bg-success" id="kpiCoberturaBar" style="width: 0%;"></div>
+                                </div>
+                                <div class="small text-muted mt-1" id="kpiCoberturaSub">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card dash-kpi border-start border-4 border-primary h-100">
+                            <div class="card-body py-3">
+                                <div class="text-muted small"><i class="fas fa-dollar-sign me-1"></i> Precios activos</div>
+                                <div class="fs-3 fw-semibold" id="kpiPrecios">-</div>
+                                <div class="small text-muted" id="kpiPreciosSub">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card dash-kpi dash-kpi-click border-start border-4 border-info h-100" data-tipo="actualizados_30" title="Ver precios actualizados en los últimos 30 días">
+                            <div class="card-body py-3">
+                                <div class="text-muted small"><i class="fas fa-history me-1"></i> Actualizados últimos 30 días</div>
+                                <div class="fs-3 fw-semibold" id="kpiAct30">-</div>
+                                <div class="small text-muted" id="kpiAct30Sub">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card dash-kpi dash-kpi-click border-start border-4 border-warning h-100" data-tipo="desactualizados" title="Ver precios sin actualizar hace más de 90 días">
+                            <div class="card-body py-3">
+                                <div class="text-muted small"><i class="fas fa-hourglass-half me-1"></i> Sin actualizar +90 días</div>
+                                <div class="fs-3 fw-semibold" id="kpiDesact">-</div>
+                                <div class="small text-muted" id="kpiDesactSub">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card dash-kpi dash-kpi-click border-start border-4 border-danger h-100" data-tipo="bajo_costo" title="Ver precios por debajo del costo actual">
+                            <div class="card-body py-3">
+                                <div class="text-muted small"><i class="fas fa-arrow-down me-1"></i> Precio menor al costo</div>
+                                <div class="fs-3 fw-semibold" id="kpiBajoCosto">-</div>
+                                <div class="small text-muted" id="kpiBajoCostoSub">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card dash-kpi border-start border-4 border-secondary h-100">
+                            <div class="card-body py-3">
+                                <div class="text-muted small"><i class="fas fa-calendar-alt me-1"></i> Antigüedad promedio</div>
+                                <div class="fs-3 fw-semibold" id="kpiAntiguedad">-</div>
+                                <div class="small text-muted" id="kpiAntiguedadSub">&nbsp;</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="row g-3 mb-3">
+                    <div class="col-lg-8">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0">Precios por mes de última actualización</h3>
+                            </div>
+                            <div class="card-body">
+                                <div style="position: relative; height: 300px;">
+                                    <canvas id="chartMeses"></canvas>
+                                </div>
+                                <small class="text-muted">Hacé click en una barra para ver el listado de ese mes.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0">Antigüedad del precio</h3>
+                            </div>
+                            <div class="card-body">
+                                <div style="position: relative; height: 300px;">
+                                    <canvas id="chartAntiguedad"></canvas>
+                                </div>
+                                <small class="text-muted">Click en una barra para ver el detalle.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cobertura por lista -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title mb-0">Cobertura por lista de precios</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0" id="tablaDashListas">
+                                <thead>
+                                    <tr>
+                                        <th>Lista</th>
+                                        <th class="text-end">Con precio</th>
+                                        <th class="text-end">Sin precio</th>
+                                        <th style="min-width: 180px;">Cobertura</th>
+                                        <th>Última actualización</th>
+                                        <th class="text-center">Faltantes</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /#tabDashboard -->
+            </div><!-- /.tab-content -->
+        </div>
+    </div>
+
+    <!-- Modal detalle del dashboard -->
+    <div class="modal fade" id="modalDashDetalle" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="dashDetalleTitulo">Detalle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning py-2 small" id="dashDetalleAviso" style="display:none;"></div>
+                    <table id="tablaDashDetalle" class="table table-striped table-bordered table-sm" style="width:100%"></table>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -521,6 +727,48 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
         }
 
+        // VERSION 2026-10-01: exportación del listado filtrado completo con
+        // server-side. Recarga una vez pidiendo length=-1 (mismos filtros,
+        // búsqueda y orden), cancela el dibujado de esas filas (preDraw
+        // false), ejecuta la exportación original del botón (excelHtml5 /
+        // pdfHtml5) sobre todos los datos ya cargados y vuelve a recargar la
+        // página en la que estaba el usuario.
+        //
+        // Recibe el tipo de botón explícito ('excelHtml5' / 'pdfHtml5'):
+        // Buttons 2.4 pisa config.extend al resolver el botón (queda
+        // undefined), así que no se puede leer de ahí.
+        function exportarFiltradoCompleto(tipoBoton) {
+            return function(e, dt, button, config, cb) {
+                var self = this;
+                var inicioAnterior = dt.settings()[0]._iDisplayStart;
+
+                dt.one('preXhr', function(ev, s, data) {
+                    data.start = 0;
+                    data.length = -1;
+
+                    dt.one('preDraw', function(ev2, settings) {
+                        try {
+                            $.fn.dataTable.ext.buttons[tipoBoton].action.call(self, e, dt, button, config, cb);
+                        } catch (err) {
+                            console.error('Error exportando listado completo:', err);
+                            Swal.fire('Error', 'No se pudo generar la exportación.', 'error');
+                        } finally {
+                            // Siempre volver a la página en la que estaba,
+                            // aunque la exportación falle.
+                            dt.one('preXhr', function(ev3, s3, data3) {
+                                settings._iDisplayStart = inicioAnterior;
+                                data3.start = inicioAnterior;
+                            });
+                            setTimeout(function() { dt.ajax.reload(null, false); }, 0);
+                        }
+                        return false; // no dibujar las ~miles de filas en pantalla
+                    });
+                });
+
+                dt.ajax.reload(null, false);
+            };
+        }
+
         var tabla = $('#tablaListasPreciosProductos').DataTable({
             dom: '<"row"<"col-md-6"l><"col-md-6"B>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
             responsive: true,
@@ -536,22 +784,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             //
             // OJO exportación: los botones Excel/PDF de DataTables sólo
             // pueden exportar lo que hay cargado en el navegador, y con
-            // server-side eso es SOLO la página visible (antes exportaban
-            // todos los resultados filtrados). Si necesitás exportar el
-            // listado filtrado completo, avisame y armamos un endpoint aparte
-            // para eso — no lo mezclo acá para no meter un cambio no pedido.
+            // server-side eso es SOLO la página visible. VERSION 2026-10-01:
+            // por eso los botones usan exportarFiltradoCompleto(), que pide
+            // al backend el listado filtrado completo (length=-1) antes de
+            // exportar y después vuelve a la página en la que estaba.
             buttons: [
                 {
                     extend: 'excelHtml5', text: '<i class="fas fa-file-excel"></i> Excel', className: 'btn btn-success btn-sm me-2',
                     // La columna Imagen (índice 5) no exporta bien a Excel
                     // (es un <img>, no texto), así que se excluye.
                     exportOptions: { columns: ':not(:eq(5))' },
-                    title: 'Listas de precios'
+                    title: 'Listas de precios',
+                    action: exportarFiltradoCompleto('excelHtml5')
                 },
                 {
                     extend: 'pdfHtml5', text: '<i class="fas fa-file-pdf"></i> PDF', className: 'btn btn-danger btn-sm',
                     exportOptions: { columns: [0, 1, 2, 6, 7] },
-                    title: 'Listas de precios'
+                    title: 'Listas de precios',
+                    action: exportarFiltradoCompleto('pdfHtml5')
                 }
             ],
             ajax: {
@@ -762,6 +1012,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     tabla.ajax.reload(() => tabla.page(page).draw('page'));
                     bootstrap.Modal.getInstance(document.getElementById('modalListaPrecioProducto')).hide();
                     Swal.fire('Guardado', '', 'success');
+                    $(document).trigger('listaPrecio:guardado'); // refresca el dashboard si ya se abrió
                 } else Swal.fire('Error', res.error || 'Error al guardar', 'error');
             });
         });
@@ -968,6 +1219,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                         // Recargar la tabla
                         tabla.ajax.reload();
+                        $(document).trigger('listaPrecio:guardado');
 
                         // Ocultar barra después de un momento
                         setTimeout(() => {
@@ -987,6 +1239,384 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             reader.readAsArrayBuffer(fileInput.files[0]);
         });
 
+    });
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script>
+    // ========== DASHBOARD (pestaña) ==========
+    // VERSION 2026-09-30. Se carga recién la primera vez que se abre la
+    // pestaña (no suma consultas a quien sólo usa la grilla) y se refresca
+    // al cambiar la lista, con el botón Actualizar o al guardar/importar
+    // precios (evento 'listaPrecio:guardado').
+    $(document).ready(function(){
+        const empresa_idx = 2; // mismo valor que el resto de la página
+        const AJAX = 'listas_precios_productos_ajax.php';
+        let dashCargado = false;
+        let chartMeses = null, chartAntiguedad = null;
+        let tablaDetalle = null;
+        let totalListasActual = 0;
+
+        const fmtNum = n => (n || 0).toLocaleString('es-AR');
+        const fmtMoneda = n => (n === null || n === undefined || n === '') ? '-' :
+            '$ ' + parseFloat(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtPct = (parte, total) => total > 0 ? (parte * 100 / total).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + '%' : '-';
+        const fmtFecha = f => f ? new Date(f.replace(' ', 'T')).toLocaleString('es-AR') : '-';
+        const esc = t => $('<div>').text(t === null || t === undefined ? '' : String(t)).html();
+
+        function etiquetaMes(mes) {
+            if (mes === 'anteriores') return 'Anteriores';
+            const [anio, m] = mes.split('-').map(Number);
+            const txt = new Date(anio, m - 1, 1).toLocaleDateString('es-AR', { month: 'short', year: '2-digit' });
+            return txt.charAt(0).toUpperCase() + txt.slice(1);
+        }
+
+        function etiquetaMesLarga(mes) {
+            if (mes === 'anteriores') return 'anteriores a la ventana de 12 meses';
+            const [anio, m] = mes.split('-').map(Number);
+            return new Date(anio, m - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+        }
+
+        function colorTexto() {
+            return getComputedStyle(document.body).color || '#6c757d';
+        }
+
+        function cargarListasDashboard() {
+            $.get(AJAX, { accion: 'obtener_listas' }, function(res){
+                let opts = '<option value="">Todas las listas</option>';
+                (res || []).forEach(l => opts += `<option value="${l.lista_precio_id}">${esc(l.nombre)}</option>`);
+                $('#dashLista').html(opts);
+            });
+        }
+
+        function cargarDashboard() {
+            $('#dashInfo').html('<i class="fas fa-spinner fa-spin me-1"></i> Calculando...');
+            $.get(AJAX, { accion: 'dashboard', empresa_idx, lista_id: $('#dashLista').val() || 0 }, function(res){
+                if (!res || !res.success) {
+                    $('#dashInfo').text('');
+                    Swal.fire('Error', (res && res.message) || 'No se pudo cargar el dashboard', 'error');
+                    return;
+                }
+                dashCargado = true;
+                renderKpis(res.data.kpis);
+                renderChartMeses(res.data.meses);
+                renderChartAntiguedad(res.data.antiguedad);
+                renderPorLista(res.data.por_lista, res.data.kpis.productos_activos);
+                $('#dashInfo').text('Actualizado ' + new Date().toLocaleTimeString('es-AR'));
+            }).fail(function(xhr){
+                $('#dashInfo').text('');
+                const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Error de comunicación con el servidor';
+                Swal.fire('Error', msg, 'error');
+            });
+        }
+
+        function renderKpis(k) {
+            const conLista = !!$('#dashLista').val();
+            totalListasActual = k.total_listas;
+
+            $('#kpiSinPrecio').text(fmtNum(k.sin_precio));
+            $('#kpiSinPrecioSub').text(fmtPct(k.sin_precio, k.productos_activos) + ' de ' + fmtNum(k.productos_activos) +
+                ' productos' + (conLista ? ' (en esta lista)' : ' (en ninguna lista)'));
+
+            // Con una sola lista, "parcial" no aplica (o tiene precio o no).
+            if (conLista || k.total_listas <= 1) {
+                $('#kpiParcial').text('-');
+                $('#kpiParcialSub').text(conLista ? 'No aplica con una lista seleccionada' : 'Hay una sola lista activa');
+                $('#kpiParcialCard').addClass('dash-kpi-disabled');
+            } else {
+                $('#kpiParcial').text(fmtNum(k.cobertura_parcial));
+                $('#kpiParcialSub').text('Con precio en algunas de las ' + k.total_listas + ' listas');
+                $('#kpiParcialCard').removeClass('dash-kpi-disabled');
+            }
+
+            const pctCob = k.productos_activos > 0 ? k.cobertura_completa * 100 / k.productos_activos : 0;
+            $('#kpiCobertura').text(fmtPct(k.cobertura_completa, k.productos_activos));
+            $('#kpiCoberturaBar').css('width', pctCob.toFixed(1) + '%');
+            $('#kpiCoberturaSub').text(fmtNum(k.cobertura_completa) + ' de ' + fmtNum(k.productos_activos) +
+                (conLista ? ' con precio en esta lista' : ' con precio en todas las listas'));
+
+            $('#kpiPrecios').text(fmtNum(k.precios_activos));
+            $('#kpiPreciosSub').text(k.margen_promedio !== null
+                ? 'Margen promedio s/costo: ' + k.margen_promedio.toLocaleString('es-AR', { maximumFractionDigits: 1 }) + '%'
+                : 'Sin costos cargados para calcular margen');
+
+            $('#kpiAct30').text(fmtNum(k.actualizados_30));
+            $('#kpiAct30Sub').text(fmtPct(k.actualizados_30, k.precios_activos) + ' de los precios activos');
+
+            $('#kpiDesact').text(fmtNum(k.desactualizados));
+            $('#kpiDesactSub').text(fmtPct(k.desactualizados, k.precios_activos) + ' de los precios activos');
+
+            $('#kpiBajoCosto').text(fmtNum(k.bajo_costo));
+            $('#kpiBajoCostoSub').html(k.precio_cero > 0
+                ? `<a href="#" class="link-danger" id="lnkPrecioCero">${fmtNum(k.precio_cero)} con precio en $0</a>`
+                : 'Ninguno con precio en $0');
+
+            $('#kpiAntiguedad').text(k.antiguedad_promedio !== null ? fmtNum(k.antiguedad_promedio) + ' días' : '-');
+            $('#kpiAntiguedadSub').text('Última actualización: ' + fmtFecha(k.ultima_actualizacion));
+        }
+
+        function opcionesBarras(onClickFn, horizontal) {
+            const txt = colorTexto();
+            const grid = 'rgba(128,128,128,0.15)';
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: horizontal ? 'y' : 'x',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: ctx => ' ' + fmtNum(ctx.parsed[horizontal ? 'x' : 'y']) + ' precios' }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: horizontal, color: grid }, ticks: { color: txt, precision: 0 }, beginAtZero: true },
+                    y: { grid: { display: !horizontal, color: grid }, ticks: { color: txt, precision: 0 }, beginAtZero: true }
+                },
+                onClick: (evt, elementos) => { if (elementos.length) onClickFn(elementos[0].index); },
+                onHover: (evt, elementos) => { evt.native.target.style.cursor = elementos.length ? 'pointer' : 'default'; }
+            };
+        }
+
+        function renderChartMeses(meses) {
+            const ctx = document.getElementById('chartMeses');
+            if (chartMeses) chartMeses.destroy();
+            chartMeses = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: meses.map(m => etiquetaMes(m.mes)),
+                    datasets: [{
+                        data: meses.map(m => m.cantidad),
+                        // "Anteriores" en gris: es un acumulado, no un mes comparable
+                        backgroundColor: meses.map(m => m.mes === 'anteriores' ? '#9ca3af' : '#3b82f6'),
+                        borderRadius: 4,
+                        borderSkipped: 'start',
+                        maxBarThickness: 48
+                    }]
+                },
+                options: opcionesBarras(function(i){
+                    const m = meses[i];
+                    if (!m || !m.cantidad) return;
+                    abrirDetalle('mes', m.mes, 'Precios actualizados en ' + etiquetaMesLarga(m.mes));
+                }, false)
+            });
+        }
+
+        function renderChartAntiguedad(buckets) {
+            const ctx = document.getElementById('chartAntiguedad');
+            if (chartAntiguedad) chartAntiguedad.destroy();
+            // Secuencial de un solo tono: más oscuro = precio más viejo
+            const rampa = ['#93c5fd', '#60a5fa', '#3b82f6', '#1d4ed8', '#1e3a8a'];
+            chartAntiguedad = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: buckets.map(b => b.label),
+                    datasets: [{
+                        data: buckets.map(b => b.cantidad),
+                        backgroundColor: buckets.map((b, i) => rampa[i] || rampa[rampa.length - 1]),
+                        borderRadius: 4,
+                        borderSkipped: 'start',
+                        maxBarThickness: 36
+                    }]
+                },
+                options: opcionesBarras(function(i){
+                    const b = buckets[i];
+                    if (!b || !b.cantidad) return;
+                    abrirDetalle('antiguedad', b.bucket, 'Precios con antigüedad: ' + b.label.toLowerCase());
+                }, true)
+            });
+        }
+
+        function renderPorLista(listas, productosActivos) {
+            const filtro = $('#dashLista').val();
+            let html = '';
+            (listas || []).forEach(l => {
+                const con = parseInt(l.con_precio) || 0;
+                const sin = Math.max(0, productosActivos - con);
+                const pct = productosActivos > 0 ? con * 100 / productosActivos : 0;
+                const color = pct >= 90 ? 'bg-success' : (pct >= 60 ? 'bg-warning' : 'bg-danger');
+                const resaltada = filtro && String(filtro) === String(l.lista_precio_id) ? 'table-active' : '';
+                html += `<tr class="${resaltada}" data-lista-id="${l.lista_precio_id}" data-lista-nombre="${esc(l.lista_nombre)}">
+                    <td>${esc(l.lista_nombre)}</td>
+                    <td class="text-end">${fmtNum(con)}</td>
+                    <td class="text-end">${sin > 0 ? '<span class="text-danger fw-semibold">' + fmtNum(sin) + '</span>' : '0'}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height: 8px;">
+                                <div class="progress-bar ${color}" style="width: ${pct.toFixed(1)}%;"></div>
+                            </div>
+                            <small class="text-muted" style="min-width: 48px;">${fmtPct(con, productosActivos)}</small>
+                        </div>
+                    </td>
+                    <td>${fmtFecha(l.ultima_actualizacion)}</td>
+                    <td class="text-center">
+                        ${sin > 0 ? '<button class="btn btn-outline-danger btn-sm btnDashFaltantes" title="Ver productos sin precio en esta lista"><i class="fas fa-search"></i></button>' : '<i class="fas fa-check text-success" title="Todos los productos tienen precio"></i>'}
+                    </td>
+                </tr>`;
+            });
+            if (!html) html = '<tr><td colspan="6" class="text-center text-muted py-3">No hay listas de precios activas</td></tr>';
+            $('#tablaDashListas tbody').html(html);
+        }
+
+        // ---------- Modal de detalle ----------
+        function abrirDetalle(tipo, valor, titulo, listaIdForzada) {
+            const listaId = listaIdForzada || $('#dashLista').val() || 0;
+            // Si la lista viene forzada (fila de cobertura) el título ya la nombra
+            const nombreLista = (listaId && !listaIdForzada) ? ($('#dashLista option[value="' + listaId + '"]').text() || '') : '';
+            $('#dashDetalleTitulo').text(titulo + (nombreLista ? ' — ' + nombreLista : ''));
+            $('#dashDetalleAviso').hide();
+
+            Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            $.get(AJAX, { accion: 'dashboard_detalle', empresa_idx, tipo, valor: valor || '', lista_id: listaId }, function(res){
+                Swal.close();
+                if (!res || !res.success) {
+                    Swal.fire('Error', (res && res.message) || 'No se pudo obtener el detalle', 'error');
+                    return;
+                }
+                if (res.data.truncado) {
+                    $('#dashDetalleAviso').show().text('Se muestran sólo los primeros ' + fmtNum(res.data.limite) +
+                        ' registros. Usá el filtro por lista para acotar el resultado.');
+                }
+                renderTablaDetalle(res.data, listaId, titulo);
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDashDetalle')).show();
+            }).fail(function(xhr){
+                Swal.close();
+                const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Error de comunicación con el servidor';
+                Swal.fire('Error', msg, 'error');
+            });
+        }
+
+        function renderTablaDetalle(data, listaId, titulo) {
+            if (tablaDetalle) {
+                tablaDetalle.destroy();
+                tablaDetalle = null;
+            }
+            $('#tablaDashDetalle').empty();
+
+            const texto = $.fn.dataTable.render.text();
+            let columnas, orden;
+            if (data.tipo_fila === 'producto') {
+                const totalListas = listaId ? 1 : totalListasActual;
+                columnas = [
+                    { title: 'Código', data: 'producto_codigo', render: texto },
+                    { title: 'Producto', data: 'producto_nombre', render: texto },
+                    { title: 'Costo actual', data: 'costo_actual', className: 'text-end', render: (d, t) => t === 'display' ? fmtMoneda(d) : d },
+                    { title: 'Listas con precio', data: 'listas_con_precio', className: 'text-center',
+                      render: (d, t) => t === 'display' ? d + ' de ' + totalListas : d },
+                    { title: '', data: null, orderable: false, className: 'text-center',
+                      render: () => '<button class="btn btn-success btn-sm btnDashCargarPrecio" title="Cargar precio"><i class="fas fa-plus"></i></button>' }
+                ];
+                orden = [[0, 'asc']];
+            } else {
+                columnas = [
+                    { title: 'Lista', data: 'lista_nombre', render: texto },
+                    { title: 'Código', data: 'producto_codigo', render: texto },
+                    { title: 'Producto', data: 'producto_nombre', render: texto },
+                    { title: 'Precio', data: 'precio_unitario', className: 'text-end', render: (d, t) => t === 'display' ? fmtMoneda(d) : parseFloat(d) },
+                    { title: 'Costo', data: 'costo_actual', className: 'text-end', render: (d, t) => t === 'display' ? fmtMoneda(d) : (d === null ? -1 : parseFloat(d)) },
+                    { title: 'Margen', data: 'margen_pct', className: 'text-end',
+                      render: (d, t) => {
+                          if (t !== 'display') return d === null ? -99999 : parseFloat(d);
+                          if (d === null) return '-';
+                          const v = parseFloat(d);
+                          return `<span class="${v < 0 ? 'text-danger fw-semibold' : ''}">${v.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%</span>`;
+                      } },
+                    { title: 'Últ. actualización', data: 'f_actualizacion', render: (d, t) => t === 'display' ? fmtFecha(d) : d },
+                    { title: 'Días', data: 'dias', className: 'text-end' },
+                    { title: '', data: null, orderable: false, className: 'text-center',
+                      render: () => '<button class="btn btn-primary btn-sm btnDashEditarPrecio" title="Editar precio"><i class="fa fa-edit"></i></button>' }
+                ];
+                orden = [[7, 'desc']];
+            }
+
+            const columnasExport = ':not(:last-child)';
+            tablaDetalle = $('#tablaDashDetalle').DataTable({
+                data: data.filas,
+                columns: columnas,
+                order: orden,
+                pageLength: 25,
+                dom: '<"row"<"col-md-4"l><"col-md-4"f><"col-md-4 text-end"B>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
+                buttons: [
+                    { extend: 'excelHtml5', text: '<i class="fas fa-file-excel"></i> Excel', className: 'btn btn-success btn-sm',
+                      title: titulo, exportOptions: { columns: columnasExport } }
+                ],
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' }
+            });
+            $('#tablaDashDetalle').data('lista-contexto', listaId);
+        }
+
+        // Abre el modal de alta/edición de la pestaña Precios, después de
+        // cerrar el de detalle (Bootstrap no maneja bien dos modales abiertos).
+        function cerrarDetalleY(fn) {
+            const el = document.getElementById('modalDashDetalle');
+            $(el).one('hidden.bs.modal', fn);
+            bootstrap.Modal.getOrCreateInstance(el).hide();
+        }
+
+        $('#tablaDashDetalle').on('click', '.btnDashCargarPrecio', function(){
+            const fila = tablaDetalle.row($(this).closest('tr')).data();
+            const listaId = $('#tablaDashDetalle').data('lista-contexto') || '';
+            cerrarDetalleY(function(){
+                $('#formListaPrecioProducto')[0].reset();
+                $('#formListaPrecioProducto').removeClass('was-validated');
+                $('#lista_precio_producto_id').val('');
+                $('#producto_id').val(fila.producto_id);
+                if (listaId) $('#lista_precio_id').val(listaId);
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalListaPrecioProducto')).show();
+            });
+        });
+
+        $('#tablaDashDetalle').on('click', '.btnDashEditarPrecio', function(){
+            const fila = tablaDetalle.row($(this).closest('tr')).data();
+            $.get(AJAX, { accion: 'obtener', lista_precio_producto_id: fila.lista_precio_producto_id }, function(res){
+                if (!res) return Swal.fire('Error', 'Error al obtener datos', 'error');
+                cerrarDetalleY(function(){
+                    $('#formListaPrecioProducto').removeClass('was-validated');
+                    $('#lista_precio_producto_id').val(res.lista_precio_producto_id);
+                    $('#lista_precio_id').val(res.lista_precio_id);
+                    $('#producto_id').val(res.producto_id);
+                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(2));
+                    $('#ajuste_id').val(res.ajuste_id);
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalListaPrecioProducto')).show();
+                });
+            });
+        });
+
+        // ---------- Eventos ----------
+        $('#tabDashboardBtn').on('shown.bs.tab', function(){
+            if (!dashCargado) cargarDashboard();
+        });
+        $('#dashLista').on('change', cargarDashboard);
+        $('#btnDashActualizar').on('click', cargarDashboard);
+        $(document).on('listaPrecio:guardado', function(){ if (dashCargado) cargarDashboard(); });
+
+        $('#dashKpis').on('click', '.dash-kpi-click', function(e){
+            if ($(e.target).closest('#lnkPrecioCero').length) return; // lo maneja su propio handler
+            if ($(this).hasClass('dash-kpi-disabled') || !dashCargado) return;
+            const tipo = $(this).data('tipo');
+            const titulos = {
+                sin_precio: 'Productos sin precio',
+                parcial: 'Productos con cobertura parcial',
+                actualizados_30: 'Precios actualizados en los últimos 30 días',
+                desactualizados: 'Precios sin actualizar hace más de 90 días',
+                bajo_costo: 'Precios por debajo del costo actual'
+            };
+            abrirDetalle(tipo, '', titulos[tipo] || 'Detalle');
+        });
+
+        $('#dashKpis').on('click', '#lnkPrecioCero', function(e){
+            e.preventDefault();
+            abrirDetalle('precio_cero', '', 'Precios en $0');
+        });
+
+        $('#tablaDashListas').on('click', 'tbody tr[data-lista-id]', function(){
+            const id = $(this).data('lista-id');
+            const nombre = $(this).data('lista-nombre');
+            if ($(this).find('.btnDashFaltantes').length === 0) return; // lista completa, nada que mostrar
+            // Se fuerza la lista de la fila, no la del filtro de arriba
+            abrirDetalle('sin_precio', '', 'Productos sin precio en ' + nombre, id);
+        });
+
+        cargarListasDashboard();
     });
     </script>
 

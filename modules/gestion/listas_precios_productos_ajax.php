@@ -184,7 +184,35 @@ switch ($accion) {
         $resultado = importarPreciosDesdeExcel($conexion, $lista_precio_id, $productos);
         echo json_encode($resultado);
         break;
-        
+
+    case 'dashboard':
+        // Pestaña "Dashboard": KPIs, gráfico por mes de actualización,
+        // antigüedad y cobertura por lista.
+        $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
+        if ($empresa_idx <= 0) {
+            echo json_encode(['success' => false, 'data' => null, 'message' => 'Empresa no informada']);
+            break;
+        }
+        $lista_id = intval($_GET['lista_id'] ?? 0);
+        $data = obtenerDashboardPrecios($conexion, $empresa_idx, $lista_id);
+        echo json_encode(['success' => true, 'data' => $data, 'message' => ''], JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'dashboard_detalle':
+        // Listado del modal que se abre al hacer click en un KPI, una barra
+        // de los gráficos o una fila de cobertura por lista.
+        $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
+        if ($empresa_idx <= 0) {
+            echo json_encode(['success' => false, 'data' => null, 'message' => 'Empresa no informada']);
+            break;
+        }
+        $tipo = (string) ($_GET['tipo'] ?? '');
+        $valor = (string) ($_GET['valor'] ?? '');
+        $lista_id = intval($_GET['lista_id'] ?? 0);
+        $data = obtenerDashboardDetalle($conexion, $empresa_idx, $tipo, $valor, $lista_id);
+        echo json_encode(['success' => true, 'data' => $data, 'message' => ''], JSON_UNESCAPED_UNICODE);
+        break;
+
     
 
     default:

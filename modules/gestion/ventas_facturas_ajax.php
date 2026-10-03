@@ -25,7 +25,7 @@ try {
             echo json_encode(vfPuntosVenta($conexion, $empresa_id), JSON_UNESCAPED_UNICODE);
             break;
         case 'tipos_por_punto_venta':
-            echo json_encode(vfTiposPorPuntoVenta($conexion, $empresa_id, intval($_GET['punto_venta_id'] ?? 0)), JSON_UNESCAPED_UNICODE);
+            echo json_encode(vfTiposPorPuntoVenta($conexion, $empresa_id, intval($_GET['punto_venta_id'] ?? 0), $pagina_id), JSON_UNESCAPED_UNICODE);
             break;
         case 'condicion_cliente':
             echo json_encode(vfObtenerCondicionCliente($conexion, intval($_GET['entidad_id'] ?? 0), $empresa_id), JSON_UNESCAPED_UNICODE);

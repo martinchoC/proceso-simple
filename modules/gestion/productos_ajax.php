@@ -384,7 +384,7 @@ try {
             $imagen_data = null;
             $imagen_tipo = $archivo['type'];
             $imagen_tamanio = $archivo['size'];
-            
+
             // Reducir calidad si es JPEG
             if (in_array($archivo['type'], ['image/jpeg', 'image/jpg'])) {
                 $imagen = imagecreatefromjpeg($archivo['tmp_name']);
@@ -395,29 +395,29 @@ try {
                     $imagen_data = ob_get_clean();
                     $imagen_tamanio = strlen($imagen_data);
                     imagedestroy($imagen);
-                    
+
                     // Si aún es mayor a 500KB, reducir más
                     if ($imagen_tamanio > 500 * 1024) {
                         // Redimensionar imagen manteniendo aspecto
                         list($ancho_orig, $alto_orig) = getimagesize($archivo['tmp_name']);
                         $nuevo_ancho = 800; // Ancho máximo
                         $nuevo_alto = intval($alto_orig * ($nuevo_ancho / $ancho_orig));
-                        
+
                         $imagen_nueva = imagecreatetruecolor($nuevo_ancho, $nuevo_alto);
                         $imagen_orig = imagecreatefromjpeg($archivo['tmp_name']);
                         imagecopyresampled($imagen_nueva, $imagen_orig, 0, 0, 0, 0, $nuevo_ancho, $nuevo_alto, $ancho_orig, $alto_orig);
-                        
+
                         ob_start();
                         imagejpeg($imagen_nueva, null, 70); // 70% de calidad
                         $imagen_data = ob_get_clean();
                         $imagen_tamanio = strlen($imagen_data);
-                        
+
                         imagedestroy($imagen_orig);
                         imagedestroy($imagen_nueva);
                     }
                 }
             }
-            
+
             // Para otros tipos de imagen
             if ($imagen_data === null && in_array($archivo['type'], ['image/png', 'image/gif', 'image/webp'])) {
                 // Leer el archivo sin optimizar
@@ -428,7 +428,7 @@ try {
                 }
                 $imagen_tamanio = strlen($imagen_data);
             }
-            
+
             // Si no es una imagen compatible, leer como está
             if ($imagen_data === null) {
                 $imagen_data = file_get_contents($archivo['tmp_name']);
@@ -454,12 +454,12 @@ try {
 
             // Llamar a la función del modelo
             $resultado = subirImagenProducto($conexion, $data);
-            
+
             // Si se subió correctamente, agregar la URL de la imagen
             if ($resultado['resultado'] && isset($resultado['imagen_id'])) {
                 $resultado['imagen_url'] = 'get_imagen.php?id=' . $resultado['imagen_id'];
             }
-            
+
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

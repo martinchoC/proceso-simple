@@ -89,6 +89,18 @@ try {
             }
             break;
 
+        case 'resumen_productos':
+            $resumen = obtenerResumenProductosJerarquia($conexion, $empresa_idx, $pagina_idx);
+            echo json_encode($resumen, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'productos_nodo':
+            $tipo = $_GET['tipo'] ?? '';
+            $id = intval($_GET['id'] ?? 0);
+            $productos = obtenerProductosNodoResumen($conexion, $empresa_idx, $tipo, $id);
+            echo json_encode($productos, JSON_UNESCAPED_UNICODE);
+            break;
+
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }

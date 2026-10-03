@@ -168,17 +168,43 @@ function vfPuntosVenta($conexion, $empresa_id) {
     return $rows;
 }
 
-function vfTiposPorPuntoVenta($conexion, $empresa_id, $punto_venta_id) {
+// Mismo criterio que obtenerComprobantesTipos (pedidos) / obtenerComprobantesTiposRemitos:
+// pagina_id -> conf__paginas.tabla_id -> subgrupos con esa tabla_id -> tipos, intersectado
+// con lo habilitado para el PV. Sin el filtro por subgrupo aparecían también los tipos de
+// compras (C_FA, C_NCA...) y de stock/pedidos habilitados en el PV, duplicando "Factura A", etc.
+function vfTiposPorPuntoVenta($conexion, $empresa_id, $punto_venta_id, $pagina_id) {
+    if (empty($punto_venta_id)) return [];
+
+    $stmt = mysqli_prepare($conexion, "SELECT tabla_id FROM conf__paginas WHERE pagina_id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $pagina_id);
+    mysqli_stmt_execute($stmt);
+    $pagina = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    $tabla_id = intval($pagina['tabla_id'] ?? 0);
+    if (empty($tabla_id)) {
+        error_log("vfTiposPorPuntoVenta: sin tabla_id configurado para pagina_id=$pagina_id");
+        return [];
+    }
+
     $sql = "SELECT ct.comprobante_tipo_id, ct.comprobante_tipo, ct.letra, ct.codigo,
                    ct.comprobante_fiscal_id
-            FROM gestion__puntos_venta_comprobantes pvc
-            INNER JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = pvc.comprobante_tipo_id
-            WHERE pvc.empresa_id = ? AND pvc.punto_venta_id = ?
-              AND pvc.tabla_estado_registro_id = 1
-              AND ct.tabla_estado_registro_id = 1
-            ORDER BY ct.comprobante_tipo";
+            FROM gestion__comprobantes_tipos ct
+            INNER JOIN gestion__comprobantes_subgrupos cs
+                ON cs.comprobante_subgrupo_id = ct.comprobante_subgrupo_id
+                AND cs.tabla_estado_registro_id = 1
+                AND cs.tabla_id = ?
+                AND cs.empresa_id IN (0, ?)
+            INNER JOIN gestion__puntos_venta_comprobantes pvc
+                ON pvc.comprobante_tipo_id = ct.comprobante_tipo_id
+                AND pvc.punto_venta_id = ?
+                AND pvc.empresa_id = ?
+                AND pvc.tabla_estado_registro_id = 1
+            WHERE ct.tabla_estado_registro_id = 1
+              AND ct.empresa_id IN (0, ?)
+            ORDER BY ct.orden, ct.comprobante_tipo";
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, 'ii', $empresa_id, $punto_venta_id);
+    // tabla_id, empresa (subgrupo), punto_venta_id, empresa (pvc), empresa (tipo)
+    mysqli_stmt_bind_param($stmt, 'iiiii', $tabla_id, $empresa_id, $punto_venta_id, $empresa_id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $rows = [];
@@ -236,11 +262,51 @@ function vfRemitosPendientes($conexion, $empresa_id, $entidad_id, $entidad_sucur
     return $rows;
 }
 
+// Copia de condicionPalabraBusquedaProducto() de productos_model.php (sin la columna de
+// estado) + p.producto_codigo. Se duplica para no incluir productos_model.php acá; si
+// cambia la regla allá, replicarla. Palabras 100% numéricas se buscan en la
+// compatibilidad como TOKEN completo: "18" no debe matchear "2018".
+function vfCondicionPalabraBusquedaProducto($palabra) {
+    $palabra_like = '%' . $palabra . '%';
+    if (ctype_digit($palabra)) {
+        $compat_condition = "CONCAT(' ', p.compatibilidad_busqueda, ' ') LIKE ?";
+        $compat_param = '% ' . $palabra . ' %';
+    } else {
+        $compat_condition = "p.compatibilidad_busqueda LIKE ?";
+        $compat_param = $palabra_like;
+    }
+    $condiciones = ["p.producto_codigo LIKE ?", "p.producto_nombre LIKE ?", "p.codigo_barras LIKE ?", "p.producto_descripcion LIKE ?", $compat_condition];
+    $params = [$palabra_like, $palabra_like, $palabra_like, $palabra_like, $compat_param];
+    return ["(" . implode(" OR ", $condiciones) . ")", $params, str_repeat("s", count($params))];
+}
+
 function vfBuscarProductos($conexion, $empresa_id, $entidad_id, $q) {
     $cond = vfObtenerCondicionCliente($conexion, $entidad_id, $empresa_id);
     if (!$cond || empty($cond['lista_precio_id'])) return [];
-    $like = '%' . $q . '%';
+    // Misma búsqueda de texto que el listado de productos.php (términos entre comillas
+    // = frase completa, el resto se parte por espacios, AND entre términos), más el
+    // código de producto. Se muestra compatibilidad_texto, la versión legible de
+    // compatibilidad_busqueda.
+    $palabras = [];
+    if (preg_match_all('/"([^"]*)"|(\S+)/', trim($q), $matches, PREG_SET_ORDER)) {
+        foreach ($matches as $match) {
+            $termino = trim(isset($match[2]) ? $match[2] : $match[1]);
+            if (strlen($termino) > 0) $palabras[] = $termino;
+        }
+    }
+    if (!$palabras) return [];
+    $where_palabras = '';
+    $tipos = 'iii';
+    $lista = intval($cond['lista_precio_id']);
+    $params = [$lista, $empresa_id, $empresa_id];
+    foreach ($palabras as $palabra) {
+        [$condicion, $params_palabra, $tipos_palabra] = vfCondicionPalabraBusquedaProducto($palabra);
+        $where_palabras .= " AND $condicion";
+        array_push($params, ...$params_palabra);
+        $tipos .= $tipos_palabra;
+    }
     $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre,
+                   p.compatibilidad_texto,
                    lp.precio_final AS precio_unitario, p.iva_alicuota_id,
                    COALESCE(iva.porcentaje, 0) AS iva_porcentaje
             FROM gestion__listas_precios_productos lp
@@ -248,11 +314,10 @@ function vfBuscarProductos($conexion, $empresa_id, $entidad_id, $q) {
             LEFT JOIN gestion__impuestos__iva_alicuotas iva ON iva.iva_alicuota_id = p.iva_alicuota_id
             WHERE lp.lista_precio_id = ? AND lp.empresa_id = ? AND p.empresa_id = ?
               AND lp.tabla_estado_registro_id = 1 AND p.tabla_estado_registro_id = 1
-              AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ?)
-            ORDER BY p.producto_nombre LIMIT 20";
+              $where_palabras
+            ORDER BY p.producto_codigo LIMIT 20";
     $stmt = mysqli_prepare($conexion, $sql);
-    $lista = intval($cond['lista_precio_id']);
-    mysqli_stmt_bind_param($stmt, 'iiiss', $lista, $empresa_id, $empresa_id, $like, $like);
+    mysqli_stmt_bind_param($stmt, $tipos, ...$params);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $rows = [];

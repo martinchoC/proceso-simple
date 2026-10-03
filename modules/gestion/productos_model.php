@@ -203,6 +203,38 @@ function buscarUbicacionesRapidas($conexion, $termino, $empresa_idx, $limite = 1
 }
 
 
+// ✅ Condición SQL de UNA palabra de la búsqueda por texto del listado: tiene que
+// aparecer en nombre, código de barras, descripción, compatibilidad o en el nombre del
+// estado (si se pasa $columna_estado). Devuelve [sql, params, types].
+// No busca en el código del producto ni en el código de proveedor: para eso está el
+// filtro "Código o cód. proveedor..." del listado (filtro_codigo).
+// Palabras 100% numéricas se buscan en la compatibilidad como número completo: no pueden
+// estar pegadas a otros dígitos ("18" no matchea "2018"), pero sí a separadores
+// ("206" matchea "206/207/208" o "(206)").
+function condicionPalabraBusquedaProducto($palabra, $columna_estado = null)
+{
+    $palabra_like = '%' . $palabra . '%';
+
+    if (ctype_digit($palabra)) {
+        $compat_condition = "p.compatibilidad_busqueda REGEXP ?";
+        $compat_param = '(^|[^0-9])' . $palabra . '([^0-9]|$)';
+    } else {
+        $compat_condition = "p.compatibilidad_busqueda LIKE ?";
+        $compat_param = $palabra_like;
+    }
+
+    $condiciones = ["p.producto_nombre LIKE ?", "p.codigo_barras LIKE ?", "p.producto_descripcion LIKE ?"];
+    $params = [$palabra_like, $palabra_like, $palabra_like];
+    if ($columna_estado !== null) {
+        $condiciones[] = "$columna_estado LIKE ?";
+        $params[] = $palabra_like;
+    }
+    $condiciones[] = $compat_condition;
+    $params[] = $compat_param;
+
+    return ["(" . implode(" OR ", $condiciones) . ")", $params, str_repeat("s", count($params))];
+}
+
 function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params = [])
 {
     $empresa_idx = intval($empresa_idx);
@@ -264,11 +296,13 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     $where_params = [$empresa_idx];
     $where_types = "i";
 
-    // Filtro por código
+    // Filtro por código: código del producto o código de proveedor (este último está
+    // materializado en p.proveedores_busqueda por recalcularProveedoresBusqueda())
     if (!empty($filtro_codigo)) {
-        $where_conditions[] = "p.producto_codigo LIKE ?";
+        $where_conditions[] = "(p.producto_codigo LIKE ? OR p.proveedores_busqueda LIKE ?)";
         $where_params[] = '%' . $filtro_codigo . '%';
-        $where_types .= "s";
+        $where_params[] = '%' . $filtro_codigo . '%';
+        $where_types .= "ss";
     }
 
     // Filtro rápido por estado (dropdown junto al botón Agregar, arranca en "Activo")
@@ -330,18 +364,12 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
 
         // Para cada término, agregar una condición AND
         foreach ($palabras as $palabra) {
-            $palabra_like = '%' . $palabra . '%';
-
             // La compatibilidad (marca+modelo+submodelo+año) se busca en
             // p.compatibilidad_busqueda, materializada por trigger sobre
             // gestion__productos_compatibilidad — reemplaza los 3 EXISTS+JOIN
             // que antes se repetían por cada palabra buscada.
-            // El código de proveedor se busca en p.proveedores_busqueda,
-            // materializada por recalcularProveedoresBusqueda() cada vez que
-            // se agrega/edita/elimina un proveedor del producto — reemplaza
-            // el EXISTS contra gestion__productos_proveedores que hacía table
-            // scan de esa tabla por cada palabra buscada (sin índice en
-            // producto_id, era carísimo con el catálogo completo).
+            // (Los códigos de producto y de proveedor NO se buscan acá: van por
+            // el filtro "Código o cód. proveedor...", ver $filtro_codigo arriba.)
             //
             // p.compatibilidad_busqueda expande el rango de años AÑO POR AÑO
             // (ej: "...2016 2017 2018 2019..."), justamente para que buscar
@@ -351,38 +379,13 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             // que no tienen nada que ver con el modelo buscado (ej: "renault
             // 18" pensando en el modelo Renault 18 trae un Renault Estanciera
             // 2000-2026 porque "2018" cae en ese rango). Para palabras 100%
-            // numéricas, se exige que el número aparezca como TOKEN completo
-            // (rodeado de espacios), no como substring de otro número.
-            if (ctype_digit($palabra)) {
-                $compat_condition = "CONCAT(' ', p.compatibilidad_busqueda, ' ') LIKE ?";
-                $compat_param = '% ' . $palabra . ' %';
-            } else {
-                $compat_condition = "p.compatibilidad_busqueda LIKE ?";
-                $compat_param = $palabra_like;
-            }
-
-            $search_conditions = [
-                "p.producto_codigo LIKE ?",
-                "p.producto_nombre LIKE ?",
-                "p.codigo_barras LIKE ?",
-                "p.producto_descripcion LIKE ?",
-                "er.$estado_column LIKE ?",
-                $compat_condition,
-                "p.proveedores_busqueda LIKE ?"
-            ];
-
-            $where_conditions[] = "(" . implode(" OR ", $search_conditions) . ")";
-
-            // 7 parámetros, uno por condición — el 6to (compatibilidad_busqueda)
-            // puede ser el patrón por token en vez del substring libre.
-            $where_params[] = $palabra_like;   // producto_codigo
-            $where_params[] = $palabra_like;   // producto_nombre
-            $where_params[] = $palabra_like;   // codigo_barras
-            $where_params[] = $palabra_like;   // producto_descripcion
-            $where_params[] = $palabra_like;   // estado
-            $where_params[] = $compat_param;   // compatibilidad_busqueda
-            $where_params[] = $palabra_like;   // proveedores_busqueda
-            $where_types .= "sssssss";
+            // numéricas, se exige que el número no esté pegado a otros dígitos
+            // (sí puede estar pegado a "/", "-", "(", etc.: "206/207/208").
+            // (la regla está en condicionPalabraBusquedaProducto())
+            [$condicion, $params_palabra, $types_palabra] = condicionPalabraBusquedaProducto($palabra, "er.$estado_column");
+            $where_conditions[] = $condicion;
+            array_push($where_params, ...$params_palabra);
+            $where_types .= $types_palabra;
         }
     }
 
