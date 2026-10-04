@@ -6,11 +6,16 @@
 
 declare(strict_types=1);
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../../db.php';
-require_once __DIR__ . '/../../inc/session.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/entidades_tipos_model.php';
 require_once __DIR__ . '/grupos_regiones_model.php';
+
+$conexion = $conn;
 
 header('Content-Type: application/json; charset=utf-8');
 

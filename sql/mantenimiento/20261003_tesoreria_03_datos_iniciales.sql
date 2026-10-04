@@ -1,18 +1,27 @@
 -- =====================================================================
 -- Tesorería - script 03: DATOS INICIALES POR EMPRESA (plantilla)
 -- medios de pago, cuentas de tesorería, categorías de gasto, numeradores
--- de certificados de retención y puntos de venta internos (D29)
+-- de certificados de retención, puntos de venta internos (D29) y cuentas
+-- de los conceptos de la empresa (D35)
 -- 2026-10-03 · generado por disenador-modelo-datos · NO EJECUTADO
--- Revisión 4 (2026-10-03). Especificación funcional vigente:
---   docs/matriz-legal/08_proc_tesoreria_v3_6.docx (decisiones D1-D31;
---   este script cubre D29 y D30, §9.1 filas 4, 7 y 9).
+-- Revisión 6 (2026-10-04). Especificación funcional vigente:
+--   docs/gestion/08_proc_tesoreria_v3_10.docx (decisiones D1-D36; este
+--   script cubre D29, D30, D32, D33, D34, D35 y D36 y los códigos de cuenta
+--   del Anexo D).
+--   Cambios de la revisión 6: bloque 6 nuevo (cuenta de los conceptos
+--   VALORES_A_PAGAR y EMPLEADOS, por código, solo si está en NULL), control
+--   de que exista gestion__empresas_cuentas_conceptos y diagnóstico 0c
+--   ampliado (concepto inexistente / cuenta que no resuelve).
 -- =====================================================================
--- ORDEN DE EJECUCIÓN (tres archivos con el mismo prefijo 20261003_tesoreria_):
+-- ORDEN DE EJECUCIÓN: 01 -> 02 -> 02b -> 03 (prefijo 20261003_tesoreria_):
 --   01_ddl.sql                 UNA VEZ por base (estructura + datos globales).
 --   02_siembra_empresa.sql     una vez por empresa (tipos, subgrupos, reglas).
---   03_datos_iniciales.sql     ESTE: por empresa, DESPUÉS del 02.
+--   02b_plan_cuentas.sql       crea las 17 cuentas contables de tesorería de
+--                              la empresa 2 (lo mantiene el usuario).
+--   03_datos_iniciales.sql     ESTE: por empresa, DESPUÉS del 02b (las
+--                              cuentas de los ejemplos salen del 02b).
 --
--- ES UNA PLANTILLA: todos los bloques que escriben datos (1 a 5) vienen
+-- ES UNA PLANTILLA: todos los bloques que escriben datos (1 a 6) vienen
 -- COMENTADOS con valores de EJEMPLO (los de Casa Lucho, empresa 2, tomados
 -- de casalucho_local.sql / casalucho_produccion.sql del 2026-10-03). Corrido
 -- tal cual, el script solo valida y muestra diagnósticos. Para usarlo:
@@ -31,7 +40,9 @@
 -- REQUISITOS
 --   - Base seleccionada con USE (no hay USE en el script).
 --   - 01 y 02 ya ejecutados PARA ESTA EMPRESA (se verifica: los 13 tipos de
---     tesorería con subgrupo asignado).
+--     tesorería con subgrupo asignado). Para el bloque 6, ambos en revisión
+--     6: el 01 crea gestion__empresas_cuentas_conceptos (se verifica) y el
+--     02 siembra los conceptos (lo informa el diagnóstico 0c).
 --   - Privilegios: SELECT, INSERT, UPDATE, CREATE ROUTINE y ALTER ROUTINE
 --     (helper _tes_assert).
 --   - Los ids de otras tablas se resuelven por código o nombre: sucursal por
@@ -39,7 +50,11 @@
 --     conf__bancos.codigo_bcra, cuenta contable por gestion__cont_cuentas.codigo
 --     (plan de cuentas de la empresa), impuesto por impuesto_tipo, cuenta de
 --     tesorería por su codigo. Si un código no se resuelve, la fila NO se
---     inserta (no queda con NULL silencioso): revisar la sección V.
+--     inserta (no queda con NULL silencioso). El diagnóstico 0c lista,
+--     ANTES de insertar, cada cont_codigo de los bloques 1, 2, 3 y 6 que no
+--     existe, no es imputable o está inactivo (y los impuestos de los
+--     medios RETENCION que no se resuelven, y los conceptos del bloque 6 que
+--     no existen o cuya cuenta no resuelve).
 --
 -- PARÁMETROS
 --   @tes_empresa_id      empresa (NULL a propósito: si no se edita, el script
@@ -113,6 +128,13 @@ SET @tes_er_activo = (SELECT estado_registro_id FROM conf__estados_registros
 CALL `_tes_assert`(@tes_er_activo IS NOT NULL,
     'No se resolvio el estado generico ACTIVO en conf__estados_registros');
 
+-- 01 revisión 6: la tabla de conceptos (D35) existe. Se controla acá porque
+-- el diagnóstico 0c y el bloque 6 la leen.
+CALL `_tes_assert`(
+    (SELECT COUNT(*) FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gestion__empresas_cuentas_conceptos') = 1,
+    'Falta correr 20261003_tesoreria_01_ddl.sql revision 6 (gestion__empresas_cuentas_conceptos)');
+
 -- ---------------------------------------------------------------------
 -- 0b) DIAGNÓSTICO (solo lectura) para completar los valores de ejemplo
 -- ---------------------------------------------------------------------
@@ -157,6 +179,100 @@ LEFT JOIN gestion__puntos_venta pv ON pv.punto_venta_id = x.punto_venta_id
 GROUP BY ct.codigo, x.punto_venta_id, pv.nombre, pv.sucursal_id
 ORDER BY ct.codigo, x.punto_venta_id;
 
+-- ---------------------------------------------------------------------
+-- 0c) DIAGNÓSTICO DE CUENTAS CONTABLES E IMPUESTOS (solo lectura)
+-- ---------------------------------------------------------------------
+-- Imprime SOLO lo que no resuelve: cont_codigo inexistente en el plan de la
+-- empresa, cuenta título (es_imputable = 0) o inactiva. 0 filas = todo OK.
+-- La lista repite los cont_codigo de los bloques 1, 2, 3 y 6: MANTENERLA EN
+-- SINCRONÍA al editar esos bloques. Las dos cuentas de los conceptos D35
+-- (Empleados y Valores a Pagar, bloque 6) las crea el 02b.
+SELECT v.bloque, v.clave, v.cont_codigo,
+       CASE
+           WHEN cc.cont_cuenta_id IS NULL THEN 'NO EXISTE en gestion__cont_cuentas'
+           WHEN cc.es_imputable = 0       THEN 'CUENTA TITULO (no imputable)'
+           ELSE 'INACTIVA'
+       END AS problema
+FROM (
+              SELECT '1 tesoreria' AS bloque, 'CAJA_BB' AS clave, '1.1.01.01' AS cont_codigo
+    UNION ALL SELECT '1 tesoreria', 'CAJA_MDP',        '1.1.01.01'
+    UNION ALL SELECT '1 tesoreria', 'BNA_CC_ARS',      '1.1.01.10'
+    UNION ALL SELECT '1 tesoreria', 'BPBA_CC_ARS',     '1.1.01.12'
+    UNION ALL SELECT '1 tesoreria', 'GAL_CC_ARS',      '1.1.01.13'
+    UNION ALL SELECT '1 tesoreria', 'VALORES_ARS',     '1.1.01.03'
+    UNION ALL SELECT '1 tesoreria', 'CUPONES_ARS',     '1.1.02.06'
+    UNION ALL SELECT '2 medios',    'RET_IVA',         '1.1.03.06'
+    UNION ALL SELECT '2 medios',    'RET_GAN',         '1.1.03.07'
+    UNION ALL SELECT '2 medios',    'RET_IIBB',        '1.1.03.08.01'
+    UNION ALL SELECT '3 categorias','COMBUSTIBLE',     '6.4.01'
+    UNION ALL SELECT '3 categorias','VIATICOS',        '6.4.02'
+    UNION ALL SELECT '3 categorias','PEAJE',           '6.4.03'
+    UNION ALL SELECT '3 categorias','COMIDAS',         '6.4.04'
+    UNION ALL SELECT '3 categorias','MATERIALES',      '6.4.05'
+    UNION ALL SELECT '3 categorias','CORREO',          '6.4.06'
+    UNION ALL SELECT '3 categorias','OTROS',           '6.4.07'
+    UNION ALL SELECT '6 conceptos', 'EMPLEADOS',       '1.1.03.09'
+    UNION ALL SELECT '6 conceptos', 'VALORES_A_PAGAR', '2.1.01.03'
+) v
+LEFT JOIN gestion__cont_cuentas cc
+       ON cc.empresa_id = @tes_empresa_id
+      AND cc.codigo = v.cont_codigo COLLATE utf8mb4_unicode_ci
+WHERE cc.cont_cuenta_id IS NULL
+   OR cc.es_imputable = 0
+   OR cc.tabla_estado_registro_id <> @tes_er_activo
+ORDER BY v.bloque, v.clave;
+
+-- Impuestos de las retenciones SUFRIDAS (bloque 2, D33): deben resolverse
+-- los tres. 'NO EXISTE' en Ganancias = falta correr el 01 revisión 5 (§3b').
+SELECT v.medio, v.impuesto_tipo,
+       IF(COUNT(it.impuesto_tipo_id) = 0, 'NO EXISTE como retencion sufrida', 'OK') AS estado
+FROM (
+              SELECT 'RET_IVA' AS medio, 'Retención IVA' AS impuesto_tipo
+    UNION ALL SELECT 'RET_GAN',  'Retención Ganancias'
+    UNION ALL SELECT 'RET_IIBB', 'Retención IIBB'
+) v
+LEFT JOIN gestion__impuestos_tipos it
+       ON it.impuesto_tipo = v.impuesto_tipo COLLATE utf8mb4_unicode_ci
+      AND it.es_retencion = 1 AND it.aplica_venta = 1
+GROUP BY v.medio, v.impuesto_tipo
+ORDER BY v.medio;
+
+-- Conceptos de cuenta de la empresa (bloque 6, D35/D36). Imprime SOLO lo que
+-- impide o condiciona la asignación; 0 filas = el bloque 6 asigna los dos.
+-- La lista (concepto, cont_codigo) es la MISMA del bloque 6: mantenerlas en
+-- sincronía. La cuenta se resuelve igual que en el bloque 6 (código de la
+-- empresa, imputable y activa).
+--   CONCEPTO NO EXISTE   falta correr el 02 revisión 6 para la empresa.
+--   CUENTA NO RESUELVE   el código no existe, es título o está inactivo
+--                        (el detalle está en la consulta 0c de arriba).
+--   YA TIENE OTRA CUENTA informativo: el bloque 6 no pisa lo configurado.
+SELECT z.concepto, z.cont_codigo,
+       CASE
+           WHEN ecc.empresa_cuenta_concepto_id IS NULL THEN 'CONCEPTO NO EXISTE (correr el 02 revision 6)'
+           WHEN z.cont_cuenta_id IS NULL               THEN 'CUENTA NO RESUELVE (no existe, es titulo o esta inactiva)'
+           ELSE 'YA TIENE OTRA CUENTA (el bloque 6 no la pisa)'
+       END AS problema
+FROM (
+    SELECT v.concepto, v.cont_codigo,
+           (SELECT cc.cont_cuenta_id FROM gestion__cont_cuentas cc
+             WHERE cc.empresa_id = @tes_empresa_id
+               AND cc.codigo = v.cont_codigo COLLATE utf8mb4_unicode_ci
+               AND cc.es_imputable = 1
+               AND cc.tabla_estado_registro_id = @tes_er_activo
+             ORDER BY cc.cont_cuenta_id LIMIT 1) AS cont_cuenta_id
+    FROM (
+                  SELECT 'VALORES_A_PAGAR' AS concepto, '2.1.01.03' AS cont_codigo
+        UNION ALL SELECT 'EMPLEADOS',       '1.1.03.09'
+    ) v
+) z
+LEFT JOIN gestion__empresas_cuentas_conceptos ecc
+       ON ecc.empresa_id = @tes_empresa_id
+      AND ecc.concepto = z.concepto COLLATE utf8mb4_unicode_ci
+WHERE ecc.empresa_cuenta_concepto_id IS NULL
+   OR z.cont_cuenta_id IS NULL
+   OR (ecc.cont_cuenta_id IS NOT NULL AND ecc.cont_cuenta_id <> z.cont_cuenta_id)
+ORDER BY z.concepto;
+
 START TRANSACTION;
 
 -- =====================================================================
@@ -164,12 +280,12 @@ START TRANSACTION;
 -- =====================================================================
 -- Una fila por caja de sucursal, cuenta bancaria, cartera de valores y
 -- cupones de tarjeta (por moneda). Clave natural: (empresa, codigo).
--- Ejemplo con el plan de cuentas de la empresa 2: 1.1.01.01 Caja Pesos,
--- 1.1.01.10 Banco Nación $, 1.1.01.12 Banco Provincia $, 1.1.01.13 Banco
--- Galicia $. El plan NO tiene «Valores a depositar» ni «Cupones a
--- acreditar»: VALORES y CUPONES quedan sin cuenta contable (NULL) hasta
--- crearlas. Solo hay moneda ARS en gestion__monedas (Caja USD / Banco
--- Nación USD del plan no tienen moneda todavía).
+-- Ejemplo con el plan de cuentas de la empresa 2 (Word v3.9 Anexo D):
+-- 1.1.01.01 Caja Pesos, 1.1.01.10 Banco Nación $, 1.1.01.12 Banco
+-- Provincia $, 1.1.01.13 Banco Galicia $, 1.1.01.03 Valores a Depositar
+-- (VALORES) y 1.1.02.06 Cupones de Tarjeta a Acreditar (CUPONES); estas dos
+-- últimas las crea el 02b. Solo pesos (D33): las cuentas en dólares del
+-- plan no se usan por ahora.
 -- numero / cbu / alias de ejemplo en NULL: completar con los reales
 -- (uk_tcta_empresa_cbu: un CBU no puede repetirse en la empresa).
 -- saldo_actual arranca en 0: el saldo inicial se carga con un MC (ingreso)
@@ -212,9 +328,9 @@ START TRANSACTION;
 --         UNION ALL SELECT 'BANCO',   'GAL_CC_ARS',  'Banco Galicia CC $',      NULL, 'ARS',
 --                          '007', 'CC', NULL, NULL, NULL, '1.1.01.13', 1, 12
 --         UNION ALL SELECT 'VALORES', 'VALORES_ARS', 'Valores en cartera $',    NULL, 'ARS',
---                          NULL,  NULL, NULL, NULL, NULL, NULL,        0, 20
+--                          NULL,  NULL, NULL, NULL, NULL, '1.1.01.03', 0, 20
 --         UNION ALL SELECT 'CUPONES', 'CUPONES_ARS', 'Cupones de tarjeta $',    NULL, 'ARS',
---                          NULL,  NULL, NULL, NULL, NULL, NULL,        0, 30
+--                          NULL,  NULL, NULL, NULL, NULL, '1.1.02.06', 0, 30
 --     ) v
 -- ) z
 -- WHERE z.moneda_id IS NOT NULL
@@ -231,11 +347,17 @@ START TRANSACTION;
 -- Clave natural: (empresa, codigo). tesoreria_cuenta_tipo restringe qué
 -- cuentas admite la línea; tesoreria_cuenta_codigo es la cuenta SUGERIDA
 -- (NULL = el usuario la elige; en EFECTIVO la caja depende de la sucursal).
--- Las retenciones SUFRIDAS (cobranzas) usan los tipos existentes
--- 'Retención IIBB' / 'Retención IVA' (aplica_venta = 1); van con
--- aplica_pago = 0 porque las PRACTICADAS van en gestion__pagos_retenciones
--- (D21). cont_cuenta del medio RETENCION: completar con la cuenta de
--- «Retenciones sufridas» del plan (en el ejemplo, NULL).
+-- Retenciones SUFRIDAS (D33): un medio RETENCION por impuesto, con
+-- aplica_cobro = 1 y aplica_pago = 0 (las practicadas irían en
+-- gestion__pagos_retenciones, diferidas por D32). Cuenta contable del medio:
+--   RET_IVA  -> 1.1.03.06 Retenciones de IVA
+--   RET_GAN  -> 1.1.03.07 Retenciones de Ganancias
+--   RET_IIBB -> 1.1.03.08.01 Retenciones de IIBB - BsAs (hoja; la 1.1.03.08
+--               es título y no se imputa). Otra jurisdicción de IIBB = otra
+--               cuenta y otro medio (Word v3.9 §4.5).
+-- El impuesto se resuelve en gestion__impuestos_tipos por nombre Y como
+-- retención sufrida (es_retencion = 1, aplica_venta = 1). 'Retención
+-- Ganancias' la crea el 01 revisión 5 (§3b'); IVA e IIBB ya existían.
 -- Requiere el bloque 1 (cuentas sugeridas por codigo).
 --
 -- INSERT INTO gestion__medios_pago
@@ -256,6 +378,7 @@ START TRANSACTION;
 --              ORDER BY cc.cont_cuenta_id LIMIT 1) AS cont_cuenta_id,
 --            (SELECT it.impuesto_tipo_id FROM gestion__impuestos_tipos it
 --              WHERE it.impuesto_tipo = v.impuesto_tipo COLLATE utf8mb4_unicode_ci
+--                AND it.es_retencion = 1 AND it.aplica_venta = 1
 --              ORDER BY it.impuesto_tipo_id LIMIT 1) AS impuesto_tipo_id
 --     FROM (
 --                   SELECT 'EFECTIVO' AS codigo, 'Efectivo' AS nombre, 'EFECTIVO' AS medio_tipo,
@@ -268,8 +391,9 @@ START TRANSACTION;
 --         UNION ALL SELECT 'DEPOSITO',    'Deposito bancario',   'DEPOSITO',        'BANCO',   NULL,          NULL, NULL, 1, 1, 0, 5
 --         UNION ALL SELECT 'TARJ_DEB',    'Tarjeta de debito',   'TARJETA_DEBITO',  'CUPONES', 'CUPONES_ARS', NULL, NULL, 1, 1, 0, 6
 --         UNION ALL SELECT 'TARJ_CRED',   'Tarjeta de credito',  'TARJETA_CREDITO', 'CUPONES', 'CUPONES_ARS', NULL, NULL, 1, 1, 0, 7
---         UNION ALL SELECT 'RET_IIBB',    'Retencion IIBB sufrida', 'RETENCION',    NULL,      NULL,          NULL, 'Retención IIBB', 1, 1, 0, 20
---         UNION ALL SELECT 'RET_IVA',     'Retencion IVA sufrida',  'RETENCION',    NULL,      NULL,          NULL, 'Retención IVA',  1, 1, 0, 21
+--         UNION ALL SELECT 'RET_IVA',     'Retencion IVA sufrida',       'RETENCION', NULL, NULL, '1.1.03.06',    'Retención IVA',       1, 1, 0, 20
+--         UNION ALL SELECT 'RET_GAN',     'Retencion Ganancias sufrida', 'RETENCION', NULL, NULL, '1.1.03.07',    'Retención Ganancias', 1, 1, 0, 21
+--         UNION ALL SELECT 'RET_IIBB',    'Retencion IIBB BsAs sufrida', 'RETENCION', NULL, NULL, '1.1.03.08.01', 'Retención IIBB',      1, 1, 0, 22
 --     ) v
 -- ) z
 -- WHERE (z.tesoreria_cuenta_codigo IS NULL OR z.tesoreria_cuenta_id IS NOT NULL)
@@ -282,9 +406,12 @@ START TRANSACTION;
 -- =====================================================================
 -- 3) CATEGORÍAS DE GASTO (gestion__categorias_gasto)
 -- =====================================================================
--- Las del Word §6.2. cont_codigo en NULL: el plan de la empresa 2 solo tiene
--- cuentas título de gastos (6.1, 6.2, 6.3, no imputables); completar con
--- cuentas imputables cuando existan. Clave natural: (empresa, codigo).
+-- Las del Word §6.2, cada una con su cuenta de «Gastos Generales» (6.4, título
+-- creado por el 02b; las 6.4.01 a 6.4.07 son imputables). El plan de la
+-- empresa 2 también tiene cuentas de gasto imputables bajo 6.1
+-- (Administración), 6.2 (Comercialización) y 6.3 (Financieros); se eligió
+-- 6.4 por ser las validadas por el contador para rendiciones (Anexo D).
+-- Clave natural: (empresa, codigo).
 --
 -- INSERT INTO gestion__categorias_gasto
 --     (empresa_id, codigo, categoria_gasto, cont_cuenta_id, requiere_comprobante,
@@ -298,14 +425,14 @@ START TRANSACTION;
 --                AND cc.codigo = v.cont_codigo COLLATE utf8mb4_unicode_ci
 --              ORDER BY cc.cont_cuenta_id LIMIT 1) AS cont_cuenta_id
 --     FROM (
---                   SELECT 'COMBUSTIBLE' AS codigo, 'Combustible' AS nombre, NULL AS cont_codigo,
+--                   SELECT 'COMBUSTIBLE' AS codigo, 'Combustible' AS nombre, '6.4.01' AS cont_codigo,
 --                          1 AS requiere_comprobante, 0 AS requiere_justificacion, 1 AS orden
---         UNION ALL SELECT 'VIATICOS',   'Viaticos',   NULL, 1, 0, 2
---         UNION ALL SELECT 'PEAJE',      'Peajes',     NULL, 1, 0, 3
---         UNION ALL SELECT 'COMIDAS',    'Comidas',    NULL, 1, 0, 4
---         UNION ALL SELECT 'MATERIALES', 'Materiales', NULL, 1, 0, 5
---         UNION ALL SELECT 'CORREO',     'Correo',     NULL, 1, 0, 6
---         UNION ALL SELECT 'OTROS',      'Otros',      NULL, 1, 1, 99
+--         UNION ALL SELECT 'VIATICOS',   'Viaticos',   '6.4.02', 1, 0, 2
+--         UNION ALL SELECT 'PEAJE',      'Peajes',     '6.4.03', 1, 0, 3
+--         UNION ALL SELECT 'COMIDAS',    'Comidas',    '6.4.04', 1, 0, 4
+--         UNION ALL SELECT 'MATERIALES', 'Materiales', '6.4.05', 1, 0, 5
+--         UNION ALL SELECT 'CORREO',     'Correo',     '6.4.06', 1, 0, 6
+--         UNION ALL SELECT 'OTROS',      'Otros',      '6.4.07', 1, 1, 99
 --     ) v
 -- ) z
 -- WHERE (z.cont_codigo IS NULL OR z.cont_cuenta_id IS NOT NULL)
@@ -316,6 +443,9 @@ START TRANSACTION;
 -- =====================================================================
 -- 4) NUMERADORES DE CERTIFICADOS DE RETENCIÓN (gestion__retenciones_numeradores)
 -- =====================================================================
+-- NO APLICA A CASA LUCHO (D32): la empresa no practica retenciones ni emite
+-- certificados. El bloque queda comentado para una empresa que sea agente
+-- de retención; no descomentarlo para la empresa 2.
 -- Word v3.6 §9.1 fila 9: ultimo_numero arranca desde el último certificado
 -- YA emitido por impuesto (si la empresa ya emitía certificados fuera del
 -- sistema). Si no hay fila, la app la crea con 1 al confirmar la primera OP
@@ -475,6 +605,44 @@ START TRANSACTION;
 --                     AND x.punto_venta_id = z.punto_venta_id
 --                     AND x.comprobante_tipo_id = z.comprobante_tipo_id);
 
+-- =====================================================================
+-- 6) CUENTAS DE LOS CONCEPTOS DE LA EMPRESA (D35, D36) — COMENTADO
+-- =====================================================================
+-- Word v3.10 §4.10 y Anexo D. Asigna la cuenta contable POR CÓDIGO (nunca
+-- por id) a los conceptos que sembró el 02:
+--   VALORES_A_PAGAR -> 2.1.01.03 Valores a Pagar
+--   EMPLEADOS       -> 1.1.03.09 Empleados - Anticipos y Rendiciones (D34)
+-- (cuentas creadas por el 02b en la empresa 2).
+-- Guardas:
+--   - Solo actualiza conceptos con cont_cuenta_id NULL: no pisa lo que el
+--     usuario haya configurado por el ABM. Repetible: una vez asignada, la
+--     fila no vuelve a tocarse (0 filas afectadas).
+--   - La cuenta se resuelve en el plan de la empresa por código, imputable y
+--     activa (lo mismo que valida el ABM, D36); si no resuelve, el concepto
+--     queda en NULL (ver diagnóstico 0c) y no se escribe NULL sobre NULL.
+--   - No crea conceptos: si falta alguno, correr el 02 revisión 6.
+-- Comentado como los bloques 1 a 5: los códigos son del plan de cuentas de la
+-- empresa 2 y en otra empresa el mismo código puede ser otra cuenta.
+--
+-- UPDATE gestion__empresas_cuentas_conceptos ecc
+-- JOIN (
+--     SELECT v.concepto,
+--            (SELECT cc.cont_cuenta_id FROM gestion__cont_cuentas cc
+--              WHERE cc.empresa_id = @tes_empresa_id
+--                AND cc.codigo = v.cont_codigo COLLATE utf8mb4_unicode_ci
+--                AND cc.es_imputable = 1
+--                AND cc.tabla_estado_registro_id = @tes_er_activo
+--              ORDER BY cc.cont_cuenta_id LIMIT 1) AS cont_cuenta_id
+--     FROM (
+--                   SELECT 'VALORES_A_PAGAR' AS concepto, '2.1.01.03' AS cont_codigo
+--         UNION ALL SELECT 'EMPLEADOS',       '1.1.03.09'
+--     ) v
+-- ) z ON z.concepto = ecc.concepto COLLATE utf8mb4_unicode_ci
+--    SET ecc.cont_cuenta_id = z.cont_cuenta_id
+--  WHERE ecc.empresa_id = @tes_empresa_id
+--    AND ecc.cont_cuenta_id IS NULL
+--    AND z.cont_cuenta_id IS NOT NULL;
+
 COMMIT;
 
 -- =====================================================================
@@ -520,6 +688,14 @@ LEFT JOIN gestion__comprobantes_numeradores n
 WHERE p.empresa_id = @tes_empresa_id
   AND p.nombre = LEFT(CONCAT(@tes_pv_prefijo, s.sucursal_nombre), 100) COLLATE utf8mb4_unicode_ci
 ORDER BY p.punto_venta_id, ct.orden, ct.codigo;
+
+-- Conceptos de cuenta (D35, bloque 6): cont_codigo NULL = sin cuenta todavía.
+SELECT ecc.concepto, ecc.cont_cuenta_id, cc.codigo AS cont_codigo, cc.nombre AS cont_nombre,
+       cc.es_imputable, ecc.tabla_estado_registro_id
+FROM gestion__empresas_cuentas_conceptos ecc
+LEFT JOIN gestion__cont_cuentas cc ON cc.cont_cuenta_id = ecc.cont_cuenta_id
+WHERE ecc.empresa_id = @tes_empresa_id
+ORDER BY ecc.concepto;
 
 -- =====================================================================
 -- Limpieza del helper y restauración del sql_mode

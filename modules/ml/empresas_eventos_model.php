@@ -14,7 +14,7 @@ function empresas_eventos_listar(mysqli $conexion, int $empresa_id = 0, int $tip
     $sql = "SELECT ee.empresa_evento_id, ee.empresa_evento_tipo_id, ee.empresa_origen_id, ee.empresa_destino_id,
                    ee.fecha, ee.observaciones, ee.tabla_estado_registro_id,
                    et.nombre AS tipo_nombre, et.codigo AS tipo_codigo,
-                   eo.empresa AS empresa_origen_nombre, eo.cuit AS empresa_origen_cuit,
+                   eo.empresa AS empresa_origen_nombre, CAST(eo.documento_numero AS UNSIGNED) AS empresa_origen_cuit,
                    ed.empresa AS empresa_destino_nombre,
                    CASE ee.tabla_estado_registro_id
                        WHEN 3 THEN 'Borrador'

@@ -87,6 +87,9 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <div class="app-wrapper">
 
     <?php
+    $usuario_logueado_id = isset($_SESSION['usuario_id']) ? intval($_SESSION['usuario_id']) : 0;
+    $es_superusuario = in_array($usuario_logueado_id, USUARIOS_ACCESO_TOTAL, true);
+
     $current_empresa_id = (isset($_GET['empresa_id']) && intval($_GET['empresa_id']) > 0) 
         ? intval($_GET['empresa_id']) 
         : (isset($_SESSION['empresa_id']) ? intval($_SESSION['empresa_id']) : 0);
@@ -99,6 +102,29 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                 ? intval($modulo_idx) 
                 : (isset($_SESSION['modulo_id']) ? intval($_SESSION['modulo_id']) : 0)));
 
+    // Fallbacks automáticos de Módulo según URL si no viene fijado
+    if ($current_modulo_id <= 0) {
+        $uri_actual = $_SERVER['REQUEST_URI'] ?? '';
+        if (strpos($uri_actual, '/modules/ml/') !== false || strpos($uri_actual, 'ml/') !== false) {
+            $current_modulo_id = 3;
+        } elseif (strpos($uri_actual, '/modules/conf/') !== false || strpos($uri_actual, 'conf/') !== false) {
+            $current_modulo_id = 1;
+        } elseif (strpos($uri_actual, '/modules/gestion/') !== false || strpos($uri_actual, 'gestion/') !== false) {
+            $current_modulo_id = 2;
+        }
+    }
+
+    $empresas_modulos = usuario_obtener_empresas_modulos($conexion, $usuario_logueado_id);
+
+    // Fallback de Empresa si no viene fijada: empresa 2 (Casa Lucho) o la primera disponible
+    if ($current_empresa_id <= 0) {
+        if (isset($empresas_modulos[2])) {
+            $current_empresa_id = 2;
+        } elseif (!empty($empresas_modulos)) {
+            $current_empresa_id = array_key_first($empresas_modulos);
+        }
+    }
+
     if ($current_empresa_id > 0) {
         $_SESSION['empresa_id'] = $current_empresa_id;
     }
@@ -106,9 +132,6 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
         $_SESSION['modulo_id'] = $current_modulo_id;
     }
 
-    $usuario_logueado_id = $_SESSION['usuario_id'];
-
-    $empresas_modulos = usuario_obtener_empresas_modulos($conexion, $usuario_logueado_id);
     $nombre_empresa_actual = "";
     $nombre_modulo_actual = "";
 
@@ -122,7 +145,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
       }
     }
 
-    if ($current_empresa_id > 0 && !isset($empresas_modulos[$current_empresa_id])) {
+    if (!$es_superusuario && $current_empresa_id > 0 && !isset($empresas_modulos[$current_empresa_id])) {
       echo "<script>
             alert('Acceso Denegado: No tienes permisos para esta empresa.');
             window.location.href = '" . url('index.php') . "';
@@ -131,11 +154,11 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
     }
 
     $paginas_permitidas = [];
-    if ($current_empresa_id > 0) {
+    if ($current_empresa_id > 0 || $es_superusuario) {
       $paginas_permitidas = usuario_obtener_paginas_permitidas($conexion, $usuario_logueado_id, $current_empresa_id);
 
       $pagina_actual_id = isset($pagina_idx) ? intval($pagina_idx) : 0;
-      if ($pagina_actual_id > 0 && !isset($paginas_permitidas[$pagina_actual_id])) {
+      if (!$es_superusuario && $pagina_actual_id > 0 && !isset($paginas_permitidas[$pagina_actual_id])) {
         echo "<script>
               alert('Acceso Denegado: No tienes permisos para acceder a esta página.');
               window.location.href = '" . url('index.php') . "';
@@ -414,6 +437,9 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 
                 <span class="d-none d-md-inline">
                   <?= htmlspecialchars($nombre_usuario_avatar) ?>
+                  <?php if ($es_superusuario): ?>
+                    <span class="badge bg-danger ms-1" style="font-size: 0.7rem;"><i class="fas fa-shield-alt me-1"></i>Superadmin</span>
+                  <?php endif; ?>
                 </span>
               </a>
 
@@ -486,7 +512,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 
                 $submenu_items = [];
                 while ($submenu_row = mysqli_fetch_array($submenu_res)) {
-                  if (isset($paginas_permitidas[(int) $submenu_row['pagina_id']])) {
+                  if ($es_superusuario || isset($paginas_permitidas[(int) $submenu_row['pagina_id']])) {
                     $submenu_items[] = $submenu_row;
                   }
                 }
@@ -495,15 +521,13 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 
                 if ($tiene_hijos_definidos) {
                   // Es un contenedor (tiene hijos definidos en conf__paginas): se muestra
-                  // únicamente si al menos uno de esos hijos está habilitado para el usuario.
-                  // No aplica el "acceso libre" de páginas sin funciones, porque acá lo que
-                  // importa es si hay contenido habilitado debajo, no la página en sí.
-                  if (!$has_submenu) {
+                  // si al menos uno de esos hijos está habilitado, o incondicional para superadmin.
+                  if (!$es_superusuario && !$has_submenu) {
                     continue;
                   }
                 } else {
-                  // Página hoja: se muestra según su propio permiso.
-                  if (!isset($paginas_permitidas[$pagina_id_actual])) {
+                  // Página hoja: se muestra según su propio permiso, o incondicional para superadmin.
+                  if (!$es_superusuario && !isset($paginas_permitidas[$pagina_id_actual])) {
                     continue;
                   }
                 }

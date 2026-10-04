@@ -325,7 +325,7 @@ function entidades_padres_combo(mysqli $conexion, int $excluir_id = 0): array
  */
 function entidades_historial_empresas(mysqli $conexion, int $entidad_id): array
 {
-    $sql = "SELECT ee.*, emp.empresa AS empresa_nombre, emp.cuit
+    $sql = "SELECT ee.*, emp.empresa AS empresa_nombre, CAST(emp.documento_numero AS UNSIGNED) AS cuit
             FROM ml__entidades_empresas ee
             INNER JOIN conf__empresas emp ON emp.empresa_id = ee.empresa_id
             WHERE ee.entidad_id = ?

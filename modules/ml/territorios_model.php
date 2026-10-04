@@ -80,7 +80,7 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id, $regi
             $icono = 'fas fa-cog';
 
             if ($accion === 'editar') {
-                $clase_btn = 'btn-outline-info';
+                $clase_btn = 'btn-outline-primary';
                 $icono = 'fas fa-edit';
             } elseif ($accion === 'cambiar_pertenencia') {
                 $clase_btn = 'btn-outline-warning';
@@ -90,15 +90,15 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id, $regi
                 $icono = 'fas fa-ban';
             } elseif ($accion === 'activar') {
                 $clase_btn = 'btn-outline-success';
-                $icono = 'fas fa-check-circle';
+                $icono = 'fas fa-check';
             }
 
-            $botones[] = "<button type=\"button\" class=\"btn btn-xs {$clase_btn} me-1 btn-accion\" " .
+            $botones[] = "<button type=\"button\" class=\"btn btn-sm {$clase_btn} me-1 btn-accion\" " .
                          "data-accion=\"{$accion}\" data-id=\"{$registro_id}\" data-destino=\"{$destino}\" " .
-                         "title=\"{$nombre}\"><i class=\"{$icono}\"></i> {$nombre}</button>";
+                         "title=\"{$nombre}\"><i class=\"{$icono}\"></i></button>";
         }
     }
-    return implode('', $botones);
+    return '<div class="btn-group btn-group-sm" role="group">' . implode('', $botones) . '</div>';
 }
 
 /**

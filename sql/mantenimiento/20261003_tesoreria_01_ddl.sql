@@ -2,10 +2,12 @@
 -- Tesorería - script 01: ESTRUCTURA + DATOS GLOBALES (caja, bancos,
 -- valores, cobranzas, pagos, impuestos y rendiciones)
 -- 2026-10-03 · generado por disenador-modelo-datos · NO EJECUTADO
--- Revisión 4 (2026-10-03). Especificación funcional vigente:
---   docs/matriz-legal/08_proc_tesoreria_v3_6.docx (decisiones D1-D31).
+-- Revisión 6 (2026-10-04). Especificación funcional vigente:
+--   docs/gestion/08_proc_tesoreria_v3_10.docx (decisiones D1-D36).
 -- =====================================================================
--- ORDEN DE EJECUCIÓN (tres archivos con el mismo prefijo 20261003_tesoreria_):
+-- ORDEN DE EJECUCIÓN: 01 -> 02 -> 02b -> 03 (prefijo 20261003_tesoreria_;
+-- 02b_plan_cuentas.sql crea las cuentas contables de la empresa 2 y no es
+-- parte de esta serie generada):
 --   01_ddl.sql                 UNA VEZ por base. Estructura (tablas, columnas,
 --                              índices, FK) y datos GLOBALES: estados
 --                              genéricos, roles EMP/ORG, tipos de impuesto,
@@ -14,7 +16,9 @@
 --                              tipos de comprobante, reglas de cancelación y
 --                              marca de agente de retención (inactiva).
 --                              Parámetro: @tes_empresa_id.
---   03_datos_iniciales.sql     POR EMPRESA, después del 02: plantilla con los
+--   02b_plan_cuentas.sql       Cuentas contables que usa tesorería (empresa 2;
+--                              mantenido por el usuario, no se edita acá).
+--   03_datos_iniciales.sql     POR EMPRESA, después del 02b: plantilla con los
 --                              datos de configuración (medios de pago, cuentas
 --                              de tesorería, categorías de gasto, numeradores
 --                              de retenciones, puntos de venta internos D29).
@@ -66,10 +70,29 @@
 --   §3c pasa a un helper genérico (_tes_modify_column) que consulta
 --       information_schema; sigue marcado REVISAR.
 --   sql_mode de sesión explícito (se restaura al final).
+-- Revisión 5 (2026-10-04): Word v3.9, D32-D35:
+--   D32 retenciones practicadas no se implementan en Casa Lucho:
+--       gestion__pagos_retenciones y gestion__retenciones_numeradores se
+--       conservan sin uso (sin cambio de estructura).
+--   D33 se agrega el tipo de impuesto «Retención Ganancias» (retención
+--       SUFRIDA, aplica_venta = 1): faltaba; IVA e IIBB ya existían (§3b').
+--   D34/D35 sin cambios en este script (ver 02/03 y la propuesta de D35).
+-- Revisión 6 (2026-10-04): Word v3.10, D35-D36:
+--   D35 tabla nueva gestion__empresas_cuentas_conceptos (§6.6): cuenta
+--       contable por defecto de la empresa por concepto (VALORES_A_PAGAR,
+--       EMPLEADOS), registrada en conf__tablas como diccionario (20 tablas).
+--       Los conceptos se siembran en el 02 y la cuenta se asigna en el 03.
+--   D36 orden de resolución documentado en el COMMENT de la tabla.
+--   Sobre una base que ya corrió la revisión 5 (local, 2026-10-04) se puede
+--   volver a correr este script completo: todo es idempotente y lo único
+--   nuevo que hace es crear la tabla de §6.6 y darla de alta en
+--   conf__tablas + conf__tablas_estados_registros (Activo / Inactivo).
 -- =====================================================================
 -- Fuentes:
---   - docs/matriz-legal/08_proc_tesoreria_v3_6.docx (D1-D31). Versiones
---     anteriores: _v3_3 (D1-D26) y _v3_2 (D1-D24).
+--   - docs/gestion/08_proc_tesoreria_v3_10.docx (D1-D36). Versiones
+--     anteriores: docs/gestion/08_proc_tesoreria_v3_9 (D1-D35),
+--     docs/matriz-legal/08_proc_tesoreria_v3_6 (D1-D31), _v3_3 (D1-D26) y
+--     _v3_2 (D1-D24).
 --   - docs/gestion/08_proc_tesoreria_revision.md (hallazgos C1-C9, A1-A9 y
 --     decisiones D1-D9).
 --   - Especificación 08_proc_tesoreria_1.docx v2.0.
@@ -85,13 +108,15 @@
 --   3) gestion__impuestos_tipos: es_liquidable + frecuencia (+ semillas).
 --   3b) Retenciones practicadas (D21): tipos de impuesto de retención
 --      (globales). La marca de agente por empresa está en el 02.
+--   3b') Retención sufrida de Ganancias (D33), la única que faltaba.
 --   3c) ALTER de gestion__empresas_impuestos_config.cont_cuenta_id (REVISAR).
 --   4) gestion__comprobantes_imputaciones: migración a bigint/utf8mb4,
 --      estado propio, fecha, moneda/tipo de cambio, sin UNIQUE(origen,destino).
 --   5) gestion__comprobantes: UNIQUE de numeración.
 --   6) Diccionarios: conf__bancos, gestion__tesoreria_cuentas,
 --      gestion__medios_pago, gestion__categorias_gasto,
---      gestion__comprobantes_tipos_cancelaciones.
+--      gestion__comprobantes_tipos_cancelaciones,
+--      gestion__empresas_cuentas_conceptos (D35/D36).
 --   7) Tablas de proceso y sus detalles.
 --   8) Alta en conf__tablas + conf__tablas_estados_registros.
 --   9) Catálogo de bancos (global, semilla mínima D31).
@@ -191,7 +216,8 @@
 --   obli obligaciones_impositivas, pimp/pimpm pagos_impuestos(+_medios),
 --   rant rendiciones_anticipos, rend/rendi rendiciones(+_items),
 --   reem/reemm rendiciones_reembolsos(+_medios), tmov tesoreria_movimientos,
---   pret pagos_retenciones, rnum retenciones_numeradores.
+--   pret pagos_retenciones, rnum retenciones_numeradores,
+--   ecc empresas_cuentas_conceptos.
 --   Controlado contra los volcados local/producción: sin choques.
 -- =====================================================================
 
@@ -574,6 +600,29 @@ WHERE NOT EXISTS (
     WHERE it.impuesto_tipo = v.impuesto_tipo COLLATE utf8mb4_unicode_ci
 );
 
+-- ---------------------------------------------------------------------
+-- 3b') RETENCIONES SUFRIDAS (D33)
+-- ---------------------------------------------------------------------
+-- Casa Lucho sufre retenciones de IVA, Ganancias e IIBB (medios de pago
+-- RETENCION en la cobranza, script 03). En gestion__impuestos_tipos ya
+-- existen 'Retención IIBB' y 'Retención IVA' (es_retencion = 1,
+-- aplica_venta = 1; local y producción); faltaba Ganancias. Se crea con la
+-- misma convención. No es liquidable (es un crédito a favor, no una DDJJ
+-- propia) y cuenta_contable_id va NULL: la cuenta la lleva el medio de pago
+-- (gestion__medios_pago.cont_cuenta_id = 1.1.03.07 en la empresa 2).
+-- Ojo (no se toca): las filas existentes de IVA e IIBB tienen
+-- cuenta_contable_id = IVA a Pagar / IIBB a Pagar (pasivo); tesorería no
+-- las usa porque la cuenta sale del medio de pago.
+INSERT INTO gestion__impuestos_tipos
+    (impuesto_tipo, codigo_afip, aplica_compra, aplica_venta, es_retencion, es_percepcion,
+     es_liquidable, frecuencia, cuenta_contable_id, tabla_estado_registro_id)
+SELECT 'Retención Ganancias', '', 0, 1, 1, 0, 0, NULL, NULL, 1
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM gestion__impuestos_tipos it
+    WHERE it.impuesto_tipo = 'Retención Ganancias' COLLATE utf8mb4_unicode_ci
+);
+
 -- Marca de AGENTE DE RETENCIÓN por empresa (D21): una FILA por impuesto de
 -- retención en gestion__empresas_impuestos_config, sembrada INACTIVA. Es dato
 -- por empresa: desde la revisión 4 (D30) se siembra en
@@ -924,6 +973,46 @@ CREATE TABLE IF NOT EXISTS `gestion__comprobantes_tipos_cancelaciones` (
   CONSTRAINT `fk_ctc_comprobante_tipo_destino_id` FOREIGN KEY (`comprobante_tipo_destino_id`) REFERENCES `gestion__comprobantes_tipos` (`comprobante_tipo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------
+-- 6.6 gestion__empresas_cuentas_conceptos — cuentas por concepto (D35, D36)
+-- ---------------------------------------------------------------------
+-- Word v3.10 §4.10. Cada cuenta de un asiento de tesorería sale de un
+-- maestro que ya existe (cuenta de tesorería, medio de pago, categoría de
+-- gasto, entidad, configuración de impuestos, transferencia) o, cuando no
+-- hay maestro, de un CONCEPTO de la empresa en esta tabla. Arranca con dos
+-- conceptos: VALORES_A_PAGAR (cheque propio emitido) y EMPLEADOS (anticipos
+-- y rendiciones, D34).
+-- Orden de resolución (D36), documentado también en el COMMENT de la tabla:
+--   1) cuenta específica del maestro; 2) concepto de la empresa; 3) si no
+--   hay ninguna, error claro y el documento no se confirma. Nunca un id de
+--   cuenta fijo en el código.
+-- Diccionario por empresa (Activo / Inactivo, §8.1). Los conceptos los
+-- SIEMBRA el 02 (cont_cuenta_id NULL) y la cuenta la asigna el 03 por código
+-- o el ABM. El ABM solo asigna cuenta a conceptos existentes (no crea
+-- conceptos) y valida que la cuenta sea imputable, esté activa y sea de la
+-- misma empresa: la FK solo garantiza que exista (D26: sin CHECK).
+-- Un concepto nuevo (gastos bancarios, diferencia de cambio, ...) es una fila
+-- más en la siembra del 02: sin cambio de estructura.
+-- empresa_id INT como el resto de los diccionarios de este script (sin FK a
+-- conf__empresas, convención de gestion__). cont_cuenta_id INT UNSIGNED =
+-- tipo de la PK de gestion__cont_cuentas.
+CREATE TABLE IF NOT EXISTS `gestion__empresas_cuentas_conceptos` (
+  `empresa_cuenta_concepto_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `empresa_id` INT NOT NULL,
+  `concepto` VARCHAR(40) NOT NULL COMMENT 'Codigo del concepto: VALORES_A_PAGAR, EMPLEADOS. Lo siembra el script 02; el ABM no crea conceptos',
+  `cont_cuenta_id` INT UNSIGNED DEFAULT NULL COMMENT 'Cuenta por defecto; NULL hasta configurarla. El ABM valida imputable, activa y de la misma empresa',
+  `tabla_estado_registro_id` SMALLINT NOT NULL DEFAULT 1,
+  `fecha_creacion` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_modificacion` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `usuario_id` INT DEFAULT NULL,
+  `usuario_modificacion_id` INT DEFAULT NULL,
+  PRIMARY KEY (`empresa_cuenta_concepto_id`),
+  UNIQUE KEY `uk_ecc_empresa_concepto` (`empresa_id`, `concepto`),
+  KEY `ix_ecc_cont_cuenta` (`cont_cuenta_id`),
+  CONSTRAINT `fk_ecc_cont_cuenta_id` FOREIGN KEY (`cont_cuenta_id`) REFERENCES `gestion__cont_cuentas` (`cont_cuenta_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='D35/D36: cuentas contables POR DEFECTO de la empresa por concepto. Al armar un asiento: 1) cuenta especifica del maestro (entidad, cuenta de tesoreria, medio de pago, categoria de gasto); 2) este concepto de la empresa; 3) si no hay ninguna, error y el documento no se confirma. Nunca un id de cuenta fijo en el codigo.';
+
 -- =====================================================================
 -- 7) TABLAS DE PROCESO
 -- =====================================================================
@@ -1239,6 +1328,8 @@ CREATE TABLE IF NOT EXISTS `gestion__pagos_medios` (
 
 -- ---------------------------------------------------------------------
 -- 7.5b gestion__pagos_retenciones — retenciones practicadas en la OP (D21)
+-- D32: Casa Lucho no practica retenciones. La tabla se crea igual y queda
+-- sin uso hasta que una empresa sea agente de retención.
 -- ---------------------------------------------------------------------
 -- Detalle de la OP (ciclo de vida = el de la OP): sin tabla_estado_registro_id
 -- ni alta en conf__tablas, igual que los *_medios. "Pendiente de liquidar" no
@@ -1289,6 +1380,7 @@ CREATE TABLE IF NOT EXISTS `gestion__pagos_retenciones` (
 
 -- ---------------------------------------------------------------------
 -- 7.5c gestion__retenciones_numeradores — numeración de certificados (D21)
+-- D32: sin uso en Casa Lucho (no emite certificados).
 -- ---------------------------------------------------------------------
 -- Tabla APARTE y no gestion__comprobantes_numeradores: esa tabla tiene clave
 -- (empresa_id, punto_venta_id, comprobante_tipo_id) y un certificado no es un
@@ -1779,8 +1871,7 @@ CREATE TABLE IF NOT EXISTS `gestion__rendiciones_anticipos` (
 -- CONFIRMADO) -> Reembolsada (REEMBOLSADO, derivado: saldo 0, D8) / Anulada.
 -- D19: el rechazo total es la transición Presentada -> Borrador (función del
 -- motor) grabando motivo_rechazo; el comprobante sigue en Borrador, sin
--- impactos. El estado 'Rechazada' sembrado en §8.4 no tiene uso bajo D19
--- (candidato a quitar, a confirmar).
+-- impactos. No hay estado 'Rechazada' para la rendición (se quitó de §8.4).
 -- D23: importe_total = importe del comprobante: importe_bruto mientras no
 -- esté aprobada (informativo, sin impacto) e importe_aprobado al aprobar
 -- (Word: total_bruto / total_aprobado).
@@ -2053,6 +2144,7 @@ CALL `_tes_add_tabla`('gestion__tesoreria_cuentas', 'Cuentas de tesoreria unific
 CALL `_tes_add_tabla`('gestion__medios_pago', 'Medios de pago por empresa', 2, 1);
 CALL `_tes_add_tabla`('gestion__categorias_gasto', 'Categorias de gasto (rendiciones, movimientos de caja)', 2, 1);
 CALL `_tes_add_tabla`('gestion__comprobantes_tipos_cancelaciones', 'Reglas: que tipo de comprobante cancela a que tipo', 2, 1);
+CALL `_tes_add_tabla`('gestion__empresas_cuentas_conceptos', 'Cuentas contables por defecto de la empresa por concepto (D35/D36)', 2, 1);
 
 CALL `_tes_add_estado`('conf__bancos', 'ACTIVO', 'Activo', 1, 1);
 CALL `_tes_add_estado`('conf__bancos', 'INACTIVO', 'Inactivo', 0, 10);
@@ -2064,6 +2156,8 @@ CALL `_tes_add_estado`('gestion__categorias_gasto', 'ACTIVO', 'Activo', 1, 1);
 CALL `_tes_add_estado`('gestion__categorias_gasto', 'INACTIVO', 'Inactivo', 0, 10);
 CALL `_tes_add_estado`('gestion__comprobantes_tipos_cancelaciones', 'ACTIVO', 'Activo', 1, 1);
 CALL `_tes_add_estado`('gestion__comprobantes_tipos_cancelaciones', 'INACTIVO', 'Inactivo', 0, 10);
+CALL `_tes_add_estado`('gestion__empresas_cuentas_conceptos', 'ACTIVO', 'Activo', 1, 1);
+CALL `_tes_add_estado`('gestion__empresas_cuentas_conceptos', 'INACTIVO', 'Inactivo', 0, 10);
 
 -- 8.2 Procesos cortos con comprobante (Borrador -> Confirmado -> Anulado; Borrador -> Eliminado)
 CALL `_tes_add_tabla`('gestion__cobranzas', 'Cobranzas a clientes (comprobante RCX)', 2, 2);
@@ -2202,6 +2296,8 @@ WHERE NOT EXISTS (
 -- PEAJE, COMIDAS, MATERIALES, CORREO, OTROS con sus cuentas). Plantilla con
 -- ejemplos comentados en 20261003_tesoreria_03_datos_iniciales.sql, que
 -- también habilita los tipos en gestion__puntos_venta_comprobantes (D29).
+-- gestion__empresas_cuentas_conceptos (D35): los conceptos los siembra el
+-- 02 (por empresa) y la cuenta la asigna el 03 (bloque 6) o el ABM.
 
 -- =====================================================================
 -- 10) REEMPLAZO DE gestion__ventas_cobranzas (D9)
@@ -2216,7 +2312,7 @@ WHERE NOT EXISTS (
 -- =====================================================================
 -- V) VERIFICACIÓN FINAL (solo lectura)
 -- =====================================================================
--- 19 tablas registradas, cada una con sus estados y exactamente un inicial.
+-- 20 tablas registradas, cada una con sus estados y exactamente un inicial.
 SELECT t.tabla_id, t.tabla_nombre, t.tabla_tipo_id,
        COUNT(ter.tabla_estado_registro_id) AS estados,
        SUM(ter.es_inicial)                 AS iniciales
@@ -2230,7 +2326,7 @@ WHERE t.tabla_nombre IN ('conf__bancos', 'gestion__tesoreria_cuentas', 'gestion_
                          'gestion__rendiciones_reembolsos', 'gestion__comprobantes_imputaciones',
                          'gestion__tesoreria_movimientos', 'gestion__rendiciones_items',
                          'gestion__obligaciones_impositivas', 'gestion__rendiciones',
-                         'gestion__cheques')
+                         'gestion__cheques', 'gestion__empresas_cuentas_conceptos')
 GROUP BY t.tabla_id, t.tabla_nombre, t.tabla_tipo_id
 ORDER BY t.tabla_id;
 

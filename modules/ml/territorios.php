@@ -79,7 +79,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <th>Nodo Superior (Pertenencia Principal)</th>
                                 <th style="width: 180px;">Huso Horario</th>
                                 <th style="width: 90px;" class="text-center">Estado</th>
-                                <th style="width: 200px;" class="text-center">Acciones</th>
+                                <th style="width: 140px;" class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody></tbody>

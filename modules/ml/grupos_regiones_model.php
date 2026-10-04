@@ -273,7 +273,7 @@ function empresas_regiones_listar(mysqli $conexion, int $region_grupo_id = 0, in
 {
     $sql = "SELECT er.empresa_region_id, er.empresa_id, er.region_grupo_id,
                    er.vigente_desde, er.vigente_hasta,
-                   e.empresa AS empresa_nombre, e.cuit,
+                   e.empresa AS empresa_nombre, CAST(e.documento_numero AS UNSIGNED) AS cuit,
                    r.nombre AS region_nombre, g.nombre AS grupo_nombre,
                    CASE 
                        WHEN er.vigente_hasta IS NULL OR er.vigente_hasta >= CURDATE() THEN 1
@@ -387,7 +387,7 @@ function empresas_regiones_cerrar_vigencia(mysqli $conexion, int $empresa_region
  */
 function obtener_empresas_combo(mysqli $conexion): array
 {
-    $sql = "SELECT empresa_id, empresa, cuit FROM conf__empresas WHERE tabla_estado_registro_id = 1 ORDER BY empresa ASC";
+    $sql = "SELECT empresa_id, empresa, CAST(documento_numero AS UNSIGNED) AS cuit FROM conf__empresas WHERE tabla_estado_registro_id = 1 ORDER BY empresa ASC";
     $res = mysqli_query($conexion, $sql);
     $lista = [];
     while ($row = mysqli_fetch_assoc($res)) {

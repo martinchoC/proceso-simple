@@ -1,14 +1,23 @@
 -- =====================================================================
 -- Tesorería - script 02: SIEMBRA POR EMPRESA (subgrupos, tipos de
--- comprobante, reglas de cancelación y marca de agente de retención)
+-- comprobante, reglas de cancelación, marca de agente de retención y
+-- conceptos de cuenta contable)
 -- 2026-10-03 · generado por disenador-modelo-datos · NO EJECUTADO
--- Revisión 4 (2026-10-03). Especificación funcional vigente:
---   docs/matriz-legal/08_proc_tesoreria_v3_6.docx (decisiones D1-D31).
+-- Revisión 6 (2026-10-04). Especificación funcional vigente:
+--   docs/gestion/08_proc_tesoreria_v3_10.docx (decisiones D1-D36).
+--   Cambios de la revisión 6: D35 siembra de los conceptos de cuenta
+--   contable de la empresa (§4: VALORES_A_PAGAR y EMPLEADOS, con cuenta
+--   NULL) y el control previo pasa a 20 tablas (requiere el 01 revisión 6).
+--   Volver a correrlo para una empresa ya sembrada con la revisión 5 solo
+--   agrega los dos conceptos: el resto es NOT EXISTS.
+--   Revisión 5: solo comentarios (D32: las filas de agente de retención
+--   quedan inactivas en Casa Lucho).
 -- =====================================================================
--- ORDEN DE EJECUCIÓN (tres archivos con el mismo prefijo 20261003_tesoreria_):
+-- ORDEN DE EJECUCIÓN: 01 -> 02 -> 02b -> 03 (prefijo 20261003_tesoreria_):
 --   01_ddl.sql                 UNA VEZ por base (estructura + datos globales).
 --   02_siembra_empresa.sql     ESTE: una vez POR EMPRESA que use tesorería.
---   03_datos_iniciales.sql     por empresa, después de este.
+--   02b_plan_cuentas.sql       cuentas contables de la empresa (usuario).
+--   03_datos_iniciales.sql     por empresa, después del 02b.
 --
 -- REQUISITOS
 --   - Base seleccionada con USE (no hay USE en el script).
@@ -43,8 +52,9 @@
 --     tipo_asiento_id NULL, sin pisar otra configuración).
 --   - Tipo de comprobante: se busca por (empresa, codigo); si existe solo se
 --     le asigna el subgrupo cuando lo tiene en 0.
---   - Vínculo tabla-subgrupo, reglas de cancelación y filas de agente de
---     retención: INSERT ... WHERE NOT EXISTS (+ UNIQUE donde lo hay).
+--   - Vínculo tabla-subgrupo, reglas de cancelación, filas de agente de
+--     retención y conceptos de cuenta: INSERT ... WHERE NOT EXISTS (+ UNIQUE
+--     donde lo hay).
 --   - Si el usuario RENOMBRA un subgrupo después, volver a correr crea uno
 --     nuevo con el nombre original: no renombrar antes de terminar la
 --     siembra de todas las empresas, o ajustar los nombres acá.
@@ -62,12 +72,16 @@
 --     'Operaciones con Cheques' (tabla gestion__cheques_operaciones), signo
 --     '+', impacta ctacte y contabilidad; regla OP -> CHP_RECH.
 --   - D21: filas de agente de retención INACTIVAS (el contador las activa).
+--     D32: en Casa Lucho quedan inactivas (no practica retenciones).
+--   - D35: conceptos de cuenta ACTIVOS con cont_cuenta_id NULL, para que el
+--     ABM los muestre; la cuenta la asigna el 03 (por código) o el ABM.
 --
 -- Qué hace:
 --   0) Controles previos (asserts) y resolución de ids por código.
 --   1) Subgrupos y tipos de comprobante de tesorería.
 --   2) Reglas de cancelación (gestion__comprobantes_tipos_cancelaciones).
 --   3) Marca de agente de retención (filas inactivas).
+--   4) Conceptos de cuenta contable de la empresa (D35).
 --   V) Verificación (solo lectura).
 -- NO genera conf__paginas ni conf__paginas_funciones (orquestador-dev) ni
 -- habilita tipos en puntos de venta (eso es el 03, D29).
@@ -211,8 +225,9 @@ CALL `_tes_assert`(
     (SELECT COUNT(*) FROM conf__empresas WHERE empresa_id = @tes_empresa_id) = 1,
     'La empresa @tes_empresa_id no existe en conf__empresas');
 
--- El 01 ya corrió: las 19 tablas de tesorería registradas en conf__tablas,
--- los 4 tipos de impuesto de retención practicada y la columna es_liquidable.
+-- El 01 ya corrió (revisión 6): las 20 tablas de tesorería registradas en
+-- conf__tablas, los 4 tipos de impuesto de retención practicada y la
+-- columna es_liquidable.
 CALL `_tes_assert`(
     (SELECT COUNT(DISTINCT tabla_nombre) FROM conf__tablas
      WHERE tabla_nombre IN ('conf__bancos', 'gestion__tesoreria_cuentas', 'gestion__medios_pago',
@@ -223,8 +238,8 @@ CALL `_tes_assert`(
                             'gestion__rendiciones_reembolsos', 'gestion__comprobantes_imputaciones',
                             'gestion__tesoreria_movimientos', 'gestion__rendiciones_items',
                             'gestion__obligaciones_impositivas', 'gestion__rendiciones',
-                            'gestion__cheques')) = 19,
-    'Falta correr 20261003_tesoreria_01_ddl.sql (tablas de tesoreria no registradas en conf__tablas)');
+                            'gestion__cheques', 'gestion__empresas_cuentas_conceptos')) = 20,
+    'Falta correr 20261003_tesoreria_01_ddl.sql revision 6 (tablas de tesoreria no registradas en conf__tablas)');
 
 CALL `_tes_assert`(
     (SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -410,6 +425,9 @@ WHERE NOT EXISTS (
 -- un dato fiscal de la empresa que el usuario confirma activándolas y
 -- cargando la cuenta (Word v3.6 §9.1 fila 8). f_desde = fecha de corrida
 -- (solo en el alta). Idempotente por (empresa, impuesto_tipo).
+-- D32 (Word v3.9): Casa Lucho no es agente de retención. Las filas se
+-- siembran igual (inactivas) y NO se activan; el código de retenciones
+-- practicadas no se implementa en esta etapa.
 INSERT INTO gestion__empresas_impuestos_config
     (empresa_id, impuesto_tipo_id, jurisdiccion_id, condicion_fiscal_id, cont_cuenta_id,
      base_calculo, alicuota, minimo_imponible, monto_fijo, aplica_siempre, prioridad,
@@ -431,6 +449,39 @@ JOIN gestion__impuestos_tipos it ON it.impuesto_tipo = v.impuesto_tipo COLLATE u
 WHERE NOT EXISTS (
     SELECT 1 FROM gestion__empresas_impuestos_config c
     WHERE c.empresa_id = @tes_empresa_id AND c.impuesto_tipo_id = it.impuesto_tipo_id
+);
+
+-- =====================================================================
+-- 4) CONCEPTOS DE CUENTA CONTABLE DE LA EMPRESA (D35, D36)
+-- =====================================================================
+-- Word v3.10 §4.10. Cuentas de asiento que no tienen maestro propio:
+--   VALORES_A_PAGAR  cheque propio emitido (Proveedores / Valores a Pagar)
+--   EMPLEADOS        anticipos y rendiciones (una sola cuenta, D34)
+-- Se siembran ACTIVOS con cont_cuenta_id NULL para que el ABM los muestre;
+-- la cuenta la asigna el 03 (bloque 6, por código de cuenta) o el ABM. Sin
+-- cuenta, el asiento que la necesite da error y el documento no se confirma
+-- (D36). Idempotente por (empresa_id, concepto), que además es UNIQUE
+-- (uk_ecc_empresa_concepto).
+--
+-- CÓMO AGREGAR UN CONCEPTO MÁS ADELANTE (sin cambio de estructura): sumar
+-- una fila al derivado v, p. ej.
+--     UNION ALL SELECT 'GASTOS_BANCARIOS'
+-- y volver a correr este script para cada empresa (solo inserta lo que
+-- falta). El código de concepto es la clave que usa el PHP al resolver la
+-- cuenta: VARCHAR(40), en mayúsculas, sin espacios. Si además se quiere
+-- asignar la cuenta por script, agregar el par (concepto, código de cuenta)
+-- en el bloque 6 del 03 y en su diagnóstico 0c.
+INSERT INTO gestion__empresas_cuentas_conceptos
+    (empresa_id, concepto, cont_cuenta_id, tabla_estado_registro_id)
+SELECT @tes_empresa_id, v.concepto, NULL, @tes_er_activo
+FROM (
+              SELECT 'VALORES_A_PAGAR' AS concepto
+    UNION ALL SELECT 'EMPLEADOS'
+) v
+WHERE NOT EXISTS (
+    SELECT 1 FROM gestion__empresas_cuentas_conceptos x
+    WHERE x.empresa_id = @tes_empresa_id
+      AND x.concepto = v.concepto COLLATE utf8mb4_unicode_ci
 );
 
 COMMIT;
@@ -472,6 +523,15 @@ LEFT JOIN gestion__empresas_impuestos_config c
        ON c.impuesto_tipo_id = it.impuesto_tipo_id AND c.empresa_id = @tes_empresa_id
 WHERE it.es_retencion = 1
 ORDER BY it.impuesto_tipo_id;
+
+-- Conceptos de cuenta contable (D35): 2 filas (VALORES_A_PAGAR, EMPLEADOS),
+-- con cont_cuenta_id NULL hasta que corra el bloque 6 del 03 o el ABM.
+SELECT ecc.empresa_cuenta_concepto_id, ecc.concepto, ecc.cont_cuenta_id,
+       cc.codigo AS cont_codigo, cc.nombre AS cont_nombre, ecc.tabla_estado_registro_id
+FROM gestion__empresas_cuentas_conceptos ecc
+LEFT JOIN gestion__cont_cuentas cc ON cc.cont_cuenta_id = ecc.cont_cuenta_id
+WHERE ecc.empresa_id = @tes_empresa_id
+ORDER BY ecc.concepto;
 
 -- =====================================================================
 -- Limpieza de helpers y restauración del sql_mode
