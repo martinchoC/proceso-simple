@@ -472,6 +472,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     </div>
                                                 </div>
 
+                                                <!-- Alerta si el pedido está en Borrador -->
+                                                <div class="alert alert-warning d-flex align-items-center mb-3 d-none" id="alerta-pedido-no-confirmado-remitos" role="alert">
+                                                    <i class="fas fa-exclamation-triangle fa-lg me-3 text-warning"></i>
+                                                    <div>
+                                                        <strong>Pedido no confirmado:</strong> Este pedido se encuentra en estado <strong>Borrador</strong>. Debe confirmarlo antes de poder emitir remitos de entrega.
+                                                    </div>
+                                                </div>
+
                                                 <!-- Cargar remito nuevo: reutiliza el motor de ventas_remitos vía AJAX
                                                      cross-file, acotado a las líneas pendientes de ESTE pedido -->
                                                 <div class="card card-outline card-success mb-3" id="card-cargar-remito-nuevo">

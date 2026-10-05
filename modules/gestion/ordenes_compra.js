@@ -85,10 +85,11 @@ $(document).ready(function () {
                 return null;
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>' +
                 '<"clear">',
-            pageLength: 50,
+            pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+
             
             columns: [
                 {
@@ -258,8 +259,19 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+                lengthMenu: 'Mostrar _MENU_ registros',
+                info: 'Página _PAGE_ de _PAGES_',
+                infoEmpty: 'Página 0 de 0',
+                infoFiltered: '(filtrado de _MAX_ registros)',
+                paginate: {
+                    first: 'Primero',
+                    previous: 'Anterior',
+                    next: 'Siguiente',
+                    last: 'Último'
+                }
             },
+
             order: currentOrder,
             responsive: true,
             createdRow: function (row, data, dataIndex) {

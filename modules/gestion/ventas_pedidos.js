@@ -177,7 +177,7 @@ $(document).ready(function () {
                 return null;
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>' +
                 '<"clear">',
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
@@ -355,8 +355,19 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+                lengthMenu: 'Mostrar _MENU_ registros',
+                info: 'Página _PAGE_ de _PAGES_',
+                infoEmpty: 'Página 0 de 0',
+                infoFiltered: '(filtrado de _MAX_ registros)',
+                paginate: {
+                    first: 'Primero',
+                    previous: 'Anterior',
+                    next: 'Siguiente',
+                    last: 'Último'
+                }
             },
+
             order: currentOrder,
             responsive: true,
             createdRow: function (row, data, dataIndex) {
@@ -859,8 +870,10 @@ $(document).ready(function () {
                 $('#venta_pedido_id').val(res.venta_pedido_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
 
+                pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 137 && parseInt(res.tabla_estado_registro_id) > 0);
                 mostrarTabRemitos(true);
                 cargarRemitosDelPedido(res.venta_pedido_id);
+                actualizarVisibilidadCargarRemitoNuevo();
                 $('#remito_f_emision').val(new Date().toISOString().split('T')[0]);
                 
                 $('#f_emision').val(res.f_emision);
@@ -900,7 +913,8 @@ $(document).ready(function () {
                     }
                     
                     if (res.detalles && res.detalles.length > 0) {
-                        pedidoConfirmado = (parseInt(res.tabla_estado_registro_id) || 0) > 5;
+                        pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 137 && parseInt(res.tabla_estado_registro_id) > 0);
+                        actualizarVisibilidadCargarRemitoNuevo();
                         detalles = res.detalles.map(function(detalle, index) {
                             return {
                                 detalle_idx: index,
@@ -1878,8 +1892,10 @@ $(document).ready(function () {
                 $('#venta_pedido_id').val(res.venta_pedido_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
 
+                pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 137 && parseInt(res.tabla_estado_registro_id) > 0);
                 mostrarTabRemitos(true);
                 cargarRemitosDelPedido(res.venta_pedido_id);
+                actualizarVisibilidadCargarRemitoNuevo();
                 $('#remito_f_emision').val(new Date().toISOString().split('T')[0]);
                 
                 $('#f_emision').val(res.f_emision);
@@ -1930,7 +1946,8 @@ $(document).ready(function () {
                     }
                     
                     if (res.detalles && res.detalles.length > 0) {
-                        pedidoConfirmado = (parseInt(res.tabla_estado_registro_id) || 0) > 5;
+                        pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 137 && parseInt(res.tabla_estado_registro_id) > 0);
+                        actualizarVisibilidadCargarRemitoNuevo();
                         detalles = res.detalles.map(function(detalle, index) {
                             return {
                                 detalle_idx: index,
@@ -2292,6 +2309,13 @@ $(document).ready(function () {
     // es frágil (ya nos pasó con 'confirmar' vs 'confirmar_pedido'); esto es la
     // fuente de verdad real.
     function actualizarVisibilidadCargarRemitoNuevo() {
+        if (!pedidoConfirmado) {
+            $('#card-cargar-remito-nuevo').hide();
+            $('#alerta-pedido-no-confirmado-remitos').removeClass('d-none').show();
+            return;
+        }
+
+        $('#alerta-pedido-no-confirmado-remitos').addClass('d-none').hide();
         var entregaCompleta = detalles.length > 0 && detalles.every(function (d) {
             return (parseFloat(d.cantidad_entregada) || 0) >= (parseFloat(d.cantidad) || 0) - 0.0001;
         });
@@ -2312,6 +2336,7 @@ $(document).ready(function () {
         $('#contenedor-remito-pendientes').html('<div class="text-muted small p-2">Elegí el punto de venta para ver las líneas pendientes de este pedido.</div>');
         $('#titulo-card-remito').html('<i class="fas fa-plus-circle me-2"></i>Cargar Remito Nuevo');
         $('#btnCancelarEdicionRemito').addClass('d-none');
+        $('#alerta-pedido-no-confirmado-remitos').addClass('d-none').hide();
         $('#card-cargar-remito-nuevo').show();
         renderizarRemitoDetalleNuevo();
         mostrarTabRemitos(false);
@@ -2716,7 +2741,7 @@ $(document).ready(function () {
         var pedidoId = $('#venta_pedido_id').val();
         var puntoVentaId = $('#remito_punto_venta_id').val();
 
-        if (!clienteActualId || !pedidoId) {
+        if (!clienteActualId || !pedidoId || !pedidoConfirmado) {
             remitoPendientesPedido = [];
             renderizarPendientesRemitoPedido();
             return;
@@ -2954,6 +2979,16 @@ $(document).ready(function () {
     $(document).on('click', '#btnGuardarRemitoDesdePedido', function () {
         var btn = $(this);
         var pedidoId = $('#venta_pedido_id').val();
+
+        if (!pedidoConfirmado) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Pedido no confirmado',
+                text: 'No se puede cargar un remito si el pedido se encuentra en estado Borrador. Confirme el pedido primero.',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
 
         if (!$('#remito_punto_venta_id').val()) {
             Swal.fire({ icon: 'warning', title: 'Falta punto de venta', text: 'Elegí el punto de venta (depósito) del remito', confirmButtonText: 'Entendido' });

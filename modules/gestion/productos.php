@@ -3226,9 +3226,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         currentSearch = (data.search && data.search.search) ? data.search.search : '';
                         data.search = { search: currentSearch };
                     },
-                    dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                        '<"row"<"col-sm-12"tr>>' +
-                        '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                    dom: '<"row align-items-center mb-2"<"col-12 col-md-6"><"col-12 col-md-6 text-end"f>>' +
+                '<"row"<"col-sm-12"tr>>' +
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>' +
                         '<"clear">',
                     pageLength: 10, // arranca en 10 (antes 50): carga inicial más rápida, sobre todo con el fan-out ya resuelto por página
                     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],

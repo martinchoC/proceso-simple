@@ -435,9 +435,9 @@ function agregarFacturaProveedor($conexion, $data)
     mysqli_begin_transaction($conexion);
 
     try {
-        // Verificar duplicados
+        // Verificar duplicados (incluyendo proveedor / entidad_id)
         $sql_check = "SELECT COUNT(*) as total FROM gestion__facturas_proveedores 
-                      WHERE comprobante_pv = ? AND comprobante_nro = ? AND comprobante_tipo_id = ? AND empresa_id = ?";
+                      WHERE comprobante_pv = ? AND comprobante_nro = ? AND comprobante_tipo_id = ? AND empresa_id = ? AND entidad_id = ?";
         $stmt = mysqli_prepare($conexion, $sql_check);
         if (!$stmt) {
             throw new Exception("Error preparando consulta duplicados: " . mysqli_error($conexion));
@@ -447,12 +447,14 @@ function agregarFacturaProveedor($conexion, $data)
         $comprobante_nro_check = intval($data['comprobante_nro'] ?? 0);
         $comprobante_tipo_id_check = intval($data['comprobante_tipo_id'] ?? 0);
         $empresa_idx_check = intval($data['empresa_idx'] ?? 0);
+        $entidad_id_check = intval($data['entidad_id'] ?? 0);
 
-        mysqli_stmt_bind_param($stmt, "iiii", 
+        mysqli_stmt_bind_param($stmt, "iiiii", 
             $comprobante_pv_check,
             $comprobante_nro_check,
             $comprobante_tipo_id_check,
-            $empresa_idx_check
+            $empresa_idx_check,
+            $entidad_id_check
         );
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
@@ -460,7 +462,7 @@ function agregarFacturaProveedor($conexion, $data)
         mysqli_stmt_close($stmt);
 
         if ($row['total'] > 0) {
-            throw new Exception('Ya existe una factura con este número de comprobante');
+            throw new Exception('Ya existe una factura de este proveedor con este número de comprobante');
         }
 
         // Obtener estado inicial
@@ -1908,8 +1910,33 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
     $comprobante_id = null;
     
     if ($existe) {
-        // UPDATE - Ahora incluye importe_pendiente
+        // UPDATE - Respeta imputaciones vigentes en importe_pendiente (C5 / D2 / §2.4)
         $comprobante_id = $existe['comprobante_id'];
+        $importe_pendiente = $importe_total;
+
+        $sql_imp = "SELECT 
+                        COALESCE(SUM(CASE WHEN ci.comp_destino_id = ? THEN ci.importe_imputado ELSE 0 END), 0) AS imp_destino,
+                        COALESCE(SUM(CASE WHEN ci.comp_origen_id = ? THEN ci.importe_origen ELSE 0 END), 0) AS imp_origen,
+                        COUNT(*) AS total_imputaciones
+                    FROM gestion__comprobantes_imputaciones ci
+                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    WHERE (ci.comp_destino_id = ? OR ci.comp_origen_id = ?)
+                      AND er.codigo_estandar = 'CONFIRMADO'";
+        $stmt_imp = mysqli_prepare($conexion, $sql_imp);
+        if ($stmt_imp) {
+            mysqli_stmt_bind_param($stmt_imp, "iiii", $comprobante_id, $comprobante_id, $comprobante_id, $comprobante_id);
+            mysqli_stmt_execute($stmt_imp);
+            $res_imp = mysqli_stmt_get_result($stmt_imp);
+            if ($row_imp = mysqli_fetch_assoc($res_imp)) {
+                if (intval($row_imp['total_imputaciones']) > 0) {
+                    $imputado_total = floatval($row_imp['imp_destino']) + floatval($row_imp['imp_origen']);
+                    $importe_pendiente = max(0.0, round($importe_total - $imputado_total, 2));
+                }
+            }
+            mysqli_stmt_close($stmt_imp);
+        }
+
         $sql_update = "UPDATE gestion__comprobantes SET
                             empresa_id = ?,
                             sucursal_id = ?,
@@ -1951,7 +1978,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
             $importe_no_gravado, $importe_exento,
             $importe_neto, $importe_iva, $importe_otros_impuestos,
             $importe_total,
-            $importe_total, // importe_pendiente = importe_total
+            $importe_pendiente,
             $tabla_estado_registro_id, $observaciones,
             $usuario_id,
             $comprobante_id

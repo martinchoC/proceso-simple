@@ -133,7 +133,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     },
                     dataSrc: ''
                 },
-                pageLength: 50, // REQUISITO: 50 registros iniciales
+                pageLength: 10, // REQUISITO: 50 registros iniciales
                 lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]], // REQUISITO: paginación completa
                 columns: [
                     {

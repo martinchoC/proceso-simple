@@ -1181,7 +1181,7 @@ $(document).ready(function () {
                 }
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
@@ -2019,7 +2019,7 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
@@ -2151,7 +2151,7 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
@@ -2352,11 +2352,11 @@ $(document).ready(function () {
                 }
                 return null;
             },
-            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+            dom: '<"row align-items-center mb-2"<"col-12 col-md-6"><"col-12 col-md-6 text-end"f>>' +
                 '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>' +
                 '<"clear">',
-            pageLength: 50,
+            pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             buttons: [
                 {
@@ -2652,7 +2652,7 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [

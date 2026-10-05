@@ -104,10 +104,11 @@ $(document).ready(function () {
                 return null;
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>' +
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>' +
                 '<"clear">',
-            pageLength: 50,
+            pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+
 
             columns: [
                 {
@@ -226,7 +227,19 @@ $(document).ready(function () {
                     }
                 }
             ],
-            language: { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' },
+            language: {
+                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+                lengthMenu: 'Mostrar _MENU_ registros',
+                info: 'Página _PAGE_ de _PAGES_',
+                infoEmpty: 'Página 0 de 0',
+                infoFiltered: '(filtrado de _MAX_ registros)',
+                paginate: {
+                    first: 'Primero',
+                    previous: 'Anterior',
+                    next: 'Siguiente',
+                    last: 'Último'
+                }
+            },
             order: currentOrder,
             responsive: true,
             createdRow: function (row, data) {
@@ -239,33 +252,13 @@ $(document).ready(function () {
                 }
             },
             initComplete: function () {
-                setTimeout(function () {
-                    $('#tablaVentasRemitos_length').addClass('dataTables_length_custom');
-                    $('#tablaVentasRemitos_filter').addClass('dataTables_filter_custom');
-
-                    if ($('#tablaVentasRemitos_length').html().trim() === '') {
-                        var selectHtml = '<label>Mostrar <select name="tablaVentasRemitos_length" aria-controls="tablaVentasRemitos" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
-                        $('#tablaVentasRemitos_length').html(selectHtml);
-                        $('#tablaVentasRemitos_length select').on('change', function () {
-                            tabla.page.len($(this).val()).draw();
-                        });
-                    }
-
-                    if ($('#tablaVentasRemitos_filter').html().trim() === '') {
-                        var filterHtml = '<label>Buscar:<input type="search" class="form-control form-control-sm" placeholder="" aria-controls="tablaVentasRemitos"></label>';
-                        $('#tablaVentasRemitos_filter').html(filterHtml);
-                        $('#tablaVentasRemitos_filter input').on('keyup', function () {
-                            tabla.search($(this).val()).draw();
-                        });
-                    }
-                }, 100);
-
                 $('#filtro_cliente').on('keyup', function () {
                     tabla.column(5).search(this.value).draw();
                 });
                 $('#filtro_estado').on('keyup', function () {
                     tabla.column(8).search(this.value).draw();
                 });
+
 
                 new $.fn.dataTable.Buttons(tabla, {
                     buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']

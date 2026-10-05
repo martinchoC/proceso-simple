@@ -770,7 +770,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
 
         var tabla = $('#tablaListasPreciosProductos').DataTable({
-            dom: '<"row"<"col-md-6"l><"col-md-6"B>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
+            dom: '<"row mb-2"<"col-12 text-end"B>>rt<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             responsive: true,
             processing: true,
             serverSide: true,
@@ -1533,8 +1533,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 data: data.filas,
                 columns: columnas,
                 order: orden,
-                pageLength: 25,
-                dom: '<"row"<"col-md-4"l><"col-md-4"f><"col-md-4 text-end"B>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
+                pageLength: 10,
+                dom: '<"row mb-2"<"col-12 col-md-6"B><"col-12 col-md-6 text-end"f>>rt<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
                 buttons: [
                     { extend: 'excelHtml5', text: '<i class="fas fa-file-excel"></i> Excel', className: 'btn btn-success btn-sm',
                       title: titulo, exportOptions: { columns: columnasExport } }

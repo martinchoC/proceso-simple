@@ -499,9 +499,9 @@ $(document).ready(function(){
     
     // Configuración de DataTable
     var tabla = $('#tablaFuncionesTipos').DataTable({
-        pageLength: 25,
+        pageLength: 10,
         lengthMenu: [25, 50, 100, 200],
-        dom: '<"row"<"col-md-6"l><"col-md-6"fB>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
+        dom: '<"row mb-2"<"col-12 col-md-6"B><"col-12 col-md-6 text-end"f>>rt<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
         buttons: [
             {
                 extend: 'excelHtml5',
@@ -550,9 +550,9 @@ $(document).ready(function(){
             "searchPlaceholder": "Busqueda general...",
             "lengthMenu": "Mostrar _MENU_ registros por página",
             "zeroRecords": "No se encontraron resultados",
-            "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
-            "infoEmpty": "Mostrando 0 a 0 de 0 registros",
-            "infoFiltered": "(filtrado de _MAX_ registros totales)",
+            "info": "Página _PAGE_ de _PAGES_",
+            "infoEmpty": "Página 0 de 0",
+            "infoFiltered": "(filtrado de _MAX_ registros)",
             "paginate": {
                 "first": "Primero",
                 "last": "Último",

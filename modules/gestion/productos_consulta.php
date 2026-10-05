@@ -1844,7 +1844,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     // Pie: cantidad de registros a la izquierda, info al medio, paginado a la derecha
                     // (sin el cuadro de búsqueda estándar: lo reemplaza el buscador por etiquetas)
                     dom: '<"row"<"col-sm-12"tr>>' +
-                        '<"row align-items-center mt-2"<"col-sm-12 col-md-4"l><"col-sm-12 col-md-4"i><"col-sm-12 col-md-4"p>>',
+                        '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
                     pageLength: 10, // arranca en 10 (antes 50): carga inicial más rápida, sobre todo con el fan-out ya resuelto por página
                     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
                     buttons: [

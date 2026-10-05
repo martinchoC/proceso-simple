@@ -167,7 +167,8 @@ function obtenerEstadoInicial($conexion, $pagina_id)
 function obtenerProximoNumeroComprobante($conexion, $empresa_id, $punto_venta_id, $comprobante_tipo_id) {
     $sql_check = "SELECT numerador_id, ultimo_numero 
                   FROM gestion__comprobantes_numeradores 
-                  WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?";
+                  WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?
+                  FOR UPDATE";
     
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {
@@ -1872,6 +1873,32 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
 
     if ($existe) {
         $comprobante_id = $existe['comprobante_id'];
+        $importe_pendiente = $importe_total;
+
+        // C5 / D2 / §2.4: No pisar importe_pendiente si el comprobante ya tiene imputaciones vigentes
+        $sql_imp = "SELECT 
+                        COALESCE(SUM(CASE WHEN ci.comp_destino_id = ? THEN ci.importe_imputado ELSE 0 END), 0) AS imp_destino,
+                        COALESCE(SUM(CASE WHEN ci.comp_origen_id = ? THEN ci.importe_origen ELSE 0 END), 0) AS imp_origen,
+                        COUNT(*) AS total_imputaciones
+                    FROM gestion__comprobantes_imputaciones ci
+                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    WHERE (ci.comp_destino_id = ? OR ci.comp_origen_id = ?)
+                      AND er.codigo_estandar = 'CONFIRMADO'";
+        $stmt_imp = mysqli_prepare($conexion, $sql_imp);
+        if ($stmt_imp) {
+            mysqli_stmt_bind_param($stmt_imp, "iiii", $comprobante_id, $comprobante_id, $comprobante_id, $comprobante_id);
+            mysqli_stmt_execute($stmt_imp);
+            $res_imp = mysqli_stmt_get_result($stmt_imp);
+            if ($row_imp = mysqli_fetch_assoc($res_imp)) {
+                if (intval($row_imp['total_imputaciones']) > 0) {
+                    $imputado_total = floatval($row_imp['imp_destino']) + floatval($row_imp['imp_origen']);
+                    $importe_pendiente = max(0.0, round($importe_total - $imputado_total, 2));
+                }
+            }
+            mysqli_stmt_close($stmt_imp);
+        }
+
         $sql_update = "UPDATE gestion__comprobantes SET
                             empresa_id = ?,
                             sucursal_id = ?,
@@ -1913,7 +1940,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
             $importe_no_gravado, $importe_exento,
             $importe_neto, $importe_iva, $importe_otros_impuestos,
             $importe_total,
-            $importe_total,
+            $importe_pendiente,
             $tabla_estado_registro_id, $observaciones,
             $usuario_id,
             $comprobante_id

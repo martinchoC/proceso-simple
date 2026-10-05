@@ -506,6 +506,32 @@ function syncComprobante($conexion, $data, $tabla_origen_id) {
 
     if ($existe) {
         $comprobante_id = $existe['comprobante_id'];
+        $importe_pendiente = $importe_total;
+
+        // C5 / D2 / §2.4: No pisar importe_pendiente si el comprobante ya tiene imputaciones vigentes
+        $sql_imp = "SELECT 
+                        COALESCE(SUM(CASE WHEN ci.comp_destino_id = ? THEN ci.importe_imputado ELSE 0 END), 0) AS imp_destino,
+                        COALESCE(SUM(CASE WHEN ci.comp_origen_id = ? THEN ci.importe_origen ELSE 0 END), 0) AS imp_origen,
+                        COUNT(*) AS total_imputaciones
+                    FROM gestion__comprobantes_imputaciones ci
+                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    WHERE (ci.comp_destino_id = ? OR ci.comp_origen_id = ?)
+                      AND er.codigo_estandar = 'CONFIRMADO'";
+        $stmt_imp = mysqli_prepare($conexion, $sql_imp);
+        if ($stmt_imp) {
+            mysqli_stmt_bind_param($stmt_imp, "iiii", $comprobante_id, $comprobante_id, $comprobante_id, $comprobante_id);
+            mysqli_stmt_execute($stmt_imp);
+            $res_imp = mysqli_stmt_get_result($stmt_imp);
+            if ($row_imp = mysqli_fetch_assoc($res_imp)) {
+                if (intval($row_imp['total_imputaciones']) > 0) {
+                    $imputado_total = floatval($row_imp['imp_destino']) + floatval($row_imp['imp_origen']);
+                    $importe_pendiente = max(0.0, round($importe_total - $imputado_total, 2));
+                }
+            }
+            mysqli_stmt_close($stmt_imp);
+        }
+
         $sql_update = "UPDATE gestion__comprobantes SET
                             empresa_id = ?,
                             sucursal_id = ?,
@@ -547,7 +573,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id) {
             $importe_no_gravado, $importe_exento,
             $importe_neto, $importe_iva, $importe_otros_impuestos,
             $importe_total,
-            $importe_total,
+            $importe_pendiente,
             $tabla_estado_registro_id, $observaciones,
             $usuario_id,
             $comprobante_id
@@ -1280,8 +1306,39 @@ function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_
             $total_haber += $info['importe'];
         }
 
-        // Control de balance (diferencia no mayor a 1 centavo)
-        if (abs($total_debe - $total_haber) > 0.01) {
+        // Control de balance y ajuste de redondeo (< $1.00 en Deudores por Ventas 1.1.02.01 / cont_cuenta_id = 111)
+        $diferencia = round($total_debe - $total_haber, 2);
+
+        if (abs($diferencia) > 0.0001 && abs($diferencia) < 1.0) {
+            $ajustado = false;
+            foreach ($movimientos as &$m) {
+                if ($m['cuenta_id'] == 111 || $m['cuenta_id'] == $cuenta_cliente_id) {
+                    $m['cuenta_id'] = 111; // Asegurar 1.1.02.01 - Deudores por Ventas
+                    $m['importe'] = round($m['importe'] - $diferencia, 2);
+                    $total_debe = round($total_debe - $diferencia, 2);
+                    $ajustado = true;
+                    break;
+                }
+            }
+            unset($m);
+
+            if (!$ajustado) {
+                $movimientos[] = [
+                    'cuenta_id' => 111,
+                    'importe' => -$diferencia,
+                    'descripcion' => 'Ajuste redondeo - Deudores por Ventas'
+                ];
+                if ($diferencia > 0) {
+                    $total_haber = round($total_haber + $diferencia, 2);
+                } else {
+                    $total_debe = round($total_debe + abs($diferencia), 2);
+                }
+            }
+            $diferencia = round($total_debe - $total_haber, 2);
+        }
+
+        // Control final de balance
+        if (abs($total_debe - $total_haber) > 0.001) {
             return [
                 'success' => false,
                 'error' => "Asiento no balanceado: Debe=" . number_format($total_debe, 2) . ", Haber=" . number_format($total_haber, 2) . ", diferencia=" . number_format($total_debe - $total_haber, 2)

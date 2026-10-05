@@ -48,27 +48,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">
                                     <div class="card-header">
                                         <div class="row align-items-center">
-                                            <div class="col-md-2">
-                                            <div id="contenedor-boton-agregar" class="d-inline">
-                                                <!-- Cargando... -->
-                                                <button type="button" class="btn btn-primary" id="btnNuevo" style="display:none;">
-                                                    <i class="fas fa-spinner fa-spin me-1"></i>Cargando...
-                                                </button>
+                                            <div class="col-md-3">
+                                                <div id="contenedor-boton-agregar" class="d-inline">
+                                                    <!-- Cargando... -->
+                                                    <button type="button" class="btn btn-primary" id="btnNuevo" style="display:none;">
+                                                        <i class="fas fa-spinner fa-spin me-1"></i>Cargando...
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
-                                            <div class="col-md-2">
+                                            <div class="col-md-3">
                                                 <input type="text" class="form-control form-control-sm" id="filtro_cliente" placeholder="Filtrar por cliente...">
                                             </div>
-                                            <div class="col-md-2">
+                                            <div class="col-md-3">
                                                 <input type="text" class="form-control form-control-sm" id="filtro_estado" placeholder="Filtrar por estado...">
                                             </div>
-                                            <div class="col-md-2">
-                                                <div class="dataTables_length" id="tablaVentasRemitos_length"></div>
-                                            </div>
-                                            <div class="col-md-2">
-                                                <div class="dataTables_filter" id="tablaVentasRemitos_filter"></div>
-                                            </div>
-                                            <div class="col-md-2 text-end">
+                                            <div class="col-md-3 text-end">
                                                 <div class="btn-group" role="group">
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar tabla">
                                                         <i class="fas fa-sync-alt"></i>

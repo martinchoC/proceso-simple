@@ -477,9 +477,9 @@ $(document).ready(function(){
     // Configuración de DataTable
     var tabla = $('#tablaPaginasFunciones').DataTable({
         responsive: true,
-        pageLength: 25,
+        pageLength: 10,
         lengthMenu: [10, 25, 50, 100, 200],        
-        dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"fB>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+        dom: '<"row mb-2"<"col-12 col-md-6"B><"col-12 col-md-6 text-end"f>>rt<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
         buttons: [
             {
                 extend: 'excelHtml5',
@@ -513,9 +513,9 @@ $(document).ready(function(){
             "searchPlaceholder": "Buscar funciones...",
             "lengthMenu": "Mostrar _MENU_ registros por página",
             "zeroRecords": "No se encontraron funciones",
-            "info": "Mostrando _START_ a _END_ de _TOTAL_ funciones",
-            "infoEmpty": "Mostrando 0 a 0 de 0 funciones",
-            "infoFiltered": "(filtrado de _MAX_ funciones totales)",
+            "info": "Página _PAGE_ de _PAGES_",
+            "infoEmpty": "Página 0 de 0",
+            "infoFiltered": "(filtrado de _MAX_ registros)",
             "paginate": {
                 "first": "Primero",
                 "last": "Último",

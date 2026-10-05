@@ -485,7 +485,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     order: [],
-                    pageLength: 25,
+                    pageLength: 10,
                     language: {
                         emptyTable: 'No hay grupos ni subgrupos de comprobantes registrados',
                         zeroRecords: 'No se encontraron registros con los filtros aplicados',
@@ -495,7 +495,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         infoEmpty: 'Sin registros',
                         paginate: { previous: 'Anterior', next: 'Siguiente' }
                     },
-                    dom: 'Bfrtip',
+                    dom: '<"row mb-2"<"col-12 col-md-6"B><"col-12 col-md-6 text-end"f>>rt<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
+                    pageLength: 10,
                     buttons: ['excel', 'pdf', 'csv', 'print']
                 });
 

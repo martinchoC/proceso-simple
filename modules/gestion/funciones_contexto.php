@@ -287,7 +287,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
                 },
                 order: [[1, 'asc']],
-                pageLength: 50,
+                pageLength: 10,
                 lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
                 responsive: true,
                 createdRow: function (row, data, dataIndex) {

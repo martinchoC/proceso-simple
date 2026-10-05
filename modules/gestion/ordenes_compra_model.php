@@ -173,7 +173,8 @@ function obtenerProximoNumeroComprobante($conexion, $empresa_id, $punto_venta_id
     // Verificar si existe el numerador
     $sql_check = "SELECT numerador_id, ultimo_numero 
                   FROM gestion__comprobantes_numeradores 
-                  WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?";
+                  WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?
+                  FOR UPDATE";
     
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {

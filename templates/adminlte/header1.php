@@ -77,6 +77,46 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <script src="<?= asset_local('js/pdfmake.min.js') ?>"></script>
   <script src="<?= asset_local('js/vfs_fonts.js') ?>"></script>
 
+  <script>
+    if (window.jQuery && $.fn && $.fn.dataTable) {
+      $.extend(true, $.fn.dataTable.defaults, {
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+        dom: '<"row align-items-center mb-2"<"col-12 col-md-6"B><"col-12 col-md-6 text-end"f>>' +
+             '<"row"<"col-12"tr>>' +
+             '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
+        language: {
+          processing: "Procesando...",
+          search: "Buscar:",
+          lengthMenu: "Mostrar _MENU_ registros",
+          info: "Página _PAGE_ de _PAGES_",
+          infoEmpty: "Página 0 de 0",
+          infoFiltered: "(filtrado de _MAX_ registros)",
+          loadingRecords: "Cargando...",
+          zeroRecords: "No se encontraron resultados",
+          emptyTable: "Ningún dato disponible en esta tabla",
+          paginate: {
+            first: "Primero",
+            previous: "Anterior",
+            next: "Siguiente",
+            last: "Último"
+          }
+        },
+        infoCallback: function (settings, start, end, max, total, pre) {
+          if (total === 0) return "Página 0 de 0";
+          var api = this.api ? this.api() : new $.fn.dataTable.Api(settings);
+          var info = api.page.info();
+          var str = "Página " + (info.page + 1) + " de " + info.pages;
+          if (total < max) {
+            str += " (filtrado de " + max + " registros)";
+          }
+          return str;
+        }
+      });
+    }
+  </script>
+
+
   <link rel="stylesheet" href="<?= asset_local('css/adminlte.min.css') ?>" />
   <link rel="stylesheet" href="<?= asset_local('css/apexcharts.css') ?>" />
   <link rel="stylesheet" href="<?= asset_local('css/jsvectormap.min.css') ?>" />

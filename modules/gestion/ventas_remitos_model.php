@@ -219,7 +219,8 @@ function obtenerProximoNumeroComprobanteRemito($conexion, $empresa_id, $punto_ve
 {
     $sql_check = "SELECT numerador_id, ultimo_numero
                   FROM gestion__comprobantes_numeradores
-                  WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?";
+                  WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?
+                  FOR UPDATE";
 
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {
@@ -326,6 +327,32 @@ function syncComprobanteRemito($conexion, $data, $tabla_origen_id)
 
     if ($existe) {
         $comprobante_id = $existe['comprobante_id'];
+        $importe_pendiente = $importe_total;
+
+        // C5 / D2 / §2.4: No pisar importe_pendiente si el comprobante ya tiene imputaciones vigentes
+        $sql_imp = "SELECT 
+                        COALESCE(SUM(CASE WHEN ci.comp_destino_id = ? THEN ci.importe_imputado ELSE 0 END), 0) AS imp_destino,
+                        COALESCE(SUM(CASE WHEN ci.comp_origen_id = ? THEN ci.importe_origen ELSE 0 END), 0) AS imp_origen,
+                        COUNT(*) AS total_imputaciones
+                    FROM gestion__comprobantes_imputaciones ci
+                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    WHERE (ci.comp_destino_id = ? OR ci.comp_origen_id = ?)
+                      AND er.codigo_estandar = 'CONFIRMADO'";
+        $stmt_imp = mysqli_prepare($conexion, $sql_imp);
+        if ($stmt_imp) {
+            mysqli_stmt_bind_param($stmt_imp, "iiii", $comprobante_id, $comprobante_id, $comprobante_id, $comprobante_id);
+            mysqli_stmt_execute($stmt_imp);
+            $res_imp = mysqli_stmt_get_result($stmt_imp);
+            if ($row_imp = mysqli_fetch_assoc($res_imp)) {
+                if (intval($row_imp['total_imputaciones']) > 0) {
+                    $imputado_total = floatval($row_imp['imp_destino']) + floatval($row_imp['imp_origen']);
+                    $importe_pendiente = max(0.0, round($importe_total - $imputado_total, 2));
+                }
+            }
+            mysqli_stmt_close($stmt_imp);
+        }
+
         $sql_update = "UPDATE gestion__comprobantes SET
                             empresa_id = ?, sucursal_id = ?, comprobante_pv = ?,
                             comprobante_tipo_id = ?, comprobante_nro = ?,
@@ -363,7 +390,7 @@ function syncComprobanteRemito($conexion, $data, $tabla_origen_id)
             $importe_neto,
             $importe_iva,
             $importe_total,
-            $importe_total,
+            $importe_pendiente,
             $tabla_estado_registro_id,
             $observaciones,
             $usuario_id,
@@ -643,11 +670,13 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
             INNER JOIN gestion__ventas_pedidos vp ON vpd.venta_pedido_id = vp.venta_pedido_id
             INNER JOIN gestion__productos p ON vpd.producto_id = p.producto_id
             LEFT JOIN gestion__comprobantes_tipos ct ON vp.comprobante_tipo_id = ct.comprobante_tipo_id
-            LEFT JOIN conf__estados_registros er ON vp.tabla_estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__tablas_estados_registros ter ON vp.tabla_estado_registro_id = ter.tabla_estado_registro_id
+            LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
             WHERE vp.entidad_id = ?
             AND vp.empresa_id = ?
             AND (? = 1 OR vpd.cantidad > vpd.cantidad_entregada)
-            AND (er.codigo_estandar IS NULL OR er.codigo_estandar != 'CANCELADO')
+            AND vp.tabla_estado_registro_id != 137
+            AND (er.codigo_estandar IS NULL OR er.codigo_estandar NOT IN ('BORRADOR', 'CANCELADO', 'ELIMINADO'))
             AND (vp.venta_pedido_id = ? OR ? IS NULL)
             ORDER BY (orden_seccion IS NULL), orden_seccion, orden_estanteria, orden_estante, orden_posicion,
                      vp.f_emision, vp.venta_pedido_id, vpd.venta_pedido_detalle_id";
@@ -1211,9 +1240,13 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
             $sql_lock ="SELECT vpd.cantidad, vpd.cantidad_entregada, vp.entidad_id, vp.empresa_id,
                                 p.producto_nombre,
                                 vpd.precio_unitario_bruto, vpd.descuento_general_pct,
-                                vpd.iva_alicuota_id, vpd.iva_porcentaje
+                                vpd.iva_alicuota_id, vpd.iva_porcentaje,
+                                vp.tabla_estado_registro_id, vp.comprobante_nro,
+                                er.codigo_estandar
                          FROM gestion__ventas_pedidos_detalles vpd
                          INNER JOIN gestion__ventas_pedidos vp ON vpd.venta_pedido_id = vp.venta_pedido_id
+                         LEFT JOIN conf__tablas_estados_registros ter ON vp.tabla_estado_registro_id = ter.tabla_estado_registro_id
+                         LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
                          INNER JOIN gestion__productos p ON vpd.producto_id = p.producto_id
                          WHERE vpd.venta_pedido_detalle_id = ?
                          FOR UPDATE";
@@ -1232,6 +1265,10 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
             }
             if (intval($linea_pedido['empresa_id']) !== intval($empresa_id) || intval($linea_pedido['entidad_id']) !== intval($entidad_id)) {
                 throw new Exception("La línea de pedido seleccionada no corresponde al cliente del remito");
+            }
+            if (intval($linea_pedido['tabla_estado_registro_id']) === 137 || ($linea_pedido['codigo_estandar'] ?? '') === 'BORRADOR') {
+                $nro = !empty($linea_pedido['comprobante_nro']) ? '#' . $linea_pedido['comprobante_nro'] : '';
+                throw new Exception("No se puede cargar un remito para el pedido $nro porque se encuentra en estado Borrador. Debe confirmarlo primero.");
             }
 
             $pendiente = floatval($linea_pedido['cantidad']) - floatval($linea_pedido['cantidad_entregada']);

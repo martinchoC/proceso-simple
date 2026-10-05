@@ -1117,7 +1117,7 @@ $(document).ready(function () {
                 }
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
@@ -1955,7 +1955,7 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
@@ -2087,7 +2087,7 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
@@ -2292,7 +2292,7 @@ $(document).ready(function () {
             // propio de arriba (#buscadorEntidades, ver más abajo). 'l' (cantidad de
             // registros) va abajo a la izquierda, junto con info y paginado.
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-3"l><"col-sm-12 col-md-4"i><"col-sm-12 col-md-5"p>>' +
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>' +
                 '<"clear">',
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
@@ -2580,7 +2580,7 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             dom: '<"row"<"col-sm-12"tr>>' +
-                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [

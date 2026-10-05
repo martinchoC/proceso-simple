@@ -202,7 +202,7 @@ $(document).ready(function () {
                 },
                 dataSrc: function (res) { return (res && res.success && res.data) || []; }
             },
-            pageLength: 25,
+            pageLength: 10,
             columns: [
                 { data: 'integracion_resultado_id' },
                 { data: 'fecha_hora_solicitud', render: function (d, type) { return type === 'display' ? formatoFecha(d) : d; } },
