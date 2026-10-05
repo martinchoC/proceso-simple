@@ -97,7 +97,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
                 <div class="card-body p-3">
                     <div class="table-responsive">
-                        <table id="tablaCobranzas" class="table table-sm table-striped table-hover align-middle w-100">
+                        <table id="tablaCobranzas" class="table table-striped table-bordered table-sm table-slim align-middle w-100">
                             <thead class="table-dark">
                                 <tr>
                                     <th style="width: 80px;">Emisión</th>
@@ -141,7 +141,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </h6>
                         </div>
                         <div class="card-body py-2">
-                            <div class="row g-2">
+                            <div class="row g-2 mb-2">
                                 <div class="col-md-4">
                                     <label class="form-label small fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
                                     <select class="form-select form-select-sm" id="selectCliente" name="entidad_id" required>
@@ -156,17 +156,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="col-md-3">
                                     <label class="form-label small fw-bold mb-1">Punto de Venta <span class="text-danger">*</span></label>
                                     <select class="form-select form-select-sm" id="selectPuntoVenta" name="comprobante_pv" required>
+                                        <option value="">Seleccionar PV</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Número</label>
+                                    <input type="text" class="form-control form-control-sm font-monospace" id="inputComprobanteNro" value="Se asigna al confirmar" readonly>
+                                </div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold mb-1">Tipo Comprobante <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="selectComprobanteTipo" name="comprobante_tipo_id" required>
+                                        <option value="">Seleccione PV primero</option>
                                     </select>
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small fw-bold mb-1">Fecha Emisión <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control form-control-sm" id="inputFechaEmision" name="f_emision" value="<?php echo date('Y-m-d'); ?>" required>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label small fw-bold mb-1">Fecha Contable</label>
                                     <input type="date" class="form-control form-control-sm" id="inputFechaContable" name="f_contabilidad" value="<?php echo date('Y-m-d'); ?>">
                                 </div>
-                                <div class="col-md-9">
+                                <div class="col-md-4">
                                     <label class="form-label small fw-bold mb-1">Observaciones</label>
                                     <input type="text" class="form-control form-control-sm" id="inputObservaciones" name="observaciones" placeholder="Concepto, referencia interna o detalle general de la cobranza...">
                                 </div>
@@ -363,8 +376,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
+<!-- Estilos específicos de tabla compacta (slim) -->
+<style>
+#tablaCobranzas.table-slim th,
+#tablaCobranzas.table-slim td {
+    font-size: 0.78rem !important;
+    padding: 0.3rem 0.5rem !important;
+    line-height: 1.2 !important;
+    vertical-align: middle !important;
+}
+#tablaCobranzas.table-slim td small {
+    font-size: 0.7rem !important;
+}
+#tablaCobranzas.table-slim .btn-accion {
+    padding: 0.15rem 0.4rem !important;
+    font-size: 0.7rem !important;
+}
+</style>
+
 <!-- Scripts específicos del módulo -->
-<script src="cobranzas.js"></script>
+<script>
+    const PAGINA_ID = <?= $pagina_idx ?>;
+    const EMPRESA_ID = 2;
+</script>
+<script src="cobranzas.js?v=<?= filemtime(__DIR__ . '/cobranzas.js') ?>"></script>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

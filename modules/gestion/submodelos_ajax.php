@@ -101,6 +101,12 @@ try {
             echo json_encode($productos, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'inhabilitar_sin_productos':
+            $tipo = $_POST['tipo'] ?? '';
+            $resultado = inhabilitarSinProductos($conexion, $tipo, $empresa_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }

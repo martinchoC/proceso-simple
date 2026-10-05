@@ -157,6 +157,46 @@ function poblarSelectPuntosVenta(sucursalId = null) {
 }
 
 /**
+ * Carga los tipos de comprobantes habilitados para el punto de venta seleccionado
+ * según la tabla vinculada a la página (conf__paginas.tabla_id -> gestion__comprobantes_subgrupos -> tipos)
+ */
+async function cargarTiposPorPuntoVenta(tipoPreseleccionado = null) {
+    const selectPV = document.getElementById('selectPuntoVenta');
+    const selectTipo = document.getElementById('selectComprobanteTipo');
+    if (!selectTipo) return;
+
+    const pvId = selectPV ? selectPV.value : '';
+    if (!pvId) {
+        selectTipo.innerHTML = '<option value="">Seleccione PV primero</option>';
+        return;
+    }
+
+    try {
+        const empId = typeof EMPRESA_ID !== 'undefined' ? EMPRESA_ID : 2;
+        const pagId = typeof PAGINA_ID !== 'undefined' ? PAGINA_ID : 105;
+        const resp = await fetch(`cobranzas_ajax.php?accion=tipos_por_punto_venta&empresa_idx=${empId}&pagina_idx=${pagId}&punto_venta_id=${pvId}`);
+        const tipos = await resp.json();
+        let opts = '';
+        if (tipos && tipos.length > 0) {
+            tipos.forEach(t => {
+                const letra = t.letra ? ` (${t.letra})` : '';
+                const sel = (tipoPreseleccionado && String(tipoPreseleccionado) === String(t.comprobante_tipo_id)) ? 'selected' : '';
+                opts += `<option value="${t.comprobante_tipo_id}" data-fiscal="${t.comprobante_fiscal_id || 0}" ${sel}>${escapeHtml(t.comprobante_tipo)}${letra}</option>`;
+            });
+            selectTipo.innerHTML = opts;
+            if (!tipoPreseleccionado && tipos.length === 1) {
+                selectTipo.value = tipos[0].comprobante_tipo_id;
+            }
+        } else {
+            selectTipo.innerHTML = '<option value="">Sin tipos habilitados para este PV</option>';
+        }
+    } catch (e) {
+        console.error('Error al cargar tipos de comprobante:', e);
+        selectTipo.innerHTML = '<option value="">Error al cargar tipos</option>';
+    }
+}
+
+/**
  * Inicializa el DataTable principal
  */
 function inicializarDataTable() {
@@ -251,9 +291,10 @@ function configurarEventos() {
     document.getElementById('selectSucursal')?.addEventListener('change', function () {
         poblarSelectPuntosVenta(this.value);
         actualizarCajasMediosEfectivo();
+        cargarTiposPorPuntoVenta();
     });
 
-    // Cambio de Punto de Venta en el Modal sincroniza la Sucursal si es necesario
+    // Cambio de Punto de Venta en el Modal sincroniza la Sucursal si es necesario y carga Tipos
     document.getElementById('selectPuntoVenta')?.addEventListener('change', function () {
         const pvId = parseInt(this.value);
         const pv = (maestros.puntos_venta || []).find(p => parseInt(p.punto_venta_id) === pvId);
@@ -264,6 +305,7 @@ function configurarEventos() {
                 actualizarCajasMediosEfectivo();
             }
         }
+        cargarTiposPorPuntoVenta();
     });
 
 
@@ -354,6 +396,10 @@ async function abrirModalNuevaCobranza() {
 
     // Poblar puntos de venta según la sucursal activa
     poblarSelectPuntosVenta(document.getElementById('selectSucursal')?.value);
+    await cargarTiposPorPuntoVenta();
+
+    const nroInput = document.getElementById('inputComprobanteNro');
+    if (nroInput) nroInput.value = 'Se asigna al confirmar';
 
     // Limpiar medios y agregar 1 fila de Efectivo por defecto
     const tbodyMedios = document.getElementById('tbodyMedios');
@@ -861,6 +907,7 @@ function recopilarDatosCobranza() {
             if (tipo === 'TRANSFERENCIA') {
                 const inpOp = tr.querySelector('.input-nro-operacion');
                 medioObj.numero_operacion = inpOp ? inpOp.value.trim() : null;
+                medioObj.nro_operacion = medioObj.numero_operacion;
             }
         } else if (tipo === 'CHEQUE_TERCERO') {
             const selBanco = tr.querySelector('.input-cheque-banco');
@@ -920,11 +967,14 @@ function recopilarDatosCobranza() {
         return null;
     }
 
+    const comprobanteTipoId = parseInt(document.getElementById('selectComprobanteTipo')?.value) || 0;
+
     return {
         cobranza_id: cobranzaId,
         entidad_id: entidadId,
         sucursal_id: sucursalId,
         comprobante_pv: comprobantePv,
+        comprobante_tipo_id: comprobanteTipoId,
         f_emision: fEmision,
         f_contabilidad: fContabilidad,
         observaciones: observaciones,
@@ -1043,6 +1093,13 @@ async function editarBorrador(id) {
         poblarSelectPuntosVenta(cabecera.sucursal_id);
         if (cabecera.comprobante_pv) {
             document.getElementById('selectPuntoVenta').value = cabecera.comprobante_pv;
+        }
+        await cargarTiposPorPuntoVenta(cabecera.comprobante_tipo_id);
+        const nroInput = document.getElementById('inputComprobanteNro');
+        if (nroInput) {
+            nroInput.value = (cabecera.comprobante_nro > 0)
+                ? `${cabecera.comprobante_codigo || 'RCX'} ${String(cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
+                : 'Borrador (Sin emitir)';
         }
         document.getElementById('inputFechaEmision').value = cabecera.f_emision;
         document.getElementById('inputFechaContable').value = cabecera.f_contabilidad || cabecera.f_emision;
@@ -1177,8 +1234,10 @@ async function verRecibo(id) {
         const { cabecera, medios, imputaciones } = res.data;
         const cuerpo = document.getElementById('cuerpoReciboImpresion');
 
+        const tituloComprobante = cabecera.comprobante_tipo ? cabecera.comprobante_tipo.toUpperCase() : 'RECIBO DE COBRO';
+        const codigoTipo = cabecera.comprobante_codigo || 'RCX';
         const nroRecibo = (cabecera.comprobante_nro > 0)
-            ? `${String(cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
+            ? `${codigoTipo} ${String(cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
             : 'BORRADOR';
 
         let tablaMediosHtml = '';
@@ -1236,7 +1295,7 @@ async function verRecibo(id) {
                     </div>
                     <div class="col-sm-5 text-end">
                         <div class="border border-dark p-2 d-inline-block text-center rounded" style="min-width: 180px;">
-                            <span class="fs-5 fw-bold d-block">RECIBO DE COBRO</span>
+                            <span class="fs-5 fw-bold d-block">${escapeHtml(tituloComprobante)}</span>
                             <span class="fs-6 fw-bold text-primary">N° ${nroRecibo}</span>
                             <div class="small text-muted mt-1">Fecha: ${cabecera.f_emision}</div>
                         </div>

@@ -25,8 +25,14 @@ function ciclos_tareas_listar(mysqli $conexion, int $empresa_id, array $filtros 
     }
 
     if (!empty($filtros['estado_id'])) {
-        $estado_id = (int)$filtros['estado_id'];
-        $where[] = "ct.tabla_estado_registro_id = {$estado_id}";
+        if ($filtros['estado_id'] === 'vencidas') {
+            $where[] = "ct.fecha_vencimiento < NOW() AND ct.tabla_estado_registro_id NOT IN (2081, 2083)";
+        } elseif ($filtros['estado_id'] === 'proximas') {
+            $where[] = "ct.fecha_vencimiento BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY) AND ct.tabla_estado_registro_id NOT IN (2081, 2083)";
+        } else {
+            $estado_id = (int)$filtros['estado_id'];
+            $where[] = "ct.tabla_estado_registro_id = {$estado_id}";
+        }
     }
 
     if (!empty($filtros['usuario_id'])) {
@@ -75,11 +81,21 @@ function ciclos_tareas_listar(mysqli $conexion, int $empresa_id, array $filtros 
                  INNER JOIN conf__usuarios u ON u.usuario_id = ctr.usuario_id 
                  WHERE ctr.ciclo_tarea_id = ct.ciclo_tarea_id AND ctr.raci_rol_id = 1 
                  LIMIT 1) as responsable_nombre,
+                (SELECT ctr.usuario_id 
+                 FROM ml__ciclos_tareas_raci ctr 
+                 WHERE ctr.ciclo_tarea_id = ct.ciclo_tarea_id AND ctr.raci_rol_id = 1 
+                 LIMIT 1) as responsable_usuario_id,
+                (SELECT COUNT(*) FROM ml__evidencias ev WHERE ev.ciclo_tarea_id = ct.ciclo_tarea_id AND ev.tabla_estado_registro_id = 1) as total_evidencias,
+                COALESCE(crit.nombre, 'Media') as criticidad_nombre,
+                COALESCE(crit.peso, 2) as criticidad_peso,
+                e.entidad_id,
+                o.obligacion_id,
                 (SELECT COUNT(*) FROM ml__ciclos_tareas_dependencias dep WHERE dep.ciclo_tarea_id = ct.ciclo_tarea_id) as total_predecesoras
             FROM ml__ciclos_tareas ct
             INNER JOIN ml__ciclos c ON c.ciclo_id = ct.ciclo_id
             INNER JOIN ml__obligaciones_asignadas oa ON oa.obligacion_asignada_id = c.obligacion_asignada_id
             INNER JOIN ml__obligaciones o ON o.obligacion_id = oa.obligacion_prevaleciente_id
+            LEFT JOIN ml__criticidades crit ON crit.criticidad_id = o.criticidad_id
             INNER JOIN ml__entidades e ON e.entidad_id = c.entidad_id
             INNER JOIN ml__entidades_tipos et ON et.entidad_tipo_id = e.entidad_tipo_id
             INNER JOIN conf__tablas_estados_registros est ON est.tabla_estado_registro_id = ct.tabla_estado_registro_id

@@ -18,7 +18,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 <main class="app-main">
   <div class="app-content-header"><div class="container-fluid"><div class="row"><div class="col-sm-6"><h3 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i>Facturas de Clientes</h3></div><div class="col-sm-6"><ol class="breadcrumb float-sm-end"><li class="breadcrumb-item">Ventas</li><li class="breadcrumb-item active">Facturas de Clientes</li></ol></div></div></div></div>
-  <div class="app-content"><div class="container-fluid"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><button class="btn btn-sm btn-primary" id="btnNuevaFactura"><i class="fas fa-plus me-1"></i>Nueva Factura</button><button class="btn btn-sm btn-outline-secondary" id="btnRecargar"><i class="fas fa-sync-alt"></i></button></div><div class="card-body"><table id="tablaFacturasCliente" class="table table-striped table-bordered table-sm" style="width:100%"><thead><tr><th>Número</th><th>Cliente</th><th>Tipo</th><th>Emisión</th><th>Condición De Pago</th><th>Total</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody></tbody></table></div></div></div></div>
+  <div class="app-content"><div class="container-fluid"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><button class="btn btn-sm btn-primary" id="btnNuevaFactura"><i class="fas fa-plus me-1"></i>Nueva Factura</button><div class="input-group input-group-sm" style="width: 250px;"><span class="input-group-text"><i class="fas fa-search"></i></span><input type="text" class="form-control" id="filtro_facturas" placeholder="Buscar factura / cliente..."></div></div><button class="btn btn-sm btn-outline-secondary" id="btnRecargar"><i class="fas fa-sync-alt"></i></button></div><div class="card-body"><table id="tablaFacturasCliente" class="table table-striped table-bordered table-sm table-slim" style="width:100%"><thead><tr><th>Número</th><th>Cliente</th><th>Tipo</th><th>Emisión</th><th>Condición De Pago</th><th>Total</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody></tbody></table></div></div></div></div>
 </main>
 <div class="modal fade" id="modalFacturaCliente" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -212,8 +212,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 .no-spinner::-webkit-inner-spin-button,.no-spinner::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .no-spinner{-moz-appearance:textfield;appearance:textfield}
 
-/* Tipografía un poco más chica en el listado principal */
-#tablaFacturasCliente{font-size:.82rem}
+/* ===== TABLA MÁS COMPACTA (slim) ===== */
+#tablaFacturasCliente.table-slim th,
+#tablaFacturasCliente.table-slim td {
+    font-size: 0.78rem !important;
+    padding: 0.3rem 0.5rem !important;
+    line-height: 1.2 !important;
+    vertical-align: middle !important;
+}
+#tablaFacturasCliente.table-slim td small {
+    font-size: 0.7rem !important;
+}
+#tablaFacturasCliente.table-slim .btn-accion-factura {
+    padding: 0.15rem 0.4rem !important;
+    font-size: 0.7rem !important;
+}
 
 /* Modal más ancho que el modal-xl estándar de Bootstrap (~1140px), pero sin romper
    responsive: max-width solo pesa cuando el viewport lo permite, en pantallas chicas

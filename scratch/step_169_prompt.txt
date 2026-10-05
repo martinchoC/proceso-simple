@@ -1,0 +1,57 @@
+<USER_REQUEST>
+Actúa como el agente **orquestador-dev** (Líder Técnico de Desarrollo PHP de `gestion_multipyme`).
+
+### 1. CONTEXTO Y ENTRADAS DEL PROYECTO
+Recibes la especificación técnica completa y el Script DDL aprobado del **Módulo de Estudio Contable y Auditoría Integrada** (`modulo_id = 4` en `conf__modulos`), que comprende las tablas `estudio__*` y `gestion__activos_*`.
+
+### 2. REGLAS INQUEBRANTABLES DE ARQUITECTURA Y CODIFICACIÓN
+Todo subagente que generes para el desarrollo paralelo DEBE cumplir estrictamente con los siguientes mandamientos del proyecto:
+1. **Patrón de 4 Capas Obligatorio:** Toda pantalla se compone de `[modulo].php`, `[modulo]_ajax.php`, `[modulo]_model.php` y `[modulo].js`.
+2. **Variable de Módulo Intencional:** En toda vista `.php`, declarar `$modudo_idx = 4;` (con 'd', nunca corregir a 'l') y su correspondiente `$pagina_idx`.
+3. **Multi-Tenancy y SQL Seguro:** Ninguna consulta en `_model.php` puede omitir `WHERE empresa_id = ?` (con enlace de tipos `mysqli_stmt_bind_param`). Prohibida cualquier concatenación de variables en el SQL.
+4. **Respuestas AJAX Limpias:** Los handlers `_ajax.php` operan con `display_errors=1`. Queda prohibido cualquier `echo`, `print`, `var_dump` o notice antes del `json_encode()` final. Formato de salida canónico obligatorio:
+   `{ "success": bool, "message": string, "data": mixed, "error": string|null }`
+5. **Comprobante Universal y Transacciones:** Cualquier operación con impacto contable/financiero debe invocar `syncComprobante()`, utilizar `mysqli_begin_transaction()`, try/catch y `mysqli_commit()` / `mysqli_rollback()`.
+6. **Estados Dinámicos:** El estado siempre se gobierna por la columna `tabla_estado_registro_id` (nunca `estado_id` plano) apuntando a `conf__tablas_estados_registros`. Los botones de grilla se leen dinámicamente desde `conf__paginas_funciones`.
+
+---
+
+### 3. DIVISIÓN DEL TRABAJO EN TAREAS INDEPENDIENTES (SUBAGENTES PARALELOS)
+Crea y delega el desarrollo en paralelo a subagentes de desarrollo PHP especí
+<truncated 3045 bytes>
+ de asientos contables en `gestion__cont_asientos` (origen 'AUTO').
+
+---
+
+### 4. PROTOCOLO DE VALIDACIÓN POST-DESARROLLO (DELEGACIÓN OBLIGATORIA)
+Al finalizar el desarrollo paralelo, NO des por cerrado el trabajo ni valides tú mismo la coherencia. Invoca y delega sucesivamente a la batería de agentes revisores de Antigravity:
+
+1. **Invocar a `revisor-convenciones`:**
+   - Confirmar consistencia de nombres cortos (`f_emision`, `f_vencimiento`).
+   - Validar presencia de los 8 campos obligatorios en tablas de proceso.
+   - Verificar integración limpia con `gestion__comprobantes` sin duplicación de modelos.
+2. **Invocar a `revisor-sql`:**
+   - Auditar strings de tipos en `mysqli_stmt_bind_param` (`i`, `s`, `d`).
+   - Controlar transacciones en escrituras y asegurar `WHERE empresa_id = ?`.
+   - Confirmar inexistencia de consultas N+1 en loops de generación masiva.
+3. **Invocar a `revisor-ajax`:**
+   - Auditar que ningún archivo emita notices/warnings de PHP que rompan la respuesta JSON.
+   - Verificar `Content-Type: application/json` y manejo uniforme de excepciones con SweetAlert2.
+4. **Invocar a `revisor-casos-borde`:**
+   - Analizar bloqueos concurrentes (`FOR UPDATE`), control de lotes masivos y consistencia de estados derivados.
+
+Inicia la orquestación, genera las tareas y presenta los avances de código estructurados.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-05T11:16:22-03:00.
+
+The user's current state is as follows:
+Active Document: c:\xampp\htdocs\casalucho\modules\gestion\ventas_remitos_pendientes_facturacion.php (LANGUAGE_PHP)
+Cursor is on line: 1
+Other open documents:
+- c:\xampp\htdocs\casalucho\scratch\fix_encoding.php (LANGUAGE_PHP)
+- c:\xampp\htdocs\casalucho\scratch\test_filter_proximas.php (LANGUAGE_PHP)
+- c:\xampp\htdocs\casalucho\scratch\check_paginas_remitos.py (LANGUAGE_PYTHON)
+- c:\xampp\htdocs\casalucho\scratch\verify_all_data.php (LANGUAGE_PHP)
+- c:\xampp\htdocs\casalucho\scratch\test_db_info.php (LANGUAGE_PHP)
+</ADDITIONAL_METADATA>

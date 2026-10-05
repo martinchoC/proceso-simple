@@ -22,8 +22,17 @@ function manejarError($mensaje, $codigo = 500) {
 }
 
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    error_log("Error PHP en cobranzas AJAX: $errstr en $errfile línea $errline");
-    manejarError("Error interno: $errstr");
+    if (!(error_reporting() & $errno)) {
+        return false;
+    }
+    // Solo abortar en errores fatales/de usuario; loguear advertencias
+    if ($errno === E_USER_ERROR) {
+        error_log("Error fatal PHP en cobranzas AJAX: $errstr en $errfile línea $errline");
+        manejarError("Error interno: $errstr");
+    } else {
+        error_log("Aviso PHP en cobranzas AJAX [$errno]: $errstr en $errfile línea $errline");
+        return true;
+    }
 });
 
 require_once __DIR__ . '/../../db.php';
@@ -76,7 +85,7 @@ try {
             $bancos = obtenerBancosDisponibles($conexion);
             $impuestos_retencion = obtenerImpuestosRetencion($conexion);
             $sucursales = obtenerSucursalesEmpresa($conexion, $empresa_idx);
-            $puntos_venta = obtenerPuntosVentaCobranza($conexion, $empresa_idx);
+            $puntos_venta = obtenerPuntosVentaCobranza($conexion, $empresa_idx, $pagina_idx);
 
             enviarRespuesta([
                 'success' => true,
@@ -90,6 +99,12 @@ try {
                     'puntos_venta'        => $puntos_venta
                 ]
             ]);
+            break;
+
+        case 'tipos_por_punto_venta':
+            $punto_venta_id = intval($_GET['punto_venta_id'] ?? $_POST['punto_venta_id'] ?? 0);
+            $tipos = obtenerTiposComprobanteCobranza($conexion, $empresa_idx, $punto_venta_id, $pagina_idx);
+            enviarRespuesta($tipos);
             break;
 
         case 'comprobantes_pendientes':
@@ -164,6 +179,6 @@ try {
         default:
             manejarError("Acción desconocida: $accion", 400);
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     manejarError($e->getMessage(), 500);
 }

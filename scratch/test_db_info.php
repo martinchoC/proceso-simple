@@ -1,30 +1,43 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 require_once __DIR__ . '/../db.php';
 
-echo "=== SUCURSALES ===\n";
-$res = $conn->query("SELECT sucursal_id, sucursal_nombre FROM gestion__sucursales");
-while ($r = $res->fetch_assoc()) {
-    print_r($r);
+echo "Connected to Host: " . IP_HOST . "\n";
+echo "Current DB: " . DB_NAME . "\n";
+
+$res = mysqli_query($conn, "SHOW DATABASES");
+echo "Databases in MySQL:\n";
+while ($row = mysqli_fetch_row($res)) {
+    echo " - " . $row[0] . "\n";
 }
 
-echo "=== BOCAS ===\n";
-$res = $conn->query("SELECT boca_id, empresa_id, sucursal_id, boca_nombre, codigo, es_deposito, es_principal FROM gestion__bocas");
-while ($r = $res->fetch_assoc()) {
-    print_r($r);
+echo "\nTables with 'ml__' in " . DB_NAME . ":\n";
+$resT = mysqli_query($conn, "SHOW TABLES LIKE 'ml_%'");
+while ($row = mysqli_fetch_row($resT)) {
+    echo " - " . $row[0] . "\n";
 }
 
-echo "=== PUNTOS DE VENTA ===\n";
-$res = $conn->query("SELECT punto_venta_id, empresa_id, sucursal_id, boca_id, nombre, codigo_fiscal FROM gestion__puntos_venta");
-while ($r = $res->fetch_assoc()) {
-    print_r($r);
+echo "\nNormas in " . DB_NAME . ":\n";
+$resN = mysqli_query($conn, "SELECT norma_id, codigo, titulo, empresa_id FROM ml__normas");
+while ($row = mysqli_fetch_assoc($resN)) {
+    echo " ID: {$row['norma_id']} | Cod: {$row['codigo']} | Titulo: {$row['titulo']} | Empresa: {$row['empresa_id']}\n";
 }
 
-echo "=== CUENTAS TESORERIA ===\n";
-$res = $conn->query("SELECT tesoreria_cuenta_id, empresa_id, sucursal_id, cuenta_tipo, codigo, tesoreria_cuenta, saldo_actual FROM gestion__tesoreria_cuentas");
-if ($res) {
-    while ($r = $res->fetch_assoc()) {
-        print_r($r);
-    }
-} else {
-    echo "No hay o error en gestion__tesoreria_cuentas: " . $conn->error . "\n";
+echo "\nEntidades in " . DB_NAME . ":\n";
+$resE = mysqli_query($conn, "SELECT entidad_id, codigo, nombre FROM ml__entidades");
+while ($row = mysqli_fetch_assoc($resE)) {
+    echo " ID: {$row['entidad_id']} | Cod: {$row['codigo']} | Nombre: {$row['nombre']}\n";
+}
+
+echo "\nCiclos in " . DB_NAME . ":\n";
+$resC = mysqli_query($conn, "SELECT ciclo_id, codigo, anio, fecha_inicio, fecha_vencimiento FROM ml__ciclos");
+while ($row = mysqli_fetch_assoc($resC)) {
+    echo " ID: {$row['ciclo_id']} | Cod: {$row['codigo']} | Año: {$row['anio']} | Vto: {$row['fecha_vencimiento']}\n";
+}
+
+echo "\nTareas in " . DB_NAME . ":\n";
+$resTa = mysqli_query($conn, "SELECT ciclo_tarea_id, ciclo_id, nombre, usuario_responsable_id FROM ml__ciclos_tareas");
+while ($row = mysqli_fetch_assoc($resTa)) {
+    echo " ID: {$row['ciclo_tarea_id']} | Ciclo: {$row['ciclo_id']} | Nombre: {$row['nombre']} | Resp: {$row['usuario_responsable_id']}\n";
 }

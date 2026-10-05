@@ -227,6 +227,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>
-<script src="modules/ml/ciclos_raci.js"></script>
+<script src="ciclos_raci.js?v=<?= time() ?>"></script>
 </body>
 </html>

@@ -154,7 +154,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         type="button">Marcas <span class="badge text-bg-secondary" id="cntSinMarcas">0</span></button>
                                                 </li>
                                             </ul>
-                                            <input type="search" class="form-control form-control-sm" style="max-width: 220px;"
+                                            <div class="btn-group btn-group-sm" role="group" aria-label="Inhabilitar sin productos">
+                                                <button type="button" class="btn btn-outline-danger btn-inhabilitar-sin-prod" data-tipo="submodelos"
+                                                    id="btnInhabilitarSinSubmodelos" title="Inhabilitar todos los submodelos sin productos asignados">
+                                                    <i class="fas fa-ban me-1"></i>Inhabilitar Submodelos
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-inhabilitar-sin-prod" data-tipo="modelos"
+                                                    id="btnInhabilitarSinModelos" title="Inhabilitar todos los modelos sin productos asignados">
+                                                    <i class="fas fa-ban me-1"></i>Inhabilitar Modelos
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-inhabilitar-sin-prod" data-tipo="marcas"
+                                                    id="btnInhabilitarSinMarcas" title="Inhabilitar todas las marcas sin productos asignados">
+                                                    <i class="fas fa-ban me-1"></i>Inhabilitar Marcas
+                                                </button>
+                                            </div>
+                                            <input type="search" class="form-control form-control-sm" style="max-width: 180px;"
                                                 id="sinProdBuscar" placeholder="Filtrar...">
                                         </div>
                                         <div class="card-body p-0" style="max-height: 420px; overflow-y: auto;">
@@ -775,6 +789,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#cntSinModelos').text(sp.modelos.length);
                 $('#cntSinMarcas').text(sp.marcas.length);
 
+                var subsActivos = sp.submodelos.filter(function (s) { return s.estado === 'Activo'; }).length;
+                var modsActivos = sp.modelos.filter(function (m) { return m.estado === 'Activo'; }).length;
+                var marcasActivas = sp.marcas.filter(function (m) { return m.estado === 'Activo'; }).length;
+
+                $('#btnInhabilitarSinSubmodelos').prop('disabled', subsActivos === 0)
+                    .attr('title', subsActivos > 0 ? `Inhabilitar ${subsActivos} submodelos activos sin productos` : 'No hay submodelos activos sin productos');
+                $('#btnInhabilitarSinModelos').prop('disabled', modsActivos === 0)
+                    .attr('title', modsActivos > 0 ? `Inhabilitar ${modsActivos} modelos activos sin productos` : 'No hay modelos activos sin productos');
+                $('#btnInhabilitarSinMarcas').prop('disabled', marcasActivas === 0)
+                    .attr('title', marcasActivas > 0 ? `Inhabilitar ${marcasActivas} marcas activas sin productos` : 'No hay marcas activas sin productos');
+
                 var q = $('#sinProdBuscar').val().trim().toLowerCase();
                 var coincide = function () {
                     if (!q) return true;
@@ -813,7 +838,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <td>${m.marca ? esc(m.marca) : sinDato}</td>
                                 <td class="text-end">${fmt(m.hijos)}</td><td>${estado(m)}</td></tr>`;
                         });
-                    pie = 'Modelos sin productos compatibles. Se depuran desde la página de Modelos.';
+                    pie = 'Modelos sin productos compatibles. Se pueden inhabilitar con el botón superior o gestionar desde la página de Modelos.';
                 } else {
                     cab = '<th>Marca</th><th class="text-end">Modelos</th><th>Estado</th>';
                     filas = sp.marcas.filter(function (m) { return coincide(m.nombre); })
@@ -821,7 +846,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             return `<tr><td class="fw-medium">${esc(m.nombre)}</td>
                                 <td class="text-end">${fmt(m.hijos)}</td><td>${estado(m)}</td></tr>`;
                         });
-                    pie = 'Marcas sin productos compatibles. Se depuran desde la página de Marcas.';
+                    pie = 'Marcas sin productos compatibles. Se pueden inhabilitar con el botón superior o gestionar desde la página de Marcas.';
                 }
 
                 var columnas = (cab.match(/<th/g) || []).length;
@@ -839,6 +864,72 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 renderSinProductos();
             });
             $('#sinProdBuscar').on('input', renderSinProductos);
+
+            // Inhabilitar masivo sin productos (submodelos, modelos o marcas)
+            $(document).on('click', '.btn-inhabilitar-sin-prod', function () {
+                var tipo = $(this).data('tipo');
+                var articulos = {
+                    'submodelos': 'los submodelos',
+                    'modelos': 'los modelos',
+                    'marcas': 'las marcas'
+                };
+                var articulo = articulos[tipo] || tipo;
+
+                Swal.fire({
+                    title: `¿Inhabilitar ${articulo} sin productos?`,
+                    html: `Esta acción cambiará a estado <strong>Inactivo</strong> todos ${articulo} activos que no tengan productos asignados.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-ban me-1"></i>Sí, inhabilitar',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true,
+                    allowOutsideClick: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'Procesando...',
+                            text: `Inhabilitando ${articulo} sin productos asignados`,
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        $.post('submodelos_ajax.php', {
+                            accion: 'inhabilitar_sin_productos',
+                            tipo: tipo,
+                            empresa_idx: empresa_idx
+                        }, function (res) {
+                            if (res.success) {
+                                tabla.ajax.reload();
+                                cargarResumen();
+                                Swal.fire({
+                                    icon: res.afectados > 0 ? 'success' : 'info',
+                                    title: res.afectados > 0 ? '¡Inhabilitación exitosa!' : 'Sin registros para inhabilitar',
+                                    text: res.mensaje,
+                                    confirmButtonText: 'Aceptar'
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: res.error || 'No se pudo completar la inhabilitación',
+                                    confirmButtonText: 'Entendido'
+                                });
+                            }
+                        }, 'json').fail(function () {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error de conexión',
+                                text: 'Error al comunicarse con el servidor',
+                                confirmButtonText: 'Entendido'
+                            });
+                        });
+                    }
+                });
+            });
 
             function filaArbol(o) {
                 var sangria = o.nivel * 1.5;

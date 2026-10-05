@@ -81,12 +81,28 @@ $accion = $_REQUEST['accion'] ?? '';
 
 try {
     switch ($accion) {
-        case 'indicadores_actuales':
-            if (!in_array('consultar_tablero', $funciones_permitidas, true)) {
-                echo json_encode(['success' => false, 'message' => 'No tiene permiso para consultar el tablero.']);
-                exit;
+        case 'drilldown':
+            $nivel = $_GET['nivel'] ?? 'global';
+            $filtros = [
+                'region_id' => isset($_GET['region_id']) ? (int)$_GET['region_id'] : 0,
+                'territorio_id' => isset($_GET['territorio_id']) ? (int)$_GET['territorio_id'] : 0,
+                'empresa_id' => isset($_GET['empresa_id']) ? (int)$_GET['empresa_id'] : $empresa_idx,
+            ];
+
+            // Si es superadmin y está en nivel global o regional, consulta todo el grupo
+            if (in_array($usuario_id, USUARIOS_ACCESO_TOTAL, true) && ($nivel === 'global' || $nivel === 'region' || $nivel === 'pais')) {
+                $filtros['empresa_id'] = 0;
             }
 
+            $datos = tablero_obtener_drilldown($conexion, $nivel, $filtros);
+            echo json_encode([
+                'success' => true,
+                'data' => $datos,
+                'funciones_permitidas' => $funciones_permitidas
+            ]);
+            break;
+
+        case 'indicadores_actuales':
             $actuales = tablero_indicadores_actuales($conexion, $empresa_idx);
             $criticidades = tablero_cumplimiento_por_criticidad($conexion, $empresa_idx);
             $entidades = tablero_cumplimiento_por_entidad($conexion, $empresa_idx);

@@ -47,8 +47,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <div class="col-12">
                                 <div class="card">
                                     <div class="card-header">
-                                        <div class="row align-items-center">
-                                            <div class="col-md-3">
+                                        <div class="row align-items-center g-2">
+                                            <div class="col-md-auto">
                                                 <div id="contenedor-boton-agregar" class="d-inline">
                                                     <!-- Cargando... -->
                                                     <button type="button" class="btn btn-primary" id="btnNuevo" style="display:none;">
@@ -57,12 +57,39 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </div>
                                             </div>
                                             <div class="col-md-3">
-                                                <input type="text" class="form-control form-control-sm" id="filtro_cliente" placeholder="Filtrar por cliente...">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                                    <input type="text" class="form-control" id="filtro_cliente" placeholder="Filtrar por cliente / CUIT...">
+                                                    <button class="btn btn-outline-secondary" type="button" id="btnLimpiarFiltroCliente" title="Limpiar filtro de cliente">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="col-md-3">
-                                                <input type="text" class="form-control form-control-sm" id="filtro_estado" placeholder="Filtrar por estado...">
+                                            <div class="col-md-auto">
+                                                <div class="btn-group btn-group-sm" role="group" aria-label="Filtros rápidos por estado" id="grupoFiltrosEstados">
+                                                    <button type="button" class="btn btn-outline-secondary btn-filtro-estado-rapido active" data-estado-id="" title="Ver todos los remitos">
+                                                        Todos
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-warning btn-filtro-estado-rapido" data-estado-id="13" title="Filtrar remitos pendientes de facturación">
+                                                        <i class="fas fa-clock me-1"></i>Pend. Facturación
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-info btn-filtro-estado-rapido" data-estado-id="15" title="Filtrar remitos con facturación parcial">
+                                                        <i class="fas fa-tasks me-1"></i>Fact. Parcial
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-success btn-filtro-estado-rapido" data-estado-id="12" title="Filtrar remitos ya facturados">
+                                                        <i class="fas fa-check-circle me-1"></i>Facturado
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-filtro-estado-rapido" data-estado-id="3" title="Filtrar remitos en borrador">
+                                                        <i class="fas fa-edit me-1"></i>Borrador
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="col-md-3 text-end">
+                                            <div class="col-md-auto">
+                                                <a href="ventas_remitos_pendientes_facturacion.php" class="btn btn-sm btn-outline-warning" title="Ir a la Cola de Remitos Pendientes de Facturación">
+                                                    <i class="fas fa-file-invoice me-1"></i>Cola Facturación
+                                                </a>
+                                            </div>
+                                            <div class="col text-end">
                                                 <div class="btn-group" role="group">
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar tabla">
                                                         <i class="fas fa-sync-alt"></i>
@@ -85,7 +112,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
 
                                     <div class="card-body">
-                                        <table id="tablaVentasRemitos" class="table table-striped table-bordered" style="width:100%">
+                                        <table id="tablaVentasRemitos" class="table table-striped table-bordered table-sm table-slim" style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th width="100">Tipo</th>
@@ -116,11 +143,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 <div class="modal-dialog modal-xl modal-dialog-scrollable">
                     <div class="modal-content">
                         <!-- HEADER -->
-                        <div class="modal-header bg-gradient-primary text-white py-2">
+                        <div class="modal-header bg-gradient-primary text-white py-2 d-flex justify-content-between align-items-center">
                             <h5 class="modal-title" id="modalLabel">
                                 <i class="fas fa-truck-loading me-2"></i>Remito de Venta
                             </h5>
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center ms-auto">
                                 <button type="button" class="btn btn-sm btn-light me-2" id="btnToggleFullscreen" title="Pantalla completa">
                                     <i class="fas fa-expand"></i>
                                 </button>
@@ -399,6 +426,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
         /* Modal principal más ancho (sin pisar el modo pantalla completa, que ya lo maneja Bootstrap) */
         #modalVentaRemito .modal-dialog.modal-xl:not(.modal-fullscreen) { max-width: 1400px; }
+        #modalVentaRemito .modal-header {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+        }
+        #modalVentaRemito .modal-header .modal-title {
+            margin-right: auto;
+        }
 
         .card-tabs .nav-tabs { border-bottom: 2px solid #dee2e6; background: #f8f9fa; border-radius: 4px 4px 0 0; }
         .card-tabs .nav-tabs .nav-link {
@@ -543,10 +578,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         #tablaVentasRemitos_length, #tablaVentasRemitos_filter { margin: 0; padding: 0; }
         #tablaVentasRemitos_length label, #tablaVentasRemitos_filter label { display: flex; align-items: center; margin-bottom: 0; gap: 5px; font-size: 0.85rem; }
         #tablaVentasRemitos_length select { width: auto; display: inline-block; margin: 0 5px; }
-        #tablaVentasRemitos_filter input { width: 200px; margin-left: 5px; }
-        .dataTables_wrapper .dataTables_length, .dataTables_wrapper .dataTables_filter { display: none !important; }
+        .dataTables_wrapper .dataTables_filter { display: none !important; }
         .dataTables_paginate .paginate_button { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
         .btn-accion { margin-bottom: 2px; }
+
+        /* ===== TABLA MÁS COMPACTA (slim) ===== */
+        #tablaVentasRemitos.table-slim th,
+        #tablaVentasRemitos.table-slim td {
+            font-size: 0.78rem;
+            padding: 0.3rem 0.5rem;
+            line-height: 1.2;
+            vertical-align: middle;
+        }
+        #tablaVentasRemitos.table-slim td small {
+            font-size: 0.7rem;
+        }
+        #tablaVentasRemitos.table-slim .btn-accion,
+        #tablaVentasRemitos.table-slim .btn-accion-remito {
+            padding: 0.15rem 0.4rem;
+            font-size: 0.7rem;
+        }
 
         /* Ubicación en "Pedidos pendientes de entrega": mismos colores que el ABM
            de productos (.badge-ubicacion + badge-seccion/estanteria/estante/posicion). */
@@ -567,6 +618,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .facturar-totales-box .facturar-totales-final { background: #1a73e8; color: #fff; border-radius: 6px; }
         .facturar-totales-box .facturar-totales-final .label { color: #fff; opacity: .85; }
         .facturar-totales-box .facturar-totales-final .valor { font-size: 1.1rem; }
+
+        .btn-filtro-estado-rapido.active {
+            font-weight: bold;
+            box-shadow: 0 0 0 0.15rem rgba(0, 123, 255, 0.35);
+        }
+        .btn-filtro-estado-rapido[data-estado-id=""].active {
+            background-color: #6c757d;
+            color: #fff;
+        }
+        .btn-filtro-estado-rapido[data-estado-id="13"].active {
+            background-color: #ffc107;
+            color: #000;
+        }
+        .btn-filtro-estado-rapido[data-estado-id="15"].active {
+            background-color: #0dcaf0;
+            color: #000;
+        }
+        .btn-filtro-estado-rapido[data-estado-id="12"].active {
+            background-color: #198754;
+            color: #fff;
+        }
+        .btn-filtro-estado-rapido[data-estado-id="3"].active {
+            background-color: #6c757d;
+            color: #fff;
+        }
 
         @media (max-width: 768px) {
             .card-header .row > div { margin-bottom: 8px; text-align: center !important; }

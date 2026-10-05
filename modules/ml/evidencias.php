@@ -251,6 +251,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>
-<script src="modules/ml/evidencias.js"></script>
+<script src="evidencias.js?v=<?= time() ?>"></script>
 </body>
 </html>

@@ -35,9 +35,20 @@ $(function () {
                 if (!d.entidad_id) return esc(d.consumidor_final_nombre || '') + '<small class="d-block text-muted"><i class="fas fa-user me-1"></i>Consumidor Final</small>';
                 return (d.entidad_nombre || '') + (d.entidad_fantasia ? '<small class="d-block text-muted">' + d.entidad_fantasia + '</small>' : '');
             } },
-            { data: 'comprobante_tipo' }, { data: 'f_emision' }, { data: 'condicion_pago' },
+            { data: 'comprobante_tipo', className: 'text-center' },
+            {
+                data: 'f_emision',
+                className: 'text-center',
+                render: function (data, type) {
+                    if (type === 'sort' || type === 'filter') return data || '';
+                    if (type === 'export' || !data) return data || '';
+                    var parts = (data || '').split('-');
+                    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : data;
+                }
+            },
+            { data: 'condicion_pago' },
             { data: 'importe_total', className: 'text-end', render: function (d) { return '$' + Number(d || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 }); } },
-            { data: 'estado_registro' },
+            { data: 'estado_registro', className: 'text-center' },
             {
                 data: 'botones', orderable: false, searchable: false, className: 'text-center',
                 render: function (data, type, row) {
@@ -56,7 +67,30 @@ $(function () {
                     return '<div class="btn-group" role="group">' + html + '</div>';
                 }
             }
-        ], order: [[3, 'desc']], language: { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' }
+        ],
+        order: [[3, 'desc']],
+        dom: '<"row"<"col-sm-12"tr>>' +
+             '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>' +
+             '<"clear">',
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+        language: {
+            url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+            lengthMenu: 'Mostrar _MENU_ registros',
+            info: 'Página _PAGE_ de _PAGES_',
+            infoEmpty: 'Página 0 de 0',
+            infoFiltered: '(filtrado de _MAX_ registros)',
+            paginate: {
+                first: 'Primero',
+                previous: 'Anterior',
+                next: 'Siguiente',
+                last: 'Último'
+            }
+        }
+    });
+
+    $('#filtro_facturas').on('keyup', function () {
+        tabla.search(this.value).draw();
     });
 
     function moneda(v) { return Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }

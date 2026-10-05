@@ -6,7 +6,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     const urlParams = new URLSearchParams(window.location.search);
     const empresaIdx = urlParams.get('empresa_id') || 2;
-    const ajaxUrl = 'modules/ml/evidencias_ajax.php';
+    const ajaxUrl = window.location.pathname.includes('/modules/ml/') ? 'evidencias_ajax.php' : 'modules/ml/evidencias_ajax.php';
 
     let tablaEvidencias = null;
     let permisosUsuario = [];

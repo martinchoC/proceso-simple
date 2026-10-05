@@ -38,7 +38,13 @@ if (!$conexion) {
 try {
     switch ($accion) {
         case 'listar':
-            $remitos = obtenerRemitosVenta($conexion, $empresa_idx, $pagina_idx);
+            $solo_pendientes = isset($_GET['solo_pendientes_facturacion']) && ($_GET['solo_pendientes_facturacion'] === '1' || $_GET['solo_pendientes_facturacion'] === 'true');
+            $remitos = obtenerRemitosVenta($conexion, $empresa_idx, $pagina_idx, $solo_pendientes);
+            echo json_encode($remitos, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'listar_pendientes_facturacion':
+            $remitos = obtenerRemitosVenta($conexion, $empresa_idx, $pagina_idx, true);
             echo json_encode($remitos, JSON_UNESCAPED_UNICODE);
             break;
 

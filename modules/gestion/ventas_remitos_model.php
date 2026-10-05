@@ -65,6 +65,11 @@ function obtenerFuncionesPaginaRemitos($conexion, $pagina_id)
     }
 
     mysqli_stmt_close($stmt);
+
+    if (empty($funciones) && $pagina_id !== 88 && $pagina_id > 0) {
+        return obtenerFuncionesPaginaRemitos($conexion, 88);
+    }
+
     return $funciones;
 }
 
@@ -737,7 +742,7 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
 // CRUD DE REMITOS
 // ============================================================
 
-function obtenerRemitosVenta($conexion, $empresa_idx, $pagina_id)
+function obtenerRemitosVenta($conexion, $empresa_idx, $pagina_id, $solo_pendientes_facturacion = false)
 {
     $pagina_id = intval($pagina_id);
     $empresa_idx = intval($empresa_idx);
@@ -758,12 +763,14 @@ function obtenerRemitosVenta($conexion, $empresa_idx, $pagina_id)
         }
     }
 
+    $sql_where_estado = $solo_pendientes_facturacion ? " AND vr.tabla_estado_registro_id IN (13, 15) " : "";
+
     $sql = "SELECT vr.*,
                    er.$estado_column as estado_registro,
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
                    ct.comprobante_tipo,
-                   e.entidad_nombre, e.entidad_fantasia,
+                   e.entidad_nombre, e.entidad_fantasia, e.cuit,
                    s.sucursal_nombre,
                    b.boca_nombre,
                    pv.nombre as punto_venta_nombre, pv.codigo_fiscal as punto_venta_codigo,
@@ -782,7 +789,7 @@ function obtenerRemitosVenta($conexion, $empresa_idx, $pagina_id)
                 WHERE tabla_estado_registro_id = 1
                 GROUP BY venta_remito_id
             ) td ON td.venta_remito_id = vr.venta_remito_id
-            WHERE vr.empresa_id = ?
+            WHERE vr.empresa_id = ? $sql_where_estado
             ORDER BY vr.f_emision DESC, vr.venta_remito_id DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);

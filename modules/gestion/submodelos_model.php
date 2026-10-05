@@ -752,4 +752,91 @@ function obtenerProductosNodoResumen($conexion, $empresa_idx, $tipo, $id)
 
     return ['success' => true, 'data' => $productos, 'message' => ''];
 }
+
+// ✅ Inhabilitar registros (submodelos, modelos o marcas) activos sin productos asignados
+function inhabilitarSinProductos($conexion, $tipo, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+
+    if (!in_array($tipo, ['submodelos', 'modelos', 'marcas'], true)) {
+        return ['success' => false, 'error' => 'Tipo de registro inválido'];
+    }
+
+    if ($tipo === 'submodelos') {
+        $sql = "UPDATE gestion__submodelos s
+                LEFT JOIN (
+                    SELECT DISTINCT pc.submodelo_id
+                    FROM gestion__productos_compatibilidad pc
+                    INNER JOIN gestion__productos p ON p.producto_id = pc.producto_id
+                        AND p.empresa_id = pc.empresa_id
+                        AND p.tabla_estado_registro_id = 1
+                    WHERE pc.empresa_id = ? AND pc.tabla_estado_registro_id = 1
+                      AND pc.submodelo_id IS NOT NULL AND pc.submodelo_id > 0
+                ) c ON c.submodelo_id = s.submodelo_id
+                SET s.tabla_estado_registro_id = 2
+                WHERE s.empresa_id = ?
+                  AND s.tabla_estado_registro_id = 1
+                  AND c.submodelo_id IS NULL";
+        $etiqueta = 'submodelos';
+    } elseif ($tipo === 'modelos') {
+        $sql = "UPDATE gestion__modelos m
+                LEFT JOIN (
+                    SELECT DISTINCT pc.modelo_id
+                    FROM gestion__productos_compatibilidad pc
+                    INNER JOIN gestion__productos p ON p.producto_id = pc.producto_id
+                        AND p.empresa_id = pc.empresa_id
+                        AND p.tabla_estado_registro_id = 1
+                    WHERE pc.empresa_id = ? AND pc.tabla_estado_registro_id = 1
+                      AND pc.modelo_id IS NOT NULL AND pc.modelo_id > 0
+                ) c ON c.modelo_id = m.modelo_id
+                SET m.tabla_estado_registro_id = 2
+                WHERE m.empresa_id = ?
+                  AND m.tabla_estado_registro_id = 1
+                  AND c.modelo_id IS NULL";
+        $etiqueta = 'modelos';
+    } else {
+        $sql = "UPDATE gestion__marcas ma
+                LEFT JOIN (
+                    SELECT DISTINCT pc.marca_id
+                    FROM gestion__productos_compatibilidad pc
+                    INNER JOIN gestion__productos p ON p.producto_id = pc.producto_id
+                        AND p.empresa_id = pc.empresa_id
+                        AND p.tabla_estado_registro_id = 1
+                    WHERE pc.empresa_id = ? AND pc.tabla_estado_registro_id = 1
+                      AND pc.marca_id IS NOT NULL AND pc.marca_id > 0
+                ) c ON c.marca_id = ma.marca_id
+                SET ma.tabla_estado_registro_id = 2
+                WHERE ma.empresa_id = ?
+                  AND ma.tabla_estado_registro_id = 1
+                  AND c.marca_id IS NULL";
+        $etiqueta = 'marcas';
+    }
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error al preparar consulta: ' . mysqli_error($conexion)];
+    }
+
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_idx, $empresa_idx);
+    $ok = mysqli_stmt_execute($stmt);
+    if (!$ok) {
+        $err = mysqli_stmt_error($stmt);
+        mysqli_stmt_close($stmt);
+        return ['success' => false, 'error' => 'Error al ejecutar la inhabilitación: ' . $err];
+    }
+
+    $afectados = mysqli_stmt_affected_rows($stmt);
+    mysqli_stmt_close($stmt);
+
+    $mensaje = $afectados > 0
+        ? "Se inhabilitaron correctamente {$afectados} {$etiqueta} sin productos asignados."
+        : "No se encontraron {$etiqueta} activos sin productos para inhabilitar.";
+
+    return [
+        'success' => true,
+        'afectados' => $afectados,
+        'tipo' => $tipo,
+        'mensaje' => $mensaje
+    ];
+}
 ?>

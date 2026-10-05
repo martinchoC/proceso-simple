@@ -79,6 +79,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <li><a class="dropdown-item" href="#" id="btnExportarPrint"><i
                                                                 class="fas fa-print text-secondary"></i> Imprimir</a>
                                                     </li>
+                                                    <li>
+                                                        <hr class="dropdown-divider">
+                                                    </li>
+                                                    <li><a class="dropdown-item" href="exportar_productos_offline.php" target="_blank"><i
+                                                                class="fas fa-paper-plane text-info"></i> Catálogo Offline & Enviar Email</a>
+                                                    </li>
                                                 </ul>
                                             </div>
                                         </div>
@@ -2565,6 +2571,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     ],
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
                     responsive: true,
+                    dom: 't',
+                    buttons: [],
                     pageLength: 10,
                     searching: false,
                     paging: false,

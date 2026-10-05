@@ -50,7 +50,10 @@ function syncComprobanteCobranza($conexion, $cobranza_id, $data)
     $usuario_id          = !empty($data['usuario_id']) ? intval($data['usuario_id']) : 1;
     $observaciones       = trim($data['observaciones'] ?? '');
     $tabla_origen_id     = TABLA_COBRANZAS_ID;
-    $comprobante_tipo_id = TIPO_COMPROBANTE_RCX_ID;
+    $comprobante_tipo_id = intval($data['comprobante_tipo_id'] ?? 0);
+    if ($comprobante_tipo_id <= 0) {
+        $comprobante_tipo_id = TIPO_COMPROBANTE_RCX_ID;
+    }
 
     // Verificar si ya existe el comprobante para esta cobranza
     $sql_check = "SELECT comprobante_id FROM gestion__comprobantes 
@@ -164,6 +167,7 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
     $empresa_id = intval($empresa_id);
 
     $sql = "SELECT c.cobranza_id, c.f_emision, c.comprobante_pv, c.comprobante_nro,
+                   c.comprobante_tipo_id, ct.comprobante_tipo, ct.codigo AS comprobante_codigo, ct.letra AS comprobante_letra,
                    c.importe_total, c.observaciones, c.tabla_estado_registro_id,
                    e.entidad_id, e.entidad_nombre AS cliente_nombre, e.cuit AS cliente_cuit,
                    s.sucursal_nombre,
@@ -174,6 +178,7 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
             JOIN gestion__entidades e ON e.entidad_id = c.entidad_id
             JOIN gestion__sucursales s ON s.sucursal_id = c.sucursal_id
             JOIN gestion__monedas m ON m.moneda_id = c.moneda_id
+            LEFT JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
             LEFT JOIN gestion__comprobantes comp ON comp.comprobante_id = c.comprobante_id
             LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = c.tabla_estado_registro_id
             LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
@@ -224,8 +229,9 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
         $estado_cod = $row['estado_codigo'] ?? 'BORRADOR';
 
         // Número formateado
+        $codigo_comp = !empty($row['comprobante_codigo']) ? $row['comprobante_codigo'] : 'RCX';
         $nro_formateado = ($row['comprobante_nro'] > 0)
-            ? str_pad($row['comprobante_pv'], 4, '0', STR_PAD_LEFT) . '-' . str_pad($row['comprobante_nro'], 8, '0', STR_PAD_LEFT)
+            ? $codigo_comp . ' ' . str_pad($row['comprobante_pv'], 4, '0', STR_PAD_LEFT) . '-' . str_pad($row['comprobante_nro'], 8, '0', STR_PAD_LEFT)
             : '<span class="badge bg-secondary-subtle text-secondary border">Borrador (Sin emitir)</span>';
 
         // Badge de estado
@@ -284,13 +290,15 @@ function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id)
     $empresa_id  = intval($empresa_id);
 
     // Cabecera
-    $sql_c = "SELECT c.*, e.entidad_nombre, e.cuit, e.domicilio_legal,
+    $sql_c = "SELECT c.*, ct.comprobante_tipo, ct.codigo AS comprobante_codigo, ct.letra AS comprobante_letra,
+                     e.entidad_nombre, e.cuit, e.domicilio_legal,
                      s.sucursal_nombre, m.codigo AS moneda_codigo, m.simbolo AS moneda_simbolo,
                      er.codigo_estandar AS estado_codigo, er.estado_registro
               FROM gestion__cobranzas c
               JOIN gestion__entidades e ON e.entidad_id = c.entidad_id
               JOIN gestion__sucursales s ON s.sucursal_id = c.sucursal_id
               JOIN gestion__monedas m ON m.moneda_id = c.moneda_id
+              LEFT JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
               LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = c.tabla_estado_registro_id
               LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
               WHERE c.cobranza_id = ? AND c.empresa_id = ?";
@@ -406,42 +414,38 @@ function guardarCobranzaBorrador($conexion, $data)
     // Determinar punto de venta: respetar el punto de venta de la boca elegido por el usuario
     $comprobante_pv = intval($data['comprobante_pv'] ?? 0);
     if ($comprobante_pv <= 0) {
-        // Fallback: primer PV de la sucursal habilitado para RCX
-        $sql_pv = "SELECT pv.punto_venta_id 
-                   FROM gestion__puntos_venta pv
-                   JOIN gestion__puntos_venta_comprobantes pvc ON pvc.punto_venta_id = pv.punto_venta_id
-                   WHERE pv.empresa_id = ? AND pv.sucursal_id = ? 
-                     AND pvc.comprobante_tipo_id = ? AND pvc.tabla_estado_registro_id = 1
-                     AND pv.tabla_estado_registro_id = 1
-                   ORDER BY pv.punto_venta_id ASC LIMIT 1";
-        $stmt_pv = mysqli_prepare($conexion, $sql_pv);
-        $tipo_rcx = TIPO_COMPROBANTE_RCX_ID;
-        mysqli_stmt_bind_param($stmt_pv, "iii", $empresa_id, $sucursal_id, $tipo_rcx);
-        mysqli_stmt_execute($stmt_pv);
-        $res_pv = mysqli_stmt_get_result($stmt_pv);
-        if ($row_pv = mysqli_fetch_assoc($res_pv)) {
-            $comprobante_pv = intval($row_pv['punto_venta_id']);
+        $pvs_disponibles = obtenerPuntosVentaCobranza($conexion, $empresa_id, 105);
+        if (!empty($pvs_disponibles)) {
+            $comprobante_pv = intval($pvs_disponibles[0]['punto_venta_id']);
         }
-        mysqli_stmt_close($stmt_pv);
         if ($comprobante_pv <= 0) $comprobante_pv = 1;
     }
 
+    $comprobante_tipo_id = intval($data['comprobante_tipo_id'] ?? 0);
+    if ($comprobante_tipo_id <= 0 && $comprobante_pv > 0) {
+        $tipos_pv = obtenerTiposComprobanteCobranza($conexion, $empresa_id, $comprobante_pv, 105);
+        if (!empty($tipos_pv)) {
+            $comprobante_tipo_id = intval($tipos_pv[0]['comprobante_tipo_id']);
+        }
+    }
+    if ($comprobante_tipo_id <= 0) {
+        $comprobante_tipo_id = TIPO_COMPROBANTE_RCX_ID;
+    }
 
-    $comprobante_tipo_id = TIPO_COMPROBANTE_RCX_ID;
     $estado_borrador = ESTADO_COBRANZA_BORRADOR;
 
     if ($cobranza_id > 0) {
         // UPDATE Borrador existente
         $sql_upd = "UPDATE gestion__cobranzas SET
-                        sucursal_id = ?, comprobante_pv = ?, entidad_id = ?,
+                        sucursal_id = ?, comprobante_tipo_id = ?, comprobante_pv = ?, entidad_id = ?,
                         f_emision = ?, f_contabilidad = ?, moneda_id = ?,
                         tipo_cambio = ?, importe_total = ?, observaciones = ?,
                         usuario_modificacion_id = ?, fecha_modificacion = NOW()
                     WHERE cobranza_id = ? AND empresa_id = ? AND tabla_estado_registro_id = ?";
         $stmt_u = mysqli_prepare($conexion, $sql_upd);
         mysqli_stmt_bind_param(
-            $stmt_u, "iiissiddsiiii",
-            $sucursal_id, $comprobante_pv, $entidad_id,
+            $stmt_u, "iiiissiddsiiii",
+            $sucursal_id, $comprobante_tipo_id, $comprobante_pv, $entidad_id,
             $f_emision, $f_contabilidad, $moneda_id,
             $tipo_cambio, $importe_total, $observaciones,
             $usuario_id, $cobranza_id, $empresa_id, $estado_borrador
@@ -483,6 +487,7 @@ function guardarCobranzaBorrador($conexion, $data)
     $comprobante_id = syncComprobanteCobranza($conexion, $cobranza_id, [
         'empresa_id'               => $empresa_id,
         'sucursal_id'              => $sucursal_id,
+        'comprobante_tipo_id'      => $comprobante_tipo_id,
         'comprobante_pv'           => $comprobante_pv,
         'comprobante_nro'          => 0,
         'entidad_id'               => $entidad_id,
@@ -528,7 +533,7 @@ function guardarCobranzaBorrador($conexion, $data)
         $tc              = floatval($m['tipo_cambio'] ?? 1.0);
         $imp             = floatval($m['importe'] ?? 0);
         $imp_comp        = floatval($m['importe_comprobante'] ?? $imp);
-        $nro_op          = !empty($m['nro_operacion']) ? trim($m['nro_operacion']) : null;
+        $nro_op          = !empty($m['nro_operacion']) ? trim($m['nro_operacion']) : (!empty($m['numero_operacion']) ? trim($m['numero_operacion']) : null);
         $f_val           = !empty($m['f_valor']) ? $m['f_valor'] : $f_emision;
         $tarj_marca      = !empty($m['tarjeta_marca']) ? trim($m['tarjeta_marca']) : null;
         $tarj_cupon      = !empty($m['tarjeta_cupon']) ? trim($m['tarjeta_cupon']) : null;
@@ -711,7 +716,7 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
                          SET importe_pendiente = importe_pendiente - ?, usuario_modificacion_id = ?, fecha_modificacion = NOW()
                          WHERE comprobante_id = ? AND empresa_id = ? AND importe_pendiente >= ?";
             $stmt_desc = mysqli_prepare($conexion, $sql_desc);
-            mysqli_stmt_bind_param($stmt_desc, "diid", $imp_monto, $usuario_id, $dest_id, $empresa_id, $imp_monto);
+            mysqli_stmt_bind_param($stmt_desc, "diiid", $imp_monto, $usuario_id, $dest_id, $empresa_id, $imp_monto);
             mysqli_stmt_execute($stmt_desc);
             if (mysqli_stmt_affected_rows($stmt_desc) !== 1) {
                 throw new Exception("Fallo al actualizar saldo de comprobante destino $dest_id (guarda violada).");
@@ -729,13 +734,17 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
 
         // 4. Numeración atómica con FOR UPDATE (RT21 / D29)
         $punto_venta_id = intval($cab['comprobante_pv']);
+        $comprobante_tipo_id = intval($cab['comprobante_tipo_id'] ?? 0);
+        if ($comprobante_tipo_id <= 0) {
+            $comprobante_tipo_id = TIPO_COMPROBANTE_RCX_ID;
+        }
+
         $sql_num = "SELECT numerador_id, ultimo_numero 
                     FROM gestion__comprobantes_numeradores 
                     WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?
                     FOR UPDATE";
         $stmt_num = mysqli_prepare($conexion, $sql_num);
-        $tipo_rcx = TIPO_COMPROBANTE_RCX_ID;
-        mysqli_stmt_bind_param($stmt_num, "iii", $empresa_id, $punto_venta_id, $tipo_rcx);
+        mysqli_stmt_bind_param($stmt_num, "iii", $empresa_id, $punto_venta_id, $comprobante_tipo_id);
         mysqli_stmt_execute($stmt_num);
         $res_num = mysqli_stmt_get_result($stmt_num);
         $row_num = mysqli_fetch_assoc($res_num);
@@ -744,13 +753,21 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
         if (!$row_num) {
             $sql_ins_num = "INSERT INTO gestion__comprobantes_numeradores (empresa_id, punto_venta_id, comprobante_tipo_id, ultimo_numero) VALUES (?, ?, ?, 0)";
             $stmt_in = mysqli_prepare($conexion, $sql_ins_num);
-            mysqli_stmt_bind_param($stmt_in, "iii", $empresa_id, $punto_venta_id, $tipo_rcx);
+            mysqli_stmt_bind_param($stmt_in, "iii", $empresa_id, $punto_venta_id, $comprobante_tipo_id);
             mysqli_stmt_execute($stmt_in);
             $num_id = mysqli_insert_id($conexion);
             mysqli_stmt_close($stmt_in);
             $row_num = ['numerador_id' => $num_id, 'ultimo_numero' => 0];
         }
-        $proximo_nro = intval($row_num['ultimo_numero']) + 1;
+        // Proteger contra desincronización con comprobantes o cobranzas existentes
+        $res_max_comp = $conexion->query("SELECT MAX(comprobante_nro) AS max_nro FROM gestion__comprobantes WHERE empresa_id = $empresa_id AND comprobante_pv = $punto_venta_id AND comprobante_tipo_id = $comprobante_tipo_id");
+        $max_comp_nro = intval($res_max_comp->fetch_assoc()['max_nro'] ?? 0);
+
+        $res_max_cob = $conexion->query("SELECT MAX(comprobante_nro) AS max_nro FROM gestion__cobranzas WHERE empresa_id = $empresa_id AND comprobante_pv = $punto_venta_id AND comprobante_tipo_id = $comprobante_tipo_id");
+        $max_cob_nro = intval($res_max_cob->fetch_assoc()['max_nro'] ?? 0);
+
+        $ultimo_existente = max(intval($row_num['ultimo_numero']), $max_comp_nro, $max_cob_nro);
+        $proximo_nro = $ultimo_existente + 1;
 
         // Actualizar numerador
         $stmt_upd_n = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_numeradores SET ultimo_numero = ? WHERE numerador_id = ?");
@@ -854,13 +871,16 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
                     $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
                 }
             } elseif ($m['medio_pago_tipo'] === 'RETENCION') {
-                if (!empty($m['impuesto_tipo_id'])) {
-                    $res_it = $conexion->query("SELECT cuenta_contable_id FROM gestion__impuestos_tipos WHERE impuesto_tipo_id = " . intval($m['impuesto_tipo_id']));
-                    $cta_contable_id = intval($res_it->fetch_assoc()['cuenta_contable_id'] ?? 0);
-                }
-                if ($cta_contable_id <= 0) {
-                    $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']));
-                    $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
+                // En cobranzas (retenciones sufridas por el cliente), la cuenta es un activo (Retenciones IVA/Gan/IIBB)
+                $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']));
+                $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
+
+                if ($cta_contable_id <= 0 && !empty($m['impuesto_tipo_id'])) {
+                    $res_it = $conexion->query("SELECT it.cuenta_contable_id, cc.es_imputable FROM gestion__impuestos_tipos it LEFT JOIN gestion__cont_cuentas cc ON cc.cont_cuenta_id = it.cuenta_contable_id WHERE it.impuesto_tipo_id = " . intval($m['impuesto_tipo_id']));
+                    $row_it = $res_it ? $res_it->fetch_assoc() : null;
+                    if (!empty($row_it['es_imputable'])) {
+                        $cta_contable_id = intval($row_it['cuenta_contable_id']);
+                    }
                 }
             }
 
@@ -1199,13 +1219,21 @@ function obtenerSucursalesEmpresa($conexion, $empresa_id)
 }
 
 /**
- * Obtiene los puntos de venta habilitados para emitir Recibos (RCX) en la empresa
+ * Obtiene los puntos de venta habilitados para los comprobantes de la página (gestion__cobranzas)
  */
-function obtenerPuntosVentaCobranza($conexion, $empresa_id)
+function obtenerPuntosVentaCobranza($conexion, $empresa_id, $pagina_id = 105)
 {
     $empresa_id = intval($empresa_id);
-    $tipo_rcx = TIPO_COMPROBANTE_RCX_ID;
-    $sql = "SELECT pv.punto_venta_id, pv.sucursal_id, pv.boca_id, pv.nombre, pv.codigo_fiscal,
+    $pagina_id  = intval($pagina_id);
+
+    $stmt_p = mysqli_prepare($conexion, "SELECT tabla_id FROM conf__paginas WHERE pagina_id = ?");
+    mysqli_stmt_bind_param($stmt_p, 'i', $pagina_id);
+    mysqli_stmt_execute($stmt_p);
+    $pag_row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_p));
+    mysqli_stmt_close($stmt_p);
+    $tabla_id = intval($pag_row['tabla_id'] ?? 275);
+
+    $sql = "SELECT DISTINCT pv.punto_venta_id, pv.sucursal_id, pv.boca_id, pv.nombre, pv.codigo_fiscal,
                    s.sucursal_nombre, b.boca_nombre
             FROM gestion__puntos_venta pv
             LEFT JOIN gestion__sucursales s ON s.sucursal_id = pv.sucursal_id
@@ -1213,18 +1241,76 @@ function obtenerPuntosVentaCobranza($conexion, $empresa_id)
             INNER JOIN gestion__puntos_venta_comprobantes pvc 
                     ON pvc.punto_venta_id = pv.punto_venta_id 
                    AND pvc.empresa_id = pv.empresa_id 
-                   AND pvc.comprobante_tipo_id = ?
                    AND pvc.tabla_estado_registro_id = 1
+            INNER JOIN gestion__comprobantes_tipos ct
+                    ON ct.comprobante_tipo_id = pvc.comprobante_tipo_id
+                   AND ct.tabla_estado_registro_id = 1
+            INNER JOIN gestion__comprobantes_subgrupos cs
+                    ON cs.comprobante_subgrupo_id = ct.comprobante_subgrupo_id
+                   AND cs.tabla_estado_registro_id = 1
+                   AND cs.tabla_id = ?
             WHERE pv.empresa_id = ? AND pv.tabla_estado_registro_id = 1
             ORDER BY s.sucursal_nombre, b.boca_nombre, pv.nombre";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
-    mysqli_stmt_bind_param($stmt, "ii", $tipo_rcx, $empresa_id);
+    mysqli_stmt_bind_param($stmt, "ii", $tabla_id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
     $rows = [];
     while ($r = mysqli_fetch_assoc($res)) {
         $rows[] = $r;
+    }
+    mysqli_stmt_close($stmt);
+    return $rows;
+}
+
+/**
+ * Obtiene los tipos de comprobante habilitados para un punto de venta según la tabla de la página
+ * (idéntico al criterio de ventas_facturas.php / vfTiposPorPuntoVenta)
+ */
+function obtenerTiposComprobanteCobranza($conexion, $empresa_id, $punto_venta_id, $pagina_id = 105)
+{
+    $empresa_id     = intval($empresa_id);
+    $punto_venta_id = intval($punto_venta_id);
+    $pagina_id      = intval($pagina_id);
+
+    if (empty($punto_venta_id)) return [];
+
+    $stmt = mysqli_prepare($conexion, "SELECT tabla_id FROM conf__paginas WHERE pagina_id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $pagina_id);
+    mysqli_stmt_execute($stmt);
+    $pagina = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    $tabla_id = intval($pagina['tabla_id'] ?? 0);
+    if (empty($tabla_id)) {
+        error_log("obtenerTiposComprobanteCobranza: sin tabla_id configurado para pagina_id=$pagina_id");
+        return [];
+    }
+
+    $sql = "SELECT ct.comprobante_tipo_id, ct.comprobante_tipo, ct.letra, ct.codigo,
+                   ct.comprobante_fiscal_id
+            FROM gestion__comprobantes_tipos ct
+            INNER JOIN gestion__comprobantes_subgrupos cs
+                ON cs.comprobante_subgrupo_id = ct.comprobante_subgrupo_id
+                AND cs.tabla_estado_registro_id = 1
+                AND cs.tabla_id = ?
+                AND cs.empresa_id IN (0, ?)
+            INNER JOIN gestion__puntos_venta_comprobantes pvc
+                ON pvc.comprobante_tipo_id = ct.comprobante_tipo_id
+                AND pvc.punto_venta_id = ?
+                AND pvc.empresa_id = ?
+                AND pvc.tabla_estado_registro_id = 1
+            WHERE ct.tabla_estado_registro_id = 1
+              AND ct.empresa_id IN (0, ?)
+            ORDER BY ct.orden, ct.comprobante_tipo";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    mysqli_stmt_bind_param($stmt, 'iiiii', $tabla_id, $empresa_id, $punto_venta_id, $empresa_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $rows[] = $row;
     }
     mysqli_stmt_close($stmt);
     return $rows;

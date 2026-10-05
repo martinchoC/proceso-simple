@@ -53,6 +53,22 @@ $qs_modulo = "?empresa_id=" . $current_empresa_id . "&modulo_id=3";
     <div class="app-content">
         <div class="container-fluid">
 
+            <!-- Banner Acceso Directo al Tablero Ejecutivo y Drilldown -->
+            <div class="alert alert-primary shadow-sm border-0 d-flex flex-column flex-md-row align-items-md-center justify-content-between p-3 mb-4 rounded-3 bg-white border-start border-primary border-4">
+                <div class="d-flex align-items-center mb-2 mb-md-0">
+                    <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-circle me-3">
+                        <i class="fas fa-sitemap fa-2x"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-1 text-primary">Tablero de Gobierno Legal y Drilldown Corporativo</h5>
+                        <span class="text-muted small">Supervisión en tiempo real de tareas vencidas, alertas de ciclos y desglose multinivel (Global ➔ Regiones ➔ Países ➔ Empresas)</span>
+                    </div>
+                </div>
+                <a href="tablero_cumplimiento.php" class="btn btn-primary px-3 py-2 fw-semibold shadow-sm text-nowrap">
+                    <i class="fas fa-chart-line me-1"></i>Abrir Tablero Ejecutivo
+                </a>
+            </div>
+
             <!-- Fila de Tarjetas Informativas / Métricas -->
             <div class="row g-3 mb-4">
                 <div class="col-12 col-sm-6 col-xl-3">

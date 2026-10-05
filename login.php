@@ -9,8 +9,8 @@ if (isset($_SESSION['logueado']) && $_SESSION['logueado'] === true) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $usuario = mysqli_real_escape_string($conexion, $_POST['usuario']);
-  $clave = $_POST['clave'];
+  $usuario = mysqli_real_escape_string($conexion, trim($_POST['usuario'] ?? ''));
+  $clave = $_POST['clave'] ?? '';
 
   $query = "SELECT * FROM conf__usuarios WHERE usuario = '$usuario' LIMIT 1";
   $result = mysqli_query($conexion, $query);

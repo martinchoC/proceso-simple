@@ -6,7 +6,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     const urlParams = new URLSearchParams(window.location.search);
     const empresaIdx = urlParams.get('empresa_id') || 2;
-    const ajaxUrl = 'modules/ml/ciclos_generador_ajax.php';
+    const ajaxUrl = window.location.pathname.includes('/modules/ml/') ? 'ciclos_generador_ajax.php' : 'modules/ml/ciclos_generador_ajax.php';
 
     // Cargar Métricas y KPIs
     function cargarMetricas() {

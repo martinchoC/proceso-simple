@@ -4,8 +4,19 @@ $(document).ready(function () {
 
     var tabla;
     var currentPage = 0;
-    var currentOrder = [[4, 'desc']];
+    var currentOrder = [[5, 'desc']];
     var currentSearch = '';
+    var filtroEstadoIdRapido = '';
+
+    $.fn.dataTable.ext.search.push(function (settings, data, dataIndex, rowData) {
+        if (settings.sTableId !== 'tablaVentasRemitos') return true;
+        if (filtroEstadoIdRapido !== '' && filtroEstadoIdRapido !== null && filtroEstadoIdRapido !== undefined) {
+            if (parseInt(rowData.tabla_estado_registro_id, 10) !== parseInt(filtroEstadoIdRapido, 10)) {
+                return false;
+            }
+        }
+        return true;
+    });
 
     // Estado del formulario
     var detalles = [];
@@ -77,7 +88,13 @@ $(document).ready(function () {
             },
             stateLoadParams: function (settings, data) {
                 if (data.page !== undefined) currentPage = data.page;
-                if (data.order !== undefined && data.order.length > 0) currentOrder = data.order;
+                if (data.order !== undefined && data.order.length > 0) {
+                    if (data.order[0] && data.order[0][0] === 4) {
+                        currentOrder = [[5, 'desc']];
+                    } else {
+                        currentOrder = data.order;
+                    }
+                }
 
                 if (data.search && data.search.search !== undefined) {
                     var searchValue = data.search.search;
@@ -137,19 +154,29 @@ $(document).ready(function () {
                 {
                     data: null,
                     render: function (data, type, row) {
-                        if (type === 'export') return destinatarioFila(data);
+                        if (type === 'filter' || type === 'export') {
+                            var searchStr = destinatarioFila(data);
+                            if (data.entidad_nombre) searchStr += ' ' + data.entidad_nombre;
+                            if (data.entidad_fantasia) searchStr += ' ' + data.entidad_fantasia;
+                            if (data.cuit) searchStr += ' ' + data.cuit;
+                            if (data.consumidor_final_nombre) searchStr += ' ' + data.consumidor_final_nombre;
+                            return searchStr;
+                        }
                         if (!data.entidad_id) {
                             return `<div>${escapeHtml(data.consumidor_final_nombre || '')}</div>
                                 <small class="text-muted"><i class="fas fa-user me-1"></i>Consumidor Final</small>`;
                         }
-                        return `<div>${data.entidad_nombre || ''}</div>
-                                <small class="text-muted">${data.entidad_fantasia || ''}</small>`;
+                        var subInfo = data.entidad_fantasia ? escapeHtml(data.entidad_fantasia) : '';
+                        if (data.cuit) subInfo += (subInfo ? ' · ' : '') + '<span class="badge bg-light text-secondary border">CUIT ' + escapeHtml(data.cuit) + '</span>';
+                        return `<div><strong>${escapeHtml(data.entidad_nombre || '')}</strong></div>
+                                <small class="text-muted">${subInfo}</small>`;
                     }
                 },
                 {
                     data: 'f_emision',
                     className: 'text-center',
                     render: function (data, type) {
+                        if (type === 'sort' || type === 'filter') return data || '';
                         if (type === 'export' || !data) return data || '';
                         var parts = data.split('-');
                         return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : data;
@@ -252,11 +279,18 @@ $(document).ready(function () {
                 }
             },
             initComplete: function () {
-                $('#filtro_cliente').on('keyup', function () {
-                    tabla.column(5).search(this.value).draw();
+                $('#filtro_cliente').off('input keyup').on('input keyup', function () {
+                    tabla.column(4).search(this.value).draw();
                 });
-                $('#filtro_estado').on('keyup', function () {
-                    tabla.column(8).search(this.value).draw();
+                $('#btnLimpiarFiltroCliente').off('click').on('click', function () {
+                    $('#filtro_cliente').val('').trigger('input');
+                });
+
+                $('.btn-filtro-estado-rapido').off('click').on('click', function () {
+                    $('.btn-filtro-estado-rapido').removeClass('active');
+                    $(this).addClass('active');
+                    filtroEstadoIdRapido = $(this).data('estado-id');
+                    tabla.draw();
                 });
 
 

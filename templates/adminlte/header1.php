@@ -151,6 +151,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             $current_modulo_id = 1;
         } elseif (strpos($uri_actual, '/modules/gestion/') !== false || strpos($uri_actual, 'gestion/') !== false) {
             $current_modulo_id = 2;
+        } elseif (strpos($uri_actual, '/modules/estudio_contable/') !== false || strpos($uri_actual, 'estudio_contable/') !== false) {
+            $current_modulo_id = 4;
         }
     }
 
@@ -573,17 +575,18 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                 }
 
                 $is_active = false;
+                $current_url_full = (string) ($_SERVER['REQUEST_URI'] ?? '');
                 if ($has_submenu) {
                   foreach ($submenu_items as $submenu_row) {
-                    $submenu_url_clean = trim($submenu_row['url'], './');
-                    if (strpos($current_url_full, $submenu_url_clean) !== false) {
+                    $submenu_url_clean = trim((string) ($submenu_row['url'] ?? ''), './');
+                    if ($submenu_url_clean !== '' && strpos($current_url_full, $submenu_url_clean) !== false) {
                       $is_active = true;
                       break;
                     }
                   }
                 } else {
-                  $menu_url_clean = trim($row['url'], './');
-                  $is_active = (strpos($current_url_full, $menu_url_clean) !== false);
+                  $menu_url_clean = trim((string) ($row['url'] ?? ''), './');
+                  $is_active = ($menu_url_clean !== '' && strpos($current_url_full, $menu_url_clean) !== false);
                 }
 
                 $link_padre = $has_submenu ? '#' : $row['url'] . '?pagina_id=' . $pagina_id_actual . $qs_sidebar;
@@ -605,8 +608,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                       style="padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
                       <?php foreach ($submenu_items as $submenu_row): ?>
                         <?php
-                        $submenu_url_clean = trim($submenu_row['url'], './');
-                        $is_submenu_active = (strpos($current_url_full, $submenu_url_clean) !== false);
+                        $submenu_url_clean = trim((string) ($submenu_row['url'] ?? ''), './');
+                        $is_submenu_active = ($submenu_url_clean !== '' && strpos($current_url_full, $submenu_url_clean) !== false);
                         ?>
                         <li class="nav-item">
                           <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?><?= $qs_sidebar ?>"
