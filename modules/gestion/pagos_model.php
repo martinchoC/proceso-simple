@@ -293,7 +293,8 @@ function obtenerPagosListado($conexion, $empresa_id, $pagina_id = 106, $filtros 
 /**
  * Obtiene el detalle completo de un pago para ver o editar
  */
-function obtenerPagoDetalle($conexion, $pago_id, $empresa_id)
+// $estado_imputaciones: estado de las imputaciones a leer; null = según el estado de la OP (3 borrador, 5 confirmadas).
+function obtenerPagoDetalle($conexion, $pago_id, $empresa_id, $estado_imputaciones = null)
 {
     $pago_id    = intval($pago_id);
     $empresa_id = intval($empresa_id);
@@ -345,6 +346,7 @@ function obtenerPagoDetalle($conexion, $pago_id, $empresa_id)
     $imputaciones = [];
     if ($comp_origen_id > 0) {
         $estado_op = intval($cabecera['tabla_estado_registro_id']);
+        if ($estado_imputaciones !== null) $estado_op = intval($estado_imputaciones);
         $filtro_estado = ($estado_op === 5) ? " AND ci.tabla_estado_registro_id = 5" : (($estado_op === 3) ? " AND ci.tabla_estado_registro_id = 3" : " AND ci.tabla_estado_registro_id != 2");
         $sql_i = "SELECT ci.*, " . emp_sql_pv_mostrar('cd.comprobante_pv', 'cd.empresa_id', 'cd.tabla_origen_id') . " AS comprobante_pv, cd.comprobante_nro, cd.f_emision AS destino_f_emision,
                          cd.importe_total AS destino_total, cd.importe_pendiente AS destino_pendiente,
@@ -653,7 +655,8 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
         }
 
         // Obtener detalle completo
-        $pago_info = obtenerPagoDetalle($conexion, $pago_id, $empresa_id);
+        // La OP ya pasó a Confirmado (paso 1): sus imputaciones todavía están en Borrador
+        $pago_info = obtenerPagoDetalle($conexion, $pago_id, $empresa_id, ESTADO_PAGO_BORRADOR);
         if (!$pago_info) throw new Exception("No se pudo obtener el detalle de la orden de pago.");
 
         $cab = $pago_info['cabecera'];
@@ -991,7 +994,9 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
 /**
  * Anulación de Orden de Pago (§2.6 / RT08)
  */
-function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '')
+// $en_transaccion = true: corre dentro de la transacción del llamador (p. ej. anulación de la factura de proveedor
+// que generó esta OP automática) y relanza la excepción sin rollback.
+function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '', $en_transaccion = false)
 {
     $pago_id    = intval($pago_id);
     $empresa_id = intval($empresa_id);
@@ -1002,7 +1007,7 @@ function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '')
         throw new Exception("Debe ingresar un motivo de anulación.");
     }
 
-    mysqli_begin_transaction($conexion);
+    if (!$en_transaccion) mysqli_begin_transaction($conexion);
 
     try {
         $sql = "SELECT p.*, comp.comprobante_id
@@ -1071,7 +1076,7 @@ function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '')
         // 6. Anular asiento contable asociado
         $conexion->query("UPDATE gestion__cont_asientos SET tabla_estado_registro_id = 2, usuario_modificacion_id = $usuario_id WHERE comprobante_id = $comp_id");
 
-        mysqli_commit($conexion);
+        if (!$en_transaccion) mysqli_commit($conexion);
 
         return [
             'success' => true,
@@ -1079,7 +1084,7 @@ function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '')
         ];
 
     } catch (Exception $e) {
-        mysqli_rollback($conexion);
+        if (!$en_transaccion) mysqli_rollback($conexion);
         error_log("Error anulando pago $pago_id: " . $e->getMessage());
         throw $e;
     }

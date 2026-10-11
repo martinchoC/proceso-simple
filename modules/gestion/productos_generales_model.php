@@ -597,17 +597,17 @@ function normalizarDatosProductoGeneral($conexion, $data, $empresa_idx, $es_alta
     return [$datos, null];
 }
 
-// El índice UNIQUE de producto_codigo es GLOBAL (no por empresa), así que el
-// código se valida contra todas las empresas.
-function validarDuplicadoProductoGeneral($conexion, $producto_codigo, $excluir_id = 0)
+// El código es único por empresa (UNIQUE uk_productos_empresa_codigo, script 20261011_productos_codigo_por_empresa_01)
+function validarDuplicadoProductoGeneral($conexion, $producto_codigo, $empresa_id, $excluir_id = 0)
 {
+    $empresa_id = intval($empresa_id);
     $sql = "SELECT COUNT(*) AS total FROM gestion__productos
-            WHERE producto_codigo = ? AND producto_id <> ?";
+            WHERE empresa_id = ? AND producto_codigo = ? AND producto_id <> ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return 'Error en la consulta';
     }
-    mysqli_stmt_bind_param($stmt, "si", $producto_codigo, $excluir_id);
+    mysqli_stmt_bind_param($stmt, "isi", $empresa_id, $producto_codigo, $excluir_id);
     mysqli_stmt_execute($stmt);
     $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
@@ -628,7 +628,7 @@ function agregarProductoGeneral($conexion, $data, $empresa_idx, $pagina_id)
         return ['success' => false, 'message' => $error];
     }
 
-    $error = validarDuplicadoProductoGeneral($conexion, $d['producto_codigo']);
+    $error = validarDuplicadoProductoGeneral($conexion, $d['producto_codigo'], $empresa_idx);
     if ($error !== null) {
         return ['success' => false, 'message' => $error];
     }
@@ -716,7 +716,7 @@ function editarProductoGeneral($conexion, $id, $data, $empresa_idx)
         return ['success' => false, 'message' => $error];
     }
 
-    $error = validarDuplicadoProductoGeneral($conexion, $d['producto_codigo'], $id);
+    $error = validarDuplicadoProductoGeneral($conexion, $d['producto_codigo'], $empresa_idx, $id);
     if ($error !== null) {
         return ['success' => false, 'message' => $error];
     }

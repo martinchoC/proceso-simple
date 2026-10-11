@@ -165,7 +165,7 @@ function obtenerEstadoInicial($conexion)
     return $fila ? $fila['estado_registro_id'] : 1;
 }
 
-function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $empresa_idx, $pagina_id)
+function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $empresa_idx, $pagina_id, $motivo = '')
 {
     $factura_proveedor_id = intval($factura_proveedor_id);
     $pagina_id = intval($pagina_id);
@@ -319,6 +319,13 @@ function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, 
         // OC vinculadas: lo recibido = líneas de facturas confirmadas; estado derivado 41 / 8.
         ocRecalcularRecepcionPorFactura($conexion, $factura_proveedor_id);
 
+        // Anular una confirmada (5 -> 38): OP automática, imputaciones, asiento y comprobante
+        $mensajes_anulacion = [];
+        if (intval($estado_destino_id) === 38) {
+            $mensajes_anulacion = fpAnularComprobanteConfirmado($conexion, $factura_proveedor_id, $comprobante_id, $empresa_idx,
+                                                                intval($_SESSION['usuario_id'] ?? 0), $motivo);
+        }
+
         if ($es_confirmado) {
 
             // Asiento contable dentro de la misma transacción: si no se puede generar, no se confirma
@@ -329,7 +336,7 @@ function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, 
         }
 
         // Confirmada: una NC se aplica a su comprobante asociado (OP en $0)
-        $post = ['mensajes' => []];
+        $post = ['mensajes' => $mensajes_anulacion];
         if ($es_confirmado) {
             $post = fpPostConfirmacion($conexion, $factura_proveedor_id, $empresa_idx, intval($_SESSION['usuario_id'] ?? 0));
         }
@@ -662,7 +669,8 @@ function agregarFacturaProveedor($conexion, $data)
                               intval($data['tesoreria_cuenta_debito_id'] ?? 0));
 
         // Insertar detalles
-        $detalles_success = insertarDetallesFactura($conexion, $factura_proveedor_id, $data['empresa_idx'], $data['detalles']);
+        $detalles_success = insertarDetallesFactura($conexion, $factura_proveedor_id, $data['empresa_idx'], $data['detalles'], $reclasif);
+        fpAjustarTotalesReclasificados($conexion, $factura_proveedor_id, $reclasif);
         
         if (!$detalles_success) {
             throw new Exception("Error al insertar los detalles");
@@ -909,7 +917,8 @@ function editarFacturaProveedor($conexion, $id, $data)
             fpGuardarCuentaDebito($conexion, $empresa_idx_val, $id, $comprobante_tipo_id_val, $moneda_id_val,
                                   intval($data['tesoreria_cuenta_debito_id'] ?? 0));
 
-            $detalles_success = insertarDetallesFactura($conexion, $id, $empresa_idx_val, $data['detalles']);
+            $detalles_success = insertarDetallesFactura($conexion, $id, $empresa_idx_val, $data['detalles'], $reclasif);
+            fpAjustarTotalesReclasificados($conexion, $id, $reclasif);
             
             if (!$detalles_success) {
                 throw new Exception("Error al insertar los nuevos detalles");
@@ -1644,9 +1653,50 @@ function obtenerUltimoPrecioProducto($conexion, $producto_id, $entidad_id, $empr
     return ['success' => false];
 }
 
-function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, $detalles)
+// Corrige la cabecera y el comprobante cuando insertarDetallesFactura pasó la base de líneas con alícuota
+// No gravado / Exento de neto gravado a no gravado / exento (el total no cambia).
+function fpAjustarTotalesReclasificados($conexion, $factura_proveedor_id, $r)
+{
+    $neto = round(floatval($r['neto'] ?? 0), 2);
+    $ng = round(floatval($r['no_gravado'] ?? 0), 2);
+    $ex = round(floatval($r['exento'] ?? 0), 2);
+    if (abs($neto) < 0.005 && abs($ng) < 0.005 && abs($ex) < 0.005) return;
+    $factura_proveedor_id = intval($factura_proveedor_id);
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__facturas_proveedores
+                                       SET subtotal = subtotal - ?, no_gravado = no_gravado + ?, exento = exento + ?
+                                       WHERE factura_proveedor_id = ?");
+    mysqli_stmt_bind_param($stmt, "dddi", $neto, $ng, $ex, $factura_proveedor_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes c
+                                       INNER JOIN gestion__facturas_proveedores f ON f.comprobante_id = c.comprobante_id
+                                       SET c.importe_neto = c.importe_neto - ?, c.importe_no_gravado = c.importe_no_gravado + ?,
+                                           c.importe_exento = c.importe_exento + ?
+                                       WHERE f.factura_proveedor_id = ?");
+    mysqli_stmt_bind_param($stmt, "dddi", $neto, $ng, $ex, $factura_proveedor_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+}
+
+// $reclasificado (salida): lo que se movió de neto gravado (según lo que mandó el front) a no gravado / exento,
+// para que el llamador corrija la cabecera con fpAjustarTotalesReclasificados.
+function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, $detalles, &$reclasificado = null)
 {
     error_log("Insertando " . count($detalles) . " detalles para factura $factura_proveedor_id");
+    $reclasificado = ['neto' => 0.0, 'no_gravado' => 0.0, 'exento' => 0.0];
+
+    // Alícuotas No gravado / Exento de la empresa
+    $alicuotas_sin_iva = [];
+    $empresa_id_alic = intval($empresa_id);
+    $stmt_alic = mysqli_prepare($conexion, "SELECT iva_alicuota_id, es_no_gravado, es_exento FROM gestion__impuestos__iva_alicuotas
+                                            WHERE empresa_id = ? AND (es_no_gravado = 1 OR es_exento = 1)");
+    mysqli_stmt_bind_param($stmt_alic, "i", $empresa_id_alic);
+    mysqli_stmt_execute($stmt_alic);
+    $res_alic = mysqli_stmt_get_result($stmt_alic);
+    while ($a = mysqli_fetch_assoc($res_alic)) {
+        $alicuotas_sin_iva[intval($a['iva_alicuota_id'])] = intval($a['es_no_gravado']) === 1 ? 'no_gravado' : 'exento';
+    }
+    mysqli_stmt_close($stmt_alic);
     
     if (!is_array($detalles) || count($detalles) === 0) {
         error_log("Error: No hay detalles para insertar");
@@ -1690,10 +1740,23 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         
         // CALCULAR PRECIO UNITARIO NETO (valor final por unidad)
         // precio_unitario_neto = (neto_gravado + no_gravado + exento) / cantidad
-        $precio_unitario_neto = ($neto_gravado + $no_gravado + $exento) / $cantidad;
         
         $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 0;
         $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
+
+        // Alícuota No gravado / Exento: la base de la línea no es neto gravado (Libro IVA). El front nuevo ya la manda
+        // en no_gravado / exento con neto 0; el viejo la mandaba como neto gravado al 0 %.
+        if (isset($alicuotas_sin_iva[$iva_alicuota_id]) && $neto_gravado > 0) {
+            $campo = $alicuotas_sin_iva[$iva_alicuota_id];
+            $actual = ($campo === 'no_gravado') ? $no_gravado : $exento;
+            $agregado = max($actual, $neto_gravado) - $actual;
+            if ($campo === 'no_gravado') $no_gravado += $agregado; else $exento += $agregado;
+            $reclasificado[$campo] += $agregado;
+            $reclasificado['neto'] += floatval($detalle['neto_gravado'] ?? 0);
+            $neto_gravado = 0;
+            $iva_porcentaje = 0;
+        }
+        $precio_unitario_neto = ($neto_gravado + $no_gravado + $exento) / $cantidad;
         $iva_importe = $neto_gravado * ($iva_porcentaje / 100);
         $total_linea = $neto_gravado + $iva_importe + $no_gravado + $exento;
         
@@ -3492,6 +3555,15 @@ function fpGenerarOrdenPagoAutomatica($conexion, $factura_proveedor_id, $empresa
     // 4. Confirmar el pago
     $res_conf = confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transaccion);
 
+    // 5. Vínculo para anularla junto con la factura (script 20261011_facturas_proveedores_anular_01)
+    $r_col = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__facturas_proveedores LIKE 'pago_automatico_id'");
+    if ($r_col && mysqli_num_rows($r_col) > 0) {
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__facturas_proveedores SET pago_automatico_id = ? WHERE factura_proveedor_id = ?");
+        mysqli_stmt_bind_param($stmt, "ii", $pago_id, $factura_proveedor_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
+
     return [
         'success'        => true,
         'pago_id'        => $pago_id,
@@ -3579,6 +3651,101 @@ function fpGuardarCuentaDebito($conexion, $empresa_id, $factura_proveedor_id, $t
     mysqli_stmt_bind_param($stmt, "ii", $valor, $factura_proveedor_id);
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
+}
+
+// ===== Anular un comprobante de proveedor confirmado (5 -> 38, script 20261011_facturas_proveedores_anular_01) =====
+// Corre dentro de la transacción de ejecutarTransicionEstado(), después de pasar la factura a 38, sincronizar el
+// comprobante y revertir el stock (estado 38 sin aplica_stock). Revierte la cuenta corriente y la contabilidad:
+//   1) la OP automática emitida al confirmarlo (contado / débito en cuenta) se anula entera: devuelve caja o banco;
+//   2) el resto de las imputaciones vigentes donde el comprobante es origen o destino se anulan: la OP / NC que lo
+//      cancelaba queda con saldo a favor; si el anulado es una NC aplicada, la factura destino recupera su saldo;
+//   3) asiento anulado (2) y comprobante universal en 38 sin saldo.
+function fpAnularComprobanteConfirmado($conexion, $factura_proveedor_id, $comprobante_id, $empresa_id, $usuario_id, $motivo = '')
+{
+    require_once __DIR__ . '/tesoreria_core_model.php';
+    $conn = $conexion;   // pagos_model hace "$conexion = $conn" al cargarse
+    require_once __DIR__ . '/pagos_model.php';
+    $factura_proveedor_id = intval($factura_proveedor_id);
+    $comprobante_id = intval($comprobante_id);
+    $empresa_id = intval($empresa_id);
+    $usuario_id = intval($usuario_id);
+    $motivo = trim((string)$motivo) !== '' ? trim((string)$motivo) : 'Anulación del comprobante de proveedor';
+    $mensajes = [];
+
+    // Período de IVA ya liquidado (página IVA - Posición Mensual): anular la liquidación antes
+    $r_iva = mysqli_query($conexion, "SHOW TABLES LIKE 'gestion__iva_posiciones'");
+    if ($r_iva && mysqli_num_rows($r_iva) > 0) {
+        $stmt = mysqli_prepare($conexion, "SELECT p.periodo FROM gestion__facturas_proveedores f
+                                           INNER JOIN gestion__iva_posiciones p ON p.empresa_id = f.empresa_id AND p.tabla_estado_registro_id = 5
+                                                  AND p.periodo = DATE_FORMAT(COALESCE(f.f_contabilidad, f.f_emision), '%Y-%m')
+                                           WHERE f.factura_proveedor_id = ? AND f.empresa_id = ? LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "ii", $factura_proveedor_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $liq = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if ($liq) {
+            throw new Exception('El período de IVA ' . $liq['periodo'] . ' ya está liquidado: anule la liquidación (IVA - Posición Mensual) antes de anular el comprobante.');
+        }
+    }
+
+    // 1) OP automática
+    $r = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__facturas_proveedores LIKE 'pago_automatico_id'");
+    if ($r && mysqli_num_rows($r) > 0) {
+        $stmt = mysqli_prepare($conexion, "SELECT p.pago_id, p.comprobante_nro, p.tabla_estado_registro_id
+                                           FROM gestion__facturas_proveedores f
+                                           INNER JOIN gestion__pagos p ON p.pago_id = f.pago_automatico_id AND p.empresa_id = f.empresa_id
+                                           WHERE f.factura_proveedor_id = ? AND f.empresa_id = ?");
+        mysqli_stmt_bind_param($stmt, "ii", $factura_proveedor_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $op = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if ($op && intval($op['tabla_estado_registro_id']) === ESTADO_PAGO_CONFIRMADO) {
+            anularPago($conexion, intval($op['pago_id']), $empresa_id, $usuario_id, $motivo, true);
+            $mensajes[] = 'Se anuló la OP automática N° ' . $op['comprobante_nro'] . ' (se revirtió el movimiento de tesorería).';
+        }
+    }
+
+    // 2) Imputaciones vigentes restantes (el comprobante como destino o como origen)
+    $stmt = mysqli_prepare($conexion, "SELECT i.imputacion_id, i.comp_origen_id, o.tabla_origen_id AS origen_tabla
+                                       FROM gestion__comprobantes_imputaciones i
+                                       INNER JOIN gestion__comprobantes o ON o.comprobante_id = i.comp_origen_id
+                                       WHERE i.empresa_id = ? AND (i.comp_destino_id = ? OR i.comp_origen_id = ?) AND i.tabla_estado_registro_id = ?
+                                       ORDER BY i.imputacion_id");
+    $vigente = ESTADO_IMPUTACION_CONFIRMADO;
+    mysqli_stmt_bind_param($stmt, "iiii", $empresa_id, $comprobante_id, $comprobante_id, $vigente);
+    mysqli_stmt_execute($stmt);
+    $imps = mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
+    mysqli_stmt_close($stmt);
+    $ids = array_column($imps, 'imputacion_id');
+    foreach ($ids as $imp_id) {
+        tesoreriaAnularImputacion($conexion, intval($imp_id), $usuario_id, $motivo);
+    }
+    // tesoreriaAnularImputacion recalcula solo el destino: una NC de proveedor (tabla 84) que cancelaba este
+    // comprobante recupera su saldo y tiene que volver de 40 / 39 al estado que le corresponde
+    foreach (array_unique(array_column($imps, 'comp_origen_id')) as $origen_id) {
+        $fila_o = array_values(array_filter($imps, function ($x) use ($origen_id) { return $x['comp_origen_id'] == $origen_id; }))[0];
+        if (intval($origen_id) !== $comprobante_id && intval($fila_o['origen_tabla']) === 84) {
+            recalcularEstadoDestino($conexion, intval($origen_id), $usuario_id);
+        }
+    }
+    if ($ids) {
+        $mensajes[] = 'Se anularon ' . count($ids) . ' imputación(es): los pagos / notas de crédito quedan con saldo a favor.';
+    }
+
+    // 3) Asiento y comprobante universal
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__cont_asientos SET tabla_estado_registro_id = 2, usuario_modificacion_id = ?
+                                       WHERE comprobante_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "iii", $usuario_id, $comprobante_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes SET tabla_estado_registro_id = 38, importe_pendiente = 0,
+                                              observaciones = CONCAT(IFNULL(observaciones, ''), IF(IFNULL(observaciones, '') = '', '', ' | '), ?)
+                                       WHERE comprobante_id = ? AND empresa_id = ?");
+    $obs = 'ANULADO: ' . $motivo;
+    mysqli_stmt_bind_param($stmt, "sii", $obs, $comprobante_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    return $mensajes;
 }
 
 /** Post confirmación de facturas de proveedores: NC asociadas o Facturas de contado con OP automática */

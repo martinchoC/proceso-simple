@@ -466,9 +466,9 @@ function importarPreciosDesdeExcel($conexion, $lista_precio_id, $productos_preci
     $productosPorCodigo = [];
     $sql_prod = "SELECT producto_id, producto_codigo, producto_nombre
                  FROM gestion__productos
-                 WHERE producto_codigo IN ($placeholders) AND tabla_estado_registro_id = 1";
+                 WHERE empresa_id = ? AND producto_codigo IN ($placeholders) AND tabla_estado_registro_id = 1";
     $stmt_prod = mysqli_prepare($conexion, $sql_prod);
-    mysqli_stmt_bind_param($stmt_prod, $tipos, ...$codigos);
+    mysqli_stmt_bind_param($stmt_prod, 'i' . $tipos, $empresa_id, ...$codigos);
     mysqli_stmt_execute($stmt_prod);
     $res_prod = mysqli_stmt_get_result($stmt_prod);
     while ($row = mysqli_fetch_assoc($res_prod)) {

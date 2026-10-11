@@ -62,7 +62,7 @@ def marcas():
         'asiento': int(val('SELECT IFNULL(MAX(cont_asiento_id),0) FROM gestion__cont_asientos')),
         'tes_mov': int(val('SELECT IFNULL(MAX(tesoreria_movimiento_id),0) FROM gestion__tesoreria_movimientos')),
         'saldos': {r['tesoreria_cuenta_id']: num(r['saldo_actual'])
-                   for r in sql('SELECT tesoreria_cuenta_id, saldo_actual FROM gestion__tesoreria_cuentas WHERE empresa_id=2')},
+                   for r in sql('SELECT tesoreria_cuenta_id, saldo_actual FROM gestion__tesoreria_cuentas')},
         'stock': {(r['boca_id'], r['producto_id']): num(r['cantidad'])
                   for r in sql('SELECT boca_id, producto_id, cantidad FROM gestion__stock WHERE empresa_id=2')},
     }

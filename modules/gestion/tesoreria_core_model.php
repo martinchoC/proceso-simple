@@ -770,7 +770,9 @@ function tesoreriaGenerarAsiento($conexion, $cabecera, $detalles)
     // Tipo de asiento de la empresa por código: AUT (D27), salvo que el llamador pida otro
     $tipo_asiento   = emp_tipo_asiento_id($conexion, $empresa_id, $cabecera['cont_tipo_asiento_codigo'] ?? 'AUT');
 
-    if ($empresa_id <= 0 || $comprobante_id <= 0) {
+    // sin_comprobante: asiento propio sin comprobante (p. ej. liquidación de IVA con saldo a favor)
+    $sin_comprobante = !empty($cabecera['sin_comprobante']);
+    if ($empresa_id <= 0 || ($comprobante_id <= 0 && !$sin_comprobante)) {
         throw new Exception("Parámetros obligatorios faltantes para generar asiento de tesorería.");
     }
     if (empty($detalles)) {
@@ -819,14 +821,17 @@ function tesoreriaGenerarAsiento($conexion, $cabecera, $detalles)
     $deposito_id = emp_boca_id($conexion, $empresa_id, $sucursal_id); // deposito_id de los asientos es la boca
     $estado_asiento = 1; // Activo
 
-    // Verificar si ya existe asiento para este comprobante
-    $sql_check = "SELECT cont_asiento_id FROM gestion__cont_asientos WHERE comprobante_id = ? LIMIT 1";
-    $stmt_c = mysqli_prepare($conexion, $sql_check);
-    mysqli_stmt_bind_param($stmt_c, "i", $comprobante_id);
-    mysqli_stmt_execute($stmt_c);
-    $res_c = mysqli_stmt_get_result($stmt_c);
-    $row_c = mysqli_fetch_assoc($res_c);
-    mysqli_stmt_close($stmt_c);
+    // Verificar si ya existe asiento para este comprobante (sin comprobante: siempre uno nuevo)
+    $row_c = null;
+    if ($comprobante_id > 0) {
+        $sql_check = "SELECT cont_asiento_id FROM gestion__cont_asientos WHERE comprobante_id = ? LIMIT 1";
+        $stmt_c = mysqli_prepare($conexion, $sql_check);
+        mysqli_stmt_bind_param($stmt_c, "i", $comprobante_id);
+        mysqli_stmt_execute($stmt_c);
+        $res_c = mysqli_stmt_get_result($stmt_c);
+        $row_c = mysqli_fetch_assoc($res_c);
+        mysqli_stmt_close($stmt_c);
+    }
 
     $asiento_id = $row_c ? intval($row_c['cont_asiento_id']) : null;
 

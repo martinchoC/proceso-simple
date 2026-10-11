@@ -62,7 +62,8 @@ try {
         case 'ejecutar_accion':
             $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            $resultado = ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $ctx['empresa_id'], $pagina_idx);
+            $resultado = ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $ctx['empresa_id'], $pagina_idx,
+                                                  trim((string)($_POST['motivo'] ?? '')));
             echo json_encode($resultado);
             break;
 
@@ -217,6 +218,18 @@ try {
             } else {
                 echo json_encode(['error' => 'Factura de proveedor no encontrada'], JSON_UNESCAPED_UNICODE);
             }
+            break;
+
+        case 'obtener_alicuotas_iva_marcas':   // alícuotas de la empresa con sus marcas (no gravado / exento)
+            $stmt = mysqli_prepare($conexion, "SELECT iva_alicuota_id, iva_alicuota, porcentaje, es_gravado, es_exento, es_no_gravado
+                                               FROM gestion__impuestos__iva_alicuotas WHERE empresa_id = ? AND tabla_estado_registro_id = 1
+                                               ORDER BY porcentaje DESC, iva_alicuota_id");
+            $empresa_alic = intval($ctx['empresa_id']);
+            mysqli_stmt_bind_param($stmt, "i", $empresa_alic);
+            mysqli_stmt_execute($stmt);
+            $alicuotas = mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
+            mysqli_stmt_close($stmt);
+            echo json_encode(['success' => true, 'data' => $alicuotas], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_cuentas_debito':   // cuentas BANCO de la empresa para el débito directo en cuenta

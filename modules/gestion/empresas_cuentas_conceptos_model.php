@@ -56,6 +56,11 @@ const CONCEPTOS_DESCRIPCIONES = [
         'subtitulo'   => 'Cheques propios emitidos / diferidos',
         'descripcion' => 'Contrapartida contable pasiva al emitir órdenes de pago con cheques diferidos propios (D28 / D35).'
     ],
+    'IVA_SALDO_FAVOR' => [
+        'titulo'      => 'IVA Saldo a Favor',
+        'subtitulo'   => 'Posición mensual de IVA',
+        'descripcion' => 'Saldo técnico a favor que deja la liquidación de IVA del mes (página IVA - Posición Mensual) y que se consume en el siguiente.'
+    ],
     'EMPLEADOS' => [
         'titulo'      => 'Empleados - Anticipos y Rendiciones',
         'subtitulo'   => 'Cuenta corriente deudora/acreedora del personal',

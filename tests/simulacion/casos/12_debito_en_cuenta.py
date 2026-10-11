@@ -8,7 +8,7 @@ OP automática (medio DEB_CTA) que egresa de la cuenta bancaria indicada.
 from simlib import *
 
 for _s in ('20261011_percepciones_recibidas_01_subgrupo_fc.sql', '20261011_percepciones_recibidas_02_provincias.sql',
-           '20261011_debito_en_cuenta_01_estructura.sql', '20261011_debito_en_cuenta_02_resumen_bancario.sql'):
+           '20261011_productos_codigo_por_empresa_01.sql', '20261011_debito_en_cuenta_01_estructura.sql', '20261011_debito_en_cuenta_02_resumen_bancario.sql'):
     _r = subprocess.run([MYSQL, '-u', 'root', '--default-character-set=utf8mb4', DB],
                         stdin=open(os.path.join(AQUI, '..', '..', 'sql', 'mantenimiento', _s), 'rb'), capture_output=True)
     if _r.returncode != 0:
@@ -27,7 +27,7 @@ def entorno(modulo, empresa, pagina, prov, sucursal, deposito, pv):
     e['iva21'] = int(q("SELECT iva_alicuota_id FROM gestion__impuestos__iva_alicuotas WHERE empresa_id = {e} AND es_gravado = 1 AND porcentaje = 21"))
     e['iva105'] = int(q("SELECT iva_alicuota_id FROM gestion__impuestos__iva_alicuotas WHERE empresa_id = {e} AND es_gravado = 1 AND porcentaje = 10.5"))
     e['nograv'] = int(q("SELECT iva_alicuota_id FROM gestion__impuestos__iva_alicuotas WHERE empresa_id = {e} AND es_no_gravado = 1"))
-    e['prod'] = {k: int(q(f"SELECT producto_id FROM gestion__productos WHERE producto_codigo = 'BCO_{k}_E{{e}}'"))
+    e['prod'] = {k: int(q(f"SELECT producto_id FROM gestion__productos WHERE empresa_id = {{e}} AND producto_codigo = 'BCO_{k}'"))
                  for k in ('COMISION', 'INTERES', 'LEY25413')}
     e['banco'] = uno(f"SELECT tesoreria_cuenta_id id, cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = {empresa} "
                      f"AND cuenta_tipo = 'BANCO' AND moneda_id = {e['moneda']} AND tabla_estado_registro_id = 1 ORDER BY tesoreria_cuenta_id LIMIT 1")

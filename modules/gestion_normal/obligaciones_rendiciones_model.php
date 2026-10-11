@@ -272,6 +272,9 @@ function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_
 
         // 3. Asiento Contable Automático de Devengamiento Impositivo (D27 / D36)
         // DEBE: Otros Gastos Generales (GASTOS_GENERALES) / HABER: IVA a Pagar (IVA_A_PAGAR)
+        // sin_asiento: el llamador genera su propio asiento sobre esta I_LIQ (liquidación de la posición de IVA)
+        $asiento_id = null;
+        if (empty($datos['sin_asiento'])) {
         $res_gasto = $cuenta_debe_id > 0
             ? ['cont_cuenta_id' => $cuenta_debe_id]
             : tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Otros Gastos Generales', emp_cuenta_concepto_id($conexion, $empresa_id, 'GASTOS_GENERALES'));
@@ -298,6 +301,7 @@ function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_
                 'descripcion' => "Obligación fiscal a pagar"
             ]
         ]);
+        }
 
         if ($propia) mysqli_commit($conexion);
 

@@ -1787,6 +1787,26 @@ function cargarFacturaParaVisualizar(facturaId) {
             cargarFacturaParaVisualizar(facturaId);
         } else if (accionJs === 'imprimir') {
             imprimirComprobante(facturaId);
+        } else if (accionJs === 'anular') {
+            // Anular una confirmada: revierte stock, asiento, imputaciones y la OP automática; pide el motivo
+            Swal.fire({
+                title: '¿Anular el comprobante?',
+                html: '<strong>' + escapeHtml(comprobanteInfo) + '</strong><br><small class="text-muted">Proveedor: ' + escapeHtml(proveedorInfo) + '</small>'
+                    + '<p class="small text-start mt-2 mb-0">Se revierten el stock y el asiento. Los pagos o notas de crédito que lo cancelaban quedan con saldo a favor; '
+                    + 'la OP automática (contado / débito en cuenta) se anula y devuelve la caja o el banco.</p>',
+                icon: 'warning',
+                input: 'textarea',
+                inputPlaceholder: 'Motivo de la anulación',
+                inputValidator: function (v) { return (!v || !v.trim()) ? 'Ingrese el motivo' : null; },
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Sí, anular',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true,
+                allowOutsideClick: false
+            }).then(function (result) {
+                if (result.isConfirmed) ejecutarAccion(facturaId, accionJs, comprobanteInfo, result.value.trim());
+            });
         } else if (confirmable == 1) {
             Swal.fire({
                 title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
@@ -1893,7 +1913,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         });
     });
     // Función para ejecutar cualquier acción del backend
-    function ejecutarAccion(facturaId, accionJs, comprobanteInfo) {
+    function ejecutarAccion(facturaId, accionJs, comprobanteInfo, motivo) {
         var savedState = {
             page: tabla.page(),
             order: tabla.order(),
@@ -1904,6 +1924,7 @@ function cargarFacturaParaVisualizar(facturaId) {
             accion: 'ejecutar_accion',
             factura_proveedor_id: facturaId,
             accion_js: accionJs,
+            motivo: motivo || '',
             empresa_idx: empresa_idx,
             pagina_idx: pagina_idx
         }, function (res) {
@@ -2177,14 +2198,18 @@ function cargarFacturaParaVisualizar(facturaId) {
     });
 
     // ========== FUNCIONES DE AGREGADO DE PRODUCTOS ==========
+    // Alícuotas de IVA de la empresa (id, porcentaje, no gravado / exento): los ids son por empresa
+    var alicuotasIva = [];
+    $.getJSON('facturas_proveedores_ajax.php', { accion: 'obtener_alicuotas_iva_marcas', empresa_idx: empresa_idx }, function (res) {
+        alicuotasIva = (res && res.data) || [];
+    });
+    function alicuotaIva(id) {
+        return alicuotasIva.find(function (a) { return String(a.iva_alicuota_id) === String(id); }) || null;
+    }
     function obtenerIdIva(porcentaje) {
-        switch(parseFloat(porcentaje)) {
-            case 21: return 1;
-            case 10.5: return 2;
-            case 27: return 3;
-            case 0: return 4;
-            default: return 1;
-        }
+        var p = parseFloat(porcentaje) || 0;
+        var a = alicuotasIva.find(function (x) { return parseFloat(x.porcentaje) === p && (p > 0 ? parseInt(x.es_gravado) === 1 : parseInt(x.es_no_gravado) === 1); });
+        return a ? a.iva_alicuota_id : '';
     }
 
    $('#btnAgregarProducto').click(function() {
@@ -2214,7 +2239,10 @@ function cargarFacturaParaVisualizar(facturaId) {
     var descuentoItemPct = parseFloat($('#producto_descuento_item_pct').val()) || 0;
     var descuentoGeneralPct = parseFloat($('#descuento_general_pct').val()) || 0;
     var iva = parseFloat($('#producto_iva').val()) || 0;
-    var ivaId = $('#producto_iva_id').val() || obtenerIdIva(iva);
+    // El id del producto vale si coincide con el porcentaje elegido; si no, el de ese porcentaje en la empresa
+    var ivaId = $('#producto_iva_id').val();
+    var alicProd = alicuotaIva(ivaId);
+    if (!alicProd || parseFloat(alicProd.porcentaje) !== iva) ivaId = obtenerIdIva(iva) || ivaId;
     var noGravado = parseFloat($('#producto_no_gravado').val()) || 0;
     var exento = parseFloat($('#producto_exento').val()) || 0;
     
@@ -2245,6 +2273,10 @@ function cargarFacturaParaVisualizar(facturaId) {
     var descuentoGeneral = netoDespuesItem * (descuentoGeneralPct / 100);
     var descuentoTotal = descuentoItem + descuentoGeneral;
     var netoGravado = netoBase - descuentoTotal;
+    // Alícuota No gravado / Exento: la base va a ese importe, no a neto gravado (Libro IVA)
+    var alicLinea = alicuotaIva(ivaId);
+    if (alicLinea && parseInt(alicLinea.es_no_gravado) === 1) { noGravado += netoGravado; netoGravado = 0; }
+    else if (alicLinea && parseInt(alicLinea.es_exento) === 1) { exento += netoGravado; netoGravado = 0; }
     var ivaImporte = netoGravado * (iva / 100);
     var totalLinea = netoGravado + ivaImporte + noGravado + exento;
     

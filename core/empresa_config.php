@@ -107,6 +107,7 @@ const EMP_CONCEPTOS_CUENTAS = [
     'MERCADERIAS'      => 'Mercaderías',
     'EMPLEADOS'        => 'Empleados - Anticipos y Rendiciones',
     'VALORES_A_PAGAR'  => 'Valores a Pagar',
+    'IVA_SALDO_FAVOR'  => 'IVA Saldo a Favor',
 ];
 
 /** Cuenta del concepto de la empresa; 0 si no está configurada. */
