@@ -82,9 +82,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <option value="38">Anulado</option>
                             </select>
                         </div>
-                        <div class="col-md-1 d-grid">
-                            <button type="button" class="btn btn-sm btn-primary" id="btnFiltrar">
+                        <div class="col-md-1 d-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-primary flex-fill" id="btnFiltrar" title="Filtrar">
                                 <i class="fas fa-filter"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltros" title="Limpiar Filtros">
+                                <i class="fas fa-times"></i>
                             </button>
                         </div>
                     </form>
@@ -349,8 +352,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    if (typeof Swal === 'undefined') {
+        document.write('<script src="<?= asset_local('js/sweetalert2.all.min.js') ?>"><\/script>');
+    }
+</script>
+
 <!-- Scripts específicos del módulo -->
-<script src="pagos.js"></script>
+<script>
+    const PAGINA_ID = <?= $pagina_idx ?>;
+    const EMPRESA_ID = typeof window.EMPRESA_ID !== 'undefined' ? window.EMPRESA_ID : <?= intval($_SESSION['empresa_id'] ?? 6) ?>;
+    window.EMPRESA_ID = EMPRESA_ID;
+</script>
+<script src="pagos.js?v=<?= filemtime(__DIR__ . '/pagos.js') ?>"></script>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

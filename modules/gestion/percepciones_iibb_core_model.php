@@ -113,13 +113,18 @@ function perIibbProvinciaOperacion($conexion, $empresa_id, $cfg, $cab) {
     return $row ? intval($row['provincia_id']) : null;
 }
 
-/** Fila vigente del padrón para el CUIT (período = mes de la fecha). */
+/**
+ * Fila del padrón vigente a $fecha para el CUIT, cualquiera sea su fuente (archivo, servicio web o carga manual).
+ * Si hay varias, gana la carga manual, después el servicio web, después el archivo (docs §12.5).
+ */
 function perIibbPadron($conexion, $empresa_id, $jurisdiccion_id, $cuit, $fecha) {
-    $periodo = substr(str_replace('-', '', $fecha), 0, 6);
     return perIibbFila($conexion,
         "SELECT * FROM gestion__padrones_iibb
-         WHERE empresa_id = ? AND jurisdiccion_id = ? AND periodo = ? AND cuit = ? LIMIT 1",
-        'iiss', $empresa_id, $jurisdiccion_id, $periodo, $cuit);
+         WHERE empresa_id = ? AND jurisdiccion_id = ? AND cuit = ? AND tabla_estado_registro_id = 1
+           AND f_desde <= ? AND (f_hasta IS NULL OR f_hasta >= ?)
+         ORDER BY FIELD(fuente, 'MANUAL', 'WS', 'ARCHIVO'), f_desde DESC
+         LIMIT 1",
+        'iisss', $empresa_id, $jurisdiccion_id, $cuit, $fecha, $fecha);
 }
 
 /** Situación del cliente según su condición IIBB vigente (sin padrón). */
@@ -264,15 +269,19 @@ function perIibbCalcular($conexion, $empresa_id, $cab, $detalles) {
         if (!empty($cab['destino_bien_uso'])) {
             $situacion = 'BIEN_DE_USO';
         } else {
-            if (!empty($cfg['formato_padron'])) $padron = perIibbPadron($conexion, $empresa_id, $jur_id, $cuit, $fecha);
-            // Campo 7 de SIRCIP para la jurisdicción: 1 adherida con alta (alícuota del padrón), 2 adherida sin alta
-            // (percepción por falta de alta), 3 adherida sin alta y sin sobre alícuota (no se percibe),
-            // 4/5 jurisdicción no adherida (el padrón no aplica: se sigue por la condición del cliente).
-            $digito = $padron && $padron['situacion_jurisdiccion'] !== null ? intval($padron['situacion_jurisdiccion']) : ($padron ? 1 : 0);
-            if ($digito === 3) continue;
-            if ($digito === 1) $situacion = 'PADRON';
-            elseif ($digito === 2) $situacion = 'INSCRIPTO_OTRA_JURISDICCION';
-            else { $padron = null; $situacion = perIibbSituacionCondicion($conexion, $entidad_id, $jur_prov, $fecha); }
+            // El driver de cada fuente ya tradujo sus códigos a la situación normalizada de la fila (docs §12.3)
+            $padron = perIibbPadron($conexion, $empresa_id, $jur_id, $cuit, $fecha);
+            switch ($padron['situacion'] ?? null) {
+                case 'NO_PERCIBIR':
+                    continue 2;
+                case 'PADRON':
+                case 'INSCRIPTO_OTRA_JURISDICCION':
+                    $situacion = $padron['situacion'];
+                    break;
+                default:
+                    $padron = null;
+                    $situacion = perIibbSituacionCondicion($conexion, $entidad_id, $jur_prov, $fecha);
+            }
         }
         $sit = $cfg['situaciones'][$situacion] ?? null;
         if (!$sit) continue;   // situación no alcanzada por el régimen

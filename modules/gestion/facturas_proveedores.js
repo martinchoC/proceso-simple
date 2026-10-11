@@ -1510,7 +1510,27 @@ function mostrarModalImpuesto(impuestoData, idx) {
             wrap.removeClass('d-none');
         });
     }
-    $('#comprobante_tipo_id').on('change', function () { actualizarComprobanteAsociado(); });
+    // ========== DÉBITO DIRECTO EN CUENTA BANCARIA ==========
+    // Resumen bancario (tipo con requiere_debito_cuenta) o factura / ND debitada automáticamente: al confirmar se
+    // cancela con una OP automática desde la cuenta elegida. Solo comprobantes a pagar (signo +).
+    $.getJSON('facturas_proveedores_ajax.php', { accion: 'obtener_cuentas_debito', empresa_idx: empresa_idx }, function (res) {
+        var html = '<option value="">Sin débito en cuenta (se paga con OP)</option>';
+        ((res && res.data) || []).forEach(function (c) {
+            html += '<option value="' + c.tesoreria_cuenta_id + '">' + escapeHtml(c.tesoreria_cuenta) + '</option>';
+        });
+        var actual = $('#tesoreria_cuenta_debito_id').val();
+        $('#tesoreria_cuenta_debito_id').html(html).val(actual || '');
+    });
+    window.actualizarDebitoCuenta = function () {
+        var opt = $('#comprobante_tipo_id option:selected');
+        var wrap = $('#debito_wrap'), sel = $('#tesoreria_cuenta_debito_id');
+        if (!opt.val() || String(opt.data('signo')) !== '+') { wrap.addClass('d-none'); sel.val('').prop('required', false); return; }
+        var requiere = String(opt.data('debito')) === '1';
+        sel.prop('required', requiere);
+        $('#debito_ayuda').text(requiere ? '(obligatorio: cuenta del resumen)' : '(opcional: débito automático)');
+        wrap.removeClass('d-none');
+    };
+    $('#comprobante_tipo_id').on('change', function () { actualizarComprobanteAsociado(); actualizarDebitoCuenta(); });
     $('#entidad_combo').on('change', function () { setTimeout(function () { actualizarComprobanteAsociado(); }, 0); });
 
     // Al confirmar una factura/ND con notas de crédito con saldo del proveedor: ofrecer imputarlas (OP en $0)
@@ -1598,6 +1618,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                 // El proveedor se fija más abajo en este mismo bloque: el combo de comprobante asociado se carga después
                 setTimeout(function () { actualizarComprobanteAsociado(res.comprobante_asociado_id); }, 50);
+                $('#tesoreria_cuenta_debito_id').val(res.tesoreria_cuenta_debito_id || ''); actualizarDebitoCuenta();
                 $('#moneda_id').val(res.moneda_id);
                 $('#condicion_pago_id').val(res.condicion_pago_id);
                 
@@ -2576,12 +2597,12 @@ function cargarFacturaParaVisualizar(facturaId) {
         $.get('facturas_proveedores_ajax.php', { accion: 'obtener_comprobantes_tipos' }, function(data) {
             if (data && data.length > 0) {
                 if (data.length === 1) {
-                    var options = `<option value="${data[0].comprobante_tipo_id}" selected>${data[0].comprobante_tipo}</option>`;
+                    var options = `<option value="${data[0].comprobante_tipo_id}" data-signo="${data[0].signo || ''}" data-debito="${data[0].requiere_debito_cuenta || 0}" selected>${data[0].comprobante_tipo}</option>`;
                     $('#comprobante_tipo_id').html(options);
                 } else {
                     var options = '<option value="">Seleccionar</option>';
                     data.forEach(function(item) {
-                        options += `<option value="${item.comprobante_tipo_id}">${item.comprobante_tipo}</option>`;
+                        options += `<option value="${item.comprobante_tipo_id}" data-signo="${item.signo || ''}" data-debito="${item.requiere_debito_cuenta || 0}">${item.comprobante_tipo}</option>`;
                     });
                     $('#comprobante_tipo_id').html(options);
                 }
@@ -2643,6 +2664,8 @@ function cargarFacturaParaVisualizar(facturaId) {
         setOrdenCompraVinculada(null, null, null);
         $('#asociado_wrap').addClass('d-none');
         $('#comprobante_asociado_id').html('<option value="">Sin comprobante asociado</option>');
+        $('#debito_wrap').addClass('d-none');
+        $('#tesoreria_cuenta_debito_id').val('');
         limpiarAsientoProveedor();
         bootstrap.Tab.getOrCreateInstance(document.getElementById('datos-tab')).show();
         renderizarDetalles();
@@ -2728,6 +2751,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                     $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                     // El proveedor se fija más abajo en este mismo bloque: el combo de comprobante asociado se carga después
                     setTimeout(function () { actualizarComprobanteAsociado(res.comprobante_asociado_id); }, 50);
+                    $('#tesoreria_cuenta_debito_id').val(res.tesoreria_cuenta_debito_id || ''); actualizarDebitoCuenta();
                     $('#moneda_id').val(res.moneda_id);
                     $('#condicion_pago_id').val(res.condicion_pago_id);
                     
@@ -2891,6 +2915,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         formData.append('detalles', JSON.stringify(detalles));
         formData.append('orden_compra_id', $('#orden_compra_id').val() || '');
         formData.append('comprobante_asociado_id', $('#comprobante_asociado_id').val() || '');
+        formData.append('tesoreria_cuenta_debito_id', $('#debito_wrap').hasClass('d-none') ? '' : ($('#tesoreria_cuenta_debito_id').val() || ''));
         formData.append('descuento_general_pct', $('#descuento_general_pct').val() || '0');
         formData.append('deposito_id', $('#deposito_id').val() || '');
         formData.append('impuestos_adicionales', JSON.stringify(impuestosFactura));

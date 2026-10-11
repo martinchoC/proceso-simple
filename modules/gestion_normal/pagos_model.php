@@ -26,8 +26,32 @@ const ESTADO_PAGO_CONFIRMADO = 5;
 const ESTADO_PAGO_ANULADO    = 38;
 const ESTADO_PAGO_ELIMINADO  = 6;
 
-const TIPO_COMPROBANTE_OP_ID = 26;  // Orden de Pago en gestion__comprobantes_tipos
+const TIPO_COMPROBANTE_OP_ID = 26;  // Orden de Pago por defecto
 const TABLA_PAGOS_ID         = 276; // gestion__pagos en conf__tablas
+
+/**
+ * Resuelve el ID de comprobante_tipo para Orden de Pago de la empresa dada.
+ */
+function pagoTipoComprobanteOpId($conexion, $empresa_id): int
+{
+    $empresa_id = intval($empresa_id);
+    if (function_exists('emp_comprobante_tipo_id')) {
+        $id = emp_comprobante_tipo_id($conexion, $empresa_id, 'OP');
+        if ($id > 0) return $id;
+    }
+    $stmt = mysqli_prepare($conexion, "SELECT comprobante_tipo_id FROM gestion__comprobantes_tipos WHERE empresa_id = ? AND codigo = 'OP' AND tabla_estado_registro_id = 1 LIMIT 1");
+    if ($stmt) {
+        mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        if ($row = mysqli_fetch_assoc($res)) {
+            mysqli_stmt_close($stmt);
+            return intval($row['comprobante_tipo_id']);
+        }
+        mysqli_stmt_close($stmt);
+    }
+    return TIPO_COMPROBANTE_OP_ID;
+}
 
 /**
  * Sincroniza la Orden de Pago con gestion__comprobantes (D1 / §2.5 / D23)
@@ -52,7 +76,7 @@ function syncComprobantePago($conexion, $pago_id, $data)
     $usuario_id          = !empty($data['usuario_id']) ? intval($data['usuario_id']) : 1;
     $observaciones       = trim($data['observaciones'] ?? '');
     $tabla_origen_id     = TABLA_PAGOS_ID;
-    $comprobante_tipo_id = TIPO_COMPROBANTE_OP_ID;
+    $comprobante_tipo_id = !empty($data['comprobante_tipo_id']) ? intval($data['comprobante_tipo_id']) : pagoTipoComprobanteOpId($conexion, $empresa_id);
 
     // Verificar si ya existe comprobante asociado
     $sql_check = "SELECT comprobante_id FROM gestion__comprobantes 
@@ -320,13 +344,15 @@ function obtenerPagoDetalle($conexion, $pago_id, $empresa_id)
     $comp_origen_id = intval($cabecera['comprobante_id']);
     $imputaciones = [];
     if ($comp_origen_id > 0) {
+        $estado_op = intval($cabecera['tabla_estado_registro_id']);
+        $filtro_estado = ($estado_op === 5) ? " AND ci.tabla_estado_registro_id = 5" : (($estado_op === 3) ? " AND ci.tabla_estado_registro_id = 3" : " AND ci.tabla_estado_registro_id != 2");
         $sql_i = "SELECT ci.*, " . emp_sql_pv_mostrar('cd.comprobante_pv', 'cd.empresa_id', 'cd.tabla_origen_id') . " AS comprobante_pv, cd.comprobante_nro, cd.f_emision AS destino_f_emision,
                          cd.importe_total AS destino_total, cd.importe_pendiente AS destino_pendiente,
                          ct.codigo AS comprobante_tipo_codigo, ct.comprobante_tipo
                   FROM gestion__comprobantes_imputaciones ci
                   JOIN gestion__comprobantes cd ON cd.comprobante_id = ci.comp_destino_id
                   JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = cd.comprobante_tipo_id
-                  WHERE ci.comp_origen_id = ?
+                  WHERE ci.comp_origen_id = ?$filtro_estado
                   ORDER BY ci.imputacion_id ASC";
         $stmt_i = mysqli_prepare($conexion, $sql_i);
         mysqli_stmt_bind_param($stmt_i, "i", $comp_origen_id);
@@ -398,17 +424,32 @@ function guardarPagoBorrador($conexion, $data)
     }
 
     // Punto de venta de tesorería para la sucursal (D29)
-    $sql_pv = "SELECT punto_venta_id FROM gestion__puntos_venta 
-               WHERE empresa_id = ? AND sucursal_id = ? AND nombre LIKE 'Tesoreria%' LIMIT 1";
-    $stmt_pv = mysqli_prepare($conexion, $sql_pv);
-    mysqli_stmt_bind_param($stmt_pv, "ii", $empresa_id, $sucursal_id);
-    mysqli_stmt_execute($stmt_pv);
-    $res_pv = mysqli_stmt_get_result($stmt_pv);
-    $row_pv = mysqli_fetch_assoc($res_pv);
-    mysqli_stmt_close($stmt_pv);
-    $comprobante_pv = $row_pv ? intval($row_pv['punto_venta_id']) : 1;
+    $comprobante_pv = intval($data['comprobante_pv'] ?? 0);
+    if ($comprobante_pv <= 0) {
+        $sql_pv = "SELECT punto_venta_id FROM gestion__puntos_venta 
+                   WHERE empresa_id = ? AND sucursal_id = ? AND (nombre LIKE 'Tesoreria%' OR codigo_fiscal >= 10000)
+                   ORDER BY (nombre LIKE 'Tesoreria%') DESC, punto_venta_id LIMIT 1";
+        $stmt_pv = mysqli_prepare($conexion, $sql_pv);
+        mysqli_stmt_bind_param($stmt_pv, "ii", $empresa_id, $sucursal_id);
+        mysqli_stmt_execute($stmt_pv);
+        $res_pv = mysqli_stmt_get_result($stmt_pv);
+        $row_pv = mysqli_fetch_assoc($res_pv);
+        mysqli_stmt_close($stmt_pv);
+        if ($row_pv) {
+            $comprobante_pv = intval($row_pv['punto_venta_id']);
+        } else {
+            $sql_pv2 = "SELECT punto_venta_id FROM gestion__puntos_venta WHERE empresa_id = ? ORDER BY (sucursal_id = ?) DESC, punto_venta_id LIMIT 1";
+            $stmt_pv2 = mysqli_prepare($conexion, $sql_pv2);
+            mysqli_stmt_bind_param($stmt_pv2, "ii", $empresa_id, $sucursal_id);
+            mysqli_stmt_execute($stmt_pv2);
+            $res_pv2 = mysqli_stmt_get_result($stmt_pv2);
+            $row_pv2 = mysqli_fetch_assoc($res_pv2);
+            mysqli_stmt_close($stmt_pv2);
+            $comprobante_pv = $row_pv2 ? intval($row_pv2['punto_venta_id']) : 1;
+        }
+    }
 
-    $comprobante_tipo_id = TIPO_COMPROBANTE_OP_ID;
+    $comprobante_tipo_id = !empty($data['comprobante_tipo_id']) ? intval($data['comprobante_tipo_id']) : pagoTipoComprobanteOpId($conexion, $empresa_id);
     $estado_borrador     = ESTADO_PAGO_BORRADOR;
 
     if ($pago_id > 0) {
@@ -649,7 +690,8 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
         }
         mysqli_stmt_close($stmt_l);
 
-        // 3. Confirmar Imputaciones
+        // 3. Confirmar Imputaciones (limpiar previas en borrador)
+        $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE comp_origen_id = $comp_origen_id AND tabla_estado_registro_id = 3");
         $total_imputado = 0.0;
         foreach ($pago_info['imputaciones'] as $imp) {
             $dest_id = intval($imp['comp_destino_id']);
@@ -689,7 +731,7 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
                     WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ? 
                     FOR UPDATE";
         $stmt_num = mysqli_prepare($conexion, $sql_num);
-        $tipo_op = TIPO_COMPROBANTE_OP_ID;
+        $tipo_op = !empty($cab['comprobante_tipo_id']) ? intval($cab['comprobante_tipo_id']) : pagoTipoComprobanteOpId($conexion, $empresa_id);
         mysqli_stmt_bind_param($stmt_num, "iii", $empresa_id, $punto_venta_id, $tipo_op);
         mysqli_stmt_execute($stmt_num);
         $res_num = mysqli_stmt_get_result($stmt_num);

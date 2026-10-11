@@ -27,6 +27,14 @@ sql("UPDATE gestion__empresas_parametros SET arca_habilitado = 0 WHERE empresa_i
 sql(f"UPDATE gestion__empresas_impuestos_config SET tabla_estado_registro_id = 1, f_desde = '2026-01-01', "
     f"numero_agente = '107999999', codigo_regimen_ddjj = '11', arca_tributo_id = 7 WHERE empresa_impuesto_config_id = {cfg['id']}")
 sql(f"UPDATE gestion__entidades_sucursales SET localidad_id = {VIEDMA} WHERE sucursal_id = {SUC_NI}")
+# Solo en la copia: el 417 vuelve a Local sin sede ni altas (10_ventas_rio_negro le asigna Río Negro; la base local
+# puede traerlo así si se corrió con --base-local)
+sql(f"UPDATE gestion__entidades_condiciones_iibb SET jurisdiccion_sede_id = NULL WHERE entidad_id = {CLI_RN} AND tabla_estado_registro_id = 1")
+sql(f"UPDATE gestion__entidades_condiciones_iibb_jurisdicciones cj JOIN gestion__entidades_condiciones_iibb ec "
+    f"ON ec.entidad_condicion_iibb_id = cj.entidad_condicion_iibb_id SET cj.tabla_estado_registro_id = 2 WHERE ec.entidad_id = {CLI_RN}")
+# Percepciones del período que ya traía la base (p. ej. de 10_ventas_rio_negro con --base-local): la DDJJ se compara contra eso
+_pre = ajax('percepciones_iibb_ajax.php', dict(accion='listar', jurisdiccion_id=JUR_RN, periodo=PERIODO, empresa_idx=2), 'GET')
+PREVIO = round(num(_pre['data']['resumen']['pendiente']), 2) if ok_resp(_pre) else 0.0
 
 
 def estado_vf(fid):
@@ -170,8 +178,8 @@ r = ajax('percepciones_iibb_ajax.php', dict(accion='listar', jurisdiccion_id=JUR
 check(ok_resp(r), 'listar período', err(r))
 if ok_resp(r):
     s = r['data']['resumen']
-    check(abs(num(s['percibido']) - 15) < 0.01 and abs(num(s['pendiente']) - 15) < 0.01 and s['cantidad'] >= 3,
-          'neto del período 20 - 5 + 0 = 15', str(s))
+    check(abs(num(s['percibido']) - 15 - PREVIO) < 0.01 and abs(num(s['pendiente']) - 15 - PREVIO) < 0.01 and s['cantidad'] >= 3,
+          f'neto del período 20 - 5 + 0 = 15 (+ {PREVIO} que ya traía la base)', str(s))
 r = ajax('percepciones_iibb_ajax.php', dict(accion='exportar', jurisdiccion_id=JUR_RN, periodo=PERIODO, empresa_idx=2), 'GET')
 raw = r.get('_raw', '') if isinstance(r, dict) else ''
 lineas = [l for l in raw.splitlines() if l.strip()]
@@ -180,14 +188,14 @@ check(lineas and any(l.split(',')[1] == '102' for l in lineas) and all(len(l.spl
       'NC con tipo 102, régimen 011 y jurisdicción 916', raw[:400])
 org = val("SELECT entidad_id FROM gestion__entidades WHERE empresa_id = 2 AND es_proveedor = 1 AND tabla_estado_registro_id = 1 LIMIT 1")
 r = ajax('percepciones_iibb_ajax.php', dict(accion='liquidar', jurisdiccion_id=JUR_RN, periodo=PERIODO, entidad_id=org, sucursal_id=1, f_vto=HOY, empresa_idx=2))
-check(ok_resp(r) and abs(num(r['data']['total']) - 15) < 0.01, 'liquidación por 15', err(r))
+check(ok_resp(r) and abs(num(r['data']['total']) - 15 - PREVIO) < 0.01, f'liquidación por 15 (+ {PREVIO})', err(r))
 if ok_resp(r):
     liq = r['data']['comprobante_id']
     check(val(f"SELECT COUNT(*) FROM gestion__comprobantes_impuestos WHERE liquidacion_comprobante_id = {liq}") == str(r['data']['registros']),
           'percepciones marcadas como declaradas')
     c = uno(f"SELECT c.importe_total, c.importe_pendiente, ct.codigo FROM gestion__comprobantes c JOIN gestion__comprobantes_tipos ct "
             f"ON ct.comprobante_tipo_id = c.comprobante_tipo_id WHERE c.comprobante_id = {liq}")
-    check(c and c['codigo'] == 'I_LIQ' and abs(num(c['importe_pendiente']) - 15) < 0.01, 'I_LIQ con saldo 15 para pagar', str(c))
+    check(c and c['codigo'] == 'I_LIQ' and abs(num(c['importe_pendiente']) - 15 - PREVIO) < 0.01, 'I_LIQ con saldo para pagar', str(c))
     det = sql(f"SELECT d.cuenta_id, d.importe_local FROM gestion__cont_asientos a JOIN gestion__cont_asientos_detalles d ON d.cont_asiento_id = a.cont_asiento_id WHERE a.comprobante_id = {liq}")
     check(det and all(int(d['cuenta_id']) == int(cfg['cont_cuenta_id']) for d in det) and abs(sum(num(d['importe_local']) for d in det)) < 0.01,
           'asiento de la I_LIQ: Debe y Haber en la cuenta a depositar (no crea gasto)', str(det))
@@ -208,14 +216,17 @@ sql(f"INSERT INTO gestion__padrones_iibb_importaciones (empresa_id, jurisdiccion
     f"VALUES (2, {JUR_RN}, 'SIRCIP', '{PERIODO.replace('-', '')}', 'sim.txt', 'x')")
 imp = val("SELECT MAX(padron_importacion_id) FROM gestion__padrones_iibb_importaciones")
 cuit = val(f"SELECT REPLACE(cuit, '-', '') FROM gestion__entidades WHERE entidad_id = {CLI_FUERA}")
-sql(f"INSERT INTO gestion__padrones_iibb (empresa_id, jurisdiccion_id, padron_importacion_id, periodo, cuit, alicuota_percepcion, letra_alicuota, crc, situacion_jurisdiccion) "
-    f"VALUES (2, {JUR_RN}, {imp}, '{PERIODO.replace('-', '')}', '{cuit}', 2.5, 'S', 42, 1)")
+# Fila como la deja el driver SIRCIP (dígito 1 -> situación PADRON, vigencia = el mes)
+sql(f"INSERT INTO gestion__padrones_iibb (empresa_id, jurisdiccion_id, padron_importacion_id, fuente, f_desde, f_hasta, periodo, cuit, "
+    f"alicuota_percepcion, letra_alicuota, codigo_origen, crc, situacion_jurisdiccion, situacion) "
+    f"VALUES (2, {JUR_RN}, {imp}, 'ARCHIVO', '{PERIODO}-01', LAST_DAY('{PERIODO}-01'), '{PERIODO.replace('-', '')}', '{cuit}', "
+    f"2.5, 'S', 'S', 42, 1, 'PADRON')")
 r, fp = vf_alta(4, CLI_FUERA, SUC_FUERA, [(P1, 1, 1000)])
 if fp:
     ps = percepciones(fila_vf(fp)['comprobante_id'])
     check(len(ps) == 1 and ps[0]['situacion'] == 'PADRON' and abs(num(ps[0]['importe']) - 25) < 0.01 and ps[0]['padron_crc'] == '42',
           'en padrón (dígito 1): 2,5 % aunque la entrega sea fuera de Río Negro, con el CRC', str(ps))
-sql(f"UPDATE gestion__padrones_iibb SET situacion_jurisdiccion = 3 WHERE cuit = '{cuit}'")
+sql(f"UPDATE gestion__padrones_iibb SET situacion_jurisdiccion = 3, situacion = 'NO_PERCIBIR' WHERE cuit = '{cuit}'")
 r, fp3 = vf_alta(4, CLI_FUERA, SUC_FUERA, [(P1, 1, 1000)])
 if fp3:
     check(not percepciones(fila_vf(fp3)['comprobante_id']), 'dígito 3 (sin sobre alícuota): no se percibe')

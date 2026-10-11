@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/percepciones_iibb_core_model.php';
+require_once __DIR__ . '/percepciones_iibb_drivers.php';
 require_once __DIR__ . '/obligaciones_rendiciones_model.php';   // registrarObligacionImpositiva (hace $conexion = $conn: incluir a nivel archivo)
 
 // Estados del comprobante que cuentan para la DDJJ (confirmado y derivados de saldo / facturación)
@@ -98,7 +99,8 @@ function perCodigoTipoDdjj($conexion, $empresa_id, $comprobante_tipo_id) {
 function perNum($v) { return number_format(abs(floatval($v)), 2, '.', ''); }
 
 /**
- * Arma el archivo de la DDJJ. Devuelve ['nombre' => ..., 'mime' => ..., 'contenido' => binario].
+ * Arma el archivo de la DDJJ con el formato (driver) de formato_ddjj de la config del período.
+ * Devuelve ['nombre' => ..., 'mime' => ..., 'contenido' => binario, 'registros' => n].
  */
 function perExportar($conexion, $empresa_id, $jurisdiccion_id, $periodo) {
     $periodo = perValidarPeriodo($periodo);
@@ -106,63 +108,26 @@ function perExportar($conexion, $empresa_id, $jurisdiccion_id, $periodo) {
     if (!$cfg) throw new Exception('No hay configuración de percepción para esa jurisdicción en el período.');
     $formato = $cfg['formato_ddjj'] ?? '';
     if ($formato === '') throw new Exception('La configuración no tiene formato de DDJJ (Impuestos Adic. - Conf → Agente de Percepción).');
+    $driver = perIibbDriverDdjj($formato);
     $cod_jur = $cfg['codigo_jurisdiccion_cm'] ?? '';
     if (strlen((string)$cod_jur) !== 3) throw new Exception('Falta el código de jurisdicción CM en la configuración.');
 
     $filas = perListado($conexion, $empresa_id, $jurisdiccion_id, $periodo);
     if (!$filas) throw new Exception('No hay percepciones en el período.');
-
-    $lineas = [];
-    $renglon = 0;
     foreach ($filas as $f) {
-        $cuit = preg_replace('/\D/', '', (string)$f['cuit']);
-        if (strlen($cuit) !== 11) throw new Exception('El comprobante ' . $f['numero'] . ' es de un cliente sin CUIT válido.');
-        $tipo = perCodigoTipoDdjj($conexion, $empresa_id, $f['comprobante_tipo_id']);
-        $letra = strtoupper(trim((string)$f['letra'])) ?: 'Z';
-        $pv = emp_pv_numero($conexion, $empresa_id, $f['comprobante_pv']);
-        $nro = intval($f['comprobante_nro']);
-        $fecha = date('d/m/Y', strtotime($f['f_emision']));
-
-        if ($formato === 'SIRCAR_D1') {
-            $regimen = (string)($cfg['codigo_regimen_ddjj'] ?? '');
-            if ($regimen === '') throw new Exception('Falta el código de régimen de la DDJJ (SIRCAR campo 10) en la configuración.');
-            $renglon++;
-            $lineas[] = implode(',', [
-                $renglon, $tipo, $letra, sprintf('%04d%08d', $pv, $nro), $cuit, $fecha,
-                perNum($f['base_imponible']), perNum($f['alicuota']), perNum($f['importe']),
-                str_pad($regimen, 3, '0', STR_PAD_LEFT), $cod_jur,
-            ]);
-        } elseif ($formato === 'SIRCIP') {
-            $crc = $f['padron_crc'] !== null ? (string)intval($f['padron_crc']) : '';
-            $original = '';
-            if ($tipo === 102 && intval($f['comprobante_asociado_id']) > 0) {
-                $o = perIibbFila($conexion, "SELECT comprobante_tipo_id, comprobante_pv, comprobante_nro FROM gestion__comprobantes
-                                             WHERE comprobante_id = ? AND empresa_id = ?", 'ii', intval($f['comprobante_asociado_id']), intval($empresa_id));
-                if ($o) {
-                    $ot = perIibbTipoComprobante($conexion, $empresa_id, intval($o['comprobante_tipo_id']));
-                    $original = sprintf('%03d', perCodigoTipoDdjj($conexion, $empresa_id, $o['comprobante_tipo_id']))
-                        . (strtoupper(trim((string)($ot['letra'] ?? ''))) ?: 'Z')
-                        . sprintf('%05d%08d', emp_pv_numero($conexion, $empresa_id, $o['comprobante_pv']), intval($o['comprobante_nro']));
-                }
-            }
-            $lineas[] = implode(',', [
-                $cuit, $crc, $fecha, ($cfg['codigo_regimen_ddjj'] ?? '') !== '' ? intval($cfg['codigo_regimen_ddjj']) : 1,
-                intval($f['tipo_registro_ddjj'] ?? 0) ?: 1, 0, $cod_jur, $tipo, $letra, $pv, $nro,
-                perNum($f['base_imponible']), perNum($f['alicuota']), perNum($f['importe']),
-                $original, '', 'A',
-            ]);
-        } else {
-            throw new Exception("Formato de DDJJ desconocido: $formato");
+        if (strlen(preg_replace('/\D/', '', (string)$f['cuit'])) !== 11) {
+            throw new Exception('El comprobante ' . $f['numero'] . ' es de un cliente sin CUIT válido.');
         }
     }
+    $r = call_user_func($driver, $conexion, $empresa_id, $cfg, $filas);
+    $lineas = $r['lineas'];
 
     $cuit_emp = preg_replace('/\D/', '', emp_cuit($conexion, $empresa_id));
     $base = 'percepciones_iibb_' . $cod_jur . '_' . str_replace('-', '', $periodo) . ($cuit_emp ? '_' . $cuit_emp : '');
     $txt = implode("\r\n", $lineas) . "\r\n";
-    if ($formato === 'SIRCIP') {
-        // SIRCIP exige un ZIP con un único TXT
-        if (!class_exists('ZipArchive')) throw new Exception('El servidor no tiene la extensión zip de PHP: no se puede generar el archivo SIRCIP.');
-        $tmp = tempnam(sys_get_temp_dir(), 'sircip');
+    if (!empty($r['zip'])) {
+        if (!class_exists('ZipArchive')) throw new Exception("El servidor no tiene la extensión zip de PHP: no se puede generar el archivo $formato.");
+        $tmp = tempnam(sys_get_temp_dir(), 'ddjj');
         $zip = new ZipArchive();
         if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) throw new Exception('No se pudo crear el ZIP.');
         $zip->addFromString($base . '.txt', $txt);
@@ -172,6 +137,63 @@ function perExportar($conexion, $empresa_id, $jurisdiccion_id, $periodo) {
         return ['nombre' => $base . '.zip', 'mime' => 'application/zip', 'contenido' => $contenido, 'registros' => count($lineas)];
     }
     return ['nombre' => $base . '.txt', 'mime' => 'text/plain', 'contenido' => $txt, 'registros' => count($lineas)];
+}
+
+/** Datos comunes de un renglón de DDJJ: CUIT, tipo/letra de comprobante, PV fiscal, número y fecha. */
+function perDdjjComprobante($conexion, $empresa_id, $f) {
+    return [
+        'cuit' => preg_replace('/\D/', '', (string)$f['cuit']),
+        'tipo' => perCodigoTipoDdjj($conexion, $empresa_id, $f['comprobante_tipo_id']),
+        'letra' => strtoupper(trim((string)$f['letra'])) ?: 'Z',
+        'pv' => emp_pv_numero($conexion, $empresa_id, $f['comprobante_pv']),
+        'nro' => intval($f['comprobante_nro']),
+        'fecha' => date('d/m/Y', strtotime($f['f_emision'])),
+    ];
+}
+
+/** SIRCAR Diseño N° 1: TXT, renglón correlativo, comprobante de 12 dígitos, régimen (campo 10) y jurisdicción CM. */
+function perDdjjSircarD1($conexion, $empresa_id, $cfg, $filas) {
+    $regimen = (string)($cfg['codigo_regimen_ddjj'] ?? '');
+    if ($regimen === '') throw new Exception('Falta el código de régimen de la DDJJ (SIRCAR campo 10) en la configuración.');
+    $lineas = [];
+    $renglon = 0;
+    foreach ($filas as $f) {
+        $c = perDdjjComprobante($conexion, $empresa_id, $f);
+        $renglon++;
+        $lineas[] = implode(',', [
+            $renglon, $c['tipo'], $c['letra'], sprintf('%04d%08d', $c['pv'], $c['nro']), $c['cuit'], $c['fecha'],
+            perNum($f['base_imponible']), perNum($f['alicuota']), perNum($f['importe']),
+            str_pad($regimen, 3, '0', STR_PAD_LEFT), $cfg['codigo_jurisdiccion_cm'],
+        ]);
+    }
+    return ['lineas' => $lineas, 'zip' => false];
+}
+
+/** SIRCIP: ZIP con un TXT; CRC del padrón, tipo de registro de la situación, comprobante original en las NC, ABM 'A'. */
+function perDdjjSircip($conexion, $empresa_id, $cfg, $filas) {
+    $lineas = [];
+    foreach ($filas as $f) {
+        $c = perDdjjComprobante($conexion, $empresa_id, $f);
+        $crc = $f['padron_crc'] !== null ? (string)intval($f['padron_crc']) : '';
+        $original = '';
+        if ($c['tipo'] === 102 && intval($f['comprobante_asociado_id']) > 0) {
+            $o = perIibbFila($conexion, "SELECT comprobante_tipo_id, comprobante_pv, comprobante_nro FROM gestion__comprobantes
+                                         WHERE comprobante_id = ? AND empresa_id = ?", 'ii', intval($f['comprobante_asociado_id']), intval($empresa_id));
+            if ($o) {
+                $ot = perIibbTipoComprobante($conexion, $empresa_id, intval($o['comprobante_tipo_id']));
+                $original = sprintf('%03d', perCodigoTipoDdjj($conexion, $empresa_id, $o['comprobante_tipo_id']))
+                    . (strtoupper(trim((string)($ot['letra'] ?? ''))) ?: 'Z')
+                    . sprintf('%05d%08d', emp_pv_numero($conexion, $empresa_id, $o['comprobante_pv']), intval($o['comprobante_nro']));
+            }
+        }
+        $lineas[] = implode(',', [
+            $c['cuit'], $crc, $c['fecha'], ($cfg['codigo_regimen_ddjj'] ?? '') !== '' ? intval($cfg['codigo_regimen_ddjj']) : 1,
+            intval($f['tipo_registro_ddjj'] ?? 0) ?: 1, 0, $cfg['codigo_jurisdiccion_cm'], $c['tipo'], $c['letra'], $c['pv'], $c['nro'],
+            perNum($f['base_imponible']), perNum($f['alicuota']), perNum($f['importe']),
+            $original, '', 'A',
+        ]);
+    }
+    return ['lineas' => $lineas, 'zip' => true];
 }
 
 /** Sucursales activas de la empresa (la I_LIQ lleva sucursal). */

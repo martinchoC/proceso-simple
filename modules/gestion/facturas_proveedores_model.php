@@ -658,6 +658,8 @@ function agregarFacturaProveedor($conexion, $data)
         fpGuardarOrdenCompraFactura($conexion, $factura_proveedor_id, $orden_compra_id);
         fpGuardarComprobanteAsociado($conexion, $empresa_id_val, $factura_proveedor_id, $comprobante_tipo_id_val, $entidad_id_val,
                                      intval($data['comprobante_asociado_id'] ?? 0));
+        fpGuardarCuentaDebito($conexion, $empresa_id_val, $factura_proveedor_id, $comprobante_tipo_id_val, $moneda_id_val,
+                              intval($data['tesoreria_cuenta_debito_id'] ?? 0));
 
         // Insertar detalles
         $detalles_success = insertarDetallesFactura($conexion, $factura_proveedor_id, $data['empresa_idx'], $data['detalles']);
@@ -665,16 +667,14 @@ function agregarFacturaProveedor($conexion, $data)
         if (!$detalles_success) {
             throw new Exception("Error al insertar los detalles");
         }
-        // Guardar impuestos adicionales
-        if (isset($data['impuestos_adicionales']) && !empty($data['impuestos_adicionales'])) {
-            $impuestos = json_decode($data['impuestos_adicionales'], true);
-            if (is_array($impuestos) && count($impuestos) > 0) {
-                $resultado_impuestos = guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_idx);
-                if (!$resultado_impuestos['success']) {
-                    throw new Exception('Error al guardar impuestos: ' . ($resultado_impuestos['error'] ?? 'Error desconocido'));
-                }
-                error_log("Impuestos guardados: " . print_r($resultado_impuestos, true));
+        // Percepciones / impuestos adicionales: si vienen (aunque sea vacíos) reemplazan a los guardados
+        if (isset($data['impuestos_adicionales'])) {
+            $impuestos = is_array($data['impuestos_adicionales']) ? $data['impuestos_adicionales']
+                                                                   : (trim((string)$data['impuestos_adicionales']) === '' ? [] : json_decode((string)$data['impuestos_adicionales'], true));
+            if (!is_array($impuestos)) {
+                throw new Exception('Impuestos adicionales con formato inválido');
             }
+            guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_id_val, true);
         }
         mysqli_commit($conexion);
         error_log("=== FIN agregarFacturaProveedor - ÉXITO ===");
@@ -906,6 +906,8 @@ function editarFacturaProveedor($conexion, $id, $data)
             fpGuardarOrdenCompraFactura($conexion, $id, $orden_compra_id);
             fpGuardarComprobanteAsociado($conexion, $empresa_idx_val, $id, $comprobante_tipo_id_val, $entidad_id_val,
                                          intval($data['comprobante_asociado_id'] ?? 0));
+            fpGuardarCuentaDebito($conexion, $empresa_idx_val, $id, $comprobante_tipo_id_val, $moneda_id_val,
+                                  intval($data['tesoreria_cuenta_debito_id'] ?? 0));
 
             $detalles_success = insertarDetallesFactura($conexion, $id, $empresa_idx_val, $data['detalles']);
             
@@ -915,16 +917,14 @@ function editarFacturaProveedor($conexion, $id, $data)
         } else {
             throw new Exception("Debe haber al menos un detalle en la factura");
         }
-        // Guardar impuestos adicionales
-        if (isset($data['impuestos_adicionales']) && !empty($data['impuestos_adicionales'])) {
-            $impuestos = json_decode($data['impuestos_adicionales'], true);
-            if (is_array($impuestos) && count($impuestos) > 0) {
-                $resultado_impuestos = guardarImpuestosFactura($conexion, $id, $impuestos, $empresa_idx);
-                if (!$resultado_impuestos['success']) {
-                    throw new Exception('Error al guardar impuestos: ' . ($resultado_impuestos['error'] ?? 'Error desconocido'));
-                }
-                error_log("Impuestos actualizados: " . print_r($resultado_impuestos, true));
+        // Percepciones / impuestos adicionales: si vienen (aunque sea vacíos) reemplazan a los guardados
+        if (isset($data['impuestos_adicionales'])) {
+            $impuestos = is_array($data['impuestos_adicionales']) ? $data['impuestos_adicionales']
+                                                                   : (trim((string)$data['impuestos_adicionales']) === '' ? [] : json_decode((string)$data['impuestos_adicionales'], true));
+            if (!is_array($impuestos)) {
+                throw new Exception('Impuestos adicionales con formato inválido');
             }
+            guardarImpuestosFactura($conexion, $id, $impuestos, $empresa_idx_val, true);
         }
 
         mysqli_commit($conexion);
@@ -1076,7 +1076,8 @@ function obtenerComprobantesTipos($conexion, $empresa_idx = null)
     $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $subgrupo_id = emp_subgrupo_id($conexion, $empresa_idx, 'FC');   // Facturas de Compra de la empresa
     if ($subgrupo_id <= 0) return [];   // la empresa no tiene ese subgrupo activo
-    $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra
+    $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra, signo"
+         . (fpDebitoCuentaHabilitado($conexion) ? ", requiere_debito_cuenta" : ", 0 AS requiere_debito_cuenta") . "
             FROM gestion__comprobantes_tipos
             WHERE empresa_id = $empresa_idx AND comprobante_subgrupo_id = $subgrupo_id
             AND tabla_estado_registro_id = 1
@@ -2236,6 +2237,113 @@ function obtenerImpuestosConfig($conexion, $empresa_idx, $comprobante_subgrupo_i
     error_log("Impuestos config cargados: " . count($impuestos) . " registros");
     return $impuestos;
 }
+// Percepciones e impuestos adicionales recibidos en una factura / NC / ND de proveedor (gestion__comprobantes_impuestos).
+// Reemplaza los del comprobante: baja lógica (estado 2) de los anteriores y alta de los que vienen con importe.
+// Cada config tiene que ser de la empresa, estar activa y ser de un impuesto de compras (aplica_compra = 1).
+// Deja el total en gestion__facturas_proveedores.otros_impuestos y en gestion__comprobantes.importe_otros_impuestos
+// (el asiento toma la cuenta de cada config). Solo en Borrador. $en_transaccion = true: corre dentro de la
+// transacción del llamador (agregar / editar) y lanza la excepción; false: abre y confirma la suya.
+function guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_idx, $en_transaccion = false)
+{
+    $factura_proveedor_id = intval($factura_proveedor_id);
+    $empresa_idx = intval($empresa_idx);
+    error_log("=== INICIO guardarImpuestosFactura factura: $factura_proveedor_id ===");
+
+    if (!$en_transaccion) {
+        mysqli_begin_transaction($conexion);
+    }
+    try {
+        $stmt = mysqli_prepare($conexion, "SELECT comprobante_id, tabla_estado_registro_id FROM gestion__facturas_proveedores
+                                           WHERE factura_proveedor_id = ? AND empresa_id = ? FOR UPDATE");
+        mysqli_stmt_bind_param($stmt, "ii", $factura_proveedor_id, $empresa_idx);
+        mysqli_stmt_execute($stmt);
+        $factura = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$factura) {
+            throw new Exception('Factura de proveedor no encontrada');
+        }
+        if (intval($factura['tabla_estado_registro_id']) !== 3) {
+            throw new Exception('Los impuestos solo se modifican con la factura en Borrador');
+        }
+        $comprobante_id = intval($factura['comprobante_id']);
+        if ($comprobante_id <= 0) {
+            throw new Exception('La factura no tiene comprobante asociado');
+        }
+
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_impuestos SET tabla_estado_registro_id = 2
+                                           WHERE comprobante_id = ? AND tabla_estado_registro_id = 1");
+        mysqli_stmt_bind_param($stmt, "i", $comprobante_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        $stmt_cfg = mysqli_prepare($conexion, "SELECT cfg.impuesto_tipo_id, cfg.jurisdiccion_id, it.impuesto_tipo
+                                               FROM gestion__empresas_impuestos_config cfg
+                                               INNER JOIN gestion__impuestos_tipos it ON it.impuesto_tipo_id = cfg.impuesto_tipo_id
+                                               WHERE cfg.empresa_impuesto_config_id = ? AND cfg.empresa_id = ?
+                                                 AND cfg.tabla_estado_registro_id = 1 AND it.aplica_compra = 1");
+        $stmt_ins = mysqli_prepare($conexion, "INSERT INTO gestion__comprobantes_impuestos
+                                               (comprobante_id, empresa_impuesto_config_id, impuesto_tipo_id, jurisdiccion_id, tipo_origen,
+                                                base_imponible, alicuota, importe, detalle_origen, tabla_estado_registro_id)
+                                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+        $total = 0.0;
+        $cantidad = 0;
+        foreach ((is_array($impuestos) ? $impuestos : []) as $imp) {
+            $config_id = intval($imp['empresa_impuesto_config_id'] ?? 0);
+            $importe = round(floatval($imp['importe'] ?? 0), 2);
+            if ($config_id <= 0 || abs($importe) < 0.005) {
+                continue;   // filas sugeridas por la configuración que quedaron en cero
+            }
+            if ($importe < 0) {
+                throw new Exception('El importe de un impuesto no puede ser negativo (en una nota de crédito lo invierte el tipo de comprobante)');
+            }
+            mysqli_stmt_bind_param($stmt_cfg, "ii", $config_id, $empresa_idx);
+            mysqli_stmt_execute($stmt_cfg);
+            $cfg = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cfg));
+            if (!$cfg) {
+                throw new Exception("La configuración de impuesto $config_id no es un impuesto de compras activo de la empresa");
+            }
+            $tipo_origen = in_array($imp['tipo_origen'] ?? '', ['manual', 'padron', 'regla'], true) ? $imp['tipo_origen'] : 'manual';
+            $impuesto_tipo_id = intval($cfg['impuesto_tipo_id']);
+            $jurisdiccion_id = $cfg['jurisdiccion_id'] !== null ? intval($cfg['jurisdiccion_id']) : null;
+            $base = round(floatval($imp['base_imponible'] ?? 0), 2);
+            $alicuota = floatval($imp['alicuota'] ?? 0);
+            $detalle = (isset($imp['detalle_origen']) && $imp['detalle_origen'] !== '') ? mb_substr(trim((string)$imp['detalle_origen']), 0, 255) : null;
+            mysqli_stmt_bind_param($stmt_ins, "iiiisddds", $comprobante_id, $config_id, $impuesto_tipo_id, $jurisdiccion_id,
+                                   $tipo_origen, $base, $alicuota, $importe, $detalle);
+            if (!mysqli_stmt_execute($stmt_ins)) {
+                throw new Exception('Error al guardar impuesto: ' . mysqli_stmt_error($stmt_ins));
+            }
+            $total += $importe;
+            $cantidad++;
+        }
+        mysqli_stmt_close($stmt_cfg);
+        mysqli_stmt_close($stmt_ins);
+        $total = round($total, 2);
+
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__facturas_proveedores SET otros_impuestos = ? WHERE factura_proveedor_id = ?");
+        mysqli_stmt_bind_param($stmt, "di", $total, $factura_proveedor_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes SET importe_otros_impuestos = ? WHERE comprobante_id = ?");
+        mysqli_stmt_bind_param($stmt, "di", $total, $comprobante_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        if (!$en_transaccion) {
+            mysqli_commit($conexion);
+        }
+        error_log("=== FIN guardarImpuestosFactura: $cantidad impuestos, total $total ===");
+        return ['success' => true, 'cantidad' => $cantidad, 'total' => $total];
+    } catch (Exception $e) {
+        if ($en_transaccion) {
+            throw $e;
+        }
+        mysqli_rollback($conexion);
+        error_log("ERROR en guardarImpuestosFactura: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
 function obtenerImpuestosFactura($conexion, $factura_proveedor_id) {
     // Primero obtener el comprobante_id
     $tabla_origen_id = 84;
@@ -3255,7 +3363,225 @@ function fpAplicarNotasCredito($conexion, $empresa_id, $destino_comprobante_id, 
     }
 }
 
-/** NC confirmada con comprobante asociado con saldo: se le aplica. Corre dentro de la transacción de la confirmación. */
+/**
+ * Genera y confirma una Orden de Pago automática para una factura de proveedor: en efectivo (de contado) o, con
+ * $tesoreria_cuenta_id, por débito en esa cuenta bancaria (medio DEB_CTA; Resumen bancario y débitos automáticos).
+ * Cumple con el circuito completo: emisión de OP, cancelación de la factura a 0 (CANCELADO),
+ * egreso de libro de tesorería y asiento contable balanceado (Debe: Proveedor / Haber: Caja o Banco).
+ */
+function fpGenerarOrdenPagoAutomatica($conexion, $factura_proveedor_id, $empresa_id, $usuario_id = 1, $en_transaccion = false, $tesoreria_cuenta_id = 0)
+{
+    require_once __DIR__ . '/tesoreria_core_model.php';
+    $conn = $conexion;
+    require_once __DIR__ . '/pagos_model.php';
+
+    $factura_proveedor_id = intval($factura_proveedor_id);
+    $empresa_id = intval($empresa_id);
+    $usuario_id = intval($usuario_id ?: 1);
+
+    $sql = "SELECT fp.factura_proveedor_id, fp.empresa_id, fp.sucursal_id, fp.comprobante_id,
+                   fp.comprobante_tipo_id, fp.comprobante_pv, fp.comprobante_nro,
+                   fp.entidad_id, fp.f_emision, fp.f_contabilidad, fp.moneda_id, fp.tipo_cambio,
+                   fp.total, c.importe_pendiente, ct.comprobante_tipo
+            FROM gestion__facturas_proveedores fp
+            JOIN gestion__comprobantes c ON c.comprobante_id = fp.comprobante_id
+            JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = fp.comprobante_tipo_id
+            WHERE fp.factura_proveedor_id = ? AND fp.empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "ii", $factura_proveedor_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $f = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+
+    if (!$f) {
+        return ['success' => false, 'error' => "Factura de proveedor ID $factura_proveedor_id no encontrada."];
+    }
+
+    $saldo = round(floatval($f['importe_pendiente']), 2);
+    if ($saldo <= 0.001) {
+        return ['success' => true, 'message' => "La factura ya se encuentra cancelada."];
+    }
+
+    $sucursal_id = intval($f['sucursal_id']);
+
+    $tesoreria_cuenta_id = intval($tesoreria_cuenta_id);
+    $debito = $tesoreria_cuenta_id > 0;
+    if ($debito) {
+        // 1-2. Débito en cuenta: la cuenta BANCO indicada y el medio DEB_CTA (o, si la empresa no lo tiene, una transferencia)
+        $stmt = mysqli_prepare($conexion, "SELECT tesoreria_cuenta_id, tesoreria_cuenta FROM gestion__tesoreria_cuentas
+                                           WHERE tesoreria_cuenta_id = ? AND empresa_id = ? AND cuenta_tipo = 'BANCO' AND tabla_estado_registro_id = 1");
+        mysqli_stmt_bind_param($stmt, "ii", $tesoreria_cuenta_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $caja = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$caja) {
+            throw new Exception('La cuenta bancaria debitada no es una cuenta BANCO activa de la empresa.');
+        }
+        $stmt = mysqli_prepare($conexion, "SELECT medio_pago_id FROM gestion__medios_pago
+                                           WHERE empresa_id = ? AND medio_pago_tipo = 'TRANSFERENCIA' AND aplica_pago = 1 AND tabla_estado_registro_id = 1
+                                           ORDER BY (codigo = 'DEB_CTA') DESC, medio_pago_id LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $efectivo = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$efectivo) {
+            throw new Exception('La empresa no tiene el medio de pago "Débito en cuenta" (DEB_CTA) ni una transferencia para pagos.');
+        }
+    } else {
+    // 1. Cuenta de tesorería de tipo CAJA activa
+    $caja = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__tesoreria_cuentas
+                              WHERE empresa_id = $empresa_id AND cuenta_tipo = 'CAJA' AND tabla_estado_registro_id = 1
+                              ORDER BY (sucursal_id = $sucursal_id) DESC, tesoreria_cuenta_id LIMIT 1")->fetch_assoc();
+    if (!$caja) {
+        throw new Exception("No hay una cuenta de tesorería de tipo CAJA configurada para la empresa $empresa_id.");
+    }
+
+    // 2. Medio de pago en efectivo
+    $efectivo = $conexion->query("SELECT medio_pago_id FROM gestion__medios_pago 
+                                  WHERE empresa_id = $empresa_id AND medio_pago_tipo = 'EFECTIVO' AND tabla_estado_registro_id = 1 
+                                  ORDER BY medio_pago_id LIMIT 1")->fetch_assoc();
+    if (!$efectivo) {
+        $efectivo = $conexion->query("SELECT medio_pago_id FROM gestion__medios_pago 
+                                      WHERE medio_pago_tipo = 'EFECTIVO' AND tabla_estado_registro_id = 1 
+                                      ORDER BY medio_pago_id LIMIT 1")->fetch_assoc();
+    }
+    if (!$efectivo) {
+        throw new Exception("No hay un medio de pago en EFECTIVO configurado.");
+    }
+    }
+
+    // 3. Crear borrador de pago
+    $moneda_id = emp_moneda_id($conexion, $empresa_id, $f['moneda_id'] ?? 0);
+    $tipo_cambio = floatval($f['tipo_cambio'] ?? 1.0);
+    $comp_factura_id = intval($f['comprobante_id']);
+
+    $pago_data = [
+        'empresa_id'     => $empresa_id,
+        'sucursal_id'    => $sucursal_id,
+        'entidad_id'     => intval($f['entidad_id']),
+        'moneda_id'      => $moneda_id,
+        'tipo_cambio'    => $tipo_cambio,
+        'f_emision'      => $f['f_emision'],
+        'f_contabilidad' => $f['f_contabilidad'] ?: $f['f_emision'],
+        'usuario_id'     => $usuario_id,
+        'observaciones'  => ($debito ? "Débito en cuenta " . $caja['tesoreria_cuenta'] : "Pago automático en efectivo")
+                            . " - " . $f['comprobante_tipo'] . " " . sprintf('%04d-%08d', $f['comprobante_pv'], $f['comprobante_nro']),
+        'medios'         => [
+            [
+                'medio_pago_id'       => intval($efectivo['medio_pago_id']),
+                'importe'             => $saldo,
+                'importe_comprobante' => $saldo,
+                'moneda_id'           => $moneda_id,
+                'tipo_cambio'         => $tipo_cambio,
+                'tesoreria_cuenta_id' => intval($caja['tesoreria_cuenta_id'])
+            ]
+        ],
+        'imputaciones'   => [
+            [
+                'comprobante_destino_id' => $comp_factura_id,
+                'importe_imputado'       => $saldo
+            ]
+        ]
+    ];
+
+    $pago_id = guardarPagoBorrador($conexion, $pago_data);
+    if (!$pago_id) {
+        throw new Exception("No se pudo crear el borrador de la Orden de Pago.");
+    }
+
+    // 4. Confirmar el pago
+    $res_conf = confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transaccion);
+
+    return [
+        'success'        => true,
+        'pago_id'        => $pago_id,
+        'comprobante_id' => $res_conf['comprobante_id'] ?? null,
+        'op_nro'         => $res_conf['comprobante_nro'] ?? null,
+        'message'        => "Orden de Pago automática emitida " . ($debito ? "por débito en " . $caja['tesoreria_cuenta'] : "en efectivo")
+                            . " (OP N° " . ($res_conf['comprobante_nro'] ?? '') . ") por $" . number_format($saldo, 2, ',', '.') . "."
+    ];
+}
+
+// ===== Débito directo en cuenta bancaria (scripts 20261011_debito_en_cuenta_01/02) =====
+// Un comprobante de compra (Resumen bancario, o una factura / ND debitada automáticamente) indica la cuenta
+// BANCO de tesorería que el proveedor debitó; al confirmarlo se cancela con una OP automática (medio DEB_CTA).
+// Sin el script 01 (columna inexistente) el circuito sigue como antes, sin débito en cuenta.
+function fpDebitoCuentaHabilitado($conexion)
+{
+    static $ok = null;
+    if ($ok === null) {
+        $r = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__facturas_proveedores LIKE 'tesoreria_cuenta_debito_id'");
+        $ok = $r && mysqli_num_rows($r) > 0;
+    }
+    return $ok;
+}
+
+// Cuentas bancarias activas de la empresa que se pueden debitar (combo de la pantalla)
+function fpCuentasDebito($conexion, $empresa_id)
+{
+    $empresa_id = intval($empresa_id);
+    $stmt = mysqli_prepare($conexion, "SELECT tesoreria_cuenta_id, tesoreria_cuenta, moneda_id FROM gestion__tesoreria_cuentas
+                                       WHERE empresa_id = ? AND cuenta_tipo = 'BANCO' AND tabla_estado_registro_id = 1
+                                       ORDER BY orden, tesoreria_cuenta");
+    mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $cuentas = [];
+    while ($fila = mysqli_fetch_assoc($res)) {
+        $cuentas[] = $fila;
+    }
+    mysqli_stmt_close($stmt);
+    return $cuentas;
+}
+
+// Valida y guarda la cuenta debitada de un comprobante en Borrador (dentro de la transacción de agregar / editar).
+// El tipo con requiere_debito_cuenta = 1 la exige; solo se admite en comprobantes a pagar (signo '+'), y la cuenta
+// tiene que ser BANCO, activa, de la empresa y de la moneda del comprobante.
+function fpGuardarCuentaDebito($conexion, $empresa_id, $factura_proveedor_id, $tipo_id, $moneda_id, $cuenta_id)
+{
+    if (!fpDebitoCuentaHabilitado($conexion)) return;
+    $empresa_id = intval($empresa_id);
+    $factura_proveedor_id = intval($factura_proveedor_id);
+    $tipo_id = intval($tipo_id);
+    $cuenta_id = intval($cuenta_id);
+
+    $stmt = mysqli_prepare($conexion, "SELECT signo, requiere_debito_cuenta, comprobante_tipo FROM gestion__comprobantes_tipos
+                                       WHERE comprobante_tipo_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $tipo_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $tipo = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$tipo) {
+        throw new Exception('Tipo de comprobante inválido');
+    }
+    if (intval($tipo['requiere_debito_cuenta']) === 1 && $cuenta_id <= 0) {
+        throw new Exception('El ' . $tipo['comprobante_tipo'] . ' requiere la cuenta bancaria debitada');
+    }
+    if ($cuenta_id > 0) {
+        if ($tipo['signo'] !== '+') {
+            throw new Exception('Solo un comprobante a pagar (factura o nota de débito) se cancela por débito en cuenta');
+        }
+        $stmt = mysqli_prepare($conexion, "SELECT moneda_id FROM gestion__tesoreria_cuentas
+                                           WHERE tesoreria_cuenta_id = ? AND empresa_id = ? AND cuenta_tipo = 'BANCO' AND tabla_estado_registro_id = 1");
+        mysqli_stmt_bind_param($stmt, "ii", $cuenta_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $cuenta = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$cuenta) {
+            throw new Exception('La cuenta debitada tiene que ser una cuenta bancaria activa de la empresa');
+        }
+        if (intval($cuenta['moneda_id']) !== intval($moneda_id)) {
+            throw new Exception('La cuenta bancaria debitada es de otra moneda que el comprobante');
+        }
+    }
+    $valor = $cuenta_id > 0 ? $cuenta_id : null;
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__facturas_proveedores SET tesoreria_cuenta_debito_id = ? WHERE factura_proveedor_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $valor, $factura_proveedor_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+}
+
+/** Post confirmación de facturas de proveedores: NC asociadas o Facturas de contado con OP automática */
 function fpPostConfirmacion($conexion, $factura_proveedor_id, $empresa_id, $usuario_id)
 {
     $factura_proveedor_id = intval($factura_proveedor_id);
@@ -3265,6 +3591,8 @@ function fpPostConfirmacion($conexion, $factura_proveedor_id, $empresa_id, $usua
                            FROM gestion__facturas_proveedores fp
                            JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = fp.comprobante_tipo_id
                            WHERE fp.factura_proveedor_id = $factura_proveedor_id AND fp.empresa_id = $empresa_id")->fetch_assoc();
+
+    // 1. Nota de Crédito confirmada: aplicar a factura asociada
     if ($f && $f['signo'] === '-' && intval($f['comprobante_asociado_id']) > 0) {
         $asociado = intval($f['comprobante_asociado_id']);
         $saldo = floatval($conexion->query("SELECT importe_pendiente FROM gestion__comprobantes WHERE comprobante_id = $asociado AND tabla_estado_registro_id IN (5, 39)")->fetch_assoc()['importe_pendiente'] ?? 0);
@@ -3275,6 +3603,42 @@ function fpPostConfirmacion($conexion, $factura_proveedor_id, $empresa_id, $usua
             $mensajes[] = 'El comprobante asociado no tiene saldo: la nota de crédito queda con saldo a favor (se aplica a otra factura o se cobra la devolución en Cobranzas).';
         }
     }
+
+    // 2. Factura de compra (+): si es de contado / pago en efectivo, generar Orden de Pago automática
+    if ($f && $f['signo'] === '+') {
+        $sql_fp = "SELECT fp.factura_proveedor_id, fp.condicion_pago_id, c.importe_pendiente,
+                          cp.tipo AS cond_tipo, cp.codigo AS cond_codigo
+                   FROM gestion__facturas_proveedores fp
+                   JOIN gestion__comprobantes c ON c.comprobante_id = fp.comprobante_id
+                   LEFT JOIN gestion__condiciones_pago cp ON cp.condicion_pago_id = fp.condicion_pago_id
+                   WHERE fp.factura_proveedor_id = $factura_proveedor_id AND fp.empresa_id = $empresa_id";
+        $row_fp = $conexion->query($sql_fp)->fetch_assoc();
+        $cuenta_debito = 0;
+        if (fpDebitoCuentaHabilitado($conexion)) {
+            $stmt = mysqli_prepare($conexion, "SELECT tesoreria_cuenta_debito_id FROM gestion__facturas_proveedores WHERE factura_proveedor_id = ?");
+            mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
+            mysqli_stmt_execute($stmt);
+            $cuenta_debito = intval(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['tesoreria_cuenta_debito_id'] ?? 0);
+            mysqli_stmt_close($stmt);
+        }
+        if ($row_fp && floatval($row_fp['importe_pendiente']) > 0.001 && $cuenta_debito > 0) {
+            // Débito directo en cuenta bancaria (Resumen bancario, débitos automáticos): OP automática desde el banco
+            $res_op = fpGenerarOrdenPagoAutomatica($conexion, $factura_proveedor_id, $empresa_id, $usuario_id, true, $cuenta_debito);
+            if (!empty($res_op['message'])) {
+                $mensajes[] = $res_op['message'];
+            }
+        } elseif ($row_fp && floatval($row_fp['importe_pendiente']) > 0.001) {
+            $tipo_cond = strtoupper(trim($row_fp['cond_tipo'] ?? ''));
+            $cod_cond  = strtoupper(trim($row_fp['cond_codigo'] ?? ''));
+            if ($tipo_cond === 'CONTADO' || $cod_cond === 'CONT') {
+                $res_op = fpGenerarOrdenPagoAutomatica($conexion, $factura_proveedor_id, $empresa_id, $usuario_id, true);
+                if (!empty($res_op['message'])) {
+                    $mensajes[] = $res_op['message'];
+                }
+            }
+        }
+    }
+
     return ['mensajes' => $mensajes];
 }
 

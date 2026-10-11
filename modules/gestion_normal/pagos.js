@@ -20,6 +20,38 @@ let tablaPagosDT = null;
 let indiceMedioPago = 0;
 let comprobantesProveedor = [];
 
+function getEmpresaId() {
+    return typeof EMPRESA_ID !== 'undefined' ? EMPRESA_ID : (window.EMPRESA_ID || 6);
+}
+
+function mostrarModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (window.bootstrap && window.bootstrap.Modal) {
+        const inst = window.bootstrap.Modal.getOrCreateInstance ? window.bootstrap.Modal.getOrCreateInstance(el) : new window.bootstrap.Modal(el);
+        inst.show();
+    } else if (window.jQuery && typeof $(el).modal === 'function') {
+        $(el).modal('show');
+    }
+}
+
+function ocultarModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (window.bootstrap && window.bootstrap.Modal) {
+        const inst = window.bootstrap.Modal.getInstance ? window.bootstrap.Modal.getInstance(el) : null;
+        if (inst) {
+            inst.hide();
+        } else if (window.bootstrap.Modal.getOrCreateInstance) {
+            window.bootstrap.Modal.getOrCreateInstance(el).hide();
+        } else if (window.jQuery && typeof $(el).modal === 'function') {
+            $(el).modal('hide');
+        }
+    } else if (window.jQuery && typeof $(el).modal === 'function') {
+        $(el).modal('hide');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     inicializarFechasFiltro();
     configurarEventosPagos();
@@ -31,15 +63,12 @@ document.addEventListener('DOMContentLoaded', function () {
  * Inicializa fechas de filtro con el mes actual
  */
 function inicializarFechasFiltro() {
-    const hoy = new Date();
-    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    
-    const formato = d => d.toISOString().split('T')[0];
+    // Por defecto no restringimos fechas para listar todos los comprobantes emitidos de la empresa
     const filtroDesde = document.getElementById('filtroDesde');
     const filtroHasta = document.getElementById('filtroHasta');
     
-    if (filtroDesde) filtroDesde.value = formato(primerDia);
-    if (filtroHasta) filtroHasta.value = formato(hoy);
+    if (filtroDesde) filtroDesde.value = '';
+    if (filtroHasta) filtroHasta.value = '';
 }
 
 /**
@@ -47,7 +76,8 @@ function inicializarFechasFiltro() {
  */
 async function cargarMaestrosPago() {
     try {
-        const resp = await fetch('pagos_ajax.php?accion=maestros&empresa_idx=' + window.EMPRESA_ID);
+        const empId = typeof EMPRESA_ID !== 'undefined' ? EMPRESA_ID : (window.EMPRESA_ID || '');
+        const resp = await fetch('pagos_ajax.php?accion=maestros&empresa_idx=' + empId);
         const res = await resp.json();
         if (res.success && res.data) {
             maestrosPago = res.data;
@@ -112,10 +142,12 @@ function inicializarDataTablePagos() {
         ajax: {
             url: 'pagos_ajax.php',
             type: 'GET',
-            dataSrc: '',
+            dataSrc: function (json) {
+                return json.data || (Array.isArray(json) ? json : []);
+            },
             data: function (d) {
                 d.accion = 'listar';
-                d.empresa_idx = window.EMPRESA_ID;
+                d.empresa_idx = typeof EMPRESA_ID !== 'undefined' ? EMPRESA_ID : (window.EMPRESA_ID || '');
                 d.desde = document.getElementById('filtroDesde')?.value || '';
                 d.hasta = document.getElementById('filtroHasta')?.value || '';
                 d.entidad_id = document.getElementById('filtroProveedor')?.value || '';
@@ -176,6 +208,14 @@ function configurarEventosPagos() {
 
     document.getElementById('btnFiltrar')?.addEventListener('click', function (e) {
         e.preventDefault();
+        recargarTablaPagos();
+    });
+    document.getElementById('btnLimpiarFiltros')?.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (document.getElementById('filtroDesde')) document.getElementById('filtroDesde').value = '';
+        if (document.getElementById('filtroHasta')) document.getElementById('filtroHasta').value = '';
+        if (document.getElementById('filtroProveedor')) $(document.getElementById('filtroProveedor')).val('').trigger('change');
+        if (document.getElementById('filtroEstado')) document.getElementById('filtroEstado').value = '';
         recargarTablaPagos();
     });
     document.getElementById('btnRecargar')?.addEventListener('click', function (e) {
@@ -256,8 +296,7 @@ function abrirModalNuevoPago() {
     limpiarSeccionPendientesProveedor();
     recalcularBalancePago();
 
-    const modal = new bootstrap.Modal(document.getElementById('modalPago'));
-    modal.show();
+    mostrarModal('modalPago');
 }
 
 /**
@@ -292,7 +331,8 @@ async function cargarComprobantesPendientesProveedor(entidadId, imputacionesPrev
     tbody.innerHTML = '';
 
     try {
-        const resp = await fetch(`pagos_ajax.php?accion=comprobantes_pendientes&empresa_idx=${window.EMPRESA_ID}&entidad_id=${entidadId}`);
+        const empId = getEmpresaId();
+        const resp = await fetch(`pagos_ajax.php?accion=comprobantes_pendientes&empresa_idx=${empId}&entidad_id=${entidadId}`);
         const res = await resp.json();
 
         spinner.classList.add('d-none');
@@ -820,7 +860,8 @@ async function guardarPago(confirmarInmediato = false) {
             didOpen: () => Swal.showLoading()
         });
 
-        const respGuardar = await fetch('pagos_ajax.php?accion=guardar&empresa_idx=' + window.EMPRESA_ID, {
+        const empId = getEmpresaId();
+        const respGuardar = await fetch('pagos_ajax.php?accion=guardar&empresa_idx=' + empId, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -837,7 +878,7 @@ async function guardarPago(confirmarInmediato = false) {
         if (confirmarInmediato) {
             Swal.update({ text: 'Confirmando e impactando tesorería y contabilidad...' });
 
-            const respConf = await fetch('pagos_ajax.php?accion=confirmar&empresa_idx=' + window.EMPRESA_ID, {
+            const respConf = await fetch('pagos_ajax.php?accion=confirmar&empresa_idx=' + empId, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: idGenerado })
@@ -856,12 +897,12 @@ async function guardarPago(confirmarInmediato = false) {
                 icon: 'success'
             });
 
-            bootstrap.Modal.getInstance(document.getElementById('modalPago')).hide();
+            ocultarModal('modalPago');
             tablaPagosDT.ajax.reload();
             verPago(idGenerado);
         } else {
             Swal.fire('Guardado', 'El borrador de Orden de Pago fue guardado correctamente.', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('modalPago')).hide();
+            ocultarModal('modalPago');
             tablaPagosDT.ajax.reload();
         }
     } catch (e) {
@@ -881,9 +922,10 @@ async function editarBorradorPago(id) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch(`pagos_ajax.php?accion=obtener&empresa_idx=${window.EMPRESA_ID}&id=${id}`);
+        const empId = getEmpresaId();
+        const resp = await fetch(`pagos_ajax.php?accion=obtener&empresa_idx=${empId}&id=${id}`);
         const res = await resp.json();
-        Swal.close();
+        if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
 
         if (!res.success || !res.data) {
             Swal.fire('Error', res.error || 'No se pudo cargar la orden de pago.', 'error');
@@ -953,8 +995,7 @@ async function editarBorradorPago(id) {
 
         await cargarComprobantesPendientesProveedor(cabecera.entidad_id, imputaciones);
 
-        const modal = new bootstrap.Modal(document.getElementById('modalPago'));
-        modal.show();
+        mostrarModal('modalPago');
 
     } catch (e) {
         Swal.fire('Error', e.message || 'Error al cargar borrador.', 'error');
@@ -983,7 +1024,8 @@ async function confirmarPagoDirecto(id) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch('pagos_ajax.php?accion=confirmar&empresa_idx=' + window.EMPRESA_ID, {
+        const empId = getEmpresaId();
+        const resp = await fetch('pagos_ajax.php?accion=confirmar&empresa_idx=' + empId, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
@@ -1011,19 +1053,24 @@ async function confirmarPagoDirecto(id) {
  */
 async function verPago(id) {
     try {
-        Swal.fire({
-            title: 'Cargando...',
-            text: 'Generando vista de la Orden de Pago...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Cargando...',
+                text: 'Generando vista de la Orden de Pago...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
 
-        const resp = await fetch(`pagos_ajax.php?accion=obtener&empresa_idx=${window.EMPRESA_ID}&id=${id}`);
+        const empId = getEmpresaId();
+        const resp = await fetch(`pagos_ajax.php?accion=obtener&empresa_idx=${empId}&id=${id}`);
         const res = await resp.json();
-        Swal.close();
+        if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
 
         if (!res.success || !res.data) {
-            Swal.fire('Error', res.error || 'No se pudo obtener la orden de pago.', 'error');
+            const msg = res.error || 'No se pudo obtener la orden de pago.';
+            if (typeof Swal !== 'undefined') Swal.fire('Error', msg, 'error');
+            else alert(msg);
             return;
         }
 
@@ -1162,11 +1209,15 @@ async function verPago(id) {
             </div>
         `;
 
-        const modal = new bootstrap.Modal(document.getElementById('modalVerPago'));
-        modal.show();
+        mostrarModal('modalVerPago');
 
     } catch (e) {
-        Swal.fire('Error', e.message || 'Error al visualizar orden de pago.', 'error');
+        console.error('Error al ver orden de pago:', e);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire('Error', e.message || 'Error al visualizar orden de pago.', 'error');
+        } else {
+            alert(e.message || 'Error al visualizar orden de pago.');
+        }
     }
 }
 
@@ -1176,8 +1227,7 @@ async function verPago(id) {
 function abrirModalAnularPago(id) {
     document.getElementById('anular_pago_id').value = id;
     document.getElementById('motivoAnulacion').value = '';
-    const modal = new bootstrap.Modal(document.getElementById('modalAnular'));
-    modal.show();
+    mostrarModal('modalAnular');
 }
 
 /**
@@ -1201,7 +1251,8 @@ async function ejecutarAnulacionPago(e) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch('pagos_ajax.php?accion=anular&empresa_idx=' + window.EMPRESA_ID, {
+        const empId = getEmpresaId();
+        const resp = await fetch('pagos_ajax.php?accion=anular&empresa_idx=' + empId, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id, motivo: motivo })
@@ -1210,7 +1261,7 @@ async function ejecutarAnulacionPago(e) {
 
         if (res.success) {
             Swal.fire('Orden de Pago Anulada', res.message || 'OP anulada con éxito.', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('modalAnular')).hide();
+            ocultarModal('modalAnular');
             tablaPagosDT.ajax.reload();
         } else {
             Swal.fire('Error al Anular', res.error || 'No se pudo anular la orden de pago.', 'error');
@@ -1236,7 +1287,8 @@ async function eliminarBorradorPago(id) {
     if (!confirmacion.isConfirmed) return;
 
     try {
-        const resp = await fetch(`pagos_ajax.php?accion=eliminar&empresa_idx=${window.EMPRESA_ID}&id=${id}`, { method: 'POST' });
+        const empId = getEmpresaId();
+        const resp = await fetch(`pagos_ajax.php?accion=eliminar&empresa_idx=${empId}&id=${id}`, { method: 'POST' });
         const res = await resp.json();
 
         if (res.success) {

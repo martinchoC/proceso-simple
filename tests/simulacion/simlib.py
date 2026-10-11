@@ -85,12 +85,15 @@ def resumen():
 
 
 # ------------------------------------------------------------------ llamadas a los _ajax.php
-def ajax(archivo, params, method='POST', usuario_id=1):
-    """Ejecuta modules/gestion/<archivo> como el navegador y devuelve el JSON de respuesta.
+def ajax(archivo, params, method='POST', usuario_id=1, modulo='gestion', empresa_id=2):
+    """Ejecuta modules/<modulo>/<archivo> como el navegador y devuelve el JSON de respuesta.
+    La sesión simulada queda en empresa_id (2 Casa Lucho por defecto; gestion_normal se prueba con la 6).
     'detalles' e 'impuestos_adicionales' se mandan como JSON string, igual que las pantallas."""
     p = dict(params)
     p['_method'] = method
     p['_usuario_id'] = usuario_id
+    p['_modulo'] = modulo
+    p['_empresa_id'] = empresa_id
     for k, v in list(p.items()):
         if isinstance(v, (list, dict)) and k in ('detalles', 'impuestos_adicionales'):
             p[k] = json.dumps(v)

@@ -305,7 +305,7 @@ Bloquean solo la parte indicada:
 
 **Pruebas**: `tests/simulacion/casos/09_percepciones_iibb.py` (46 chequeos) + suite completa 264/264 con ARCA deshabilitado en la copia.
 
-## 12. Etapa 2: fuentes de alícuota genéricas (diseño, 2026-10-11 — no implementado)
+## 12. Etapa 2: fuentes de alícuota genéricas (diseño, 2026-10-11 — paso 1 implementado, ver §12.11)
 
 ### 12.1 Problema
 
@@ -497,3 +497,37 @@ function perIibbDriversDdjj() {
 - Si la carga manual exige adjuntar la constancia o alcanza con un número de referencia.
 - Ids de la función de carga manual en `conf__paginas_funciones` (y su par del módulo 5).
 - Sigue abierto, de §11: qué CRC va en SIRCIP para las filas que no figuran en el padrón.
+
+### 12.11 Paso 1 implementado (2026-10-11)
+
+**Script**: `sql/mantenimiento/20261011_percepciones_iibb_04_fuentes.sql`.
+- Es reanudable: se probó corriéndolo dos veces seguidas.
+- Migra las filas SIRCIP que ya había: dígito 1 o NULL → `PADRON`, 2 → `INSCRIPTO_OTRA_JURISDICCION`, 3 → `NO_PERCIBIR`, con vigencia = el mes del período.
+- Las configs con `formato_padron` quedan con `fuente_alicuota = 'ARCHIVO'`.
+- Se aplicó en la base local el 2026-10-11; el backup previo está en `C:\xampp\backups\gestion_multipyme_antes_pi04_20261011.sql`.
+- **Falta en producción**, y el código nuevo no anda sin él porque lee `f_desde`, `situacion` y `fuente`.
+
+**Código** (idéntico en `gestion` y `gestion_normal`):
+
+| Archivo | Cambio |
+|---|---|
+| `percepciones_iibb_drivers.php` (nuevo) | Registro `perIibbDriversPadron()` / `perIibbDriversDdjj()`. Driver SIRCIP (`padSircipPreparar`, `padSircipParsear`): traduce el campo 7 a la situación normalizada y valida que el archivo no mezcle períodos. |
+| `padrones_iibb_model.php` | Importador genérico por driver. `padImportar` valida el upload y llama a `padImportarArchivo` (separado para poder probarlo sin HTTP). Reemplaza solo las filas `ARCHIVO` que se superponen con la vigencia del archivo, no las `MANUAL` ni las `WS`. La consulta por CUIT y el listado de clientes usan la misma búsqueda que el motor. |
+| `percepciones_iibb_core_model.php` | `perIibbPadron` busca por vigencia con la prioridad de §12.5. Se consulta **siempre**, no solo si la config tiene `formato_padron`, así una carga manual aplica en cualquier config. `perIibbCalcular` hace `switch` por `situacion` y ya no conoce el dígito de SIRCIP. |
+| `percepciones_iibb_model.php` | `perExportar` busca el formato en el registro. `perDdjjSircarD1` y `perDdjjSircip` generan las mismas líneas que antes. |
+| `padrones_iibb.js` / `_ajax.php` | Muestran la situación normalizada, la fuente (si no es el padrón) y la vigencia. Se corrigió el texto de "no figura": el cálculo sigue por la condición del cliente, no aplica la alícuota de no inscripto. |
+
+`periodo`, `letra_alicuota` y `situacion_jurisdiccion` se siguen grabando por compatibilidad, pero nada los lee para calcular.
+
+**Pruebas**:
+- Suite completa 322/322 en dos corridas: sobre la base previa a las ventas de Río Negro (con el script aplicado en la copia) y sobre la base local actual.
+- Driver SIRCIP: 11 chequeos sueltos (dígitos 1 a 4, letra y CUIT inválidos, períodos mezclados, formatos desconocidos).
+- Importación de punta a punta sobre la copia, 12 chequeos:
+  - alta y reimportación del mismo mes;
+  - la carga manual gana mientras está vigente y la reimportación no la pisa;
+  - rollback completo ante un archivo que mezcla períodos.
+- El caso 09 cambió solo en dos cosas:
+  - sus `INSERT`/`UPDATE` directos al padrón, que ahora usan las columnas nuevas;
+  - se lo hizo independiente de los datos locales: en la copia devuelve al cliente 417 a "Local sin sede" y compara la DDJJ contra lo que el período ya traía.
+
+**Sin cambios de comportamiento en este paso**: `fuente_alicuota`, `sin_dato_accion`, `integracion_empresa_id`, `ws_vigencia_dias` y la situación `SIN_PADRON` existen, pero todavía no se usan (pasos 2 a 4).

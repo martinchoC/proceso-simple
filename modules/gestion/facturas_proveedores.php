@@ -201,6 +201,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         </select>
                                                         <small class="text-muted">Si el comprobante asociado tiene saldo, la nota de crédito se le aplica al confirmarla (con una OP en $0).</small>
                                                     </div>
+                                                    <div class="col-md-6 mt-2 d-none" id="debito_wrap">
+                                                        <label class="form-label small mb-1">Debitado de la cuenta <span class="text-muted" id="debito_ayuda">(opcional: débito automático)</span></label>
+                                                        <select class="form-select form-select-sm" id="tesoreria_cuenta_debito_id">
+                                                            <option value="">Sin débito en cuenta (se paga con OP)</option>
+                                                        </select>
+                                                        <small class="text-muted">Al confirmar se cancela solo con una OP automática que egresa de esa cuenta bancaria.</small>
+                                                    </div>
                                                 </div>
 
                                                 <!-- Fila 2: Fechas y otros campos -->

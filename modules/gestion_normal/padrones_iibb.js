@@ -1,7 +1,10 @@
-// Padrones IIBB (página 115). docs/gestion/09_percepciones_iibb.md §7
+// Padrones IIBB (página 115). docs/gestion/09_percepciones_iibb.md §7 y §12
 $(function () {
     var URL_AJAX = 'padrones_iibb_ajax.php';
-    var SITUACION_JUR = { 1: 'Con alta (alícuota del padrón)', 2: 'Sin alta: percepción por falta de alta', 3: 'Sin alta y sin sobre alícuota (no se percibe)' };
+    var SITUACION = { PADRON: 'Con alta (alícuota del padrón)', INSCRIPTO_OTRA_JURISDICCION: 'Sin alta: percepción por falta de alta', NO_PERCIBIR: 'En el padrón, sin percepción' };
+    var FUENTE = { ARCHIVO: 'Padrón', WS: 'Servicio web', MANUAL: 'Carga manual' };
+    function situacion(r) { return esc(SITUACION[r.situacion] || r.situacion) + (r.fuente && r.fuente !== 'ARCHIVO' ? ' <span class="badge bg-info">' + esc(FUENTE[r.fuente] || r.fuente) + '</span>' : ''); }
+    function alicuota(r) { return pct(r.alicuota_percepcion) + (r.codigo_origen ? ' (' + esc(r.codigo_origen) + ')' : ''); }
     function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
     function pct(v) { return Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'; }
     var lang = { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' };
@@ -11,7 +14,7 @@ $(function () {
         columns: [
             { data: 'created_at', render: function (d) { return esc(d ? d.substr(0, 16) : ''); } },
             { data: 'jurisdiccion_nombre', render: esc },
-            { data: 'periodo', render: function (d) { return esc(d ? d.substr(0, 4) + '-' + d.substr(4) : ''); } },
+            { data: 'periodo', render: function (d, t, r) { return esc(d ? d.substr(0, 4) + '-' + d.substr(4) : (r.f_desde ? r.f_desde + ' a ' + (r.f_hasta || '') : '')); } },
             { data: 'archivo_nombre', render: function (d, t, r) { return esc(d) + (r.observaciones ? ' <i class="fas fa-exclamation-triangle text-warning" title="' + esc(r.observaciones) + '"></i>' : ''); } },
             { data: 'filas_leidas', className: 'text-end' },
             { data: 'filas_cargadas', className: 'text-end' },
@@ -24,8 +27,8 @@ $(function () {
         columns: [
             { data: 'entidad_nombre', render: esc },
             { data: 'cuit', render: esc },
-            { data: 'situacion_jurisdiccion', render: function (d) { return d == null ? '<span class="text-muted">No figura</span>' : esc(SITUACION_JUR[d] || d); } },
-            { data: 'alicuota_percepcion', className: 'text-end', render: function (d, t, r) { return d == null ? '' : pct(d) + ' (' + esc(r.letra_alicuota) + ')'; } }
+            { data: 'situacion', render: function (d, t, r) { return d == null ? '<span class="text-muted">No figura</span>' : situacion(r); } },
+            { data: 'alicuota_percepcion', className: 'text-end', render: function (d, t, r) { return d == null ? '' : alicuota(r); } }
         ]
     });
 
@@ -70,8 +73,9 @@ $(function () {
             if (!r || !r.success) { $('#padResultadoCuit').html('<span class="text-danger">' + esc((r && r.message) || 'Error') + '</span>'); return; }
             var p = r.data;
             $('#padResultadoCuit').html(p
-                ? '<b>' + esc(p.razon_social) + '</b><br>' + esc(SITUACION_JUR[p.situacion_jurisdiccion] || '') + ' · Alícuota ' + pct(p.alicuota_percepcion) + ' (' + esc(p.letra_alicuota) + ') · CRC ' + esc(p.crc)
-                : '<span class="text-muted">No figura en el padrón del período: se aplica la alícuota de "No inscripto" de la configuración.</span>');
+                ? '<b>' + esc(p.razon_social) + '</b><br>' + situacion(p) + ' · Alícuota ' + alicuota(p) + (p.crc != null ? ' · CRC ' + esc(p.crc) : '')
+                  + ' · Vigencia ' + esc(p.f_desde) + ' a ' + esc(p.f_hasta || 'sin fecha')
+                : '<span class="text-muted">No figura en el padrón del período: se sigue por la condición IIBB del cliente.</span>');
         }).fail(function (x) { $('#padResultadoCuit').html('<span class="text-danger">' + esc((x.responseJSON && x.responseJSON.message) || 'Error') + '</span>'); });
     });
 

@@ -203,11 +203,8 @@ $fuente = impresion_fuente($cfg_impresion);
         <table class="totales">
             <?php if ($discrimina_iva): ?>
             <tr><td class="lbl">Importe Neto Gravado: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($neto_gravado) ?></td></tr>
-            <?php foreach (['27.00', '21.00', '10.50', '5.00', '2.50', '0.00'] as $al): ?>
-            <tr><td class="lbl">IVA <?= h(str_replace('.', ',', rtrim(rtrim($al, '0'), '.'))) ?>%: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($iva_por_alicuota[$al] ?? 0) ?></td></tr>
-            <?php endforeach; ?>
-            <?php foreach ($iva_por_alicuota as $al => $imp): if (in_array($al, ['27.00', '21.00', '10.50', '5.00', '2.50', '0.00'], true)) continue; ?>
-            <tr><td class="lbl">IVA <?= h(str_replace('.', ',', $al)) ?>%: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($imp) ?></td></tr>
+            <?php foreach (array_reverse($iva_por_alicuota, true) as $al => $imp): if (round($imp, 2) == 0) continue; ?>
+            <tr><td class="lbl">IVA <?= h(str_replace('.', ',', rtrim(rtrim((string)$al, '0'), '.'))) ?>%: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($imp) ?></td></tr>
             <?php endforeach; ?>
             <?php if ($exento != 0): ?>
             <tr><td class="lbl">Importe Exento: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($exento) ?></td></tr>
@@ -221,7 +218,9 @@ $fuente = impresion_fuente($cfg_impresion);
             <?php foreach ($percepciones_iibb as $p): ?>
             <tr><td class="lbl"><?= h($p['leyenda'] ?: ('Percepción IIBB ' . $p['jurisdiccion_nombre'])) ?> <?= h($fmt_pct_perc($p['alicuota'])) ?>%: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($p['importe']) ?></td></tr>
             <?php endforeach; ?>
+            <?php if (round($otros, 2) != 0): ?>
             <tr><td class="lbl">Importe Otros Tributos: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($otros) ?></td></tr>
+            <?php endif; ?>
             <tr class="total-final"><td class="lbl">Importe Total: <?= h($simbolo) ?></td><td class="imp fw-bold"><?= vfPrintImporte($total) ?></td></tr>
         </table>
     </div>

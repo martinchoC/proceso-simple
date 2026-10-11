@@ -92,6 +92,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       border-radius: 0 0.25rem 0.25rem 0;
       /* Bordes redondeados solo a la derecha */
     }
+
+    /* Ocultamiento visual de contraseña sin activar el gestor de contraseñas del navegador */
+    .input-clave-oculta {
+      -webkit-text-security: disc !important;
+      text-security: disc !important;
+    }
   </style>
 </head>
 
@@ -110,10 +116,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="card-body">
         <p class="login-box-msg">Inicia sesión para comenzar</p>
 
-        <form action="" method="post">
+        <form action="" method="post" autocomplete="off">
 
           <div class="input-group mb-3">
-            <input type="text" name="usuario" class="form-control" placeholder="Usuario" required>
+            <input type="text" name="usuario" class="form-control" placeholder="Usuario" autocomplete="off" spellcheck="false" required>
             <div class="input-group-append">
               <div class="input-group-text">
                 <span class="fas fa-user"></span>
@@ -122,11 +128,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </div>
 
           <div class="input-group mb-3">
-            <input type="password" name="clave" class="form-control" placeholder="Contraseña" required>
+            <input type="text" id="inputClave" name="clave" class="form-control input-clave-oculta" placeholder="Contraseña" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" required>
             <div class="input-group-append">
-              <div class="input-group-text">
-                <span class="fas fa-lock"></span>
-              </div>
+              <button type="button" class="input-group-text" id="btnToggleClave" title="Mostrar/Ocultar contraseña" style="cursor: pointer; background-color: #e9ecef; border: 1px solid #ced4da;">
+                <span class="fas fa-eye-slash" id="iconoClave"></span>
+              </button>
             </div>
           </div>
 
@@ -148,6 +154,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script src="<?= asset_local('js/jquery.min.js') ?>"></script>
   <script src="<?= asset_local('js/bootstrap.bundle.min.js') ?>"></script>
   <script src="<?= asset_local('js/adminlte.min.js') ?>"></script>
+  <script>
+    document.getElementById('btnToggleClave')?.addEventListener('click', function () {
+      const input = document.getElementById('inputClave');
+      const icono = document.getElementById('iconoClave');
+      if (input.classList.contains('input-clave-oculta')) {
+        input.classList.remove('input-clave-oculta');
+        icono.className = 'fas fa-eye text-primary';
+      } else {
+        input.classList.add('input-clave-oculta');
+        icono.className = 'fas fa-eye-slash';
+      }
+    });
+  </script>
 </body>
 
 </html>

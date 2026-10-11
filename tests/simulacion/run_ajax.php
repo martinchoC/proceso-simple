@@ -1,7 +1,7 @@
 <?php
-// Ejecuta un _ajax.php real de modules/gestion como lo haría el navegador, contra la COPIA de la base.
+// Ejecuta un _ajax.php real de modules/gestion (o de otro módulo, p. ej. gestion_normal) como lo haría el navegador, contra la COPIA de la base.
 // Uso: php run_ajax.php <archivo_ajax> <params.json> <base_copia>
-//   params.json: {"_method": "GET"|"POST", "_usuario_id": 1, ...parámetros del request}
+//   params.json: {"_method": "GET"|"POST", "_usuario_id": 1, "_modulo": "gestion", "_empresa_id": 2, ...parámetros del request}
 // DB_NAME se define antes de que db.php cargue .env (que la vuelve a definir): queda la copia.
 $base = $argv[3] ?? 'gestion_multipyme_sim';
 if ($base === 'gestion_multipyme' && ($argv[4] ?? '') !== 'permitir_base_real') {
@@ -19,15 +19,17 @@ require_once __DIR__ . '/../../.env';
 $params = json_decode(file_get_contents($argv[2]), true);
 $method = $params['_method'] ?? 'POST';
 $usuario_id = intval($params['_usuario_id'] ?? 1);
-unset($params['_method'], $params['_usuario_id']);
+$modulo = preg_replace('/[^a-z_]/', '', $params['_modulo'] ?? 'gestion') ?: 'gestion';
+$empresa_id = intval($params['_empresa_id'] ?? 2);
+unset($params['_method'], $params['_usuario_id'], $params['_modulo'], $params['_empresa_id']);
 
 session_start();
 $_SESSION['logueado'] = true;
 $_SESSION['usuario_id'] = $usuario_id;
-$_SESSION['empresa_id'] = 2;
+$_SESSION['empresa_id'] = $empresa_id;
 
 $_SERVER['REQUEST_METHOD'] = $method;
-$_SERVER['SCRIPT_NAME'] = '/modules/gestion/' . $argv[1];
+$_SERVER['SCRIPT_NAME'] = '/modules/' . $modulo . '/' . $argv[1];
 if ($method === 'GET') {
     $_GET = $params;
 } else {
@@ -35,6 +37,6 @@ if ($method === 'GET') {
 }
 $_REQUEST = $params;
 
-$gestion = realpath(__DIR__ . '/../../modules/gestion');
+$gestion = realpath(__DIR__ . '/../../modules/' . $modulo);
 chdir($gestion);
 include $gestion . '/' . $argv[1];

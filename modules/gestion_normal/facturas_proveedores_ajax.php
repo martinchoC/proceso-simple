@@ -133,10 +133,14 @@ try {
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'orden_compra_id' => intval($_POST['orden_compra_id'] ?? 0),
                 'comprobante_asociado_id' => intval($_POST['comprobante_asociado_id'] ?? 0),
+                'tesoreria_cuenta_debito_id' => intval($_POST['tesoreria_cuenta_debito_id'] ?? 0),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
             ];
+            if (isset($_POST['impuestos_adicionales'])) {   // percepciones recibidas (JSON); vacío = sin impuestos
+                $data['impuestos_adicionales'] = (string)$_POST['impuestos_adicionales'];
+            }
 
             $resultado = agregarFacturaProveedor($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
@@ -184,9 +188,13 @@ try {
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'orden_compra_id' => intval($_POST['orden_compra_id'] ?? 0),
                 'comprobante_asociado_id' => intval($_POST['comprobante_asociado_id'] ?? 0),
+                'tesoreria_cuenta_debito_id' => intval($_POST['tesoreria_cuenta_debito_id'] ?? 0),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx
             ];
+            if (isset($_POST['impuestos_adicionales'])) {   // percepciones recibidas (JSON); vacío = sin impuestos
+                $data['impuestos_adicionales'] = (string)$_POST['impuestos_adicionales'];
+            }
             
             error_log("data armada para editarFacturaProveedor: " . print_r($data, true));
 
@@ -209,6 +217,10 @@ try {
             } else {
                 echo json_encode(['error' => 'Factura de proveedor no encontrada'], JSON_UNESCAPED_UNICODE);
             }
+            break;
+
+        case 'obtener_cuentas_debito':   // cuentas BANCO de la empresa para el débito directo en cuenta
+            echo json_encode(['success' => true, 'data' => fpCuentasDebito($conexion, $ctx['empresa_id'])], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_comprobantes_tipos':

@@ -43,6 +43,8 @@ Sale con código 1 si hay fallas. El detalle queda en `salidas/resultados.json` 
 | `06_consumidor_final.py` | NC a consumidor final con devolución en efectivo; factura de proveedor que no puede generar asiento |
 | `08_precios_compra.py` | "Armar lista desde precios" de Lista Precios Proveedores; opciones de Parámetros de Empresa que hacen que la factura de proveedor confirmada cargue/pise la lista del proveedor y recalcule las listas de venta |
 | `09_percepciones_iibb.py` | Percepciones IIBB practicadas (Río Negro): cálculo por situación del cliente y lugar de entrega, NC que revierte, certificado de exclusión, sin sucursal, padrón SIRCIP (dígitos del campo 7), DDJJ SIRCAR y liquidación I_LIQ. Deshabilita ARCA en la copia |
+| `10_ventas_rio_negro.py` | 10 ventas a clientes de Río Negro: inscriptos local o CM con alta (1 %), simplificado (0,05 %), no inscripto (0 %) y NC que revierte, más la DDJJ del período. Carga condición fiscal e IIBB a 8 clientes, activa la config de Río Negro y deshabilita ARCA mientras corre (después lo restituye). Pensado también para `--base-local` |
+| `11_percepciones_compras.py` | Percepciones recibidas de IVA, Ganancias e IIBB en facturas de proveedores, en `gestion` (empresa 2) y `gestion_normal` (empresa 6): las ofrece la pantalla, se guardan en `gestion__comprobantes_impuestos`, suman al total y al saldo, van al Debe de la cuenta de cada config; edición en Borrador, rechazos (config de otra empresa o de ventas, negativo, factura confirmada) y NC que revierte. IIBB de varias provincias en la misma factura, cada una a su cuenta (empresa 2). Aplica en la copia `20261011_percepciones_recibidas_01_subgrupo_fc.sql` y `_02_provincias.sql` |
 
 Al final de cada corrida, `run.py` verifica la **consistencia global** de todo lo generado: stock materializado
 contra el libro de movimientos, saldo de comprobantes contra imputaciones, estado 5/39/40 coherente con el
@@ -54,7 +56,7 @@ facturas/notas.
 Un archivo `casos/NN_tema.py` con `from simlib import *` y bloques `caso('Caso N - ...')` + `check(cond, texto, detalle)`:
 
 1. **Crear por el `_ajax.php`**, con los mismos parámetros que manda la pantalla (leer el `case` del ajax y el JS).
-   `ajax(archivo, params, 'GET'|'POST')` devuelve el JSON; `ok_resp(r)` / `err(r)` interpretan las dos convenciones
+   `ajax(archivo, params, 'GET'|'POST')` devuelve el JSON (`modulo='gestion_normal', empresa_id=6` para probar el módulo 5 con la sesión en esa empresa); `ok_resp(r)` / `err(r)` interpretan las dos convenciones
    de respuesta. Para compras/OC/pedidos, `linea()` y `totales()` arman los importes como el front.
 2. **Transicionar** con `ejecutar_accion` y el `accion_js` configurado en `conf__paginas_funciones` de esa página.
 3. **Chequear efectos**, no solo la respuesta: estado del registro y de su espejo en `gestion__comprobantes`,

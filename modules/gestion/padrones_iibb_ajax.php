@@ -47,7 +47,8 @@ try {
                 WHERE pagina_id = ? AND accion_js = 'importar' AND tabla_estado_registro_id = 1 LIMIT 1", 'i', $pagina_idx);
             if (!$ok) padResponder(false, null, 'Acción no habilitada', 403);
             $r = padImportar($conexion, $empresa_id, $usuario_id, (int)($_POST['jurisdiccion_id'] ?? 0), $_FILES['archivo'] ?? []);
-            padResponder(true, $r, "Padrón {$r['periodo']}: {$r['cargadas']} CUIT cargados, {$r['rechazadas']} líneas rechazadas.");
+            $vig = $r['periodo'] ?: ($r['f_desde'] ? "{$r['f_desde']} a {$r['f_hasta']}" : '');
+            padResponder(true, $r, "Padrón $vig: {$r['cargadas']} CUIT cargados, {$r['rechazadas']} líneas rechazadas.");
             break;
 
         case 'consultar_cuit':
