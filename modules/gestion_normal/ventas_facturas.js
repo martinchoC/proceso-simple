@@ -302,10 +302,10 @@ $(function () {
         // así que ese monto plano no sirve para mostrar la fila — recalculamos siempre desde el %.
         var descuentoPct = parseFloat(item.descuento_general_pct) || 0;
         var descuento = precio * descuentoPct / 100;
-        var neto = parseFloat(item.precio_unitario_neto) || Math.max(0, precio - descuento);
+        var neto = Math.max(0, precio - descuento);
         var valorInicial = cantidadPropia > 0 ? cantidadPropia.toFixed(2) : '0.00';
         var nroRemito = manual ? '-' : (item.comprobante_nro || '-') + (item.consumidor_final_nombre ? '<small class="d-block text-muted">' + esc(item.consumidor_final_nombre) + '</small>' : '');
-        return '<tr><td>' + nroRemito + '</td><td>' + (item.producto_codigo || item.producto_id) + '</td><td>' + (item.producto_nombre || 'Producto manual') + (manual ? ' <small class="text-muted">(Manual)</small>' : '') + '</td><td class="text-end cantidad-pendiente">' + (manual ? '-' : cantidadPendiente.toFixed(2)) + '</td><td class="text-end"><div class="factura-cantidad-stepper"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-menos" tabindex="-1">&minus;</button><input type="number" class="form-control form-control-sm factura-cantidad no-spinner" data-key="' + key + '" data-remito-detalle-id="' + (manual ? '' : item.venta_remito_detalle_id) + '" data-producto-id="' + item.producto_id + '" data-pedido-detalle-id="' + (item.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + descuentoPct + '" data-precio-neto="' + neto + '" data-iva-id="' + (item.iva_alicuota_id || 1) + '" data-iva="' + (item.iva_porcentaje || 0) + '" value="' + valorInicial + '" min="0" max="' + cantidadMax + '" step="1"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-mas" tabindex="-1">+</button></div></td><td class="text-end">$' + moneda(precio) + '</td><td class="text-end">$' + moneda(descuento) + '</td><td class="text-end">$' + moneda(neto) + '</td><td class="text-end fw-bold total-neto-renglon">$0.00</td></tr>';
+        return '<tr><td>' + nroRemito + '</td><td>' + (item.producto_codigo || item.producto_id) + '</td><td>' + (item.producto_nombre || 'Producto manual') + (manual ? ' <small class="text-muted">(Manual)</small>' : '') + '</td><td class="text-end cantidad-pendiente">' + (manual ? '-' : cantidadPendiente.toFixed(2)) + '</td><td class="text-end"><div class="factura-cantidad-stepper"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-menos" tabindex="-1">&minus;</button><input type="number" class="form-control form-control-sm factura-cantidad no-spinner" data-key="' + key + '" data-remito-detalle-id="' + (manual ? '' : item.venta_remito_detalle_id) + '" data-producto-id="' + item.producto_id + '" data-pedido-detalle-id="' + (item.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + descuentoPct + '" data-precio-neto="' + neto + '" data-iva-id="' + (item.iva_alicuota_id || 1) + '" data-iva="' + (item.iva_porcentaje || 0) + '" value="' + valorInicial + '" min="0" max="' + cantidadMax + '" step="1"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-mas" tabindex="-1">+</button></div></td><td class="text-end"><input type="number" class="form-control form-control-sm text-end factura-precio no-spinner" value="' + precio.toFixed(2) + '" min="0" step="0.01"></td><td class="text-end factura-descuento-renglon">$' + moneda(descuento) + '</td><td class="text-end factura-neto-renglon">$' + moneda(neto) + '</td><td class="text-end fw-bold total-neto-renglon">$0.00</td></tr>';
     }
     // Única fuente de verdad de qué entra a la factura: la cantidad tipeada. Cantidad > 0 =
     // la línea se agrega/actualiza en `detalles`; 0 = se saca. Sin click de checkbox de por medio.
@@ -321,6 +321,20 @@ $(function () {
         actualizarTotalNetoFila(el.closest('tr'));
         actualizarVisibilidadRemitos();
         renderDetalle();
+    });
+    // Precio editable en cualquier línea (de remito o manual): actualiza los data-* de la
+    // cantidad, que son los que arman `detalles`, y recalcula descuento y neto de la fila.
+    $(document).on('change', '.factura-precio', function () {
+        var row = $(this).closest('tr');
+        var input = row.find('.factura-cantidad');
+        var precio = Math.max(0, parseFloat(this.value) || 0);
+        this.value = precio.toFixed(2);
+        var descuento = precio * (parseFloat(input.data('descuento-pct')) || 0) / 100;
+        var neto = Math.max(0, precio - descuento);
+        input.data('precio', precio).data('precio-neto', neto);
+        row.find('.factura-descuento-renglon').text('$' + moneda(descuento));
+        row.find('.factura-neto-renglon').text('$' + moneda(neto));
+        input.trigger('change');
     });
     // Botones +/- del stepper: mismo patrón visual que ventas_pedidos, sin las flechas nativas
     // del input number (ocultas vía .no-spinner).
@@ -543,7 +557,7 @@ $(function () {
 
     function habilitarFormulario(habilitar) {
         $('#formFacturaCliente').find('input, select, textarea').prop('disabled', !habilitar);
-        $('#btnAgregarProductoFactura, .factura-cantidad, .btn-cantidad-mas, .btn-cantidad-menos').prop('disabled', !habilitar);
+        $('#btnAgregarProductoFactura, .factura-cantidad, .factura-precio, .btn-cantidad-mas, .btn-cantidad-menos').prop('disabled', !habilitar);
         $('#btnGuardarFactura').toggle(habilitar);
     }
 
@@ -718,6 +732,14 @@ $(function () {
                 $('#cardAgregarProductoManual').show();
                 $('#tituloCardRemitosFactura').text('Remitos Pendientes De Facturar');
                 $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: EMPRESA_ID, entidad_id: f.entidad_id || 0, entidad_sucursal_id: f.entidad_sucursal_id || 0, excluir_factura_id: facturaEditId }, function (pendientes) {
+                    // El precio de una línea de remito se puede cambiar en la factura: al reabrirla,
+                    // el precio y descuento guardados pisan los del remito.
+                    var guardadoPorRemito = {};
+                    (f.detalles || []).forEach(function (d) { if (d.venta_remito_detalle_id) guardadoPorRemito[d.venta_remito_detalle_id] = d; });
+                    (pendientes || []).forEach(function (r) {
+                        var d = guardadoPorRemito[r.venta_remito_detalle_id];
+                        if (d) { r.precio_unitario_bruto = parseFloat(d.precio_unitario) || 0; r.descuento_general_pct = parseFloat(d.descuento_general_pct) || 0; }
+                    });
                     renderRemitos(pendientes);
                     (f.detalles || []).forEach(function (d) {
                         if (!d.venta_remito_detalle_id) {

@@ -77,12 +77,20 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <script src="<?= asset_local('js/pdfmake.min.js') ?>"></script>
   <script src="<?= asset_local('js/vfs_fonts.js') ?>"></script>
 
+  <?php
+  // En modules/gestion y modules/gestion_normal las tablas con el dom por defecto van sin
+  // los botones Copy/Excel/CSV/PDF (sin estilo) y con el "Buscar:" al lado del Agregar.
+  $dtSinBotonesDefault = (bool) preg_match('#/modules/gestion(_normal)?/#', str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? ''));
+  ?>
   <script>
     if (window.jQuery && $.fn && $.fn.dataTable) {
+      var dtSinBotonesDefault = <?= $dtSinBotonesDefault ? 'true' : 'false' ?>;
       $.extend(true, $.fn.dataTable.defaults, {
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
-        dom: '<"row align-items-center mb-2"<"col-12 col-md-6"B><"col-12 col-md-6 text-end"f>>' +
+        dom: (dtSinBotonesDefault
+               ? '<"row align-items-center mb-2"<"col-12 text-end"f>>'
+               : '<"row align-items-center mb-2"<"col-12 col-md-6"B><"col-12 col-md-6 text-end"f>>') +
              '<"row"<"col-12"tr>>' +
              '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
         language: {
@@ -113,6 +121,27 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
           return str;
         }
       });
+
+      // Solo tablas que usan el dom por defecto (oInit es lo que pasó la página, sin los
+      // defaults): el buscador se mueve al lado del botón Agregar de la misma card.
+      if (dtSinBotonesDefault) {
+        $(document).on('init.dt', function (e, settings) {
+          if (!settings || !settings.oInit || settings.oInit.dom || settings.oInit.sDom) return;
+          var $agregar = $(settings.nTable).closest('.card').find('#contenedor-boton-agregar, #btnNuevo').first();
+          var $filtro = $(settings.nTableWrapper).find('.dataTables_filter').first();
+          if (!$agregar.length || !$filtro.length) return;
+          var $fila = $filtro.closest('.row');
+          // Si la página destruye y vuelve a crear la tabla, el buscador movido antes quedó
+          // fuera del wrapper (no se borra con él): se saca para no duplicarlo.
+          $('.dt-filtro-movido').filter(function () { return $(this).data('tabla') === settings.sTableId; }).remove();
+          $filtro.addClass('dt-filtro-movido d-inline-block ms-2 align-middle').data('tabla', settings.sTableId).insertAfter($agregar);
+          $filtro.find('label').addClass('mb-0');
+          // Fuera del wrapper se pierden los estilos de dataTables.bootstrap5 (input inline y
+          // angosto), por eso las clases explícitas.
+          $filtro.find('input').addClass('form-control form-control-sm d-inline-block w-auto ms-1');
+          if (!$.trim($fila.text()) && !$fila.find('input, select, button').length) $fila.remove();
+        });
+      }
     }
   </script>
 

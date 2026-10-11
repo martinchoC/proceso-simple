@@ -301,5 +301,199 @@ Bloquean solo la parte indicada:
 - Excepciones por tipo de producto de `_config_operaciones` para percepciones (la tabla sigue usándose solo en compras).
 - Facturación de abonos de `estudio_contable` (crea facturas confirmadas sin pasar por ventas_facturas): no calcula percepciones.
 - Pendientes de datos de §9 (código de régimen SIRCAR, N° de agente, tributo ARCA, fecha SIRCIP, lectura de la 407).
+- Fuentes de alícuota distintas de SIRCIP (padrón propio, servicio web, carga manual): diseño en §12.
 
 **Pruebas**: `tests/simulacion/casos/09_percepciones_iibb.py` (46 chequeos) + suite completa 264/264 con ARCA deshabilitado en la copia.
+
+## 12. Etapa 2: fuentes de alícuota genéricas (diseño, 2026-10-11 — no implementado)
+
+### 12.1 Problema
+
+Cada provincia informa la alícuota de percepción de un CUIT por una de cuatro vías: **padrón del Convenio** (SIRCIP), **padrón propio** de la provincia (archivo con su diseño), **servicio web / API** (consulta por CUIT) o **consulta web individual** (la persona mira el sitio de la provincia). Hoy solo existe la primera, y quedó atada a SIRCIP en cuatro lugares:
+
+| Lugar | Qué está atado |
+|---|---|
+| `padImportar` (`padrones_iibb_model.php`) | Rechaza todo formato que no sea `SIRCIP` y graba el literal `'SIRCIP'` en la importación. |
+| `perIibbCalcular` (`percepciones_iibb_core_model.php`) | Interpreta el dígito del campo 7 de SIRCIP (`situacion_jurisdiccion` 1/2/3/4-5). |
+| `gestion__padrones_iibb` | Clave por `periodo` (aaaamm): los padrones con vigencia desde/hasta, las consultas puntuales y las cargas manuales no entran. |
+| `perExportar` (`percepciones_iibb_model.php`) | `if/elseif` por `SIRCAR_D1` / `SIRCIP`. |
+
+### 12.2 Idea
+
+Las cuatro vías contestan la misma pregunta: **CUIT + jurisdicción + fecha → alícuota y situación**. Cada vía escribe una respuesta **normalizada** en un único depósito (`gestion__padrones_iibb`, con vigencia y fuente), y el motor lee solo de ahí. Lo propio de cada fuente (leer el archivo, traducir sus códigos, llamar al servicio) vive en un **driver**. El motor y las situaciones (§4.2) no cambian.
+
+```
+ Archivo SIRCIP ─┐
+ Archivo propio ─┼─ driver ─► fila normalizada ─► gestion__padrones_iibb ─► perIibbCalcular ─► situaciones (§4.2)
+ Servicio web ───┤             (cuit, vigencia,     (fuente, f_desde/f_hasta)
+ Carga manual ───┘              alícuota, situación)
+```
+
+### 12.3 Fila normalizada
+
+Todo driver entrega filas con esta forma:
+
+| Campo | Contenido |
+|---|---|
+| `cuit` | 11 dígitos |
+| `razon_social` | Opcional |
+| `f_desde` / `f_hasta` | Vigencia. Un padrón mensual se carga del día 1 al último día del período. |
+| `alicuota` | % a aplicar si la situación es `PADRON` |
+| `situacion` | `PADRON` (alícuota del padrón), `INSCRIPTO_OTRA_JURISDICCION` (falta de alta: alícuota de la situación de la config), `NO_PERCIBIR` (figura en el padrón, sin percepción) |
+| `codigo_origen` | Código crudo de la fuente (letra SIRCIP, grupo de un padrón propio), para la DDJJ y la auditoría |
+| `crc`, `jurisdiccion_sede_cm` | Datos para la DDJJ, si la fuente los trae |
+
+Las filas que la fuente marca como "no aplica" (p. ej. dígitos 4/5 de SIRCIP) **no se guardan**: el motor sigue por la condición del cliente, como hoy.
+
+### 12.4 Cambios de modelo de datos
+
+El DDL se muestra plano; el script real (`sql/mantenimiento/AAAAMMDD_percepciones_iibb_04_fuentes.sql`) lo envuelve en el procedimiento `_col` de `_01_estructura.sql` para que sea reanudable.
+
+**`gestion__padrones_iibb`.** Lo que existe se migra. `periodo`, `letra_alicuota` y `situacion_jurisdiccion` quedan nullable durante una versión y se borran cuando ningún código los lea.
+
+```sql
+ALTER TABLE gestion__padrones_iibb
+  MODIFY padron_importacion_id INT UNSIGNED NULL COMMENT 'NULL en WS y MANUAL',
+  MODIFY periodo CHAR(6) COLLATE utf8mb4_unicode_ci NULL COMMENT 'Obsoleto: usar f_desde/f_hasta',
+  ADD COLUMN fuente VARCHAR(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'ARCHIVO' COMMENT 'ARCHIVO | WS | MANUAL',
+  ADD COLUMN f_desde DATE NULL,
+  ADD COLUMN f_hasta DATE NULL,
+  ADD COLUMN situacion VARCHAR(30) COLLATE utf8mb4_unicode_ci NULL COMMENT 'PADRON | INSCRIPTO_OTRA_JURISDICCION | NO_PERCIBIR',
+  ADD COLUMN codigo_origen VARCHAR(10) COLLATE utf8mb4_unicode_ci NULL COMMENT 'Código crudo de la fuente (letra, grupo)',
+  ADD COLUMN referencia VARCHAR(255) COLLATE utf8mb4_unicode_ci NULL COMMENT 'MANUAL: N° de constancia / archivo adjunto',
+  ADD COLUMN integracion_resultado_id BIGINT UNSIGNED NULL COMMENT 'WS: log en gestion__integraciones_resultados',
+  ADD COLUMN usuario_id INT NULL,
+  ADD COLUMN created_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN tabla_estado_registro_id SMALLINT NOT NULL DEFAULT 1;
+
+-- Migración de lo importado con SIRCIP
+UPDATE gestion__padrones_iibb
+   SET f_desde = STR_TO_DATE(CONCAT(periodo, '01'), '%Y%m%d'),
+       f_hasta = LAST_DAY(STR_TO_DATE(CONCAT(periodo, '01'), '%Y%m%d')),
+       situacion = CASE situacion_jurisdiccion WHEN 2 THEN 'INSCRIPTO_OTRA_JURISDICCION' WHEN 3 THEN 'NO_PERCIBIR' ELSE 'PADRON' END,
+       codigo_origen = letra_alicuota
+ WHERE f_desde IS NULL;
+
+ALTER TABLE gestion__padrones_iibb
+  MODIFY f_desde DATE NOT NULL,
+  MODIFY situacion VARCHAR(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  DROP INDEX uk_padron_cuit,
+  ADD UNIQUE KEY uk_padron_cuit_vig (empresa_id, jurisdiccion_id, cuit, fuente, f_desde),
+  ADD KEY idx_padron_busqueda (empresa_id, jurisdiccion_id, cuit, f_desde);
+```
+
+**`gestion__padrones_iibb_importaciones`.** `periodo` pasa a nullable y se agregan `f_desde` / `f_hasta`, para los padrones con vigencia libre. Reimportar reemplaza las filas `ARCHIVO` del mismo rango de vigencia, no las `MANUAL` ni las `WS`.
+
+**`gestion__empresas_impuestos_config`:**
+
+```sql
+ALTER TABLE gestion__empresas_impuestos_config
+  ADD COLUMN fuente_alicuota VARCHAR(20) COLLATE utf8mb4_unicode_ci NULL
+      COMMENT 'NULL = sin padrón (solo condición del cliente) | ARCHIVO | WS | MANUAL',
+  ADD COLUMN sin_dato_accion VARCHAR(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'CONDICION'
+      COMMENT 'Si la fuente no responde: CONDICION | BLOQUEAR',
+  ADD COLUMN integracion_empresa_id INT UNSIGNED NULL COMMENT 'WS: credenciales en gestion__integraciones_empresas',
+  ADD COLUMN ws_vigencia_dias SMALLINT NULL COMMENT 'WS: vigencia del dato si el servicio no la informa';
+```
+
+`formato_padron` sigue nombrando el driver (`SIRCIP`, y los que se sumen) y `formato_ddjj` el exportador. Configuración de Río Negro: `fuente_alicuota = NULL` mientras siga la 985/2018 (no tiene padrón); `ARCHIVO` + `SIRCIP` cuando se abra la fila de la 407/2025.
+
+**Situación nueva `SIN_PADRON`** en `gestion__empresas_impuestos_config_situaciones`. No lleva DDL: es un valor más. Hay dos casos que no hay que mezclar:
+- **El CUIT no está en el padrón** (la fuente respondió). Si la config tiene la situación `SIN_PADRON`, se aplica su alícuota (para las normas que agravan a quien no figura). Si no la tiene, se sigue por la condición del cliente, como hoy.
+- **La fuente no respondió** (WS caído, padrón del mes sin importar). Lo decide `sin_dato_accion`: `CONDICION` sigue por la condición del cliente y avisa; `BLOQUEAR` no deja confirmar.
+
+### 12.5 Búsqueda en el motor
+
+Reemplaza a `perIibbPadron` y al bloque del dígito en `perIibbCalcular`:
+
+```sql
+SELECT * FROM gestion__padrones_iibb
+ WHERE empresa_id = ? AND jurisdiccion_id = ? AND cuit = ? AND tabla_estado_registro_id = 1
+   AND f_desde <= ? AND (f_hasta IS NULL OR f_hasta >= ?)
+ ORDER BY FIELD(fuente, 'MANUAL', 'WS', 'ARCHIVO'), f_desde DESC
+ LIMIT 1
+```
+
+Una carga manual gana mientras está vigente. Por eso **exige `f_hasta`**: corrige un caso puntual sin tapar los padrones siguientes. Después el motor hace `switch` sobre `situacion`:
+- `PADRON` usa la alícuota de la fila;
+- `INSCRIPTO_OTRA_JURISDICCION` usa la de la situación de la config;
+- `NO_PERCIBIR` no percibe.
+
+El motor ya no conoce SIRCIP.
+
+### 12.6 Drivers
+
+Va un archivo nuevo, `percepciones_iibb_drivers.php` (en `gestion` y `gestion_normal`, como el resto), con un registro:
+
+```php
+function perIibbDriversPadron() {
+    return [
+        'SIRCIP' => [
+            'tipo' => 'ARCHIVO',
+            'leer' => 'padLeerSircip',      // ($fh, $cfg) => yield fila normalizada | string de error
+        ],
+        // Padrón propio de diseño simple: layout declarativo, sin código propio
+        // 'XXX' => ['tipo' => 'ARCHIVO', 'layout' => ['separador' => ';', 'campos' => ['cuit' => 4, 'f_desde' => 2,
+        //           'f_hasta' => 3, 'alicuota' => 8, 'codigo_origen' => 10], 'formato_fecha' => 'dmY'],
+        //           'situacion' => 'padSituacionXxx'],
+        // 'YYY' => ['tipo' => 'WS', 'consultar' => 'padConsultarYyy'],   // ($conexion, $cfg, $cuit, $fecha) => fila | null | Exception
+    ];
+}
+
+function perIibbDriversDdjj() {
+    return [
+        'SIRCAR_D1' => 'perExportarSircarD1',   // ($filas, $cfg) => ['nombre' => ..., 'contenido' => ..., 'zip' => bool]
+        'SIRCIP'    => 'perExportarSircip',
+    ];
+}
+```
+
+- **Padrón SIRCIP.** Es el `padParsearSircip` actual, que además traduce el campo 7 a `situacion` (hoy lo hace el motor). Sirve para toda provincia adherida, porque la posición de la jurisdicción ya es un parámetro.
+- **Padrón propio.** La mayoría son archivos de ancho fijo o separados por `;`, con CUIT, vigencia, alícuota y un grupo o letra. Se describen con un `layout` que lee un lector genérico (`padLeerLayout`); solo los raros llevan función propia. Los layouts van **en código y no en tablas**, por tres razones:
+  - un formato cambia solo cuando cambia la norma;
+  - hay que probarlo con el archivo real;
+  - así no hacen falta ids de `conf__tablas`, cuyo bloque 423–434 está completo.
+- **Servicio web.** `consultar` devuelve una fila normalizada. Se guarda con:
+  - `fuente = 'WS'`;
+  - la vigencia que informe el servicio, o si no `ws_vigencia_dias`;
+  - el log en `gestion__integraciones_resultados`, con `referencia_tipo = 'PADRON_IIBB'`.
+
+  Las credenciales son por empresa y van en `gestion__integraciones_empresas`, como las de ARCA.
+- **Carga manual (consulta web individual).** No lleva driver. Es un formulario con jurisdicción, situación, alícuota, vigencia (`f_hasta` obligatoria) y referencia o adjunto (`uploads/padrones/`). Está en dos lugares:
+  - la página 115, en una solapa "Carga manual";
+  - "Historial de Situación Fiscal" del cliente (`percepciones_iibb_clientes_*`).
+
+  Está disponible para toda config, sea cual sea su fuente, porque también es el respaldo de las otras tres.
+
+`padImportar` y `perExportar` pasan a buscar el driver en el registro, y fallan con "Formato no soportado" si no está.
+
+### 12.7 Servicio web: cuándo se consulta
+
+- **Al guardar el borrador** y en la vista previa (`calcular_percepciones`): si no hay fila vigente, se consulta y se guarda, fuera de transacción.
+- **Al confirmar**: si sigue sin fila vigente, se consulta **antes** de `mysqli_begin_transaction`. Nunca dentro de la transacción, porque dejaría los locks de numeración y de comprobantes tomados mientras dura la llamada.
+- Timeout corto (5 s). Si falla, se aplica `sin_dato_accion`; no se reintenta en el mismo request.
+
+### 12.8 Impacto en lo existente
+
+| Pieza | Cambio |
+|---|---|
+| `perIibbCalcular` | Búsqueda de §12.5, `switch` por `situacion`, situación `SIN_PADRON`, `sin_dato_accion`. Sin cambios en territorio, exclusiones, NC ni mínimos. |
+| `gestion__comprobantes_impuestos` | Sin cambios: `padron_iibb_id` y `padron_crc` ya apuntan a la fila usada. `tipo_origen = 'padron'` para las tres fuentes. |
+| DDJJ | Los exportadores reciben las mismas filas. SIRCIP sigue tomando el CRC de la fila del padrón. |
+| Página 73 | En la solapa "Agente de Percepción": fuente, acción sin dato, integración y vigencia del WS. |
+| Página 115 | Solapa "Carga manual" y listado por fuente. Función nueva en `conf__paginas_funciones` para la carga manual (ids a definir dentro del bloque). |
+| Simulador | `09_percepciones_iibb.py` tiene que seguir dando 46/46 sin tocarlo: es la prueba de que el refactor no cambia el comportamiento. Un caso nuevo cubre la carga manual (gana sobre el padrón, vence), `SIN_PADRON`, `sin_dato_accion = BLOQUEAR` y un driver de WS de prueba que no sale a internet. |
+
+### 12.9 Orden de implementación
+
+1. **Refactor sin cambio de comportamiento:** DDL y migración de §12.4, registro de drivers, traducción del campo 7 dentro del driver SIRCIP, búsqueda nueva y exportadores por registro. Se da por cerrado cuando el caso 09 pasa sin cambios y la suite completa da OK.
+2. **Carga manual:** cubre la consulta web individual y el respaldo de las demás fuentes.
+3. **Padrón propio:** con la segunda provincia en la que la empresa sea agente, a partir de su archivo real (layout declarativo, más `SIN_PADRON` si su norma lo pide).
+4. **Servicio web:** solo para una provincia que lo exija, o en la que el archivo no alcance.
+
+### 12.10 A decidir
+
+- Prioridad entre fuentes. Se propone MANUAL > WS > ARCHIVO, con la carga manual siempre con vencimiento.
+- Si la carga manual exige adjuntar la constancia o alcanza con un número de referencia.
+- Ids de la función de carga manual en `conf__paginas_funciones` (y su par del módulo 5).
+- Sigue abierto, de §11: qué CRC va en SIRCIP para las filas que no figuran en el padrón.

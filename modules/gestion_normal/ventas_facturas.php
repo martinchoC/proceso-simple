@@ -266,6 +266,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 .factura-cantidad-stepper input:focus{box-shadow:none;background:#eef6ff}
 .no-spinner::-webkit-inner-spin-button,.no-spinner::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .no-spinner{-moz-appearance:textfield;appearance:textfield}
+.factura-precio{width:100px;margin-left:auto}
 
 /* ===== TABLA MÁS COMPACTA (slim) ===== */
 #tablaFacturasCliente.table-slim th,

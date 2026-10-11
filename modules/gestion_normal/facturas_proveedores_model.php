@@ -2520,7 +2520,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
     error_log("=== generarAsientoContableFactura INICIO factura: $factura_proveedor_id, empresa: $empresa_id ===");
 
     $stmt = mysqli_prepare($conexion, "SELECT fp.*, ct.comprobante_tipo, ct.signo AS tipo_signo, ct.impacta_contabilidad,
-                                              e.entidad_nombre, e.cont_cuenta_id_proveedor, cp.cuenta_proveedores_id
+                                              e.entidad_nombre, e.cont_cuenta_id_proveedor, cp.cuenta_proveedores_id, cp.cuenta_gastos_defecto_id
                                        FROM gestion__facturas_proveedores fp
                                        LEFT JOIN gestion__comprobantes_tipos ct ON fp.comprobante_tipo_id = ct.comprobante_tipo_id
                                        LEFT JOIN gestion__entidades e ON fp.entidad_id = e.entidad_id
@@ -2607,6 +2607,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
     mysqli_stmt_bind_param($stmt, "i", $comprobante_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
+    $total_impuestos_ci = 0.0;
     while ($imp = mysqli_fetch_assoc($result)) {
         if (abs(floatval($imp['importe'])) < 0.0001) continue;
         if (empty($imp['cont_cuenta_id'])) {
@@ -2615,8 +2616,29 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
         }
         $clave = $imp['cont_cuenta_id'] . '|0';
         $renglones[$clave] = ($renglones[$clave] ?? 0) + floatval($imp['importe']);
+        $total_impuestos_ci += floatval($imp['importe']);
     }
     mysqli_stmt_close($stmt);
+
+    // Si la factura tiene otros_impuestos en cabecera no desglosados en comprobantes_impuestos:
+    $otros_imp_factura = floatval($factura['otros_impuestos'] ?? 0);
+    $dif_imp = round($otros_imp_factura - $total_impuestos_ci, 2);
+    if ($dif_imp > 0.009) {
+        $cuenta_imp_id = 0;
+        $q_cfg = mysqli_query($conexion, "SELECT cont_cuenta_id FROM gestion__empresas_impuestos_config 
+                                          WHERE empresa_id = $empresa_id AND cont_cuenta_id > 0 AND tabla_estado_registro_id = 1 
+                                          ORDER BY prioridad ASC LIMIT 1");
+        if ($q_cfg && ($r_cfg = mysqli_fetch_assoc($q_cfg))) {
+            $cuenta_imp_id = intval($r_cfg['cont_cuenta_id']);
+        }
+        if (!$cuenta_imp_id) {
+            $cuenta_imp_id = intval($factura['cuenta_gastos_defecto_id'] ?? 0);
+        }
+        if ($cuenta_imp_id > 0) {
+            $clave = $cuenta_imp_id . '|0';
+            $renglones[$clave] = ($renglones[$clave] ?? 0) + $dif_imp;
+        }
+    }
 
     if (!empty($faltantes)) {
         return ['success' => false, 'message' => 'falta configurar ' . implode('; ', array_unique($faltantes))];
@@ -2638,6 +2660,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
             'descripcion' => $producto_id ? 'Compra - Producto ID: ' . $producto_id : 'Impuestos'
         ];
     }
+    // Proveedor: en facturas ('+') va al Haber (importe negativo); en NC ('-') va al Debe (importe positivo)
     $detalles_asiento[] = [
         'cuenta_id' => $cuenta_proveedor_id,
         'producto_id' => null,
