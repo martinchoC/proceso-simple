@@ -386,7 +386,20 @@ $(document).ready(function () {
     }
 
     function ajustarCantidadPicking(vpdId, delta, datosLinea) {
+        var linea = pendientesPedido.find(function (p) { return p.venta_pedido_detalle_id == vpdId; })
+            || pendientesOtros.find(function (p) { return p.venta_pedido_detalle_id == vpdId; });
+
         var existente = remitoDetallesNuevo.find(function (d) { return d.venta_pedido_detalle_id == vpdId; });
+
+        if (delta > 0 && linea) {
+            var reservadoPorEsteRemito = (remitoEditandoId && remitoLineasOriginalesPorVpd[vpdId])
+                ? remitoLineasOriginalesPorVpd[vpdId] : 0;
+            var pendienteBase = (parseFloat(linea.pendiente) || 0) + reservadoPorEsteRemito;
+            var cantidadActual = existente ? (parseFloat(existente.cantidad) || 0) : 0;
+            if (cantidadActual + delta > pendienteBase + 0.0001) {
+                return;
+            }
+        }
 
         if (existente) {
             var nuevaCantidad = Math.round(((parseFloat(existente.cantidad) || 0) + delta) * 100) / 100;
@@ -968,14 +981,62 @@ $(document).ready(function () {
                         remitoLineasOriginalesPorVpd[d.venta_pedido_detalle_id] =
                             (remitoLineasOriginalesPorVpd[d.venta_pedido_detalle_id] || 0) + (parseFloat(d.cantidad) || 0);
                     }
+                    var origen = '';
+                    if (d.pedido_comprobante_nro > 0) {
+                        origen = '#' + d.pedido_comprobante_nro;
+                    } else if (d.venta_pedido_id) {
+                        origen = 'Pedido ' + d.venta_pedido_id;
+                    }
                     return {
                         venta_pedido_detalle_id: d.venta_pedido_detalle_id,
                         producto_id: d.producto_id,
                         producto_codigo: d.producto_codigo,
                         producto_nombre: d.producto_nombre,
-                        origen_pedido: '',
+                        origen_pedido: origen,
                         cantidad: parseFloat(d.cantidad) || 0
                     };
+                });
+
+                // Asegurar que todas las líneas que forman parte del remito en borrador
+                // estén presentes en las listas correspondientes (pedido actual u otros pedidos)
+                (res.detalles || []).forEach(function (d) {
+                    if (!d.venta_pedido_detalle_id) return;
+                    var esDelPedidoActual = d.venta_pedido_id && parseInt(d.venta_pedido_id, 10) === parseInt(pedidoActual.venta_pedido_id, 10);
+                    if (esDelPedidoActual) {
+                        if (!pendientesPedido.some(function (p) { return p.venta_pedido_detalle_id == d.venta_pedido_detalle_id; })) {
+                            pendientesPedido.push({
+                                venta_pedido_id: d.venta_pedido_id,
+                                comprobante_nro: d.pedido_comprobante_nro || pedidoActual.comprobante_nro,
+                                comprobante_tipo: pedidoActual.comprobante_tipo || '',
+                                f_emision: pedidoActual.f_emision || '',
+                                venta_pedido_detalle_id: d.venta_pedido_detalle_id,
+                                producto_id: d.producto_id,
+                                producto_codigo: d.producto_codigo,
+                                producto_nombre: d.producto_nombre,
+                                cantidad: d.pedido_cantidad || d.cantidad,
+                                cantidad_entregada: d.pedido_cantidad_entregada || d.cantidad,
+                                pendiente: 0,
+                                ubicaciones_detalle: []
+                            });
+                        }
+                    } else {
+                        if (!pendientesOtros.some(function (p) { return p.venta_pedido_detalle_id == d.venta_pedido_detalle_id; })) {
+                            pendientesOtros.push({
+                                venta_pedido_id: d.venta_pedido_id,
+                                comprobante_nro: d.pedido_comprobante_nro || 0,
+                                comprobante_tipo: 'Pedido',
+                                f_emision: '',
+                                venta_pedido_detalle_id: d.venta_pedido_detalle_id,
+                                producto_id: d.producto_id,
+                                producto_codigo: d.producto_codigo,
+                                producto_nombre: d.producto_nombre,
+                                cantidad: d.pedido_cantidad || d.cantidad,
+                                cantidad_entregada: d.pedido_cantidad_entregada || d.cantidad,
+                                pendiente: 0,
+                                ubicaciones_detalle: []
+                            });
+                        }
+                    }
                 });
 
                 renderizarPendientesPedido();

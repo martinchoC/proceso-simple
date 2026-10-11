@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Primeros pasos</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 14px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert {
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 14px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #fff;
+    }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-primary { background: var(--azul); }
+    .badge-danger { background: var(--rojo); }
+    .badge-info { background: #0dcaf0; color: #055160; }
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0 30px;
+    }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid;
+        margin: 2px 4px 2px 0;
+    }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eef4ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); font-size: 0.78rem; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.compras { border-color: var(--verde); background: #e9f6ef; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral {
+        border-left: 3px solid var(--azul);
+        padding-left: 12px;
+        color: var(--texto-muted);
+        font-size: 0.92rem;
+        margin: 10px 0;
+    }
+    ol.pasos li { margin-bottom: 6px; }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1>Primeros pasos en el sistema</h1>
+<p class="subtitulo">Todo lo que necesitás saber antes de empezar a usar el módulo de Gestión: cómo entrar, cómo moverte por el menú, cómo se usan los listados y qué significan los estados de cada documento.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#ingresar">Ingresar al sistema</a></li>
+        <li><a href="#salir">Salir del sistema</a></li>
+        <li><a href="#empresa">Elegir empresa y módulo</a></li>
+        <li><a href="#pantalla">Cómo está armada la pantalla</a></li>
+        <li><a href="#menu">El menú lateral: las áreas del sistema</a></li>
+        <li><a href="#listados">Cómo se usan los listados</a>
+            <ul>
+                <li><a href="#buscar-ordenar">Buscar, ordenar y paginar</a></li>
+                <li><a href="#exportar">Exportar a Excel, PDF o imprimir</a></li>
+                <li><a href="#agregar-editar">Agregar y editar registros</a></li>
+            </ul>
+        </li>
+        <li><a href="#botones">Por qué los botones cambian de un registro a otro</a></li>
+        <li><a href="#estados">Los estados, en lenguaje llano</a></li>
+        <li><a href="#sucursales">Acceso por sucursal y punto de venta</a></li>
+        <li><a href="#mensajes">Mensajes del sistema y qué hacer ante un error</a></li>
+        <li><a href="#circuito">El circuito comercial completo</a>
+            <ul>
+                <li><a href="#circuito-ventas">Circuito de Ventas</a></li>
+                <li><a href="#circuito-compras">Circuito de Compras</a></li>
+                <li><a href="#impactos">Qué mueve cada documento</a></li>
+            </ul>
+        </li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="ingresar">Ingresar al sistema</h2>
+<p>Para entrar necesitás un <strong>usuario</strong> y una <strong>contraseña</strong>, que te da el administrador del sistema.</p>
+<ol class="pasos">
+    <li>Abrí la dirección del sistema en el navegador. Vas a ver la pantalla <strong>GestiónMultipyme</strong> con el mensaje "Inicia sesión para comenzar".</li>
+    <li>Escribí tu usuario en el campo <strong>Usuario</strong> y tu clave en el campo <strong>Contraseña</strong>.</li>
+    <li>Hacé clic en <span class="boton-ejemplo boton-primario">Ingresar</span>.</li>
+</ol>
+<p>Si los datos son correctos, el sistema te lleva directo a trabajar:</p>
+<ul>
+    <li>Si tenés acceso a <strong>una sola empresa y un solo módulo</strong>, entrás directamente a ese módulo.</li>
+    <li>Si tenés acceso a varios, ves el <strong>Panel de Acceso</strong>: una lista de empresas, y debajo de cada una, una tarjeta por cada módulo que podés usar. Hacé clic en la tarjeta del módulo con el que querés trabajar (por ejemplo, el módulo de Gestión de la empresa en la que trabajás).</li>
+</ul>
+<table class="tabla-referencia">
+    <tr><th>Mensaje en el ingreso</th><th>Qué significa</th></tr>
+    <tr><td>Usuario no encontrado</td><td>El nombre de usuario que escribiste no existe. Revisá que esté bien escrito.</td></tr>
+    <tr><td>Contraseña incorrecta</td><td>El usuario existe pero la clave no coincide. Revisá mayúsculas y minúsculas. Si no la recordás, pedile al administrador que te la cambie.</td></tr>
+    <tr><td>No se encontraron módulos asignados a tu usuario. Por favor, contacta al administrador.</td><td>Pudiste entrar, pero todavía no te asignaron ningún perfil de trabajo. El administrador tiene que habilitarte.</td></tr>
+</table>
+
+<h2 id="salir">Salir del sistema</h2>
+<p>Arriba a la derecha está tu nombre, con un círculo de color con tus iniciales. Hacé clic ahí y, en el menú que se abre, elegí <span class="boton-ejemplo boton-outline">Salir</span>. El sistema cierra tu sesión y te devuelve a la pantalla de ingreso.</p>
+<div class="alert alert-warning">Si compartís la computadora con otras personas, salí siempre del sistema al terminar. Cerrar solo la pestaña del navegador no siempre cierra la sesión.</div>
+
+<!-- ================================================================== -->
+<h2 id="empresa">Elegir empresa y módulo</h2>
+<p>El sistema puede manejar varias empresas. Cada empresa tiene sus propios clientes, productos, comprobantes y saldos: lo que cargás en una no se ve en la otra.</p>
+<p>En la barra superior, a la izquierda, hay dos listas desplegables:</p>
+<table class="tabla-referencia">
+    <tr><th>Desplegable</th><th>Para qué sirve</th></tr>
+    <tr><td>Empresa (el primero)</td><td>Muestra la empresa en la que estás trabajando ahora. Si tenés acceso a más de una, elegí otra de la lista y el sistema te lleva a esa empresa.</td></tr>
+    <tr><td>Módulo (el segundo)</td><td>Muestra el módulo activo (por ejemplo, Gestión). Si tu empresa tiene otros módulos habilitados para vos, podés cambiar desde acá.</td></tr>
+</table>
+<p>El nombre de la empresa activa también aparece arriba del menú lateral, junto al logo.</p>
+<div class="alert alert-info">Antes de cargar cualquier cosa, <strong>mirá qué empresa está elegida</strong>. Es el error más común: cargar una factura o un pedido en la empresa equivocada.</div>
+<p>Solo aparecen en la lista las empresas y módulos que tu perfil tiene habilitados. Si necesitás trabajar en una empresa que no ves, pedile acceso al administrador.</p>
+
+<!-- ================================================================== -->
+<h2 id="pantalla">Cómo está armada la pantalla</h2>
+<table class="tabla-referencia">
+    <tr><th>Zona</th><th>Qué hay</th></tr>
+    <tr><td>Barra superior, izquierda</td><td>El botón <strong>☰</strong> para mostrar u ocultar el menú lateral, el selector de empresa, el selector de módulo y, a continuación, unos <strong>íconos de acceso directo</strong> de colores a las pantallas más usadas (por ejemplo, Nuevos Pedidos de Clientes, Clientes, Productos). Al pasar el mouse sobre cada ícono aparece el nombre de la pantalla.</td></tr>
+    <tr><td>Barra superior, derecha</td><td>La <strong>campanita</strong> de alertas de reposición de stock (si tu perfil puede verlas), con un número que indica cuántos productos están por debajo del stock mínimo; el botón de <strong>pantalla completa</strong>; y tu nombre, con la opción <strong>Salir</strong>.</td></tr>
+    <tr><td>Menú lateral (izquierda)</td><td>Todas las pantallas a las que tenés acceso, agrupadas por área. Ver la sección siguiente.</td></tr>
+    <tr><td>Centro</td><td>La pantalla en la que estás trabajando: casi siempre un título, un botón para agregar, y un listado.</td></tr>
+</table>
+<p>Los íconos de acceso directo y la campanita, al igual que el menú, solo muestran lo que tu perfil tiene permitido.</p>
+
+<!-- ================================================================== -->
+<h2 id="menu">El menú lateral: las áreas del sistema</h2>
+<p>El menú lateral agrupa las pantallas por área. Hacé clic en el nombre de un área para desplegar sus pantallas, y en una pantalla para abrirla. La pantalla en la que estás queda resaltada.</p>
+<table class="tabla-referencia">
+    <tr><th>Área del menú</th><th>Qué vas a encontrar</th></tr>
+    <tr><td><strong>Stock</strong></td><td>Cuánta mercadería hay en cada lugar, ajustes de inventario (faltantes, sobrantes, inventario inicial), stock mínimo y máximo, y las alertas de reposición.</td></tr>
+    <tr><td><strong>Ventas</strong></td><td>Pedidos de clientes, remitos de entrega, facturación (facturas, notas de crédito y de débito), clientes, cuenta corriente de clientes y listas de precios.</td></tr>
+    <tr><td><strong>Tesorería</strong></td><td>Cobranzas a clientes, órdenes de pago a proveedores, cartera de cheques, movimientos internos entre cajas y bancos, el tablero financiero y la consulta de todos los comprobantes.</td></tr>
+    <tr><td><strong>Compras</strong></td><td>Órdenes de compra, facturas de proveedores, proveedores y sus listas de precios.</td></tr>
+    <tr><td><strong>Seteo Empresas</strong></td><td>La configuración básica de la empresa: parámetros, sucursales, bocas de expendio, puntos de venta, productos, entidades comerciales, listas de precios, condiciones de pago, la conexión con ARCA y los accesos por sucursal.</td></tr>
+    <tr><td><strong>Contabilidad</strong></td><td>Plan de cuentas, asientos contables, mayores y balance.</td></tr>
+    <tr><td><strong>Gestion - Tablas</strong> (y Tablas1, Tablas2)</td><td>Tablas de referencia que se cargan una vez y se usan en todo el sistema: alícuotas de IVA, tipos y categorías de producto, marcas, modelos, tipos de comprobante, impuestos y jurisdicciones, y los costos de productos.</td></tr>
+</table>
+<div class="nota-lateral">El menú se arma según tu perfil: si un área o una pantalla no aparece, es porque no la tenés habilitada. No es un error del sistema. Si la necesitás para tu trabajo, pedí acceso al administrador.</div>
+<p>En el <a href="index.html">índice de manuales</a> está la lista completa de pantallas de cada área, con un manual para cada una.</p>
+
+<!-- ================================================================== -->
+<h2 id="listados">Cómo se usan los listados</h2>
+<p>Casi todas las pantallas empiezan con un <strong>listado</strong>: una tabla con los registros cargados (clientes, pedidos, facturas, marcas, etc.). Todos los listados funcionan de la misma manera.</p>
+
+<h3 id="buscar-ordenar">Buscar, ordenar y paginar</h3>
+<table class="tabla-referencia">
+    <tr><th>Qué querés hacer</th><th>Cómo</th></tr>
+    <tr><td>Buscar</td><td>Escribí en el cuadro <strong>Buscar</strong> (arriba a la derecha de la tabla). La tabla se filtra al instante y busca el texto en todas las columnas. Algunas pantallas suman filtros propios (por cliente, por estado, por sucursal, por fecha), arriba de la tabla.</td></tr>
+    <tr><td>Ordenar</td><td>Hacé clic en el título de una columna. Un segundo clic invierte el orden (de mayor a menor o de Z a A).</td></tr>
+    <tr><td>Ver más filas</td><td>Abajo a la izquierda, en <strong>Mostrar … registros</strong>, elegí 10, 25, 50, 100 o "Todos".</td></tr>
+    <tr><td>Cambiar de página</td><td>Abajo a la derecha están los botones <strong>Anterior</strong>, <strong>Siguiente</strong> y los números de página. En el centro se ve "Página X de Y".</td></tr>
+    <tr><td>Actualizar la tabla</td><td>El botón <span class="boton-ejemplo boton-outline">↻</span> (Recargar tabla) vuelve a traer los datos sin recargar toda la página. Es útil si otra persona está cargando datos al mismo tiempo que vos.</td></tr>
+</table>
+<p>Muchos listados <strong>recuerdan</strong> la página, el orden y la búsqueda que tenías la última vez que entraste. Si un listado aparece "vacío" o con pocos registros, fijate si no quedó escrito algo en el cuadro Buscar.</p>
+<p>Si no hay nada que mostrar, la tabla dice "Ningún dato disponible en esta tabla" o, si es por la búsqueda, "No se encontraron resultados".</p>
+
+<h3 id="exportar">Exportar a Excel, PDF o imprimir</h3>
+<p>Arriba de la tabla, a la derecha, está el botón <span class="boton-ejemplo boton-outline">Exportar</span>. Al hacer clic se despliegan las opciones:</p>
+<ul>
+    <li><strong>Excel</strong>: descarga la tabla como planilla.</li>
+    <li><strong>PDF</strong>: descarga la tabla como documento PDF.</li>
+    <li><strong>CSV</strong>: descarga un archivo de texto separado por comas, que se abre con cualquier planilla.</li>
+    <li><strong>Imprimir</strong>: abre una vista lista para imprimir.</li>
+</ul>
+<p>Se exporta lo que estás viendo, con la búsqueda y los filtros aplicados. Si querés exportar todo, borrá antes la búsqueda.</p>
+
+<h3 id="agregar-editar">Agregar y editar registros</h3>
+<p>Arriba a la izquierda de la tabla está el botón para cargar un registro nuevo (por ejemplo <span class="boton-ejemplo boton-primario">+ Agregar</span>). Al hacer clic se abre una ventana con el formulario.</p>
+<ul>
+    <li>Los campos marcados con <strong>*</strong> son obligatorios. Si falta alguno, al guardar el campo se marca en rojo y el sistema no deja seguir.</li>
+    <li>El botón <span class="boton-ejemplo boton-primario">Guardar</span> graba los datos. Mientras guarda muestra "Guardando..." y después aparece un aviso verde arriba a la derecha (por ejemplo, "¡Guardado!").</li>
+    <li>En algunas ventanas hay un botón para verlas en <strong>pantalla completa</strong>, útil en los formularios largos.</li>
+</ul>
+<p>En cada fila del listado, en la columna <strong>Acciones</strong>, están los botones de ese registro. Muchos son solo un ícono: <strong>pasá el mouse por encima</strong> y aparece el nombre de la acción (Editar, Inhabilitar, Confirmar, etc.). Si una fila no tiene ningún botón disponible, muestra "Sin acciones".</p>
+
+<!-- ================================================================== -->
+<h2 id="botones">Por qué los botones cambian de un registro a otro</h2>
+<p>Los botones de cada fila <strong>no son siempre los mismos</strong>. Dependen de dos cosas:</p>
+<div class="card card-outline-primary">
+    <p><strong>1. El estado del registro.</strong> Cada registro está en un estado (ver la sección siguiente), y en cada estado solo tienen sentido algunas acciones. Por ejemplo: un pedido en <em>Borrador</em> se puede editar, confirmar o eliminar; un pedido ya <em>Confirmado</em> no se puede eliminar, pero se puede imprimir. Una marca <em>Activa</em> tiene el botón "Inhabilitar"; una <em>Inactiva</em>, el botón "Habilitar".</p>
+    <p style="margin-bottom:0"><strong>2. Tu perfil.</strong> Cada usuario tiene un perfil (por ejemplo vendedor, administrativo, encargado de depósito) que define qué acciones puede hacer en cada pantalla. Dos personas pueden mirar el mismo pedido y ver botones distintos: una puede confirmarlo y la otra no.</p>
+</div>
+<div class="alert alert-info"><strong>Si no ves un botón que esperabas</strong>, revisá primero en qué estado está el registro (columna Estado). Si el estado es el correcto y el botón igual no aparece, es un tema de permisos: consultá con el administrador. Lo mismo pasa con el botón de agregar: si no aparece, tu perfil no tiene permitido cargar registros nuevos en esa pantalla.</div>
+<p>Las acciones importantes (confirmar, eliminar, anular, inhabilitar) <strong>piden confirmación</strong> antes de hacerse: aparece una ventana con la pregunta, por ejemplo "¿Está seguro de inhabilitar…?", y dos botones: <span class="boton-ejemplo boton-primario">Sí, …</span> y <span class="boton-ejemplo boton-peligro">Cancelar</span>. Leé bien el nombre del registro que figura en la pregunta antes de aceptar.</p>
+
+<!-- ================================================================== -->
+<h2 id="estados">Los estados, en lenguaje llano</h2>
+<p>La columna <strong>Estado</strong> muestra, con una etiqueta de color, en qué momento de su vida está cada registro. Hay dos grandes tipos de pantallas.</p>
+
+<h3 id="estados-tablas">Tablas simples: Activo / Inactivo</h3>
+<p>Son las listas de referencia (marcas, categorías, condiciones de pago, alícuotas de IVA, etc.).</p>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>Se puede usar: aparece en las listas desplegables del resto del sistema.</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>Se dio de baja. No se borra (lo que ya se cargó con él se conserva), pero deja de ofrecerse para cargas nuevas. En el listado suele verse con la fila en gris. Se puede volver a habilitar.</td></tr>
+</table>
+
+<h3 id="estados-documentos">Documentos: pedidos, remitos, facturas, cobranzas, pagos</h3>
+<p>Los documentos siguen un recorrido. El más habitual es este:</p>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Pendiente de aprobación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Confirmado</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+    <div style="width:30px"></div>
+    <div class="flujo-caja">Confirmado</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Anulado</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td>Borrador</td><td>Lo estás cargando. Todavía no tiene efecto: no mueve stock, no suma deuda, no tiene número definitivo (se ve en 0). Podés modificarlo o eliminarlo libremente.</td></tr>
+    <tr><td>Pendiente de aprobación</td><td>Ya está cargado, pero falta que alguien lo apruebe. Según la pantalla, puede tener otro nombre: por ejemplo, en facturación electrónica aparece como <strong>Pendiente de ARCA</strong> (falta que ARCA la autorice).</td></tr>
+    <tr><td>Confirmado</td><td>Quedó en firme: recibió su número y produjo sus efectos (stock, cuenta corriente, contabilidad, según el documento). En general ya no se modifica.</td></tr>
+    <tr><td>Eliminado</td><td>Se descartó cuando todavía era un borrador. No desaparece del listado: queda como registro, sin acciones.</td></tr>
+    <tr><td>Anulado</td><td>Era un documento confirmado y se dejó sin efecto. El sistema revierte lo que había hecho (por ejemplo, devuelve el stock o el dinero a la caja) con un movimiento contrario. El original queda visible.</td></tr>
+</table>
+<p>Algunos documentos tienen estados propios de su circuito:</p>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Dónde lo vas a ver</th><th>Qué significa</th></tr>
+    <tr><td>Pendiente de facturación</td><td>Remitos</td><td>La mercadería ya se entregó (salió del stock) pero todavía no se facturó.</td></tr>
+    <tr><td>Facturado parcial</td><td>Remitos</td><td>Se facturó una parte de lo entregado; falta facturar el resto.</td></tr>
+    <tr><td>Facturado</td><td>Remitos, pedidos</td><td>Todo lo entregado ya está facturado.</td></tr>
+    <tr><td>Cancelado parcial</td><td>Facturas de clientes y de proveedores</td><td>Se cobró (o se pagó) una parte. Todavía queda saldo pendiente.</td></tr>
+    <tr><td>Cancelado total</td><td>Facturas de clientes y de proveedores</td><td>Se cobró (o se pagó) todo. La factura ya no tiene saldo.</td></tr>
+</table>
+<div class="nota-lateral">Los estados <strong>Cancelado parcial</strong> y <strong>Cancelado total</strong> no se eligen con un botón: el sistema los pone solo cuando registrás una cobranza o un pago que se aplica a esa factura. Si después anulás ese cobro, la factura vuelve a quedar con saldo.</div>
+<p>Cada pantalla puede tener estados con nombres un poco distintos (por ejemplo, "Confirmado - Pend.Revisión" o "Entrega Parcial" en pedidos). El manual de cada pantalla los explica uno por uno.</p>
+
+<!-- ================================================================== -->
+<h2 id="sucursales">Acceso por sucursal y punto de venta</h2>
+<p>Además de las pantallas, tu perfil define <strong>con qué sucursales trabajás</strong>. Por ejemplo, un vendedor de un local puede tener acceso solo a ese local y a sus puntos de venta.</p>
+<ul>
+    <li>En los listados (pedidos, remitos, facturas, cobranzas, ajustes de stock, etc.) solo ves los documentos de <strong>tus</strong> sucursales.</li>
+    <li>En los desplegables de Sucursal y Punto de Venta de los formularios solo aparecen las que tenés habilitadas.</li>
+    <li>Si intentás grabar algo en una sucursal o punto de venta que no te corresponde, el sistema lo rechaza con el mensaje "No tiene permisos de acceso a la sucursal seleccionada" o "No tiene permisos de acceso al punto de venta seleccionado".</li>
+</ul>
+<div class="alert alert-info">Si un documento que sabés que existe no aparece en el listado, o falta una sucursal en el desplegable, probablemente no tenés acceso a esa sucursal. Los accesos los define el administrador en la pantalla <strong>Sucursales - Accesos por Perfil</strong> (área Seteo Empresas). También puede darte un acceso puntual, por ejemplo, para cubrir a un compañero durante unos días.</div>
+
+<!-- ================================================================== -->
+<h2 id="mensajes">Mensajes del sistema y qué hacer ante un error</h2>
+<p>El sistema te avisa el resultado de cada acción:</p>
+<ul>
+    <li><strong>Avisos verdes</strong>, arriba a la derecha, que desaparecen solos en un segundo: la acción salió bien ("¡Guardado!", "Acción ejecutada", etc.).</li>
+    <li><strong>Ventanas con una cruz roja</strong> y el botón <span class="boton-ejemplo boton-primario">Entendido</span>: algo no se pudo hacer. El texto explica el motivo (un dato que falta, una regla del negocio que no se cumple). Leelo, corregí lo que indica y volvé a intentar.</li>
+    <li><strong>Ventanas con un signo de pregunta</strong>: el sistema te pide que confirmes antes de hacer algo importante.</li>
+</ul>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué pasó</th><th>Qué hacer</th></tr>
+    <tr>
+        <td>La sesión expiró. Vuelva a ingresar al sistema.</td>
+        <td>Pasó mucho tiempo sin actividad, o se cerró tu sesión.</td>
+        <td>Al aceptar, el sistema te lleva a la pantalla de ingreso. Volvé a entrar con tu usuario. Lo que no habías guardado se pierde: cargalo de nuevo.</td>
+    </tr>
+    <tr>
+        <td>Acceso Denegado: No tienes permisos para acceder a esta página.</td>
+        <td>Intentaste abrir una pantalla que tu perfil no tiene habilitada (por ejemplo, desde un link que te pasaron).</td>
+        <td>El sistema te devuelve al inicio. Si necesitás esa pantalla, pedí acceso al administrador.</td>
+    </tr>
+    <tr>
+        <td>Acceso Denegado: No tienes permisos para esta empresa.</td>
+        <td>Intentaste entrar a una empresa en la que no tenés perfil.</td>
+        <td>Elegí tu empresa en el selector de la barra superior.</td>
+    </tr>
+    <tr>
+        <td>No tiene permisos para esta página en la empresa seleccionada / No tiene permisos para esta funcionalidad</td>
+        <td>Abriste la pantalla, pero una acción puntual usa algo que tu perfil no tiene.</td>
+        <td>Avisale al administrador qué estabas haciendo y en qué pantalla.</td>
+    </tr>
+    <tr>
+        <td>Error de conexión / No se pudo conectar con el servidor</td>
+        <td>Se cortó la comunicación con el sistema (red, internet o el servidor).</td>
+        <td>Revisá tu conexión y probá de nuevo. Antes de repetir una acción como "Confirmar", recargá la tabla con <span class="boton-ejemplo boton-outline">↻</span> para ver si ya se había hecho.</td>
+    </tr>
+</table>
+<div class="nota-lateral">Cuando consultes al administrador por un error, contale en qué pantalla estabas, qué registro (número de comprobante o nombre) y el texto exacto del mensaje. Una captura de pantalla ayuda mucho.</div>
+
+<!-- ================================================================== -->
+<h2 id="circuito">El circuito comercial completo</h2>
+<p>Las pantallas de Ventas, Compras, Tesorería, Stock y Contabilidad no trabajan aisladas: cada documento se arma a partir del anterior y va dejando sus efectos en el resto del sistema. Este es el recorrido completo.</p>
+
+<h3 id="circuito-ventas">Circuito de Ventas</h3>
+<div class="flujo">
+    <div class="flujo-caja">Pedido de cliente<small>Ventas › Pedidos</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Remito<small>Ventas › Remitos de Pedidos</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Factura<small>Ventas › Facturación</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Cobranza<small>Tesorería › Cobranzas</small></div>
+</div>
+<ol class="pasos">
+    <li><strong>Pedido.</strong> El cliente encarga mercadería. Se carga el pedido con sus productos y precios, y se confirma. El pedido es un compromiso: todavía no mueve stock ni genera deuda.</li>
+    <li><strong>Remito.</strong> Cuando se entrega la mercadería (toda o una parte), se hace el remito a partir del pedido. Al aprobarlo, <strong>la mercadería sale del stock</strong> y el remito queda <em>Pendiente de facturación</em>. Un pedido puede tener varios remitos (entregas parciales).</li>
+    <li><strong>Factura.</strong> Se factura lo entregado, a partir de uno o varios remitos (la pantalla <em>Remitos Pendientes Facturación</em> los junta). Al confirmarla, la factura <strong>suma deuda en la cuenta corriente del cliente</strong> y <strong>genera el asiento contable</strong>. Si la empresa factura electrónicamente, pasa primero por <em>Pendiente de ARCA</em> y se confirma cuando ARCA la autoriza. También se puede facturar directo, sin pedido ni remito: en ese caso es la factura la que descuenta el stock.</li>
+    <li><strong>Cobranza.</strong> Cuando el cliente paga, se registra el recibo de cobro. El dinero <strong>entra a la caja, al banco o a la cartera de cheques</strong>, se <strong>descuenta de la deuda del cliente</strong> y se genera el asiento contable. La factura pasa a <em>Cancelado parcial</em> o <em>Cancelado total</em>.</li>
+</ol>
+
+<h3 id="circuito-compras">Circuito de Compras</h3>
+<div class="flujo">
+    <div class="flujo-caja compras">Orden de compra<small>Compras › Ordenes de Compra</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja compras">Factura de proveedor<small>Compras › Facturas de Proveedores</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja compras">Orden de pago<small>Tesorería › Órdenes de Pago</small></div>
+</div>
+<ol class="pasos">
+    <li><strong>Orden de compra.</strong> Le pedís mercadería a un proveedor. Igual que el pedido de venta, es un compromiso: no mueve stock ni genera deuda.</li>
+    <li><strong>Factura de proveedor.</strong> Cuando llega la factura del proveedor, se carga con sus productos. Al confirmarla, <strong>la mercadería entra al stock</strong>, se <strong>actualiza el costo de los productos</strong>, se <strong>suma la deuda con el proveedor</strong> y se <strong>genera el asiento contable</strong>.</li>
+    <li><strong>Orden de pago.</strong> Cuando le pagás al proveedor, se emite la orden de pago. El dinero <strong>sale de la caja o del banco</strong> (o se entregan cheques), se <strong>descuenta de la deuda con el proveedor</strong> y se genera el asiento. La factura del proveedor pasa a <em>Cancelado parcial</em> o <em>Cancelado total</em>.</li>
+</ol>
+
+<h3 id="impactos">Qué mueve cada documento</h3>
+<p>Resumen de lo que pasa cuando cada documento queda en firme (confirmado o aprobado):</p>
+<table class="tabla-referencia">
+    <tr><th>Documento</th><th>Stock</th><th>Cuenta corriente</th><th>Caja / Banco</th><th>Contabilidad</th></tr>
+    <tr><td>Pedido de cliente</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+    <tr><td>Remito de venta</td><td>Sale mercadería</td><td>No</td><td>No</td><td>No</td></tr>
+    <tr><td>Factura de venta</td><td>Solo lo que no salió con un remito</td><td>El cliente nos debe más</td><td>No</td><td>Sí, asiento de venta</td></tr>
+    <tr><td>Nota de crédito de venta</td><td>Vuelve mercadería (si es por devolución de productos)</td><td>El cliente nos debe menos</td><td>No</td><td>Sí</td></tr>
+    <tr><td>Cobranza</td><td>No</td><td>El cliente nos debe menos</td><td>Entra dinero o cheques</td><td>Sí</td></tr>
+    <tr><td>Orden de compra</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+    <tr><td>Factura de proveedor</td><td>Entra mercadería</td><td>Le debemos más al proveedor</td><td>No</td><td>Sí, asiento de compra</td></tr>
+    <tr><td>Orden de pago</td><td>No</td><td>Le debemos menos al proveedor</td><td>Sale dinero o cheques</td><td>Sí</td></tr>
+    <tr><td>Ajuste de stock</td><td>Suma o resta (sobrante, faltante, inventario inicial)</td><td>No</td><td>No</td><td>No</td></tr>
+</table>
+<div class="nota-lateral">Qué tipo de comprobante mueve stock (y en qué sentido) se define en la configuración de <strong>Tipos de Comprobantes</strong>. La tabla de arriba describe la configuración habitual. Mientras un documento está en Borrador no produce ninguno de estos efectos, y si se anula, sus efectos se revierten.</div>
+<p>Para consultar todos los documentos juntos (ventas, compras, stock y tesorería) está la pantalla <strong>Comprobantes - Consulta</strong>, en el área Tesorería. Para ver cuánto debe cada cliente, <strong>Cuenta Corriente Clientes</strong>, en el área Ventas.</p>
+
+<!-- ================================================================== -->
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Un compañero ve un botón que yo no veo en el mismo registro. ¿Por qué?</td>
+        <td>Porque tienen perfiles distintos. Cada perfil tiene habilitadas distintas acciones. Si necesitás esa acción, pedila al administrador.</td>
+    </tr>
+    <tr>
+        <td>No encuentro una pantalla en el menú.</td>
+        <td>Revisá que estés en la empresa y el módulo correctos (los dos desplegables de la barra superior). Si igual no aparece, tu perfil no la tiene habilitada.</td>
+    </tr>
+    <tr>
+        <td>Cargué algo y no lo veo en el listado.</td>
+        <td>Revisá el cuadro Buscar y los filtros de arriba de la tabla (el sistema recuerda la última búsqueda), y probá con el botón ↻. Si es un documento de otra sucursal, puede que no tengas acceso a esa sucursal.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué el número de comprobante aparece en 0?</td>
+        <td>Porque el documento todavía está en Borrador. El número se asigna al confirmarlo, para que no queden números salteados por borradores descartados.</td>
+    </tr>
+    <tr>
+        <td>Eliminé o inhabilité algo por error. ¿Se perdió?</td>
+        <td>No. El sistema no borra registros: quedan en el listado con estado Eliminado o Inactivo. Un registro Inactivo se puede volver a habilitar con su botón. Para recuperar un documento eliminado, consultá con el administrador.</td>
+    </tr>
+    <tr>
+        <td>Me apareció "La sesión expiró" en medio de una carga.</td>
+        <td>Lo que no habías guardado se perdió. Volvé a ingresar y cargalo de nuevo. Para evitarlo, guardá seguido cuando hagas cargas largas.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Primeros pasos. Para el detalle de cada pantalla, volvé al <a href="index.html">índice de manuales</a>. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -238,6 +238,7 @@ $(document).ready(function () {
     function cargarBotonAgregar() {
         $.get('cont_asientos_ajax.php', {
             accion: 'obtener_boton_agregar',
+            pagina_id: pagina_id,
             pagina_idx: pagina_id
         }, function(botonAgregar) {
             if (botonAgregar && botonAgregar.nombre_funcion) {
@@ -1001,6 +1002,7 @@ function imprimirAsiento(id) {
         $.get('cont_asientos_ajax.php', {
             accion: 'obtener_asiento',
             id: id,
+            pagina_id: pagina_id,
             empresa_idx: empresa_id
         }, function(res) {
             if (res && res.cont_asiento_id) {
@@ -1066,6 +1068,7 @@ function imprimirAsiento(id) {
             $.get('cont_asientos_ajax.php', {
                 accion: 'obtener_asiento',
                 id: id,
+                pagina_id: pagina_id,
                 empresa_idx: empresa_id
             }, function(res) {
                 if (res && res.cont_asiento_id) {

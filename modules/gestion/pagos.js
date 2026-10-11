@@ -47,7 +47,7 @@ function inicializarFechasFiltro() {
  */
 async function cargarMaestrosPago() {
     try {
-        const resp = await fetch('pagos_ajax.php?accion=maestros&empresa_idx=2');
+        const resp = await fetch('pagos_ajax.php?accion=maestros&empresa_idx=' + window.EMPRESA_ID);
         const res = await resp.json();
         if (res.success && res.data) {
             maestrosPago = res.data;
@@ -71,7 +71,7 @@ function poblarSelectProveedores() {
     if (selectFiltro) {
         let opts = '<option value="">-- Todos los Proveedores --</option>';
         (maestrosPago.proveedores || []).forEach(p => {
-            opts += `<option value="${p.entidad_id}">${escapeHtml(p.entidad_nombre)} (CUIT: ${p.cuit || 'S/D'})</option>`;
+            opts += `<option value="${p.entidad_id}">${escapeHtml(p.entidad_nombre)} (CUIT: ${p.cuit || 'S/D'})${(+p.es_cliente === 1 && +p.es_proveedor !== 1) ? ' · cliente (devolución de NC)' : ''}</option>`;
         });
         selectFiltro.innerHTML = opts;
     }
@@ -79,7 +79,7 @@ function poblarSelectProveedores() {
     if (selectModal) {
         let opts = '<option value="">-- Seleccionar Proveedor --</option>';
         (maestrosPago.proveedores || []).forEach(p => {
-            opts += `<option value="${p.entidad_id}">${escapeHtml(p.entidad_nombre)} (CUIT: ${p.cuit || 'S/D'})</option>`;
+            opts += `<option value="${p.entidad_id}">${escapeHtml(p.entidad_nombre)} (CUIT: ${p.cuit || 'S/D'})${(+p.es_cliente === 1 && +p.es_proveedor !== 1) ? ' · cliente (devolución de NC)' : ''}</option>`;
         });
         selectModal.innerHTML = opts;
     }
@@ -115,7 +115,7 @@ function inicializarDataTablePagos() {
             dataSrc: '',
             data: function (d) {
                 d.accion = 'listar';
-                d.empresa_idx = 2;
+                d.empresa_idx = window.EMPRESA_ID;
                 d.desde = document.getElementById('filtroDesde')?.value || '';
                 d.hasta = document.getElementById('filtroHasta')?.value || '';
                 d.entidad_id = document.getElementById('filtroProveedor')?.value || '';
@@ -292,7 +292,7 @@ async function cargarComprobantesPendientesProveedor(entidadId, imputacionesPrev
     tbody.innerHTML = '';
 
     try {
-        const resp = await fetch(`pagos_ajax.php?accion=comprobantes_pendientes&empresa_idx=2&entidad_id=${entidadId}`);
+        const resp = await fetch(`pagos_ajax.php?accion=comprobantes_pendientes&empresa_idx=${window.EMPRESA_ID}&entidad_id=${entidadId}`);
         const res = await resp.json();
 
         spinner.classList.add('d-none');
@@ -820,7 +820,7 @@ async function guardarPago(confirmarInmediato = false) {
             didOpen: () => Swal.showLoading()
         });
 
-        const respGuardar = await fetch('pagos_ajax.php?accion=guardar&empresa_idx=2', {
+        const respGuardar = await fetch('pagos_ajax.php?accion=guardar&empresa_idx=' + window.EMPRESA_ID, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -837,7 +837,7 @@ async function guardarPago(confirmarInmediato = false) {
         if (confirmarInmediato) {
             Swal.update({ text: 'Confirmando e impactando tesorería y contabilidad...' });
 
-            const respConf = await fetch('pagos_ajax.php?accion=confirmar&empresa_idx=2', {
+            const respConf = await fetch('pagos_ajax.php?accion=confirmar&empresa_idx=' + window.EMPRESA_ID, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: idGenerado })
@@ -881,7 +881,7 @@ async function editarBorradorPago(id) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch(`pagos_ajax.php?accion=obtener&empresa_idx=2&id=${id}`);
+        const resp = await fetch(`pagos_ajax.php?accion=obtener&empresa_idx=${window.EMPRESA_ID}&id=${id}`);
         const res = await resp.json();
         Swal.close();
 
@@ -983,7 +983,7 @@ async function confirmarPagoDirecto(id) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch('pagos_ajax.php?accion=confirmar&empresa_idx=2', {
+        const resp = await fetch('pagos_ajax.php?accion=confirmar&empresa_idx=' + window.EMPRESA_ID, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
@@ -1018,7 +1018,7 @@ async function verPago(id) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch(`pagos_ajax.php?accion=obtener&empresa_idx=2&id=${id}`);
+        const resp = await fetch(`pagos_ajax.php?accion=obtener&empresa_idx=${window.EMPRESA_ID}&id=${id}`);
         const res = await resp.json();
         Swal.close();
 
@@ -1031,7 +1031,7 @@ async function verPago(id) {
         const cuerpo = document.getElementById('cuerpoPagoImpresion');
 
         const nroOP = (cabecera.comprobante_nro > 0)
-            ? `${String(cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
+            ? `${String(cabecera.pv_nro ?? cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
             : 'BORRADOR';
 
         let tablaMediosHtml = '';
@@ -1201,7 +1201,7 @@ async function ejecutarAnulacionPago(e) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch('pagos_ajax.php?accion=anular&empresa_idx=2', {
+        const resp = await fetch('pagos_ajax.php?accion=anular&empresa_idx=' + window.EMPRESA_ID, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id, motivo: motivo })
@@ -1236,7 +1236,7 @@ async function eliminarBorradorPago(id) {
     if (!confirmacion.isConfirmed) return;
 
     try {
-        const resp = await fetch(`pagos_ajax.php?accion=eliminar&empresa_idx=2&id=${id}`, { method: 'POST' });
+        const resp = await fetch(`pagos_ajax.php?accion=eliminar&empresa_idx=${window.EMPRESA_ID}&id=${id}`, { method: 'POST' });
         const res = await resp.json();
 
         if (res.success) {

@@ -133,6 +133,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <i class="fas fa-tags me-1"></i>Subgrupos de Comprobantes
                                     </button>
                                 </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="agente-tab" data-bs-toggle="tab"
+                                            data-bs-target="#agentePanel" type="button" role="tab">
+                                        <i class="fas fa-user-tie me-1"></i>Agente de Percepción
+                                    </button>
+                                </li>
                             </ul>
 
                             <div class="tab-content" id="modalTabsContent">
@@ -293,6 +299,69 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </thead>
                                             <tbody></tbody>
                                         </table>
+                                    </div>
+                                </div>
+
+                                <!-- Panel Agente de Percepción (percepciones IIBB practicadas, docs/gestion/09_percepciones_iibb.md) -->
+                                <div class="tab-pane fade" id="agentePanel" role="tabpanel">
+                                    <div id="agenteSinConfig" class="text-muted small"><i class="fas fa-info-circle me-1"></i>Guarde la configuración primero.</div>
+                                    <div id="agenteContenido" class="d-none">
+                                        <div class="alert alert-info py-2 small d-none" id="agenteNoPercepcion">
+                                            Estos datos los usa el cálculo automático de percepciones en ventas solo cuando el tipo de impuesto es <b>Percepción IIBB Efectuadas</b>.
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-md-4"><label class="form-label small mb-0">N° de agente</label>
+                                                <input type="text" class="form-control form-control-sm" id="ag_numero_agente" maxlength="30"></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Lugar de la operación</label>
+                                                <select class="form-select form-select-sm" id="ag_criterio_territorial">
+                                                    <option value="ENTREGA">Entrega (localidad de la sucursal del cliente)</option>
+                                                    <option value="ESTABLECIMIENTO">Establecimiento (sucursal de la empresa que emite)</option>
+                                                </select></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Base de cálculo</label>
+                                                <select class="form-select form-select-sm" id="ag_base_calculo">
+                                                    <option value="NETO">Neto sin IVA (gravado + exento + no gravado)</option>
+                                                    <option value="NETO_GRAVADO">Solo neto gravado</option>
+                                                    <option value="TOTAL">Total con IVA</option>
+                                                </select></div>
+                                            <div class="col-md-3"><label class="form-label small mb-0">Base mínima por comprobante</label>
+                                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="ag_minimo_imponible"></div>
+                                            <div class="col-md-3"><label class="form-label small mb-0">Percepción mínima</label>
+                                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="ag_importe_minimo_percepcion"></div>
+                                            <div class="col-md-3"><label class="form-label small mb-0">Código tributo ARCA</label>
+                                                <input type="number" min="1" class="form-control form-control-sm" id="ag_arca_tributo_id" title="Verificar en Integraciones ARCA → Tipos de tributo"></div>
+                                            <div class="col-md-3"><label class="form-label small mb-0">Jurisdicción CM</label>
+                                                <input type="text" class="form-control form-control-sm" id="ag_codigo_jurisdiccion_cm" maxlength="3" placeholder="916"></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Padrón</label>
+                                                <select class="form-select form-select-sm" id="ag_formato_padron">
+                                                    <option value="">Sin padrón</option>
+                                                    <option value="SIRCIP">SIRCIP (Comisión Arbitral)</option>
+                                                </select></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Formato DDJJ</label>
+                                                <select class="form-select form-select-sm" id="ag_formato_ddjj">
+                                                    <option value="">Sin exportación</option>
+                                                    <option value="SIRCAR_D1">SIRCAR - Diseño N° 1</option>
+                                                    <option value="SIRCIP">SIRCIP</option>
+                                                </select></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Código de régimen DDJJ</label>
+                                                <input type="text" class="form-control form-control-sm" id="ag_codigo_regimen_ddjj" maxlength="3"></div>
+                                        </div>
+                                        <h6 class="mt-3 mb-1">Alícuota por situación del cliente</h6>
+                                        <div class="small text-muted mb-1">Situación sin tildar = no se percibe ni se declara. "Padrón" usa la alícuota del padrón importado.</div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered align-middle" id="tablaAgenteSituaciones">
+                                                <thead class="table-light"><tr>
+                                                    <th class="text-center">Aplica</th><th>Situación</th><th style="width:90px">Alícuota %</th>
+                                                    <th class="text-center" title="Solo si la operación es en la jurisdicción">Territorio</th>
+                                                    <th class="text-center" title="Con alícuota 0 igual se declara">Declarar 0</th>
+                                                    <th style="width:80px" title="SIRCIP: 1 Percepción, 2 Informativo, 3 Excluido, 4 No inscripto, 5 Sobretasa">Reg. SIRCIP</th>
+                                                    <th>Leyenda en factura</th>
+                                                </tr></thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                        <div class="text-end">
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnGuardarAgente"><i class="fas fa-save me-1"></i>Guardar datos del agente</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -479,7 +548,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script>
         $(document).ready(function () {
             // Variables de contexto
-            const empresa_idx = <?php echo isset($_GET['empresa_id']) ? $_GET['empresa_id'] : 2; ?>;
+            const empresa_idx = window.EMPRESA_ID;
             const pagina_idx = <?php echo $pagina_idx; ?>;
 
             // Variables para mantener el estado de las tablas
@@ -1564,6 +1633,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
     <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="empresas_impuestos_config_agente.js?v=20261010"></script>
 </main>
 
 <?php

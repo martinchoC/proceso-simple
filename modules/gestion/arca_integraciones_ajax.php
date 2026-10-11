@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -36,7 +37,9 @@ if (empty($accion)) {
 
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 0);
-$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 99);
+// El pagina_idx no se toma del request: con él se valida el permiso, y un valor elegido por el
+// cliente permitiría validar contra cualquier otra página a la que el usuario tenga acceso.
+$pagina_idx = pagina_id_por_url($conn, 2, 'arca_integraciones.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos');
@@ -74,7 +77,7 @@ try {
         case 'obtener_combos':
             enviarRespuesta(['success' => true, 'data' => [
                 'ambientes' => obtenerAmbientesActivos($conexion),
-                'archivos' => arca_listar_archivos_certificados(),
+                'archivos' => arca_listar_archivos_certificados(emp_cuit($conexion, $empresa_idx)),
                 'puntos_venta' => obtenerPuntosVentaFiscales($conexion, $empresa_idx),
                 'comprobantes' => obtenerComprobantesFiscales($conexion)
             ]]);

@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['ventas_pedidos.php', 'ventas_pedidos_gestion.php', 'ventas_remitos.php', 'ventas_remitos_pendientes_facturacion.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -28,7 +31,7 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 88);
 
 if (!$conexion) {
@@ -77,23 +80,37 @@ try {
             $clientes = obtenerClientesRemitos($conexion, $empresa_idx);
             $resultado = [];
 
-            foreach ($clientes as $cliente) {
-                $item = [
-                    'tipo' => 'cliente',
-                    'entidad_id' => $cliente['entidad_id'],
-                    'entidad_nombre' => $cliente['entidad_nombre'],
-                    'sucursales' => []
-                ];
-
-                $sucursales = obtenerSucursalesClienteRemitos($conexion, $cliente['entidad_id'], $empresa_idx);
-                foreach ($sucursales as $sucursal) {
-                    $item['sucursales'][] = [
-                        'sucursal_id' => $sucursal['sucursal_id'],
-                        'sucursal_nombre' => $sucursal['sucursal_nombre']
+            // Agrupamos todas las sucursales de la empresa en una sola consulta para evitar N+1
+            $sql_suc = "SELECT sucursal_id, entidad_id, sucursal_nombre
+                        FROM gestion__entidades_sucursales
+                        WHERE empresa_id = ?
+                        AND tabla_estado_registro_id = 1
+                        ORDER BY sucursal_nombre";
+            $stmt_suc = mysqli_prepare($conexion, $sql_suc);
+            $suc_por_entidad = [];
+            if ($stmt_suc) {
+                mysqli_stmt_bind_param($stmt_suc, "i", $empresa_idx);
+                mysqli_stmt_execute($stmt_suc);
+                $res_suc = mysqli_stmt_get_result($stmt_suc);
+                while ($fila_suc = mysqli_fetch_assoc($res_suc)) {
+                    $suc_por_entidad[$fila_suc['entidad_id']][] = [
+                        'sucursal_id' => $fila_suc['sucursal_id'],
+                        'sucursal_nombre' => $fila_suc['sucursal_nombre']
                     ];
                 }
+                mysqli_stmt_close($stmt_suc);
+            }
 
-                $resultado[] = $item;
+            foreach ($clientes as $cliente) {
+                $eid = $cliente['entidad_id'];
+                $resultado[] = [
+                    'tipo' => 'cliente',
+                    'entidad_id' => $eid,
+                    'entidad_nombre' => $cliente['entidad_nombre'],
+                    'condicion_fiscal' => $cliente['condicion_fiscal'] ?? 'Consumidor Final',
+                    'condicion_fiscal_codigo' => $cliente['condicion_fiscal_codigo'] ?? 'CF',
+                    'sucursales' => $suc_por_entidad[$eid] ?? []
+                ];
             }
 
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);

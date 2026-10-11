@@ -6,7 +6,7 @@ $pageTitle = "Integraciones - ARCA";
 $currentPage = 'arca_integraciones';
 $modudo_idx = 2;
 $pagina_idx = 99; // ID de página en conf__paginas (ver sql/mantenimiento/20261001_arca_integraciones.sql)
-$empresa_idx = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -221,6 +221,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <h6 class="mb-2"><i class="fas fa-server me-1"></i>2. Servidores (WSFE)</h6>
                                         <button type="button" class="btn btn-sm btn-outline-primary btn-prueba" data-operacion="fe_dummy">FEDummy</button>
                                         <button type="button" class="btn btn-sm btn-outline-primary btn-prueba" data-operacion="ptos_venta">Puntos de venta habilitados</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary btn-prueba" data-operacion="tipos_tributos" title="Códigos para percepciones IIBB (Impuestos Adic. - Conf)">Tipos de tributo</button>
                                     </div>
 
                                     <div class="border rounded p-2 mb-3">

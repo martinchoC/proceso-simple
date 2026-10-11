@@ -11,6 +11,46 @@ $conexion = $conn;
 
 // Mapeo oficial de descripciones legibles según especificación D35 (§4.10)
 const CONCEPTOS_DESCRIPCIONES = [
+    'DEUDORES_VENTAS' => [
+        'titulo'      => 'Deudores por Ventas',
+        'subtitulo'   => 'Clientes sin cuenta contable propia',
+        'descripcion' => 'Debe de las facturas de venta y Haber de los recibos de clientes que no tienen cuenta propia; ajuste de redondeo de ventas.'
+    ],
+    'VENTAS' => [
+        'titulo'      => 'Ventas (por defecto)',
+        'subtitulo'   => 'Ingreso cuando el producto no define cuenta',
+        'descripcion' => 'Cuenta de ventas de un renglón cuyo producto, tipo de producto y categoría no tienen cuenta de venta.'
+    ],
+    'IVA_DEBITO' => [
+        'titulo'      => 'IVA Débito Fiscal',
+        'subtitulo'   => 'Alícuotas sin cuenta de venta',
+        'descripcion' => 'IVA de las facturas de venta cuando la alícuota no tiene cuenta contable de venta.'
+    ],
+    'PROVEEDORES' => [
+        'titulo'      => 'Proveedores',
+        'subtitulo'   => 'Proveedores sin cuenta contable propia',
+        'descripcion' => 'Cuenta del proveedor en órdenes de pago, devoluciones de proveedores y reembolsos de rendiciones.'
+    ],
+    'VALORES_CARTERA' => [
+        'titulo'      => 'Valores en Cartera',
+        'subtitulo'   => 'Cheques de terceros recibidos',
+        'descripcion' => 'Contrapartida al depositar cheques de terceros en cartera.'
+    ],
+    'IVA_A_PAGAR' => [
+        'titulo'      => 'IVA a Pagar',
+        'subtitulo'   => 'Liquidaciones impositivas',
+        'descripcion' => 'Haber de la liquidación impositiva (DDJJ) cuando no se indica otra cuenta.'
+    ],
+    'GASTOS_GENERALES' => [
+        'titulo'      => 'Otros Gastos Generales',
+        'subtitulo'   => 'Gastos sin categoría contable',
+        'descripcion' => 'Devengamiento de obligaciones impositivas e ítems de rendición sin cuenta propia.'
+    ],
+    'MERCADERIAS' => [
+        'titulo'      => 'Mercaderías',
+        'subtitulo'   => 'Cuenta legacy del alta de productos',
+        'descripcion' => 'Se completa en la columna cont_cuenta_id (NOT NULL) al dar de alta un producto.'
+    ],
     'VALORES_A_PAGAR' => [
         'titulo'      => 'Valores a Pagar',
         'subtitulo'   => 'Cheques propios emitidos / diferidos',

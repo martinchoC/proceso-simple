@@ -1,11 +1,33 @@
 $(document).ready(function () {
-    const empresa_idx = 2;
+    const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
     const pagina_idx = 51;
     
     var tabla;
     var currentPage = 0;
     var currentOrder = [[1, 'asc']];
     var currentSearch = '';
+    var filtroEstadoRapido = '';
+    
+    // Extensión de búsqueda DataTable para filtrado rápido por estado desde el dashboard
+    $.fn.dataTable.ext.search.push(function (settings, data, dataIndex, rowData) {
+        if (settings.sTableId !== 'tablaOrdenesCompra') return true;
+        if (filtroEstadoRapido === '' || filtroEstadoRapido === null || filtroEstadoRapido === undefined) {
+            return true;
+        }
+        
+        if (rowData) {
+            // Comparar por tabla_estado_registro_id
+            if (rowData.tabla_estado_registro_id !== undefined && String(rowData.tabla_estado_registro_id) === String(filtroEstadoRapido)) {
+                return true;
+            }
+            // Comparar por nombre de estado_registro
+            var estadoNombre = (rowData.estado_info && rowData.estado_info.estado_registro) ? rowData.estado_info.estado_registro : rowData.estado_registro;
+            if (estadoNombre && String(estadoNombre).trim().toLowerCase() === String(filtroEstadoRapido).trim().toLowerCase()) {
+                return true;
+            }
+        }
+        return false;
+    });
     
     // Variables para manejo de detalles
     var detalles = [];
@@ -30,7 +52,12 @@ $(document).ready(function () {
                     empresa_idx: empresa_idx,
                     pagina_idx: pagina_idx
                 },
-                dataSrc: ''
+                dataSrc: function (json) {
+                    if (Array.isArray(json)) {
+                        actualizarDashboardEstados(json);
+                    }
+                    return json;
+                }
             },
             stateSave: true,
             stateSaveParams: function (settings, data) {
@@ -414,6 +441,148 @@ $(document).ready(function () {
         $('#btnExportarPrint').on('click', function() {
             tabla.button('.buttons-print').trigger();
         });
+
+        // Evento clic en tarjetas del dashboard de estados
+        $(document).on('click', '.card-kpi-estado', function () {
+            var estadoId = $(this).data('estado-id');
+            
+            if (String(filtroEstadoRapido) === String(estadoId) && estadoId !== '') {
+                // Si ya está activo el filtro y hace clic de nuevo, vuelve a Todas
+                filtroEstadoRapido = '';
+            } else {
+                filtroEstadoRapido = (estadoId !== undefined && estadoId !== null) ? estadoId : '';
+            }
+
+            $('.card-kpi-estado').removeClass('active');
+            if (filtroEstadoRapido === '') {
+                $('.card-kpi-estado[data-estado-id=""]').addClass('active');
+                $('#btnLimpiarFiltroEstado').addClass('d-none');
+            } else {
+                $(`.card-kpi-estado[data-estado-id="${filtroEstadoRapido}"]`).addClass('active');
+                $('#btnLimpiarFiltroEstado').removeClass('d-none');
+            }
+
+            if (tabla) {
+                tabla.draw();
+            }
+        });
+
+        // Evento clic en botón "Ver Todas"
+        $(document).on('click', '#btnLimpiarFiltroEstado', function () {
+            filtroEstadoRapido = '';
+            $('.card-kpi-estado').removeClass('active');
+            $('.card-kpi-estado[data-estado-id=""]').addClass('active');
+            $('#btnLimpiarFiltroEstado').addClass('d-none');
+            if (tabla) {
+                tabla.draw();
+            }
+        });
+    }
+
+    // ========== DASHBOARD RÁPIDO DE ESTADOS ==========
+    function formatearMontoAr(val) {
+        return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(val) || 0);
+    }
+
+    function obtenerIconoEstado(nombre, codigo) {
+        var str = ((nombre || '') + ' ' + (codigo || '')).toLowerCase();
+        if (str.includes('borrador') || str.includes('nueva') || str.includes('iniciad')) return 'fas fa-pencil-alt';
+        if (str.includes('emitid') || str.includes('confirmad') || str.includes('aprobad')) return 'fas fa-check-circle';
+        if (str.includes('proceso') || str.includes('pendient') || str.includes('parcial')) return 'fas fa-hourglass-half';
+        if (str.includes('cumplid') || str.includes('completad') || str.includes('recibid') || str.includes('cerrad')) return 'fas fa-truck-loading';
+        if (str.includes('anulad') || str.includes('cancelad') || str.includes('rechazad')) return 'fas fa-ban';
+        return 'fas fa-tag';
+    }
+
+    function obtenerColorBadge(nombre, codigo, bgClase) {
+        if (bgClase && bgClase.trim() !== '') return bgClase;
+        var str = ((nombre || '') + ' ' + (codigo || '')).toLowerCase();
+        if (str.includes('borrador')) return 'bg-secondary';
+        if (str.includes('emitid') || str.includes('confirmad')) return 'bg-primary';
+        if (str.includes('aprobad')) return 'bg-info text-dark';
+        if (str.includes('proceso') || str.includes('pendient')) return 'bg-warning text-dark';
+        if (str.includes('cumplid') || str.includes('completad') || str.includes('recibid')) return 'bg-success';
+        if (str.includes('anulad') || str.includes('cancelad')) return 'bg-danger';
+        return 'bg-secondary';
+    }
+
+    function actualizarDashboardEstados(datos) {
+        if (!datos || !Array.isArray(datos)) return;
+
+        var totalRegistros = datos.length;
+        var totalMonto = 0;
+        var resumenPorEstado = {};
+
+        datos.forEach(function (row) {
+            var monto = parseFloat(row.total) || 0;
+            totalMonto += monto;
+
+            var estadoId = row.tabla_estado_registro_id || 0;
+            var estadoNombre = (row.estado_info && row.estado_info.estado_registro) ? row.estado_info.estado_registro : (row.estado_registro || 'Sin estado');
+            var codigoEstandar = (row.estado_info && row.estado_info.codigo_estandar) ? row.estado_info.codigo_estandar : (row.codigo_estandar || '');
+            var bgClase = (row.estado_info && row.estado_info.bg_clase) ? row.estado_info.bg_clase : '';
+
+            var key = estadoId + '_' + estadoNombre;
+            if (!resumenPorEstado[key]) {
+                resumenPorEstado[key] = {
+                    id: estadoId,
+                    nombre: estadoNombre,
+                    codigo: codigoEstandar,
+                    bgClase: bgClase,
+                    count: 0,
+                    monto: 0
+                };
+            }
+            resumenPorEstado[key].count++;
+            resumenPorEstado[key].monto += monto;
+        });
+
+        var isTodasActive = (filtroEstadoRapido === '' || filtroEstadoRapido === null || filtroEstadoRapido === undefined);
+        var html = '';
+
+        // Tarjeta "Todas"
+        html += `
+            <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                <div class="card h-100 card-kpi-estado ${isTodasActive ? 'active' : ''}" data-estado-id="" role="button" title="Mostrar todas las órdenes">
+                    <div class="card-body p-2 d-flex flex-column justify-content-between">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="badge bg-dark text-white px-2 py-1"><i class="fas fa-list me-1"></i>Todas</span>
+                            <span class="kpi-count text-dark">${totalRegistros}</span>
+                        </div>
+                        <div class="kpi-monto text-primary mt-2 text-end">$ ${formatearMontoAr(totalMonto)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Tarjetas por cada estado encontrado
+        Object.values(resumenPorEstado).forEach(function (est) {
+            var isActive = (String(filtroEstadoRapido) === String(est.id) || String(filtroEstadoRapido).toLowerCase() === String(est.nombre).toLowerCase());
+            var icono = obtenerIconoEstado(est.nombre, est.codigo);
+            var badgeClase = obtenerColorBadge(est.nombre, est.codigo, est.bgClase);
+
+            html += `
+                <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                    <div class="card h-100 card-kpi-estado ${isActive ? 'active' : ''}" data-estado-id="${est.id}" data-estado-nombre="${est.nombre}" role="button" title="Filtrar por ${est.nombre}">
+                        <div class="card-body p-2 d-flex flex-column justify-content-between">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="badge ${badgeClase} px-2 py-1"><i class="${icono} me-1"></i>${est.nombre}</span>
+                                <span class="kpi-count text-dark">${est.count}</span>
+                            </div>
+                            <div class="kpi-monto text-secondary mt-2 text-end">$ ${formatearMontoAr(est.monto)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        $('#contenedorDashboardEstados').html(html);
+
+        if (isTodasActive) {
+            $('#btnLimpiarFiltroEstado').addClass('d-none');
+        } else {
+            $('#btnLimpiarFiltroEstado').removeClass('d-none');
+        }
     }
 
     function cargarBotonAgregar() {
@@ -654,6 +823,7 @@ $(document).ready(function () {
                                 producto_id: detalle.producto_id,
                                 producto_nombre: detalle.producto_nombre,
                                 cantidad: detalle.cantidad,
+                                cantidad_recibida: parseFloat(detalle.cantidad_recibida) || 0,
                                 precio_unitario: detalle.precio_unitario,
                                 no_gravado: detalle.no_gravado || 0,
                                 exento: detalle.exento || 0,
@@ -842,14 +1012,20 @@ $(document).ready(function () {
                     
                     if (data && data.length > 0) {
                         data.forEach(function(item, index) {
+                            var texto = item.producto_codigo + ' - ' + item.producto_nombre;
+                            var vinculado = parseInt(item.vinculado) === 1;
                             resultadosDiv.append(
                                 `<a href="#" class="list-group-item list-group-item-action" 
                                    data-index="${index}"
                                    data-id="${item.producto_id}"
                                    data-iva-id="${item.iva_alicuota_id}"
-                                   data-iva="${item.iva_porcentaje || 21}">
-                                    <strong>${item.producto_codigo}</strong> - ${item.producto_nombre}
-                                    ${item.codigo_proveedor ? '<br><small>Código Proveedor: ' + item.codigo_proveedor + '</small>' : ''}
+                                   data-iva="${item.iva_porcentaje || 21}"
+                                   data-vinculado="${vinculado ? 1 : 0}"
+                                   data-texto="${escapeHtml(texto)}">
+                                    <strong>${escapeHtml(String(item.producto_codigo))}</strong> - ${escapeHtml(item.producto_nombre)}
+                                    ${vinculado
+                                        ? (item.codigo_proveedor ? '<br><small>Código Proveedor: ' + escapeHtml(item.codigo_proveedor) + '</small>' : '')
+                                        : '<span class="badge bg-warning text-dark ms-1">No vinculado al proveedor</span>'}
                                 </a>`
                             );
                         });
@@ -913,10 +1089,77 @@ $(document).ready(function () {
         e.preventDefault();
         
         var item = $(this);
+        $('#resultados_busqueda').hide();
+        selectedIndex = -1;
+
+        if (parseInt(item.data('vinculado')) === 1) {
+            seleccionarProductoBusqueda(item);
+            return;
+        }
+
+        // Producto que el proveedor no tiene vinculado: ofrecer cargar su código
+        Swal.fire({
+            icon: 'question',
+            title: 'Producto no vinculado al proveedor',
+            html: `<p class="mb-2"><strong>${escapeHtml(String(item.data('texto')))}</strong></p>
+                   <p class="mb-0 small">Ingrese el código que usa este proveedor para vincularlo, o continúe sin vincular.</p>`,
+            input: 'text',
+            inputPlaceholder: 'Código del proveedor',
+            inputAttributes: { maxlength: 50 },
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: 'Vincular y usar',
+            denyButtonText: 'Usar sin vincular',
+            cancelButtonText: 'Cancelar',
+            showLoaderOnConfirm: true,
+            inputValidator: function(valor) {
+                if (!valor || !valor.trim()) {
+                    return 'Ingrese el código del proveedor';
+                }
+            },
+            preConfirm: function(codigo) {
+                return $.post('ordenes_compra_ajax.php', {
+                    accion: 'vincular_producto_proveedor',
+                    producto_id: item.data('id'),
+                    entidad_id: proveedorActualId,
+                    codigo_proveedor: codigo.trim(),
+                    empresa_idx: empresa_idx
+                }, null, 'json').then(function(res) {
+                    if (!res || !res.success) {
+                        Swal.showValidationMessage((res && (res.message || res.error)) || 'No se pudo vincular el producto');
+                        return false;
+                    }
+                    return res;
+                }, function() {
+                    Swal.showValidationMessage('No se pudo conectar con el servidor');
+                    return false;
+                });
+            },
+            allowOutsideClick: function() { return !Swal.isLoading(); }
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Producto vinculado',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    toast: true,
+                    position: 'top-end'
+                });
+                seleccionarProductoBusqueda(item);
+            } else if (result.isDenied) {
+                seleccionarProductoBusqueda(item);
+            } else {
+                $('#busqueda_producto').focus();
+            }
+        });
+    });
+
+    function seleccionarProductoBusqueda(item) {
         var productoId = item.data('id');
         var iva = item.data('iva');
         var ivaId = item.data('iva-id');
-        var textoCompleto = item.text().trim();
+        var textoCompleto = String(item.data('texto') || item.text().trim());
         
         $('#busqueda_producto').val(textoCompleto);
         $('#producto_seleccionado_id').val(productoId);
@@ -934,10 +1177,17 @@ $(document).ready(function () {
             }
             calcularIvaImporte();
         }, 'json');
-        
-        $('#resultados_busqueda').hide();
-        selectedIndex = -1;
-    });
+    }
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
 
     // Ocultar resultados al hacer clic fuera
     $(document).on('click', function(e) {
@@ -1099,7 +1349,8 @@ $(document).ready(function () {
                     <div class="fw-bold">${nombreProducto.substring(0, 35)}${nombreProducto.length > 35 ? '...' : ''}</div>
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                 </td>
-                <td class="text-center">${detalle.cantidad.toFixed(2)}</td>
+                <td class="text-center">${detalle.cantidad.toFixed(2)}
+                    ${detalle.cantidad_recibida > 0 ? '<br><small class="text-primary" title="Recibido en facturas confirmadas">Recib.: ' + detalle.cantidad_recibida.toFixed(2) + '</small>' : ''}</td>
                 <td class="text-end">$${detalle.precio_unitario.toFixed(4)}</td>
                 <td class="text-center">${detalle.iva_porcentaje.toFixed(2)}%</td>
                 <td class="text-end">$${(detalle.iva_importe || 0).toFixed(2)}</td>
@@ -1446,6 +1697,7 @@ $(document).ready(function () {
                                 producto_id: detalle.producto_id,
                                 producto_nombre: detalle.producto_nombre,
                                 cantidad: detalle.cantidad,
+                                cantidad_recibida: parseFloat(detalle.cantidad_recibida) || 0,
                                 precio_unitario: detalle.precio_unitario,
                                 no_gravado: detalle.no_gravado || 0,
                                 exento: detalle.exento || 0,

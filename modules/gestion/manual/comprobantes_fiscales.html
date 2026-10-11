@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Comprobantes Fiscales</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Comprobantes Fiscales</h1>
+<p class="subtitulo">La lista oficial de comprobantes de ARCA (ex AFIP) con su código: 001 Facturas A, 006 Facturas B, 011 Facturas C, etc.</p>
+
+<h2 id="que-es">¿Para qué sirve?</h2>
+<p>Cada comprobante con validez fiscal tiene un <strong>código oficial</strong>. El sistema lo usa para pedir el CAE a ARCA, para saber qué letra corresponde y para decidir qué tipos ofrecer al facturar. Ejemplos de la lista:</p>
+<table class="tabla-referencia">
+    <tr><th>Código</th><th>Comprobante fiscal</th></tr>
+    <tr><td>001</td><td>FACTURAS A</td></tr>
+    <tr><td>003</td><td>NOTAS DE CREDITO A</td></tr>
+    <tr><td>006</td><td>FACTURAS B</td></tr>
+    <tr><td>008</td><td>NOTAS DE CREDITO B</td></tr>
+    <tr><td>011</td><td>FACTURAS C</td></tr>
+    <tr><td>019</td><td>FACTURAS DE EXPORTACION</td></tr>
+</table>
+<div class="alert alert-warning">Los códigos los fija ARCA: no los cambies. En general esta tabla sólo se toca para habilitar o deshabilitar comprobantes que la empresa usa o deja de usar.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>El listado muestra <strong>ID</strong>, <strong>Código</strong>, <strong>Comprobante Fiscal</strong>, <strong>Estado</strong> y <strong>Acciones</strong>, con buscador, recarga <span class="boton-ejemplo boton-outline">↻</span> y menú <span class="boton-ejemplo boton-outline">Exportar</span>.</p>
+
+<h2 id="agregar">Agregar o editar</h2>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código *</td><td>Número de 0 a 255, el código oficial de ARCA.</td></tr>
+    <tr><td>Comprobante Fiscal *</td><td>Nombre, hasta 50 caracteres.</td></tr>
+</table>
+<p>Si el código o el nombre ya existen: <em>"Ya existe un comprobante con este código o nombre"</em>.</p>
+
+<h2 id="estados">Activo e Inactivo</h2>
+<div class="flujo"><div class="flujo-caja">Activo</div><div class="flujo-flecha">⇄</div><div class="flujo-caja inactivo">Inactivo</div></div>
+<p>Un comprobante fiscal inactivo deja de ofrecerse al configurar tipos de comprobante y relaciones fiscales.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea un comprobante fiscal.</td><td>Siempre.</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Modifica código o nombre.</td><td>Activo.</td></tr>
+    <tr><td>Inhabilitar (rojo)</td><td>Lo pasa a Inactivo, previa confirmación.</td><td>Activo.</td></tr>
+    <tr><td>Habilitar (verde)</td><td>Lo vuelve a Activo, previa confirmación.</td><td>Inactivo.</td></tr>
+</table>
+<p>Ver también: <a href="comprobantes_tipos.html">Tipos de Comprobante</a>, <a href="comprobantes_relacion_fiscal.html">Relación Fiscal</a>.</p>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Comprobantes Fiscales. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Cola de Facturación (Remitos Pendientes de Facturación)</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .alert-success { background: #d1e7dd; color: #0f5132; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-info { background: #0dcaf0; color: #055160; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-caja.alerta { border-color: var(--amarillo); background: #fff8e1; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } h2 { page-break-after: avoid; } }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-tasks"></i> Manual de usuario: Cola de Facturación</h1>
+<p class="subtitulo">La lista de trabajo de quien factura: muestra solo los remitos ya entregados que todavía falta facturar (total o parcialmente) y te deja armar la factura desde ahí mismo.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve esta pantalla?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Qué remitos aparecen y en qué estado</a></li>
+        <li><a href="#botones">Botones de cada fila</a></li>
+        <li><a href="#facturar">Solapa Facturar: armar la factura</a></li>
+        <li><a href="#facturas-del-remito">Facturas de este remito: confirmarlas sin salir</a></li>
+        <li><a href="#otras-solapas">Solapas Datos del Remito y Productos</a></li>
+        <li><a href="#flujo">El recorrido completo, de punta a punta</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve esta pantalla?</h2>
+<p>Cuando el depósito entrega mercadería, se genera un <strong>remito</strong>. Ese remito todavía no está facturado. La <strong>Cola de Facturación</strong> junta en un solo lugar todos los remitos que están esperando su factura, para que nadie se olvide de facturar una entrega.</p>
+<p>En el menú aparece como <strong>Remitos Pendientes Facturación</strong>. Adentro, el título de la pantalla dice <strong>Cola de Facturación</strong>. Es la misma pantalla.</p>
+<div class="alert alert-info">Acá no se cargan remitos nuevos ni se modifican remitos existentes. Para eso está la pantalla <a href="ventas_remitos.html">Remitos de Pedidos</a>. Esta pantalla es solo para <strong>facturar</strong> lo que ya se entregó.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Arriba de la tabla tenés estas herramientas:</p>
+<table class="tabla-referencia">
+    <tr><th>Elemento</th><th>Para qué sirve</th></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Todos los Remitos</span></td><td>Te lleva a la pantalla de Remitos, donde ves los remitos en todos sus estados (también los Borradores y los ya facturados).</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Facturas</span></td><td>Te lleva al listado de facturas (pantalla Facturación).</td></tr>
+    <tr><td>Filtrar por cliente / CUIT</td><td>Escribí parte del nombre, del nombre de fantasía o del CUIT del cliente. La tabla se filtra mientras escribís. La <strong>✕</strong> de al lado borra el filtro.</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Todos los Pendientes</span> <span class="boton-ejemplo boton-outline">Pend. Facturación</span> <span class="boton-ejemplo boton-outline">Fact. Parcial</span></td><td>Filtros rápidos. "Pend. Facturación" muestra solo los remitos que no tienen ninguna factura todavía. "Fact. Parcial" muestra los que ya tienen una parte facturada. "Todos los Pendientes" saca el filtro.</td></tr>
+    <tr><td>Botones de la derecha</td><td>Recargar la tabla, y exportar a Excel, PDF, CSV o imprimir (ver <a href="#exportar">Exportar</a>).</td></tr>
+</table>
+<p>Cada fila de la tabla es un remito y muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Tipo</td><td>Tipo de comprobante del remito.</td></tr>
+    <tr><td>Sucursal</td><td>Tu sucursal desde la que salió la mercadería.</td></tr>
+    <tr><td>Punto Venta</td><td>Punto de venta con el que se numeró el remito.</td></tr>
+    <tr><td>Número</td><td>Número del remito.</td></tr>
+    <tr><td>Cliente</td><td>Nombre del cliente, su nombre de fantasía y su CUIT. Si la venta fue a un consumidor final, se ve el nombre que se cargó y la leyenda "Consumidor Final".</td></tr>
+    <tr><td>Emisión</td><td>Fecha del remito. La tabla viene ordenada de la más nueva a la más vieja.</td></tr>
+    <tr><td>Total</td><td>Total de la mercadería remitida (con IVA).</td></tr>
+    <tr><td>Estado</td><td>Pendiente de Facturación o Facturación Parcial (ver la sección siguiente).</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles para ese remito.</td></tr>
+</table>
+<div class="nota-lateral">Solo ves los remitos de las sucursales a las que tu usuario tiene acceso. Si buscás un remito de otra sucursal y no aparece, puede ser por eso.</div>
+
+<h2 id="estados">Qué remitos aparecen y en qué estado</h2>
+<p>En esta cola solo aparecen remitos en estos dos estados:</p>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-warning">Pendiente de Facturacion</span></td><td>El remito ya está confirmado (tiene número y la mercadería ya salió), pero todavía no tiene ninguna factura confirmada. Hay que facturarlo.</td></tr>
+    <tr><td><span class="badge badge-info">Facturacion Parcial</span></td><td>Ya se facturó una parte de lo entregado, pero queda mercadería sin facturar. Hay que terminar de facturarlo.</td></tr>
+</table>
+<p>Cuando todo lo remitido queda cubierto por facturas confirmadas, el remito pasa solo a <strong>Facturado</strong> y <strong>sale de esta cola</strong>. Lo podés seguir viendo desde la pantalla de Remitos.</p>
+<div class="flujo">
+    <div class="flujo-caja inactivo">Borrador<small>(en Remitos)</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja alerta">Pendiente de Facturación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja alerta">Facturación Parcial<small>(si se facturó una parte)</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Facturado<small>(sale de la cola)</small></div>
+</div>
+<div class="alert alert-warning">El estado del remito <strong>no</strong> cambia por tocar un botón. Cambia solo, según cuánto de lo remitido quedó dentro de facturas <strong>confirmadas</strong>. Guardar una factura en Borrador no alcanza: hay que confirmarla.</div>
+
+<h2 id="botones">Botones de cada fila</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">Facturar</span> (verde)</td><td>Abre el remito directo en la solapa <strong>Facturar</strong>, para armar la factura. Los datos y los productos del remito se ven en modo solo lectura.</td><td>Siempre, en los dos estados de la cola.</td></tr>
+    <tr><td>Visualizar (ícono de ojo)</td><td>Abre el remito para consultarlo sin modificar nada. La solapa Facturar igual queda disponible.</td><td>Facturación Parcial.</td></tr>
+    <tr><td>Imprimir (ícono de impresora)</td><td>Reservado para más adelante. Hoy no genera ningún comprobante impreso: solo muestra el aviso "Acción ejecutada correctamente".</td><td>Pendiente de Facturación.</td></tr>
+</table>
+<div class="nota-lateral">Los botones que ves dependen también de los permisos de tu perfil. Si no te aparece alguno, consultá con el administrador del sistema.</div>
+
+<h2 id="facturar">Solapa Facturar: armar la factura</h2>
+<p>Al tocar <span class="boton-ejemplo boton-exito">Facturar</span> se abre la ventana del remito, ya parado en la solapa <strong>Facturar</strong>. Arriba hay un aviso con el número de remito que estás facturando.</p>
+<p>En el bloque <strong>Nueva Factura Desde Este Remito</strong> completás:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Punto De Venta *</td><td>Desde dónde se emite la factura. Al elegirlo se cargan los tipos de comprobante habilitados.</td></tr>
+    <tr><td>Tipo Comprobante *</td><td>Factura A, B, X, etc. Solo aparecen los tipos habilitados para ese punto de venta y que corresponden a la condición fiscal del cliente.</td></tr>
+    <tr><td>Vencimiento *</td><td>Fecha de vencimiento de la factura. Viene con la fecha de hoy. No puede ser anterior a hoy (la factura se emite con fecha de hoy).</td></tr>
+</table>
+<p>Debajo aparecen las líneas del remito que todavía no se facturaron:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué podés hacer</th></tr>
+    <tr><td>Código / Detalle</td><td>El producto.</td></tr>
+    <tr><td>Pendiente</td><td>Cuánto queda sin facturar de esa línea.</td></tr>
+    <tr><td>Cantidad</td><td>Viene cargada con todo lo pendiente. La podés bajar si querés facturar solo una parte. No te deja pasar de lo pendiente. Si la ponés en 0, esa línea no entra en la factura.</td></tr>
+    <tr><td>Precio</td><td>Viene con el precio del remito. Lo podés corregir antes de guardar.</td></tr>
+    <tr><td>Desc.</td><td>Descuento general del cliente que se aplica a la línea.</td></tr>
+    <tr><td>Total Neto</td><td>Se recalcula solo.</td></tr>
+</table>
+<p>Abajo ves el resumen: <strong>Bruto</strong>, <strong>Descuento</strong>, <strong>Neto</strong>, <strong>IVA</strong> y <strong>Total</strong>. El IVA solo se suma si el tipo de comprobante elegido es fiscal (por ejemplo A o B); en los tipos internos (X) queda en cero.</p>
+<p>Cuando está todo bien, tocá <span class="boton-ejemplo boton-exito">Guardar Factura</span>.</p>
+<div class="card card-outline-primary">
+    <strong>¿Qué pasa al guardar?</strong>
+    <p style="margin-bottom:0">Se crea la factura en estado <strong>Borrador</strong>, con fecha de emisión de hoy y la observación "Generada desde remito N°…". Aparece enseguida abajo, en <strong>Facturas de este remito</strong>. El formulario queda limpio por si querés facturar otra parte del mismo remito en una factura aparte. El remito <strong>todavía no cambia de estado</strong>: para eso hay que confirmar la factura (ver la sección siguiente).</p>
+</div>
+<p>Si todas las líneas del remito ya están dentro de alguna factura, en lugar del formulario vas a ver el aviso: <em>"Todos los ítems de este remito ya forman parte de una factura."</em></p>
+
+<h2 id="facturas-del-remito">Facturas de este remito: confirmarlas sin salir</h2>
+<p>Si el remito ya tiene facturas (en cualquier estado), aparecen en el bloque <strong>Facturas de este remito</strong>, con su número, tipo, fecha, total y estado. Cada una trae los mismos botones que tendría en la pantalla <a href="ventas_facturas.html">Facturación</a>, según su estado. Los más usados acá:</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace desde esta solapa</th></tr>
+    <tr><td>Editar</td><td>Carga esa factura en el mismo formulario de arriba (el título cambia a "Editando factura…"). Podés cambiar cantidades, precios, punto de venta, tipo o vencimiento y tocar <strong>Guardar Cambios</strong>. Con <strong>Cancelar edición</strong> volvés a modo "factura nueva" sin guardar.</td></tr>
+    <tr><td>Visualizar</td><td>Igual que Editar, pero todo bloqueado: solo para mirar.</td></tr>
+    <tr><td>Confirmar</td><td>Confirma la factura (pide confirmación antes). A partir de acá el remito se actualiza: pasa a Facturación Parcial o a Facturado.</td></tr>
+    <tr><td>Aprobada</td><td>Segundo paso de la factura (si tu empresa factura con ARCA, acá se pide el CAE). Ver el manual de <a href="ventas_facturas.html#confirmar-aprobar">Facturación</a>.</td></tr>
+    <tr><td>Eliminar</td><td>Da de baja una factura en Borrador. Sus líneas vuelven a quedar pendientes de facturar en este remito.</td></tr>
+</table>
+<div class="nota-lateral">Si una factura incluye también líneas de otros remitos o productos cargados a mano, al editarla desde acá esas líneas se muestran aparte ("Otras líneas de esta factura") y se conservan sin cambios.</div>
+
+<h2 id="otras-solapas">Solapas Datos del Remito y Productos</h2>
+<p>Están para consultar el remito: cliente, condición fiscal, punto de venta, número, fecha, observaciones, y la lista de productos con sus importes. Desde esta pantalla quedan en modo solo lectura cuando entrás con Facturar o Visualizar. Si necesitás corregir el remito, hacelo desde <a href="ventas_remitos.html">Remitos de Pedidos</a> (solo se puede mientras esté en Borrador).</p>
+
+<h2 id="flujo">El recorrido completo, de punta a punta</h2>
+<ol>
+    <li>Se carga y confirma el pedido del cliente (<a href="ventas_pedidos.html">Pedidos de Clientes</a>).</li>
+    <li>El depósito prepara y entrega la mercadería y confirma el remito (<a href="ventas_pedidos_gestion.html">Nuevos Pedidos de Clientes</a> o <a href="ventas_remitos.html">Remitos de Pedidos</a>). Ahí la mercadería se descuenta del stock.</li>
+    <li>El remito aparece en esta <strong>Cola de Facturación</strong> como <em>Pendiente de Facturación</em>.</li>
+    <li>Tocás <strong>Facturar</strong>, ajustás cantidades o precios si hace falta y tocás <strong>Guardar Factura</strong>. La factura queda en Borrador.</li>
+    <li>En "Facturas de este remito" tocás <strong>Confirmar</strong> sobre esa factura. El remito pasa a <em>Facturación Parcial</em> (si quedó algo afuera) o a <em>Facturado</em> (si se facturó todo) y, en este último caso, sale de la cola.</li>
+    <li>Después se aprueba la factura (y, si corresponde, se pide el CAE a ARCA) y se cobra, desde la pantalla <a href="ventas_facturas.html">Facturación</a>.</li>
+</ol>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>"Faltan datos — Elegí punto de venta y tipo de comprobante."</td><td>Completá esos dos campos antes de guardar.</td></tr>
+    <tr><td>"Sin líneas — No hay líneas con cantidad para facturar."</td><td>Todas las cantidades quedaron en 0. Cargá al menos una.</td></tr>
+    <tr><td>"Falta la fecha de vencimiento"</td><td>Completá el campo Vencimiento.</td></tr>
+    <tr><td>"Fecha de vencimiento inválida — El vencimiento no puede ser anterior a la fecha de emisión."</td><td>Poné una fecha igual o posterior a hoy.</td></tr>
+    <tr><td>"Factura Generada … Quedó en Borrador"</td><td>Todo bien. Falta confirmarla desde "Facturas de este remito".</td></tr>
+    <tr><td>"Factura Actualizada"</td><td>Se guardaron los cambios de una factura que estabas editando.</td></tr>
+    <tr><td>"Impresión pendiente"</td><td>Tocaste Imprimir sobre una factura: la impresión todavía no está disponible.</td></tr>
+    <tr><td>"Acción no permitida para el estado actual."</td><td>Alguien cambió el estado de esa factura o remito mientras lo tenías abierto. Recargá la tabla con <span class="boton-ejemplo boton-outline">↻</span>.</td></tr>
+</table>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Los botones de arriba a la derecha exportan la tabla tal como la estás viendo (con los filtros aplicados) a <span class="boton-ejemplo boton-outline">Excel</span>, <span class="boton-ejemplo boton-outline">PDF</span>, <span class="boton-ejemplo boton-outline">CSV</span>, o la mandan a <span class="boton-ejemplo boton-outline">Imprimir</span>. El de las flechitas (<span class="boton-ejemplo boton-outline">↻</span>) recarga la tabla sin recargar toda la página. Esto es distinto del botón Imprimir de cada fila, que todavía no está disponible.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Hice un remito y no aparece en la cola.</td>
+        <td>Lo más probable es que siga en <strong>Borrador</strong>: hay que confirmarlo en la pantalla Remitos. También puede ser que ya esté totalmente facturado, o que sea de una sucursal a la que tu usuario no tiene acceso.</td>
+    </tr>
+    <tr>
+        <td>Guardé la factura pero el remito sigue en la cola como "Pendiente de Facturación".</td>
+        <td>Es normal: guardar deja la factura en Borrador. El remito recién cambia cuando <strong>confirmás</strong> la factura (botón Confirmar en "Facturas de este remito").</td>
+    </tr>
+    <tr>
+        <td>¿Puedo facturar solo una parte del remito?</td>
+        <td>Sí. Bajá la cantidad de las líneas antes de guardar. El remito queda en "Facturación Parcial" y lo que falta sigue disponible para otra factura.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo juntar dos remitos del mismo cliente en una sola factura?</td>
+        <td>Desde esta solapa no: acá se factura un remito por vez. Para juntar varios remitos, creá la factura desde la pantalla <a href="ventas_facturas.html#crear">Facturación</a>, que muestra todos los remitos pendientes del cliente.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué el IVA me aparece en cero?</td>
+        <td>Porque el tipo de comprobante elegido no discrimina IVA (por ejemplo, una factura X). Revisá el campo Tipo Comprobante.</td>
+    </tr>
+    <tr>
+        <td>Me equivoqué en una factura que ya guardé.</td>
+        <td>Si sigue en Borrador, usá <strong>Editar</strong> en "Facturas de este remito", o <strong>Eliminar</strong> y volvé a armarla. Si ya está confirmada, consultá el manual de <a href="ventas_facturas.html#preguntas-frecuentes">Facturación</a>.</td>
+    </tr>
+    <tr>
+        <td>¿Qué pasa con un remito a consumidor final?</td>
+        <td>Se factura igual. Cuando la factura queda aprobada, el sistema registra solo el cobro en efectivo en la caja de la sucursal.</td>
+    </tr>
+</table>
+
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="ventas_remitos.html">Remitos de Pedidos</a>: cargar, confirmar y facturar remitos en todos sus estados.</li>
+    <li><a href="ventas_facturas.html">Facturación</a>: confirmar, aprobar (ARCA) y cobrar facturas.</li>
+    <li><a href="ventas_pedidos_gestion.html">Nuevos Pedidos de Clientes</a>: preparar y entregar pedidos.</li>
+    <li><a href="clientes_ctacte.html">Cuenta Corriente Clientes</a>: ver lo que debe cada cliente.</li>
+</ul>
+
+<footer>
+    Manual de usuario — Módulo Ventas / Cola de Facturación (Remitos Pendientes de Facturación). Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
+</footer>
+
+</body>
+</html>

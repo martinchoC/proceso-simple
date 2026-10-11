@@ -93,8 +93,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <label class="form-label small fw-bold mb-1">Estado</label>
                                     <select class="form-select form-select-sm" id="filtroEstadoImp">
                                         <option value="">-- Todos --</option>
-                                        <option value="2126">Confirmada</option>
-                                        <option value="2127">Anulada</option>
+                                        <option value="5">Confirmada</option>
+                                        <option value="38">Anulada</option>
                                     </select>
                                 </div>
                                 <div class="col-md-1 d-grid">

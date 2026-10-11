@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * cobranzas_model.php
  *
@@ -19,13 +20,37 @@ require_once __DIR__ . '/tesoreria_core_model.php';
 
 $conexion = $conn;
 
-const ESTADO_COBRANZA_BORRADOR   = 2121;
-const ESTADO_COBRANZA_CONFIRMADO = 2122;
-const ESTADO_COBRANZA_ANULADO    = 2123;
-const ESTADO_COBRANZA_ELIMINADO  = 2124;
+// Estados estándar tomados de conf__estados_registros (estado_registro_id), idéntico al patrón de ventas_facturas.php
+const ESTADO_COBRANZA_BORRADOR   = 3;  // Borrador
+const ESTADO_COBRANZA_CONFIRMADO = 5;  // Confirmado
+const ESTADO_COBRANZA_ANULADO    = 38; // Anulado
+const ESTADO_COBRANZA_ELIMINADO  = 6;  // Eliminado
 
 const TIPO_COMPROBANTE_RCX_ID    = 24; // Recibo de Cobro
 const TABLA_COBRANZAS_ID         = 275; // gestion__cobranzas en conf__tablas
+
+/**
+ * Obtiene el estado inicial de la cobranza consultando el estado_registro_id inicial en conf__tablas_estados_registros
+ * Mismo patrón que vfEstadoInicial() en ventas_facturas_model.php
+ */
+function obtenerEstadoInicialCobranza($conexion, $pagina_id = 105)
+{
+    $sql = "SELECT ter.estado_registro_id
+            FROM conf__tablas_estados_registros ter
+            INNER JOIN conf__paginas pg ON pg.tabla_id = ter.tabla_id
+            WHERE pg.pagina_id = ? AND ter.es_inicial = 1 LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if ($stmt) {
+        mysqli_stmt_bind_param($stmt, 'i', $pagina_id);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!empty($row['estado_registro_id'])) {
+            return intval($row['estado_registro_id']);
+        }
+    }
+    return ESTADO_COBRANZA_BORRADOR;
+}
 
 /**
  * Sincroniza la cobranza con gestion__comprobantes (D1 / §2.5 / D23)
@@ -35,15 +60,15 @@ function syncComprobanteCobranza($conexion, $cobranza_id, $data)
     $cobranza_id = intval($cobranza_id);
     if ($cobranza_id <= 0) return null;
 
-    $empresa_id          = intval($data['empresa_id'] ?? 2);
-    $sucursal_id         = intval($data['sucursal_id'] ?? 1);
+    $empresa_id          = intval($data['empresa_id'] ?? 0);
+    $sucursal_id         = intval($data['sucursal_id'] ?? 0);
     $comprobante_pv      = intval($data['comprobante_pv'] ?? 0);
     $comprobante_nro     = intval($data['comprobante_nro'] ?? 0);
     $entidad_id          = intval($data['entidad_id'] ?? 0);
     $entidad_sucursal_id = !empty($data['entidad_sucursal_id']) ? intval($data['entidad_sucursal_id']) : null;
     $f_emision           = !empty($data['f_emision']) ? $data['f_emision'] : date('Y-m-d');
     $f_contabilidad      = !empty($data['f_contabilidad']) ? $data['f_contabilidad'] : $f_emision;
-    $moneda_id           = intval($data['moneda_id'] ?? 1);
+    $moneda_id           = emp_moneda_id($conexion, $empresa_id, $data['moneda_id'] ?? 0);
     $tipo_cambio         = floatval($data['tipo_cambio'] ?? 1.0);
     $importe_total       = floatval($data['importe_total'] ?? 0);
     $tabla_estado_id     = intval($data['tabla_estado_registro_id'] ?? ESTADO_COBRANZA_BORRADOR);
@@ -77,8 +102,7 @@ function syncComprobanteCobranza($conexion, $cobranza_id, $data)
                         COALESCE(SUM(CASE WHEN ci.comp_origen_id = ? THEN ci.importe_origen ELSE 0 END), 0) AS imp_origen,
                         COUNT(*) AS total_imputaciones
                     FROM gestion__comprobantes_imputaciones ci
-                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
-                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = ci.tabla_estado_registro_id
                     WHERE (ci.comp_destino_id = ? OR ci.comp_origen_id = ?)
                       AND er.codigo_estandar = 'CONFIRMADO'";
         $stmt_imp = mysqli_prepare($conexion, $sql_imp);
@@ -166,22 +190,21 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
 {
     $empresa_id = intval($empresa_id);
 
-    $sql = "SELECT c.cobranza_id, c.f_emision, c.comprobante_pv, c.comprobante_nro,
+    $sql = "SELECT c.cobranza_id, c.f_emision, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS comprobante_pv, c.comprobante_nro,
                    c.comprobante_tipo_id, ct.comprobante_tipo, ct.codigo AS comprobante_codigo, ct.letra AS comprobante_letra,
                    c.importe_total, c.observaciones, c.tabla_estado_registro_id,
-                   e.entidad_id, e.entidad_nombre AS cliente_nombre, e.cuit AS cliente_cuit,
+                   c.entidad_id, COALESCE(e.entidad_nombre, 'Consumidor Final') AS cliente_nombre, e.cuit AS cliente_cuit,
                    s.sucursal_nombre,
                    m.simbolo AS moneda_simbolo,
                    er.codigo_estandar AS estado_codigo, er.estado_registro,
                    comp.importe_pendiente AS saldo_a_cuenta
             FROM gestion__cobranzas c
-            JOIN gestion__entidades e ON e.entidad_id = c.entidad_id
+            LEFT JOIN gestion__entidades e ON e.entidad_id = c.entidad_id
             JOIN gestion__sucursales s ON s.sucursal_id = c.sucursal_id
             JOIN gestion__monedas m ON m.moneda_id = c.moneda_id
             LEFT JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
             LEFT JOIN gestion__comprobantes comp ON comp.comprobante_id = c.comprobante_id
-            LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = c.tabla_estado_registro_id
-            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = c.tabla_estado_registro_id
             WHERE c.empresa_id = ? ";
 
     $params = [$empresa_id];
@@ -213,6 +236,14 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
         $types .= "i";
     }
 
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $uid = intval($_SESSION['usuario_id'] ?? 0);
+        if ($uid > 0) {
+            $sql .= AccesosSucursalesHelper::filtroSqlSucursal($conexion, $uid, $empresa_id, 'c.sucursal_id');
+        }
+    }
+
     $sql .= " ORDER BY c.f_emision DESC, c.cobranza_id DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -229,9 +260,8 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
         $estado_cod = $row['estado_codigo'] ?? 'BORRADOR';
 
         // Número formateado
-        $codigo_comp = !empty($row['comprobante_codigo']) ? $row['comprobante_codigo'] : 'RCX';
         $nro_formateado = ($row['comprobante_nro'] > 0)
-            ? $codigo_comp . ' ' . str_pad($row['comprobante_pv'], 4, '0', STR_PAD_LEFT) . '-' . str_pad($row['comprobante_nro'], 8, '0', STR_PAD_LEFT)
+            ? str_pad($row['comprobante_pv'], 4, '0', STR_PAD_LEFT) . '-' . str_pad($row['comprobante_nro'], 8, '0', STR_PAD_LEFT)
             : '<span class="badge bg-secondary-subtle text-secondary border">Borrador (Sin emitir)</span>';
 
         // Badge de estado
@@ -290,17 +320,17 @@ function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id)
     $empresa_id  = intval($empresa_id);
 
     // Cabecera
-    $sql_c = "SELECT c.*, ct.comprobante_tipo, ct.codigo AS comprobante_codigo, ct.letra AS comprobante_letra,
-                     e.entidad_nombre, e.cuit, e.domicilio_legal,
+    $sql_c = "SELECT c.*, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS pv_nro, ct.comprobante_tipo, ct.codigo AS comprobante_codigo, ct.letra AS comprobante_letra,
+                     COALESCE(e.entidad_nombre, 'Consumidor Final') AS entidad_nombre, e.cuit, e.domicilio_legal,
+                     e.es_cliente, e.es_proveedor, e.cont_cuenta_id_cliente, e.cont_cuenta_id_proveedor,
                      s.sucursal_nombre, m.codigo AS moneda_codigo, m.simbolo AS moneda_simbolo,
                      er.codigo_estandar AS estado_codigo, er.estado_registro
               FROM gestion__cobranzas c
-              JOIN gestion__entidades e ON e.entidad_id = c.entidad_id
+              LEFT JOIN gestion__entidades e ON e.entidad_id = c.entidad_id
               JOIN gestion__sucursales s ON s.sucursal_id = c.sucursal_id
               JOIN gestion__monedas m ON m.moneda_id = c.moneda_id
               LEFT JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
-              LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = c.tabla_estado_registro_id
-              LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+              LEFT JOIN conf__estados_registros er ON er.estado_registro_id = c.tabla_estado_registro_id
               WHERE c.cobranza_id = ? AND c.empresa_id = ?";
     $stmt_c = mysqli_prepare($conexion, $sql_c);
     mysqli_stmt_bind_param($stmt_c, "ii", $cobranza_id, $empresa_id);
@@ -315,12 +345,16 @@ function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id)
     $sql_m = "SELECT cm.*, mp.codigo AS medio_codigo, mp.medio_pago, mp.medio_pago_tipo,
                      tc.tesoreria_cuenta, tc.cuenta_tipo,
                      chq.numero AS cheque_nro, chq.librador_nombre, chq.f_pago AS cheque_f_pago,
-                     b.banco AS cheque_banco
+                     b.banco AS cheque_banco,
+                     it.impuesto_tipo,
+                     j.jurisdiccion_nombre, j.jurisdiccion_codigo
               FROM gestion__cobranzas_medios cm
               JOIN gestion__medios_pago mp ON mp.medio_pago_id = cm.medio_pago_id
               LEFT JOIN gestion__tesoreria_cuentas tc ON tc.tesoreria_cuenta_id = cm.tesoreria_cuenta_id
               LEFT JOIN gestion__cheques chq ON chq.cheque_id = cm.cheque_id
               LEFT JOIN conf__bancos b ON b.banco_id = chq.banco_id
+              LEFT JOIN gestion__impuestos_tipos it ON it.impuesto_tipo_id = cm.impuesto_tipo_id
+              LEFT JOIN gestion__jurisdicciones j ON j.jurisdiccion_id = cm.jurisdiccion_id
               WHERE cm.cobranza_id = ?
               ORDER BY cm.cobranza_medio_id ASC";
     $stmt_m = mysqli_prepare($conexion, $sql_m);
@@ -337,7 +371,7 @@ function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id)
     $comp_origen_id = intval($cabecera['comprobante_id']);
     $imputaciones = [];
     if ($comp_origen_id > 0) {
-        $sql_i = "SELECT ci.*, cd.comprobante_pv, cd.comprobante_nro, cd.f_emision AS destino_f_emision,
+        $sql_i = "SELECT ci.*, " . emp_sql_pv_mostrar('cd.comprobante_pv', 'cd.empresa_id', 'cd.tabla_origen_id') . " AS comprobante_pv, cd.comprobante_nro, cd.f_emision AS destino_f_emision,
                          cd.importe_total AS destino_total, cd.importe_pendiente AS destino_pendiente,
                          ct.codigo AS comprobante_tipo_codigo, ct.comprobante_tipo
                   FROM gestion__comprobantes_imputaciones ci
@@ -367,12 +401,12 @@ function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id)
  */
 function guardarCobranzaBorrador($conexion, $data)
 {
-    $empresa_id = intval($data['empresa_id'] ?? 2);
-    $sucursal_id = intval($data['sucursal_id'] ?? 1);
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $sucursal_id = intval($data['sucursal_id'] ?? 0);
     $entidad_id = intval($data['entidad_id'] ?? 0);
     $f_emision = !empty($data['f_emision']) ? $data['f_emision'] : date('Y-m-d');
     $f_contabilidad = !empty($data['f_contabilidad']) ? $data['f_contabilidad'] : $f_emision;
-    $moneda_id = intval($data['moneda_id'] ?? 1);
+    $moneda_id = emp_moneda_id($conexion, $empresa_id, $data['moneda_id'] ?? 0);
     $tipo_cambio = floatval($data['tipo_cambio'] ?? 1.0);
     $observaciones = trim($data['observaciones'] ?? '');
     $usuario_id = intval($data['usuario_id'] ?? 1);
@@ -381,11 +415,22 @@ function guardarCobranzaBorrador($conexion, $data)
     $medios = $data['medios'] ?? [];
     $imputaciones = $data['imputaciones'] ?? [];
 
-    if ($empresa_id <= 0 || $entidad_id <= 0) {
+    // consumidor_final: recibo automático de una venta de contado a consumidor final (entidad 0).
+    // recibo_cero: recibo en $0 que documenta la aplicación de notas de crédito (sin medios ni imputaciones).
+    $es_consumidor_final = !empty($data['consumidor_final']);
+    $es_recibo_cero = !empty($data['recibo_cero']);
+    if ($empresa_id <= 0 || ($entidad_id <= 0 && !$es_consumidor_final)) {
         throw new Exception("Debe seleccionar un cliente y empresa válidos.");
     }
-    if (empty($medios)) {
+    if (empty($medios) && !$es_recibo_cero) {
         throw new Exception("Debe agregar al menos un medio de cobro.");
+    }
+    // Consumidor final: entidad_id NULL en gestion__cobranzas (FK a entidades); en gestion__comprobantes queda 0
+    $entidad_cob = $entidad_id > 0 ? $entidad_id : null;
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        AccesosSucursalesHelper::exigirAccesoSucursal($conexion, $empresa_id, $sucursal_id, $usuario_id);
     }
 
     // Calcular total de medios
@@ -432,7 +477,7 @@ function guardarCobranzaBorrador($conexion, $data)
         $comprobante_tipo_id = TIPO_COMPROBANTE_RCX_ID;
     }
 
-    $estado_borrador = ESTADO_COBRANZA_BORRADOR;
+    $estado_borrador = obtenerEstadoInicialCobranza($conexion, 105);
 
     if ($cobranza_id > 0) {
         // UPDATE Borrador existente
@@ -445,7 +490,7 @@ function guardarCobranzaBorrador($conexion, $data)
         $stmt_u = mysqli_prepare($conexion, $sql_upd);
         mysqli_stmt_bind_param(
             $stmt_u, "iiiissiddsiiii",
-            $sucursal_id, $comprobante_tipo_id, $comprobante_pv, $entidad_id,
+            $sucursal_id, $comprobante_tipo_id, $comprobante_pv, $entidad_cob,
             $f_emision, $f_contabilidad, $moneda_id,
             $tipo_cambio, $importe_total, $observaciones,
             $usuario_id, $cobranza_id, $empresa_id, $estado_borrador
@@ -458,7 +503,7 @@ function guardarCobranzaBorrador($conexion, $data)
         $res_cid = $conexion->query("SELECT comprobante_id FROM gestion__cobranzas WHERE cobranza_id = $cobranza_id");
         $cid = intval($res_cid->fetch_assoc()['comprobante_id'] ?? 0);
         if ($cid > 0) {
-            $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE comp_origen_id = $cid AND tabla_estado_registro_id = 2153");
+            $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE comp_origen_id = $cid AND tabla_estado_registro_id = 3");
         }
     } else {
         // INSERT nuevo Borrador
@@ -472,7 +517,7 @@ function guardarCobranzaBorrador($conexion, $data)
         mysqli_stmt_bind_param(
             $stmt_i, "iiiisssiddssi",
             $empresa_id, $sucursal_id, $comprobante_tipo_id, $comprobante_pv,
-            $entidad_id, $f_emision, $f_contabilidad, $moneda_id,
+            $entidad_cob, $f_emision, $f_contabilidad, $moneda_id,
             $tipo_cambio, $importe_total, $observaciones,
             $estado_borrador, $usuario_id
         );
@@ -506,9 +551,9 @@ function guardarCobranzaBorrador($conexion, $data)
                     cobranza_id, empresa_id, medio_pago_id, tesoreria_cuenta_id,
                     moneda_id, tipo_cambio, importe, importe_comprobante,
                     cheque_id, nro_operacion, f_valor, tarjeta_marca, tarjeta_cupon,
-                    impuesto_tipo_id, retencion_certificado_nro, retencion_base_imponible,
+                    impuesto_tipo_id, jurisdiccion_id, retencion_certificado_nro, retencion_base_imponible,
                     retencion_alicuota, observaciones, usuario_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt_med = mysqli_prepare($conexion, $sql_med);
 
     foreach ($medios as $m) {
@@ -517,7 +562,7 @@ function guardarCobranzaBorrador($conexion, $data)
 
         // Si no viene cuenta de tesorería y el medio es EFECTIVO (o cuenta_tipo CAJA), asignar la caja única de la sucursal
         if (empty($tes_cuenta_id)) {
-            $res_mp = $conexion->query("SELECT medio_pago_tipo, tesoreria_cuenta_tipo FROM gestion__medios_pago WHERE medio_pago_id = $medio_pago_id LIMIT 1");
+            $res_mp = $conexion->query("SELECT medio_pago_tipo, tesoreria_cuenta_tipo FROM gestion__medios_pago WHERE medio_pago_id = $medio_pago_id AND empresa_id = $empresa_id LIMIT 1");
             if ($row_mp = $res_mp->fetch_assoc()) {
                 if ($row_mp['medio_pago_tipo'] === 'EFECTIVO' || $row_mp['tesoreria_cuenta_tipo'] === 'CAJA') {
                     $res_caja = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND sucursal_id = $sucursal_id AND cuenta_tipo = 'CAJA' AND tabla_estado_registro_id = 1 LIMIT 1");
@@ -528,7 +573,7 @@ function guardarCobranzaBorrador($conexion, $data)
             }
         }
 
-        $mon_id          = intval($m['moneda_id'] ?? $moneda_id);
+        $mon_id          = emp_moneda_id($conexion, $empresa_id, $m['moneda_id'] ?? $moneda_id);
 
         $tc              = floatval($m['tipo_cambio'] ?? 1.0);
         $imp             = floatval($m['importe'] ?? 0);
@@ -538,6 +583,7 @@ function guardarCobranzaBorrador($conexion, $data)
         $tarj_marca      = !empty($m['tarjeta_marca']) ? trim($m['tarjeta_marca']) : null;
         $tarj_cupon      = !empty($m['tarjeta_cupon']) ? trim($m['tarjeta_cupon']) : null;
         $imp_tipo_id     = !empty($m['impuesto_tipo_id']) ? intval($m['impuesto_tipo_id']) : null;
+        $jur_id          = !empty($m['jurisdiccion_id']) ? intval($m['jurisdiccion_id']) : null;
         $ret_cert        = !empty($m['retencion_certificado_nro']) ? trim($m['retencion_certificado_nro']) : null;
         $ret_base        = !empty($m['retencion_base_imponible']) ? floatval($m['retencion_base_imponible']) : null;
         $ret_ali         = !empty($m['retencion_alicuota']) ? floatval($m['retencion_alicuota']) : null;
@@ -555,7 +601,10 @@ function guardarCobranzaBorrador($conexion, $data)
 
             // Cuenta de tesorería para valores en cartera de la empresa
             $res_v = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND cuenta_tipo = 'VALORES' LIMIT 1");
-            $chq_tes_cuenta_id = intval($res_v->fetch_assoc()['tesoreria_cuenta_id'] ?? 6);
+            $chq_tes_cuenta_id = intval($res_v->fetch_assoc()['tesoreria_cuenta_id'] ?? 0);
+            if ($chq_tes_cuenta_id <= 0) {
+                throw new Exception('La empresa no tiene una cuenta de tesorería de Valores en cartera para registrar el cheque.');
+            }
 
             $sql_ins_chq = "INSERT INTO gestion__cheques (
                                 empresa_id, sucursal_id, cheque_tipo, es_echeq,
@@ -564,7 +613,7 @@ function guardarCobranzaBorrador($conexion, $data)
                                 librador_nombre, librador_cuit, entidad_id, endosable,
                                 comp_origen_id, clave_tercero_empresa_id,
                                 tabla_estado_registro_id, usuario_id
-                            ) VALUES (?, ?, 'TERCERO', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 2171, ?)";
+                            ) VALUES (?, ?, 'TERCERO', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 3, ?)";
             $stmt_chq = mysqli_prepare($conexion, $sql_ins_chq);
             if ($stmt_chq) {
                 mysqli_stmt_bind_param(
@@ -581,24 +630,24 @@ function guardarCobranzaBorrador($conexion, $data)
         }
 
         mysqli_stmt_bind_param(
-            $stmt_med, "iiiiddddissssisddsi",
+            $stmt_med, "iiiiidddissssiisddsi",
             $cobranza_id, $empresa_id, $medio_pago_id, $tes_cuenta_id,
             $mon_id, $tc, $imp, $imp_comp,
             $cheque_id, $nro_op, $f_val, $tarj_marca, $tarj_cupon,
-            $imp_tipo_id, $ret_cert, $ret_base,
+            $imp_tipo_id, $jur_id, $ret_cert, $ret_base,
             $ret_ali, $obs_m, $usuario_id
         );
         mysqli_stmt_execute($stmt_med);
     }
     mysqli_stmt_close($stmt_med);
 
-    // Insertar Imputaciones tentativas en Borrador (2153)
+    // Insertar Imputaciones tentativas en Borrador (3)
     if (!empty($imputaciones) && $comprobante_id > 0) {
         $sql_imp_ins = "INSERT INTO gestion__comprobantes_imputaciones (
                             empresa_id, comp_origen_id, comp_destino_id, f_imputacion,
                             importe_imputado, moneda_origen_id, tipo_cambio, importe_origen,
                             tabla_estado_registro_id, usuario_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 2153, ?)";
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 3, ?)";
         $stmt_ii = mysqli_prepare($conexion, $sql_imp_ins);
 
         foreach ($imputaciones as $imp) {
@@ -623,13 +672,17 @@ function guardarCobranzaBorrador($conexion, $data)
 /**
  * Confirmación Transaccional de Cobranza (§2.5 / RT01 - RT21 / D27 - D36)
  */
-function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
+// $en_transaccion = true: corre dentro de la transacción del llamador (recibo automático al confirmar una
+// factura de contado o al aplicar notas de crédito); no abre, confirma ni revierte la suya.
+function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $en_transaccion = false)
 {
     $cobranza_id = intval($cobranza_id);
     $empresa_id  = intval($empresa_id);
     $usuario_id  = intval($usuario_id);
 
-    mysqli_begin_transaction($conexion);
+    if (!$en_transaccion) {
+        mysqli_begin_transaction($conexion);
+    }
 
     try {
         // 1. Transición optimista de la operativa (RT04)
@@ -656,6 +709,11 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
         $medios = $cob_info['medios'];
         $comp_origen_id = intval($cab['comprobante_id']);
         $importe_total = floatval($cab['importe_total']);
+
+        if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+            require_once __DIR__ . '/../../core/accesos_sucursales.php';
+            AccesosSucursalesHelper::exigirAccesoSucursal($conexion, $empresa_id, intval($cab['sucursal_id']), $usuario_id);
+        }
 
         // 2. Lock del comprobante origen y de todos los destinos en orden ascendente (RT16)
         $destinos_ids = [];
@@ -702,9 +760,9 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
                 throw new Exception("Sobre-imputación rechazada en comprobante {$dest_actual['comprobante_id']}: importe requerido ($" . number_format($imp_monto, 2) . ") supera saldo pendiente ($" . number_format($pend_actual, 2) . ").");
             }
 
-            // Actualizar imputación a CONFIRMADA (2154)
+            // Actualizar imputación a CONFIRMADA (5)
             $sql_upd_imp = "UPDATE gestion__comprobantes_imputaciones 
-                            SET tabla_estado_registro_id = 2154, usuario_modificacion_id = ?, fecha_modificacion = NOW()
+                            SET tabla_estado_registro_id = 5, usuario_modificacion_id = ?, fecha_modificacion = NOW()
                             WHERE imputacion_id = ?";
             $stmt_ui = mysqli_prepare($conexion, $sql_upd_imp);
             mysqli_stmt_bind_param($stmt_ui, "ii", $usuario_id, $imp_id);
@@ -786,8 +844,8 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
         mysqli_stmt_execute($stmt_upd_compn);
         mysqli_stmt_close($stmt_upd_compn);
 
-        // 4b. Pasar cheques de terceros asociados a estado EN_CARTERA (2172)
-        $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 2172, usuario_modificacion_id = $usuario_id WHERE comp_origen_id = $comp_origen_id");
+        // 4b. Pasar cheques de terceros asociados a estado EN_CARTERA (29)
+        $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 29, usuario_modificacion_id = $usuario_id WHERE comp_origen_id = $comp_origen_id");
 
         // 5. Movimientos en Libro de Tesorería (D4 / D15 / §4.6)
         $cuentas_afectadas = [];
@@ -826,7 +884,7 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
 
 
             if ($cta_id > 0) {
-                $concepto_mov = "Cobranza RCX " . str_pad($punto_venta_id, 4, '0', STR_PAD_LEFT) . "-" . str_pad($proximo_nro, 8, '0', STR_PAD_LEFT) . " - " . ($cab['entidad_nombre'] ?? 'Cliente');
+                $concepto_mov = "Cobranza Recibo " . emp_numero_comprobante($conexion, $empresa_id, $punto_venta_id, $proximo_nro) . " - " . ($cab['entidad_nombre'] ?? 'Cliente');
 
                 tesoreriaRegistrarMovimiento($conexion, [
                     'empresa_id'          => $empresa_id,
@@ -837,7 +895,7 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
                     'importe'             => $monto_m,
                     'f_movimiento'        => $cab['f_emision'],
                     'f_valor'             => $m['f_valor'] ?? $cab['f_emision'],
-                    'moneda_id'           => intval($cab['moneda_id'] ?? 1),
+                    'moneda_id'           => emp_moneda_id($conexion, $empresa_id, $cab['moneda_id'] ?? 0),
                     'tipo_cambio'         => floatval($cab['tipo_cambio'] ?? 1.0),
                     'medio_pago_id'       => intval($m['medio_pago_id']),
                     'concepto'            => $concepto_mov,
@@ -861,18 +919,18 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
 
             // Resolver cuenta contable del medio
             if (!empty($m['tesoreria_cuenta_id'])) {
-                $res_cta = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = " . intval($m['tesoreria_cuenta_id']));
+                $res_cta = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = " . intval($m['tesoreria_cuenta_id']) . " AND empresa_id = $empresa_id");
                 $cta_contable_id = intval($res_cta->fetch_assoc()['cont_cuenta_id'] ?? 0);
             } elseif ($m['medio_pago_tipo'] === 'CHEQUE_TERCERO') {
                 $res_val = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND cuenta_tipo = 'VALORES' LIMIT 1");
                 $cta_contable_id = intval($res_val->fetch_assoc()['cont_cuenta_id'] ?? 0);
                 if ($cta_contable_id <= 0) {
-                    $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']));
+                    $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']) . " AND empresa_id = $empresa_id");
                     $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
                 }
             } elseif ($m['medio_pago_tipo'] === 'RETENCION') {
                 // En cobranzas (retenciones sufridas por el cliente), la cuenta es un activo (Retenciones IVA/Gan/IIBB)
-                $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']));
+                $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']) . " AND empresa_id = $empresa_id");
                 $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
 
                 if ($cta_contable_id <= 0 && !empty($m['impuesto_tipo_id'])) {
@@ -891,19 +949,28 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
                 'cuenta_id'   => $cuenta_valida['cont_cuenta_id'],
                 'debe'        => $monto_linea,
                 'haber'       => 0.0,
-                'descripcion' => "Cobranza RCX: " . $m['medio_pago'] . " - " . ($cab['entidad_nombre'] ?? '')
+                'descripcion' => "Cobranza Recibo: " . $m['medio_pago'] . " - " . ($cab['entidad_nombre'] ?? '')
             ];
             $total_debe += $monto_linea;
         }
 
-        // Cuenta del Cliente (HABER)
-        $cta_cliente_id = intval($cab['cont_cuenta_id_cliente'] ?? 0);
-        if ($cta_cliente_id <= 0) {
-            // Resolver Deudores por Ventas (111 en Casa Lucho)
-            $res_cc = $conexion->query("SELECT cont_cuenta_id FROM gestion__cont_cuentas WHERE empresa_id = $empresa_id AND codigo = '1.1.02.01' LIMIT 1");
-            $cta_cliente_id = intval($res_cc->fetch_assoc()['cont_cuenta_id'] ?? 111);
+        // Cuenta de la entidad (HABER). Un proveedor que devuelve dinero (cobro de su nota de crédito) cancela
+        // la cuenta de Proveedores; un cliente o consumidor final, Deudores por Ventas.
+        $es_devolucion_proveedor = intval($cab['es_proveedor'] ?? 0) === 1 && intval($cab['es_cliente'] ?? 0) !== 1;
+        if ($es_devolucion_proveedor) {
+            $cta_cliente_id = intval($cab['cont_cuenta_id_proveedor'] ?? 0);
+            if ($cta_cliente_id <= 0) {
+                $cta_cliente_id = emp_cuenta_id($conexion, $empresa_id, 'PROVEEDORES', 'cuenta_proveedores_id');
+            }
+            $cta_cli_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Locales', $cta_cliente_id);
+        } else {
+            $cta_cliente_id = intval($cab['cont_cuenta_id_cliente'] ?? 0);
+            if ($cta_cliente_id <= 0) {
+                // Deudores por Ventas de la empresa (concepto DEUDORES_VENTAS o parámetros contables)
+                $cta_cliente_id = emp_cuenta_id($conexion, $empresa_id, 'DEUDORES_VENTAS', 'cuenta_deudores_ventas_id');
+            }
+            $cta_cli_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Deudores por Ventas', $cta_cliente_id);
         }
-        $cta_cli_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Deudores por Ventas', $cta_cliente_id);
 
         $lineas_asiento[] = [
             'cuenta_id'   => $cta_cli_valida['cont_cuenta_id'],
@@ -912,29 +979,36 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id)
             'descripcion' => "Cancelación cuenta corriente cliente " . ($cab['entidad_nombre'] ?? '')
         ];
 
-        $descripcion_asiento = "Recibo Cobranza RCX " . str_pad($punto_venta_id, 4, '0', STR_PAD_LEFT) . "-" . str_pad($proximo_nro, 8, '0', STR_PAD_LEFT) . " - " . ($cab['entidad_nombre'] ?? '');
+        $descripcion_asiento = "Recibo Cobranza " . emp_numero_comprobante($conexion, $empresa_id, $punto_venta_id, $proximo_nro) . " - " . ($cab['entidad_nombre'] ?? '');
 
-        tesoreriaGenerarAsiento($conexion, [
-            'empresa_id'           => $empresa_id,
-            'sucursal_id'          => intval($cab['sucursal_id']),
-            'comprobante_id'       => $comp_origen_id,
-            'entidad_id'           => intval($cab['entidad_id']),
-            'f_asiento'            => $cab['f_emision'],
-            'descripcion'          => $descripcion_asiento,
-            'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2 // AUT
-        ], $lineas_asiento);
+        // Recibo en $0 (aplicación de notas de crédito): no mueve fondos ni genera asiento
+        if ($total_debe > 0.0001) {
+            tesoreriaGenerarAsiento($conexion, [
+                'empresa_id'           => $empresa_id,
+                'sucursal_id'          => intval($cab['sucursal_id']),
+                'comprobante_id'       => $comp_origen_id,
+                'entidad_id'           => intval($cab['entidad_id']),
+                'f_asiento'            => $cab['f_emision'],
+                'descripcion'          => $descripcion_asiento,
+                'usuario_id'           => $usuario_id,
+            ], $lineas_asiento);
+        }
 
-        mysqli_commit($conexion);
+        if (!$en_transaccion) {
+            mysqli_commit($conexion);
+        }
 
         return [
             'success'         => true,
             'comprobante_nro' => $proximo_nro,
-            'message'         => "Cobranza confirmada con éxito. Recibo N° " . str_pad($punto_venta_id, 4, '0', STR_PAD_LEFT) . "-" . str_pad($proximo_nro, 8, '0', STR_PAD_LEFT)
+            'comprobante_id'  => $comp_origen_id,
+            'message'         => "Cobranza confirmada con éxito. Recibo N° " . emp_numero_comprobante($conexion, $empresa_id, $punto_venta_id, $proximo_nro)
         ];
 
     } catch (Exception $e) {
-        mysqli_rollback($conexion);
+        if (!$en_transaccion) {
+            mysqli_rollback($conexion);
+        }
         error_log("Error confirmando cobranza $cobranza_id: " . $e->getMessage());
         throw $e;
     }
@@ -980,8 +1054,7 @@ function anularCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $moti
         // Control C7 / RT08: Si recibió cheques, verificar que sigan EN_CARTERA
         $sql_chq = "SELECT chq.cheque_id, chq.numero, er.codigo_estandar AS estado_cheque
                     FROM gestion__cheques chq
-                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = chq.tabla_estado_registro_id
-                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = chq.tabla_estado_registro_id
                     WHERE chq.comp_origen_id = ?";
         $stmt_ch = mysqli_prepare($conexion, $sql_chq);
         mysqli_stmt_bind_param($stmt_ch, "i", $comp_id);
@@ -1006,7 +1079,7 @@ function anularCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $moti
 
         // 2. Anular imputaciones vigentes (§2.6)
         $sql_imps = "SELECT imputacion_id FROM gestion__comprobantes_imputaciones 
-                     WHERE comp_origen_id = ? AND tabla_estado_registro_id = 2154";
+                     WHERE comp_origen_id = ? AND tabla_estado_registro_id = 5";
         $stmt_im = mysqli_prepare($conexion, $sql_imps);
         mysqli_stmt_bind_param($stmt_im, "i", $comp_id);
         mysqli_stmt_execute($stmt_im);
@@ -1029,7 +1102,7 @@ function anularCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $moti
         mysqli_stmt_close($stmt_mv);
 
         // 4. Anular cheques asociados
-        $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 2179, usuario_modificacion_id = $usuario_id WHERE comp_origen_id = $comp_id");
+        $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 38, usuario_modificacion_id = $usuario_id WHERE comp_origen_id = $comp_id");
 
         // 5. Anular comprobante RCX
         $conexion->query("UPDATE gestion__comprobantes SET tabla_estado_registro_id = $est_anul, importe_pendiente = 0, usuario_modificacion_id = $usuario_id WHERE comprobante_id = $comp_id");
@@ -1098,9 +1171,10 @@ function eliminarCobranzaBorrador($conexion, $cobranza_id, $empresa_id, $usuario
 function obtenerClientesCobranza($conexion, $empresa_id)
 {
     $empresa_id = intval($empresa_id);
-    $sql = "SELECT entidad_id, entidad_nombre, cuit, domicilio_legal
+    // Incluye proveedores: cobro de la devolución de dinero de una nota de crédito de proveedor
+    $sql = "SELECT entidad_id, entidad_nombre, cuit, domicilio_legal, es_cliente, es_proveedor
             FROM gestion__entidades
-            WHERE empresa_id = ? AND es_cliente = 1 AND tabla_estado_registro_id = 1
+            WHERE empresa_id = ? AND (es_cliente = 1 OR es_proveedor = 1) AND tabla_estado_registro_id = 1
             ORDER BY entidad_nombre ASC";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
@@ -1118,11 +1192,13 @@ function obtenerClientesCobranza($conexion, $empresa_id)
 /**
  * Obtiene los medios de pago disponibles para cobranzas
  */
-function obtenerMediosPagoDisponibles($conexion)
+function obtenerMediosPagoDisponibles($conexion, $empresa_id = null)
 {
+    $empresa_id = intval($empresa_id ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT medio_pago_id, codigo, medio_pago, medio_pago_tipo, cont_cuenta_id
             FROM gestion__medios_pago
-            WHERE tabla_estado_registro_id = 1
+            WHERE empresa_id = $empresa_id
+              AND tabla_estado_registro_id = 1
               AND medio_pago_tipo != 'CHEQUE_PROPIO'
             ORDER BY medio_pago_id ASC";
     $res = $conexion->query($sql);
@@ -1196,6 +1272,25 @@ function obtenerImpuestosRetencion($conexion)
 }
 
 /**
+ * Obtiene las jurisdicciones de Ingresos Brutos (IIBB) para retenciones sufridas
+ */
+function obtenerJurisdicciones($conexion)
+{
+    $sql = "SELECT jurisdiccion_id, jurisdiccion_codigo, jurisdiccion_nombre, organismo_recaudador
+            FROM gestion__jurisdicciones
+            WHERE tabla_estado_registro_id = 1 AND jurisdiccion_codigo != 'AFIP'
+            ORDER BY orden ASC, jurisdiccion_nombre ASC";
+    $res = $conexion->query($sql);
+    $rows = [];
+    if ($res) {
+        while ($r = $res->fetch_assoc()) {
+            $rows[] = $r;
+        }
+    }
+    return $rows;
+}
+
+/**
  * Obtiene sucursales de la empresa
  */
 function obtenerSucursalesEmpresa($conexion, $empresa_id)
@@ -1215,6 +1310,12 @@ function obtenerSucursalesEmpresa($conexion, $empresa_id)
         $rows[] = $r;
     }
     mysqli_stmt_close($stmt);
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $rows = AccesosSucursalesHelper::filtrarSucursales($conexion, $empresa_id, $rows);
+    }
+
     return $rows;
 }
 
@@ -1261,6 +1362,12 @@ function obtenerPuntosVentaCobranza($conexion, $empresa_id, $pagina_id = 105)
         $rows[] = $r;
     }
     mysqli_stmt_close($stmt);
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $rows = AccesosSucursalesHelper::filtrarPuntosVenta($conexion, $empresa_id, $rows);
+    }
+
     return $rows;
 }
 

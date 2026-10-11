@@ -3,7 +3,7 @@
 $pageTitle = "Gestión de Listas de Precios - Productos";
 $currentPage = 'paginas';
 $modudo_idx = 2;
-$empresa_idx = 2;
+$empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -480,7 +480,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <script>
     $(document).ready(function(){
-        const empresa_idx = 2;
+        const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
 
         function cargarListasPrecios() {
             $.get('listas_precios_productos_ajax.php', {accion: 'obtener_listas'}, function(res){
@@ -1250,7 +1250,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     // al cambiar la lista, con el botón Actualizar o al guardar/importar
     // precios (evento 'listaPrecio:guardado').
     $(document).ready(function(){
-        const empresa_idx = 2; // mismo valor que el resto de la página
+        const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
         const AJAX = 'listas_precios_productos_ajax.php';
         let dashCargado = false;
         let chartMeses = null, chartAntiguedad = null;

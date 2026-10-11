@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Conceptos Contables</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-danger-suave { background: #f8d7da; color: #842029; }
+    .badge-success-suave { background: #d1e7dd; color: #0f5132; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-caja.error { border-color: var(--rojo); background: #fdecee; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-tags"></i> Manual de usuario: Conceptos Contables</h1>
+<p class="subtitulo">Cómo indicar qué cuenta contable usa Tesorería en los registros automáticos que no tienen una cuenta propia, como los cheques propios diferidos o los anticipos al personal.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla y quién la usa?</a></li>
+        <li><a href="#como-funciona">Cómo elige el sistema la cuenta</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#conceptos">Los conceptos</a></li>
+        <li><a href="#asignar">Asignar o cambiar la cuenta de un concepto</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla y quién la usa?</h2>
+<p><strong>Conceptos Contables</strong> (menú Tesorería) es una pantalla de configuración. La usa normalmente <strong>el responsable de contabilidad</strong>, una vez al poner en marcha Tesorería y cuando cambia el plan de cuentas. Quien carga cobranzas o pagos no necesita entrar acá, pero conviene saber que existe: si una operación de Tesorería no se puede confirmar por un "Error contable", casi siempre la solución está en esta pantalla.</p>
+
+<h2 id="como-funciona">Cómo elige el sistema la cuenta</h2>
+<p>Cada vez que Tesorería genera un registro contable, busca la cuenta en este orden:</p>
+<div class="flujo">
+    <div class="flujo-caja">1. Cuenta propia de la caja, banco o medio usado</div>
+    <div class="flujo-flecha">→ si no tiene →</div>
+    <div class="flujo-caja final">2. Cuenta asignada al concepto en esta pantalla</div>
+    <div class="flujo-flecha">→ si no hay →</div>
+    <div class="flujo-caja error">3. La operación se bloquea</div>
+</div>
+<p>El bloqueo es preventivo: el sistema prefiere no confirmar la operación antes que registrarla en una cuenta equivocada.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Arriba hay un cuadro informativo que resume el funcionamiento. Debajo está el <strong>Catálogo de Conceptos de la Empresa</strong>, con el botón <span class="boton-ejemplo boton-outline">Actualizar</span>.</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Código Concepto</td><td>Código interno del concepto (por ejemplo, VALORES_A_PAGAR).</td></tr>
+    <tr><td>Concepto / Propósito</td><td>Nombre legible y una línea que explica para qué es.</td></tr>
+    <tr><td>Regla Funcional de Imputación</td><td>En qué operaciones se usa.</td></tr>
+    <tr><td>Cuenta Contable Asignada</td><td>En verde, la cuenta asignada (código y nombre). En rojo, <span class="badge badge-danger-suave">Sin cuenta asignada (Requerida)</span>: falta configurarlo.</td></tr>
+    <tr><td>Estado</td><td><span class="badge badge-success">Activo</span> o <span class="badge badge-secondary">Inactivo</span>. Solo informativo.</td></tr>
+    <tr><td>Acciones</td><td>Botón <span class="boton-ejemplo boton-primario">Asignar Cuenta</span>.</td></tr>
+</table>
+<p>Esta pantalla no tiene botón para crear conceptos nuevos ni para borrarlos: los conceptos vienen dados por el sistema. Solo se elige la cuenta de cada uno.</p>
+
+<h2 id="conceptos">Los conceptos</h2>
+<table class="tabla-referencia">
+    <tr><th>Concepto</th><th>Para qué se usa</th></tr>
+    <tr>
+        <td><strong>Valores a Pagar</strong><br><small>VALORES_A_PAGAR</small></td>
+        <td>Deuda que queda registrada mientras un cheque propio diferido entregado a un proveedor no fue cobrado. Se usa al confirmar una <a href="pagos.html">Orden de Pago</a> con cheque diferido y al registrar su débito en <a href="cheques_cartera.html#debitar">Cartera de Cheques</a>.</td>
+    </tr>
+    <tr>
+        <td><strong>Empleados - Anticipos y Rendiciones</strong><br><small>EMPLEADOS</small></td>
+        <td>Cuenta corriente del personal: anticipos entregados, rendiciones aprobadas y reembolsos. Se usa en <a href="obligaciones_rendiciones.html#rendiciones">Obligaciones y Rendiciones</a>.</td>
+    </tr>
+</table>
+<div class="nota-lateral">Según la configuración de tu empresa pueden aparecer otros conceptos. Se asignan de la misma forma.</div>
+
+<h2 id="asignar">Asignar o cambiar la cuenta de un concepto</h2>
+<ol>
+    <li>Apretá <span class="boton-ejemplo boton-primario">Asignar Cuenta</span> en la fila del concepto.</li>
+    <li>Se abre <strong>Asignar Cuenta Contable al Concepto</strong>, con el nombre, el código y la explicación del concepto.</li>
+    <li>En <strong>Cuenta Contable Imputable</strong> elegí la cuenta. Solo aparecen cuentas activas e imputables del plan de cuentas de la empresa (no aparecen las cuentas título, que agrupan a otras).</li>
+    <li>Apretá <span class="boton-ejemplo boton-primario">Guardar Asignación</span>.</li>
+</ol>
+<p>Vas a ver "¡Guardado!" con el texto "Cuenta ... asignada exitosamente." La cuenta queda en verde en la tabla. Desde ese momento, las nuevas operaciones usan esa cuenta. Las ya registradas no cambian.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Debe seleccionar una cuenta contable.</td><td>No elegiste ninguna cuenta.</td></tr>
+    <tr><td>La cuenta ... es una cuenta título y no puede imputarse.</td><td>Elegí una cuenta de detalle, no una que agrupa a otras.</td></tr>
+    <tr><td>La cuenta ... está inactiva.</td><td>Elegí otra o reactivala en el plan de cuentas.</td></tr>
+    <tr><td>La cuenta contable seleccionada no existe en el plan de la empresa.</td><td>Actualizá la pantalla y volvé a intentar.</td></tr>
+    <tr><td>(En otras pantallas) Error contable: No se encontró cuenta contable válida e imputable para el concepto '...'</td><td>Ese concepto está "Sin cuenta asignada" acá, o su cuenta quedó inactiva. Asignale una cuenta válida.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>No puedo confirmar un pago con cheque diferido: dice "Error contable".</td><td>Revisá que <strong>Valores a Pagar</strong> tenga cuenta asignada acá.</td></tr>
+    <tr><td>No puedo entregar un anticipo o aprobar una rendición: dice "Error contable".</td><td>Revisá que <strong>Empleados - Anticipos y Rendiciones</strong> tenga cuenta asignada.</td></tr>
+    <tr><td>¿Cambiar la cuenta modifica lo ya registrado?</td><td>No. Solo afecta las operaciones que se confirmen desde ese momento.</td></tr>
+    <tr><td>¿Los conceptos son los mismos para todas las empresas?</td><td>Los conceptos sí, pero cada empresa tiene su propia asignación de cuentas. La pantalla muestra la de la empresa con la que estás trabajando.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="pagos.html">Órdenes de Pago</a></li>
+        <li><a href="cheques_cartera.html">Cartera de Cheques</a></li>
+        <li><a href="obligaciones_rendiciones.html">Obligaciones y Rendiciones</a></li>
+        <li><a href="cobranzas.html#conceptos">Conceptos básicos de Tesorería</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tesorería / Conceptos Contables. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

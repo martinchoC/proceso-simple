@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Obligaciones y Rendiciones</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    .badge-primary { background: var(--azul); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-outline-verde { background: #fff; border-color: var(--verde); color: var(--verde); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-file-invoice"></i> Manual de usuario: Obligaciones y Rendiciones</h1>
+<p class="subtitulo">Cómo registrar y pagar impuestos (declaraciones juradas y VEP), y cómo manejar el dinero que se adelanta al personal para gastos y su posterior rendición.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#obligaciones">Solapa Obligaciones Impositivas y VEPs</a>
+            <ul>
+                <li><a href="#obligaciones-listado">Filtros y listado</a></li>
+                <li><a href="#obligaciones-estados">Estados de una obligación</a></li>
+                <li><a href="#nueva-obligacion">Registrar una obligación</a></li>
+                <li><a href="#pagar-obligacion">Pagar una obligación</a></li>
+            </ul>
+        </li>
+        <li><a href="#rendiciones">Solapa Rendición de Gastos y Anticipos</a>
+            <ul>
+                <li><a href="#rendiciones-flujo">El proceso completo</a></li>
+                <li><a href="#anticipo">Entregar un anticipo</a></li>
+                <li><a href="#nueva-rendicion">Registrar una rendición de gastos</a></li>
+                <li><a href="#rendiciones-estados">Estados de una rendición</a></li>
+                <li><a href="#reembolsar">Reembolsar al empleado</a></li>
+            </ul>
+        </li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Obligaciones y Rendiciones</strong> (menú Tesorería) tiene dos solapas:</p>
+<ul>
+    <li><strong>Obligaciones Impositivas y VEPs</strong>: cargás lo que la empresa debe pagar de impuestos (IVA, Ingresos Brutos, cargas sociales, etc.) y registrás el pago.</li>
+    <li><strong>Rendición de Gastos y Anticipos</strong>: registrás el dinero que le das a un empleado para gastos (anticipo), los comprobantes que después te trae (rendición) y, si gastó de más, el reembolso que le devolvés.</li>
+</ul>
+<p>Todo lo que se paga desde acá sale de una caja o de un banco de la empresa y genera su registro contable.</p>
+
+<h2 id="obligaciones">Solapa Obligaciones Impositivas y VEPs</h2>
+<p>Arriba están los botones <span class="boton-ejemplo boton-outline">Actualizar</span> y <span class="boton-ejemplo boton-primario">+ Nueva Obligación / VEP</span>.</p>
+
+<h3 id="obligaciones-listado">Filtros y listado</h3>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Para qué sirve</th></tr>
+    <tr><td>Período Fiscal (AAAA-MM)</td><td>Por ejemplo, 2026-10.</td></tr>
+    <tr><td>Vto Desde / Vto Hasta</td><td>Rango de fechas de vencimiento.</td></tr>
+    <tr><td>Estado</td><td>Confirmada o Anulada. Para ver todo, incluidas las ya pagadas, dejalo en "Todos".</td></tr>
+</table>
+<p>Columnas: N° Comprobante, Período, Impuesto / Concepto, Organismo, Vencimiento, N° VEP, Total, <strong>Pendiente</strong> (lo que falta pagar), Estado y Acciones.</p>
+
+<h3 id="obligaciones-estados">Estados de una obligación</h3>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-primary">Pendiente</span></td><td>Registrada y sin ningún pago todavía.</td></tr>
+    <tr><td><span class="badge badge-warning">Parcial</span></td><td>Se pagó una parte. El resto figura en la columna Pendiente.</td></tr>
+    <tr><td><span class="badge badge-success">Cancelada</span></td><td>Pagada por completo.</td></tr>
+    <tr><td><span class="badge badge-danger">Anulada</span></td><td>Sin efecto.</td></tr>
+</table>
+<div class="flujo">
+    <div class="flujo-caja">Nueva Obligación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Pendiente</div>
+    <div class="flujo-flecha">→ Pagar (una parte) →</div>
+    <div class="flujo-caja">Parcial</div>
+    <div class="flujo-flecha">→ Pagar (el resto) →</div>
+    <div class="flujo-caja final">Cancelada</div>
+</div>
+
+<h3 id="nueva-obligacion">Registrar una obligación</h3>
+<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Obligación / VEP</span> se abre <strong>Registrar Liquidación Impositiva / DDJJ</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Organismo Recaudador <em>(obligatorio)</em></td><td>A quién se le paga (ARCA, ARBA, municipio, etc.). Se elige de la lista de entidades de la empresa.</td></tr>
+    <tr><td>Período Fiscal <em>(obligatorio)</em></td><td>Formato AAAA-MM. Por defecto, el mes actual.</td></tr>
+    <tr><td>Fecha Vencimiento <em>(obligatorio)</em></td><td>Por defecto, dentro de 10 días.</td></tr>
+    <tr><td>Descripción del Impuesto <em>(obligatorio)</em></td><td>Por ejemplo, "IVA Posición Mensual" o "Cargas Sociales F931".</td></tr>
+    <tr><td>N° VEP</td><td>Número del volante electrónico de pago, si lo tenés.</td></tr>
+    <tr><td>N° DDJJ / Formulario</td><td>Por ejemplo, F.2002.</td></tr>
+    <tr><td>Importe Total Liquidado <em>(obligatorio)</em></td><td>Lo que hay que pagar.</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal a la que corresponde.</td></tr>
+</table>
+<p>Apretá <span class="boton-ejemplo boton-primario">Registrar Obligación Fiscal</span>. La obligación queda registrada directamente, sin borrador, como deuda <strong>Pendiente</strong>. Mensaje: "Obligación impositiva 0001-... registrada con éxito."</p>
+
+<h3 id="pagar-obligacion">Pagar una obligación</h3>
+<p>Mientras tenga saldo pendiente, la obligación muestra el botón verde <span class="boton-ejemplo boton-exito">Pagar</span>. Se abre <strong>Registrar Pago de Impuesto / VEP</strong> con la descripción, el número, el VEP y el <strong>Saldo Pendiente</strong>.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Cuenta de Tesorería (Banco / Caja) <em>(obligatorio)</em></td><td>De dónde sale el dinero. Cada cuenta muestra su saldo.</td></tr>
+    <tr><td>Fecha de Pago <em>(obligatorio)</em></td><td>Por defecto, hoy.</td></tr>
+    <tr><td>Importe a Pagar <em>(obligatorio)</em></td><td>Viene con todo el saldo pendiente. Podés bajarlo para hacer un pago parcial. No puede superar el pendiente.</td></tr>
+    <tr><td>N° Comprobante / Transacción Bancaria</td><td>Referencia del pago en el banco.</td></tr>
+</table>
+<p>Apretá <span class="boton-ejemplo boton-exito">Confirmar Pago</span> y aceptá "¿Confirmar pago de obligación fiscal?". El dinero sale de la cuenta elegida, baja el pendiente y la obligación pasa a Parcial o Cancelada. Mensaje: "Pago de obligación 0001-... registrado con éxito."</p>
+<div class="nota-lateral">Desde esta pantalla no hay botón para anular una obligación ni un pago ya registrado. Si te equivocaste, consultá con el responsable de tesorería.</div>
+
+<h2 id="rendiciones">Solapa Rendición de Gastos y Anticipos</h2>
+<p>Arriba están los botones <span class="boton-ejemplo boton-outline">Actualizar</span>, <span class="boton-ejemplo boton-outline-verde">Entregar Anticipo</span> y <span class="boton-ejemplo boton-exito">+ Nueva Rendición de Gastos</span>.</p>
+<p>El listado muestra las rendiciones: N° Rendición, Fecha, Responsable / Empleado, Descripción / Motivo, <strong>Gastos Totales</strong>, <strong>Anticipo Aplicado</strong> (lo que se descontó del adelanto), <strong>A Reembolsar</strong> (lo que la empresa le debe al empleado), Estado y Acciones.</p>
+
+<h3 id="rendiciones-flujo">El proceso completo</h3>
+<ol>
+    <li><strong>Anticipo</strong> (opcional): le das dinero al empleado antes de que gaste. Sale de una caja o banco.</li>
+    <li><strong>Rendición</strong>: el empleado te trae los tickets y facturas de lo que gastó. Los cargás y, si había recibido un anticipo, lo descontás.</li>
+    <li><strong>Reembolso</strong>: si gastó más de lo que le adelantaste, le devolvés la diferencia.</li>
+</ol>
+<div class="flujo">
+    <div class="flujo-caja">Entregar Anticipo</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Nueva Rendición (aprobada)</div>
+    <div class="flujo-flecha">→ Reembolsar →</div>
+    <div class="flujo-caja final">Reembolsada</div>
+</div>
+
+<h3 id="anticipo">Entregar un anticipo</h3>
+<p>Con <span class="boton-ejemplo boton-outline-verde">Entregar Anticipo</span> se abre <strong>Entregar Anticipo a Rendir</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Responsable / Empleado <em>(obligatorio)</em></td><td>Quién recibe el dinero.</td></tr>
+    <tr><td>Cuenta de Origen (Caja / Banco) <em>(obligatorio)</em></td><td>De dónde sale.</td></tr>
+    <tr><td>Fecha de Entrega <em>(obligatorio)</em></td><td>Por defecto, hoy.</td></tr>
+    <tr><td>Importe del Anticipo <em>(obligatorio)</em></td><td>Cuánto le das.</td></tr>
+    <tr><td>Motivo / Descripción</td><td>Por ejemplo, "Viáticos comisión Bahía Blanca".</td></tr>
+</table>
+<p>Apretá <span class="boton-ejemplo boton-exito">Entregar Fondos</span>. El dinero sale de la cuenta en el momento. Mensaje: "Anticipo N° ... registrado con éxito."</p>
+<div class="nota-lateral">Los anticipos no aparecen en el listado de rendiciones. Los vas a ver en la lista "Anticipo a Descontar" al cargar una rendición, mientras tengan saldo sin rendir.</div>
+
+<h3 id="nueva-rendicion">Registrar una rendición de gastos</h3>
+<p>Con <span class="boton-ejemplo boton-exito">+ Nueva Rendición de Gastos</span> se abre <strong>Registrar Rendición de Gastos y Comprobantes</strong>.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Responsable <em>(obligatorio)</em></td><td>Quién rinde los gastos.</td></tr>
+    <tr><td>Fecha Rendición <em>(obligatorio)</em></td><td>Por defecto, hoy.</td></tr>
+    <tr><td>Anticipo a Descontar (Opcional)</td><td>Si el empleado había recibido un anticipo, elegilo. Cada opción muestra el número, el nombre del empleado y el saldo disponible. Verificá que sea el anticipo de la misma persona: la lista muestra los de todos.</td></tr>
+    <tr><td>Descripción General</td><td>Por ejemplo, "Gastos de viaje".</td></tr>
+</table>
+<p>En la tabla <strong>Comprobantes y Gastos Rendidos</strong> cargás una fila por ticket o factura: Fecha Gasto, Categoría Gasto, Proveedor / Comercio, N° Ticket/Fact e Importe. Con <span class="boton-ejemplo boton-outline-verde">+ Agregar Comprobante</span> sumás filas y con el tacho las quitás. Las filas sin importe no se tienen en cuenta.</p>
+<p>A la derecha se calcula solo:</p>
+<ul>
+    <li><strong>Total Gastos</strong>: suma de los comprobantes.</li>
+    <li><strong>Anticipo Descontado</strong>: lo que se toma del anticipo elegido, nunca más que el total de gastos.</li>
+    <li><strong>Saldo a Reembolsar</strong>: lo que la empresa le debe al empleado.</li>
+</ul>
+<p>Apretá <span class="boton-ejemplo boton-exito">Confirmar y Aprobar Rendición</span>. La rendición queda aprobada directamente (no hay borrador). Mensaje: "Rendición N° ... registrada y aprobada con éxito."</p>
+<div class="alert alert-info">Si el anticipo era mayor que los gastos, lo que sobra sigue disponible en la lista de anticipos para descontarlo en una próxima rendición.</div>
+
+<h3 id="rendiciones-estados">Estados de una rendición</h3>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Aprobada</span></td><td>Los gastos están registrados. Si la columna "A Reembolsar" tiene importe, falta devolverle ese dinero al empleado.</td></tr>
+    <tr><td><span class="badge badge-secondary">Reembolsada</span></td><td>Ya se le devolvió al empleado todo lo que se le debía.</td></tr>
+</table>
+
+<h3 id="reembolsar">Reembolsar al empleado</h3>
+<p>Las rendiciones con importe a reembolsar muestran el botón <span class="boton-ejemplo boton-primario">Reembolsar</span>. Se abre <strong>Pagar Reembolso al Responsable</strong> con el número y el importe a reembolsar.</p>
+<ol>
+    <li>Elegí la <strong>Cuenta de Pago (Caja / Banco)</strong>.</li>
+    <li>Indicá la <strong>Fecha de Pago</strong>.</li>
+    <li>Apretá <span class="boton-ejemplo boton-primario">Confirmar Reembolso</span>.</li>
+</ol>
+<p>Se paga el importe completo, sale de la cuenta elegida y la rendición pasa a <strong>Reembolsada</strong>. Mensaje: "Reembolso N° ... registrado con éxito."</p>
+<div class="nota-lateral">Después del reembolso, el botón Reembolsar puede seguir visible en la fila. Guiate por el estado: si dice "Reembolsada" no lo vuelvas a usar. El sistema igual rechaza un segundo reembolso con el mensaje "El importe a reembolsar supera el saldo pendiente de reembolso".</div>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Complete todos los campos obligatorios y un importe válido</td><td>Falta algún dato de la obligación.</td></tr>
+    <tr><td>Seleccione la cuenta bancaria de egreso y el importe a pagar</td><td>Falta la cuenta o el importe del pago.</td></tr>
+    <tr><td>El importe a pagar (...) supera el saldo pendiente (...).</td><td>Estás pagando más de lo que se debe.</td></tr>
+    <tr><td>Saldo insuficiente en '...' para ...</td><td>La caja o el banco elegido no tiene fondos. Elegí otra cuenta.</td></tr>
+    <tr><td>Complete el responsable, la cuenta de origen y un importe válido</td><td>Falta algún dato del anticipo.</td></tr>
+    <tr><td>Seleccione el responsable de la rendición</td><td>Falta el empleado.</td></tr>
+    <tr><td>Ingrese al menos un comprobante con importe mayor a cero</td><td>La rendición no tiene gastos con importe.</td></tr>
+    <tr><td>Seleccione la cuenta de tesorería para realizar el reembolso</td><td>Falta la cuenta de pago.</td></tr>
+    <tr><td>Error contable: ...</td><td>Falta configurar una cuenta contable (por ejemplo, la de Empleados). Avisá al responsable de contabilidad (ver <a href="empresas_cuentas_conceptos.html">Conceptos Contables</a>).</td></tr>
+    <tr><td>Fallo de comunicación con el servidor</td><td>Problema de conexión. Probá de nuevo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>¿Puedo pagar un VEP en dos veces?</td><td>Sí. En el pago bajá el importe. La obligación queda Parcial y el botón Pagar sigue disponible por el resto.</td></tr>
+    <tr><td>El organismo (ARCA, ARBA...) no aparece en la lista.</td><td>Tiene que estar cargado como entidad de la empresa. Pedí que lo den de alta (ver <a href="entidades.html">Entidades</a>).</td></tr>
+    <tr><td>El empleado gastó menos de lo que le adelanté y me devolvió la diferencia en efectivo.</td><td>Esta pantalla no tiene un botón para registrar esa devolución. El saldo del anticipo queda disponible para la próxima rendición. Consultá con el responsable de tesorería cómo registrar la devolución.</td></tr>
+    <tr><td>¿Puedo corregir una rendición ya cargada?</td><td>No desde esta pantalla: las rendiciones nacen aprobadas. Revisá bien los importes antes de confirmar.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="tesoreria_dashboard.html">Dashboard Financiero</a>: saldos de cajas y bancos.</li>
+        <li><a href="empresas_cuentas_conceptos.html">Conceptos Contables</a>: cuentas que usan anticipos y rendiciones.</li>
+        <li><a href="comprobantes_consulta.html">Comprobantes - Consulta</a>: ver los comprobantes generados y sus pagos.</li>
+        <li><a href="cobranzas.html#conceptos">Conceptos básicos de Tesorería</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tesorería / Obligaciones y Rendiciones. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

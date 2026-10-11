@@ -104,6 +104,34 @@ function usuario_obtener_paginas_permitidas(mysqli $conexion, int $usuario_id, i
 }
 
 /**
+ * pagina_id de conf__paginas para un archivo de un módulo (para pantallas que no fijan $pagina_idx
+ * porque viven como página propia en la configuración). Si hay más de una página activa con esa url,
+ * $pagina_id_pedido (normalmente el pagina_id del GET que arma el sidebar) elige entre ellas; un
+ * valor que no corresponda a esa url se ignora. Devuelve 0 si la url no está configurada.
+ */
+function pagina_id_por_url(mysqli $conexion, int $modulo_id, string $url, int $pagina_id_pedido = 0): int
+{
+    $sql = "SELECT pagina_id FROM conf__paginas
+            WHERE modulo_id = ? AND url = ? AND tabla_estado_registro_id = 1
+            ORDER BY pagina_id";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "is", $modulo_id, $url);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+
+    $ids = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $ids[] = (int) $row['pagina_id'];
+    }
+    mysqli_stmt_close($stmt);
+
+    if (empty($ids)) {
+        return 0;
+    }
+    return in_array($pagina_id_pedido, $ids, true) ? $pagina_id_pedido : $ids[0];
+}
+
+/**
  * Chequeo puntual de acceso a una página (por ejemplo, la página que se está sirviendo).
  * pagina_id <= 0 se considera sin restricción (páginas que todavía no definen $pagina_idx).
  */

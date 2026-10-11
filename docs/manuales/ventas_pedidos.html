@@ -28,6 +28,8 @@
     h1 { font-size: 1.75rem; margin-bottom: 4px; }
     h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
     h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
     .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
     .card {
         border: 1px solid var(--gris-borde);
@@ -77,8 +79,8 @@
         margin: 20px 0 30px;
     }
     .toc ul { margin: 6px 0 0; padding-left: 20px; }
-    .toc a { color: var(--azul); text-decoration: none; }
-    .toc a:hover { text-decoration: underline; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
     .boton-ejemplo {
         display: inline-block;
         padding: 4px 12px;
@@ -123,9 +125,12 @@
         color: var(--texto-muted);
         font-size: 0.85rem;
     }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } }
 </style>
 </head>
 <body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
 
 <h1><i class="fas fa-shopping-bag"></i> Manual de usuario: Pedidos de Clientes</h1>
 <p class="subtitulo">Cómo cargar, confirmar y hacer seguimiento inicial de los pedidos de venta a clientes.</p>
@@ -146,16 +151,18 @@
         <li><a href="#botones">Botones disponibles</a></li>
         <li><a href="#exportar">Exportar e imprimir el listado</a></li>
         <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
     </ul>
 </div>
 
 <h2 id="que-es">¿Qué es un Pedido de Cliente?</h2>
 <p>Un <strong>Pedido de Cliente</strong> es lo que un cliente te encargó comprar: qué productos, en qué cantidad, a qué precio y para cuándo lo necesita. Acá lo cargás con todos sus datos (cliente, sucursal, productos) y lo vas llevando de <em>Borrador</em> a <em>Confirmado</em>, que es el punto en el que el pedido queda en firme y recibe su número de comprobante.</p>
+<div class="nota-lateral">En el menú, esta pantalla aparece como <strong>Pedidos Realizados</strong>; adentro, el título dice <strong>Pedidos de Venta</strong>. Es la misma pantalla.</div>
 
 <h2 id="otra-pantalla">Esta pantalla vs. "Nuevos Pedidos de Clientes"</h2>
 <div class="alert alert-info">
     <strong>Pedidos de Clientes</strong> (esta pantalla) es donde <strong>cargás y confirmás</strong> el pedido: elegís cliente, sucursal, punto de venta, cargás los productos con sus cantidades y precios, y lo confirmás cuando está listo. Es la pantalla de alta y edición completa.<br><br>
-    <strong>Nuevos Pedidos de Clientes</strong> es otra pantalla, aparte, que trabaja sobre los mismos pedidos pero está pensada para el <strong>seguimiento posterior</strong>: una vez que un pedido está Confirmado, es ahí donde pasa a prepararse y avanza hacia la entrega (En Preparación, Entrega Parcial, Entrega Total, Facturado). Si necesitás cargar un pedido nuevo o corregir sus datos y productos, usá esta pantalla. Si necesitás ver en qué etapa de preparación/entrega está un pedido ya confirmado, andá a "Nuevos Pedidos de Clientes".
+    <strong><a href="ventas_pedidos_gestion.html">Nuevos Pedidos de Clientes</a></strong> es otra pantalla, aparte, que trabaja sobre los mismos pedidos pero está pensada para el <strong>seguimiento posterior</strong>: una vez que un pedido está Confirmado, es ahí donde pasa a prepararse y avanza hacia la entrega (En Preparación, Entrega Parcial, Entrega Total, Facturado). Si necesitás cargar un pedido nuevo o corregir sus datos y productos, usá esta pantalla. Si necesitás ver en qué etapa de preparación/entrega está un pedido ya confirmado, andá a "Nuevos Pedidos de Clientes".
 </div>
 
 <h2 id="pantalla-principal">La pantalla principal</h2>
@@ -243,15 +250,16 @@
 <h2 id="guardar-confirmar">Guardar y confirmar el pedido</h2>
 <p>Al hacer clic en <span class="boton-ejemplo boton-primario">Guardar Pedido</span>, el sistema valida que estén completos los campos obligatorios de la cabecera, que la fecha de entrega estimada (si se cargó) no sea anterior a la de emisión, y que haya al menos un producto cargado. El pedido queda guardado en estado <strong>Borrador</strong>, con el número de comprobante todavía en 0.</p>
 <p>Cuando el pedido ya está completo y lo querés dejar en firme, usás el botón <span class="boton-ejemplo boton-primario">Confirmar Pedido</span> desde el listado (no desde dentro del formulario). Ahí el sistema le asigna automáticamente el número de comprobante correspondiente al punto de venta y tipo de comprobante elegidos, y el pedido pasa a estado <strong>Confirmado - Pend.Revisión</strong>.</p>
-<div class="nota-lateral">Una vez confirmado, seguís pudiendo editar los datos y los productos del pedido mientras esté en ese estado — lo que ya no se puede es cambiar el cliente.</div>
+<div class="nota-lateral">Una vez confirmado, seguís pudiendo editar los datos y los productos del pedido mientras esté en ese estado — lo que ya no se puede es cambiar el cliente. Confirmar el pedido no mueve stock: la mercadería se descuenta recién cuando se confirma el remito de entrega.</div>
 
 <h2 id="editar-visualizar">Editar o visualizar un pedido ya cargado</h2>
 <p>El botón <span class="boton-ejemplo boton-primario">Editar</span> abre el mismo formulario de carga con los datos del pedido para modificarlos. El botón <span class="boton-ejemplo boton-outline">Visualizar</span> abre el pedido en modo de solo lectura: todos los campos aparecen deshabilitados, no se puede tocar el detalle de productos y no aparece el botón de Guardar — es para consultar sin riesgo de modificar nada por error.</p>
 <p>Si el pedido ya tiene un número de comprobante asignado, dentro del formulario de edición aparece además un botón <span class="boton-ejemplo boton-outline">Imprimir</span> para sacarlo en una ventana aparte, sin cerrar el formulario.</p>
 
 <h2 id="remitos">Pestaña: Remitos</h2>
-<p>Esta pestaña aparece solo en pedidos ya guardados (no en uno nuevo todavía sin guardar). Muestra, arriba, los remitos (comprobantes de entrega) que ya se generaron para este pedido, con su propio estado. Más abajo está el bloque para <strong>cargar un remito nuevo</strong>: elegís el tipo de comprobante y la fecha, el sistema te muestra las líneas de producto que todavía tienen cantidad pendiente de entrega, y armás el remito con las cantidades que efectivamente se están entregando ahora.</p>
-<p>El remito siempre se emite desde el mismo punto de venta del pedido — no se puede elegir otro. Al guardar un remito, la cantidad entregada de cada línea del pedido se actualiza automáticamente, y eso es lo que hace bajar (o completar) la columna "Pendiente" de la pestaña Productos.</p>
+<p>Esta pestaña aparece solo en pedidos ya guardados (no en uno nuevo todavía sin guardar). Muestra, arriba, los <strong>Remitos generados</strong> (comprobantes de entrega) para este pedido, con su propio estado. Más abajo está el bloque <strong>Cargar Remito Nuevo</strong>: elegís el <strong>Punto de Venta (Depósito)</strong> desde el que sale la mercadería, el tipo de comprobante y la fecha; el sistema te muestra las líneas de producto de este pedido que todavía tienen cantidad pendiente de entrega, y armás el remito con las cantidades que efectivamente se están entregando ahora. Tocá <span class="boton-ejemplo boton-primario">Guardar Remito</span> para grabarlo.</p>
+<div class="alert alert-warning">Solo se pueden cargar remitos de pedidos <strong>confirmados</strong>. Si el pedido sigue en Borrador, la pestaña lo avisa ("Pedido no confirmado") y al intentar guardar aparece el mensaje "No se puede cargar un remito si el pedido se encuentra en estado Borrador. Confirme el pedido primero."</div>
+<p>Al guardar un remito, la cantidad entregada de cada línea del pedido se actualiza automáticamente, y eso es lo que hace bajar (o completar) la columna "Pendiente" de la pestaña Productos. Para terminar el circuito, el remito se confirma y se factura desde <a href="ventas_remitos.html">Remitos de Pedidos</a>; al confirmarlo, la mercadería se descuenta del stock.</p>
 <div class="nota-lateral">Esta pestaña queda habilitada aunque estés visualizando el pedido en modo de solo lectura: cargar, editar o cancelar un remito es una acción aparte del resto del formulario.</div>
 
 <h2 id="botones">Botones disponibles</h2>
@@ -261,11 +269,11 @@
     <tr><td>Editar</td><td>Abre el formulario del pedido para modificarlo</td><td>Pedido en Borrador o en Confirmado - Pend.Revisión</td></tr>
     <tr><td>Eliminar</td><td>Da de baja el pedido (pasa a estado Eliminado)</td><td>Solo en Borrador</td></tr>
     <tr><td>Confirmar Pedido</td><td>Asigna número de comprobante y deja el pedido en firme</td><td>Solo en Borrador</td></tr>
-    <tr><td>Visualizar</td><td>Abre el pedido en modo de solo lectura</td><td>Pedido Confirmado en adelante</td></tr>
+    <tr><td>Visualizar</td><td>Abre el pedido en modo de solo lectura</td><td>Pedido Confirmado, Entrega Parcial o Entrega Total</td></tr>
     <tr><td>Imprimir</td><td>Abre el comprobante para imprimir en una ventana aparte</td><td>Pedido Confirmado (con número asignado)</td></tr>
     <tr><td>Entrega Parcial</td><td>Marca el pedido en el estado Entrega Parcial</td><td>Pedido En Preparación</td></tr>
 </table>
-<div class="nota-lateral">Los botones "Eliminar" y "Confirmar Pedido" piden confirmación antes de ejecutarse, con un mensaje que incluye el número de comprobante y el cliente del pedido en cuestión.</div>
+<div class="nota-lateral">Los botones "Eliminar" y "Confirmar Pedido" piden confirmación antes de ejecutarse, con un mensaje que incluye el número de comprobante y el cliente del pedido en cuestión. Los botones que ves dependen también de los permisos de tu perfil.</div>
 
 <h2 id="exportar">Exportar e imprimir el listado</h2>
 <p>Arriba de la tabla principal está el grupo de botones para <span class="boton-ejemplo boton-outline">↻</span> recargar la tabla sin recargar toda la página, y para exportarla tal como se está viendo (con los filtros aplicados) a <span class="boton-ejemplo boton-outline">Excel</span>, <span class="boton-ejemplo boton-outline">PDF</span>, <span class="boton-ejemplo boton-outline">CSV</span> o <span class="boton-ejemplo boton-outline">Imprimir</span>.</p>
@@ -291,16 +299,29 @@
     </tr>
     <tr>
         <td>¿Dónde veo si un pedido confirmado ya se está preparando o entregando?</td>
-        <td>En la pantalla "Nuevos Pedidos de Clientes", pensada específicamente para hacer seguimiento de los pedidos después de confirmados.</td>
+        <td>En la pantalla <a href="ventas_pedidos_gestion.html">Nuevos Pedidos de Clientes</a>, pensada específicamente para hacer seguimiento de los pedidos después de confirmados.</td>
     </tr>
     <tr>
         <td>Busco un producto y no aparece ningún resultado, ¿qué puede ser?</td>
         <td>Revisá que el cliente tenga una lista de precios vigente asignada (el sistema avisa con un mensaje si no la tiene) y que las etiquetas de búsqueda no sean demasiado específicas.</td>
     </tr>
+    <tr>
+        <td>No me deja cargar un remito desde la pestaña Remitos.</td>
+        <td>El pedido tiene que estar confirmado. Confirmalo desde el listado con "Confirmar Pedido" y volvé a intentar.</td>
+    </tr>
 </table>
+
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="ventas_pedidos_gestion.html">Nuevos Pedidos de Clientes</a></li>
+    <li><a href="ventas_remitos.html">Remitos de Pedidos</a></li>
+    <li><a href="ventas_facturas.html">Facturación</a></li>
+    <li><a href="clientes.html">Clientes</a> y <a href="listas_precios_productos.html">Lista de Precios</a></li>
+</ul>
 
 <footer>
     Manual de usuario — Módulo Ventas / Pedidos de Clientes. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
 </footer>
 
 </body>

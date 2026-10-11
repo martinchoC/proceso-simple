@@ -23,17 +23,17 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(resp => {
                 if (resp.success && resp.data) {
                     const d = resp.data;
-                    document.getElementById('widgetCarteraMonto').textContent = formatoMoneda.format(d.cartera_monto || 0);
-                    document.getElementById('widgetCarteraCant').textContent = `${d.cartera_cant || 0} cheques disponibles`;
+                    document.getElementById('widgetCarteraMonto').textContent = formatoMoneda.format(d.cartera?.total || 0);
+                    document.getElementById('widgetCarteraCant').textContent = `${d.cartera?.cant || 0} cheques disponibles`;
 
-                    document.getElementById('widgetDepositadosMonto').textContent = formatoMoneda.format(d.depositados_monto || 0);
-                    document.getElementById('widgetDepositadosCant').textContent = `${d.depositados_cant || 0} cheques en clearing`;
+                    document.getElementById('widgetDepositadosMonto').textContent = formatoMoneda.format(d.depositados?.total || 0);
+                    document.getElementById('widgetDepositadosCant').textContent = `${d.depositados?.cant || 0} cheques en clearing`;
 
-                    document.getElementById('widgetPropiosMonto').textContent = formatoMoneda.format(d.propios_monto || 0);
-                    document.getElementById('widgetPropiosCant').textContent = `${d.propios_cant || 0} cheques emitidos`;
+                    document.getElementById('widgetPropiosMonto').textContent = formatoMoneda.format(d.propios?.total || 0);
+                    document.getElementById('widgetPropiosCant').textContent = `${d.propios?.cant || 0} cheques emitidos`;
 
-                    document.getElementById('widgetRechazadosMonto').textContent = formatoMoneda.format(d.rechazados_monto || 0);
-                    document.getElementById('widgetRechazadosCant').textContent = `${d.rechazados_cant || 0} cheques observados`;
+                    document.getElementById('widgetRechazadosMonto').textContent = formatoMoneda.format(d.rechazados?.total || 0);
+                    document.getElementById('widgetRechazadosCant').textContent = `${d.rechazados?.cant || 0} cheques observados`;
                 }
             })
             .catch(err => console.error("Error al cargar resumen de cheques:", err));
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         resp.data.bancos.forEach(b => {
                             const opt = document.createElement('option');
                             opt.value = b.banco_id;
-                            opt.textContent = `${b.banco} (${b.codigo_banco})`;
+                            opt.textContent = b.banco;
                             selectBanco.appendChild(opt);
                         });
                     }
@@ -161,8 +161,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         const tipo = row.cheque_tipo;
                         let btns = '<div class="btn-group btn-group-sm" role="group">';
 
-                        // Si es Tercero en Cartera (2172) -> Depositar o Rechazar
-                        if (tipo === 'TERCERO' && estadoId === 2172) {
+                        // Si es Tercero en Cartera (29) -> Depositar o Rechazar
+                        if (tipo === 'TERCERO' && estadoId === 29) {
                             btns += `<button type="button" class="btn btn-warning btn-sm btn-depositar" 
                                         data-id="${row.cheque_id}" 
                                         data-numero="${row.numero}" 
@@ -181,8 +181,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                      </button>`;
                         }
 
-                        // Si es Propio Emitido (2173) -> Debitar o Rechazar
-                        if (tipo === 'PROPIO' && estadoId === 2173) {
+                        // Si es Propio Emitido (31) -> Debitar o Rechazar
+                        if (tipo === 'PROPIO' && estadoId === 31) {
                             btns += `<button type="button" class="btn btn-dark btn-sm btn-debitar" 
                                         data-id="${row.cheque_id}" 
                                         data-numero="${row.numero}" 
@@ -201,8 +201,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                      </button>`;
                         }
 
-                        // Si es Tercero Depositado (2174) -> Se puede Rechazar si rebotó
-                        if (tipo === 'TERCERO' && estadoId === 2174) {
+                        // Si es Tercero Depositado (32) -> Se puede Rechazar si rebotó
+                        if (tipo === 'TERCERO' && estadoId === 32) {
                             btns += `<button type="button" class="btn btn-outline-danger btn-sm btn-rechazar" 
                                         data-id="${row.cheque_id}" 
                                         data-numero="${row.numero}" 
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(resp => {
                         if (resp.success) {
                             modalDepositar.hide();
-                            Swal.fire('Éxito', resp.mensaje, 'success');
+                            Swal.fire('Éxito', resp.message || resp.mensaje, 'success');
                             tablaCheques.ajax.reload();
                             cargarResumen();
                         } else {
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(resp => {
                         if (resp.success) {
                             modalDebitar.hide();
-                            Swal.fire('Éxito', resp.mensaje, 'success');
+                            Swal.fire('Éxito', resp.message || resp.mensaje, 'success');
                             tablaCheques.ajax.reload();
                             cargarResumen();
                         } else {
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(resp => {
                         if (resp.success) {
                             modalRechazar.hide();
-                            Swal.fire('Registrado', resp.mensaje, 'info');
+                            Swal.fire('Registrado', resp.message || resp.mensaje, 'info');
                             tablaCheques.ajax.reload();
                             cargarResumen();
                         } else {

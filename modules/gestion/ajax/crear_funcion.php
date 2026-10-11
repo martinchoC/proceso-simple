@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../../core/ajax_guard.php';
+$ctx = ajax_guard(['empresa' => false, 'solo_superadmin' => true]);
 require_once '../../../config/db.php';
 
 $pagina_id = intval($_POST['pagina_id']);

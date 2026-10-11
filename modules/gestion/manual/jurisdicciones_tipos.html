@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Tipos de Jurisdicción</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Tipos de Jurisdicción</h1>
+<p class="subtitulo">Los niveles de jurisdicción impositiva: Nacional, Provincial, Municipal y Convenio Multilateral.</p>
+
+<h2 id="que-es">¿Para qué sirve?</h2>
+<p>Cada <a href="jurisdicciones.html">jurisdicción</a> (AFIP/ARCA, ARBA, AGIP, un municipio…) pertenece a un tipo. Hoy están cargados:</p>
+<table class="tabla-referencia">
+    <tr><th>Tipo</th><th>Descripción</th></tr>
+    <tr><td>Nacional</td><td>Impuestos a nivel país.</td></tr>
+    <tr><td>Provincial</td><td>Impuestos provinciales (Ingresos Brutos).</td></tr>
+    <tr><td>Municipal</td><td>Tasas municipales.</td></tr>
+    <tr><td>Convenio Multilateral</td><td>Distribución entre jurisdicciones.</td></tr>
+</table>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>El listado muestra <strong>ID</strong>, <strong>Tipo de Jurisdicción</strong>, <strong>Código</strong>, <strong>Descripción</strong>, <strong>Orden</strong>, <strong>Estado</strong> y <strong>Acciones</strong>, con buscador, recarga <span class="boton-ejemplo boton-outline">↻</span> y menú <span class="boton-ejemplo boton-outline">Exportar</span>.</p>
+
+<h2 id="agregar">Agregar o editar</h2>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Tipo de Jurisdicción *</td><td>Nombre.</td></tr>
+    <tr><td>Código *</td><td>Código único que identifica al tipo.</td></tr>
+    <tr><td>Descripción</td><td>Opcional, hasta 255 caracteres.</td></tr>
+    <tr><td>Orden</td><td>Orden de aparición, de 1 a 999.</td></tr>
+</table>
+
+<h2 id="estados">Activo e Inactivo</h2>
+<div class="flujo"><div class="flujo-caja">Activo</div><div class="flujo-flecha">⇄</div><div class="flujo-caja inactivo">Inactivo</div></div>
+<p>Un tipo inactivo deja de ofrecerse al cargar jurisdicciones; las existentes no cambian.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea un tipo.</td><td>Siempre.</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Modifica el tipo.</td><td>Activo.</td></tr>
+    <tr><td>Inhabilitar (rojo)</td><td>Lo pasa a Inactivo, previa confirmación.</td><td>Activo.</td></tr>
+    <tr><td>Habilitar (verde)</td><td>Lo vuelve a Activo, previa confirmación.</td><td>Inactivo.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Tipos de Jurisdicción. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

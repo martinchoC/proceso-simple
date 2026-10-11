@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['empresas_impuestos_config.php']]);
 // Limpiar cualquier salida previa
 ob_clean();
 
@@ -21,11 +24,12 @@ register_shutdown_function(function() {
 
 require_once __DIR__ . '/../../db.php';
 require_once "empresas_impuestos_config_model.php";
+require_once __DIR__ . "/empresas_impuestos_config_agente_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto (MULTIEMPRESA)
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 73);
 
 // Verificar conexión
@@ -131,7 +135,7 @@ try {
             break;
 
         case 'listar_tipos_bien':
-            $tipos = obtenerTiposBien($conexion);
+            $tipos = obtenerTiposBien($conexion, $empresa_idx);
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -217,8 +221,16 @@ try {
             break;
         
         case 'listar_subgrupos_disponibles':
-            $subgrupos = obtenerSubgruposComprobantes($conexion);
+            $subgrupos = obtenerSubgruposComprobantes($conexion, $empresa_idx);
             echo json_encode($subgrupos, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_agente':
+            echo json_encode(eicObtenerAgente($conexion, intval($_GET['config_id'] ?? $_POST['config_id'] ?? 0), $empresa_idx), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'guardar_agente':
+            echo json_encode(eicGuardarAgente($conexion, intval($_POST['config_id'] ?? 0), $empresa_idx, $_POST), JSON_UNESCAPED_UNICODE);
             break;
 
         case 'listar_subgrupos_asignados':

@@ -221,10 +221,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                             <div class="row">
                                 <div class="col-md-4 mb-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="impacta_stock" name="impacta_stock" value="1">
-                                        <label class="form-check-label" for="impacta_stock">Impacta Stock</label>
-                                    </div>
+                                    <label for="stock_signo" class="form-label">Stock</label>
+                                    <select class="form-select" id="stock_signo" name="stock_signo">
+                                        <option value="">No mueve stock</option>
+                                        <option value="+">Suma stock (+)</option>
+                                        <option value="-">Resta stock (-)</option>
+                                        <option value="+/-">Según cada línea (+/-)</option>
+                                    </select>
+                                    <div class="form-text">Independiente del signo de cta. cte.: una factura de venta es (+) pero resta stock.</div>
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <div class="form-check">
@@ -325,7 +329,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 <script>
     $(document).ready(function () {
         // Variables de contexto MULTIEMPRESA
-        const empresa_idx = 2;
+        const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
         const pagina_idx = <?php echo $pagina_idx; ?>;
 
         // Variables para mantener el estado del DataTable
@@ -767,7 +771,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             // Agregar badges para los impactos
                             var impactosHtml = '';
                             if (row.impacta_stock == 1) {
-                                impactosHtml += '<span class="badge badge-impacto bg-purple" title="Impacta Stock">S</span>';
+                                impactosHtml += '<span class="badge badge-impacto bg-purple" title="Impacta Stock">S' + (row.stock_signo || '') + '</span>';
                             }
                             if (row.impacta_contabilidad == 1) {
                                 impactosHtml += '<span class="badge badge-impacto bg-blue" title="Impacta Contabilidad">C</span>';
@@ -1149,7 +1153,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#signo').val(res.signo || '+');
                     $('#orden').val(res.orden || 1);
                     $('#comentario').val(res.comentario || '');
-                    $('#impacta_stock').prop('checked', res.impacta_stock == 1);
+                    $('#stock_signo').val(res.impacta_stock == 1 ? (res.stock_signo || '') : '');
                     $('#impacta_contabilidad').prop('checked', res.impacta_contabilidad == 1);
                     $('#impacta_ctacte').prop('checked', res.impacta_ctacte == 1);
                     
@@ -1217,7 +1221,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var signo = $('#signo').val();
             var orden = $('#orden').val() || 1;
             var comentario = $('#comprobante_tipo').val().trim();
-            var impactaStock = $('#impacta_stock').is(':checked') ? 1 : 0;
+            var stockSigno = $('#stock_signo').val() || '';
+            var impactaStock = stockSigno !== '' ? 1 : 0;
             var impactaContabilidad = $('#impacta_contabilidad').is(':checked') ? 1 : 0;
             var impactaCtacte = $('#impacta_ctacte').is(':checked') ? 1 : 0;
             
@@ -1271,6 +1276,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     orden: orden,
                     comentario: comentario,
                     impacta_stock: impactaStock,
+                    stock_signo: stockSigno,
                     impacta_contabilidad: impactaContabilidad,
                     impacta_ctacte: impactaCtacte,
                     empresa_idx: empresa_idx,

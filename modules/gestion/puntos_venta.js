@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    const empresa_idx = 2;
+    const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
     const pagina_idx = 70;
 
     var tabla;
@@ -496,10 +496,19 @@ $(document).ready(function () {
                 var estaHabilitado = Object.prototype.hasOwnProperty.call(habilitados, item.comprobante_tipo_id)
                     || Object.prototype.hasOwnProperty.call(habilitados, String(item.comprobante_tipo_id));
                 if (estaHabilitado) {
-                    var requiereAfip = (habilitados[item.comprobante_tipo_id] ?? habilitados[String(item.comprobante_tipo_id)]) == 1;
+                    var val = habilitados[item.comprobante_tipo_id] ?? habilitados[String(item.comprobante_tipo_id)];
+                    var requiereAfip = 1;
+                    var ultimoNumero = 0;
+                    if (typeof val === 'object' && val !== null) {
+                        requiereAfip = val.requiere_afip == 1 ? 1 : 0;
+                        ultimoNumero = parseInt(val.ultimo_numero) || 0;
+                    } else {
+                        requiereAfip = val == 1 ? 1 : 0;
+                    }
                     comprobantesSeleccionados.push({
                         comprobante_tipo_id: item.comprobante_tipo_id,
-                        requiere_afip: requiereAfip ? 1 : 0
+                        requiere_afip: requiereAfip,
+                        ultimo_numero: ultimoNumero
                     });
                 }
             });
@@ -511,7 +520,7 @@ $(document).ready(function () {
             if (callback) callback();
         }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
             console.error("Error cargando tipos de comprobante:", textStatus, errorThrown);
-            $('#tablaComprobantesSeleccionados tbody').html('<tr><td colspan="5" class="text-center text-danger small py-2">Error al cargar</td></tr>');
+            $('#tablaComprobantesSeleccionados tbody').html('<tr><td colspan="6" class="text-center text-danger small py-2">Error al cargar</td></tr>');
             if (callback) callback();
         });
     }
@@ -580,7 +589,7 @@ $(document).ready(function () {
         var comprobanteTipoId = parseInt($(this).data('id'));
         if (comprobanteYaSeleccionado(comprobanteTipoId)) return;
 
-        comprobantesSeleccionados.push({ comprobante_tipo_id: comprobanteTipoId, requiere_afip: 1 });
+        comprobantesSeleccionados.push({ comprobante_tipo_id: comprobanteTipoId, requiere_afip: 1, ultimo_numero: 0 });
         paginaComprobantesSeleccionados = Math.ceil(comprobantesSeleccionados.length / COMPROBANTES_POR_PAGINA) - 1;
         renderizarComprobantesSeleccionados();
         renderizarResultadosComprobantes(); // saca el que se acaba de agregar de los resultados
@@ -592,7 +601,7 @@ $(document).ready(function () {
         $('#badgeComprobantesCount').text(comprobantesSeleccionados.length);
 
         if (comprobantesSeleccionados.length === 0) {
-            tbody.html('<tr><td colspan="5" class="text-center text-muted small py-2">Sin tipos de comprobante habilitados</td></tr>');
+            tbody.html('<tr><td colspan="6" class="text-center text-muted small py-2">Sin tipos de comprobante habilitados</td></tr>');
             $('#paginacionComprobantesSeleccionados').empty();
             paginaComprobantesSeleccionados = 0;
             return;
@@ -617,6 +626,9 @@ $(document).ready(function () {
                 <td class="text-center">${item.letra || ''}</td>
                 <td class="text-center">
                     <input type="checkbox" class="form-check-input check-requiere-afip" ${sel.requiere_afip ? 'checked' : ''}>
+                </td>
+                <td class="text-center">
+                    <input type="number" min="0" step="1" class="form-control form-control-sm text-center input-ultimo-numero no-spinner" value="${sel.ultimo_numero || 0}" style="max-width: 100px; margin: 0 auto;">
                 </td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-comprobante" title="Quitar">
@@ -665,6 +677,13 @@ $(document).ready(function () {
         var comprobanteTipoId = parseInt($(this).closest('tr').data('comprobante-id'));
         var sel = comprobantesSeleccionados.find(function (c) { return c.comprobante_tipo_id == comprobanteTipoId; });
         if (sel) sel.requiere_afip = $(this).is(':checked') ? 1 : 0;
+    });
+
+    $(document).on('change input', '.input-ultimo-numero', function () {
+        var comprobanteTipoId = parseInt($(this).closest('tr').data('comprobante-id'));
+        var val = parseInt($(this).val());
+        var sel = comprobantesSeleccionados.find(function (c) { return c.comprobante_tipo_id == comprobanteTipoId; });
+        if (sel) sel.ultimo_numero = (!isNaN(val) && val >= 0) ? val : 0;
     });
 
     $(document).on('click', '.btn-quitar-comprobante', function () {

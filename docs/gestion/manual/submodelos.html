@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Submodelos</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; } .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-secondary { background: #6c757d; } .badge-danger { background: var(--rojo); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; } .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); } .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Submodelos</h1>
+<p class="subtitulo">Las versiones de cada modelo (por ejemplo Ranger → XLT 3.2), más un tablero para ver cuántos productos hay por marca, modelo y submodelo.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#cadena">Marca, modelo y submodelo</a></li>
+        <li><a href="#jerarquico">Pestaña Jerárquico</a></li>
+        <li><a href="#listado">Pestaña Listado (alta y edición)</a></li>
+        <li><a href="#dashboard">Pestaña Dashboard</a></li>
+        <li><a href="#inhabilitar-masivo">Inhabilitar en bloque lo que no tiene productos</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="cadena">Marca, modelo y submodelo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Marca</div><div class="flujo-flecha">→</div><div class="flujo-caja">Modelo</div><div class="flujo-flecha">→</div><div class="flujo-caja">Submodelo</div><div class="flujo-flecha">→</div><div class="flujo-caja inactivo">Productos compatibles</div>
+</div>
+<p>Cada submodelo pertenece a un modelo (y por lo tanto a una marca). En la ficha de cada producto se indica con qué marcas/modelos/submodelos es compatible; esta pantalla muestra ese resultado. Las marcas se cargan en <a href="marcas.html">Marcas</a> y los modelos en <a href="modelos.html">Modelos</a>.</p>
+
+<h2 id="jerarquico">Pestaña Jerárquico</h2>
+<p>Es la pestaña que se abre primero. Muestra un árbol <strong>Marca / Modelo / Submodelo</strong> con la cantidad de <strong>Productos</strong> compatibles y una barra de <strong>Distribución</strong>.</p>
+<ul>
+    <li>Tocá el <strong>+</strong> / <strong>–</strong> de una fila para abrirla o cerrarla. Al abrir un submodelo se ven sus productos como etiquetas (código · nombre).</li>
+    <li>La fila en cursiva <em>"Sin submodelo (aplica a todo el modelo)"</em> agrupa los productos compatibles con el modelo completo, sin un submodelo puntual.</li>
+    <li><strong>Buscar marca, modelo o submodelo…</strong> filtra el árbol y lo abre automáticamente.</li>
+    <li>El interruptor <strong>Solo con productos</strong> (activado de entrada) oculta lo que no tiene productos.</li>
+    <li><span class="boton-ejemplo boton-outline">Expandir</span> / <span class="boton-ejemplo boton-outline">Colapsar</span> abren o cierran todo; <span class="boton-ejemplo boton-outline">↻</span> actualiza los datos.</li>
+    <li>Los elementos inactivos llevan la etiqueta <span class="badge badge-secondary">Inactivo</span>. En los submodelos activos hay un botón de lápiz para editarlos sin cambiar de pestaña.</li>
+</ul>
+<p class="nota-lateral">Un producto compatible con varios modelos cuenta en cada uno, por eso la suma de los hijos puede superar al total del padre.</p>
+
+<h2 id="listado">Pestaña Listado (alta y edición)</h2>
+<p>Listado clásico con <strong>ID</strong>, <strong>Nombre del Submodelo</strong>, <strong>Modelo</strong>, <strong>Marca</strong>, <strong>Estado</strong> y <strong>Acciones</strong>. Acá está el botón <span class="boton-ejemplo boton-exito">+ Agregar</span>.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Modelo *</td><td>Se elige de una lista "Marca - Modelo".</td></tr>
+    <tr><td>Nombre del Submodelo *</td><td>Hasta 100 caracteres.</td></tr>
+</table>
+<p>Al guardar aparece "Submodelo guardado correctamente". Errores posibles: <em>"Debe seleccionar un modelo válido"</em>, <em>"Ya existe un submodelo con este nombre en el modelo seleccionado"</em>.</p>
+
+<h2 id="dashboard">Pestaña Dashboard</h2>
+<ul>
+    <li><strong>Tarjetas</strong>: productos con compatibilidad (y qué porcentaje del total de productos activos representan), y cuántas marcas, modelos y submodelos tienen productos.</li>
+    <li><strong>Top 10 marcas</strong> y <strong>Top 10 modelos</strong> por cantidad de productos.</li>
+    <li><strong>Sin productos asignados</strong>: lista para depurar, con solapas Submodelos / Modelos / Marcas, cada una con su contador, y un filtro de texto. En la solapa Submodelos cada fila trae sus botones de acción.</li>
+</ul>
+<p class="nota-lateral">Si un submodelo aparece con la etiqueta <span class="badge badge-danger">Sin modelo</span>, su modelo ya no existe. Esos submodelos no se ven en Listado ni en Jerárquico: editalos desde acá para asignarles otro modelo, o inhabilitalos.</p>
+
+<h2 id="inhabilitar-masivo">Inhabilitar en bloque lo que no tiene productos</h2>
+<p>En el recuadro "Sin productos asignados" están los botones <span class="boton-ejemplo boton-peligro">⊘ Inhabilitar Submodelos</span>, <span class="boton-ejemplo boton-peligro">⊘ Inhabilitar Modelos</span> y <span class="boton-ejemplo boton-peligro">⊘ Inhabilitar Marcas</span>. Cada uno pasa a <strong>Inactivo</strong> todos los registros activos de ese nivel que no tengan productos.</p>
+<ul>
+    <li>Antes de hacerlo pide confirmación: <em>"¿Inhabilitar los submodelos sin productos?"</em>.</li>
+    <li>Al terminar informa cuántos se inhabilitaron, o "Sin registros para inhabilitar".</li>
+    <li>El botón aparece deshabilitado si no hay nada para inhabilitar.</li>
+</ul>
+<div class="alert alert-warning">Es una acción masiva. Los registros no se borran y se pueden reactivar uno por uno con "Habilitar", pero revisá antes la lista.</div>
+
+<h2 id="botones">Botones disponibles (por submodelo)</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea un submodelo.</td><td>Siempre (pestaña Listado).</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Cambia modelo o nombre.</td><td>Activo.</td></tr>
+    <tr><td>Inhabilitar (rojo)</td><td>Pasa a Inactivo, previa confirmación.</td><td>Activo.</td></tr>
+    <tr><td>Habilitar (verde)</td><td>Vuelve a Activo, previa confirmación.</td><td>Inactivo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Un modelo no aparece en el árbol Jerárquico.</td><td>Probablemente no tiene productos: desactivá "Solo con productos".</td></tr>
+    <tr><td>¿Dónde asigno la compatibilidad de un producto?</td><td>En la ficha del producto, en la pantalla <a href="productos.html">Productos</a>.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Submodelos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

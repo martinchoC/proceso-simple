@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['ventas_pedidos.php', 'ventas_pedidos_gestion.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -28,7 +31,7 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 65);
 
 if (!$conexion) {
@@ -323,12 +326,7 @@ try {
                 break;
             }
 
-            $condicion_comercial = obtenerCondicionesCliente($conexion, $entidad_id, $empresa_idx_local);
-            if (!$condicion_comercial || empty($condicion_comercial['lista_precio_id'])) {
-                echo json_encode(['error' => 'sin_lista_precios', 'productos' => []], JSON_UNESCAPED_UNICODE);
-                break;
-            }
-
+            // Cliente sin lista de precios vigente: igual se buscan los productos, con importe 0.
             $productos = buscarProductosPorCliente($conexion, $empresa_idx_local, $entidad_id, $q);
             echo json_encode(['error' => null, 'productos' => $productos], JSON_UNESCAPED_UNICODE);
             break;

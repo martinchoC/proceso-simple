@@ -28,6 +28,8 @@
     h1 { font-size: 1.75rem; margin-bottom: 4px; }
     h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
     h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
     .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
     .card {
         border: 1px solid var(--gris-borde);
@@ -77,8 +79,8 @@
         margin: 20px 0 30px;
     }
     .toc ul { margin: 6px 0 0; padding-left: 20px; }
-    .toc a { color: var(--azul); text-decoration: none; }
-    .toc a:hover { text-decoration: underline; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
     .boton-ejemplo {
         display: inline-block;
         padding: 4px 12px;
@@ -123,9 +125,12 @@
         color: var(--texto-muted);
         font-size: 0.85rem;
     }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } }
 </style>
 </head>
 <body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
 
 <h1><i class="fas fa-dolly"></i> Manual de usuario: Gestión de Pedidos</h1>
 <p class="subtitulo">Cómo preparar y entregar (total o parcialmente) los pedidos de venta que ya fueron confirmados.</p>
@@ -141,14 +146,17 @@
         <li><a href="#pestana-preparar">Pestaña: Preparar</a></li>
         <li><a href="#ajustar-cantidad">Las dos flechas +/- de cada línea: no confundir</a></li>
         <li><a href="#guardar-confirmar">Guardar Remito vs. Confirmar Remito</a></li>
+        <li><a href="#despues">Después de entregar: facturar</a></li>
         <li><a href="#pestana-detalle">Pestaña: Detalle Del Pedido</a></li>
         <li><a href="#filtros">Filtros y exportación del listado</a></li>
         <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
     </ul>
 </div>
 
 <h2 id="que-es">¿Qué es Gestión de Pedidos?</h2>
 <p>Es el tablero de trabajo del depósito. Acá no se cargan pedidos nuevos ni se editan sus datos generales: se preparan y se entregan los pedidos de venta que el vendedor <strong>ya confirmó</strong>. Para cada pedido, esta pantalla te deja armar la entrega (el remito) con lo que efectivamente se despacha, ya sea todo de una vez o en varias partes a lo largo de los días.</p>
+<div class="nota-lateral">En el menú esta pantalla aparece como <strong>Nuevos Pedidos de Clientes</strong>.</div>
 
 <h2 id="diferencia">No confundir con "Pedidos de Clientes"</h2>
 <div class="card card-outline-primary">
@@ -156,7 +164,7 @@
     <table class="tabla-referencia">
         <tr><th>Pantalla</th><th>Para qué usarla</th></tr>
         <tr>
-            <td><strong>Pedidos de Clientes</strong></td>
+            <td><strong><a href="ventas_pedidos.html">Pedidos de Clientes</a></strong> (en el menú: "Pedidos Realizados")</td>
             <td>Dar de alta un pedido nuevo, cargar sus productos y cantidades, modificar sus datos generales mientras está en Borrador, y confirmarlo. También sirve para ver el pedido una vez que ya se entregó por completo (esta pantalla lo deja de mostrar).</td>
         </tr>
         <tr>
@@ -232,11 +240,15 @@
 <h2 id="guardar-confirmar">Guardar Remito vs. Confirmar Remito</h2>
 <table class="tabla-referencia">
     <tr><th>Botón</th><th>Qué hace</th></tr>
-    <tr><td><span class="boton-ejemplo" style="background:#198754;border-color:#198754;color:#fff;">Guardar Remito</span></td><td>Guarda lo cargado como una entrega sin numerar todavía (un borrador de remito). Podés volver más tarde, reabrir el pedido y seguir sumando productos a esa misma entrega antes de confirmarla — no se crea una nueva cada vez.</td></tr>
-    <tr><td><span class="boton-ejemplo boton-primario">Confirmar Remito</span></td><td>Guarda y además numera y cierra la entrega: registra la salida de la mercadería y actualiza el estado del pedido (a Entrega Parcial o Entrega Total, según corresponda). Pide confirmación antes de aplicarse, porque no se puede deshacer desde acá.</td></tr>
+    <tr><td><span class="boton-ejemplo" style="background:#198754;border-color:#198754;color:#fff;">Guardar Remito</span></td><td>Guarda lo cargado como una entrega sin numerar todavía (un borrador de remito). Todavía no descuenta stock. Podés volver más tarde, reabrir el pedido y seguir sumando productos a esa misma entrega antes de confirmarla — no se crea una nueva cada vez.</td></tr>
+    <tr><td><span class="boton-ejemplo boton-primario">Confirmar Remito</span></td><td>Guarda y además numera y cierra la entrega: <strong>descuenta la mercadería del stock</strong> del depósito y actualiza el estado del pedido (a Entrega Parcial o Entrega Total, según corresponda). Pide confirmación antes de aplicarse ("Al confirmar se numerará el remito y se registrará la entrega de sus productos"), porque no se puede deshacer desde acá.</td></tr>
 </table>
 <p>Al confirmar, el sistema muestra una pantalla de "Remito Confirmado" con el número asignado y el detalle de lo entregado.</p>
-<div class="nota-lateral">Es obligatorio cargar la fecha de emisión y elegir el punto de venta (depósito) antes de poder guardar o confirmar. Si no agregaste ningún producto en "A Preparar", el sistema no te deja continuar.</div>
+<div class="nota-lateral">Es obligatorio cargar la fecha de emisión y elegir el punto de venta (depósito) antes de poder guardar o confirmar. Si no agregaste ningún producto en "A Preparar", el sistema no te deja continuar ("Sin líneas").</div>
+<div class="alert alert-warning">Si aparece <strong>"Guardado, no se pudo confirmar"</strong>, la entrega quedó guardada como borrador pero no se confirmó. El motivo más común es falta de stock: "Stock insuficiente de [producto] en '[depósito]'. Disponible: …, requerido: …". Revisá el stock en el <a href="stock_dashboard.html">Dashboard de Stock</a>, ajustá las cantidades y volvé a confirmar.</div>
+
+<h2 id="despues">Después de entregar: facturar</h2>
+<p>Cada remito confirmado aparece en la <a href="ventas_remitos_pendientes_facturacion.html">Cola de Facturación</a> como "Pendiente de Facturación", para que quien factura lo tome desde ahí.</p>
 
 <h2 id="pestana-detalle">Pestaña: Detalle Del Pedido</h2>
 <p>Es una vista de solo lectura con el pedido completo, tal como se cargó: cada producto con su cantidad pedida, cuánto se entregó hasta ahora y cuánto queda pendiente. Haciendo clic sobre el número de la columna "Entregada" de cualquier producto, se despliega qué entrega (o entregas) confirmadas corresponden a esa cantidad, con su fecha.</p>
@@ -267,10 +279,23 @@
         <td>¿Qué diferencia hay entre bajar la cantidad con "Ajustar Pedido" y bajarla con "A Preparar"?</td>
         <td>"Ajustar Pedido" corrige lo que el cliente pidió (cambia el pedido en sí, de inmediato). "A Preparar" solo decide cuánto de eso vas a incluir en la entrega que estás armando ahora; no toca el pedido.</td>
     </tr>
+    <tr>
+        <td>¿En qué momento baja el stock?</td>
+        <td>Cuando confirmás el remito. Guardar el remito sin confirmar no mueve stock.</td>
+    </tr>
 </table>
+
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="ventas_pedidos.html">Pedidos de Clientes</a></li>
+    <li><a href="ventas_remitos.html">Remitos de Pedidos</a></li>
+    <li><a href="ventas_remitos_pendientes_facturacion.html">Cola de Facturación</a></li>
+    <li><a href="stock_dashboard.html">Dashboard de Stock</a></li>
+</ul>
 
 <footer>
     Manual de usuario — Módulo Ventas / Gestión de Pedidos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
 </footer>
 
 </body>

@@ -1,4 +1,8 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['proveedor_precios.php']]);
+require_once __DIR__ . '/../../core/empresa_config.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -27,7 +31,7 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 92);
 $usuario_id = intval($_SESSION['usuario_id'] ?? 0);
 
@@ -113,7 +117,7 @@ try {
                 'empresa_id' => $empresa_idx,
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'precio_lista' => floatval($_POST['precio_lista'] ?? -1),
-                'moneda_id' => intval($_POST['moneda_id'] ?? 1),
+                'moneda_id' => intval($_POST['moneda_id'] ?? 0),
                 'f_vigencia_desde' => $_POST['f_vigencia_desde'] ?? date('Y-m-d'),
                 'usuario_id' => $usuario_id,
                 'pagina_idx' => $pagina_idx
@@ -181,7 +185,7 @@ try {
             $producto_id = intval($_POST['producto_id'] ?? 0);
             $entidad_id = intval($_POST['entidad_id'] ?? 0);
             $costo_neto_compra = floatval($_POST['costo_neto_compra'] ?? -1);
-            $moneda_id = intval($_POST['moneda_id'] ?? 1);
+            $moneda_id = emp_moneda_id($conexion, $empresa_idx, $_POST['moneda_id'] ?? 0);
 
             $resultado = actualizarCostoDesdeListaProveedor($conexion, $producto_id, $empresa_idx, $entidad_id, $costo_neto_compra, $moneda_id, $usuario_id);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
@@ -207,7 +211,7 @@ try {
             $producto_id = intval($_POST['producto_id'] ?? 0);
             $entidad_id = intval($_POST['entidad_id'] ?? 0);
             $costo_neto_compra = floatval($_POST['costo_neto_compra'] ?? -1);
-            $moneda_id = intval($_POST['moneda_id'] ?? 1);
+            $moneda_id = emp_moneda_id($conexion, $empresa_idx, $_POST['moneda_id'] ?? 0);
 
             $categorias = obtenerCategoriasPorProductos($conexion, [$producto_id]);
             $categoria_id = $categorias[$producto_id] ?? 0;
@@ -261,6 +265,31 @@ try {
             ];
             $resultado = aplicarPorcentajeListaFiltrados($conexion, $empresa_idx, $entidad_id, $pagina_idx, $filtros, $porcentaje, $usuario_id);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        // Botón "Armar lista desde precios": vista previa (no graba) y
+        // generación. base = lista_precio_id de una lista de venta, o COSTO.
+        case 'obtener_listas_precios':
+            echo json_encode(['success' => true, 'data' => obtenerListasPreciosActivas($conexion, $empresa_idx), 'message' => ''], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'armar_lista_calcular':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            $base = (string)($_GET['base'] ?? '');
+            echo json_encode(calcularArmadoListaProveedor($conexion, $empresa_idx, $entidad_id, $base), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'armar_lista_generar':
+            $entidad_id = intval($_POST['entidad_id'] ?? 0);
+            $base = (string)($_POST['base'] ?? '');
+            $ids = null;
+            if (isset($_POST['producto_proveedor_ids'])) {
+                $ids = json_decode($_POST['producto_proveedor_ids'], true);
+                if (!is_array($ids)) {
+                    manejarError('Selección de productos inválida', 400);
+                }
+            }
+            echo json_encode(armarListaProveedorDesdePrecios($conexion, $empresa_idx, $entidad_id, $base, $usuario_id, $pagina_idx, $ids), JSON_UNESCAPED_UNICODE);
             break;
 
         default:

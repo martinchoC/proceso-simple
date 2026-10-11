@@ -130,7 +130,44 @@ function arca_validar_par_certificado($ruta_certificado, $ruta_clave)
 }
 
 // Archivos .crt / .pem / .key disponibles bajo arca/ (para los combos del ABM).
-function arca_listar_archivos_certificados()
+// El certificado de ARCA es de cada empresa: con $cuit solo se listan los certificados emitidos para ese
+// CUIT y las claves privadas que corresponden a alguno de ellos (nunca los de otra empresa).
+function arca_listar_archivos_certificados($cuit = null)
+{
+    $archivos = arca_listar_archivos_certificados_todos();
+    if ($cuit === null) {
+        return $archivos;
+    }
+    $cuit = preg_replace('/\D/', '', (string)$cuit);
+    $propios = ['certificados' => [], 'claves' => []];
+    if ($cuit === '') {
+        return $propios;
+    }
+    $x509s = [];
+    foreach ($archivos['certificados'] as $ruta) {
+        $info = arca_info_certificado($ruta);
+        if (!empty($info['ok']) && $info['cuit'] === $cuit) {
+            $propios['certificados'][] = $ruta;
+            $x509s[] = openssl_x509_read(file_get_contents(arca_resolver_ruta($ruta)));
+        }
+    }
+    foreach ($archivos['claves'] as $ruta) {
+        $absoluta = arca_resolver_ruta($ruta);
+        $pkey = $absoluta ? @openssl_pkey_get_private(file_get_contents($absoluta)) : false;
+        if ($pkey === false) {
+            continue;
+        }
+        foreach ($x509s as $x509) {
+            if ($x509 !== false && openssl_x509_check_private_key($x509, $pkey)) {
+                $propios['claves'][] = $ruta;
+                break;
+            }
+        }
+    }
+    return $propios;
+}
+
+function arca_listar_archivos_certificados_todos()
 {
     $raiz = realpath(dirname(__DIR__));
     $archivos = ['certificados' => [], 'claves' => []];
@@ -239,8 +276,11 @@ function arca_registrar_resultado($conexion, $cfg, $operacion_codigo, $datos)
     $codigo = isset($datos['codigo']) ? mb_substr((string)$datos['codigo'], 0, 100) : null;
     $resultado = $datos['resultado'] ?? 'ERROR';
     $descripcion = isset($datos['descripcion']) ? mb_substr((string)$datos['descripcion'], 0, 500) : null;
-    $referencia_tipo = $datos['referencia_tipo'] ?? 'gestion__integraciones_empresas';
-    $referencia_id = isset($datos['referencia_id']) ? intval($datos['referencia_id']) : intval($cfg['integracion_empresa_id']);
+    // Referencia del registro de negocio: la llamada puede fijarla en $cfg (p. ej. la factura que
+    // pide CAE) para que todo el histórico de esa operación quede atado a ese registro.
+    $referencia_tipo = $datos['referencia_tipo'] ?? ($cfg['referencia_tipo'] ?? 'gestion__integraciones_empresas');
+    $referencia_id = isset($datos['referencia_id']) ? intval($datos['referencia_id'])
+        : intval($cfg['referencia_id'] ?? $cfg['integracion_empresa_id']);
     $intento = intval($datos['intento'] ?? 1);
     $fecha_solicitud = $datos['fecha_hora_solicitud'] ?? date('Y-m-d H:i:s');
     $fecha_respuesta = $datos['fecha_hora_respuesta'] ?? null;
@@ -790,6 +830,27 @@ function arca_wsfe_ptos_venta($conexion, $cfg)
     return $r;
 }
 
+// Tipos de tributo (FEParamGetTiposTributos): códigos para <Tributos> (percepciones IIBB, etc.).
+function arca_wsfe_tipos_tributos($conexion, $cfg)
+{
+    $r = arca_wsfe_llamar($conexion, $cfg, 'FEParamGetTiposTributos', '', 'wsfe_tipos_tributos');
+    if (!isset($r['xml'])) {
+        return $r;
+    }
+    $tipos = [];
+    foreach ($r['xml']->xpath('//*[local-name()="TributoTipo"]') as $t) {
+        $tipos[] = [
+            'Id' => arca_xml_valor($t, 'Id'),
+            'Desc' => arca_xml_valor($t, 'Desc'),
+            'FchDesde' => arca_xml_valor($t, 'FchDesde'),
+            'FchHasta' => arca_xml_valor($t, 'FchHasta')
+        ];
+    }
+    $r['data'] = ['tipos_tributos' => $tipos];
+    unset($r['xml']);
+    return $r;
+}
+
 // Último número autorizado para punto de venta + tipo de comprobante.
 function arca_wsfe_ultimo_autorizado($conexion, $cfg, $pto_vta, $cbte_tipo)
 {
@@ -842,6 +903,11 @@ function arca_wsfe_comp_consultar($conexion, $cfg, $pto_vta, $cbte_tipo, $cbte_n
 // Solicitud de CAE para UN comprobante. El número se toma de FECompUltimoAutorizado + 1.
 // $datos: pto_vta, cbte_tipo, concepto, doc_tipo, doc_nro, condicion_iva_receptor_id,
 //         imp_total, imp_neto, imp_iva, alicuota_iva_id (5 = 21%), fecha (Ymd)
+//         opcionales: alicuotas ([['id', 'base', 'importe'], ...] en lugar de alicuota_iva_id,
+//         para varias alícuotas), imp_tot_conc (no gravado), imp_op_ex (exento) y
+//         tributos ([['id', 'desc', 'base', 'alic', 'importe'], ...]) + imp_trib (percepciones),
+//         cbte_nro_esperado (si el próximo número de ARCA no es ese, no se envía la solicitud:
+//         quien llama ya validó ese número contra su propia numeración).
 // Resultado: ['ok', 'data' => [Resultado A/R, CAE, CAEFchVto, CbteNro, observaciones], 'timeout', 'error']
 // Ante timeout NO reintenta: hay que conciliar con arca_wsfe_comp_consultar.
 function arca_wsfe_solicitar_cae($conexion, $cfg, $datos)
@@ -854,17 +920,49 @@ function arca_wsfe_solicitar_cae($conexion, $cfg, $datos)
         return ['ok' => false, 'error' => 'No se pudo obtener el último autorizado: ' . $ultimo['error']];
     }
     $numero = intval($ultimo['data']['CbteNro']) + 1;
+    if (!empty($datos['cbte_nro_esperado']) && intval($datos['cbte_nro_esperado']) !== $numero) {
+        return [
+            'ok' => false,
+            'error' => 'ARCA asignaría el número ' . $numero . ' y se esperaba el ' . intval($datos['cbte_nro_esperado'])
+                . ': otro comprobante se autorizó en el medio. Reintente.',
+            'data' => ['PtoVta' => $pto_vta, 'CbteTipo' => $cbte_tipo, 'CbteNro' => $numero, 'Resultado' => 'ERROR']
+        ];
+    }
 
     $fmt = function ($n) {
         return number_format((float)$n, 2, '.', '');
     };
+    $alicuotas = $datos['alicuotas'] ?? null;
+    if ($alicuotas === null && (float)$datos['imp_iva'] > 0) {
+        $alicuotas = [['id' => $datos['alicuota_iva_id'], 'base' => $datos['imp_neto'], 'importe' => $datos['imp_iva']]];
+    }
     $iva = '';
-    if ((float)$datos['imp_iva'] > 0) {
-        $iva = '<ar:Iva><ar:AlicIva>'
-            . '<ar:Id>' . intval($datos['alicuota_iva_id']) . '</ar:Id>'
-            . '<ar:BaseImp>' . $fmt($datos['imp_neto']) . '</ar:BaseImp>'
-            . '<ar:Importe>' . $fmt($datos['imp_iva']) . '</ar:Importe>'
-            . '</ar:AlicIva></ar:Iva>';
+    if (!empty($alicuotas)) {
+        $iva = '<ar:Iva>';
+        foreach ($alicuotas as $alic) {
+            $iva .= '<ar:AlicIva>'
+                . '<ar:Id>' . intval($alic['id']) . '</ar:Id>'
+                . '<ar:BaseImp>' . $fmt($alic['base']) . '</ar:BaseImp>'
+                . '<ar:Importe>' . $fmt($alic['importe']) . '</ar:Importe>'
+                . '</ar:AlicIva>';
+        }
+        $iva .= '</ar:Iva>';
+    }
+
+    // Otros tributos (percepciones IIBB practicadas, etc.): [['id', 'desc', 'base', 'alic', 'importe'], ...]
+    $tributos = '';
+    if (!empty($datos['tributos'])) {
+        $tributos = '<ar:Tributos>';
+        foreach ($datos['tributos'] as $t) {
+            $tributos .= '<ar:Tributo>'
+                . '<ar:Id>' . intval($t['id']) . '</ar:Id>'
+                . '<ar:Desc>' . htmlspecialchars((string)$t['desc'], ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</ar:Desc>'
+                . '<ar:BaseImp>' . $fmt($t['base']) . '</ar:BaseImp>'
+                . '<ar:Alic>' . $fmt($t['alic']) . '</ar:Alic>'
+                . '<ar:Importe>' . $fmt($t['importe']) . '</ar:Importe>'
+                . '</ar:Tributo>';
+        }
+        $tributos .= '</ar:Tributos>';
     }
 
     $cuerpo = '<ar:FeCAEReq>'
@@ -877,14 +975,15 @@ function arca_wsfe_solicitar_cae($conexion, $cfg, $datos)
         . '<ar:CbteHasta>' . $numero . '</ar:CbteHasta>'
         . '<ar:CbteFch>' . preg_replace('/\D/', '', (string)$datos['fecha']) . '</ar:CbteFch>'
         . '<ar:ImpTotal>' . $fmt($datos['imp_total']) . '</ar:ImpTotal>'
-        . '<ar:ImpTotConc>0.00</ar:ImpTotConc>'
+        . '<ar:ImpTotConc>' . $fmt($datos['imp_tot_conc'] ?? 0) . '</ar:ImpTotConc>'
         . '<ar:ImpNeto>' . $fmt($datos['imp_neto']) . '</ar:ImpNeto>'
-        . '<ar:ImpOpEx>0.00</ar:ImpOpEx>'
-        . '<ar:ImpTrib>0.00</ar:ImpTrib>'
+        . '<ar:ImpOpEx>' . $fmt($datos['imp_op_ex'] ?? 0) . '</ar:ImpOpEx>'
+        . '<ar:ImpTrib>' . $fmt($datos['imp_trib'] ?? 0) . '</ar:ImpTrib>'
         . '<ar:ImpIVA>' . $fmt($datos['imp_iva']) . '</ar:ImpIVA>'
         . '<ar:MonId>PES</ar:MonId>'
         . '<ar:MonCotiz>1</ar:MonCotiz>'
         . '<ar:CondicionIVAReceptorId>' . intval($datos['condicion_iva_receptor_id']) . '</ar:CondicionIVAReceptorId>'
+        . $tributos
         . $iva
         . '</ar:FECAEDetRequest></ar:FeDetReq>'
         . '</ar:FeCAEReq>';

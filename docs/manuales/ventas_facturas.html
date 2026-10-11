@@ -28,6 +28,8 @@
     h1 { font-size: 1.75rem; margin-bottom: 4px; }
     h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
     h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
     .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
     .card {
         border: 1px solid var(--gris-borde);
@@ -45,6 +47,7 @@
     }
     .alert-info { background: #cfe2ff; color: #084298; }
     .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
     .badge {
         display: inline-block;
         padding: 3px 10px;
@@ -78,8 +81,8 @@
         margin: 20px 0 30px;
     }
     .toc ul { margin: 6px 0 0; padding-left: 20px; }
-    .toc a { color: var(--azul); text-decoration: none; }
-    .toc a:hover { text-decoration: underline; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
     .boton-ejemplo {
         display: inline-block;
         padding: 4px 12px;
@@ -90,6 +93,7 @@
         margin: 2px 4px 2px 0;
     }
     .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
     .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
     .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
     .flujo {
@@ -108,7 +112,10 @@
         font-size: 0.9rem;
         text-align: center;
     }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
     .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-caja.alerta { border-color: var(--amarillo); background: #fff8e1; }
     .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
     .nota-lateral {
         border-left: 3px solid var(--azul);
@@ -124,12 +131,15 @@
         color: var(--texto-muted);
         font-size: 0.85rem;
     }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } }
 </style>
 </head>
 <body>
 
+<a class="volver" href="index.html">← Volver al índice</a>
+
 <h1><i class="fas fa-file-invoice-dollar"></i> Manual de usuario: Facturación</h1>
-<p class="subtitulo">Cómo emitir Facturas, Notas de Crédito y Notas de Débito a tus clientes desde una sola pantalla, y cómo seguir su estado hasta quedar confirmadas.</p>
+<p class="subtitulo">Cómo emitir Facturas, Notas de Crédito y Notas de Débito a tus clientes desde una sola pantalla, cómo seguir su estado hasta quedar confirmadas (con o sin ARCA) y cómo cobrarlas.</p>
 
 <div class="toc">
     <strong>Contenido</strong>
@@ -140,103 +150,199 @@
         <li><a href="#estados">Estados y flujo del comprobante</a></li>
         <li><a href="#botones">Botones disponibles</a></li>
         <li><a href="#crear">Crear un comprobante nuevo</a></li>
+        <li><a href="#consumidor-final">Venta a Consumidor Final</a></li>
+        <li><a href="#notas-credito">Notas de crédito y débito: comprobante asociado</a></li>
         <li><a href="#remitos">Facturar desde Remitos</a></li>
         <li><a href="#editar-visualizar">Editar y visualizar un comprobante</a></li>
         <li><a href="#confirmar-aprobar">Confirmar y Aprobar</a></li>
+        <li><a href="#arca">Facturación electrónica con ARCA (si tu empresa la tiene habilitada)</a></li>
+        <li><a href="#volver-borrador">Volver a Borrador</a></li>
+        <li><a href="#cobrar">Cobrar una factura (solapa Medios de Pago)</a></li>
+        <li><a href="#asiento">Solapa Asiento Contable</a></li>
         <li><a href="#eliminar">Eliminar un comprobante</a></li>
         <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
     </ul>
 </div>
 
 <h2 id="que-es">¿Qué es esta pantalla?</h2>
-<p>La pantalla de <strong>Facturación</strong> es donde emitís los tres tipos de comprobante que le das a un cliente: <strong>Facturas</strong>, <strong>Notas de Crédito</strong> y <strong>Notas de Débito</strong>. Los tres se cargan con el mismo formulario — no hay una pantalla separada para cada uno. Podés armar un comprobante a partir de remitos ya entregados y pendientes de facturar, agregar productos sueltos a mano, o combinar ambas cosas.</p>
+<p>La pantalla de <strong>Facturación</strong> es donde emitís los tres tipos de comprobante que le das a un cliente: <strong>Facturas</strong>, <strong>Notas de Crédito</strong> y <strong>Notas de Débito</strong>. Los tres se cargan con el mismo formulario — no hay una pantalla separada para cada uno. Podés armar un comprobante a partir de remitos ya entregados y pendientes de facturar, agregar productos sueltos a mano, o combinar ambas cosas. También podés cobrar la factura desde acá mismo.</p>
 
 <h2 id="pantalla-principal">La pantalla principal</h2>
 <p>Al entrar ves un listado con todos los comprobantes cargados. Cada fila muestra:</p>
 <table class="tabla-referencia">
     <tr><th>Columna</th><th>Qué muestra</th></tr>
-    <tr><td>Número</td><td>Número del comprobante. Mientras el comprobante sigue en Borrador todavía no tiene uno asignado (ver más abajo)</td></tr>
-    <tr><td>Cliente</td><td>Nombre del cliente y, debajo, su nombre de fantasía si tiene uno</td></tr>
+    <tr><td>Número</td><td>Número del comprobante. Si todavía no tiene, se ve "Sin número" (Borrador) o "Pend. CAE" (esperando la autorización de ARCA, ver más abajo).</td></tr>
+    <tr><td>Cliente</td><td>Nombre del cliente y, debajo, su nombre de fantasía si tiene uno. En las ventas a consumidor final se ve el nombre cargado y la leyenda "Consumidor Final".</td></tr>
     <tr><td>Tipo</td><td>Factura A/B/X, Nota de Crédito A/B/X o Nota de Débito A/B/X, según lo que se haya elegido al cargarlo</td></tr>
     <tr><td>Emisión</td><td>Fecha de emisión</td></tr>
     <tr><td>Condición De Pago</td><td>Condición de pago del cliente aplicada a ese comprobante</td></tr>
     <tr><td>Total</td><td>Importe total del comprobante</td></tr>
-    <tr><td>Estado</td><td>Borrador, Pendiente de Aprobación, Confirmado o Eliminado (ver el flujo completo más abajo)</td></tr>
+    <tr><td>Estado</td><td>Borrador, Pendiente de Aprobación, Confirmado, Cancelado parcial, Cancelado total o Eliminado (ver el flujo completo más abajo)</td></tr>
     <tr><td>Acciones</td><td>Los botones disponibles para esa fila, según su estado actual</td></tr>
 </table>
-<p>Arriba de la tabla están el botón <span class="boton-ejemplo boton-primario">+ Nueva Factura</span> para cargar un comprobante nuevo, y el botón de recargar (<span class="boton-ejemplo boton-outline">↻</span>) para actualizar el listado sin recargar toda la página.</p>
+<p>Arriba de la tabla están el botón <span class="boton-ejemplo boton-primario">+ Nueva Factura</span> para cargar un comprobante nuevo, el buscador <strong>"Buscar factura / cliente..."</strong> para filtrar el listado mientras escribís, y el botón de recargar (<span class="boton-ejemplo boton-outline">↻</span>) para actualizar el listado sin recargar toda la página.</p>
 
 <h2 id="tres-tipos">Factura, Nota de Crédito o Nota de Débito: cómo se elige</h2>
 <p>Esto suele ser lo más confuso al empezar a usar la pantalla, así que conviene tenerlo claro: <strong>no hay un botón separado para cada tipo de comprobante</strong>. Se elige adentro del mismo formulario "Nueva Factura De Cliente" (ese es el título del formulario siempre, incluso cuando el comprobante que estás armando termina siendo una Nota de Crédito o una Nota de Débito), con dos campos que van en cadena:</p>
 <table class="tabla-referencia">
     <tr><th>Campo</th><th>Qué define</th></tr>
     <tr><td>Punto De Venta</td><td>El local o punto de venta desde el que se emite. Cada punto de venta tiene configurado de antemano qué tipos de comprobante puede emitir</td></tr>
-    <tr><td>Tipo Comprobante</td><td>Se completa <em>después</em> de elegir el Punto De Venta, y ahí aparecen todas las opciones habilitadas para ese punto: Factura, Nota de Crédito y Nota de Débito, cada una en su letra fiscal (A, B o X)</td></tr>
+    <tr><td>Tipo Comprobante</td><td>Se completa <em>después</em> de elegir el Punto De Venta, y ahí aparecen las opciones habilitadas para ese punto y que corresponden a la condición fiscal del cliente: Factura, Nota de Crédito y Nota de Débito, cada una en su letra fiscal (A, B o X)</td></tr>
 </table>
 <div class="nota-lateral">Por ejemplo, un punto de venta puede tener habilitadas seis opciones en "Tipo Comprobante": Factura A, Nota de Crédito A, Nota de Débito A, Factura B, Nota de Crédito B y Nota de Débito B. Elegir una u otra es lo único que decide si estás emitiendo una factura, una nota de crédito o una nota de débito — el resto del formulario (elegir cliente, agregar productos, revisar totales) funciona exactamente igual para los tres.</div>
 <div class="alert alert-info">La letra (A, B o X) es una clasificación fiscal que ya viene configurada en el sistema según el punto de venta y el tipo de comprobante — no es algo que elijas vos en cada comprobante.</div>
-<p>Como el formulario es idéntico para los tres tipos, tené en cuenta que el sistema <strong>no</strong> cambia el signo del total ni el comportamiento de la carga de productos por elegir una Nota de Crédito en vez de una Factura: cargás cantidades y precios de la misma manera en los tres casos. Revisá bien el campo "Tipo Comprobante" antes de guardar.</p>
+<p>En la carga, los tres tipos se completan igual: cantidades y precios siempre positivos. La diferencia está en el efecto: una <strong>Nota de Crédito</strong> resta de lo que el cliente debe (y, si es por devolución de mercadería, la vuelve a sumar al stock); una <strong>Nota de Débito</strong> suma a lo que debe. Revisá bien el campo "Tipo Comprobante" antes de guardar.</p>
 
 <h2 id="estados">Estados y flujo del comprobante</h2>
 <p>Todo comprobante nuevo arranca como <strong>Borrador</strong>: podés seguir editándolo, agregarle o sacarle productos, y hasta eliminarlo. Recién cuando lo das por terminado y lo confirmás, avanza de estado y deja de poder modificarse:</p>
 <div class="flujo">
     <div class="flujo-caja">Borrador</div>
     <div class="flujo-flecha">→</div>
-    <div class="flujo-caja">Pendiente de Aprobación</div>
+    <div class="flujo-caja alerta">Pendiente de Aprobación<small>con ARCA: esperando el CAE</small></div>
     <div class="flujo-flecha">→</div>
-    <div class="flujo-caja">Confirmado</div>
+    <div class="flujo-caja final">Confirmado</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Cancelado parcial / total<small>según lo cobrado</small></div>
 </div>
 <div class="flujo">
     <div class="flujo-caja">Borrador</div>
     <div class="flujo-flecha">→</div>
     <div class="flujo-caja inactivo">Eliminado</div>
 </div>
-<p>En criollo: <strong>Borrador</strong> es el comprobante todavía "en carpeta" (se puede tocar todo, o eliminarlo). Al apretar <strong>Confirmar</strong> pasa a <strong>Pendiente de Aprobación</strong> y ahí recién se le asigna el número definitivo. Al apretar <strong>Aprobada</strong> pasa a <strong>Confirmado</strong>, que es su estado final: ya no se puede editar, eliminar ni desconfirmar desde esta pantalla.</p>
+<div class="flujo">
+    <div class="flujo-caja alerta">Pendiente de Aprobación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Borrador<small>"Volver a Borrador", solo facturas fiscales sin CAE</small></div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td>Borrador</td><td>El comprobante todavía está "en carpeta": se puede tocar todo, o eliminarlo. No tiene número, no figura en la cuenta del cliente y no mueve stock.</td></tr>
+    <tr><td>Pendiente de Aprobación</td><td>Ya se confirmó: no se puede editar y los remitos de origen ya se actualizaron. <strong>Sin ARCA</strong>, ya tiene número interno y falta tocar "Aprobada". <strong>Con ARCA</strong>, una factura fiscal (A/B/C) todavía no tiene número: lo da ARCA cuando la aprobás (en el listado se ve "Pend. CAE").</td></tr>
+    <tr><td>Confirmado</td><td>Comprobante firme: ya cuenta en la cuenta corriente del cliente, ya movió stock (si corresponde) y se puede cobrar.</td></tr>
+    <tr><td>Cancelado parcial</td><td>Se cobró una parte (o se le aplicó una nota de crédito). Queda saldo pendiente.</td></tr>
+    <tr><td>Cancelado total</td><td>Se cobró todo. Estos dos últimos estados los pone el sistema solo, según los cobros.</td></tr>
+    <tr><td>Eliminado</td><td>Se dio de baja estando en Borrador.</td></tr>
+</table>
 
 <h2 id="botones">Botones disponibles</h2>
 <table class="tabla-referencia">
     <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
     <tr><td>Editar</td><td>Abre el comprobante para modificar cliente, productos, cantidades, fechas, etc.</td><td>Solo mientras está en Borrador</td></tr>
-    <tr><td>Visualizar</td><td>Abre el comprobante en modo solo lectura, sin poder tocar nada</td><td>En cualquier estado</td></tr>
-    <tr><td>Confirmar</td><td>Fija los productos y montos, le asigna el número definitivo y lo pasa a Pendiente de Aprobación</td><td>Solo en Borrador</td></tr>
-    <tr><td>Aprobada</td><td>Pasa el comprobante a Confirmado, su estado final</td><td>Solo en Pendiente de Aprobación</td></tr>
+    <tr><td>Visualizar</td><td>Abre el comprobante en modo solo lectura, sin poder tocar nada</td><td>En cualquier estado (salvo Eliminado)</td></tr>
+    <tr><td>Confirmar</td><td>Fija los productos y montos, y lo pasa a Pendiente de Aprobación. Sin ARCA, le asigna el número definitivo</td><td>Solo en Borrador</td></tr>
+    <tr><td>Aprobada</td><td>Lo pasa a Confirmado. Con ARCA habilitado, en una factura fiscal primero pide el CAE (ver <a href="#arca">más abajo</a>)</td><td>Solo en Pendiente de Aprobación</td></tr>
+    <tr><td>Volver a Borrador</td><td>Devuelve a Borrador una factura fiscal que todavía no tiene CAE (por ejemplo, rechazada por ARCA), para corregirla</td><td>Pendiente de Aprobación</td></tr>
+    <tr><td>Cobrar</td><td>Abre el comprobante en la solapa <strong>Medios de Pago</strong> para emitir un recibo</td><td>Confirmado y Cancelado parcial</td></tr>
     <tr><td>Eliminar</td><td>Da de baja el comprobante y libera lo que tenía tomado de los remitos, para que vuelvan a estar disponibles para facturar</td><td>Solo en Borrador</td></tr>
-    <tr><td>Imprimir</td><td>Debería emitir el comprobante impreso/PDF (ver la limitación explicada más abajo)</td><td>Solo en Confirmado</td></tr>
+    <tr><td>Imprimir</td><td>Debería emitir el comprobante impreso/PDF (hoy muestra el aviso "Impresión pendiente")</td><td>Confirmado, Cancelado parcial y Cancelado total</td></tr>
 </table>
 <p>Estos mismos botones (salvo el que acabás de usar para llegar ahí) también están disponibles adentro del formulario, cuando abrís un comprobante para editarlo o visualizarlo — no hace falta cerrarlo y volver al listado para confirmarlo, aprobarlo o eliminarlo.</p>
-<div class="nota-lateral">Las acciones que cambian de estado (Confirmar, Aprobada, Eliminar) siempre piden una confirmación antes de ejecutarse. Editar, Visualizar e Imprimir no la piden.</div>
+<div class="nota-lateral">Las acciones que cambian de estado (Confirmar, Aprobada, Volver a Borrador, Eliminar) piden una confirmación antes de ejecutarse. Editar, Visualizar, Cobrar e Imprimir no la piden. Los botones que ves dependen también de los permisos de tu perfil.</div>
 
 <h2 id="crear">Crear un comprobante nuevo</h2>
-<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Factura</span> se abre el formulario en blanco. El orden recomendado para cargarlo:</p>
+<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Factura</span> se abre el formulario en blanco, en la solapa <strong>Factura</strong>. El orden recomendado para cargarlo:</p>
 <table class="tabla-referencia">
     <tr><th>Campo</th><th>Para qué sirve</th></tr>
-    <tr><td>Cliente</td><td>Al elegirlo se cargan automáticamente su condición de pago vigente, su lista de precios y su descuento general (se muestran en un cuadro celeste arriba del detalle), y se buscan sus remitos pendientes de facturar</td></tr>
+    <tr><td>Cliente</td><td>Al elegirlo se cargan automáticamente su condición de pago vigente, su lista de precios y su descuento general (se muestran en un cuadro arriba del detalle), y se buscan sus remitos pendientes de facturar. La primera opción, "Consumidor Final (precio de mostrador)", es para ventas sin cliente registrado (ver <a href="#consumidor-final">más abajo</a>).</td></tr>
+    <tr><td>Condición De Pago</td><td>Viene la del cliente; se puede cambiar.</td></tr>
     <tr><td>Fecha Emisión</td><td>Por defecto trae la fecha de hoy</td></tr>
     <tr><td>Vencimiento</td><td>Se calcula solo a partir de la condición de pago del cliente; nunca puede quedar antes que la fecha de emisión</td></tr>
     <tr><td>Punto De Venta</td><td>Define qué tipos de comprobante vas a poder elegir a continuación</td></tr>
     <tr><td>Tipo Comprobante</td><td>Acá elegís si es Factura, Nota de Crédito o Nota de Débito (ver la sección anterior)</td></tr>
-    <tr><td>Número</td><td>Muestra "Se asigna al confirmar" — no se completa a mano, se asigna solo cuando confirmás el comprobante</td></tr>
+    <tr><td>Comprobante asociado</td><td>Solo aparece si elegiste una Nota de Crédito o de Débito (ver <a href="#notas-credito">más abajo</a>)</td></tr>
+    <tr><td>Número</td><td>Muestra "Se asigna al confirmar" — no se completa a mano. Con ARCA, en una factura fiscal muestra "Lo asigna ARCA con el CAE". Una vez autorizada, debajo se ve el CAE y su vencimiento</td></tr>
 </table>
 <p>Después cargás los productos, de dos formas que se pueden combinar:</p>
 <ul>
-    <li><strong>Desde remitos pendientes:</strong> la tabla "Remitos Pendientes De Facturar" lista las líneas de remitos ya entregados a ese cliente que todavía no se facturaron. Para incluir una línea, escribí la cantidad a facturar en su casillero (o usá los botones <strong>−</strong> / <strong>+</strong>); dejarla en 0 la saca del comprobante. La columna "Cantidad Pendiente" te muestra el máximo disponible de esa línea.</li>
-    <li><strong>Producto manual:</strong> en el buscador de la tarjeta de abajo, escribí código o nombre del producto, elegí uno de los resultados, ajustá cantidad, precio y descuento si hace falta, y hacé clic en <span class="boton-ejemplo boton-outline">Agregar</span>. Sirve para vender algo que no vino de ningún remito.</li>
+    <li><strong>Desde remitos pendientes:</strong> la tabla "Remitos Pendientes De Facturar" lista las líneas de remitos ya entregados a ese cliente que todavía no se facturaron. Para incluir una línea, escribí la cantidad a facturar en su casillero (o usá los botones <strong>−</strong> / <strong>+</strong>); dejarla en 0 la saca del comprobante. La columna "Cantidad Pendiente" te muestra el máximo disponible de esa línea. Acá podés juntar varios remitos del mismo cliente en una sola factura.</li>
+    <li><strong>Producto manual:</strong> en el buscador de la tarjeta de abajo, escribí código, nombre o compatibilidad del producto (por ejemplo "amortiguador s-10 1999"), elegí uno de los resultados, ajustá cantidad, precio y descuento si hace falta, y hacé clic en <span class="boton-ejemplo boton-outline">Agregar</span>. Sirve para vender algo que no vino de ningún remito.</li>
 </ul>
-<div class="nota-lateral">El buscador de productos solo funciona una vez elegido el cliente, porque busca dentro de la lista de precios que le corresponde a ese cliente.</div>
-<p>Abajo del detalle vas viendo en todo momento el resumen de <strong>Bruto</strong>, <strong>Descuento</strong>, <strong>Neto</strong>, <strong>IVA</strong> y <strong>Total A Pagar</strong>, que se recalcula solo con cada cambio de cantidad. Con <span class="boton-ejemplo boton-primario">Guardar Factura</span> el comprobante queda grabado en estado Borrador.</p>
+<div class="nota-lateral">El buscador de productos solo funciona una vez elegido el cliente (o Consumidor Final), porque busca dentro de la lista de precios que le corresponde.</div>
+<p>Abajo del detalle vas viendo en todo momento el resumen de <strong>Bruto</strong>, <strong>Descuento</strong>, <strong>Neto</strong>, <strong>IVA</strong> y <strong>Total A Pagar</strong>, que se recalcula solo con cada cambio de cantidad. Podés escribir <strong>Observaciones</strong>. Con <span class="boton-ejemplo boton-primario">Guardar Factura</span> el comprobante queda grabado en estado Borrador.</p>
+
+<h2 id="consumidor-final">Venta a Consumidor Final</h2>
+<p>Si en Cliente elegís <strong>Consumidor Final (precio de mostrador)</strong>, aparece el campo <strong>Nombre Del Consumidor Final</strong> para escribir a quién se le vendió. Se usa la lista de precios de mostrador, sin descuento general, y la venta es siempre de contado.</p>
+<ul>
+    <li>Cuando una <strong>factura</strong> a consumidor final queda Confirmada, el sistema registra solo el cobro en efectivo en la caja de la sucursal (recibo automático). Vas a ver el mensaje "Cobro de contado registrado en caja (recibo N° …)".</li>
+    <li>Cuando una <strong>nota de crédito</strong> a consumidor final queda Confirmada, el sistema registra solo la devolución del dinero en efectivo desde la caja.</li>
+    <li>Estas ventas no tienen cuenta corriente: no se cobran con la solapa Medios de Pago.</li>
+</ul>
+
+<h2 id="notas-credito">Notas de crédito y débito: comprobante asociado</h2>
+<p>Al elegir un tipo de Nota de Crédito o de Débito aparece el campo <strong>Comprobante asociado</strong>: una lista con las facturas confirmadas de ese cliente (número, fecha, total y saldo). Elegí a qué factura corresponde la nota, o dejá "Sin comprobante asociado".</p>
+<ul>
+    <li>Si la nota de crédito tiene una factura asociada <strong>con saldo</strong>, al quedar Confirmada se le aplica sola (se genera un recibo en $0 que deja constancia).</li>
+    <li>Si la factura asociada ya no tiene saldo, la nota de crédito queda como saldo a favor del cliente.</li>
+    <li>Al revés: cuando confirmás una factura de un cliente que tiene notas de crédito con saldo, el sistema pregunta <em>"El cliente tiene notas de crédito con saldo"</em> y te deja marcar cuáles imputar. Con <strong>Imputar</strong> se aplican (recibo en $0); con <strong>Ahora no</strong> quedan para después.</li>
+</ul>
 
 <h2 id="remitos">Facturar desde Remitos</h2>
-<p>Además de abrir "Nueva Factura" desde esta pantalla, también podés llegar acá directamente desde la pantalla de <strong>Remitos</strong>: al apretar el botón "Facturado" o "Facturado Parcial" sobre un remito pendiente de facturación, se abre este mismo formulario con el cliente de ese remito ya elegido y sus líneas pendientes precargadas con la cantidad pendiente completa, listas para revisar y guardar. El resto de los remitos pendientes de ese cliente también aparecen en la lista, por si querés sumarlos a la misma factura.</p>
+<p>Además de cargar remitos pendientes desde "Nueva Factura" en esta pantalla, podés facturar un remito puntual sin salir de las pantallas de remitos: el botón <strong>Facturar</strong> de <a href="ventas_remitos.html">Remitos de Pedidos</a> o de la <a href="ventas_remitos_pendientes_facturacion.html">Cola de Facturación</a> abre la solapa "Facturar" del remito, donde armás la factura y la confirmás ahí mismo. Esas facturas aparecen también en este listado.</p>
 <div class="nota-lateral">Un remito solo pasa a "Facturado" (o "Facturación Parcial", si quedó algo sin facturar) cuando <strong>confirmás</strong> la factura — guardarla como Borrador todavía no mueve el estado del remito.</div>
 
 <h2 id="editar-visualizar">Editar y visualizar un comprobante</h2>
 <p>Con <strong>Editar</strong> reabrís el comprobante con todos sus datos cargados, para modificar cliente, productos, fechas o punto de venta — solo disponible mientras está en Borrador. Con <strong>Visualizar</strong> lo abrís en modo lectura: en vez del buscador de remitos pendientes y el agregado manual, ves una tabla simple con los "Productos Incluidos" tal como quedaron cargados, sin poder tocar nada.</p>
 
 <h2 id="confirmar-aprobar">Confirmar y Aprobar</h2>
-<p>Al apretar <strong>Confirmar</strong> sobre un Borrador, el sistema le asigna el número definitivo del comprobante (correlativo por punto de venta y tipo) y lo pasa a "Pendiente de Aprobación". Al apretar <strong>Aprobada</strong>, pasa a "Confirmado", su estado final.</p>
+<p>Son dos pasos:</p>
+<ol>
+    <li><strong>Confirmar</strong> (sobre un Borrador): el comprobante queda fijo y pasa a "Pendiente de Aprobación". Los remitos de origen se actualizan. Si tu empresa <strong>no</strong> usa ARCA, en este paso se le asigna el número definitivo (correlativo por punto de venta y tipo) y el mensaje lo informa ("Número asignado: N").</li>
+    <li><strong>Aprobada</strong>: pasa a "Confirmado". En ese momento la mercadería se descuenta del stock (salvo lo que ya salió con un remito), el comprobante empieza a figurar en la cuenta corriente del cliente y se puede cobrar.</li>
+</ol>
 <div class="alert alert-warning">
-    <strong>Limitación actual:</strong> los botones "Confirmar" y "Aprobada" son pasos manuales del sistema — no hay todavía una conexión automática con ARCA (ex AFIP) que valide el comprobante ante el organismo fiscal. El número que se asigna al Confirmar es un correlativo interno del sistema, no un CAE. Tampoco está implementada la emisión del comprobante impreso o en PDF: el botón "Imprimir" (disponible una vez Confirmado) por ahora solo muestra un aviso de "Impresión pendiente", aclarando que depende de esa integración fiscal todavía no incorporada.
+    <strong>Limitación actual:</strong> todavía no está implementada la emisión del comprobante impreso o en PDF: el botón "Imprimir" por ahora solo muestra un aviso de "Impresión pendiente".
 </div>
+
+<h2 id="arca">Facturación electrónica con ARCA (si tu empresa la tiene habilitada)</h2>
+<p>La conexión con ARCA (ex AFIP) es <strong>opcional</strong>: se activa por empresa, en <a href="empresas_parametros.html">Parámetros de Empresa</a>. Si no está activada, todo funciona como se explicó arriba y el número es un correlativo interno del sistema.</p>
+<p>Con ARCA activada, las <strong>Facturas A, B y C</strong> (en pesos) siguen este camino:</p>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→ Confirmar →</div>
+    <div class="flujo-caja alerta">Pendiente de Aprobación<small>sin número ("Pend. CAE")</small></div>
+    <div class="flujo-flecha">→ Aprobada →</div>
+    <div class="flujo-caja final">Confirmado<small>con número y CAE de ARCA</small></div>
+</div>
+<ul>
+    <li>Al <strong>Confirmar</strong>, el sistema revisa que la factura cumpla lo que ARCA va a exigir (por ejemplo, CUIT del cliente en una Factura A, fecha dentro del rango permitido). Si algo falta, te avisa y la factura sigue en Borrador para que la corrijas. El mensaje de éxito aclara "Queda pendiente de ARCA: al aprobarla se solicita el CAE y se numera".</li>
+    <li>Al tocar <strong>Aprobada</strong> aparece "Aprobando… si corresponde, se solicita el CAE a ARCA. No cierre la ventana." Si ARCA autoriza, ves <em>"Factura autorizada por ARCA. N° 00001-00000123 - CAE … (vence …)"</em> y la factura queda Confirmada, con el número que dio ARCA.</li>
+    <li>Si ARCA la <strong>rechaza</strong>, el mensaje muestra el motivo que informó ARCA. La factura sigue en Pendiente de Aprobación: corregí lo necesario usando <a href="#volver-borrador">Volver a Borrador</a> y volvé a confirmarla.</li>
+    <li>Si hubo un <strong>corte de comunicación</strong>, la factura sigue pendiente. Volvé a tocar Aprobada: el sistema consulta en ARCA si llegó a autorizarla y, si es así, recupera ese mismo CAE sin pedir otro ("Autorización recuperada de ARCA").</li>
+</ul>
+<div class="nota-lateral">Las facturas X (internas) y las notas de crédito y débito no pasan por ARCA desde esta pantalla: siguen el circuito sin ARCA. Las facturas en moneda extranjera tampoco se autorizan todavía.</div>
+<table class="tabla-referencia">
+    <tr><th>Mensaje de ARCA frecuente</th><th>Qué hacer</th></tr>
+    <tr><td>"La Factura A requiere que el cliente tenga CUIT cargado (11 dígitos)."</td><td>Cargá el CUIT en la ficha del <a href="clientes.html">cliente</a> y volvé a confirmar.</td></tr>
+    <tr><td>"ARCA solo acepta facturas con fecha de emisión de hasta 5 días antes o después de hoy…"</td><td>Volvé la factura a Borrador y corregí la fecha.</td></tr>
+    <tr><td>"El punto de venta … no tiene código fiscal de ARCA."</td><td>Consultá con el administrador: falta configurar el punto de venta.</td></tr>
+    <tr><td>"Otra factura de ese punto de venta se está autorizando en ARCA. Reintente en unos segundos."</td><td>Esperá un momento y volvé a tocar Aprobada.</td></tr>
+    <tr><td>"Numeración desincronizada…"</td><td>No sigas aprobando facturas de ese punto de venta y avisá al administrador.</td></tr>
+</table>
+
+<h2 id="volver-borrador">Volver a Borrador</h2>
+<p>Una factura fiscal (A, B, C) en Pendiente de Aprobación que todavía <strong>no tiene CAE</strong> se puede devolver a Borrador con este botón, para corregirla. Con ARCA, pierde el número (lo vuelve a dar ARCA al aprobar); sin ARCA, conserva su número interno. Vas a ver "La factura volvió a Borrador: corríjala y vuelva a confirmarla."</p>
+<div class="alert alert-danger">Una factura que ya tiene CAE no puede volver a Borrador: se anula con una nota de crédito.</div>
+
+<h2 id="cobrar">Cobrar una factura (solapa Medios de Pago)</h2>
+<p>El botón <strong>Cobrar</strong> abre la factura en la solapa <strong>Medios de Pago</strong>. Arriba ves <strong>Total Factura</strong>, <strong>Cobrado / Aplicado</strong> y <strong>Saldo Pendiente</strong>.</p>
+<ol>
+    <li>Elegí <strong>Punto De Venta Del Recibo</strong>, <strong>Tipo De Recibo</strong> y <strong>Fecha Del Recibo</strong>.</li>
+    <li>Con <span class="boton-ejemplo boton-outline">Agregar Medio</span> sumá una fila por cada forma de pago (efectivo, transferencia, cheque, etc.) con su importe. <span class="boton-ejemplo boton-outline">Completar Saldo</span> llena la última fila con lo que falta.</li>
+    <li>Opcional: observaciones del recibo.</li>
+    <li>Tocá <span class="boton-ejemplo boton-exito">Emitir Recibo</span> y confirmá.</li>
+</ol>
+<p>Se emite el recibo ya confirmado e imputado a la factura. La factura pasa sola a Cancelado parcial o Cancelado total. En <strong>Cobros Aplicados</strong> ves todos los recibos y notas de crédito que se le aplicaron.</p>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa</th></tr>
+    <tr><td>"La factura no admite cobros en su estado actual…"</td><td>Todavía no está confirmada y aprobada.</td></tr>
+    <tr><td>"La factura no tiene saldo pendiente de cobro."</td><td>Ya está cobrada.</td></tr>
+    <tr><td>"El total de los medios (…) supera el saldo de la factura (…)."</td><td>No se puede cobrar de más desde la factura. Un anticipo se carga desde <a href="cobranzas.html">Cobranzas</a>.</td></tr>
+    <tr><td>"Las facturas a consumidor final no se cobran con recibo…"</td><td>Se cobran solas al confirmarse (ver <a href="#consumidor-final">Consumidor Final</a>).</td></tr>
+</table>
+
+<h2 id="asiento">Solapa Asiento Contable</h2>
+<p>Muestra el asiento contable que generó el comprobante (cuentas, Debe, Haber y si está balanceado). Se genera solo al confirmar (con ARCA, recién al obtener el CAE). Mientras no exista, la solapa dice "Asiento Contable Pendiente". Es información para el área contable; no hace falta tocar nada.</p>
 
 <h2 id="eliminar">Eliminar un comprobante</h2>
 <p>Con <strong>Eliminar</strong> das de baja un comprobante que todavía está en Borrador. Si había tomado cantidades de algún remito pendiente, esas cantidades se liberan automáticamente y vuelven a estar disponibles para facturarse en otro comprobante. Una vez que un comprobante pasó de Borrador, ya no se puede eliminar desde esta pantalla.</p>
@@ -253,25 +359,43 @@
         <td>Es así en el sistema actualmente: el formulario es el mismo para los tres tipos de comprobante y su título no cambia según lo que elijas en "Tipo Comprobante". Fijate en ese campo, no en el título, para confirmar qué tipo estás cargando.</td>
     </tr>
     <tr>
-        <td>¿Por qué el campo "Número" dice "Se asigna al confirmar"?</td>
-        <td>Porque el número definitivo recién se otorga cuando confirmás el comprobante (sale de Borrador). Así, un borrador que se descarta antes de confirmarse no deja "huecos" en la numeración.</td>
+        <td>¿Por qué el campo "Número" dice "Se asigna al confirmar" (o "Lo asigna ARCA con el CAE")?</td>
+        <td>Porque el número definitivo recién se otorga al confirmar (sin ARCA) o al aprobar y recibir el CAE (con ARCA). Así, un borrador que se descarta no deja "huecos" en la numeración.</td>
     </tr>
     <tr>
         <td>¿Puedo modificar un comprobante ya confirmado?</td>
-        <td>No desde esta pantalla. Una vez que sale de Borrador (Confirmar), solo quedan disponibles Visualizar, Aprobada (si corresponde) e Imprimir.</td>
+        <td>No. Si todavía está en Pendiente de Aprobación y es una factura fiscal sin CAE, usá "Volver a Borrador". Si ya está Confirmado, se corrige con una nota de crédito o débito.</td>
     </tr>
     <tr>
         <td>Guardé la factura pero el remito de origen sigue figurando como pendiente de facturar, ¿está mal?</td>
         <td>No: el remito recién se actualiza a Facturado o Facturación Parcial cuando confirmás la factura, no al guardarla como Borrador.</td>
     </tr>
     <tr>
+        <td>Confirmé la factura pero no aparece en la cuenta corriente del cliente.</td>
+        <td>Falta el segundo paso: <strong>Aprobada</strong>. Recién en Confirmado figura en la <a href="clientes_ctacte.html">cuenta corriente</a>.</td>
+    </tr>
+    <tr>
+        <td>Al aprobar me dice "Stock insuficiente de …".</td>
+        <td>La factura descuenta mercadería que el sistema no tiene en ese depósito. Revisá el stock en el <a href="stock_dashboard.html">Dashboard de Stock</a> o cargá la compra pendiente.</td>
+    </tr>
+    <tr>
         <td>Apreté "Imprimir" y no pasó nada, ¿es un error?</td>
-        <td>No es un error: esa función todavía no está implementada porque depende de la integración fiscal con ARCA/AFIP, que no está incorporada al sistema todavía. El botón muestra un aviso aclarándolo.</td>
+        <td>No es un error: la emisión del comprobante impreso todavía no está implementada. El botón muestra un aviso aclarándolo.</td>
     </tr>
 </table>
 
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="ventas_remitos.html">Remitos de Pedidos</a> y <a href="ventas_remitos_pendientes_facturacion.html">Cola de Facturación</a></li>
+    <li><a href="clientes_ctacte.html">Cuenta Corriente Clientes</a></li>
+    <li><a href="cobranzas.html">Cobranzas</a></li>
+    <li><a href="empresas_parametros.html">Parámetros de Empresa</a> (habilitar ARCA)</li>
+    <li><a href="clientes.html">Clientes</a></li>
+</ul>
+
 <footer>
     Manual de usuario — Módulo Ventas / Facturación. Este documento describe la pantalla tal como funciona en el sistema, incluidas sus limitaciones actuales; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
 </footer>
 
 </body>

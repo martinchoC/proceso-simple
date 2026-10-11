@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * tesoreria_movimientos_model.php
  *
@@ -22,9 +23,9 @@ $conexion = $conn;
 const COMP_TIPO_TRANSFERENCIA = 28; // TB - Transferencia
 const TABLA_COMPROBANTES_ID   = 264;
 
-if (!defined('ESTADO_BORRADOR'))   define('ESTADO_BORRADOR', 2125);
-if (!defined('ESTADO_CONFIRMADO')) define('ESTADO_CONFIRMADO', 2126);
-if (!defined('ESTADO_ANULADO'))    define('ESTADO_ANULADO', 2127);
+if (!defined('ESTADO_BORRADOR'))   define('ESTADO_BORRADOR', 3);
+if (!defined('ESTADO_CONFIRMADO')) define('ESTADO_CONFIRMADO', 5);
+if (!defined('ESTADO_ANULADO'))    define('ESTADO_ANULADO', 38);
 
 /**
  * Obtiene el listado de transferencias internas de tesorería
@@ -33,7 +34,7 @@ function obtenerTransferenciasListado($conexion, $empresa_id, $filtros = [])
 {
     $empresa_id = intval($empresa_id);
 
-    $sql = "SELECT c.comprobante_id, c.sucursal_id, c.f_emision, c.comprobante_nro AS numero, c.comprobante_pv AS prefijo,
+    $sql = "SELECT c.comprobante_id, c.sucursal_id, c.f_emision, c.comprobante_nro AS numero, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS prefijo,
                    c.importe_total, c.observaciones, c.tabla_estado_registro_id,
                    s.sucursal_nombre AS sucursal,
                    m.simbolo AS moneda_simbolo,
@@ -45,8 +46,7 @@ function obtenerTransferenciasListado($conexion, $empresa_id, $filtros = [])
             FROM gestion__comprobantes c
             JOIN gestion__sucursales s ON s.sucursal_id = c.sucursal_id
             JOIN gestion__monedas m ON m.moneda_id = c.moneda_id
-            LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = c.tabla_estado_registro_id
-            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = c.tabla_estado_registro_id
             LEFT JOIN gestion__tesoreria_movimientos tm_egr ON tm_egr.comprobante_id = c.comprobante_id AND tm_egr.tipo_movimiento = 'EGRESO'
             LEFT JOIN gestion__tesoreria_cuentas tc_orig ON tc_orig.tesoreria_cuenta_id = tm_egr.tesoreria_cuenta_id
             LEFT JOIN gestion__tesoreria_movimientos tm_ing ON tm_ing.comprobante_id = c.comprobante_id AND tm_ing.tipo_movimiento = 'INGRESO'
@@ -105,7 +105,7 @@ function obtenerTransferenciasListado($conexion, $empresa_id, $filtros = [])
             $badge = '<span class="badge bg-secondary">' . htmlspecialchars($row['estado_registro'] ?? 'Estado ' . $estado_id) . '</span>';
         }
 
-        $comprobante_nro = sprintf("%04d-%08d", $row['prefijo'] ?? 1, $row['numero'] ?? $id);
+        $comprobante_nro = sprintf("%04d-%08d", $row['prefijo'] ?? 0, $row['numero'] ?? $id);
 
         $botones = '<div class="btn-group btn-group-sm" role="group">';
         $botones .= '<button type="button" class="btn btn-outline-info btn-ver" data-id="' . $id . '" title="Ver Detalle"><i class="fas fa-eye"></i></button>';
@@ -178,12 +178,12 @@ function registrarTransferenciaInterna($conexion, $datos, $empresa_id, $usuario_
 {
     $empresa_id         = intval($empresa_id);
     $usuario_id         = intval($usuario_id);
-    $sucursal_id        = intval($datos['sucursal_id'] ?? 2);
+    $sucursal_id        = intval($datos['sucursal_id'] ?? 0);
     $f_movimiento       = !empty($datos['f_movimiento']) ? $datos['f_movimiento'] : date('Y-m-d');
     $cuenta_origen_id   = intval($datos['cuenta_origen_id'] ?? 0);
     $cuenta_destino_id  = intval($datos['cuenta_destino_id'] ?? 0);
     $importe            = floatval($datos['importe'] ?? 0);
-    $moneda_id          = intval($datos['moneda_id'] ?? 1);
+    $moneda_id          = emp_moneda_id($conexion, $empresa_id, $datos['moneda_id'] ?? 0);
     $observaciones      = trim($datos['observaciones'] ?? '');
 
     // Validaciones
@@ -236,7 +236,8 @@ function registrarTransferenciaInterna($conexion, $datos, $empresa_id, $usuario_
         if (!$cta_dest) throw new Exception("La cuenta de destino no existe o no pertenece a la empresa.");
 
         // Obtener siguiente correlativo de comprobante para TB (Transferencia)
-        $prefijo = 1;
+        $prefijo = emp_punto_venta_id($conexion, $empresa_id);   // punto de venta de la empresa
+        if ($prefijo <= 0) throw new Exception('La empresa no tiene puntos de venta: no se puede numerar la transferencia.');
         $res_n = $conexion->query("SELECT COALESCE(MAX(comprobante_nro), 0) + 1 AS prox_nro FROM gestion__comprobantes WHERE empresa_id = $empresa_id AND comprobante_tipo_id = " . COMP_TIPO_TRANSFERENCIA . " AND comprobante_pv = $prefijo");
         $numero = intval($res_n->fetch_assoc()['prox_nro'] ?? 1);
 
@@ -338,7 +339,6 @@ function registrarTransferenciaInterna($conexion, $datos, $empresa_id, $usuario_
             'f_asiento'            => $f_movimiento,
             'descripcion'          => "Transferencia interna TB {$prefijo}-{$numero}: {$cta_orig['tesoreria_cuenta']} -> {$cta_dest['tesoreria_cuenta']}",
             'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2 // AUT
         ], [
             [
                 'cuenta_id'   => $cta_cont_dest,
@@ -359,9 +359,9 @@ function registrarTransferenciaInterna($conexion, $datos, $empresa_id, $usuario_
         return [
             'success'        => true,
             'comprobante_id' => $comprobante_id,
-            'numero'         => sprintf("%04d-%08d", $prefijo, $numero),
+            'numero'         => emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero),
             'asiento_id'     => $asiento_id,
-            'mensaje'        => "Transferencia N° " . sprintf("%04d-%08d", $prefijo, $numero) . " registrada con éxito."
+            'mensaje'        => "Transferencia N° " . emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero) . " registrada con éxito."
         ];
 
     } catch (Exception $e) {
@@ -449,7 +449,7 @@ function anularTransferenciaInterna($conexion, $comprobante_id, $empresa_id, $us
             ]);
         }
 
-        // Marcar comprobante como ANULADO (2127)
+        // Marcar comprobante como ANULADO (38)
         $sql_upd = "UPDATE gestion__comprobantes 
                     SET tabla_estado_registro_id = ?, usuario_modificacion_id = ?, fecha_modificacion = NOW()
                     WHERE comprobante_id = ?";
@@ -459,16 +459,17 @@ function anularTransferenciaInterna($conexion, $comprobante_id, $empresa_id, $us
         mysqli_stmt_execute($stmt_u);
         mysqli_stmt_close($stmt_u);
 
-        // Anular asiento contable asociado
-        $conexion->query("UPDATE gestion__cont_asientos 
-                          SET tabla_estado_registro_id = $est_anul, usuario_modificacion_id = $usuario_id
+        // Anular asiento contable asociado: 2 (Inactivo), igual que pagos y cobranzas; el cierre de
+        // ejercicio excluye los asientos con estado 2.
+        $conexion->query("UPDATE gestion__cont_asientos
+                          SET tabla_estado_registro_id = 2, usuario_modificacion_id = $usuario_id
                           WHERE comprobante_id = $comprobante_id");
 
         mysqli_commit($conexion);
 
         return [
             'success' => true,
-            'mensaje' => "Transferencia N° " . sprintf("%04d-%08d", $comp['comprobante_pv'], $comp['comprobante_nro']) . " anulada correctamente con reversión de saldos."
+            'mensaje' => "Transferencia N° " . emp_numero_comprobante($conexion, $empresa_id, $comp['comprobante_pv'], $comp['comprobante_nro']) . " anulada correctamente con reversión de saldos."
         ];
 
     } catch (Exception $e) {

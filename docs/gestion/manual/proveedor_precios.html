@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Lista Precios Proveedores</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert a { color: inherit; font-weight: 600; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-truck-loading"></i> Manual de usuario: Lista Precios Proveedores</h1>
+<p class="subtitulo">Cómo cargar e importar las listas de precios de tus proveedores y usarlas para actualizar los costos de tus productos y sus precios de venta.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve esta pantalla?</a></li>
+        <li><a href="#circuito">El circuito: de la lista del proveedor al precio de venta</a></li>
+        <li><a href="#filtros">Elegir proveedor y filtrar</a></li>
+        <li><a href="#listado">Pestaña Listado: cómo leer la tabla</a></li>
+        <li><a href="#nuevo-precio">Cargar o editar un precio a mano</a></li>
+        <li><a href="#importar">Importar la lista del proveedor desde Excel</a></li>
+        <li><a href="#porcentaje">Aplicar un % de cambio</a></li>
+        <li><a href="#actualizar-fila">Actualizar costo y precio de un producto</a></li>
+        <li><a href="#actualizar-masivo">Actualizaciones masivas</a></li>
+        <li><a href="#historial">Historial de precios</a></li>
+        <li><a href="#estados">Habilitar e inhabilitar un precio</a></li>
+        <li><a href="#dashboard">Pestaña Dashboard</a></li>
+        <li><a href="#control">Pestaña Control</a></li>
+        <li><a href="#exportar">Exportar e imprimir</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve esta pantalla?</h2>
+<p>Acá guardás el <strong>precio de lista</strong> que te cobra cada proveedor por cada producto. A partir de ese precio, el sistema calcula:</p>
+<ul>
+    <li>el <strong>costo neto de compra</strong>: el precio de lista menos el descuento general vigente del proveedor (el que cargaste en <a href="proveedores.html#condiciones-proveedores">Proveedores → Condiciones Proveedores</a>), y</li>
+    <li>el precio de venta que <strong>"debería tener"</strong> cada producto en cada lista de precios de venta, según las reglas de esas listas.</li>
+</ul>
+<p>Así podés ver de un vistazo qué productos quedaron con costo o precio de venta desactualizado y actualizarlos, uno por uno o todos juntos.</p>
+
+<h2 id="circuito">El circuito: de la lista del proveedor al precio de venta</h2>
+<ol>
+    <li>El proveedor te manda su lista nueva. La <a href="#importar">importás desde Excel</a>, o cargás los precios <a href="#nuevo-precio">a mano</a>, o aplicás un <a href="#porcentaje">% de aumento</a>.</li>
+    <li>Revisás en el listado las columnas de variación: qué productos cambiaron y cuánto.</li>
+    <li>Usás <strong>Actualizar costo</strong> para que el costo del producto pase a ser el nuevo costo neto de compra.</li>
+    <li>Usás <strong>Actualizar precio de venta</strong> (o los dos juntos) para recalcular los precios en tus listas de venta.</li>
+</ol>
+<div class="alert alert-warning">Cargar o importar el precio del proveedor <strong>no cambia</strong> por sí solo el costo del producto ni tus precios de venta. Para eso están los botones de actualizar.</div>
+
+<h2 id="filtros">Elegir proveedor y filtrar</h2>
+<p>Arriba de todo está el selector <strong>"Seleccione un proveedor…"</strong>. Los botones Importar, Nuevo Precio, las actualizaciones masivas y el % de cambio se habilitan recién al elegir un proveedor.</p>
+<p>También podés buscar sin elegir proveedor, usando los filtros. En ese caso el listado muestra el mismo producto con cada proveedor que lo ofrece (la columna <strong>Proveedor</strong> sirve para distinguirlos). Sin proveedor y sin filtros, la tabla queda vacía.</p>
+<ul>
+    <li><strong>"Buscar por código o nombre del producto..."</strong>: busca por tu código, por el código del proveedor o por el nombre.</li>
+    <li><strong>Marca → Modelo → Submodelo</strong>: filtra por compatibilidad del producto. El modelo se habilita al elegir marca, y el submodelo al elegir modelo.</li>
+</ul>
+
+<h2 id="listado">Pestaña Listado: cómo leer la tabla</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Proveedor</td><td>Proveedor de esa fila</td></tr>
+    <tr><td>Cód. Prov. / Código</td><td>Código del proveedor y tu código interno</td></tr>
+    <tr><td>Producto</td><td>Nombre, y debajo en gris las compatibilidades (marca, modelo, submodelo, años)</td></tr>
+    <tr><td>Precio Lista</td><td>Precio de lista del proveedor, sin IVA</td></tr>
+    <tr><td>Desc. %</td><td>Descuento general vigente del proveedor</td></tr>
+    <tr><td>Costo Neto Compra</td><td>Precio de lista menos el descuento: lo que <em>debería</em> ser tu costo</td></tr>
+    <tr><td>Último Costo</td><td>El costo que tiene hoy registrado el producto ("Sin costo" si nunca se cargó)</td></tr>
+    <tr><td>% Var. Costo</td><td>Diferencia en % entre el costo registrado y el costo neto de compra</td></tr>
+    <tr><td>Vigente desde</td><td>Desde cuándo rige el precio de lista</td></tr>
+    <tr><td>Una columna de color por cada lista de venta</td><td>Tres subcolumnas: <strong>Actual</strong> (precio de venta de hoy, o "Sin precio"), <strong>Debería ser</strong> (lo que da la regla de esa lista con el costo neto de compra, o "Sin regla") y <strong>% Var.</strong></td></tr>
+    <tr><td>Acciones</td><td>Fila de arriba: historial y actualizaciones. Fila de abajo: editar, inhabilitar o habilitar.</td></tr>
+</table>
+<p>Cuando una diferencia supera el 3%, el valor y el porcentaje se colorean para resaltarla. Las diferencias de 3% o menos se muestran en gris.</p>
+<div class="nota-lateral">El "Debería ser" de las listas de venta no tiene en cuenta promociones. Toma el costo neto de compra y le aplica el porcentaje de la regla vigente de la lista que corresponde al producto, a su categoría o al proveedor. Las reglas se manejan en <a href="listas_precios_productos.html">Lista de Precios</a>.</div>
+
+<h2 id="nuevo-precio">Cargar o editar un precio a mano</h2>
+<p><span class="boton-ejemplo boton-primario">+ Nuevo Precio</span> abre la ventana "Nuevo Precio — (proveedor)":</p>
+<ol>
+    <li>En <strong>Buscar producto (en todo el catálogo)</strong> escribí al menos 2 letras. Aparecen los productos del catálogo completo:
+        <ul>
+            <li>con la marca <span class="badge badge-secondary">Ya tiene precio — editalo desde la tabla</span> si ya tiene precio con este proveedor (no se puede elegir),</li>
+            <li>con la marca "Se va a vincular a este proveedor" si todavía no está vinculado: al guardar se vincula solo.</li>
+        </ul>
+    </li>
+    <li>Completá <strong>Precio de lista (sin IVA)</strong>, <strong>Moneda</strong> y <strong>Vigente desde</strong> (viene la fecha de hoy).</li>
+    <li>Tocá <span class="boton-ejemplo boton-primario">Guardar</span>. Aparece "Precio cargado correctamente".</li>
+</ol>
+<p>Para cambiar un precio existente usá el botón <strong>Editar</strong> (lápiz) de la fila. Se abre la misma ventana con el producto ya elegido. Al guardar, el precio anterior pasa al <a href="#historial">historial</a> con vigencia hasta el día anterior al nuevo "Vigente desde", y aparece "Precio actualizado correctamente".</p>
+<div class="nota-lateral">El precio tiene que ser 0 o mayor. Si no elegiste producto, avisa "Debe seleccionar un producto".</div>
+
+<h2 id="importar">Importar la lista del proveedor desde Excel</h2>
+<p>Con el proveedor elegido, <span class="boton-ejemplo boton-outline">Importar</span> abre "Importar lista de precios del proveedor".</p>
+<h3 id="formato-excel">Cómo tiene que ser el Excel</h3>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Contenido</th></tr>
+    <tr><td>codigo_proveedor</td><td>El código que usa el proveedor. Las filas sin código se ignoran.</td></tr>
+    <tr><td>descripcion</td><td>Descripción del proveedor (se usa en los reportes de control)</td></tr>
+    <tr><td>precio</td><td>Precio de lista, sin IVA</td></tr>
+    <tr><td>f_vigencia_desde</td><td>Fecha desde la que rige (AAAA-MM-DD o celda con formato fecha). Si está vacía, se usa la fecha de hoy.</td></tr>
+</table>
+<h3 id="pasos-importar">Pasos</h3>
+<ol>
+    <li>Elegí el archivo (.xlsx o .xls). El sistema avisa cuántas filas con código válido detectó y cuántas no tienen fecha.</li>
+    <li>Tocá <span class="boton-ejemplo boton-primario">Procesar</span>. Una barra muestra el avance.</li>
+    <li>Al terminar ves el resumen: <strong>Productos actualizados</strong>, <strong>Sin cambios</strong> y <strong>Errores</strong>. Si un mismo código del proveedor corresponde a más de un producto tuyo, se aplica a todos y se informa.</li>
+    <li>Debajo aparecen los <strong>códigos no vinculados</strong>: códigos del archivo que no corresponden a ningún producto tuyo para este proveedor. Para que entren en la próxima importación, vinculalos en <a href="productos_proveedores.html">Productos - Proveedores</a>.</li>
+    <li>Por último, el sistema controla los productos vinculados a este proveedor que <strong>no vinieron en el archivo</strong>, con su precio actual y, si encuentra uno parecido entre los no vinculados, un <strong>"Posible código nuevo"</strong>. Suele pasar cuando el proveedor cambió un código. Sus precios no se modifican.</li>
+</ol>
+
+<h2 id="porcentaje">Aplicar un % de cambio</h2>
+<p>En el casillero <strong>%</strong> escribí un porcentaje (positivo sube, negativo baja; por ejemplo 8 o -5) y tocá <span class="boton-ejemplo boton-outline">% de cambio</span>. Después de una confirmación, se ajusta el <strong>precio de lista del proveedor</strong> de todos los productos que se ven filtrados en ese momento (si no hay filtros, todos los del proveedor).</p>
+<p>No toca el costo del producto: después usá los botones de actualizar costo si corresponde.</p>
+
+<h2 id="actualizar-fila">Actualizar costo y precio de un producto</h2>
+<p>En la fila de arriba de Acciones de cada producto hay cuatro botones. Todos piden confirmación y explican qué van a hacer:</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th></tr>
+    <tr><td>Ver historial (reloj)</td><td>Muestra el <a href="#historial">historial de precios</a> de ese producto con ese proveedor</td></tr>
+    <tr><td>Actualizar costo (flechas)</td><td>Fija el costo del producto en el costo neto de compra. No toca los precios de venta. Si ya estaba igual, avisa "El costo ya estaba actualizado".</td></tr>
+    <tr><td>Actualizar precio de venta (etiqueta)</td><td>Recalcula el precio de venta en cada lista con regla aplicable, usando el costo <em>ya registrado</em>. Usalo cuando cambió la regla de la lista, no el costo.</td></tr>
+    <tr><td>Actualizar costo y precio de venta (rayo)</td><td>Hace las dos cosas. Si el costo no cambió, no toca nada.</td></tr>
+</table>
+<p>El aviso final indica cuántas listas de venta se actualizaron y cuántas no tenían regla.</p>
+<div class="nota-lateral">Cada cambio de costo queda registrado en el historial de <a href="productos_costos.html">Productos - Costos</a>.</div>
+
+<h2 id="actualizar-masivo">Actualizaciones masivas</h2>
+<p>Con el proveedor elegido, estos botones trabajan sobre todos sus productos activos. Todos piden confirmación y muestran "Actualizando…" mientras trabajan:</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th></tr>
+    <tr><td>Actualizar Costos y Precios</td><td>Fija el costo neto de compra como costo y recalcula los precios de venta. Los productos cuyo costo ya está al día se saltean.</td></tr>
+    <tr><td>Actualizar Costos</td><td>Solo fija los costos. No toca las listas de venta.</td></tr>
+    <tr><td>Actualizar Precios de Venta</td><td>Solo recalcula los precios de venta con el costo ya registrado de cada producto.</td></tr>
+</table>
+<p>Al terminar, el mensaje indica cuántos productos se actualizaron y cuántos quedaron sin cambios. Si el proveedor no tiene precios cargados, avisa "Este proveedor no tiene precios cargados".</p>
+
+<h2 id="historial">Historial de precios</h2>
+<p>El botón del reloj abre "Historial de precios": cada precio anterior con su vigencia <strong>Desde / Hasta</strong>, <strong>Precio Lista</strong>, <strong>Moneda</strong>, <strong>Origen</strong> (carga manual o importación) y el nombre del <strong>Archivo</strong> importado, si lo hubo.</p>
+
+<h2 id="estados">Habilitar e inhabilitar un precio</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<p>En la fila de abajo de Acciones aparecen <strong>Editar</strong> e <strong>Inhabilitar</strong> en los precios activos, y <strong>Habilitar</strong> en los inactivos. Inhabilitar y Habilitar piden confirmación ("¿Confirmar acción?"). Usá Inhabilitar cuando el proveedor deja de ofrecer un producto.</p>
+
+<h2 id="dashboard">Pestaña Dashboard</h2>
+<p>Con un proveedor elegido (o algún filtro) muestra dos rankings: <strong>Mayores variaciones de costo</strong> (costo actual contra el que debería ser) y <strong>Mayores variaciones de lista general</strong> (precio de venta actual contra el que debería ser, en la lista general). Sirve para ver primero lo que más cambió.</p>
+
+<h2 id="control">Pestaña Control</h2>
+<p>Con un proveedor elegido, lista los productos vinculados a ese proveedor que <strong>no tienen precio</strong> en su lista. El número junto al nombre de la pestaña indica cuántos son. El botón de cada fila abre directo la carga de precio para ese producto. Si el proveedor cambió el código de alguno, corregilo en <a href="productos_proveedores.html">Productos - Proveedores</a> y volvé a importar la lista.</p>
+
+<h2 id="exportar">Exportar e imprimir</h2>
+<p>Los botones de arriba recargan la tabla (<span class="boton-ejemplo boton-outline">↻</span>) y exportan el listado a Excel, PDF, CSV o lo imprimen.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Importé la lista nueva pero el costo de los productos sigue igual.</td>
+        <td>Es lo esperado: importar cambia el precio del proveedor, no el costo. Usá "Actualizar Costos" (o "Actualizar Costos y Precios").</td>
+    </tr>
+    <tr>
+        <td>Muchos códigos quedaron como "no vinculados".</td>
+        <td>Esos códigos no están asociados a ningún producto tuyo para ese proveedor. Vinculalos en <a href="productos_proveedores.html">Productos - Proveedores</a> y volvé a importar.</td>
+    </tr>
+    <tr>
+        <td>En "Debería ser" aparece "Sin regla".</td>
+        <td>Esa lista de venta no tiene una regla vigente que aplique a ese producto. Revisá la configuración en <a href="listas_precios_productos.html">Lista de Precios</a>.</td>
+    </tr>
+    <tr>
+        <td>El costo neto de compra no coincide con lo que espero.</td>
+        <td>Se calcula con el descuento general vigente del proveedor. Revisalo en <a href="proveedores.html#condiciones-proveedores">Proveedores → Condiciones Proveedores</a>.</td>
+    </tr>
+    <tr>
+        <td>Los botones Importar y Nuevo Precio están grises.</td>
+        <td>Elegí primero un proveedor en el selector de arriba.</td>
+    </tr>
+</table>
+
+<div class="alert alert-info">
+    <strong>Manuales relacionados:</strong>
+    <a href="proveedores.html">Proveedores</a> ·
+    <a href="productos_proveedores.html">Productos - Proveedores</a> ·
+    <a href="productos_costos.html">Productos - Costos</a> ·
+    <a href="listas_precios_productos.html">Lista de Precios</a> ·
+    <a href="productos.html">Productos</a>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Compras / Lista Precios Proveedores. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

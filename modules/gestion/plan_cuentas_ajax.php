@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['params' => ['empresa_id', 'empresa_idx'], 'modulo_id' => 2, 'paginas_url' => ['plan_cuentas.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -8,7 +11,7 @@ require_once "plan_cuentas_model.php";
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto
-$empresa_id = intval($_GET['empresa_id'] ?? $_POST['empresa_id'] ?? 2);
+$empresa_id = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 68);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -44,7 +47,7 @@ try {
 
         case 'obtener_nivel_padre':
             $cuenta_padre_id = intval($_GET['cuenta_padre_id'] ?? 0);
-            $nivel = obtenerNivelDesdePadre($conexion, $cuenta_padre_id);
+            $nivel = obtenerNivelDesdePadre($conexion, $cuenta_padre_id, $empresa_id);
             echo json_encode(['nivel' => $nivel], JSON_UNESCAPED_UNICODE);
             break;
 

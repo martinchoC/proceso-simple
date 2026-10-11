@@ -37,6 +37,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="content-wrapper">
                 <section class="content">
                     <div class="container-fluid">
+                        <!-- Dashboard Rápido de Estados -->
+                        <div class="card mb-3 border-0 shadow-sm" style="background: #f8fafc; border: 1px solid #e2e8f0 !important; border-radius: 10px;">
+                            <div class="card-body p-2 p-md-3">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1 fs-7">
+                                            <i class="fas fa-chart-pie me-1"></i>Estados
+                                        </span>
+                                        <span class="small text-muted fw-semibold d-none d-sm-inline">
+                                            Haga clic en una tarjeta para filtrar el listado
+                                        </span>
+                                    </div>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary d-none" id="btnLimpiarFiltroEstado" style="font-size: 0.75rem; padding: 2px 8px;">
+                                        <i class="fas fa-undo me-1"></i>Ver Todas
+                                    </button>
+                                </div>
+                                <div class="row g-2" id="contenedorDashboardEstados">
+                                    <div class="col-12 text-center text-muted py-2 small">
+                                        <i class="fas fa-spinner fa-spin me-1"></i>Cargando resumen de estados...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row">
                             <div class="col-12">
                                 <div class="card">
@@ -104,15 +128,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="modal fade" id="modalOrdenCompra" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-xl modal-dialog-centered">
                     <div class="modal-content">
-                        <div class="modal-header py-2" style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <h5 class="modal-title" id="modalLabel">
+                        <div class="modal-header py-2 d-flex justify-content-between align-items-center" style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                            <h5 class="modal-title mb-0" id="modalLabel">
                                 <i class="fas fa-shopping-cart me-2 text-primary"></i>Orden de Compra
                             </h5>
-                            <div class="d-flex align-items-center">
-                                <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="btnToggleFullscreen" title="Pantalla completa">
+                            <div class="d-flex align-items-center ms-auto gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnToggleFullscreen" title="Pantalla completa">
                                     <i class="fas fa-expand"></i>
                                 </button>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                <button type="button" class="btn-close m-0" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                             </div>
                         </div>
                         <div class="modal-body p-3">
@@ -382,11 +406,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="modal fade" id="modalNuevoProductoRapido" tabindex="-1" aria-labelledby="modalProductoRapidoLabel" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-centered">
                     <div class="modal-content">
-                        <div class="modal-header py-2 bg-info bg-opacity-10">
-                            <h5 class="modal-title" id="modalProductoRapidoLabel">
+                        <div class="modal-header py-2 d-flex justify-content-between align-items-center bg-info bg-opacity-10">
+                            <h5 class="modal-title mb-0" id="modalProductoRapidoLabel">
                                 <i class="fas fa-bolt me-2 text-info"></i>Nuevo Producto Rápido
                             </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            <button type="button" class="btn-close m-0 ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body p-3">
                             <form id="formNuevoProductoRapido" class="needs-validation" novalidate>
@@ -599,6 +623,48 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         
         .detalles-vacio {
             color: #6c757d;
+        }
+
+        /* Asegurar que el botón de cerrar siempre sea visible y arriba a la derecha */
+        .modal-header .btn-close {
+            background-color: rgba(0,0,0,0.06);
+            border-radius: 50%;
+            padding: 0.5rem;
+            margin: 0;
+            transition: background-color 0.2s ease;
+        }
+
+        .modal-header .btn-close:hover {
+            background-color: rgba(0,0,0,0.15);
+        }
+
+        /* Tarjetas de filtro rápido de estados */
+        .card-kpi-estado {
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 2px solid transparent !important;
+            background: #ffffff;
+            border-radius: 8px;
+            user-select: none;
+        }
+        .card-kpi-estado:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-color: #cbd5e1 !important;
+        }
+        .card-kpi-estado.active {
+            border-color: #0d6efd !important;
+            background: #f0f7ff !important;
+            box-shadow: 0 4px 14px rgba(13, 110, 253, 0.18);
+        }
+        .card-kpi-estado .kpi-count {
+            font-size: 1.15rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .card-kpi-estado .kpi-monto {
+            font-size: 0.75rem;
+            font-weight: 600;
         }
     </style>
     <!-- En el head, después de los estilos existentes, agregar: -->

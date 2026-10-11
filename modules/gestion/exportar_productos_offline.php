@@ -1485,73 +1485,179 @@ HTML;
 
 /**
  * --------------------------------------------------------------------------
- * 4. ENVÍO DE CORREO USANDO LA FUNCIÓN NATIVA mail() PURA DE PHP
+ * 4. SERVICIO DE ENVÍO DE CORREO (SMTP + FALLBACK mail() + COPIA LOCAL)
+ * Siguiendo el estándar de MailerService de Casa Lucho (Martin Castro)
  * --------------------------------------------------------------------------
  */
-function enviarEmailPuroPhp($destinatario, $asunto, $cuerpo_html, $ruta_archivo_adjunto, $from_email = null, $from_name = null) {
-    if (!$from_email) {
-        $from_email = defined('SMTP_FROM') ? SMTP_FROM : 'notificaciones@casalucho.com';
-    }
-    if (!$from_name) {
-        $from_name = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'Casa Lucho';
-    }
+function enviarCorreoCatalogo($destinatario, $asunto, $cuerpo_html, $ruta_archivo_adjunto) {
+    // Configuración desde .env (según especificación oficial de Martin Castro)
+    $driver      = defined('MAIL_DRIVER') ? MAIL_DRIVER : 'smtp';
+    $host        = defined('MAIL_HOST') ? MAIL_HOST : 'localhost';
+    $port        = defined('MAIL_PORT') ? (int)MAIL_PORT : 587;
+    $user        = defined('MAIL_USERNAME') ? MAIL_USERNAME : 'no-reply';
+    $pass        = defined('MAIL_PASSWORD') ? MAIL_PASSWORD : '';
+    $encryption  = defined('MAIL_ENCRYPTION') ? strtolower(MAIL_ENCRYPTION) : 'tls';
+    $fromEmail   = defined('MAIL_FROM_ADDRESS') ? MAIL_FROM_ADDRESS : 'no-reply@procesosimple.com';
+    $fromName    = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'Casa Lucho Autoherrajes';
 
     $nombre_adjunto = basename($ruta_archivo_adjunto);
+    $contenido_adjunto = file_exists($ruta_archivo_adjunto) ? file_get_contents($ruta_archivo_adjunto) : '';
 
-    // Configurar parámetros de envío para mail() en Windows/XAMPP si existen
-    if (defined('SMTP_HOST')) {
-        ini_set('SMTP', SMTP_HOST);
-    }
-    if (defined('SMTP_PORT')) {
-        ini_set('smtp_port', SMTP_PORT);
-    }
-    ini_set('sendmail_from', $from_email);
+    $asuntoCodificado = sprintf('=?UTF-8?B?%s?=', base64_encode($asunto));
+    $fromCodificado = sprintf('=?UTF-8?B?%s?= <%s>', base64_encode($fromName), $fromEmail);
 
+    // Construcción del mensaje MIME Multipart/Mixed (HTML + Adjunto .html)
     $boundary = "==Multipart_Boundary_x" . md5(uniqid((string)microtime(true), true)) . "x";
 
-    // Cabeceras MIME para mail() puro
-    $headers = [];
-    $headers[] = "From: =?UTF-8?B?" . base64_encode($from_name) . "?= <{$from_email}>";
-    $headers[] = "Reply-To: <{$from_email}>";
-    $headers[] = "MIME-Version: 1.0";
-    $headers[] = "X-Mailer: PHP/" . phpversion();
-    $headers[] = "Content-Type: multipart/mixed; boundary=\"{$boundary}\"";
+    $headers = [
+        'MIME-Version' => '1.0',
+        'From'         => $fromCodificado,
+        'Reply-To'     => $fromEmail,
+        'X-Mailer'     => 'CasaLucho/1.0 PHP/' . PHP_VERSION,
+        'Content-Type' => 'multipart/mixed; boundary="' . $boundary . '"'
+    ];
 
-    // Cuerpo del mensaje
-    $body = "--{$boundary}\r\n";
-    $body .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-    $body .= $cuerpo_html . "\r\n\r\n";
-
-    // Archivo adjunto
-    if (file_exists($ruta_archivo_adjunto)) {
-        $contenido_adjunto = file_get_contents($ruta_archivo_adjunto);
-        $body .= "--{$boundary}\r\n";
-        $body .= "Content-Type: text/html; name=\"{$nombre_adjunto}\"\r\n";
-        $body .= "Content-Disposition: attachment; filename=\"{$nombre_adjunto}\"\r\n";
-        $body .= "Content-Transfer-Encoding: base64\r\n\r\n";
-        $body .= chunk_split(base64_encode($contenido_adjunto)) . "\r\n\r\n";
+    $headersStr = '';
+    foreach ($headers as $k => $v) {
+        $headersStr .= "{$k}: {$v}\r\n";
     }
 
-    $body .= "--{$boundary}--";
+    $cuerpoMultipart = "--{$boundary}\r\n";
+    $cuerpoMultipart .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $cuerpoMultipart .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+    $cuerpoMultipart .= $cuerpo_html . "\r\n\r\n";
 
-    $headers_str = implode("\r\n", $headers);
-    $asunto_encoded = "=?UTF-8?B?" . base64_encode($asunto) . "?=";
+    if (!empty($contenido_adjunto)) {
+        $cuerpoMultipart .= "--{$boundary}\r\n";
+        $cuerpoMultipart .= "Content-Type: text/html; name=\"{$nombre_adjunto}\"\r\n";
+        $cuerpoMultipart .= "Content-Disposition: attachment; filename=\"{$nombre_adjunto}\"\r\n";
+        $cuerpoMultipart .= "Content-Transfer-Encoding: base64\r\n\r\n";
+        $cuerpoMultipart .= chunk_split(base64_encode($contenido_adjunto)) . "\r\n\r\n";
+    }
+    $cuerpoMultipart .= "--{$boundary}--";
 
-    // Invocación a mail() nativo de PHP
-    $enviado = @mail($destinatario, $asunto_encoded, $body, $headers_str);
+    $logs = [];
+    $enviado = false;
+    $metodo_usado = '';
 
+    // Intento 1: Conexión SMTP por socket con TLS y autenticación (según MailerService)
+    if ($driver === 'smtp' && $host !== '') {
+        try {
+            $remoteSocket = ($encryption === 'ssl' ? 'ssl://' : '') . $host . ':' . $port;
+            $context = stream_context_create([
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                ]
+            ]);
+
+            $socket = @stream_socket_client($remoteSocket, $errno, $errstr, 5, STREAM_CLIENT_CONNECT, $context);
+            if ($socket) {
+                $read = static fn () => fgets($socket, 512);
+                $send = static function (string $cmd) use ($socket) {
+                    fputs($socket, $cmd . "\r\n");
+                };
+
+                $read();
+                $send('EHLO ' . gethostname());
+                $ehloResp = '';
+                while ($line = $read()) {
+                    $ehloResp .= $line;
+                    if (substr($line, 3, 1) === ' ') break;
+                }
+
+                if ($encryption === 'tls' && str_contains($ehloResp, 'STARTTLS')) {
+                    $send('STARTTLS');
+                    $read();
+                    @stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+                    $send('EHLO ' . gethostname());
+                    while ($line = $read()) {
+                        if (substr($line, 3, 1) === ' ') break;
+                    }
+                }
+
+                if ($user !== '' && $pass !== '') {
+                    $send('AUTH LOGIN');
+                    $read();
+                    $send(base64_encode($user));
+                    $read();
+                    $send(base64_encode($pass));
+                    $authRes = $read();
+                    if (!str_starts_with((string)$authRes, '235')) {
+                        fclose($socket);
+                        throw new \RuntimeException('Autenticación SMTP fallida: ' . trim($authRes));
+                    }
+                }
+
+                $send("MAIL FROM:<$fromEmail>");
+                $read();
+                $send("RCPT TO:<$destinatario>");
+                $read();
+                $send('DATA');
+                $read();
+
+                $mensajeCompleto  = $headersStr;
+                $mensajeCompleto .= "To: <$destinatario>\r\n";
+                $mensajeCompleto .= "Subject: $asuntoCodificado\r\n\r\n";
+                $mensajeCompleto .= $cuerpoMultipart . "\r\n.\r\n";
+
+                $send($mensajeCompleto);
+                $dataRes = $read();
+                $send('QUIT');
+                fclose($socket);
+
+                if (str_starts_with((string)$dataRes, '250')) {
+                    $enviado = true;
+                    $metodo_usado = "SMTP ({$host}:{$port})";
+                }
+            } else {
+                $logs[] = "No se pudo conectar a SMTP ($remoteSocket): $errstr ($errno)";
+            }
+        } catch (\Throwable $e) {
+            $logs[] = "Excepción SMTP: " . $e->getMessage();
+        }
+    }
+
+    // Intento 2: Función nativa mail() pura de PHP
     if (!$enviado) {
-        $ultimo_error = error_get_last();
-        $msg_error = $ultimo_error['message'] ?? 'Falló el envío de correo mediante la función mail() de PHP.';
-        return [
-            'success' => false,
-            'error' => $msg_error
-        ];
+        if ($host !== '') ini_set('SMTP', $host);
+        if ($port > 0) ini_set('smtp_port', (string)$port);
+        ini_set('sendmail_from', $fromEmail);
+
+        try {
+            $ok = @mail($destinatario, $asuntoCodificado, $cuerpoMultipart, $headersStr);
+            if ($ok) {
+                $enviado = true;
+                $metodo_usado = "mail() nativo de PHP";
+            } else {
+                $err = error_get_last();
+                $logs[] = "mail() nativo retornó false: " . ($err['message'] ?? 'sin detalle');
+            }
+        } catch (\Throwable $e) {
+            $logs[] = "Excepción en mail(): " . $e->getMessage();
+        }
     }
+
+    // Intento 3: Copia local de respaldo en storage/logs (idéntico a guardarCopiaLocal de MailerService)
+    $dirLogs = dirname(__DIR__, 2) . '/storage/logs';
+    if (!is_dir($dirLogs)) {
+        @mkdir($dirLogs, 0755, true);
+    }
+    $infoCopia = sprintf(
+        "<!-- PARA: %s | ASUNTO: %s | FECHA: %s | METODO: %s -->\n%s",
+        htmlspecialchars($destinatario),
+        htmlspecialchars($asunto),
+        date('Y-m-d H:i:s'),
+        $metodo_usado ?: 'Copia local de respaldo',
+        $cuerpo_html
+    );
+    @file_put_contents($dirLogs . '/last_email_catalogo.html', $infoCopia);
 
     return [
-        'success' => true
+        'success' => $enviado,
+        'metodo' => $metodo_usado,
+        'logs' => $logs
     ];
 }
 
@@ -1581,25 +1687,24 @@ depurarArchivosExports($directorio_exports, 10, 10);
 
 $tamanio_mb = round(filesize($ruta_archivo_export) / (1024 * 1024), 2);
 
-// Enviar correo si fue solicitado mediante mail() puro
+// Enviar correo si fue solicitado
 $resultado_envio = null;
 $error_envio = null;
+$metodo_envio = null;
 
 if ($enviar_email) {
-    $from_email = defined('SMTP_FROM') ? SMTP_FROM : ($destinatario ?: 'notificaciones@casalucho.com');
-    $from_name = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : ($datos['empresa']['empresa'] ?? 'Casa Lucho');
     $asunto = "Catálogo de Productos Offline - " . ($datos['empresa']['empresa'] ?? 'Casa Lucho') . " [" . date('d/m/Y H:i') . "]";
 
     $cuerpo_email = "
     <div style='font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
-        <div style='background: #1e293b; color: #ffffff; padding: 15px; border-radius: 6px; text-align: center;'>
+        <div style='background: #009aa0; color: #ffffff; padding: 15px; border-radius: 6px; text-align: center;'>
             <h2 style='margin: 0;'>Catálogo de Productos para Consulta Offline</h2>
-            <p style='margin: 5px 0 0 0; color: #94a3b8;'>Casa Lucho - Sistema de Gestión</p>
+            <p style='margin: 5px 0 0 0; color: #e6fffa;'>Casa Lucho Autoherrajes - Sistema de Gestión</p>
         </div>
         <div style='padding: 20px 10px; color: #334155; line-height: 1.6;'>
             <p>Hola <strong>Pablo</strong>,</p>
             <p>Se ha generado exitosamente el archivo HTML autocontenido con el catálogo completo de productos para consulta <strong>100% offline</strong>.</p>
-            <div style='background: #f8fafc; padding: 15px; border-left: 4px solid #2563eb; border-radius: 4px; margin: 15px 0;'>
+            <div style='background: #f8fafc; padding: 15px; border-left: 4px solid #009aa0; border-radius: 4px; margin: 15px 0;'>
                 <ul style='margin: 0; padding-left: 20px;'>
                     <li><strong>Total de productos:</strong> " . number_format($datos['total_productos'], 0, ',', '.') . "</li>
                     <li><strong>Listas de precios incluidas:</strong> " . implode(', ', $datos['listas_precios']) . " (Precio Neto y con IVA)</li>
@@ -1616,15 +1721,17 @@ if ($enviar_email) {
             </ol>
         </div>
         <div style='text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 15px;'>
-            Casa Lucho - Sistema Declarativo Multiempresa | Desarrollado por Developsam SAS
+            Casa Lucho Autoherrajes &middot; Venta mayorista y minorista &middot; Sistema Declarativo Multiempresa
         </div>
     </div>";
 
-    $res_mail = enviarEmailPuroPhp($destinatario, $asunto, $cuerpo_email, $ruta_archivo_export, $from_email, $from_name);
+    $res_mail = enviarCorreoCatalogo($destinatario, $asunto, $cuerpo_email, $ruta_archivo_export);
     if ($res_mail['success']) {
         $resultado_envio = true;
+        $metodo_envio = $res_mail['metodo'];
     } else {
-        $error_envio = $res_mail['error'];
+        $resultado_envio = false;
+        $error_envio = implode(' | ', $res_mail['logs']);
     }
 }
 
@@ -1645,9 +1752,9 @@ if ($es_cli) {
     echo "Depuración exports: Últimos 10 archivos conservados (retención 10 días)\n";
     if ($enviar_email) {
         if ($resultado_envio) {
-            echo "\n✓ CORREO ENVIADO CON ÉXITO vía mail() puro de PHP a $destinatario\n";
+            echo "\n✓ CORREO ENVIADO CON ÉXITO vía {$metodo_envio} a {$destinatario}\n";
         } else {
-            echo "\n✗ ERROR AL ENVIAR CORREO (mail() puro): $error_envio\n";
+            echo "\n✗ ERROR AL ENVIAR CORREO: {$error_envio}\n";
         }
     } else {
         echo "\nPara enviar por email, ejecute:\n";
@@ -1690,16 +1797,16 @@ $url_ver_online = "exports/productos_offline_latest.html";
                         <i class="fas fa-check-circle fa-2x me-3"></i>
                         <div>
                             <h5 class="alert-heading mb-1">¡Correo enviado con éxito!</h5>
-                            <div>El catálogo de productos en formato HTML se envió correctamente vía <strong>mail() puro de PHP</strong> a <strong><?php echo htmlspecialchars($destinatario); ?></strong> como archivo adjunto.</div>
+                            <div>El catálogo de productos en formato HTML se envió correctamente vía <strong><?php echo htmlspecialchars($metodo_envio ?? 'SMTP / Mail'); ?></strong> a <strong><?php echo htmlspecialchars($destinatario); ?></strong> como archivo adjunto.</div>
                         </div>
                     </div>
                 <?php elseif ($enviar_email && $error_envio): ?>
-                    <div class="alert alert-danger d-flex align-items-center" role="alert">
+                    <div class="alert alert-warning d-flex align-items-center" role="alert">
                         <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
                         <div>
-                            <h5 class="alert-heading mb-1">Aviso al enviar con mail() puro</h5>
+                            <h5 class="alert-heading mb-1">Resultado del envío</h5>
                             <div><?php echo htmlspecialchars($error_envio); ?></div>
-                            <div class="small mt-1 text-muted">Asegúrese de que el servidor tenga configurado el servicio de correo en <code>php.ini</code> o <code>sendmail</code>.</div>
+                            <div class="small mt-1 text-muted">Se guardó una copia de respaldo en <code>storage/logs/last_email_catalogo.html</code>. En el servidor de producción (con servicio SMTP o sendmail activo) el envío se completa automáticamente.</div>
                         </div>
                     </div>
                 <?php else: ?>

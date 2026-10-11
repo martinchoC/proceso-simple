@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Cobranzas</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    .badge-primary { background: var(--azul); }
+    .badge-info { background: #0dcaf0; color: #055160; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-hand-holding-usd"></i> Manual de usuario: Cobranzas</h1>
+<p class="subtitulo">Cómo registrar el dinero que te paga un cliente, emitir el recibo y aplicar ese pago a sus facturas pendientes.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#conceptos">Conceptos básicos de Tesorería (leelo una vez)</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados del recibo</a></li>
+        <li><a href="#flujo">El proceso completo, de principio a fin</a></li>
+        <li><a href="#botones">Botones de cada recibo</a></li>
+        <li><a href="#nueva-cobranza">Cargar una cobranza nueva</a>
+            <ul>
+                <li><a href="#datos-generales">1. Datos generales</a></li>
+                <li><a href="#medios">2. Medios de cobro</a></li>
+                <li><a href="#imputacion">3. Imputación a comprobantes pendientes</a></li>
+                <li><a href="#resumen">4. Resumen y cobro a cuenta</a></li>
+            </ul>
+        </li>
+        <li><a href="#guardar-borrador">Guardar como borrador</a></li>
+        <li><a href="#confirmar">Confirmar y emitir el recibo</a></li>
+        <li><a href="#ver-recibo">Ver e imprimir el recibo</a></li>
+        <li><a href="#anular">Anular un recibo confirmado</a></li>
+        <li><a href="#eliminar">Eliminar un borrador</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Cobranzas</strong> (menú Tesorería) es donde registrás cada pago que recibís de un cliente. Cada cobranza confirmada genera un <strong>Recibo de Cobro</strong> con número propio. En la misma carga indicás:</p>
+<ul>
+    <li><strong>Cómo te pagó</strong>: efectivo, transferencia, cheque, retención, o varios medios combinados.</li>
+    <li><strong>Qué está pagando</strong>: a qué facturas (o notas de débito) del cliente se aplica ese dinero.</li>
+</ul>
+<p>Al confirmar, el sistema baja la deuda de esas facturas, suma el dinero a la caja o al banco que corresponda y genera el registro contable, todo de una vez.</p>
+
+<h2 id="conceptos">Conceptos básicos de Tesorería</h2>
+<p>Estos términos aparecen en todas las pantallas de Tesorería. Conviene entenderlos antes de empezar.</p>
+<table class="tabla-referencia">
+    <tr><th>Término</th><th>Qué significa en la práctica</th></tr>
+    <tr>
+        <td><strong>Imputar</strong> (o aplicar)</td>
+        <td>Decir a qué factura corresponde un pago. Ejemplo: el cliente te da $ 100.000 y vos indicás que $ 60.000 cancelan la Factura 12 y $ 40.000 la Factura 15. Eso es imputar.</td>
+    </tr>
+    <tr>
+        <td><strong>Saldo pendiente</strong></td>
+        <td>Lo que todavía falta pagar de un comprobante. Una factura de $ 50.000 a la que ya le imputaste $ 20.000 tiene un saldo pendiente de $ 30.000.</td>
+    </tr>
+    <tr>
+        <td><strong>Cancelado parcial</strong></td>
+        <td>Estado que toma sola una factura cuando recibió algún pago pero todavía tiene saldo. No lo ponés vos: lo calcula el sistema.</td>
+    </tr>
+    <tr>
+        <td><strong>Cancelado total</strong></td>
+        <td>Estado que toma sola una factura cuando su saldo llega a cero: está totalmente pagada.</td>
+    </tr>
+    <tr>
+        <td><strong>Cobro a cuenta</strong> (saldo a favor)</td>
+        <td>Dinero que el cliente pagó pero que no aplicaste a ninguna factura. Queda guardado a su favor en el mismo recibo y se puede aplicar más adelante.</td>
+    </tr>
+    <tr>
+        <td><strong>Anular</strong></td>
+        <td>En Tesorería nada se borra una vez confirmado. Anular deja el recibo marcado como "Anulado" y registra los movimientos inversos: el dinero sale de la caja o banco donde había entrado y las facturas vuelven a tener el saldo que tenían. Así siempre queda el rastro de lo que pasó.</td>
+    </tr>
+</table>
+<h3 id="cuentas">Las cuentas donde se guarda el dinero</h3>
+<p>El sistema lleva el saldo de cada lugar donde la empresa tiene dinero o valores:</p>
+<table class="tabla-referencia">
+    <tr><th>Tipo</th><th>Qué es</th></tr>
+    <tr><td><strong>Caja</strong></td><td>El efectivo de cada sucursal. Normalmente hay una caja por sucursal.</td></tr>
+    <tr><td><strong>Banco</strong></td><td>Cada cuenta bancaria de la empresa. Acá entran las transferencias.</td></tr>
+    <tr><td><strong>Valores</strong> (cartera)</td><td>Los cheques de terceros que recibiste y todavía no depositaste ni entregaste. Se administran en <a href="cheques_cartera.html">Cartera de Cheques</a>.</td></tr>
+    <tr><td><strong>Cupones</strong></td><td>Los cobros con tarjeta que la tarjeta todavía no te acreditó en el banco.</td></tr>
+</table>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Arriba está la tarjeta <strong>Recibos Emitidos y Borradores</strong>, con dos botones: <span class="boton-ejemplo boton-outline">Actualizar</span> (recarga el listado) y <span class="boton-ejemplo boton-exito">+ Nueva Cobranza</span>.</p>
+<h3 id="filtros">Filtros</h3>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Para qué sirve</th></tr>
+    <tr><td>Fecha Desde / Fecha Hasta</td><td>Rango de fechas de emisión. Al entrar trae desde el primer día del mes hasta hoy.</td></tr>
+    <tr><td>Cliente</td><td>Muestra solo los recibos de un cliente.</td></tr>
+    <tr><td>Punto de Venta</td><td>Muestra solo los recibos de un punto de venta.</td></tr>
+    <tr><td>Estado</td><td>Borrador, Confirmado o Anulado.</td></tr>
+</table>
+<p>El listado se actualiza solo al cambiar cualquier filtro. También podés usar el botón del embudo. El cuadro <strong>Buscar</strong> filtra sobre lo que ya está en pantalla.</p>
+<div class="nota-lateral">Solo ves los recibos de las sucursales a las que tu usuario tiene acceso.</div>
+<h3 id="columnas">Columnas del listado</h3>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Emisión</td><td>Fecha del recibo.</td></tr>
+    <tr><td>Recibo N°</td><td>Número del recibo (punto de venta y número). Mientras es borrador dice "Borrador (Sin emitir)".</td></tr>
+    <tr><td>Cliente</td><td>Nombre y CUIT.</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal donde se registró el cobro.</td></tr>
+    <tr><td>Total</td><td>Total de dinero recibido.</td></tr>
+    <tr><td>Aplicación</td><td>"Totalmente aplicado" si todo el dinero se imputó a facturas. Si quedó dinero sin aplicar, muestra <span class="badge badge-info">A cuenta: $ ...</span> con el monto a favor del cliente.</td></tr>
+    <tr><td>Estado</td><td><span class="badge badge-warning">Borrador</span>, <span class="badge badge-success">Confirmada</span> o <span class="badge badge-danger">Anulada</span>.</td></tr>
+    <tr><td>Acciones</td><td>Botones disponibles según el estado (ver <a href="#botones">Botones de cada recibo</a>).</td></tr>
+</table>
+
+<h2 id="estados">Estados del recibo</h2>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr>
+        <td><span class="badge badge-warning">Borrador</span></td>
+        <td>La cobranza está cargada pero todavía no cuenta. No tiene número, no movió dinero ni bajó la deuda de ninguna factura. Podés editarla, confirmarla o eliminarla.</td>
+    </tr>
+    <tr>
+        <td><span class="badge badge-success">Confirmada</span></td>
+        <td>El recibo ya tiene número. El dinero entró a la caja, al banco o a la cartera de cheques, y las facturas imputadas bajaron su saldo. Ya no se puede editar. Si hubo un error, se anula.</td>
+    </tr>
+    <tr>
+        <td><span class="badge badge-danger">Anulada</span></td>
+        <td>El recibo quedó sin efecto. Se revirtió todo lo que había hecho al confirmarse. Queda en el listado como registro y no admite más acciones (solo verlo).</td>
+    </tr>
+</table>
+
+<h2 id="flujo">El proceso completo, de principio a fin</h2>
+<div class="flujo">
+    <div class="flujo-caja">Nueva Cobranza</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→ Confirmar →</div>
+    <div class="flujo-caja final">Confirmada</div>
+    <div class="flujo-flecha">→ Anular →</div>
+    <div class="flujo-caja inactivo">Anulada</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→ Eliminar →</div>
+    <div class="flujo-caja inactivo">Desaparece del listado</div>
+</div>
+<p>También podés pasar directo de la carga a <strong>Confirmada</strong> con el botón <strong>Confirmar y Emitir Recibo</strong>, sin dejarlo antes como borrador.</p>
+<ol>
+    <li>Elegís el cliente y cargás cómo te pagó (medios de cobro).</li>
+    <li>Imputás el dinero a sus facturas pendientes (o lo dejás a cuenta).</li>
+    <li>Confirmás. El sistema numera el recibo, suma el dinero a caja, banco o cartera y baja el saldo de las facturas.</li>
+    <li>Las facturas pasan solas a <strong>Cancelado parcial</strong> o <strong>Cancelado total</strong> según cuánto les quede por pagar.</li>
+    <li>Si hubo un error, anulás el recibo: todo vuelve atrás con movimientos inversos.</li>
+</ol>
+
+<h2 id="botones">Botones de cada recibo</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Ver Recibo (ojo)</td><td>Abre el recibo completo, listo para imprimir.</td><td>Siempre</td></tr>
+    <tr><td>Editar Borrador (lápiz)</td><td>Reabre el formulario con los datos cargados.</td><td>Solo en Borrador</td></tr>
+    <tr><td>Confirmar Cobranza (tilde)</td><td>Emite el recibo y aplica todo (ver <a href="#confirmar">Confirmar</a>).</td><td>Solo en Borrador</td></tr>
+    <tr><td>Eliminar Borrador (tacho)</td><td>Borra el borrador.</td><td>Solo en Borrador</td></tr>
+    <tr><td>Anular Recibo (círculo tachado)</td><td>Deja sin efecto un recibo confirmado (ver <a href="#anular">Anular</a>).</td><td>Solo en Confirmada</td></tr>
+</table>
+<div class="nota-lateral">Si no ves alguno de estos botones, puede ser que tu perfil no tenga permiso para esa acción. Consultá con el administrador del sistema.</div>
+
+<h2 id="nueva-cobranza">Cargar una cobranza nueva</h2>
+<p>Con <span class="boton-ejemplo boton-exito">+ Nueva Cobranza</span> se abre el formulario <strong>Nueva Cobranza (Recibo de Cobro)</strong>. Tiene cuatro partes, de arriba hacia abajo.</p>
+
+<h3 id="datos-generales">1. Datos Generales de la Cobranza</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Cliente <em>(obligatorio)</em></td><td>Quién te paga. Al elegirlo se cargan sus comprobantes pendientes en la parte 3. En la lista también aparecen proveedores con la aclaración "proveedor (devolución de NC)": se usan cuando un proveedor te devuelve dinero de una nota de crédito.</td></tr>
+    <tr><td>Sucursal <em>(obligatorio)</em></td><td>Dónde se recibe el dinero. Define a qué caja entra el efectivo.</td></tr>
+    <tr><td>Punto de Venta <em>(obligatorio)</em></td><td>Punto de venta con el que se numera el recibo. Si elegís uno de otra sucursal, la sucursal se ajusta sola.</td></tr>
+    <tr><td>Número</td><td>Dice "Se asigna al confirmar". No se completa a mano.</td></tr>
+    <tr><td>Tipo Comprobante <em>(obligatorio)</em></td><td>Se completa después de elegir el punto de venta. Si hay un solo tipo posible, queda elegido solo.</td></tr>
+    <tr><td>Fecha Emisión <em>(obligatorio)</em></td><td>Por defecto, hoy.</td></tr>
+    <tr><td>Fecha Contable</td><td>Fecha con la que se registra en contabilidad. Por defecto, hoy. Si la dejás vacía se usa la de emisión.</td></tr>
+    <tr><td>Observaciones</td><td>Texto libre: concepto o referencia interna.</td></tr>
+</table>
+
+<h3 id="medios">2. Medios de Cobro Recibidos</h3>
+<p>Acá cargás cómo te pagó el cliente. El formulario arranca con una fila de <strong>Efectivo</strong>. Con <span class="boton-ejemplo boton-primario">+ Agregar Medio</span> sumás más filas (por ejemplo, parte en efectivo y parte en cheque). Con la <strong>X</strong> roja de cada fila la quitás.</p>
+<p>Cada fila tiene el <strong>Medio de Pago</strong>, unos datos que cambian según el medio y el <strong>Importe</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Medio</th><th>Datos que pide</th></tr>
+    <tr><td>Efectivo</td><td>La caja donde entra. Si la sucursal tiene una sola caja, se muestra fija. Si tiene varias, elegís cuál.</td></tr>
+    <tr><td>Transferencia</td><td>La cuenta bancaria de la empresa donde entró y el N° de operación.</td></tr>
+    <tr><td>Cheque de tercero</td><td>Banco emisor, N° de cheque, fecha de pago y librador (titular). Banco, número y fecha son obligatorios. Al confirmar, el cheque queda <strong>En Cartera</strong>.</td></tr>
+    <tr><td>Retención</td><td>Tipo de impuesto retenido, N° de certificado, base imponible y alícuota (%). Tipo y certificado son obligatorios.</td></tr>
+</table>
+<p>Abajo de la tabla ves el <strong>TOTAL VALORES RECIBIDOS</strong>.</p>
+<div class="nota-lateral">Los medios que aparecen en la lista dependen de cómo esté configurada tu empresa.</div>
+
+<h3 id="imputacion">3. Imputación a Comprobantes Pendientes</h3>
+<p>Cuando elegís el cliente, esta parte muestra sus comprobantes con saldo para cobrar (facturas y notas de débito confirmadas o pagadas en parte), del más antiguo al más nuevo. Si no tiene ninguno, aparece el aviso: "El cliente no registra comprobantes pendientes de pago. Todo cobro ingresado quedará como cobro a cuenta".</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Casilla</td><td>Al marcarla, el importe a imputar se completa con todo el saldo pendiente. Al desmarcarla vuelve a 0. La casilla del encabezado marca o desmarca todas.</td></tr>
+    <tr><td>Comprobante / Emisión / Vto.</td><td>Qué comprobante es y sus fechas.</td></tr>
+    <tr><td>Total</td><td>Importe original del comprobante.</td></tr>
+    <tr><td>Pendiente</td><td>Lo que falta pagar hoy (en rojo).</td></tr>
+    <tr><td>Importe a Imputar</td><td>Cuánto de este pago aplicás a ese comprobante. Podés escribir un monto parcial. Si ponés más que el pendiente, el sistema lo baja al máximo posible.</td></tr>
+</table>
+<p>Dos botones te ayudan:</p>
+<ul>
+    <li><span class="boton-ejemplo boton-outline">Auto Imputar</span>: reparte el total de valores recibidos entre los comprobantes, empezando por los más antiguos, hasta agotar el dinero. Primero tenés que cargar los importes de los medios de cobro.</li>
+    <li><span class="boton-ejemplo boton-outline">Limpiar</span>: pone todas las imputaciones en 0.</li>
+</ul>
+<p>Abajo ves el <strong>TOTAL IMPUTADO A COMPROBANTES</strong>.</p>
+
+<h3 id="resumen">4. Resumen y cobro a cuenta</h3>
+<p>Al pie del formulario hay tres números que se recalculan solos:</p>
+<table class="tabla-referencia">
+    <tr><th>Recuadro</th><th>Qué es</th></tr>
+    <tr><td>Total Valores</td><td>Todo el dinero recibido (parte 2).</td></tr>
+    <tr><td>Total Imputado</td><td>Lo que aplicaste a comprobantes (parte 3).</td></tr>
+    <tr><td>Saldo a Cuenta (A Favor)</td><td>La diferencia: dinero recibido que no aplicaste a nada.</td></tr>
+</table>
+<ul>
+    <li>Si imputaste <strong>menos</strong> de lo que cobraste, aparece un aviso celeste de <strong>Cobro a cuenta</strong>: el excedente queda a favor del cliente para aplicarlo después. Es válido.</li>
+    <li>Si imputaste <strong>más</strong> de lo que cobraste, aparece un aviso rojo: "El total imputado supera el total de valores cobrados". No vas a poder guardar hasta corregirlo.</li>
+</ul>
+<p>Al pie están los botones <span class="boton-ejemplo boton-outline">Cancelar</span>, <span class="boton-ejemplo boton-outline">Guardar Borrador</span> y <span class="boton-ejemplo boton-exito">Confirmar y Emitir Recibo</span>.</p>
+
+<h2 id="guardar-borrador">Guardar como borrador</h2>
+<p><strong>Guardar Borrador</strong> graba la cobranza sin emitir el recibo. No mueve dinero ni cambia saldos. Sirve si todavía tenés que verificar algo (por ejemplo, que la transferencia se acreditó). Vas a ver el mensaje "El borrador de cobranza fue guardado correctamente." Después la podés retomar con <strong>Editar Borrador</strong>. En ese caso el formulario se titula "Editar Borrador de Cobranza #..." y el número dice "Borrador (Sin emitir)".</p>
+
+<h2 id="confirmar">Confirmar y emitir el recibo</h2>
+<p>Podés confirmar de dos formas: con <strong>Confirmar y Emitir Recibo</strong> dentro del formulario, o con el botón de tilde de un borrador en el listado. En ambos casos el sistema pregunta "¿Confirmar Recibo de Cobranza?" y tenés que aceptar.</p>
+<p>Al confirmar, el sistema hace todo junto:</p>
+<ol>
+    <li>Le asigna el número definitivo al recibo.</li>
+    <li>Suma cada medio a su cuenta: el efectivo a la caja, la transferencia al banco y los cheques a la cartera de valores.</li>
+    <li>Baja el saldo pendiente de cada factura imputada. Cada factura pasa sola a <strong>Cancelado parcial</strong> o <strong>Cancelado total</strong>.</li>
+    <li>Genera el registro contable.</li>
+</ol>
+<p>Vas a ver "¡Recibo Emitido!" (o "¡Recibo Confirmado!") con el texto "Cobranza confirmada con éxito. Recibo N° 0001-00000012", y se abre el recibo para que lo imprimas.</p>
+<div class="alert alert-warning">Si otra persona imputó la misma factura justo antes que vos, la confirmación se rechaza con un mensaje de "Sobre-imputación rechazada" que indica el saldo real. Volvé a abrir el borrador, ajustá el importe y confirmá de nuevo.</div>
+
+<h2 id="ver-recibo">Ver e imprimir el recibo</h2>
+<p>El botón del ojo abre el <strong>Detalle de Recibo de Cobro</strong>, con el formato del recibo: datos de la empresa y del cliente, número, estado, los valores recibidos con su detalle (caja, banco y N° de operación, datos del cheque o del certificado) y los comprobantes cancelados con el importe imputado a cada uno. Si fue un cobro sin imputar, lo aclara: "Cobro ingresado sin comprobantes aplicados (Cobro a cuenta / Anticipo a favor del cliente)".</p>
+<p>El botón <span class="boton-ejemplo boton-outline">Imprimir</span> abre la impresión del navegador. Desde ahí podés imprimir o guardar como PDF.</p>
+
+<h2 id="anular">Anular un recibo confirmado</h2>
+<p>El botón <strong>Anular Recibo</strong> abre una ventana roja que avisa que la anulación va a revertir los movimientos de tesorería, reabrir los saldos de los comprobantes imputados y anular el registro contable. Tenés que escribir el <strong>Motivo de Anulación</strong> (es obligatorio) y apretar <span class="boton-ejemplo boton-peligro">Proceder con la Anulación</span>.</p>
+<p>El recibo no se borra: pasa a <span class="badge badge-danger">Anulada</span> y queda en el listado. Las facturas vuelven a tener el saldo que tenían antes del cobro. Vas a ver el mensaje "Cobranza anulada exitosamente y saldos revertidos."</p>
+<div class="alert alert-warning"><strong>Cheques ya usados:</strong> si el recibo incluía un cheque que ya depositaste o entregaste a un proveedor, no se puede anular. El mensaje dice "No se puede anular la cobranza porque el cheque N° ... ya no está en cartera". Primero hay que revertir lo que se hizo con ese cheque.</div>
+
+<h2 id="eliminar">Eliminar un borrador</h2>
+<p>Con el tacho borrás un borrador que no vas a usar. El sistema pregunta "¿Eliminar Borrador? Esta acción no se puede deshacer." Al aceptar, el borrador desaparece del listado. Solo se pueden eliminar borradores: un recibo confirmado se anula, no se elimina.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Debe seleccionar un cliente.</td><td>Falta elegir el cliente.</td></tr>
+    <tr><td>Debe seleccionar un punto de venta.</td><td>Falta el punto de venta.</td></tr>
+    <tr><td>Debe ingresar al menos un medio de cobro.</td><td>Borraste todas las filas de medios. Agregá al menos una.</td></tr>
+    <tr><td>Todos los medios de cobro deben tener un importe mayor a cero.</td><td>Hay una fila de medio sin importe.</td></tr>
+    <tr><td>Complete los datos obligatorios del cheque (Banco, Número y Fecha de Pago).</td><td>Faltan datos del cheque.</td></tr>
+    <tr><td>Complete el tipo y número de certificado de la retención.</td><td>Faltan datos de la retención.</td></tr>
+    <tr><td>El total imputado (...) supera el total de medios cobrados (...).</td><td>Imputaste más de lo que cobraste. Bajá imputaciones o agregá medios.</td></tr>
+    <tr><td>Primero ingrese los importes de los medios de cobro recibidos.</td><td>Apretaste Auto Imputar sin haber cargado importes.</td></tr>
+    <tr><td>El documento ya no está en estado Borrador o fue modificado por otro usuario.</td><td>Alguien lo confirmó o lo cambió mientras lo tenías abierto. Actualizá el listado.</td></tr>
+    <tr><td>Sobre-imputación rechazada en comprobante ...</td><td>La factura ya no tiene tanto saldo. Ajustá el importe.</td></tr>
+    <tr><td>Error contable: No se encontró cuenta contable válida ...</td><td>Falta configurar una cuenta contable. Avisá al responsable de contabilidad (ver <a href="empresas_cuentas_conceptos.html">Conceptos Contables</a>).</td></tr>
+    <tr><td>Solo se pueden anular cobranzas en estado Confirmado. / Solo se pueden eliminar cobranzas en estado Borrador.</td><td>La acción no corresponde al estado actual. Actualizá el listado.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>El cliente me pagó de más (o me dejó un adelanto), ¿cómo lo registro?</td>
+        <td>Cargá el total recibido en los medios e imputá solo lo que corresponde, o nada. La diferencia queda como <strong>cobro a cuenta</strong>. En el listado lo vas a ver como "A cuenta: $ ...".</td>
+    </tr>
+    <tr>
+        <td>¿Puedo pagar solo una parte de una factura?</td>
+        <td>Sí. Escribí el monto parcial en "Importe a Imputar". La factura pasa a <strong>Cancelado parcial</strong> y la próxima vez aparece con el saldo que le queda.</td>
+    </tr>
+    <tr>
+        <td>No me aparece una factura del cliente en la lista de pendientes.</td>
+        <td>Solo aparecen los comprobantes confirmados que todavía tienen saldo. Si la factura sigue en Borrador o ya está totalmente pagada, no aparece. Revisala en <a href="ventas_facturas.html">Facturación</a> o en <a href="comprobantes_consulta.html">Comprobantes - Consulta</a>.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué el recibo no tiene número?</td>
+        <td>Porque sigue en Borrador. El número se asigna recién al confirmar.</td>
+    </tr>
+    <tr>
+        <td>Me equivoqué en un recibo confirmado, ¿lo puedo editar?</td>
+        <td>No. Anulalo (con motivo) y cargá uno nuevo correcto. La anulación revierte todo lo que había hecho el recibo.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo cobrar una factura desde la pantalla de Facturación?</td>
+        <td>Sí. Desde <a href="ventas_facturas.html">Facturación</a> también se puede emitir el recibo de una factura confirmada. Ese recibo aparece después en este listado como cualquier otro.</td>
+    </tr>
+    <tr>
+        <td>El botón Imprimir imprime toda la pantalla.</td>
+        <td>Usa la impresión del navegador. En la vista previa podés elegir "Guardar como PDF" o ajustar márgenes.</td>
+    </tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="ventas_facturas.html">Facturación</a>: las facturas que se cobran acá.</li>
+        <li><a href="clientes_ctacte.html">Cuenta Corriente Clientes</a>: deuda y pagos de cada cliente.</li>
+        <li><a href="cheques_cartera.html">Cartera de Cheques</a>: qué hacer con los cheques que recibiste.</li>
+        <li><a href="comprobantes_consulta.html">Comprobantes - Consulta</a>: buscar cualquier comprobante y ver sus imputaciones.</li>
+        <li><a href="tesoreria_dashboard.html">Dashboard Financiero</a>: saldos de cajas y bancos.</li>
+        <li><a href="pagos.html">Órdenes de Pago</a>: el proceso equivalente para pagar a proveedores.</li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tesorería / Cobranzas. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

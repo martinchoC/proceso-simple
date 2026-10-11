@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
@@ -119,7 +120,7 @@ function obtenerAsientosContables($conexion, $empresa_idx, $pagina_id)
     $sql = "SELECT a.*, 
                    m.moneda as moneda_nombre,
                    s.sucursal_nombre,
-                   d.deposito_nombre,
+                   d.boca_nombre as deposito_nombre,
                    ctas.cont_tipo_asiento,
                    ter.tabla_estado_registro as estado_desc,
                    c.bg_clase as estado_bg_clase,
@@ -127,9 +128,9 @@ function obtenerAsientosContables($conexion, $empresa_idx, $pagina_id)
             FROM gestion__cont_asientos a
             LEFT JOIN gestion__monedas m ON a.moneda_id = m.moneda_id
             LEFT JOIN gestion__sucursales s ON a.sucursal_id = s.sucursal_id
-            LEFT JOIN gestion__depositos d ON a.deposito_id = d.deposito_id
+            LEFT JOIN gestion__bocas d ON a.deposito_id = d.boca_id
             LEFT JOIN gestion__cont_tipos_asientos ctas ON a.cont_tipo_asiento_id = ctas.cont_tipo_asiento_id
-            -- CORREGIDO: Usar estado_registro_id en lugar de tabla_estado_registro_id
+            -- Usar estado_registro_id para el JOIN
             LEFT JOIN conf__tablas_estados_registros ter ON a.tabla_estado_registro_id = ter.estado_registro_id AND ter.tabla_id = ?
             LEFT JOIN conf__colores c ON ter.color_id = c.color_id
             WHERE a.empresa_id = ?
@@ -156,10 +157,16 @@ function obtenerAsientosContables($conexion, $empresa_idx, $pagina_id)
         $fila['numero_asiento'] = formatearNumeroAsiento($fila['anio'], $secuencial);
         
         // Estado HTML
-        $estado_color = $fila['estado_bg_clase'] ?? ($fila['estado_color'] ?? 'dark');
-        $estado_texto = $fila['estado_desc'] ?? $fila['tabla_estado_registro_id'] . ' - Sin Estado';
-        //$fila['estado_html'] = '<span class="badge bg-' . $estado_color . ' text-white">' . htmlspecialchars($estado_texto) . '</span>';
-        $fila['estado_html'] = $estado_texto;
+        $estado_texto = $fila['estado_desc'] ?? ($fila['tabla_estado_registro_id'] . ' - Sin Estado');
+        $badge_class = 'bg-secondary';
+        if ($fila['tabla_estado_registro_id'] == 3) {
+            $badge_class = 'bg-warning text-dark';
+        } elseif ($fila['tabla_estado_registro_id'] == 5) {
+            $badge_class = 'bg-success text-white';
+        } elseif ($fila['tabla_estado_registro_id'] == 6) {
+            $badge_class = 'bg-danger text-white';
+        }
+        $fila['estado_html'] = '<span class="badge ' . $badge_class . '">' . htmlspecialchars($estado_texto) . '</span>';
 
         // Estado para lógica JS
         $fila['estado'] = match($fila['tabla_estado_registro_id']) {
@@ -288,7 +295,11 @@ function agregarAsiento($conexion, $data)
     $anio = $fecha_data['anio'];
     $mes = $fecha_data['mes'];
     
-    $tipo_asiento_id = 1;
+    try {
+        $tipo_asiento_id = emp_tipo_asiento_id($conexion, intval($data['empresa_idx'] ?? 0), 'MAN');
+    } catch (RuntimeException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
     
     mysqli_begin_transaction($conexion);
 
@@ -319,7 +330,7 @@ function agregarAsiento($conexion, $data)
         $usuario_creacion_val = isset($_SESSION['usuario_id']) ? intval($_SESSION['usuario_id']) : 0;
         $tabla_estado_registro_id_val = 3;
 
-        mysqli_stmt_bind_param($stmt, "iiiiiiisiiisdi", 
+        mysqli_stmt_bind_param($stmt, "iiiiiisiisidii", 
             $empresa_id_val,
             $sucursal_id_val,
             $deposito_id_val,
@@ -622,7 +633,19 @@ function agregarDetalleAsiento($conexion, $data)
     if (empty($data['cuenta_id'])) {
         return ['resultado' => false, 'error' => 'La cuenta contable es obligatoria'];
     }
-    
+    // El asiento y la cuenta tienen que ser de la empresa
+    try {
+        $empresa_det = intval($data['empresa_idx'] ?? 0);
+        $empresa_asiento = intval(empresa_cfg_valor($conexion, "SELECT empresa_id FROM gestion__cont_asientos WHERE cont_asiento_id = ?",
+            "i", [intval($data['cont_asiento_id'])]));
+        if ($empresa_det <= 0 || $empresa_asiento !== $empresa_det) {
+            return ['resultado' => false, 'error' => 'Asiento no encontrado'];
+        }
+        emp_validar_cuentas_asiento($conexion, $empresa_det, [$data['cuenta_id']]);
+    } catch (RuntimeException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+
     $importeDebe = floatval($data['importe_local_debe'] ?? 0);
     $importeHaber = floatval($data['importe_local_haber'] ?? 0);
     $importe_local = $importeDebe - $importeHaber;
@@ -682,7 +705,7 @@ function agregarDetalleAsiento($conexion, $data)
             
             $descripcion_val = !empty($data['descripcion']) ? trim($data['descripcion']) : null;
             
-            mysqli_stmt_bind_param($stmt, "didssi", 
+            mysqli_stmt_bind_param($stmt, "didsii", 
                 $importe_local,
                 $moneda_id,
                 $tipo_cambio,
@@ -711,7 +734,7 @@ function agregarDetalleAsiento($conexion, $data)
             $descripcion_val = !empty($data['descripcion']) ? trim($data['descripcion']) : null;
             $estado_val = 'activo';
 
-            mysqli_stmt_bind_param($stmt, "iidddss", 
+            mysqli_stmt_bind_param($stmt, "iididss", 
                 $data['cont_asiento_id'],
                 $data['cuenta_id'],
                 $importe_local,
@@ -892,9 +915,9 @@ function eliminarDetalleAsiento($conexion, $cuenta_id, $cont_asiento_id, $empres
 function obtenerComprobantes($conexion, $empresa_idx)
 {
     $sql = "SELECT c.comprobante_id, 
-                   ct.comprobante_tipo_nombre, 
+                   ct.comprobante_tipo as comprobante_tipo_nombre, 
                    c.comprobante_nro,
-                   c.comprobante_pv,
+                   " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id', 'c.tabla_origen_id') . " AS comprobante_pv,
                    c.f_emision
             FROM gestion__comprobantes c
             LEFT JOIN gestion__comprobantes_tipos ct ON c.comprobante_tipo_id = ct.comprobante_tipo_id
@@ -948,10 +971,10 @@ function obtenerSucursales($conexion, $empresa_idx)
 
 function obtenerDepositos($conexion, $empresa_idx)
 {
-    $sql = "SELECT deposito_id, deposito_nombre, codigo 
-            FROM gestion__depositos 
-            WHERE empresa_id = ? AND tabla_estado_registro_id = 1 
-            ORDER BY deposito_nombre";
+    $sql = "SELECT boca_id as deposito_id, boca_nombre as deposito_nombre, codigo 
+            FROM gestion__bocas 
+            WHERE empresa_id = ? AND tabla_estado_registro_id = 1 AND es_deposito = 1 
+            ORDER BY boca_nombre";
     
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
@@ -1017,7 +1040,7 @@ function obtenerMonedas($conexion, $empresa_idx)
 
 function obtenerEntidades($conexion, $empresa_idx)
 {
-    $sql = "SELECT entidad_id, entidad_nombre, entidad_nro_documento 
+    $sql = "SELECT entidad_id, entidad_nombre, cuit as entidad_nro_documento 
             FROM gestion__entidades 
             WHERE empresa_id = ? AND tabla_estado_registro_id = 1 
             ORDER BY entidad_nombre";

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Integraciones - ARCA</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .boton-aviso { background: var(--amarillo); border-color: var(--amarillo); color: #212529; }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-plug"></i> Manual de usuario: Integraciones - ARCA</h1>
+<p class="subtitulo">Dónde se conecta el sistema con ARCA (ex AFIP) para autorizar facturas electrónicas, y dónde se prueba que esa conexión funcione.</p>
+
+<div class="alert alert-info">Esta pantalla la usa normalmente quien administra el sistema o el contador. Para facturar no hace falta entrar acá: una vez configurada, el sistema la usa solo.</div>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es una Integración con ARCA?</a></li>
+        <li><a href="#conceptos">Palabras que vas a ver en pantalla</a></li>
+        <li><a href="#flujo">Pasos para dejar funcionando la facturación electrónica</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados: Activo e Inactivo</a></li>
+        <li><a href="#agregar">Agregar una integración</a></li>
+        <li><a href="#editar">Editar una integración</a></li>
+        <li><a href="#pruebas">Botón Pruebas</a></li>
+        <li><a href="#historial">Historial de llamadas</a></li>
+        <li><a href="#inhabilitar-habilitar">Inhabilitar o habilitar</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es una Integración con ARCA?</h2>
+<p>Para que una factura electrónica sea válida, ARCA tiene que autorizarla y darle un <strong>CAE</strong> (Código de Autorización Electrónico). Para pedirlo, el sistema se identifica ante ARCA con un <strong>certificado digital</strong> de tu empresa. Una <strong>integración</strong> es esa configuración: qué CUIT, qué certificado, y si se usa en pruebas o en real.</p>
+
+<h2 id="conceptos">Palabras que vas a ver en pantalla</h2>
+<table class="tabla-referencia">
+    <tr><th>En pantalla</th><th>Qué significa</th></tr>
+    <tr><td>Ambiente <span class="badge badge-warning">Homologación</span></td><td>El entorno de <strong>pruebas</strong> de ARCA. Lo que se emite acá no tiene validez fiscal.</td></tr>
+    <tr><td>Ambiente <span class="badge badge-danger">Producción</span></td><td>El entorno <strong>real</strong>. Lo que se autoriza acá vale fiscalmente.</td></tr>
+    <tr><td>Servicio "wsfe"</td><td>El servicio de ARCA para factura electrónica. Es el que usa el sistema para facturar.</td></tr>
+    <tr><td>Certificado (.crt) y Clave privada (.key)</td><td>Los dos archivos que identifican a tu empresa ante ARCA. Se tramitan en ARCA y los deja en el servidor quien administra el sistema.</td></tr>
+    <tr><td>Ticket de Acceso (TA)</td><td>Un permiso temporal que ARCA le da al sistema después de identificarse. Dura unas horas; el sistema lo pide y lo renueva solo.</td></tr>
+    <tr><td>WSAA / WSFE</td><td>Nombres técnicos de los servicios de ARCA: el de identificación (WSAA) y el de factura electrónica (WSFE).</td></tr>
+</table>
+
+<h2 id="flujo">Pasos para dejar funcionando la facturación electrónica</h2>
+<ol>
+    <li>Tramitar el certificado en ARCA y dar de alta el punto de venta electrónico (lo hace el contador o el administrador).</li>
+    <li>Cargar el mismo número de punto de venta en <a href="puntos_venta.html">Puntos de Venta</a>, campo "Código Fiscal".</li>
+    <li>Cargar la integración en esta pantalla, primero en <strong>Homologación</strong>, y probarla con el botón <strong>Pruebas</strong>.</li>
+    <li>Cuando todo funciona, cargar la integración de <strong>Producción</strong> y probarla (sin pedir CAE).</li>
+    <li>Activar el switch "Facturación electrónica con ARCA" en <a href="empresas_parametros.html#arca">Parámetros de Empresa</a>.</li>
+</ol>
+<div class="flujo">
+    <div class="flujo-caja">Certificado en ARCA</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Punto de venta</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Integración + Pruebas</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Switch ARCA activado</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Facturas con CAE</div>
+</div>
+<div class="alert alert-warning">Al facturar, el sistema usa la integración de factura electrónica que esté <strong>Activa</strong> para la empresa. Dejá activa una sola: la del ambiente que corresponda (normalmente Producción).</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Arriba está la tabla de integraciones. Junto al botón de agregar hay un filtro de estado (por defecto muestra solo las <strong>Activas</strong>; podés elegir "Todos los estados").</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Integración</td><td>Nombre de la integración.</td></tr>
+    <tr><td>Ambiente</td><td>Homologación (amarillo) o Producción (rojo).</td></tr>
+    <tr><td>Servicio</td><td>Normalmente "wsfe".</td></tr>
+    <tr><td>CUIT</td><td>CUIT de la empresa que factura.</td></tr>
+    <tr><td>Certificado</td><td>El archivo del certificado y una etiqueta: "Vence dd/mm/aaaa", o en rojo "Vencido" / "No encontrado".</td></tr>
+    <tr><td>Ticket de Acceso</td><td>"Vigente hasta …" (verde) o "Sin TA vigente" (gris). Sin TA vigente es normal: se pide solo en la próxima operación.</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles según el estado.</td></tr>
+</table>
+<p>Abajo está el <a href="#historial">Historial de llamadas</a>.</p>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th><th>Botones</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>La integración está en uso. Si es de factura electrónica, es la que usa el sistema para pedir el CAE.</td><td>Editar, Pruebas, Inhabilitar</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>No se usa. No se puede editar ni probar.</td><td>Habilitar</td></tr>
+</table>
+
+<h2 id="agregar">Agregar una integración</h2>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">+ Agregar</span>. Se abre <strong>Nueva Integración</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Ambiente *</td><td>Homologación (pruebas) o Producción (real).</td></tr>
+    <tr><td>Servicio *</td><td>Viene con "wsfe". Dejalo así para factura electrónica.</td></tr>
+    <tr><td>CUIT emisor *</td><td>CUIT de la empresa, 11 dígitos (con o sin guiones). Tiene que ser el mismo para el que se emitió el certificado.</td></tr>
+    <tr><td>Certificado (.crt) *</td><td>Ubicación del archivo del certificado. Al escribir, la lista sugiere los archivos disponibles.</td></tr>
+    <tr><td>Clave privada (.key) *</td><td>Ubicación del archivo de la clave. También sugiere los disponibles.</td></tr>
+    <tr><td>Observaciones</td><td>Texto libre.</td></tr>
+</table>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">Guardar</span>. Antes de guardar, el sistema revisa que el certificado y la clave existan y correspondan entre sí, que el certificado sea de ese CUIT y que no esté vencido. Si está todo bien ves "Integración creada correctamente".</p>
+<div class="nota-lateral">Solo puede haber una integración por empresa, ambiente y servicio. Por ejemplo, una de "wsfe" en Homologación y otra en Producción.</div>
+
+<h2 id="editar">Editar una integración</h2>
+<p>Con el botón <strong>Editar</strong> (lápiz) se abre <strong>Editar Integración</strong> con los datos cargados. Se usa, por ejemplo, para cargar el certificado nuevo cuando el anterior vence. Al guardar ves "Integración actualizada correctamente".</p>
+
+<h2 id="pruebas">Botón Pruebas</h2>
+<p>El botón <strong>Pruebas</strong> (solo en integraciones Activas) abre la ventana <strong>Pruebas ARCA</strong>, que en el título muestra ambiente, CUIT y servicio. A la izquierda están las pruebas, numeradas en el orden en que conviene hacerlas; a la derecha, el <strong>Resultado</strong> de cada una (OK en verde, ERROR en rojo, TIMEOUT en amarillo cuando ARCA no respondió a tiempo).</p>
+<table class="tabla-referencia">
+    <tr><th>Sección</th><th>Botón</th><th>Qué comprueba</th></tr>
+    <tr><td rowspan="2">1. Autenticación</td><td>Obtener TA</td><td>Que el sistema pueda identificarse ante ARCA con el certificado. Si ya hay un ticket vigente, lo reutiliza.</td></tr>
+    <tr><td>Importar TA guardado</td><td>Para un caso puntual: si ARCA responde que ya hay un ticket pedido fuera del sistema ("alreadyAuthenticated"), este botón lo carga desde el archivo guardado.</td></tr>
+    <tr><td rowspan="2">2. Servidores</td><td>FEDummy</td><td>Que los servidores de factura electrónica de ARCA estén funcionando.</td></tr>
+    <tr><td>Puntos de venta habilitados</td><td>Lista los puntos de venta que tu empresa tiene dados de alta en ARCA (número, tipo de emisión, si está bloqueado o dado de baja).</td></tr>
+    <tr><td rowspan="2">3. Consultas</td><td>Último autorizado</td><td>Con el punto de venta y el tipo de comprobante elegidos, muestra el último número autorizado por ARCA. Completa solo el campo "Número".</td></tr>
+    <tr><td>Consultar comprobante</td><td>Muestra los datos que ARCA tiene de un comprobante (punto de venta + tipo + número). Sirve para verificar una factura.</td></tr>
+    <tr><td>4. Solicitar CAE de prueba</td><td><span class="boton-ejemplo boton-aviso">Solicitar CAE</span></td><td>Emite una factura de prueba y pide su CAE. <strong>Solo funciona en Homologación</strong>; en Producción la sección aparece deshabilitada. Admite solo Factura A, B o C.</td></tr>
+</table>
+<p>Para la prueba de CAE elegís el documento del receptor (Consumidor Final, CUIT, CUIL o DNI; con Consumidor Final no se carga número), su condición de IVA y el importe total. Usa el punto de venta y el tipo de la sección 3, con el número siguiente al último autorizado. Antes de enviar pide confirmación ("¿Solicitar CAE de prueba?").</p>
+<div class="nota-lateral">En "Pto. vta." la lista sugiere los códigos fiscales de tus puntos de venta. Arriba de la sección 1 se ve si el Ticket de Acceso está vigente.</div>
+
+<h2 id="historial">Historial de llamadas</h2>
+<p>Abajo de la pantalla se listan las últimas 500 comunicaciones con ARCA (de las pruebas y de la facturación real): fecha, ambiente, operación, resultado (OK, ERROR, RECHAZO, TIMEOUT), código y descripción de la respuesta. Con el botón del <strong>ojo</strong> ves el detalle completo de lo que se envió y lo que respondió ARCA. Es útil para entender por qué ARCA rechazó una factura. Los datos sensibles se guardan ocultos.</p>
+<p>El botón <span class="boton-ejemplo boton-outline">↻</span> de cada tabla la recarga.</p>
+
+<h2 id="inhabilitar-habilitar">Inhabilitar o habilitar</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-peligro">Inhabilitar</span></td><td>Deja de usar la integración. Pide confirmación: "¿Está seguro de inhabilitar esta integración?".</td><td>Activa</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Habilitar</span></td><td>La vuelve a usar. Pide confirmación.</td><td>Inactiva</td></tr>
+</table>
+<div class="alert alert-warning">Si inhabilitás la integración de factura electrónica con el switch de ARCA activado en Parámetros de Empresa, las facturas no van a poder aprobarse.</div>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué hacer</th></tr>
+    <tr><td>El CUIT no es válido</td><td>Revisá los 11 dígitos.</td></tr>
+    <tr><td>El certificado fue emitido para el CUIT …, no para …</td><td>El certificado es de otra empresa o el CUIT está mal cargado.</td></tr>
+    <tr><td>El certificado venció el …</td><td>Tramitá uno nuevo en ARCA y cargalo con Editar.</td></tr>
+    <tr><td>La empresa ya tiene configurado ese ambiente para el servicio wsfe</td><td>Ya existe esa integración (puede estar inactiva). Editala en lugar de crear otra.</td></tr>
+    <tr><td>El ambiente seleccionado no está activo</td><td>Ese ambiente fue desactivado. Consultá con el administrador.</td></tr>
+    <tr><td>Las pruebas no están habilitadas para el estado de esta integración</td><td>La integración está inactiva. Habilitala primero.</td></tr>
+    <tr><td>Indique punto de venta y tipo de comprobante (y número)</td><td>Completá los datos de la sección 3 antes de consultar.</td></tr>
+    <tr><td>Tipo no admitido: La prueba de CAE admite solo Factura A (1), B (6) o C (11)</td><td>Elegí uno de esos tipos.</td></tr>
+    <tr><td>La prueba de CAE solo se permite en Homologación</td><td>En Producción no se emiten facturas de prueba.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Dice "Sin TA vigente", ¿está mal?</td><td>No. El ticket se pide solo cuando hace falta. Si querés comprobarlo, usá "Obtener TA" en Pruebas.</td></tr>
+    <tr><td>ARCA rechazó una factura, ¿dónde veo por qué?</td><td>En el Historial de llamadas: buscá la operación con resultado RECHAZO o ERROR y abrí el detalle con el ojo.</td></tr>
+    <tr><td>Hice una prueba de CAE, ¿eso es una factura real?</td><td>No, si la hiciste en Homologación. La sección de CAE solo funciona en ese ambiente.</td></tr>
+    <tr><td>"Puntos de venta habilitados" no muestra el mío.</td><td>Ese punto de venta no está dado de alta en ARCA para factura electrónica, o el certificado es de otro CUIT.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Integraciones - ARCA. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    const empresa_idx = 2;
+    const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
     const pagina_id = 81;
     
     var tabla;

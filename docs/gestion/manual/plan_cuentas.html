@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Plan de Cuentas</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    .badge-primary { background: var(--azul); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .arbol { font-family: Consolas, "Courier New", monospace; font-size: 0.9rem; background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 6px; padding: 12px 16px; white-space: pre; overflow-x: auto; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Plan de Cuentas</h1>
+<p class="subtitulo">Cómo armar y mantener la lista de cuentas contables de la empresa, organizada en forma de árbol (rubros, subrubros y cuentas).</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es el Plan de Cuentas?</a></li>
+        <li><a href="#conceptos">Tres conceptos clave: título, imputable y naturaleza</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#navegar-arbol">Navegar el árbol: expandir, contraer y filtrar</a></li>
+        <li><a href="#agregar-cuenta">Agregar una cuenta</a></li>
+        <li><a href="#editar-cuenta">Editar una cuenta</a></li>
+        <li><a href="#estados">Activa e Inactiva</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#flujo">Cómo se arma un plan de cuentas, paso a paso</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#ver-tambien">Ver también</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es el Plan de Cuentas?</h2>
+<p>El <strong>Plan de Cuentas</strong> es la lista ordenada de todas las cuentas que usa la contabilidad de la empresa: Caja, Bancos, Deudores por ventas, Proveedores, Ventas, Compras, IVA, etc. Cada vez que el sistema (o vos, a mano) registra un asiento contable, lo hace contra cuentas de esta lista.</p>
+<p>Las cuentas se organizan en forma de <strong>árbol</strong>: hay cuentas "madre" que agrupan a otras. Por ejemplo:</p>
+<div class="arbol">1        ACTIVO                       (título)
+1.1      Activo Corriente             (título)
+1.1.01   Caja y Bancos                (título)
+1.1.01.01  Caja                       (imputable)
+1.1.01.02  Banco Cuenta Corriente     (imputable)</div>
+<p class="nota-lateral">El ejemplo es ilustrativo: los códigos y nombres reales son los que cargó tu empresa.</p>
+
+<h2 id="conceptos">Tres conceptos clave: título, imputable y naturaleza</h2>
+<table class="tabla-referencia">
+    <tr><th>Concepto</th><th>Qué significa para vos</th></tr>
+    <tr>
+        <td><span class="badge badge-secondary">Título</span></td>
+        <td>Es una cuenta que sólo sirve para <strong>agrupar</strong> a otras (por ejemplo "ACTIVO" o "Caja y Bancos"). No recibe movimientos: no aparece en la lista de cuentas al cargar un asiento.</td>
+    </tr>
+    <tr>
+        <td><span class="badge badge-primary">Imputable</span></td>
+        <td>Es una cuenta "final", la que efectivamente <strong>recibe movimientos</strong> (por ejemplo "Caja"). Sólo las cuentas imputables y activas se pueden elegir al cargar una línea de asiento.</td>
+    </tr>
+    <tr>
+        <td><span class="badge badge-danger">DEUDORA</span> / <span class="badge badge-success">ACREEDORA</span></td>
+        <td>La <strong>naturaleza</strong> indica de qué lado crece normalmente la cuenta. Las cuentas de Activo y de Gastos/Costos suelen ser <em>deudoras</em> (aumentan por el Debe); las de Pasivo, Patrimonio y Ventas/Ingresos suelen ser <em>acreedoras</em> (aumentan por el Haber). Si tenés dudas sobre cuál corresponde, consultá con el contador.</td>
+    </tr>
+    <tr>
+        <td>Nivel</td>
+        <td>La profundidad de la cuenta dentro del árbol: 1 para las cuentas raíz, 2 para sus hijas, y así. <strong>Se calcula solo</strong> según la cuenta padre que elijas.</td>
+    </tr>
+</table>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Al entrar ves el árbol de cuentas en forma de tabla. Cada fila muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno de la cuenta.</td></tr>
+    <tr><td>Código</td><td>Código contable de la cuenta (por ejemplo 1.1.01.01).</td></tr>
+    <tr><td>Cuenta</td><td>Código y nombre, con sangría según su nivel. Un tilde verde indica que es imputable; una etiqueta gris, que es título. Si la cuenta tiene subcuentas, a la izquierda aparece una flecha para abrirla o cerrarla.</td></tr>
+    <tr><td>Naturaleza</td><td>DEUDORA (rojo) o ACREEDORA (verde).</td></tr>
+    <tr><td>Nivel</td><td>Profundidad en el árbol.</td></tr>
+    <tr><td>Imputable</td><td>"Imputable" o "Título".</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo. Las cuentas inactivas se ven con fondo gris.</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles para esa cuenta, según su estado.</td></tr>
+</table>
+<p>Arriba a la derecha de la tabla hay un buscador para encontrar una cuenta por código o nombre.</p>
+
+<h2 id="navegar-arbol">Navegar el árbol: expandir, contraer y filtrar</h2>
+<ul>
+    <li>Al abrir la pantalla, las cuentas raíz se ven abiertas y las subcuentas cerradas. Hacé clic en la flecha de una cuenta para ver (o esconder) sus subcuentas.</li>
+    <li><span class="boton-ejemplo boton-outline">Expandir</span> abre todo el árbol de una vez; <span class="boton-ejemplo boton-outline">Contraer</span> lo cierra.</li>
+    <li>El botón con flechas circulares <span class="boton-ejemplo boton-outline">↻</span> recarga la tabla sin recargar toda la página.</li>
+    <li>El desplegable <strong>"-- Mostrar todas las cuentas --"</strong> (con el ícono de embudo) permite elegir una cuenta título y ver <strong>sólo esa cuenta y todas sus subcuentas</strong>. La cuenta elegida queda resaltada en celeste. Con el botón <span class="boton-ejemplo boton-outline">✕</span> de al lado se quita el filtro.</li>
+</ul>
+<p class="nota-lateral">La pantalla recuerda la página, el filtro y qué ramas tenías abiertas, para que al volver la encuentres igual que la dejaste.</p>
+
+<h2 id="agregar-cuenta">Agregar una cuenta</h2>
+<p>Con el botón <span class="boton-ejemplo boton-exito">+ Agregar</span> (arriba a la izquierda) se abre el formulario <strong>Nueva Cuenta Contable</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código *</td><td>Código contable. Obligatorio. Sólo admite letras, números, puntos y guiones (por ejemplo <code>1.1.01.03</code>). No puede repetirse dentro de la empresa.</td></tr>
+    <tr><td>Cuenta Padre</td><td>La cuenta que va a agrupar a esta. Si la dejás en "-- Ninguna (Cuenta Raíz) --", la cuenta queda en el primer nivel. En la lista, 📌 marca cuentas título y 📝 cuentas imputables.</td></tr>
+    <tr><td>Nombre de la Cuenta *</td><td>Nombre descriptivo. Obligatorio.</td></tr>
+    <tr><td>Naturaleza *</td><td>DEUDORA o ACREEDORA. Obligatoria.</td></tr>
+    <tr><td>Orden</td><td>Número opcional para ordenar a gusto. El listado igualmente se ordena por código.</td></tr>
+    <tr><td>Tipo</td><td>"Imputable (Permite asientos)" o "Título (No imputable)".</td></tr>
+</table>
+<p>Debajo del formulario, un recuadro celeste muestra el <strong>Nivel de la cuenta</strong>: se actualiza solo cuando elegís la cuenta padre.</p>
+<p>Al tocar <span class="boton-ejemplo boton-primario">Guardar</span> el sistema valida los campos. Si todo está bien aparece el aviso "Cuenta guardada correctamente" y la cuenta se agrega al árbol en estado <strong>Activo</strong>. Si algo falla, ves un mensaje de error, por ejemplo:</p>
+<ul>
+    <li><em>"Código, nombre y naturaleza son obligatorios"</em>.</li>
+    <li><em>"Ya existe una cuenta con este código para la empresa"</em>: elegí otro código.</li>
+</ul>
+<div class="alert alert-info">Consejo: armá primero las cuentas título (de arriba hacia abajo) y recién después las imputables. Así, al cargar cada cuenta, su cuenta padre ya existe en la lista.</div>
+
+<h2 id="editar-cuenta">Editar una cuenta</h2>
+<p>El botón de lápiz <span class="boton-ejemplo boton-primario">✎</span> de una fila abre el mismo formulario con los datos de la cuenta (con el título "Editar Cuenta Contable"). Podés cambiar código, nombre, naturaleza, orden, tipo y cuenta padre. En la lista de cuentas padre no aparece la propia cuenta, para evitar que se elija a sí misma.</p>
+<p>Al guardar, si el nuevo código ya lo usa otra cuenta, el sistema avisa <em>"Ya existe otra cuenta con este código para la empresa"</em>.</p>
+<div class="alert alert-warning">Pensá dos veces antes de pasar a "Título" una cuenta que ya tiene movimientos, o de cambiar su naturaleza: los asientos ya registrados no se modifican, pero la cuenta deja de estar disponible para nuevas líneas de asiento (si pasa a título) y los saldos se leen distinto (si cambia la naturaleza). Consultá con el contador.</div>
+
+<h2 id="estados">Activa e Inactiva</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>La cuenta está en uso. Si es imputable, se puede elegir al cargar asientos y en las demás pantallas que piden una cuenta contable (alícuotas de IVA, tipos de producto, impuestos, etc.).</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>La cuenta se dio de baja: deja de ofrecerse para nuevos movimientos, pero <strong>no se borra</strong> ni se pierden los asientos que ya la usaron. Se puede volver a activar en cualquier momento.</td></tr>
+</table>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Abre el formulario para crear una cuenta nueva.</td><td>Siempre (arriba de la tabla).</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Abre el formulario para modificar la cuenta.</td><td>Cuenta Activa.</td></tr>
+    <tr><td>Inhabilitar (círculo con cruz, rojo)</td><td>Pasa la cuenta a Inactivo.</td><td>Cuenta Activa.</td></tr>
+    <tr><td>Habilitar (círculo con tilde, verde)</td><td>Vuelve a activar la cuenta.</td><td>Cuenta Inactiva.</td></tr>
+</table>
+<p>Inhabilitar y Habilitar piden confirmación antes de ejecutarse, con un mensaje del estilo <em>"¿Está seguro de inactivar la cuenta "1.1.01.01 - Caja"?"</em>. Al confirmar, la fila se resalta un instante en verde y aparece un aviso en la esquina superior derecha.</p>
+<p class="nota-lateral">Si no ves alguno de estos botones, puede ser que tu perfil de usuario no tenga permiso para esa acción. Consultá con el administrador del sistema.</p>
+
+<h2 id="flujo">Cómo se arma un plan de cuentas, paso a paso</h2>
+<ol>
+    <li>Cargá las cuentas raíz como <strong>Título</strong> (por ejemplo ACTIVO, PASIVO, PATRIMONIO NETO, RESULTADOS), sin cuenta padre.</li>
+    <li>Debajo de cada una, cargá los rubros y subrubros, también como <strong>Título</strong>, eligiendo su cuenta padre.</li>
+    <li>En el último nivel cargá las cuentas <strong>Imputables</strong> (Caja, Banco X, Proveedores, Ventas, IVA Débito Fiscal, etc.), con su naturaleza.</li>
+    <li>Revisá el árbol con <strong>Expandir</strong> y el filtro por cuenta título.</li>
+    <li>Asociá las cuentas imputables donde el sistema las necesita: alícuotas de IVA, tipos de producto, tipos de impuesto, configuración de impuestos y parámetros contables.</li>
+    <li>A partir de ahí, las cuentas ya se pueden usar en los <a href="cont_asientos.html">Asientos Contables</a>.</li>
+</ol>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Creé una cuenta pero no aparece al cargar un asiento.</td>
+        <td>Al cargar un asiento sólo se ofrecen cuentas <strong>imputables</strong> y <strong>activas</strong>. Revisá que la cuenta no sea "Título" y que no esté Inactiva.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo borrar una cuenta?</td>
+        <td>No: desde esta pantalla las cuentas no se borran, se inhabilitan. Así no se pierde la historia de los asientos que ya la usaron.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué el filtro sólo me muestra algunas cuentas?</td>
+        <td>El desplegable de filtro lista sólo cuentas <strong>título</strong>, porque su objetivo es mostrar una rama completa del árbol (la cuenta y todas sus subcuentas).</td>
+    </tr>
+    <tr>
+        <td>Cambié la cuenta padre y el nivel no coincide con lo que esperaba.</td>
+        <td>El nivel se calcula a partir del nivel de la cuenta padre más uno. Si la cuenta padre tenía un nivel incorrecto, editala primero a ella.</td>
+    </tr>
+    <tr>
+        <td>Volví a la pantalla y no veo las ramas que había abierto o veo un filtro puesto.</td>
+        <td>La pantalla recuerda tu última vista. Usá <strong>Contraer</strong>/<strong>Expandir</strong> y el botón <strong>✕</strong> del filtro para volver a la vista completa.</td>
+    </tr>
+</table>
+
+<h2 id="ver-tambien">Ver también</h2>
+<ul>
+    <li><a href="cont_asientos.html">Asientos Contables</a>: dónde se usan las cuentas imputables.</li>
+    <li><a href="cont__mayores.html">Mayores Contables</a>: movimientos y saldos por cuenta.</li>
+    <li><a href="iva_alicuotas.html">IVA Alícuotas</a>, <a href="productos_tipos.html">Tipos de Producto</a>, <a href="impuestos_tipos.html">Tipos de Impuesto</a> y <a href="empresas_impuestos_config.html">Impuestos Adicionales - Configuración</a>: pantallas que piden una cuenta contable.</li>
+</ul>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Contabilidad / Plan de Cuentas. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

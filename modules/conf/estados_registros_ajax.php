@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 1, 'paginas_url' => ['estados_registros.php']]);
 require_once "estados_registros_model.php";
 
 header('Content-Type: application/json');

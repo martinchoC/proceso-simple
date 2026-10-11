@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => ['cobranzas.php']]);
 /**
  * cobranzas_ajax.php
  *
@@ -44,7 +47,7 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx  = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 105);
 
 if (!$conexion) {
@@ -80,10 +83,11 @@ try {
 
         case 'maestros':
             $clientes = obtenerClientesCobranza($conexion, $empresa_idx);
-            $medios_pago = obtenerMediosPagoDisponibles($conexion);
+            $medios_pago = obtenerMediosPagoDisponibles($conexion, $empresa_idx);
             $cuentas_tesoreria = obtenerCuentasTesoreriaEmpresa($conexion, $empresa_idx);
             $bancos = obtenerBancosDisponibles($conexion);
             $impuestos_retencion = obtenerImpuestosRetencion($conexion);
+            $jurisdicciones = obtenerJurisdicciones($conexion);
             $sucursales = obtenerSucursalesEmpresa($conexion, $empresa_idx);
             $puntos_venta = obtenerPuntosVentaCobranza($conexion, $empresa_idx, $pagina_idx);
 
@@ -95,6 +99,7 @@ try {
                     'cuentas_tesoreria'   => $cuentas_tesoreria,
                     'bancos'              => $bancos,
                     'impuestos_retencion' => $impuestos_retencion,
+                    'jurisdicciones'      => $jurisdicciones,
                     'sucursales'          => $sucursales,
                     'puntos_venta'        => $puntos_venta
                 ]

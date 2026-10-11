@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Orígenes de Costos</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert a { color: inherit; font-weight: 600; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-chart-line"></i> Manual de usuario: Orígenes de Costos</h1>
+<p class="subtitulo">La lista de orígenes que indican de dónde salió cada cambio de costo de un producto (por ejemplo, una compra o una carga manual).</p>
+
+<h2 id="que-es">¿Para qué sirve?</h2>
+<p>Cada vez que cambia el costo de un producto, el sistema anota su <strong>origen</strong>. Lo ves en la columna Origen de <a href="productos_costos.html">Productos - Costos</a> y en su historial, y se puede elegir al cargar un costo a mano. Esta pantalla es la tabla de configuración de esos orígenes.</p>
+<div class="alert alert-warning">El sistema usa uno de estos orígenes, el de las compras, para registrar automáticamente los costos que vienen de las facturas de proveedores. No inhabilites ni cambies el significado de un origen que ya se está usando. Ante la duda, consultá con el equipo.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>El listado muestra <strong>ID</strong>, <strong>Código</strong>, <strong>Nombre</strong>, <strong>Descripción</strong>, <strong>Orden</strong>, <strong>Estado</strong> y <strong>Acciones</strong>. Arriba a la derecha están <span class="boton-ejemplo boton-outline">↻</span> para recargar y el menú <span class="boton-ejemplo boton-outline">Exportar</span> (Excel, PDF, CSV, Imprimir).</p>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<p>Un origen nuevo queda <strong>Activo</strong>. Inhabilitado, deja de ofrecerse en el desplegable Origen al cargar costos a mano. Los costos e historiales que ya lo tenían lo conservan.</p>
+
+<h2 id="agregar-editar">Agregar o editar un origen</h2>
+<p><span class="boton-ejemplo boton-primario">+ Agregar</span> abre "Nuevo Origen de Costo"; el botón <strong>Editar</strong> de una fila abre el mismo formulario con sus datos.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Detalle</th></tr>
+    <tr><td>Código *</td><td>Hasta 50 caracteres. No se puede repetir ("El código ya existe").</td></tr>
+    <tr><td>Orden</td><td>Posición en las listas (número desde 1)</td></tr>
+    <tr><td>Nombre *</td><td>Hasta 100 caracteres. Es el texto que se ve en pantallas e historiales.</td></tr>
+    <tr><td>Descripción</td><td>Opcional, hasta 255 caracteres</td></tr>
+</table>
+<p>Al guardar aparece "Origen de costo guardado correctamente".</p>
+
+<h2 id="botones">Botones</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Agregar</td><td>Crea un origen nuevo</td><td>Siempre</td></tr>
+    <tr><td>Editar</td><td>Modifica el origen</td><td>Activo</td></tr>
+    <tr><td>Inhabilitar</td><td>Lo pasa a Inactivo (pide confirmación)</td><td>Activo</td></tr>
+    <tr><td>Habilitar</td><td>Lo vuelve a Activo (pide confirmación)</td><td>Inactivo</td></tr>
+</table>
+<div class="nota-lateral">Para editar un origen inactivo, primero habilitalo.</div>
+
+<div class="alert alert-info">
+    <strong>Manuales relacionados:</strong>
+    <a href="productos_costos.html">Productos - Costos</a> ·
+    <a href="productos_costos_ajustes.html">Ajustes de Costo</a> ·
+    <a href="productos_costos_ajustes_tipos.html">Tipos de Ajuste de Costos</a> ·
+    <a href="facturas_proveedores.html">Facturas de Proveedores</a>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Productos / Orígenes de Costos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

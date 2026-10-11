@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manuales de usuario — Índice</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 2rem; }
+    .destacado {
+        border: 1px solid var(--gris-borde);
+        border-left: 6px solid var(--verde);
+        border-radius: 8px;
+        background: #e9f6ef;
+        padding: 16px 20px;
+        margin: 0 0 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    .destacado .info { flex: 1; min-width: 220px; }
+    .destacado .titulo { font-weight: 700; font-size: 1.1rem; margin: 0 0 4px; }
+    .destacado .titulo a { color: #146c43; text-decoration: none; }
+    .destacado .titulo a:hover { text-decoration: underline; }
+    .destacado p.descripcion { margin: 0; color: #0f5132; font-size: 0.92rem; }
+    .btn-destacado {
+        display: inline-block;
+        padding: 8px 18px;
+        border-radius: 5px;
+        background: var(--verde);
+        color: #fff;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .btn-destacado:hover { background: #146c43; }
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 12px 20px;
+        margin: 0 0 10px;
+        font-size: 0.92rem;
+    }
+    .toc a { color: var(--azul); text-decoration: none; margin-right: 14px; white-space: nowrap; }
+    .toc a:hover { text-decoration: underline; }
+    .modulo {
+        margin: 28px 0;
+    }
+    .modulo-titulo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0a58ca;
+        border-bottom: 2px solid var(--gris-borde);
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+    }
+    .modulo-nota { color: var(--texto-muted); font-size: 0.88rem; margin: 6px 0 0; }
+    .modulo-badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #fff;
+        background: var(--texto-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    ul.paginas {
+        list-style: none;
+        margin: 10px 0 0;
+        padding: 0;
+    }
+    ul.paginas li {
+        border: 1px solid var(--gris-borde);
+        border-left: 4px solid var(--azul);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    ul.paginas li.pendiente {
+        border-left-color: var(--texto-muted);
+        opacity: 0.75;
+    }
+    ul.paginas .info { flex: 1; min-width: 200px; }
+    ul.paginas .nombre-pagina {
+        font-weight: 600;
+        margin: 0 0 2px;
+    }
+    ul.paginas .nombre-pagina a {
+        color: var(--azul);
+        text-decoration: none;
+    }
+    ul.paginas .nombre-pagina a:hover { text-decoration: underline; }
+    ul.paginas .descripcion {
+        color: var(--texto-muted);
+        font-size: 0.9rem;
+        margin: 0;
+    }
+    .badge-pendiente {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #664d03;
+        background: var(--amarillo);
+        white-space: nowrap;
+    }
+    .btn-manual {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 5px;
+        background: var(--azul);
+        color: #fff;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .btn-manual:hover { background: #0a58ca; }
+    footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+</style>
+</head>
+<body>
+
+<h1>Manuales de usuario — Módulo Gestión</h1>
+<p class="subtitulo">Índice general, organizado por área y pantalla, tal como aparecen en el menú lateral del sistema.</p>
+
+<div class="destacado">
+    <div class="info">
+        <p class="titulo"><a href="introduccion.html">Primeros pasos en el sistema</a></p>
+        <p class="descripcion">Empezá por acá: cómo ingresar y salir, elegir la empresa, moverte por el menú, usar los listados, por qué los botones cambian según el estado y tu perfil, qué significa cada estado y cómo es el circuito completo de ventas y compras.</p>
+    </div>
+    <a class="btn-destacado" href="introduccion.html">Leer introducción</a>
+</div>
+
+<div class="toc">
+    <strong>Áreas:</strong>
+    <a href="#stock">Stock</a>
+    <a href="#ventas">Ventas</a>
+    <a href="#tesoreria">Tesorería</a>
+    <a href="#compras">Compras</a>
+    <a href="#seteo-empresas">Seteo Empresas</a>
+    <a href="#contabilidad">Contabilidad</a>
+    <a href="#tablas">Tablas del sistema</a>
+    <a href="#costos">Costos de productos</a>
+</div>
+
+<!-- ============================== STOCK ============================== -->
+<div class="modulo" id="stock">
+    <div class="modulo-titulo"><span class="modulo-badge">Stock</span></div>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="stock_dashboard.html">Stock - Dashboard</a></p>
+                <p class="descripcion">Stock actual de cada producto en cada boca de expendio, y el detalle de los movimientos que lo generaron.</p>
+            </div>
+            <a class="btn-manual" href="stock_dashboard.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="stock_ajustes.html">Ajustes de Stock</a></p>
+                <p class="descripcion">Carga de ajustes de inventario (faltantes, sobrantes, inventario inicial), que suman o restan stock al confirmarse.</p>
+            </div>
+            <a class="btn-manual" href="stock_ajustes.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="stock_niveles.html">Stock - Mínimos y Máximos</a></p>
+                <p class="descripcion">Stock mínimo y máximo por producto y boca de expendio. Si el stock cae por debajo del mínimo, se genera una alerta de reposición.</p>
+            </div>
+            <a class="btn-manual" href="stock_niveles.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="stock_alertas.html">Stock - Alertas de Reposición</a></p>
+                <p class="descripcion">Productos con stock por debajo del mínimo en cada boca. Las alertas se cierran solas cuando el stock vuelve al mínimo.</p>
+            </div>
+            <a class="btn-manual" href="stock_alertas.html">Ver manual</a>
+        </li>
+    </ul>
+</div>
+
+<!-- ============================== VENTAS ============================== -->
+<div class="modulo" id="ventas">
+    <div class="modulo-titulo"><span class="modulo-badge">Ventas</span></div>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_pedidos_gestion.html">Nuevos Pedidos de Clientes</a></p>
+                <p class="descripcion">Tablero para preparar y entregar (total o parcialmente) los pedidos de clientes ya confirmados, generando remitos.</p>
+            </div>
+            <a class="btn-manual" href="ventas_pedidos_gestion.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_remitos_pendientes_facturacion.html">Remitos Pendientes Facturación</a></p>
+                <p class="descripcion">Cola de facturación: remitos entregados que falta facturar (total o parcialmente); desde acá se arma y confirma la factura.</p>
+            </div>
+            <a class="btn-manual" href="ventas_remitos_pendientes_facturacion.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_pedidos.html">Pedidos Realizados (Pedidos de Clientes)</a></p>
+                <p class="descripcion">Cómo cargar, confirmar y hacer seguimiento inicial de los pedidos de venta a clientes.</p>
+            </div>
+            <a class="btn-manual" href="ventas_pedidos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_remitos.html">Remitos de Pedidos</a></p>
+                <p class="descripcion">Cómo registrar la entrega de mercadería a un cliente y cómo facturarla después, total o parcialmente.</p>
+            </div>
+            <a class="btn-manual" href="ventas_remitos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ventas_facturas.html">Facturación</a></p>
+                <p class="descripcion">Cómo emitir Facturas, Notas de Crédito y Notas de Débito a clientes desde una sola pantalla, y cómo seguir su estado hasta la confirmación.</p>
+            </div>
+            <a class="btn-manual" href="ventas_facturas.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="clientes.html">Clientes</a></p>
+                <p class="descripcion">Cómo ver, dar de alta y gestionar tus clientes, sus condiciones comerciales y su acceso al carrito de pedidos online.</p>
+            </div>
+            <a class="btn-manual" href="clientes.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="clientes_ctacte.html">Cuenta Corriente Clientes</a></p>
+                <p class="descripcion">Saldos, deuda vencida y movimientos de la cuenta corriente de cada cliente.</p>
+            </div>
+            <a class="btn-manual" href="clientes_ctacte.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="listas_precios_productos.html">Lista de Precios</a></p>
+                <p class="descripcion">Cómo cargar, editar y eliminar el precio de cada producto dentro de cada lista de precios, y cómo importar precios en forma masiva desde un Excel.</p>
+            </div>
+            <a class="btn-manual" href="listas_precios_productos.html">Ver manual</a>
+        </li>
+    </ul>
+</div>
+
+<!-- ============================== TESORERÍA ============================== -->
+<div class="modulo" id="tesoreria">
+    <div class="modulo-titulo"><span class="modulo-badge">Tesorería</span></div>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="tesoreria_dashboard.html">Dashboard Financiero</a></p>
+                <p class="descripcion">Saldos de cajas y bancos, movimientos del período, flujo de fondos proyectado y cheques por vencer.</p>
+            </div>
+            <a class="btn-manual" href="tesoreria_dashboard.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="cobranzas.html">Cobranzas</a></p>
+                <p class="descripcion">Emisión de recibos de cobro a clientes, con sus medios de cobro y su aplicación a los comprobantes pendientes de la cuenta corriente.</p>
+            </div>
+            <a class="btn-manual" href="cobranzas.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="pagos.html">Órdenes de Pago</a></p>
+                <p class="descripcion">Pagos a proveedores: emisión de la orden de pago, cancelación de facturas de compra y emisión o endoso de cheques.</p>
+            </div>
+            <a class="btn-manual" href="pagos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="cheques_cartera.html">Cartera de Cheques</a></p>
+                <p class="descripcion">Administración de cheques de terceros y cheques propios: en cartera, depositados, emitidos, rechazados o devueltos.</p>
+            </div>
+            <a class="btn-manual" href="cheques_cartera.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="tesoreria_movimientos.html">Movimientos Internos</a></p>
+                <p class="descripcion">Transferencias de dinero entre cajas y cuentas bancarias de la misma empresa, con su asiento contable automático.</p>
+            </div>
+            <a class="btn-manual" href="tesoreria_movimientos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="obligaciones_rendiciones.html">Obligaciones y Rendiciones</a></p>
+                <p class="descripcion">Liquidaciones y pagos de impuestos, anticipos de viáticos y rendición de comprobantes de gastos.</p>
+            </div>
+            <a class="btn-manual" href="obligaciones_rendiciones.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="comprobantes_consulta.html">Comprobantes - Consulta</a></p>
+                <p class="descripcion">Consulta, solo lectura, de todos los comprobantes de la empresa (ventas, compras, stock y tesorería) con filtros.</p>
+            </div>
+            <a class="btn-manual" href="comprobantes_consulta.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="empresas_cuentas_conceptos.html">Conceptos Contables</a></p>
+                <p class="descripcion">Cuentas contables que Tesorería usa por defecto para cada concepto.</p>
+            </div>
+            <a class="btn-manual" href="empresas_cuentas_conceptos.html">Ver manual</a>
+        </li>
+    </ul>
+</div>
+
+<!-- ============================== COMPRAS ============================== -->
+<div class="modulo" id="compras">
+    <div class="modulo-titulo"><span class="modulo-badge">Compras</span></div>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="ordenes_compra.html">Ordenes de Compra</a></p>
+                <p class="descripcion">Pedidos de mercadería a proveedores.</p>
+            </div>
+            <a class="btn-manual" href="ordenes_compra.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="facturas_proveedores.html">Facturas de Proveedores</a></p>
+                <p class="descripcion">Carga de los comprobantes de proveedores. Al confirmarlos ingresa la mercadería al stock, se actualizan los costos y se registra la deuda con el proveedor.</p>
+            </div>
+            <a class="btn-manual" href="facturas_proveedores.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="proveedores.html">Proveedores</a></p>
+                <p class="descripcion">Alta y gestión de proveedores y sus condiciones comerciales. Usa la misma base de Entidades Comerciales, filtrada.</p>
+            </div>
+            <a class="btn-manual" href="proveedores.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="proveedor_precios.html">Lista Precios Proveedores</a></p>
+                <p class="descripcion">Precios de compra de cada producto según cada proveedor.</p>
+            </div>
+            <a class="btn-manual" href="proveedor_precios.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_proveedores.html">Productos - Proveedores</a></p>
+                <p class="descripcion">Relación entre los productos propios y los códigos con que los identifica cada proveedor.</p>
+            </div>
+            <a class="btn-manual" href="productos_proveedores.html">Ver manual</a>
+        </li>
+    </ul>
+</div>
+
+<!-- ============================== SETEO EMPRESAS ============================== -->
+<div class="modulo" id="seteo-empresas">
+    <div class="modulo-titulo"><span class="modulo-badge">Seteo Empresas</span></div>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="empresas_parametros.html">Parámetros de Empresa</a></p>
+                <p class="descripcion">Datos fiscales y valores por defecto de la empresa (punto de venta, lista de precios, condición de pago) y la habilitación de la facturación electrónica con ARCA.</p>
+            </div>
+            <a class="btn-manual" href="empresas_parametros.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="sucursales.html">Sucursales</a></p>
+                <p class="descripcion">Locales y sucursales de la empresa.</p>
+            </div>
+            <a class="btn-manual" href="sucursales.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="bocas.html">Sucursales - Bocas</a></p>
+                <p class="descripcion">Bocas de expendio: cada punto físico dentro de una sucursal (depósito, mostrador o ambos a la vez).</p>
+            </div>
+            <a class="btn-manual" href="bocas.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="sucursales_ubicaciones.html">Depositos - Ubicaciones</a></p>
+                <p class="descripcion">Ubicaciones dentro de cada sucursal, en una vista jerárquica.</p>
+            </div>
+            <a class="btn-manual" href="sucursales_ubicaciones.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="puntos_venta.html">Sucursales - Puntos de Venta</a></p>
+                <p class="descripcion">Puntos de venta de cada sucursal y qué tipos de comprobante puede emitir cada uno.</p>
+            </div>
+            <a class="btn-manual" href="puntos_venta.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="arca_integraciones.html">Integraciones - ARCA</a></p>
+                <p class="descripcion">Configuración de la conexión con ARCA para la facturación electrónica, y pruebas de esa conexión.</p>
+            </div>
+            <a class="btn-manual" href="arca_integraciones.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="accesos_perfiles.html">Sucursales - Accesos por Perfil</a></p>
+                <p class="descripcion">Qué sucursales, bocas y puntos de venta puede usar cada perfil de usuario, y excepciones puntuales por usuario.</p>
+            </div>
+            <a class="btn-manual" href="accesos_perfiles.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos.html">Productos</a></p>
+                <p class="descripcion">Alta y edición de productos con sus compatibilidades.</p>
+            </div>
+            <a class="btn-manual" href="productos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_generales.html">Productos - Generales</a></p>
+                <p class="descripcion">Productos y servicios con todos sus campos, sin compatibilidades.</p>
+            </div>
+            <a class="btn-manual" href="productos_generales.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_consulta.html">Productos - Consulta</a></p>
+                <p class="descripcion">Consulta de productos, solo lectura.</p>
+            </div>
+            <a class="btn-manual" href="productos_consulta.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="entidades.html">Entidades Comerciales</a></p>
+                <p class="descripcion">Cómo dar de alta y gestionar clientes y proveedores, sus sucursales y condiciones comerciales. Las pantallas "Clientes" y "Proveedores" usan esta misma base de datos, filtrada.</p>
+            </div>
+            <a class="btn-manual" href="entidades.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="listas_precios.html">Listas de Precios - Seteo</a></p>
+                <p class="descripcion">Las listas de precios de la empresa (los tipos de lista que después se asignan a los clientes).</p>
+            </div>
+            <a class="btn-manual" href="listas_precios.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="condiciones_pago.html">Condiciones de Pago</a></p>
+                <p class="descripcion">Condiciones de pago disponibles para clientes, proveedores y comprobantes.</p>
+            </div>
+            <a class="btn-manual" href="condiciones_pago.html">Ver manual</a>
+        </li>
+    </ul>
+</div>
+
+<!-- ============================== CONTABILIDAD ============================== -->
+<div class="modulo" id="contabilidad">
+    <div class="modulo-titulo"><span class="modulo-badge">Contabilidad</span></div>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="plan_cuentas.html">Plan de Cuentas</a></p>
+                <p class="descripcion">Árbol de cuentas contables: cuentas título e imputables, naturaleza deudora/acreedora, filtro por rama y activar/inactivar.</p>
+            </div>
+            <a class="btn-manual" href="plan_cuentas.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="cont_asientos.html">Asientos Contables</a></p>
+                <p class="descripcion">Consulta de asientos y carga de asientos manuales (Debe/Haber), confirmación con control de balanceo y asientos automáticos.</p>
+            </div>
+            <a class="btn-manual" href="cont_asientos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="cont_tipos_asientos.html">Tipos de Asientos</a></p>
+                <p class="descripcion">Clasificación del origen de los asientos (manual o automático).</p>
+            </div>
+            <a class="btn-manual" href="cont_tipos_asientos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="cont__mayores.html">Mayores Contables</a></p>
+                <p class="descripcion">Saldos y movimientos por cuenta entre fechas (pantalla en revisión).</p>
+            </div>
+            <a class="btn-manual" href="cont__mayores.html">Ver manual</a>
+        </li>
+        <li class="pendiente">
+            <div class="info">
+                <p class="nombre-pagina">Balance</p>
+                <p class="descripcion">Balance de la empresa a partir de los asientos registrados.</p>
+            </div>
+            <span class="badge-pendiente">Pantalla aún no disponible</span>
+        </li>
+    </ul>
+</div>
+
+<!-- ============================== TABLAS ============================== -->
+<div class="modulo" id="tablas">
+    <div class="modulo-titulo"><span class="modulo-badge">Tablas del sistema</span></div>
+    <p class="modulo-nota">En el menú están repartidas entre "Gestion - Tablas" y "Gestion - Tablas1". Son tablas de referencia que se cargan una vez y se usan en todo el sistema.</p>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="iva_alicuotas.html">Impuestos IVA</a></p>
+                <p class="descripcion">Tasas de IVA (gravado, exento, no gravado) y su cuenta contable.</p>
+            </div>
+            <a class="btn-manual" href="iva_alicuotas.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_tipos.html">Productos - Tipos</a></p>
+                <p class="descripcion">Si el tipo maneja stock, es compuesto o se factura, y sus cuentas de compra, venta y CMV por defecto.</p>
+            </div>
+            <a class="btn-manual" href="productos_tipos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_categorias.html">Productos - Categorias</a></p>
+                <p class="descripcion">Árbol de categorías y subcategorías de productos.</p>
+            </div>
+            <a class="btn-manual" href="productos_categorias.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="marcas.html">Productos - Marcas</a></p>
+                <p class="descripcion">Marcas usadas para la compatibilidad de productos.</p>
+            </div>
+            <a class="btn-manual" href="marcas.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="modelos.html">Productos - Modelos</a></p>
+                <p class="descripcion">Modelos de cada marca.</p>
+            </div>
+            <a class="btn-manual" href="modelos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="submodelos.html">Productos - Submodelos</a></p>
+                <p class="descripcion">Versiones de cada modelo, árbol de productos compatibles e inhabilitación en bloque.</p>
+            </div>
+            <a class="btn-manual" href="submodelos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="sucursales_tipos.html">Sucursales - Tipos</a></p>
+                <p class="descripcion">Clasificación de las sucursales.</p>
+            </div>
+            <a class="btn-manual" href="sucursales_tipos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="comprobantes_tipos.html">Tipos de Comprobantes</a></p>
+                <p class="descripcion">Signo en cuenta corriente, impacto en stock y contabilidad, y por qué un tipo aparece o no en una pantalla.</p>
+            </div>
+            <a class="btn-manual" href="comprobantes_tipos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="comprobantes_grupos.html">Grupos de Comprobantes</a></p>
+                <p class="descripcion">Grupos y subgrupos de comprobantes, y el vínculo de cada subgrupo con su pantalla.</p>
+            </div>
+            <a class="btn-manual" href="comprobantes_grupos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="comprobantes_fiscales.html">Fiscales - Comprobantes</a></p>
+                <p class="descripcion">Códigos oficiales de ARCA (001 Facturas A, 006 Facturas B…).</p>
+            </div>
+            <a class="btn-manual" href="comprobantes_fiscales.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="comprobantes_relacion_fiscal.html">Fiscales - Relación Comprobantes</a></p>
+                <p class="descripcion">Matriz emisor × receptor que define la letra A/B/C/E y si se discrimina el IVA.</p>
+            </div>
+            <a class="btn-manual" href="comprobantes_relacion_fiscal.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="jurisdicciones_tipos.html">Impuestos - Jurisdicciones Tipos</a></p>
+                <p class="descripcion">Nacional, Provincial, Municipal y Convenio Multilateral.</p>
+            </div>
+            <a class="btn-manual" href="jurisdicciones_tipos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="jurisdicciones.html">Impuestos - Jurisdicciones</a></p>
+                <p class="descripcion">Organismos recaudadores y territorios, con el indicador de padrón.</p>
+            </div>
+            <a class="btn-manual" href="jurisdicciones.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="impuestos_tipos.html">Tipos de Impuestos</a></p>
+                <p class="descripcion">Catálogo de percepciones, retenciones e impuestos, con su cuenta contable.</p>
+            </div>
+            <a class="btn-manual" href="impuestos_tipos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="empresas_impuestos_config.html">Impuestos Adic. - Conf</a></p>
+                <p class="descripcion">Cálculo, vigencia, métodos por tipo de bien y comprobantes donde se aplica cada impuesto adicional.</p>
+            </div>
+            <a class="btn-manual" href="empresas_impuestos_config.html">Ver manual</a>
+        </li>
+    </ul>
+</div>
+
+<!-- ============================== COSTOS ============================== -->
+<div class="modulo" id="costos">
+    <div class="modulo-titulo"><span class="modulo-badge">Costos de productos</span></div>
+    <p class="modulo-nota">En el menú están dentro de "Gestion - Tablas2".</p>
+    <ul class="paginas">
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_costos.html">Productos - Costos</a></p>
+                <p class="descripcion">Costo vigente de cada producto, cómo se actualiza, carga manual e historial.</p>
+            </div>
+            <a class="btn-manual" href="productos_costos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_costos_ajustes.html">Productos - Ajustes de Costo</a></p>
+                <p class="descripcion">Registro de ajustes de costo informados por proveedores, con vigencia y productos afectados.</p>
+            </div>
+            <a class="btn-manual" href="productos_costos_ajustes.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_costos_ajustes_tipos.html">Productos - Costos Tipos de Ajustes</a></p>
+                <p class="descripcion">Tipos para clasificar los ajustes de costo.</p>
+            </div>
+            <a class="btn-manual" href="productos_costos_ajustes_tipos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="productos_costos_origenes.html">Productos - Origenes de Costos</a></p>
+                <p class="descripcion">Orígenes que identifican de dónde sale cada cambio de costo.</p>
+            </div>
+            <a class="btn-manual" href="productos_costos_origenes.html">Ver manual</a>
+        </li>
+    </ul>
+</div>
+
+<footer>
+    Este índice sigue el menú lateral del módulo Gestión, área por área. Las pantallas marcadas "Manual pendiente" existen en el sistema, pero su manual todavía no está escrito. Algunas pantallas pueden no aparecer en tu menú: depende de los permisos de tu perfil (ver <a href="introduccion.html#menu">Primeros pasos</a>).
+</footer>
+
+</body>
+</html>

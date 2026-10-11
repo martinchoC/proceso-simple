@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Stock: Mínimos y Máximos</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .rojo { color: var(--rojo); font-weight: 600; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-caja.alerta { border-color: var(--amarillo); background: #fff8e1; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } h2 { page-break-after: avoid; } }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="bi bi-layers-fill"></i> Manual de usuario: Stock - Mínimos y Máximos</h1>
+<p class="subtitulo">Para decirle al sistema cuánto stock mínimo querés tener de cada producto en cada depósito. Cuando el stock baja de ese mínimo, el sistema genera solo una alerta de reposición.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirven el mínimo y el máximo?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados: Activo e Inactivo</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#agregar">Cargar un mínimo y máximo</a></li>
+        <li><a href="#editar">Editar un mínimo y máximo</a></li>
+        <li><a href="#inhabilitar">Inhabilitar y Habilitar</a></li>
+        <li><a href="#copiar">Copiar de otra boca</a></li>
+        <li><a href="#flujo">Cómo se conecta con las alertas</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirven el mínimo y el máximo?</h2>
+<p>Se cargan por producto y por <strong>boca</strong> (cada depósito o local donde guardás mercadería). Un mismo producto puede tener un mínimo distinto en cada boca.</p>
+<table class="tabla-referencia">
+    <tr><th>Valor</th><th>Para qué sirve</th></tr>
+    <tr><td><strong>Stock mínimo</strong> (obligatorio)</td><td>Cuando el stock de esa boca queda <strong>por debajo</strong> de este número, se abre una <a href="stock_alertas.html">alerta de reposición</a>. Si el stock queda justo igual al mínimo, todavía no hay alerta.</td></tr>
+    <tr><td><strong>Stock máximo</strong> (opcional)</td><td>No genera alertas. Solo se usa para calcular cuánto conviene reponer: <em>a reponer = máximo − stock actual</em>. Si no cargás máximo, se calcula hasta el mínimo.</td></tr>
+</table>
+<p>Solo se pueden cargar productos que <strong>controlan stock</strong> (no servicios ni conceptos), y solo en bocas que funcionan como depósito.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Arriba tenés:</p>
+<ul>
+    <li><strong>Boca:</strong> elegí una boca o "Todas las bocas". Solo aparecen las de las sucursales a las que tenés acceso.</li>
+    <li><strong>Solo bajo el mínimo:</strong> interruptor que deja en la tabla únicamente los productos cuyo stock ya está por debajo del mínimo.</li>
+    <li>Los botones <span class="boton-ejemplo boton-exito">Agregar</span> y <span class="boton-ejemplo boton-outline">Copiar de otra boca</span>, y <span class="boton-ejemplo boton-outline">↻</span> para recargar.</li>
+</ul>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Sucursal / Boca</td><td>Dónde se aplica ese mínimo.</td></tr>
+    <tr><td>Código / Producto</td><td>El producto.</td></tr>
+    <tr><td>Stock actual</td><td>Stock de hoy en esa boca. En <span class="rojo">rojo</span> si está por debajo del mínimo.</td></tr>
+    <tr><td>Mínimo / Máximo</td><td>Los valores cargados. Una raya (—) en Máximo significa "sin tope".</td></tr>
+    <tr><td>Alerta</td><td>Un triángulo amarillo si hay una alerta de reposición abierta. Al tocarlo vas a la pantalla de Alertas.</td></tr>
+    <tr><td>Estado</td><td><span class="badge badge-success">Activo</span> o <span class="badge badge-secondary">Inactivo</span>. Las filas inactivas se ven en gris.</td></tr>
+    <tr><td>Acciones</td><td>Botones según el estado.</td></tr>
+</table>
+<p>Podés buscar con el buscador de la tabla y ordenar haciendo clic en los títulos.</p>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo<small>se controla el mínimo</small></div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo<small>no se controla</small></div>
+</div>
+<p><strong>Activo:</strong> el sistema vigila el stock de ese producto en esa boca y abre alertas cuando baja del mínimo. <strong>Inactivo:</strong> el valor queda guardado pero el sistema deja de vigilarlo, y si había una alerta abierta se cierra.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Agregar</td><td>Carga el mínimo y máximo de un producto en una boca.</td><td>Siempre (arriba).</td></tr>
+    <tr><td>Copiar de otra boca</td><td>Copia todos los mínimos y máximos de una boca a otra.</td><td>Siempre (arriba).</td></tr>
+    <tr><td>Editar (lápiz)</td><td>Cambia el mínimo, el máximo o las observaciones.</td><td>Activo.</td></tr>
+    <tr><td>Inhabilitar</td><td>Deja de controlar ese producto en esa boca.</td><td>Activo.</td></tr>
+    <tr><td>Habilitar</td><td>Vuelve a controlarlo.</td><td>Inactivo.</td></tr>
+</table>
+
+<h2 id="agregar">Cargar un mínimo y máximo</h2>
+<ol>
+    <li>Tocá <span class="boton-ejemplo boton-exito">Agregar</span>. Se abre "Nuevo mínimo / máximo".</li>
+    <li>Elegí la <strong>Boca</strong> (si arriba tenías una boca filtrada, ya viene elegida).</li>
+    <li>En <strong>Producto</strong> escribí al menos 2 letras del código, del nombre o el código de barras. Elegí el producto de la lista que aparece debajo.</li>
+    <li>Cargá el <strong>Stock mínimo</strong> (obligatorio, cero o más) y, si querés, el <strong>Stock máximo</strong> (dejalo vacío para "sin tope").</li>
+    <li>Opcional: <strong>Observaciones</strong>.</li>
+    <li>Tocá <span class="boton-ejemplo boton-exito">Guardar</span>. Vas a ver "Nivel cargado".</li>
+</ol>
+<div class="nota-lateral">Si el stock actual ya está por debajo del mínimo que cargaste, la alerta de reposición se abre en ese mismo momento.</div>
+
+<h2 id="editar">Editar un mínimo y máximo</h2>
+<p>Con <strong>Editar</strong> se abre la misma ventana, pero la boca y el producto quedan fijos: solo podés cambiar mínimo, máximo y observaciones. Al guardar ves "Nivel actualizado".</p>
+<ul>
+    <li>Si <strong>subís</strong> el mínimo por encima del stock actual, se abre una alerta.</li>
+    <li>Si lo <strong>bajás</strong> por debajo del stock actual y había una alerta abierta, se cierra sola (motivo "Cambió el mínimo").</li>
+</ul>
+
+<h2 id="inhabilitar">Inhabilitar y Habilitar</h2>
+<p>Los dos piden confirmación antes de aplicarse:</p>
+<ul>
+    <li><strong>Inhabilitar:</strong> "El producto deja de controlarse en esta boca y se cierra su alerta abierta, si la tiene."</li>
+    <li><strong>Habilitar:</strong> "Se vuelve a controlar el mínimo; si el stock ya está por debajo, se abre la alerta."</li>
+</ul>
+<p>Al terminar ves "Inhabilitar: listo" o "Habilitar: listo".</p>
+
+<h2 id="copiar">Copiar de otra boca</h2>
+<p>Útil cuando abrís un depósito nuevo que tiene que manejar los mismos productos que otro.</p>
+<ol>
+    <li>Tocá <span class="boton-ejemplo boton-outline">Copiar de otra boca</span>.</li>
+    <li>Elegí <strong>Desde</strong> (la boca que ya tiene los valores) y <strong>Hacia</strong> (la boca destino). Tienen que ser distintas.</li>
+    <li>Si querés que se reemplacen los productos que ya tenían valores en la boca destino, activá <strong>Sobrescribir los productos que ya tienen nivel en el destino</strong>. Si no lo activás, esos productos se dejan como están.</li>
+    <li>Tocá <span class="boton-ejemplo boton-primario">Copiar</span>.</li>
+</ol>
+<p>Al terminar ves un resumen: "Copiados: N nuevos, N actualizados, N ya existían".</p>
+<div class="nota-lateral">Se copian solo los valores <strong>activos</strong> de la boca origen. Si en el destino había un valor inactivo y elegís sobrescribir, queda activo de nuevo. Los productos que en el destino ya están bajo el mínimo generan su alerta en el momento.</div>
+
+<h2 id="flujo">Cómo se conecta con las alertas</h2>
+<div class="flujo">
+    <div class="flujo-caja">Cargás el mínimo<small>en esta pantalla</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Se vende / sale mercadería</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja alerta">Stock por debajo del mínimo<small>se abre la alerta</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Se compra / ingresa mercadería</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Stock vuelve al mínimo<small>la alerta se cierra sola</small></div>
+</div>
+<p>Las alertas abiertas se gestionan en <a href="stock_alertas.html">Alertas de Reposición</a>, y su cantidad también aparece en la campana de la barra superior del sistema.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>"Cargue el stock mínimo." / "Elija la boca." / "Busque y elija el producto."</td><td>Falta ese dato.</td></tr>
+    <tr><td>"Sin resultados (solo productos que controlan stock)"</td><td>No hay productos con ese texto, o el producto no lleva control de stock.</td></tr>
+    <tr><td>"Ese producto ya tiene mínimo cargado en esta boca: edítelo desde la grilla."</td><td>Buscalo en la tabla y usá Editar (si está inactivo, primero Habilitar).</td></tr>
+    <tr><td>"El stock máximo no puede ser menor que el mínimo."</td><td>Corregí los valores.</td></tr>
+    <tr><td>"El stock mínimo debe ser un número mayor o igual a 0."</td><td>No se aceptan negativos.</td></tr>
+    <tr><td>"El producto no controla stock."</td><td>Ese producto no admite mínimo ni máximo.</td></tr>
+    <tr><td>"Boca inválida: no existe, no maneja stock o no tiene acceso."</td><td>Elegí otra boca o consultá con el administrador.</td></tr>
+    <tr><td>"Elija dos bocas distintas." / "La boca de origen no tiene niveles activos."</td><td>Al copiar: revisá las bocas elegidas.</td></tr>
+    <tr><td>"El nivel no se puede editar en su estado actual."</td><td>Está Inactivo: habilitalo primero.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Cargué el mínimo y no se generó ninguna alerta.</td>
+        <td>La alerta se abre solo si el stock queda <strong>por debajo</strong> del mínimo. Si es igual o mayor, no hay alerta.</td>
+    </tr>
+    <tr>
+        <td>¿El máximo genera alguna alerta si me paso?</td>
+        <td>No. El máximo solo sirve para sugerir cuánto reponer.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo borrar un mínimo?</td>
+        <td>No se borra: se inhabilita. Queda guardado por si lo querés volver a usar.</td>
+    </tr>
+    <tr>
+        <td>¿El sistema me sugiere el mínimo según lo que vendo?</td>
+        <td>Todavía no. Por ahora los valores se cargan a mano.</td>
+    </tr>
+</table>
+
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="stock_alertas.html">Stock - Alertas de Reposición</a></li>
+    <li><a href="stock_dashboard.html">Dashboard de Stock</a></li>
+    <li><a href="stock_ajustes.html">Ajustes de Stock</a></li>
+</ul>
+
+<footer>
+    Manual de usuario — Módulo Stock / Mínimos y Máximos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
+</footer>
+
+</body>
+</html>

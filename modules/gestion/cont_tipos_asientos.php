@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../../db.php';
 
 $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 78;
-$empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 
 $pageTitle = "Tipos de Asientos Contables";

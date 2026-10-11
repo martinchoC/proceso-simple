@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Asientos Contables</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    .badge-primary { background: var(--azul); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    table.tabla-referencia td.num, table.tabla-referencia th.num { text-align: right; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.ok { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Asientos Contables</h1>
+<p class="subtitulo">Cómo consultar los asientos de la empresa y cómo cargar, corregir y confirmar un asiento manual.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es un asiento contable?</a></li>
+        <li><a href="#debe-haber">Debe y Haber: la regla de oro</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Los estados de un asiento</a></li>
+        <li><a href="#cargar-asiento">Cargar un asiento nuevo (pestaña Datos)</a></li>
+        <li><a href="#lineas">Cargar las líneas (pestaña Detalles Debe/Haber)</a></li>
+        <li><a href="#confirmar-asiento">Confirmar el asiento</a></li>
+        <li><a href="#editar-visualizar">Editar o visualizar un asiento</a></li>
+        <li><a href="#eliminar-asiento">Eliminar un asiento</a></li>
+        <li><a href="#automaticos">Asientos automáticos</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#flujo">Flujo completo</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#ver-tambien">Ver también</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es un asiento contable?</h2>
+<p>Un <strong>asiento</strong> es el registro contable de una operación: indica qué cuentas se movieron, por cuánto y en qué fecha. Muchas operaciones del sistema (facturas, cobranzas, pagos) generan su asiento solas. Esta pantalla te permite <strong>ver todos los asientos</strong> de la empresa y, además, <strong>cargar asientos manuales</strong> para las operaciones que no nacen de un comprobante (ajustes, reclasificaciones, aperturas, etc.).</p>
+
+<h2 id="debe-haber">Debe y Haber: la regla de oro</h2>
+<p>Cada asiento tiene dos o más <strong>líneas</strong>. Cada línea toca una cuenta y lleva un importe en el <strong>Debe</strong> o en el <strong>Haber</strong> (nunca en los dos a la vez).</p>
+<div class="alert alert-info">
+    <strong>Regla de oro:</strong> la suma del Debe tiene que ser igual a la suma del Haber. El sistema no deja confirmar un asiento que no esté balanceado.
+</div>
+<p>Ejemplo: depositás en el banco $ 50.000 que tenías en caja.</p>
+<table class="tabla-referencia">
+    <tr><th>Cuenta</th><th class="num">Debe</th><th class="num">Haber</th></tr>
+    <tr><td>Banco Cuenta Corriente</td><td class="num">50.000,00</td><td class="num">0,00</td></tr>
+    <tr><td>Caja</td><td class="num">0,00</td><td class="num">50.000,00</td></tr>
+    <tr><th>Totales</th><th class="num">50.000,00</th><th class="num">50.000,00</th></tr>
+</table>
+<p class="nota-lateral">En cada línea completás <strong>sólo uno</strong> de los dos importes: el Debe o el Haber. Si cargás los dos, el sistema guarda la diferencia entre ambos (por ejemplo, Debe 100 y Haber 30 queda como Debe 70). Para evitar confusiones, dejá siempre el otro en 0.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Al entrar ves el listado de asientos de la empresa, del más reciente al más antiguo. Cada fila muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno del asiento.</td></tr>
+    <tr><td>N° Asiento</td><td>Número de asiento: el año seguido de un correlativo de 6 dígitos (por ejemplo <code>2026000015</code> es el asiento 15 del 2026).</td></tr>
+    <tr><td>Fecha</td><td>Fecha del asiento (día/mes/año).</td></tr>
+    <tr><td>Descripción</td><td>Los primeros caracteres de la descripción.</td></tr>
+    <tr><td>Moneda</td><td>Moneda del asiento.</td></tr>
+    <tr><td>Total Debe / Total Haber</td><td>Suma de las líneas de cada lado. Si son distintos, el asiento todavía no está balanceado.</td></tr>
+    <tr><td>Estado</td><td>Estado del asiento, con un color: amarillo para Borrador, verde para Confirmada, rojo para Eliminado.</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles para ese asiento según su estado.</td></tr>
+</table>
+<p>Arriba a la derecha tenés el buscador, el botón <span class="boton-ejemplo boton-outline">↻</span> para recargar la tabla y el menú <span class="boton-ejemplo boton-outline">Exportar</span> (Excel, PDF, CSV, Imprimir).</p>
+
+<h2 id="estados">Los estados de un asiento</h2>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja ok">Confirmada</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-warning">Borrador</span></td><td>El asiento está en preparación. Podés cambiar sus datos, agregar, corregir o quitar líneas, y eliminarlo. Todavía no está en firme.</td></tr>
+    <tr><td><span class="badge badge-success">Confirmada</span></td><td>El asiento quedó en firme: el Debe y el Haber cerraron. Ya no se modifica; sólo se puede visualizar.</td></tr>
+    <tr><td><span class="badge badge-danger">Eliminado</span></td><td>El asiento se dio de baja desde Borrador. Sigue apareciendo en el listado como registro, pero sin acciones.</td></tr>
+</table>
+<p class="nota-lateral">Todo asiento manual nace en <strong>Borrador</strong>. Los asientos que generan otras pantallas del sistema pueden mostrar otros estados; ver <a href="#automaticos">Asientos automáticos</a>.</p>
+
+<h2 id="cargar-asiento">Cargar un asiento nuevo (pestaña Datos)</h2>
+<p>Con el botón <span class="boton-ejemplo boton-exito">+ Agregar</span> se abre la ventana <strong>Nuevo Asiento Contable</strong>, con dos pestañas. La primera, <strong>Datos</strong>, es la cabecera del asiento:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>N° Asiento</td><td>No se carga: se genera solo al guardar.</td></tr>
+    <tr><td>Fecha *</td><td>Fecha contable del asiento. Viene con la fecha de hoy. Obligatoria.</td></tr>
+    <tr><td>Tipo Asiento</td><td>Siempre "Asiento Manual" en los que cargás desde acá. No se modifica.</td></tr>
+    <tr><td>Descripción</td><td>Texto libre que explica el motivo del asiento (por ejemplo "Depósito de efectivo en Banco Nación").</td></tr>
+    <tr><td>Sucursal *</td><td>Sucursal a la que corresponde el asiento. Obligatoria.</td></tr>
+    <tr><td>Depósito *</td><td>Depósito asociado. Obligatorio.</td></tr>
+    <tr><td>Comprobante</td><td>Opcional: un comprobante del sistema con el que se relaciona el asiento. Si no corresponde, dejá "Sin comprobante".</td></tr>
+    <tr><td>Entidad</td><td>Opcional: cliente o proveedor relacionado.</td></tr>
+    <tr><td>Moneda *</td><td>Viene seleccionada la moneda principal de la empresa. Obligatoria.</td></tr>
+    <tr><td>Tipo Cambio</td><td>Cotización usada si la moneda no es la principal. Por defecto 1.</td></tr>
+</table>
+<p>Debajo se ve un recuadro con <strong>Total Debe</strong>, <strong>Total Haber</strong> y <strong>Diferencia</strong>, que se actualiza a medida que cargás líneas. La diferencia se pone en verde cuando el asiento queda balanceado y en rojo cuando no.</p>
+<p>Tocá <span class="boton-ejemplo boton-primario">Guardar</span>. El asiento queda creado en <strong>Borrador</strong>, recibe su número y aparece el aviso "Asiento creado correctamente". La ventana <strong>queda abierta</strong> para que sigas con las líneas.</p>
+<p>Mensajes de error posibles al guardar: <em>"La fecha es obligatoria"</em>, <em>"La sucursal es obligatoria"</em>, <em>"El depósito es obligatorio"</em>, <em>"La moneda es obligatoria"</em>, <em>"La fecha no es válida"</em>.</p>
+<p class="nota-lateral">El botón con flechas en la esquina de la ventana la pone en pantalla completa, útil para asientos con muchas líneas.</p>
+
+<h2 id="lineas">Cargar las líneas (pestaña Detalles Debe/Haber)</h2>
+<p>Pasá a la pestaña <strong>Detalles (Debe/Haber)</strong> y tocá <span class="boton-ejemplo boton-exito">+ Agregar Línea</span>.</p>
+<div class="alert alert-warning">Primero hay que guardar la cabecera. Si tocás "Agregar Línea" antes, el sistema avisa <strong>"Guarde el asiento primero"</strong>.</div>
+<p>Se abre la ventana <strong>Línea de Asiento</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Cuenta Contable *</td><td>Escribí parte del código o del nombre para buscarla. Sólo aparecen cuentas <strong>imputables y activas</strong> del <a href="plan_cuentas.html">Plan de Cuentas</a>. Al elegirla, el cursor salta al Debe o al Haber según la naturaleza de la cuenta, como sugerencia.</td></tr>
+    <tr><td>Debe (Importe Local)</td><td>Importe si la cuenta va al Debe.</td></tr>
+    <tr><td>Haber (Importe Local)</td><td>Importe si la cuenta va al Haber.</td></tr>
+    <tr><td>Descripción</td><td>Aclaración opcional de esa línea.</td></tr>
+</table>
+<p>Tocá <span class="boton-ejemplo boton-primario">Guardar Línea</span>. La línea se suma a la tabla, y los totales del pie y del recuadro de la pestaña Datos se actualizan. Si no cargaste ningún importe, el sistema avisa <em>"Debe ingresar un importe (Debe o Haber)"</em>; si no elegiste cuenta, <em>"Debe seleccionar una cuenta contable"</em>.</p>
+<div class="alert alert-warning"><strong>Importante: una cuenta, una línea.</strong> Cada cuenta puede aparecer una sola vez en el mismo asiento. Si agregás una línea con una cuenta que ya está cargada, el sistema <strong>reemplaza</strong> la línea anterior por la nueva (el aviso dice "Detalle actualizado correctamente"). Si necesitás sumar importes en una misma cuenta, cargá el total en una sola línea.</div>
+<h3 id="corregir-lineas">Corregir o quitar una línea</h3>
+<p>Cada línea manual tiene dos botones en la columna Acciones:</p>
+<ul>
+    <li><span class="boton-ejemplo" style="background:#ffc107;border-color:#ffc107;color:#000;">✎</span> <strong>Editar</strong>: abre la línea con sus importes para corregirla.</li>
+    <li><span class="boton-ejemplo" style="background:#dc3545;border-color:#dc3545;color:#fff;">🗑</span> <strong>Eliminar</strong>: quita la línea, previa confirmación ("¿Eliminar línea?").</li>
+</ul>
+<p>La columna <strong>Tipo</strong> muestra <span class="badge badge-success">Manual</span> para las líneas que cargaste vos y <span class="badge badge-secondary">Automático</span> para las que vienen de un comprobante. Las automáticas tienen un candado y <strong>no se pueden editar ni eliminar</strong>.</p>
+
+<h2 id="confirmar-asiento">Confirmar el asiento</h2>
+<p>Cuando el asiento está completo y balanceado (Diferencia en 0), confirmalo desde el listado con el botón verde de tilde <span class="boton-ejemplo boton-exito">✔</span> de su fila (en algunos equipos su leyenda al pasar el mouse dice "Confirmar1").</p>
+<ul>
+    <li>El sistema pregunta <em>"¿Registrar asiento?"</em> y avisa que <em>"Una vez registrado no podrá modificar las líneas"</em>. Tocá <strong>Sí, registrar</strong>.</li>
+    <li>Si el Debe no es igual al Haber, el sistema <strong>no lo confirma</strong> y muestra un mensaje como <em>"No se puede confirmar el asiento: El Debe (…) debe ser igual al Haber (…). Diferencia: …"</em>. Volvé a Editar y corregí las líneas.</li>
+    <li>Si todo está bien, el asiento pasa a <span class="badge badge-success">Confirmada</span> y queda en firme.</li>
+</ul>
+
+<h2 id="editar-visualizar">Editar o visualizar un asiento</h2>
+<p><strong>Editar</strong> (lápiz) abre el asiento en Borrador con todos sus datos y líneas, para corregirlo. Al guardar los cambios de la cabecera aparece "Asiento actualizado correctamente".</p>
+<p><strong>Visualizar</strong> (lupa) abre un asiento Confirmado en modo de sólo lectura: los campos aparecen bloqueados, no está el botón Guardar ni "Agregar Línea", y cada línea muestra la etiqueta <span class="badge badge-secondary">🔒 Solo lectura</span>.</p>
+
+<h2 id="eliminar-asiento">Eliminar un asiento</h2>
+<p>Desde Borrador, el botón rojo de papelera da de baja el asiento. El sistema pregunta <em>"¿Eliminar asiento?"</em>; al confirmar, el asiento pasa a <span class="badge badge-danger">Eliminado</span>. No desaparece del listado, pero ya no tiene acciones y no se tiene en cuenta como movimiento válido.</p>
+<p class="nota-lateral">Un asiento Confirmado no se puede eliminar desde esta pantalla. Si hay un error en un asiento confirmado, lo habitual es cargar un nuevo asiento manual que lo corrija (contraasiento). Consultá con el contador.</p>
+
+<h2 id="automaticos">Asientos automáticos</h2>
+<p>Cuando confirmás ciertos comprobantes en otras pantallas (por ejemplo facturas de venta o de proveedores, cobranzas o pagos), el sistema genera su asiento solo, usando las cuentas configuradas en el plan de cuentas, los tipos de producto, las alícuotas de IVA y los impuestos. Esos asientos también aparecen en este listado. Normalmente ya vienen registrados y sólo se pueden consultar; sus líneas figuran como <span class="badge badge-secondary">Automático</span>.</p>
+<p>Si a un asiento automático hay que corregirlo, la corrección se hace desde el comprobante de origen (por ejemplo anulándolo o emitiendo una nota de crédito), no desde esta pantalla.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Abre la ventana para cargar un asiento manual.</td><td>Siempre (arriba de la tabla).</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Abre el asiento para modificar datos y líneas.</td><td>Borrador.</td></tr>
+    <tr><td>Confirmar (tilde verde)</td><td>Deja el asiento en firme, si está balanceado.</td><td>Borrador.</td></tr>
+    <tr><td>Eliminar (papelera roja)</td><td>Pasa el asiento a Eliminado.</td><td>Borrador.</td></tr>
+    <tr><td>Visualizar (lupa)</td><td>Abre el asiento en sólo lectura.</td><td>Confirmada.</td></tr>
+    <tr><td>Imprimir (impresora)</td><td>Por ahora muestra el aviso "Funcionalidad en desarrollo". Para imprimir, usá Exportar → Imprimir del listado.</td><td>Confirmada.</td></tr>
+</table>
+
+<h2 id="flujo">Flujo completo</h2>
+<ol>
+    <li>Tocá <strong>+ Agregar</strong>.</li>
+    <li>En la pestaña <strong>Datos</strong>, completá fecha, sucursal, depósito, moneda y descripción. Tocá <strong>Guardar</strong> (el asiento queda en Borrador con número).</li>
+    <li>En la pestaña <strong>Detalles (Debe/Haber)</strong>, agregá una línea por cada cuenta, con su importe en el Debe o en el Haber.</li>
+    <li>Revisá que la <strong>Diferencia</strong> quede en 0,00 (en verde).</li>
+    <li>Cerrá la ventana y, desde el listado, tocá <strong>Confirmar</strong> en la fila del asiento.</li>
+    <li>El asiento queda <strong>Confirmada</strong>. A partir de ahí sólo se puede visualizar.</li>
+</ol>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Cargué dos líneas con la misma cuenta y quedó sólo una.</td>
+        <td>Es el comportamiento esperado: una cuenta sólo puede tener una línea por asiento, y la segunda reemplaza a la primera. Cargá el importe total de esa cuenta en una sola línea.</td>
+    </tr>
+    <tr>
+        <td>Quiero confirmar y me dice que no está balanceado, pero los totales me dan iguales.</td>
+        <td>Abrí el asiento con <strong>Editar</strong>, revisá los totales del pie de la pestaña Detalles, cerrá la ventana y volvé a confirmar. El aviso usa los totales del último asiento que abriste.</td>
+    </tr>
+    <tr>
+        <td>No encuentro una cuenta al cargar una línea.</td>
+        <td>Sólo aparecen cuentas imputables y activas. Revisala en el <a href="plan_cuentas.html">Plan de Cuentas</a>.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo modificar un asiento confirmado?</td>
+        <td>No. Para corregirlo se carga otro asiento manual que revierta o ajuste el anterior.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo cambiar las líneas de un asiento automático?</td>
+        <td>No. Las líneas automáticas están bloqueadas porque provienen de un comprobante. La corrección se hace desde el comprobante de origen.</td>
+    </tr>
+    <tr>
+        <td>¿Cómo se arma el número de asiento?</td>
+        <td>Año de la fecha del asiento + correlativo de 6 dígitos dentro de ese año. Se asigna solo al guardar por primera vez.</td>
+    </tr>
+</table>
+
+<h2 id="ver-tambien">Ver también</h2>
+<ul>
+    <li><a href="plan_cuentas.html">Plan de Cuentas</a></li>
+    <li><a href="cont_tipos_asientos.html">Tipos de Asientos Contables</a></li>
+    <li><a href="cont__mayores.html">Mayores Contables</a></li>
+    <li><a href="ventas_facturas.html">Facturas de venta</a> y <a href="facturas_proveedores.html">Facturas de proveedores</a>: generan asientos automáticos al confirmarse.</li>
+</ul>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Contabilidad / Asientos Contables. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

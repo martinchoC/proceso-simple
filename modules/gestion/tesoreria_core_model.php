@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * tesoreria_core_model.php
  *
@@ -16,22 +17,22 @@
  * - RT16: Orden global de locks (ORDER BY comprobante_id ASC FOR UPDATE).
  */
 
-if (!defined('ESTADO_CONFIRMADO'))        define('ESTADO_CONFIRMADO', 2126);
-if (!defined('ESTADO_CANCELADO_PARCIAL')) define('ESTADO_CANCELADO_PARCIAL', 2122);
-if (!defined('ESTADO_CANCELADO_TOTAL'))   define('ESTADO_CANCELADO_TOTAL', 2123);
-if (!defined('ESTADO_ANULADO'))           define('ESTADO_ANULADO', 2127);
+if (!defined('ESTADO_CONFIRMADO'))        define('ESTADO_CONFIRMADO', 5);
+if (!defined('ESTADO_CANCELADO_PARCIAL')) define('ESTADO_CANCELADO_PARCIAL', 39);
+if (!defined('ESTADO_CANCELADO_TOTAL'))   define('ESTADO_CANCELADO_TOTAL', 40);
+if (!defined('ESTADO_ANULADO'))           define('ESTADO_ANULADO', 38);
 
-if (!defined('ESTADO_IMPUTACION_BORRADOR'))   define('ESTADO_IMPUTACION_BORRADOR', 2153);
-if (!defined('ESTADO_IMPUTACION_CONFIRMADO')) define('ESTADO_IMPUTACION_CONFIRMADO', 2154); // Vigente
-if (!defined('ESTADO_IMPUTACION_ANULADO'))    define('ESTADO_IMPUTACION_ANULADO', 2155);
+if (!defined('ESTADO_IMPUTACION_BORRADOR'))   define('ESTADO_IMPUTACION_BORRADOR', 3);
+if (!defined('ESTADO_IMPUTACION_CONFIRMADO')) define('ESTADO_IMPUTACION_CONFIRMADO', 5); // Vigente
+if (!defined('ESTADO_IMPUTACION_ANULADO'))    define('ESTADO_IMPUTACION_ANULADO', 38);
 
-if (!defined('ESTADO_TESORERIA_MOV_ACTIVO'))  define('ESTADO_TESORERIA_MOV_ACTIVO', 2156);
+if (!defined('ESTADO_TESORERIA_MOV_ACTIVO'))  define('ESTADO_TESORERIA_MOV_ACTIVO', 1);
 
-if (!defined('ESTADO_ILIQ_PENDIENTE')) define('ESTADO_ILIQ_PENDIENTE', 2161);
-if (!defined('ESTADO_ILIQ_PAGADO'))    define('ESTADO_ILIQ_PAGADO', 2162);
+if (!defined('ESTADO_ILIQ_PENDIENTE')) define('ESTADO_ILIQ_PENDIENTE', 5);
+if (!defined('ESTADO_ILIQ_PAGADO'))    define('ESTADO_ILIQ_PAGADO', 35);
 
-if (!defined('ESTADO_RG_REND_APROBADA'))    define('ESTADO_RG_REND_APROBADA', 2167);
-if (!defined('ESTADO_RG_REND_REEMBOLSADA')) define('ESTADO_RG_REND_REEMBOLSADA', 2168);
+if (!defined('ESTADO_RG_REND_APROBADA'))    define('ESTADO_RG_REND_APROBADA', 5);
+if (!defined('ESTADO_RG_REND_REEMBOLSADA')) define('ESTADO_RG_REND_REEMBOLSADA', 36);
 
 /**
  * 1. RESOLUCIÓN DE CUENTAS CONTABLES (D35 / D36 / §4.10)
@@ -142,7 +143,7 @@ function tesoreriaRegistrarMovimiento($conexion, $data)
     $importe             = round(floatval($data['importe'] ?? 0), 2);
     $f_movimiento        = !empty($data['f_movimiento']) ? $data['f_movimiento'] : date('Y-m-d');
     $f_valor             = !empty($data['f_valor']) ? $data['f_valor'] : $f_movimiento;
-    $moneda_id           = intval($data['moneda_id'] ?? 1);
+    $moneda_id           = emp_moneda_id($conexion, $empresa_id, $data['moneda_id'] ?? 0);
     $tipo_cambio         = floatval($data['tipo_cambio'] ?? 1.0);
     $medio_pago_id       = !empty($data['medio_pago_id']) ? intval($data['medio_pago_id']) : null;
     $cheque_id           = !empty($data['cheque_id']) ? intval($data['cheque_id']) : null;
@@ -223,9 +224,12 @@ function tesoreriaRegistrarMovimiento($conexion, $data)
     if (!$stmt_m) {
         throw new Exception("Error preparando inserción en libro de tesorería: " . mysqli_error($conexion));
     }
+    // 18 parámetros: 6 enteros, tipo_movimiento / f_movimiento / f_valor (sss), moneda (i), tipo_cambio e
+    // importe (dd), medio / cheque (ii), concepto (s), reversa / estado / usuario (iii). Estaba corrido una
+    // posición: importe iba como entero y el libro perdía los centavos que sí sumaba saldo_actual.
     mysqli_stmt_bind_param(
         $stmt_m,
-        "iiiiissssidiiisiii",
+        "iiiiiisssiddiisiii",
         $empresa_id,
         $sucursal_id,
         $tesoreria_cuenta_id,
@@ -390,7 +394,7 @@ function tesoreriaRegistrarImputacion($conexion, $data)
         throw new Exception("Sobre-imputación rechazada: el importe a imputar (" . number_format($importe_imputado, 2) . ") supera el saldo pendiente del comprobante destino (" . number_format($saldo_destino_actual, 2) . ").");
     }
 
-    // 1) Insertar en gestion__comprobantes_imputaciones con estado CONFIRMADO (2154)
+    // 1) Insertar en gestion__comprobantes_imputaciones con estado CONFIRMADO (5)
     $estado_vigente = ESTADO_IMPUTACION_CONFIRMADO;
     $sql_ins = "INSERT INTO gestion__comprobantes_imputaciones (
                     empresa_id, comp_origen_id, comp_destino_id, f_imputacion,
@@ -509,7 +513,7 @@ function tesoreriaAnularImputacion($conexion, $imputacion_id, $usuario_id, $moti
     }
     mysqli_stmt_close($stmt_l);
 
-    // 1) Marcar imputación como ANULADA (2155)
+    // 1) Marcar imputación como ANULADA (38)
     $estado_anulado = ESTADO_IMPUTACION_ANULADO;
     $sql_upd_imp = "UPDATE gestion__comprobantes_imputaciones
                     SET tabla_estado_registro_id = ?,
@@ -556,14 +560,103 @@ function tesoreriaAnularImputacion($conexion, $imputacion_id, $usuario_id, $moti
  *
  * Es la ÚNICA función que asigna estados derivados de documentos destino al confirmarse
  * o anularse imputaciones:
- * - Liquidación Impositiva (I_LIQ): PENDIENTE (2161) o PAGADA (2162).
- * - Rendición de Gastos (RG_REND): APROBADA (2167) o REEMBOLSADA (2168).
+ * - Liquidación Impositiva (I_LIQ): PENDIENTE (5) o PAGADA (35).
+ * - Rendición de Gastos (RG_REND): APROBADA (5) o REEMBOLSADA (36).
  *
  * @param mysqli $conexion
  * @param int    $comprobante_id
  * @param int|null $usuario_id
  * @return array ['comprobante_id' => int, 'saldo' => float, 'estado_actualizado' => bool]
  */
+/**
+ * Estado derivado del saldo de un comprobante confirmado (ids genéricos de conf__estados_registros).
+ * También lo usa syncComprobante() para no devolver a Confirmado un comprobante ya cancelado.
+ */
+function estadoComprobantePorSaldo($saldo, $importe_total)
+{
+    $saldo = floatval($saldo);
+    if ($saldo <= 0.001) {
+        return ESTADO_CANCELADO_TOTAL;
+    }
+    if ($saldo < floatval($importe_total) - 0.001) {
+        return ESTADO_CANCELADO_PARCIAL;
+    }
+    return ESTADO_CONFIRMADO;
+}
+
+/**
+ * Copia el estado derivado del comprobante (5 / 39 / 40) al registro de su tabla de origen.
+ *
+ * Solo actúa si:
+ * - la tabla de origen es de gestion (prefijo gestion__, nunca gestion__comprobantes) y tiene
+ *   la columna tabla_estado_registro_id;
+ * - el estado nuevo figura en el catálogo de esa tabla (conf__tablas_estados_registros), así
+ *   una tabla que no maneja Cancelado parcial/total (p. ej. facturas_proveedores hoy) no queda
+ *   en un estado sin funciones configuradas;
+ * - el registro de origen está en Confirmado / Cancelado parcial / Cancelado total.
+ *
+ * @param array $comp Fila con tabla_origen_id, registro_origen_id y tabla_nombre.
+ * @return bool true si actualizó el registro de origen.
+ */
+function tesoreriaSincronizarEstadoOrigen($conexion, $comp, $estado_nuevo, $usuario_id = null)
+{
+    $tabla_id     = intval($comp['tabla_origen_id'] ?? 0);
+    $registro_id  = intval($comp['registro_origen_id'] ?? 0);
+    $tabla_nombre = trim($comp['tabla_nombre'] ?? '');
+    $estado_nuevo = intval($estado_nuevo);
+
+    if ($tabla_id <= 0 || $registro_id <= 0) return false;
+    if (!preg_match('/^gestion__[a-z0-9_]+$/', $tabla_nombre) || $tabla_nombre === 'gestion__comprobantes') {
+        return false;
+    }
+
+    // El estado tiene que existir en el catálogo de la tabla de origen
+    $stmt = mysqli_prepare($conexion, "SELECT 1 FROM conf__tablas_estados_registros
+                                       WHERE tabla_id = ? AND estado_registro_id = ? LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "ii", $tabla_id, $estado_nuevo);
+    mysqli_stmt_execute($stmt);
+    $en_catalogo = (bool) mysqli_fetch_row(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$en_catalogo) return false;
+
+    // PK y columnas de la tabla de origen (el nombre ya está validado contra el patrón de arriba)
+    $res_pk = mysqli_query($conexion, "SHOW KEYS FROM `$tabla_nombre` WHERE Key_name = 'PRIMARY'");
+    $pk = ($res_pk && ($row_pk = mysqli_fetch_assoc($res_pk))) ? $row_pk['Column_name'] : '';
+    if ($pk === '' || !preg_match('/^[a-z0-9_]+$/', $pk)) return false;
+
+    $columnas = [];
+    $res_col = mysqli_query($conexion, "SHOW COLUMNS FROM `$tabla_nombre`");
+    while ($res_col && ($col = mysqli_fetch_assoc($res_col))) {
+        $columnas[$col['Field']] = true;
+    }
+    if (!isset($columnas['tabla_estado_registro_id'])) return false;
+
+    $set_audit = '';
+    if (isset($columnas['usuario_modificacion_id']) && $usuario_id) {
+        $set_audit .= ', usuario_modificacion_id = ' . intval($usuario_id);
+    }
+    if (isset($columnas['fecha_modificacion'])) {
+        $set_audit .= ', fecha_modificacion = NOW()';
+    }
+
+    $sql = "UPDATE `$tabla_nombre` SET tabla_estado_registro_id = ?$set_audit
+            WHERE `$pk` = ? AND tabla_estado_registro_id IN (?, ?, ?) AND tabla_estado_registro_id != ?";
+    $stmt_u = mysqli_prepare($conexion, $sql);
+    if (!$stmt_u) {
+        error_log("tesoreriaSincronizarEstadoOrigen: no se pudo preparar UPDATE sobre $tabla_nombre: " . mysqli_error($conexion));
+        return false;
+    }
+    $e_conf = ESTADO_CONFIRMADO;
+    $e_parc = ESTADO_CANCELADO_PARCIAL;
+    $e_tot  = ESTADO_CANCELADO_TOTAL;
+    mysqli_stmt_bind_param($stmt_u, "iiiiii", $estado_nuevo, $registro_id, $e_conf, $e_parc, $e_tot, $estado_nuevo);
+    mysqli_stmt_execute($stmt_u);
+    $ok = (mysqli_stmt_affected_rows($stmt_u) > 0);
+    mysqli_stmt_close($stmt_u);
+
+    return $ok;
+}
+
 function recalcularEstadoDestino($conexion, $comprobante_id, $usuario_id = null)
 {
     $comp_id = intval($comprobante_id);
@@ -619,16 +712,31 @@ function recalcularEstadoDestino($conexion, $comprobante_id, $usuario_id = null)
         }
     }
 
-    // Actualizar estado estándar en gestion__comprobantes según D8
+    // Estado derivado del saldo en gestion__comprobantes (D8, decisión 2026-10-07): Confirmado,
+    // Cancelado parcial o Cancelado total. Solo se mueve entre esos tres: un comprobante en
+    // Borrador, Anulado o Eliminado no se toca aunque cambie su saldo.
     $total_comp = floatval($c['importe_total']);
-    if ($saldo <= 0.001) {
-        $estado_comp = ESTADO_CANCELADO_TOTAL; // 2123
-    } elseif ($saldo < $total_comp - 0.001) {
-        $estado_comp = ESTADO_CANCELADO_PARCIAL; // 2122
-    } else {
-        $estado_comp = ESTADO_CONFIRMADO; // 2126
+    $estado_comp = estadoComprobantePorSaldo($saldo, $total_comp);
+    $sql_est = "UPDATE gestion__comprobantes SET tabla_estado_registro_id = ?
+                WHERE comprobante_id = ? AND tabla_estado_registro_id IN (?, ?, ?)";
+    $stmt_est = mysqli_prepare($conexion, $sql_est);
+    $e_conf = ESTADO_CONFIRMADO;
+    $e_parc = ESTADO_CANCELADO_PARCIAL;
+    $e_tot  = ESTADO_CANCELADO_TOTAL;
+    mysqli_stmt_bind_param($stmt_est, "iiiii", $estado_comp, $comp_id, $e_conf, $e_parc, $e_tot);
+    mysqli_stmt_execute($stmt_est);
+    $comp_cambio = (mysqli_stmt_affected_rows($stmt_est) > 0);
+    mysqli_stmt_close($stmt_est);
+
+    // El registro de la tabla de origen acompaña al comprobante (salvo los casos 1 y 2, que
+    // tienen estados propios de su tabla).
+    if ($comp_cambio
+        && $tabla_nombre !== 'gestion__obligaciones_impositivas'
+        && $tabla_nombre !== 'gestion__rendiciones') {
+        if (tesoreriaSincronizarEstadoOrigen($conexion, $c, $estado_comp, $usuario_id)) {
+            $actualizado = true;
+        }
     }
-    $conexion->query("UPDATE gestion__comprobantes SET tabla_estado_registro_id = $estado_comp WHERE comprobante_id = $comp_id");
 
     return [
         'comprobante_id'     => $comp_id,
@@ -651,15 +759,16 @@ function recalcularEstadoDestino($conexion, $comprobante_id, $usuario_id = null)
 function tesoreriaGenerarAsiento($conexion, $cabecera, $detalles)
 {
     $empresa_id     = intval($cabecera['empresa_id'] ?? 0);
-    $sucursal_id    = intval($cabecera['sucursal_id'] ?? 1);
+    $sucursal_id    = intval($cabecera['sucursal_id'] ?? 0);
     $comprobante_id = intval($cabecera['comprobante_id'] ?? 0);
     $entidad_id     = !empty($cabecera['entidad_id']) ? intval($cabecera['entidad_id']) : 0;
     $f_asiento      = !empty($cabecera['f_asiento']) ? $cabecera['f_asiento'] : date('Y-m-d');
     $descripcion    = trim($cabecera['descripcion'] ?? 'Asiento de tesorería');
     $usuario_id     = !empty($cabecera['usuario_id']) ? intval($cabecera['usuario_id']) : null;
-    $moneda_id      = intval($cabecera['moneda_id'] ?? 1);
+    $moneda_id      = emp_moneda_id($conexion, $empresa_id, $cabecera['moneda_id'] ?? 0);
     $tipo_cambio    = floatval($cabecera['tipo_cambio'] ?? 1.0);
-    $tipo_asiento   = intval($cabecera['cont_tipo_asiento_id'] ?? 2); // 2 = AUT (D27)
+    // Tipo de asiento de la empresa por código: AUT (D27), salvo que el llamador pida otro
+    $tipo_asiento   = emp_tipo_asiento_id($conexion, $empresa_id, $cabecera['cont_tipo_asiento_codigo'] ?? 'AUT');
 
     if ($empresa_id <= 0 || $comprobante_id <= 0) {
         throw new Exception("Parámetros obligatorios faltantes para generar asiento de tesorería.");
@@ -696,6 +805,9 @@ function tesoreriaGenerarAsiento($conexion, $cabecera, $detalles)
         ];
     }
 
+    // Todas las cuentas tienen que ser del plan de cuentas de la empresa
+    emp_validar_cuentas_asiento($conexion, $empresa_id, array_column($movimientos, 'cuenta_id'));
+
     // Control de balance (diferencia no mayor a 1 centavo)
     if (abs($total_debe - $total_haber) > 0.01) {
         throw new Exception("Asiento no balanceado: Debe=" . number_format($total_debe, 2) . ", Haber=" . number_format($total_haber, 2) . ", diferencia=" . number_format($total_debe - $total_haber, 2));
@@ -704,7 +816,7 @@ function tesoreriaGenerarAsiento($conexion, $cabecera, $detalles)
     $timestamp = strtotime($f_asiento);
     $anio = intval(date('Y', $timestamp));
     $mes  = intval(date('m', $timestamp));
-    $deposito_id = 1;
+    $deposito_id = emp_boca_id($conexion, $empresa_id, $sucursal_id); // deposito_id de los asientos es la boca
     $estado_asiento = 1; // Activo
 
     // Verificar si ya existe asiento para este comprobante
@@ -750,8 +862,10 @@ function tesoreriaGenerarAsiento($conexion, $cabecera, $detalles)
                         moneda_id, tipo_cambio, usuario_creacion_id, tabla_estado_registro_id
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt_i = mysqli_prepare($conexion, $sql_ins);
+        // 14 parámetros: 6 enteros, f_asiento (s), anio/mes (ii), descripcion (s), moneda (i), tipo_cambio (d),
+        // usuario y estado (ii). Estaba corrido una posición y grababa f_asiento 0000-00-00 y descripcion '0'.
         mysqli_stmt_bind_param(
-            $stmt_i, "iiiiisiisidiii",
+            $stmt_i, "iiiiiisiisidii",
             $empresa_id, $sucursal_id, $deposito_id, $comprobante_id, $entidad_id,
             $tipo_asiento, $f_asiento, $anio, $mes, $descripcion,
             $moneda_id, $tipo_cambio, $usuario_id, $estado_asiento
@@ -820,16 +934,14 @@ function tesoreriaObtenerSaldoComprobante($conexion, $comprobante_id, $empresa_i
             LEFT JOIN (
                 SELECT ci.comp_destino_id AS comprobante_id, SUM(ci.importe_imputado) AS imputado
                 FROM gestion__comprobantes_imputaciones ci
-                JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
-                JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                JOIN conf__estados_registros er ON er.estado_registro_id = ci.tabla_estado_registro_id
                 WHERE ci.empresa_id = ? AND ci.comp_destino_id = ? AND er.codigo_estandar = 'CONFIRMADO'
                 GROUP BY ci.comp_destino_id
             ) d ON d.comprobante_id = c.comprobante_id
             LEFT JOIN (
                 SELECT ci.comp_origen_id AS comprobante_id, SUM(ci.importe_origen) AS imputado
                 FROM gestion__comprobantes_imputaciones ci
-                JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
-                JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                JOIN conf__estados_registros er ON er.estado_registro_id = ci.tabla_estado_registro_id
                 WHERE ci.empresa_id = ? AND ci.comp_origen_id = ? AND er.codigo_estandar = 'CONFIRMADO'
                 GROUP BY ci.comp_origen_id
             ) o ON o.comprobante_id = c.comprobante_id
@@ -876,9 +988,9 @@ function tesoreriaObtenerComprobantesCancelables($conexion, $empresa_id, $tipo_o
     $tipo_origen_codigo = trim($tipo_origen_codigo);
 
     $sql = "SELECT c.comprobante_id, ct.codigo AS comprobante_tipo, ct.comprobante_tipo,
-                   c.comprobante_pv, c.comprobante_nro, c.f_emision, c.f_vto,
+                   " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id', 'c.tabla_origen_id') . " AS comprobante_pv, c.comprobante_nro, c.f_emision, c.f_vto,
                    c.moneda_id, m.codigo AS moneda_codigo, m.simbolo AS moneda_simbolo,
-                   c.importe_total, (c.importe_pendiente * c.signo) AS importe_pendiente,
+                   c.importe_total, c.importe_pendiente,
                    c.signo,
                    e.entidad_id, e.entidad_nombre
             FROM gestion__comprobantes c
@@ -890,13 +1002,12 @@ function tesoreriaObtenerComprobantesCancelables($conexion, $empresa_id, $tipo_o
                 AND tc.empresa_id = c.empresa_id
             JOIN gestion__comprobantes_tipos cto 
                  ON cto.comprobante_tipo_id = tc.comprobante_tipo_origen_id
-            LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = c.tabla_estado_registro_id
-            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
-            LEFT JOIN conf__estados_registros er_directo ON er_directo.estado_registro_id = c.tabla_estado_registro_id
+            JOIN conf__estados_registros er ON er.estado_registro_id = c.tabla_estado_registro_id
             WHERE c.empresa_id = ?
               AND cto.codigo = ?
-              AND ABS(c.importe_pendiente * c.signo) > 0.001
-              AND (er.codigo_estandar = 'CONFIRMADO' OR er_directo.codigo_estandar = 'CONFIRMADO') ";
+              AND c.importe_pendiente > 0.001
+              -- Cancelable = confirmado con saldo; uno ya imputado en parte queda en CANC_PARCIAL.
+              AND er.codigo_estandar IN ('CONFIRMADO', 'CANC_PARCIAL') ";
 
     $params = [$empresa_id, $tipo_origen_codigo];
     $types = "is";
@@ -925,4 +1036,117 @@ function tesoreriaObtenerComprobantesCancelables($conexion, $empresa_id, $tipo_o
     mysqli_stmt_close($stmt);
 
     return $lista;
+}
+
+/* =========================================================================
+ * NOTAS DE CRÉDITO (decisión Pablo 2026-10-09, D7 de la revisión de tesorería)
+ *
+ * Una NC se aplica con imputación directa NC (origen) -> comprobante (destino),
+ * fuera de los medios de pago, según gestion__comprobantes_tipos_cancelaciones
+ * (NC A -> Factura A / ND A, etc.). Cada aplicación la documenta un recibo
+ * (clientes) u OP (proveedores) en $0, que arma el módulo que llama.
+ * Una NC con saldo se aplica a otra factura de la misma entidad, o se devuelve:
+ * OP al cliente / recibo del proveedor imputando la NC como destino.
+ * ========================================================================= */
+
+/**
+ * NC con saldo de la misma entidad que pueden cancelar el comprobante destino.
+ * Devuelve [comprobante_id, comprobante_tipo, comprobante_pv, comprobante_nro, f_emision, importe_total, importe_pendiente].
+ */
+function tesoreriaNotasCreditoDisponibles($conexion, $empresa_id, $destino_comprobante_id)
+{
+    $empresa_id = intval($empresa_id);
+    $destino_comprobante_id = intval($destino_comprobante_id);
+
+    $sql = "SELECT nc.comprobante_id, ct.comprobante_tipo, " . emp_sql_pv_mostrar('nc.comprobante_pv', 'nc.empresa_id', 'nc.tabla_origen_id') . " AS comprobante_pv, nc.comprobante_nro, nc.f_emision,
+                   nc.importe_total, nc.importe_pendiente
+            FROM gestion__comprobantes d
+            JOIN gestion__comprobantes_tipos_cancelaciones tc
+                 ON tc.comprobante_tipo_destino_id = d.comprobante_tipo_id
+                AND tc.empresa_id = d.empresa_id AND tc.tabla_estado_registro_id = 1
+            JOIN gestion__comprobantes nc
+                 ON nc.comprobante_tipo_id = tc.comprobante_tipo_origen_id
+                AND nc.empresa_id = d.empresa_id AND nc.entidad_id = d.entidad_id
+            JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = nc.comprobante_tipo_id
+            WHERE d.comprobante_id = ? AND d.empresa_id = ?
+              AND d.entidad_id > 0
+              AND ct.signo = '-'
+              AND nc.tabla_origen_id = d.tabla_origen_id
+              AND nc.tabla_estado_registro_id IN (5, 39)
+              AND nc.importe_pendiente > 0.001
+              AND nc.moneda_id = d.moneda_id
+            ORDER BY nc.f_emision ASC, nc.comprobante_id ASC";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error en tesoreriaNotasCreditoDisponibles: " . mysqli_error($conexion));
+        return [];
+    }
+    mysqli_stmt_bind_param($stmt, "ii", $destino_comprobante_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $lista = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $r['comprobante_id'] = intval($r['comprobante_id']);
+        $r['importe_total'] = floatval($r['importe_total']);
+        $r['importe_pendiente'] = floatval($r['importe_pendiente']);
+        $lista[] = $r;
+    }
+    mysqli_stmt_close($stmt);
+    return $lista;
+}
+
+/**
+ * Aplica (imputa) una NC contra un comprobante de la misma entidad. Corre dentro de la transacción del
+ * llamador. $importe <= 0 aplica todo lo posible (mínimo entre los dos saldos). Devuelve el importe aplicado.
+ */
+function tesoreriaAplicarNotaCredito($conexion, $empresa_id, $nc_comprobante_id, $destino_comprobante_id, $importe, $usuario_id = null)
+{
+    $empresa_id = intval($empresa_id);
+    $nc_comprobante_id = intval($nc_comprobante_id);
+    $destino_comprobante_id = intval($destino_comprobante_id);
+
+    $disponibles = tesoreriaNotasCreditoDisponibles($conexion, $empresa_id, $destino_comprobante_id);
+    $nc = null;
+    foreach ($disponibles as $d) {
+        if ($d['comprobante_id'] === $nc_comprobante_id) {
+            $nc = $d;
+            break;
+        }
+    }
+    if (!$nc) {
+        throw new Exception("La nota de crédito $nc_comprobante_id no se puede aplicar a ese comprobante (otra entidad, sin saldo o tipo no compatible).");
+    }
+
+    $stmt = mysqli_prepare($conexion, "SELECT importe_pendiente, tabla_estado_registro_id FROM gestion__comprobantes WHERE comprobante_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $destino_comprobante_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $dest = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$dest || !in_array(intval($dest['tabla_estado_registro_id']), [5, 39], true)) {
+        throw new Exception("El comprobante destino no está confirmado con saldo.");
+    }
+
+    $maximo = round(min(floatval($dest['importe_pendiente']), $nc['importe_pendiente']), 2);
+    $importe = round(floatval($importe), 2);
+    if ($importe <= 0) {
+        $importe = $maximo;
+    }
+    if ($importe <= 0) {
+        return 0.0;
+    }
+    if ($importe > $maximo + 0.001) {
+        throw new Exception("El importe a aplicar (" . number_format($importe, 2) . ") supera el saldo disponible (" . number_format($maximo, 2) . ").");
+    }
+
+    tesoreriaRegistrarImputacion($conexion, [
+        'empresa_id'       => $empresa_id,
+        'comp_origen_id'   => $nc_comprobante_id,
+        'comp_destino_id'  => $destino_comprobante_id,
+        'importe_imputado' => $importe,
+        'usuario_id'       => $usuario_id,
+    ]);
+    // La NC también pasa a cancelada parcial / total según su saldo (y su registro de origen la acompaña)
+    recalcularEstadoDestino($conexion, $nc_comprobante_id, $usuario_id);
+
+    return $importe;
 }

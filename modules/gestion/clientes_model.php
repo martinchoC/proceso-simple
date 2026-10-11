@@ -309,7 +309,9 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
                    cc.cliente_descuento_general,
                    cc.f_desde AS condicion_cliente_f_desde,
                    cond.condicion_pago,
-                   lp.lista_precio_nombre AS lista_precio
+                   lp.lista_precio_nombre AS lista_precio,
+                   cf.condicion_fiscal,
+                   cf.condicion_fiscal_codigo
             FROM gestion__entidades e
             LEFT JOIN conf__estados_registros er ON e.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
@@ -328,6 +330,18 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
                    )
             LEFT JOIN gestion__condiciones_pago cond ON cc.condicion_pago_id = cond.condicion_pago_id
             LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+            LEFT JOIN gestion__entidades_condiciones_fiscales ecf
+                   ON ecf.entidad_condicion_fiscal_id = (
+                        SELECT ecf2.entidad_condicion_fiscal_id
+                        FROM gestion__entidades_condiciones_fiscales ecf2
+                        WHERE ecf2.entidad_id = e.entidad_id
+                          AND ecf2.tabla_estado_registro_id = 1
+                          AND (ecf2.f_desde IS NULL OR ecf2.f_desde <= CURDATE())
+                          AND (ecf2.f_hasta IS NULL OR ecf2.f_hasta >= CURDATE())
+                        ORDER BY ecf2.f_desde DESC, ecf2.entidad_condicion_fiscal_id DESC
+                        LIMIT 1
+                   )
+            LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
             WHERE e.empresa_id = ?
               AND e.es_cliente = 1
             ORDER BY e.entidad_nombre";
@@ -367,6 +381,11 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
             'text_clase' => 'text-white'
         ];
 
+        $fila['condicion_fiscal_info'] = [
+            'condicion_fiscal' => $fila['condicion_fiscal'] ?? null,
+            'condicion_fiscal_codigo' => $fila['condicion_fiscal_codigo'] ?? null
+        ];
+
         $fila['condicion_cliente_info'] = [
             'condicion_pago' => $fila['condicion_pago'] ?? null,
             'lista_precio' => $fila['lista_precio'] ?? null,
@@ -382,6 +401,219 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
     mysqli_stmt_close($stmt);
     return $data;
 }
+
+// ✅ Obtener entidades paginadas para DataTables Server-Side
+function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params = [])
+{
+    $pagina_id = intval($pagina_id);
+    $empresa_idx = intval($empresa_idx);
+
+    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
+    $result = mysqli_query($conexion, $sql_check);
+    $columns = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $columns[] = $row['Field'];
+    }
+
+    $estado_column = 'estado_registro';
+    if (!in_array('estado_registro', $columns)) {
+        if (in_array('nombre_estado', $columns)) {
+            $estado_column = 'nombre_estado';
+        } elseif (in_array('descripcion', $columns)) {
+            $estado_column = 'descripcion';
+        }
+    }
+
+    $start = isset($params['start']) ? max(0, intval($params['start'])) : 0;
+    $length = isset($params['length']) ? intval($params['length']) : 10;
+    $search_value = isset($params['search_value']) ? trim($params['search_value']) : '';
+    $order_column_idx = isset($params['order_column']) ? intval($params['order_column']) : 1;
+    $order_dir = (isset($params['order_dir']) && strtoupper($params['order_dir']) === 'DESC') ? 'DESC' : 'ASC';
+
+    // 1. Total de clientes sin filtrar
+    $sql_total = "SELECT COUNT(*) as total FROM gestion__entidades WHERE empresa_id = ? AND es_cliente = 1";
+    $stmt_total = mysqli_prepare($conexion, $sql_total);
+    $total_records = 0;
+    if ($stmt_total) {
+        mysqli_stmt_bind_param($stmt_total, "i", $empresa_idx);
+        mysqli_stmt_execute($stmt_total);
+        $res_total = mysqli_stmt_get_result($stmt_total);
+        if ($row_t = mysqli_fetch_assoc($res_total)) {
+            $total_records = intval($row_t['total']);
+        }
+        mysqli_stmt_close($stmt_total);
+    }
+
+    // 2. Ordenamiento
+    $map_columns = [
+        0 => 'e.entidad_id',
+        1 => 'e.entidad_nombre',
+        2 => 'et.entidad_tipo',
+        3 => 'e.cuit',
+        4 => 'cf.condicion_fiscal',
+        5 => 'cond.condicion_pago',
+        6 => "er.$estado_column"
+    ];
+    $order_by = $map_columns[$order_column_idx] ?? 'e.entidad_nombre';
+
+    // 3. JOINs y filtros
+    $where_sql = " WHERE e.empresa_id = ? AND e.es_cliente = 1";
+    $bind_types = "i";
+    $bind_params = [$empresa_idx];
+
+    $has_search = ($search_value !== '');
+    if ($has_search) {
+        $search_clean = str_replace(['-', ' '], '', $search_value);
+        $like_val = "%{$search_value}%";
+        $like_clean = "%{$search_clean}%";
+
+        $where_sql .= " AND (
+            e.entidad_nombre LIKE ? OR 
+            e.entidad_fantasia LIKE ? OR 
+            e.cuit LIKE ? OR 
+            REPLACE(e.cuit, '-', '') LIKE ? OR
+            et.entidad_tipo LIKE ? OR 
+            cf.condicion_fiscal LIKE ? OR 
+            cf.condicion_fiscal_codigo LIKE ? OR 
+            cond.condicion_pago LIKE ?
+        )";
+        $bind_types .= "ssssssss";
+        $bind_params[] = $like_val;
+        $bind_params[] = $like_val;
+        $bind_params[] = $like_val;
+        $bind_params[] = $like_clean;
+        $bind_params[] = $like_val;
+        $bind_params[] = $like_val;
+        $bind_params[] = $like_val;
+        $bind_params[] = $like_val;
+    }
+
+    $joins_sql = " FROM gestion__entidades e
+        LEFT JOIN conf__estados_registros er ON e.tabla_estado_registro_id = er.estado_registro_id
+        LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
+        LEFT JOIN gestion__entidades_tipos et ON e.entidad_tipo_id = et.entidad_tipo_id
+        LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
+        LEFT JOIN gestion__entidades_condiciones_clientes cc
+               ON cc.entidad_condicion_cliente_id = (
+                    SELECT cc2.entidad_condicion_cliente_id
+                    FROM gestion__entidades_condiciones_clientes cc2
+                    WHERE cc2.entidad_id = e.entidad_id
+                      AND cc2.tabla_estado_registro_id = 1
+                      AND (cc2.f_hasta IS NULL OR cc2.f_hasta >= CURDATE())
+                      AND cc2.f_desde <= CURDATE()
+                    ORDER BY cc2.f_desde DESC
+                    LIMIT 1
+               )
+        LEFT JOIN gestion__condiciones_pago cond ON cc.condicion_pago_id = cond.condicion_pago_id
+        LEFT JOIN gestion__listas_precios lp ON cc.lista_precio_id = lp.lista_precio_id
+        LEFT JOIN gestion__entidades_condiciones_fiscales ecf
+               ON ecf.entidad_condicion_fiscal_id = (
+                    SELECT ecf2.entidad_condicion_fiscal_id
+                    FROM gestion__entidades_condiciones_fiscales ecf2
+                    WHERE ecf2.entidad_id = e.entidad_id
+                      AND ecf2.tabla_estado_registro_id = 1
+                      AND (ecf2.f_desde IS NULL OR ecf2.f_desde <= CURDATE())
+                      AND (ecf2.f_hasta IS NULL OR ecf2.f_hasta >= CURDATE())
+                    ORDER BY ecf2.f_desde DESC, ecf2.entidad_condicion_fiscal_id DESC
+                    LIMIT 1
+               )
+        LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id";
+
+    if ($has_search) {
+        $sql_count = "SELECT COUNT(*) as filtered " . $joins_sql . $where_sql;
+        $stmt_count = mysqli_prepare($conexion, $sql_count);
+        $records_filtered = 0;
+        if ($stmt_count) {
+            mysqli_stmt_bind_param($stmt_count, $bind_types, ...$bind_params);
+            mysqli_stmt_execute($stmt_count);
+            $res_count = mysqli_stmt_get_result($stmt_count);
+            if ($row_c = mysqli_fetch_assoc($res_count)) {
+                $records_filtered = intval($row_c['filtered']);
+            }
+            mysqli_stmt_close($stmt_count);
+        }
+    } else {
+        $records_filtered = $total_records;
+    }
+
+    $select_fields = "SELECT e.*,
+               er.$estado_column as estado_registro,
+               er.codigo_estandar,
+               ec.color_clase, ec.bg_clase, ec.text_clase,
+               et.entidad_tipo,
+               l.localidad,
+               cc.limite_credito,
+               cc.cliente_descuento_general,
+               cc.f_desde AS condicion_cliente_f_desde,
+               cond.condicion_pago,
+               lp.lista_precio_nombre AS lista_precio,
+               cf.condicion_fiscal,
+               cf.condicion_fiscal_codigo";
+
+    $sql_data = $select_fields . $joins_sql . $where_sql . " ORDER BY $order_by $order_dir";
+
+    if ($length > 0) {
+        $sql_data .= " LIMIT ?, ?";
+        $bind_types .= "ii";
+        $bind_params[] = $start;
+        $bind_params[] = $length;
+    }
+
+    $stmt_data = mysqli_prepare($conexion, $sql_data);
+    $data = [];
+    if ($stmt_data) {
+        mysqli_stmt_bind_param($stmt_data, $bind_types, ...$bind_params);
+        mysqli_stmt_execute($stmt_data);
+        $result = mysqli_stmt_get_result($stmt_data);
+
+        $funciones_pagina = obtenerFuncionesPagina($conexion, $pagina_id);
+
+        while ($fila = mysqli_fetch_assoc($result)) {
+            $color_clase = $fila['color_clase'] ?? 'btn-dark';
+            $bg_clase = $fila['bg_clase'] ?? 'bg-dark';
+            $text_clase = $fila['text_clase'] ?? 'text-white';
+
+            $fila['estado_info'] = [
+                'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
+                'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
+                'color_clase' => $color_clase,
+                'bg_clase' => $bg_clase,
+                'text_clase' => $text_clase
+            ];
+
+            $fila['entidad_tipo_info'] = [
+                'entidad_tipo' => $fila['entidad_tipo'] ?? null,
+                'descripcion' => null,
+                'bg_clase' => 'bg-secondary',
+                'text_clase' => 'text-white'
+            ];
+
+            $fila['condicion_fiscal_info'] = [
+                'condicion_fiscal' => $fila['condicion_fiscal'] ?? null,
+                'condicion_fiscal_codigo' => $fila['condicion_fiscal_codigo'] ?? null
+            ];
+
+            $fila['condicion_cliente_info'] = [
+                'condicion_pago' => $fila['condicion_pago'] ?? null,
+                'lista_precio' => $fila['lista_precio'] ?? null,
+                'limite_credito' => $fila['limite_credito'] ?? null,
+                'cliente_descuento_general' => $fila['cliente_descuento_general'] ?? null,
+                'f_desde' => $fila['condicion_cliente_f_desde'] ?? null
+            ];
+
+            $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id'], $funciones_pagina);
+            $data[] = $fila;
+        }
+        mysqli_stmt_close($stmt_data);
+    }
+
+    return [
+        'total' => $total_records,
+        'filtered' => $records_filtered,
+        'data' => $data
+    ];
+}
+
 
 // ✅ Obtener todas las sucursales de una entidad
 function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_id)
@@ -537,6 +769,20 @@ function agregarEntidad($conexion, $data)
     if ($success) {
         $entidad_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
+
+        // Crear automáticamente la sucursal 1 "Casa Central" con los datos del domicilio legal
+        $sucursal_data = [
+            'empresa_id' => $empresa_id,
+            'entidad_id' => $entidad_id,
+            'sucursal_nombre' => 'Casa Central',
+            'sucursal_direccion' => !empty($domicilio_legal) ? $domicilio_legal : 'Casa Central',
+            'localidad_id' => $localidad_id,
+            'sucursal_telefono' => '',
+            'sucursal_email' => '',
+            'sucursal_contacto' => ''
+        ];
+        agregarSucursal($conexion, $sucursal_data);
+
         return ['resultado' => true, 'entidad_id' => $entidad_id];
     } else {
         mysqli_stmt_close($stmt);
@@ -926,11 +1172,12 @@ function obtenerSucursalPorId($conexion, $id, $empresa_idx)
 // ============================================
 
 // Obtener condiciones de pago
-function obtenerCondicionesPago($conexion) {
+function obtenerCondicionesPago($conexion, $empresa_idx = null) {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT cp.*, er.estado_registro
             FROM gestion__condiciones_pago cp
             LEFT JOIN conf__estados_registros er ON cp.tabla_estado_registro_id = er.estado_registro_id
-            WHERE cp.tabla_estado_registro_id IN (1, 2)
+            WHERE cp.empresa_id = $empresa_idx AND cp.tabla_estado_registro_id IN (1, 2)
             ORDER BY cp.condicion_pago";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -949,13 +1196,14 @@ function obtenerCondicionesPago($conexion) {
 }
 
 // Obtener listas de precios
-function obtenerListasPrecios($conexion) {
+function obtenerListasPrecios($conexion, $empresa_idx = null) {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT lp.lista_precio_id, lp.lista_precio_nombre AS lista_precio, 
                    lp.descripcion, lp.empresa_id, lp.lista_precio_codigo,
                    lp.tabla_estado_registro_id, er.estado_registro
             FROM gestion__listas_precios lp
             LEFT JOIN conf__estados_registros er ON lp.tabla_estado_registro_id = er.estado_registro_id
-            WHERE lp.tabla_estado_registro_id IN (1, 2)  -- Estados activos
+            WHERE lp.empresa_id = $empresa_idx AND lp.tabla_estado_registro_id IN (1, 2)  -- Estados activos
             ORDER BY lp.lista_precio_nombre";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -2278,5 +2526,592 @@ function regenerarPasswordUsuarioWebEntidad($conexion, $entidad_id)
         'password' => $password_plana,
         'message' => 'Contraseña regenerada correctamente'
     ];
+}
+
+// ============================================================
+// FUNCIONES PARA GESTIÓN DE CONDICIONES FISCALES DE ENTIDADES
+// Tabla: gestion__entidades_condiciones_fiscales
+// ============================================================
+
+function obtenerCondicionesFiscalesCatalogo($conexion)
+{
+    $sql = "SELECT condicion_fiscal_id, condicion_fiscal, condicion_fiscal_codigo, condicion_fiscal_descripcion 
+            FROM gestion__condiciones_fiscales 
+            WHERE tabla_estado_registro_id = 1 
+            ORDER BY condicion_fiscal_id";
+    $result = mysqli_query($conexion, $sql);
+    $catalogo = [];
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $catalogo[] = $row;
+        }
+    }
+    return $catalogo;
+}
+
+function obtenerCondicionFiscalVigente($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+    if ($entidad_id <= 0) return null;
+
+    $sql = "SELECT ecf.*, 
+                   cf.condicion_fiscal, 
+                   cf.condicion_fiscal_codigo, 
+                   cf.condicion_fiscal_descripcion,
+                   er.estado_registro,
+                   er.codigo_estandar
+            FROM gestion__entidades_condiciones_fiscales ecf
+            INNER JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
+            LEFT JOIN conf__estados_registros er ON ecf.tabla_estado_registro_id = er.estado_registro_id
+            WHERE ecf.entidad_id = ? 
+            AND ecf.tabla_estado_registro_id = 1
+            AND ecf.f_desde <= CURDATE()
+            AND (ecf.f_hasta IS NULL OR ecf.f_hasta >= CURDATE())
+            ORDER BY ecf.f_desde DESC, ecf.entidad_condicion_fiscal_id DESC
+            LIMIT 1";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    return $condicion;
+}
+
+function obtenerHistorialCondicionesFiscales($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+    if ($entidad_id <= 0) return [];
+
+    $sql = "SELECT ecf.*, 
+                   cf.condicion_fiscal, 
+                   cf.condicion_fiscal_codigo, 
+                   cf.condicion_fiscal_descripcion,
+                   er.estado_registro,
+                   er.codigo_estandar
+            FROM gestion__entidades_condiciones_fiscales ecf
+            INNER JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
+            LEFT JOIN conf__estados_registros er ON ecf.tabla_estado_registro_id = er.estado_registro_id
+            WHERE ecf.entidad_id = ?
+            ORDER BY ecf.f_desde DESC, ecf.entidad_condicion_fiscal_id DESC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $historial = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $historial[] = $row;
+    }
+    mysqli_stmt_close($stmt);
+
+    return $historial;
+}
+
+function obtenerCondicionFiscalPorId($conexion, $id)
+{
+    $id = intval($id);
+    if ($id <= 0) return null;
+
+    $sql = "SELECT ecf.*, cf.condicion_fiscal, cf.condicion_fiscal_codigo 
+            FROM gestion__entidades_condiciones_fiscales ecf
+            INNER JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
+            WHERE ecf.entidad_condicion_fiscal_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    return $row;
+}
+
+function guardarCondicionFiscal($conexion, $data)
+{
+    $id = intval($data['entidad_condicion_fiscal_id'] ?? 0);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $condicion_fiscal_id = intval($data['condicion_fiscal_id'] ?? 0);
+    $f_desde = trim($data['f_desde'] ?? '');
+    $f_hasta = !empty($data['f_hasta']) ? trim($data['f_hasta']) : null;
+    $cerrar_anterior = !empty($data['cerrar_anterior']) ? 1 : 0;
+
+    if ($entidad_id <= 0) {
+        return ['resultado' => false, 'error' => 'ID de entidad inválido'];
+    }
+    if ($condicion_fiscal_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar una condición fiscal'];
+    }
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha desde es obligatoria'];
+    }
+    if ($f_hasta && $f_hasta < $f_desde) {
+        return ['resultado' => false, 'error' => 'La fecha hasta no puede ser menor a la fecha desde'];
+    }
+
+    if ($id > 0) {
+        $sql = "UPDATE gestion__entidades_condiciones_fiscales 
+                SET condicion_fiscal_id = ?, f_desde = ?, f_hasta = ? 
+                WHERE entidad_condicion_fiscal_id = ? AND entidad_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) return ['resultado' => false, 'error' => 'Error al preparar actualización'];
+
+        mysqli_stmt_bind_param($stmt, "issii", $condicion_fiscal_id, $f_desde, $f_hasta, $id, $entidad_id);
+        $success = mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        if ($success) {
+            return ['resultado' => true, 'mensaje' => 'Condición fiscal actualizada correctamente'];
+        }
+        return ['resultado' => false, 'error' => 'Error al actualizar condición fiscal: ' . mysqli_error($conexion)];
+    } else {
+        if ($cerrar_anterior) {
+            $sql_close = "UPDATE gestion__entidades_condiciones_fiscales 
+                          SET f_hasta = DATE_SUB(?, INTERVAL 1 DAY) 
+                          WHERE entidad_id = ? 
+                          AND tabla_estado_registro_id = 1 
+                          AND f_desde < ? 
+                          AND (f_hasta IS NULL OR f_hasta >= ?)";
+            $stmt_close = mysqli_prepare($conexion, $sql_close);
+            if ($stmt_close) {
+                mysqli_stmt_bind_param($stmt_close, "siss", $f_desde, $entidad_id, $f_desde, $f_desde);
+                mysqli_stmt_execute($stmt_close);
+                mysqli_stmt_close($stmt_close);
+            }
+        }
+
+        $sql = "INSERT INTO gestion__entidades_condiciones_fiscales 
+                (entidad_id, condicion_fiscal_id, f_desde, f_hasta, tabla_estado_registro_id) 
+                VALUES (?, ?, ?, ?, 1)";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) return ['resultado' => false, 'error' => 'Error al preparar inserción'];
+
+        mysqli_stmt_bind_param($stmt, "iiss", $entidad_id, $condicion_fiscal_id, $f_desde, $f_hasta);
+        $success = mysqli_stmt_execute($stmt);
+        if ($success) {
+            $new_id = mysqli_insert_id($conexion);
+            mysqli_stmt_close($stmt);
+            return ['resultado' => true, 'id' => $new_id, 'mensaje' => 'Condición fiscal registrada correctamente'];
+        }
+        $err = mysqli_stmt_error($stmt);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al insertar condición fiscal: ' . $err];
+    }
+}
+
+function cambiarEstadoCondicionFiscal($conexion, $id, $nuevo_estado)
+{
+    $id = intval($id);
+    $nuevo_estado = intval($nuevo_estado);
+
+    $sql = "UPDATE gestion__entidades_condiciones_fiscales 
+            SET tabla_estado_registro_id = ? 
+            WHERE entidad_condicion_fiscal_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error al preparar la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "ii", $nuevo_estado, $id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['resultado' => true, 'mensaje' => 'Estado actualizado'];
+    }
+    return ['resultado' => false, 'error' => 'Error al cambiar estado'];
+}
+
+// ============================================================
+// FUNCIONES NIVEL PROVINCIAL (IMPUESTO INGRESOS BRUTOS - IIBB)
+// ============================================================
+
+function obtenerRegimenesIIBB($conexion)
+{
+    $sql = "SELECT * FROM gestion__regimenes_iibb WHERE tabla_estado_registro_id = 1 ORDER BY regimen_iibb_id";
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) return [];
+    $regimenes = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $regimenes[] = $row;
+    }
+    return $regimenes;
+}
+
+function obtenerJurisdiccionesSedesIIBB($conexion)
+{
+    $sql = "SELECT * FROM gestion__iibb_jurisdicciones_sedes WHERE tabla_estado_registro_id = 1 ORDER BY CAST(codigo_comarb AS UNSIGNED), codigo_comarb";
+    $result = mysqli_query($conexion, $sql);
+    if (!$result) return [];
+    $sedes = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $sedes[] = $row;
+    }
+    return $sedes;
+}
+
+function obtenerCondicionIIBBVigente($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+    if ($entidad_id <= 0) return null;
+
+    $sql = "SELECT ec.*, 
+                   r.regimen_iibb, r.regimen_iibb_codigo, r.regimen_iibb_descripcion,
+                   s.codigo_comarb, s.jurisdiccion_sede, s.organismo
+            FROM gestion__entidades_condiciones_iibb ec
+            INNER JOIN gestion__regimenes_iibb r ON ec.regimen_iibb_id = r.regimen_iibb_id
+            LEFT JOIN gestion__iibb_jurisdicciones_sedes s ON ec.jurisdiccion_sede_id = s.jurisdiccion_sede_id
+            WHERE ec.entidad_id = ?
+              AND ec.tabla_estado_registro_id = 1
+              AND (ec.f_desde IS NULL OR ec.f_desde <= CURDATE())
+              AND (ec.f_hasta IS NULL OR ec.f_hasta >= CURDATE())
+            ORDER BY ec.f_desde DESC, ec.entidad_condicion_iibb_id DESC
+            LIMIT 1";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $condicion = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    return $condicion;
+}
+
+function obtenerHistorialCondicionesIIBB($conexion, $entidad_id)
+{
+    $entidad_id = intval($entidad_id);
+    if ($entidad_id <= 0) return [];
+
+    $sql = "SELECT ec.*, 
+                   r.regimen_iibb, r.regimen_iibb_codigo,
+                   s.codigo_comarb, s.jurisdiccion_sede, s.organismo,
+                   er.estado_registro, er.codigo_estandar
+            FROM gestion__entidades_condiciones_iibb ec
+            INNER JOIN gestion__regimenes_iibb r ON ec.regimen_iibb_id = r.regimen_iibb_id
+            LEFT JOIN gestion__iibb_jurisdicciones_sedes s ON ec.jurisdiccion_sede_id = s.jurisdiccion_sede_id
+            LEFT JOIN conf__estados_registros er ON ec.tabla_estado_registro_id = er.estado_registro_id
+            WHERE ec.entidad_id = ?
+            ORDER BY ec.f_desde DESC, ec.entidad_condicion_iibb_id DESC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $historial = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $historial[] = $row;
+    }
+    mysqli_stmt_close($stmt);
+
+    return $historial;
+}
+
+function obtenerCondicionIIBBPorId($conexion, $id)
+{
+    $id = intval($id);
+    if ($id <= 0) return null;
+
+    $sql = "SELECT ec.*, 
+                   r.regimen_iibb, r.regimen_iibb_codigo,
+                   s.codigo_comarb, s.jurisdiccion_sede, s.organismo
+            FROM gestion__entidades_condiciones_iibb ec
+            INNER JOIN gestion__regimenes_iibb r ON ec.regimen_iibb_id = r.regimen_iibb_id
+            LEFT JOIN gestion__iibb_jurisdicciones_sedes s ON ec.jurisdiccion_sede_id = s.jurisdiccion_sede_id
+            WHERE ec.entidad_condicion_iibb_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    return $row;
+}
+
+function guardarCondicionIIBB($conexion, $data)
+{
+    $id = intval($data['entidad_condicion_iibb_id'] ?? 0);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $regimen_iibb_id = intval($data['regimen_iibb_id'] ?? 0);
+    $numero_inscripcion = !empty($data['numero_inscripcion']) ? trim($data['numero_inscripcion']) : null;
+    $jurisdiccion_sede_id = !empty($data['jurisdiccion_sede_id']) ? intval($data['jurisdiccion_sede_id']) : null;
+    $f_desde = trim($data['f_desde'] ?? '');
+    $f_hasta = !empty($data['f_hasta']) ? trim($data['f_hasta']) : null;
+    $observaciones = !empty($data['observaciones']) ? trim($data['observaciones']) : null;
+    $cerrar_anterior = !empty($data['cerrar_anterior']) ? 1 : 0;
+
+    if ($entidad_id <= 0) {
+        return ['resultado' => false, 'error' => 'ID de entidad inválido'];
+    }
+    if ($regimen_iibb_id <= 0) {
+        return ['resultado' => false, 'error' => 'Debe seleccionar un régimen de IIBB'];
+    }
+    if (empty($f_desde)) {
+        return ['resultado' => false, 'error' => 'La fecha desde es obligatoria'];
+    }
+    if ($f_hasta && $f_hasta < $f_desde) {
+        return ['resultado' => false, 'error' => 'La fecha hasta no puede ser menor a la fecha desde'];
+    }
+
+    if ($id > 0) {
+        $sql = "UPDATE gestion__entidades_condiciones_iibb 
+                SET regimen_iibb_id = ?, numero_inscripcion = ?, jurisdiccion_sede_id = ?, f_desde = ?, f_hasta = ?, observaciones = ? 
+                WHERE entidad_condicion_iibb_id = ? AND entidad_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) return ['resultado' => false, 'error' => 'Error al preparar actualización de IIBB'];
+
+        mysqli_stmt_bind_param($stmt, "isisssii", $regimen_iibb_id, $numero_inscripcion, $jurisdiccion_sede_id, $f_desde, $f_hasta, $observaciones, $id, $entidad_id);
+        $success = mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        if ($success) {
+            return ['resultado' => true, 'mensaje' => 'Condición de IIBB actualizada correctamente'];
+        }
+        return ['resultado' => false, 'error' => 'Error al actualizar condición de IIBB: ' . mysqli_error($conexion)];
+    } else {
+        if ($cerrar_anterior) {
+            $sql_close = "UPDATE gestion__entidades_condiciones_iibb 
+                          SET f_hasta = DATE_SUB(?, INTERVAL 1 DAY) 
+                          WHERE entidad_id = ? 
+                          AND tabla_estado_registro_id = 1 
+                          AND f_desde < ? 
+                          AND (f_hasta IS NULL OR f_hasta >= ?)";
+            $stmt_close = mysqli_prepare($conexion, $sql_close);
+            if ($stmt_close) {
+                mysqli_stmt_bind_param($stmt_close, "siss", $f_desde, $entidad_id, $f_desde, $f_desde);
+                mysqli_stmt_execute($stmt_close);
+                mysqli_stmt_close($stmt_close);
+            }
+        }
+
+        $sql = "INSERT INTO gestion__entidades_condiciones_iibb 
+                (entidad_id, regimen_iibb_id, numero_inscripcion, jurisdiccion_sede_id, f_desde, f_hasta, observaciones, tabla_estado_registro_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1)";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) return ['resultado' => false, 'error' => 'Error al preparar inserción de IIBB'];
+
+        mysqli_stmt_bind_param($stmt, "iisisss", $entidad_id, $regimen_iibb_id, $numero_inscripcion, $jurisdiccion_sede_id, $f_desde, $f_hasta, $observaciones);
+        $success = mysqli_stmt_execute($stmt);
+        if ($success) {
+            $new_id = mysqli_insert_id($conexion);
+            mysqli_stmt_close($stmt);
+            return ['resultado' => true, 'id' => $new_id, 'mensaje' => 'Condición de IIBB registrada correctamente'];
+        }
+        $err = mysqli_stmt_error($stmt);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al insertar condición de IIBB: ' . $err];
+    }
+}
+
+function cambiarEstadoCondicionIIBB($conexion, $id, $nuevo_estado)
+{
+    $id = intval($id);
+    $nuevo_estado = intval($nuevo_estado);
+
+    $sql = "UPDATE gestion__entidades_condiciones_iibb 
+            SET tabla_estado_registro_id = ? 
+            WHERE entidad_condicion_iibb_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return ['resultado' => false, 'error' => 'Error al preparar la consulta'];
+
+    mysqli_stmt_bind_param($stmt, "ii", $nuevo_estado, $id);
+    $success = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($success) {
+        return ['resultado' => true, 'mensaje' => 'Estado de condición IIBB actualizado'];
+    }
+    return ['resultado' => false, 'error' => 'Error al cambiar estado de condición IIBB'];
+}
+
+// ============================================================
+// SITUACIÓN FISCAL DESDE "DATOS PRINCIPALES"
+// La condición IVA y la de IIBB se editan en el mismo formulario de la entidad.
+// Si un dato difiere de la condición vigente se cierra la vigente (f_hasta = día
+// anterior al cambio) y se abre una fila nueva: eso es el historial. Si el cambio
+// tiene la misma fecha desde que la vigente, la vigente pasa a Inactivo (2) y se
+// inserta la nueva, así la corrección del día también queda registrada.
+// ============================================================
+
+function guardarEntidadConSituacionFiscal($conexion, $id, $data, $fiscal)
+{
+    error_log("=== INICIO guardarEntidadConSituacionFiscal ID: " . ($id === null ? 'nuevo' : $id) . " ===");
+    mysqli_begin_transaction($conexion);
+    try {
+        $resultado = $id === null ? agregarEntidad($conexion, $data) : editarEntidad($conexion, $id, $data);
+        if (empty($resultado['resultado'])) {
+            mysqli_rollback($conexion);
+            return $resultado;
+        }
+
+        $entidad_id = $id === null ? intval($resultado['entidad_id'] ?? 0) : intval($id);
+        $res_fiscal = sincronizarSituacionFiscalEntidad($conexion, $entidad_id, $fiscal);
+        if (empty($res_fiscal['resultado'])) {
+            mysqli_rollback($conexion);
+            return $res_fiscal;
+        }
+
+        mysqli_commit($conexion);
+        $resultado['cambios_fiscales'] = $res_fiscal['cambios'];
+        return $resultado;
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        error_log("=== ERROR guardarEntidadConSituacionFiscal: " . $e->getMessage() . " ===");
+        return ['resultado' => false, 'error' => 'Error al guardar la entidad: ' . $e->getMessage()];
+    }
+}
+
+function sincronizarSituacionFiscalEntidad($conexion, $entidad_id, $fiscal)
+{
+    $entidad_id = intval($entidad_id);
+    $condicion_fiscal_id = intval($fiscal['condicion_fiscal_id'] ?? 0);
+    $regimen_iibb_id = intval($fiscal['regimen_iibb_id'] ?? 0);
+    $numero_inscripcion = trim((string)($fiscal['numero_inscripcion_iibb'] ?? ''));
+    $numero_inscripcion = $numero_inscripcion !== '' ? $numero_inscripcion : null;
+    $jurisdiccion_sede_id = intval($fiscal['jurisdiccion_sede_id'] ?? 0);
+    $jurisdiccion_sede_id = $jurisdiccion_sede_id > 0 ? $jurisdiccion_sede_id : null;
+    $f_desde = trim((string)($fiscal['fiscal_f_desde'] ?? ''));
+
+    if ($entidad_id <= 0) {
+        return ['resultado' => false, 'error' => 'ID de entidad inválido'];
+    }
+    if ($numero_inscripcion !== null && mb_strlen($numero_inscripcion) > 50) {
+        return ['resultado' => false, 'error' => 'El N° de inscripción de IIBB no puede superar los 50 caracteres'];
+    }
+    if ($regimen_iibb_id <= 0 && ($numero_inscripcion !== null || $jurisdiccion_sede_id !== null)) {
+        return ['resultado' => false, 'error' => 'Seleccione el régimen de IIBB para cargar el N° de inscripción o la jurisdicción sede'];
+    }
+
+    // Misma fecha "hoy" que usan las consultas de vigencia (CURDATE del motor, no del PHP)
+    $res_hoy = mysqli_query($conexion, "SELECT CURDATE() AS hoy");
+    $hoy = $res_hoy ? mysqli_fetch_assoc($res_hoy)['hoy'] : date('Y-m-d');
+    if ($f_desde === '') {
+        $f_desde = $hoy;
+    }
+    $fecha = DateTime::createFromFormat('Y-m-d', $f_desde);
+    if (!$fecha || $fecha->format('Y-m-d') !== $f_desde) {
+        return ['resultado' => false, 'error' => 'La fecha de vigencia de los cambios fiscales es inválida'];
+    }
+    if ($f_desde > $hoy) {
+        return ['resultado' => false, 'error' => 'La fecha de vigencia de los cambios fiscales no puede ser posterior a hoy'];
+    }
+
+    $cambios = ['iva' => false, 'iibb' => false];
+
+    // Nivel nacional (IVA). Vacío = sin cambios (no da de baja la vigente).
+    if ($condicion_fiscal_id > 0) {
+        $vigente = obtenerCondicionFiscalVigente($conexion, $entidad_id);
+        if (!$vigente || intval($vigente['condicion_fiscal_id']) !== $condicion_fiscal_id) {
+            $r = registrarCambioSituacionFiscal($conexion, 'iva', $entidad_id, $vigente, $f_desde, [
+                'condicion_fiscal_id' => $condicion_fiscal_id,
+            ]);
+            if (empty($r['resultado'])) return $r;
+            $cambios['iva'] = true;
+        }
+    }
+
+    // Nivel provincial (IIBB)
+    if ($regimen_iibb_id > 0) {
+        $vigente = obtenerCondicionIIBBVigente($conexion, $entidad_id);
+        $nro_vigente = $vigente ? trim((string)($vigente['numero_inscripcion'] ?? '')) : '';
+        $sede_vigente = $vigente ? intval($vigente['jurisdiccion_sede_id'] ?? 0) : 0;
+        $hay_cambio = !$vigente
+            || intval($vigente['regimen_iibb_id']) !== $regimen_iibb_id
+            || $nro_vigente !== (string)($numero_inscripcion ?? '')
+            || $sede_vigente !== intval($jurisdiccion_sede_id ?? 0);
+        if ($hay_cambio) {
+            $r = registrarCambioSituacionFiscal($conexion, 'iibb', $entidad_id, $vigente, $f_desde, [
+                'regimen_iibb_id' => $regimen_iibb_id,
+                'numero_inscripcion' => $numero_inscripcion,
+                'jurisdiccion_sede_id' => $jurisdiccion_sede_id,
+            ]);
+            if (empty($r['resultado'])) return $r;
+            $cambios['iibb'] = true;
+        }
+    }
+
+    return ['resultado' => true, 'cambios' => $cambios];
+}
+
+// Cierra la condición vigente y abre una nueva con $valores. $nivel elige la tabla
+// (nombres fijos, nunca del request).
+function registrarCambioSituacionFiscal($conexion, $nivel, $entidad_id, $vigente, $f_desde, array $valores)
+{
+    if ($nivel === 'iva') {
+        $tabla = 'gestion__entidades_condiciones_fiscales';
+        $pk = 'entidad_condicion_fiscal_id';
+        $insert = "INSERT INTO gestion__entidades_condiciones_fiscales
+                   (entidad_id, condicion_fiscal_id, f_desde, f_hasta, tabla_estado_registro_id)
+                   VALUES (?, ?, ?, NULL, 1)";
+        $tipos = "iis";
+        $params = [$entidad_id, $valores['condicion_fiscal_id'], $f_desde];
+        $etiqueta = 'condición IVA';
+    } else {
+        $tabla = 'gestion__entidades_condiciones_iibb';
+        $pk = 'entidad_condicion_iibb_id';
+        $insert = "INSERT INTO gestion__entidades_condiciones_iibb
+                   (entidad_id, regimen_iibb_id, numero_inscripcion, jurisdiccion_sede_id, f_desde, f_hasta, tabla_estado_registro_id)
+                   VALUES (?, ?, ?, ?, ?, NULL, 1)";
+        $tipos = "iisis";
+        $params = [$entidad_id, $valores['regimen_iibb_id'], $valores['numero_inscripcion'], $valores['jurisdiccion_sede_id'], $f_desde];
+        $etiqueta = 'condición IIBB';
+    }
+
+    if ($vigente && !empty($vigente['f_desde']) && $vigente['f_desde'] > $f_desde) {
+        return ['resultado' => false, 'error' => 'La ' . $etiqueta . ' vigente rige desde el ' . date('d/m/Y', strtotime($vigente['f_desde']))
+            . ': el cambio no puede tener una fecha anterior (para corregir fechas usá el Historial)'];
+    }
+
+    if ($vigente && $vigente['f_desde'] === $f_desde) {
+        // Corrección del mismo día: la vigente queda en el historial como Inactiva
+        $stmt = mysqli_prepare($conexion, "UPDATE $tabla SET tabla_estado_registro_id = 2 WHERE $pk = ? AND entidad_id = ?");
+        $vigente_id = intval($vigente[$pk]);
+        mysqli_stmt_bind_param($stmt, "ii", $vigente_id, $entidad_id);
+    } else {
+        // Cierra toda condición activa que se superponga con la nueva
+        $stmt = mysqli_prepare($conexion, "UPDATE $tabla
+                SET f_hasta = DATE_SUB(?, INTERVAL 1 DAY)
+                WHERE entidad_id = ?
+                  AND tabla_estado_registro_id = 1
+                  AND (f_desde IS NULL OR f_desde < ?)
+                  AND (f_hasta IS NULL OR f_hasta >= ?)");
+        mysqli_stmt_bind_param($stmt, "siss", $f_desde, $entidad_id, $f_desde, $f_desde);
+    }
+    if (!$stmt || !mysqli_stmt_execute($stmt)) {
+        return ['resultado' => false, 'error' => 'Error al cerrar la ' . $etiqueta . ' vigente'];
+    }
+    mysqli_stmt_close($stmt);
+
+    $stmt = mysqli_prepare($conexion, $insert);
+    if (!$stmt) {
+        return ['resultado' => false, 'error' => 'Error al preparar la nueva ' . $etiqueta];
+    }
+    mysqli_stmt_bind_param($stmt, $tipos, ...$params);
+    if (!mysqli_stmt_execute($stmt)) {
+        $err = mysqli_stmt_error($stmt);
+        mysqli_stmt_close($stmt);
+        return ['resultado' => false, 'error' => 'Error al registrar la ' . $etiqueta . ': ' . $err];
+    }
+    mysqli_stmt_close($stmt);
+    error_log("=== Situación fiscal: nueva $etiqueta para entidad $entidad_id desde $f_desde ===");
+
+    return ['resultado' => true];
 }
 ?>

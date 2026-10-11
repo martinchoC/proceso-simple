@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Grupos y Subgrupos de Comprobantes</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; } .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-warning { background: var(--amarillo); color: #664d03; } .badge-info { background: #0dcaf0; color: #055160; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; } .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Grupos y Subgrupos de Comprobantes</h1>
+<p class="subtitulo">Cómo se clasifican los tipos de comprobante en grupos (Ventas, Compras, Stock, Tesorería…) y subgrupos, y cómo se vincula cada subgrupo con la pantalla del sistema que lo usa.</p>
+
+<p class="nota-lateral">En el menú aparecen dos opciones, "Grupos" y "Subgrupos" de comprobantes. Las dos abren esta misma pantalla, que muestra ambos niveles juntos.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirven?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#grupo">Crear o editar un grupo</a></li>
+        <li><a href="#subgrupo">Crear o editar un subgrupo</a></li>
+        <li><a href="#tabla-asociada">La "Tabla Asociada" de un subgrupo</a></li>
+        <li><a href="#estados">Activo e Inactivo</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirven?</h2>
+<div class="flujo">
+    <div class="flujo-caja">Grupo<br><small>ej. Ventas</small></div><div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Subgrupo<br><small>ej. Facturas de venta</small></div><div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Tipos de comprobante<br><small>Factura A, Factura B…</small></div>
+</div>
+<p>Los <strong>grupos</strong> ordenan los comprobantes por área. Los <strong>subgrupos</strong> agrupan tipos que cumplen la misma función y, sobre todo, <strong>indican en qué pantalla del sistema se usan</strong>: así la pantalla de facturas de venta ofrece sólo los tipos de factura de venta, y no los de compras o de stock. Los tipos se cargan después en <a href="comprobantes_tipos.html">Tipos de Comprobante</a>.</p>
+<p>Los subgrupos también se usan en <a href="empresas_impuestos_config.html">Impuestos Adicionales - Configuración</a>, para indicar en qué comprobantes se calcula cada impuesto.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Una única tabla muestra cada grupo seguido de sus subgrupos, ordenados por el campo Orden.</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Tipo</td><td><span class="badge badge-warning">Grupo</span> o <span class="badge badge-info">Subgrupo</span>.</td></tr>
+    <tr><td>Nombre</td><td>Nombre (los grupos en negrita).</td></tr>
+    <tr><td>Grupo</td><td>Para un subgrupo, el grupo al que pertenece.</td></tr>
+    <tr><td>Tabla Asociada</td><td>Para un subgrupo, la pantalla o documento del sistema al que está vinculado (se muestra con su nombre interno).</td></tr>
+    <tr><td>Orden</td><td>Orden de aparición.</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+    <tr><td>Acciones</td><td>Botones según el estado y el nivel.</td></tr>
+</table>
+<p>Arriba hay filtros: <strong>Filtrar por Tipo</strong> (Todos, Grupos, Subgrupos), <strong>Filtrar por Grupo</strong> y <strong>Filtrar por Estado</strong>, más el botón <span class="boton-ejemplo boton-outline">Limpiar</span>. También buscador, recarga y exportación.</p>
+
+<h2 id="grupo">Crear o editar un grupo</h2>
+<p>El botón <span class="boton-ejemplo boton-exito">+ Agregar</span> crea un <strong>grupo</strong>. Campos: <strong>Nombre del Grupo *</strong> y <strong>Orden</strong>. Al guardar aparece "Grupo de comprobante guardado correctamente". Si el nombre ya existe: <em>"Ya existe un grupo de comprobante con este nombre"</em>.</p>
+
+<h2 id="subgrupo">Crear o editar un subgrupo</h2>
+<p>Los subgrupos se crean desde la fila de su grupo, con el botón verde <span class="boton-ejemplo boton-exito">⊕</span> (Agregar Subgrupo). Se abre la ventana <strong>Nuevo Subgrupo</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Nombre del Subgrupo *</td><td>Obligatorio. No puede repetirse dentro del mismo grupo.</td></tr>
+    <tr><td>Orden</td><td>Orden de aparición.</td></tr>
+    <tr><td>Tabla Asociada</td><td>Pantalla o documento del sistema que usa este subgrupo, o "Sin tabla asociada".</td></tr>
+    <tr><td>Grupo Padre *</td><td>Viene con el grupo desde donde lo creaste; se puede cambiar.</td></tr>
+</table>
+<p>Al guardar aparece "Subgrupo de comprobante guardado correctamente". Si el nombre ya existe en ese grupo: <em>"Ya existe un subgrupo con este nombre en el grupo seleccionado"</em>.</p>
+
+<h2 id="tabla-asociada">La "Tabla Asociada" de un subgrupo</h2>
+<ul>
+    <li>Es lo que conecta el subgrupo con una pantalla: por ejemplo, el subgrupo de facturas de venta está asociado a las facturas de venta.</li>
+    <li>Cada pantalla puede estar asociada a <strong>un solo subgrupo activo</strong>. Por eso el desplegable sólo ofrece las que todavía están libres (más la que ya tiene el subgrupo que estás editando).</li>
+    <li>Cambiar la tabla asociada cambia qué tipos de comprobante ofrecen las pantallas. Hacelo sólo si sabés lo que implica.</li>
+</ul>
+<div class="alert alert-warning">Esta configuración afecta qué comprobantes se pueden emitir en cada pantalla. Ante la duda, consultá con el equipo.</div>
+
+<h2 id="estados">Activo e Inactivo</h2>
+<div class="flujo"><div class="flujo-caja">Activo</div><div class="flujo-flecha">⇄</div><div class="flujo-caja inactivo">Inactivo</div></div>
+<p>Grupos y subgrupos se inactivan y reactivan con los mismos botones. Nada se borra.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea un grupo.</td><td>Siempre (arriba).</td></tr>
+    <tr><td>Agregar Subgrupo (⊕ verde)</td><td>Crea un subgrupo dentro de ese grupo.</td><td>En cada fila de grupo.</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Modifica el grupo o subgrupo.</td><td>Activo.</td></tr>
+    <tr><td>Inhabilitar (rojo)</td><td>Lo pasa a Inactivo, previa confirmación ("¿Está seguro de inactivar el grupo/subgrupo …?").</td><td>Activo.</td></tr>
+    <tr><td>Habilitar (verde)</td><td>Lo vuelve a Activo, previa confirmación.</td><td>Inactivo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>No me aparece la pantalla que quiero en "Tabla Asociada".</td><td>Ya está asociada a otro subgrupo activo. Inactivá o editá ese otro subgrupo primero.</td></tr>
+    <tr><td>¿Dónde cargo "Factura A"?</td><td>En <a href="comprobantes_tipos.html">Tipos de Comprobante</a>, eligiendo grupo y subgrupo.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Grupos y Subgrupos de Comprobantes. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

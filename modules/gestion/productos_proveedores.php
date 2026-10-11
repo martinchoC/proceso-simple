@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../db.php';
 // Mismo criterio que proveedor_precios.php / ventas_pedidos.php: sin default
 // hardcodeado de pagina_id, viene por GET desde el menú/acceso directo.
 $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 0;
-$empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 
 $pageTitle = "Productos - Proveedores";

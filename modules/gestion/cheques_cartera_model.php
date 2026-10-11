@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * cheques_cartera_model.php
  *
@@ -6,8 +7,8 @@
  * Sistema gestion_multipyme - Módulo Tesorería
  *
  * Cumple con §4.5 del documento técnico:
- * - Cheques de Terceros: EN_CARTERA (2172) -> DEPOSITADO (2174) -> ACREDITADO (2176) / RECHAZADO (2178) / ENDOSADO (2175).
- * - Cheques Propios: EMITIDO (2173) -> DEBITADO (2176) / RECHAZADO (2178).
+ * - Cheques de Terceros: EN_CARTERA (29) -> DEPOSITADO (32) -> ACREDITADO (34) / RECHAZADO (25) / ENDOSADO (33).
+ * - Cheques Propios: EMITIDO (31) -> DEBITADO (34) / RECHAZADO (25).
  * - Regla D28 / C2: Cheques propios diferidos y acreditación con asiento contable.
  * - Regla D15: Movimientos en Libro de Tesorería automáticos.
  */
@@ -17,16 +18,16 @@ require_once __DIR__ . '/tesoreria_core_model.php';
 
 $conexion = $conn;
 
-const ESTADO_CHQ_BORRADOR   = 2171;
-const ESTADO_CHQ_EN_CARTERA = 2172;
-const ESTADO_CHQ_EMITIDO    = 2173;
-const ESTADO_CHQ_DEPOSITADO = 2174;
-const ESTADO_CHQ_ENDOSADO   = 2175;
-const ESTADO_CHQ_DEBITADO   = 2176;
-const ESTADO_CHQ_DEVUELTO   = 2177;
-const ESTADO_CHQ_RECHAZADO  = 2178;
-const ESTADO_CHQ_ANULADO    = 2179;
-const ESTADO_CHQ_ELIMINADO  = 2180;
+const ESTADO_CHQ_BORRADOR   = 3;
+const ESTADO_CHQ_EN_CARTERA = 29;
+const ESTADO_CHQ_EMITIDO    = 31;
+const ESTADO_CHQ_DEPOSITADO = 32;
+const ESTADO_CHQ_ENDOSADO   = 33;
+const ESTADO_CHQ_DEBITADO   = 34;
+const ESTADO_CHQ_DEVUELTO   = 37;
+const ESTADO_CHQ_RECHAZADO  = 25;
+const ESTADO_CHQ_ANULADO    = 38;
+const ESTADO_CHQ_ELIMINADO  = 6;
 
 const TABLA_CHEQUES_ID      = 288;
 
@@ -46,8 +47,7 @@ function obtenerChequesListado($conexion, $empresa_id, $filtros = [])
             JOIN gestion__monedas m ON m.moneda_id = chq.moneda_id
             LEFT JOIN gestion__entidades e ON e.entidad_id = chq.entidad_id
             LEFT JOIN gestion__tesoreria_cuentas tc ON tc.tesoreria_cuenta_id = chq.tesoreria_cuenta_id
-            LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = chq.tabla_estado_registro_id
-            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = chq.tabla_estado_registro_id
             WHERE chq.empresa_id = ? ";
 
     $params = [$empresa_id];
@@ -92,19 +92,12 @@ function obtenerChequesListado($conexion, $empresa_id, $filtros = [])
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
 
+    // Datos crudos: el render (badges, fechas, botones con data-*) lo hace cheques_cartera.js.
+    // Los textos van escapados porque el JS los inserta como HTML.
     $datos = [];
     while ($row = mysqli_fetch_assoc($res)) {
-        $id = intval($row['cheque_id']);
-        $tipo = $row['cheque_tipo'];
         $estado_id = intval($row['tabla_estado_registro_id']);
-        $estado_cod = $row['estado_codigo'] ?? '';
 
-        // Badge de Tipo
-        $tipo_badge = ($tipo === 'TERCERO')
-            ? '<span class="badge bg-info-subtle text-info border border-info-subtle"><i class="fas fa-hand-holding-usd me-1"></i>Tercero</span>'
-            : '<span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="fas fa-check-double me-1"></i>Propio</span>';
-
-        // Badge de Estado
         if ($estado_id === ESTADO_CHQ_EN_CARTERA) {
             $estado_badge = '<span class="badge bg-success"><i class="fas fa-wallet me-1"></i>En Cartera</span>';
         } elseif ($estado_id === ESTADO_CHQ_EMITIDO) {
@@ -123,48 +116,23 @@ function obtenerChequesListado($conexion, $empresa_id, $filtros = [])
             $estado_badge = '<span class="badge bg-secondary">' . htmlspecialchars($row['estado_registro'] ?? 'Estado ' . $estado_id) . '</span>';
         }
 
-        // Indicador Diferido / Común
-        $es_dif = intval($row['es_diferido'] ?? 0);
-        $dif_badge = ($es_dif === 1)
-            ? '<span class="badge bg-light text-dark border" title="Cheque Diferido">Diferido</span>'
-            : '<span class="badge bg-light text-muted border" title="Cheque Común">Común</span>';
-
-        // Botones de acción según estado y tipo
-        $botones = '<div class="btn-group btn-group-sm" role="group">';
-        $botones .= '<button type="button" class="btn btn-outline-info btn-accion-chq" data-id="' . $id . '" data-accion="ver" title="Ver Detalle"><i class="fas fa-eye"></i></button>';
-
-        if ($tipo === 'TERCERO') {
-            if ($estado_id === ESTADO_CHQ_EN_CARTERA) {
-                $botones .= '<button type="button" class="btn btn-outline-success btn-accion-chq" data-id="' . $id . '" data-accion="depositar" title="Depositar en Banco"><i class="fas fa-university"></i></button>';
-                $botones .= '<button type="button" class="btn btn-outline-danger btn-accion-chq" data-id="' . $id . '" data-accion="rechazar" title="Rechazar Cheque"><i class="fas fa-times-circle"></i></button>';
-            } elseif ($estado_id === ESTADO_CHQ_DEPOSITADO) {
-                $botones .= '<button type="button" class="btn btn-outline-dark btn-accion-chq" data-id="' . $id . '" data-accion="acreditar" title="Marcar como Acreditado"><i class="fas fa-check-double"></i></button>';
-                $botones .= '<button type="button" class="btn btn-outline-danger btn-accion-chq" data-id="' . $id . '" data-accion="rechazar" title="Rechazar Cheque Depositado"><i class="fas fa-times-circle"></i></button>';
-            }
-        } elseif ($tipo === 'PROPIO') {
-            if ($estado_id === ESTADO_CHQ_EMITIDO) {
-                $botones .= '<button type="button" class="btn btn-outline-primary btn-accion-chq" data-id="' . $id . '" data-accion="debitar" title="Confirmar Débito Bancario"><i class="fas fa-check-circle"></i></button>';
-                $botones .= '<button type="button" class="btn btn-outline-danger btn-accion-chq" data-id="' . $id . '" data-accion="rechazar" title="Registrar Rechazo de Cheque Propio"><i class="fas fa-times-circle"></i></button>';
-            }
-        }
-
-        $botones .= '</div>';
-
-        // Titular / Librador / Entidad
-        $titular = !empty($row['librador_nombre']) ? htmlspecialchars($row['librador_nombre']) : htmlspecialchars($row['entidad_nombre'] ?? 'S/D');
+        $titular = !empty($row['librador_nombre']) ? $row['librador_nombre'] : ($row['entidad_nombre'] ?? '');
+        $cuit    = !empty($row['librador_cuit'])   ? $row['librador_cuit']   : ($row['entidad_cuit'] ?? '');
 
         $datos[] = [
-            'id'           => $id,
-            'tipo'         => $tipo_badge,
-            'numero'       => '<strong>' . htmlspecialchars($row['numero']) . '</strong><br><small class="text-muted">' . $dif_badge . '</small>',
-            'banco'        => htmlspecialchars($row['banco']),
-            'f_emision'    => date('d/m/Y', strtotime($row['f_emision'])),
-            'f_pago'       => '<span class="fw-bold">' . date('d/m/Y', strtotime($row['f_pago'])) . '</span>',
-            'titular'      => $titular,
-            'cuenta'       => htmlspecialchars($row['tesoreria_cuenta'] ?? '-'),
-            'importe'      => '<span class="fw-bold fs-6">$' . number_format(floatval($row['importe']), 2, ',', '.') . '</span>',
-            'estado'       => $estado_badge,
-            'acciones'     => $botones
+            'cheque_id'                => intval($row['cheque_id']),
+            'cheque_tipo'              => $row['cheque_tipo'],
+            'numero'                   => htmlspecialchars((string)$row['numero']),
+            'banco'                    => htmlspecialchars((string)$row['banco']),
+            'titular'                  => htmlspecialchars((string)$titular),
+            'cuit'                     => htmlspecialchars((string)$cuit),
+            'f_emision'                => $row['f_emision'],
+            'f_pago'                   => $row['f_pago'],
+            'importe'                  => floatval($row['importe']),
+            'es_diferido'              => intval($row['es_diferido'] ?? 0),
+            'tesoreria_cuenta'         => htmlspecialchars((string)($row['tesoreria_cuenta'] ?? '')),
+            'tabla_estado_registro_id' => $estado_id,
+            'estado_badge'             => $estado_badge
         ];
     }
     mysqli_stmt_close($stmt);
@@ -180,17 +148,17 @@ function obtenerResumenCartera($conexion, $empresa_id)
     $empresa_id = intval($empresa_id);
 
     $sql = "SELECT 
-                SUM(CASE WHEN cheque_tipo = 'TERCERO' AND tabla_estado_registro_id = 2172 THEN importe ELSE 0 END) AS cartera_total,
-                COUNT(CASE WHEN cheque_tipo = 'TERCERO' AND tabla_estado_registro_id = 2172 THEN 1 END) AS cartera_cant,
+                SUM(CASE WHEN cheque_tipo = 'TERCERO' AND tabla_estado_registro_id = 29 THEN importe ELSE 0 END) AS cartera_total,
+                COUNT(CASE WHEN cheque_tipo = 'TERCERO' AND tabla_estado_registro_id = 29 THEN 1 END) AS cartera_cant,
 
-                SUM(CASE WHEN cheque_tipo = 'TERCERO' AND tabla_estado_registro_id = 2174 THEN importe ELSE 0 END) AS depositados_total,
-                COUNT(CASE WHEN cheque_tipo = 'TERCERO' AND tabla_estado_registro_id = 2174 THEN 1 END) AS depositados_cant,
+                SUM(CASE WHEN cheque_tipo = 'TERCERO' AND tabla_estado_registro_id = 32 THEN importe ELSE 0 END) AS depositados_total,
+                COUNT(CASE WHEN cheque_tipo = 'TERCERO' AND tabla_estado_registro_id = 32 THEN 1 END) AS depositados_cant,
 
-                SUM(CASE WHEN cheque_tipo = 'PROPIO' AND tabla_estado_registro_id = 2173 THEN importe ELSE 0 END) AS propios_total,
-                COUNT(CASE WHEN cheque_tipo = 'PROPIO' AND tabla_estado_registro_id = 2173 THEN 1 END) AS propios_cant,
+                SUM(CASE WHEN cheque_tipo = 'PROPIO' AND tabla_estado_registro_id = 31 THEN importe ELSE 0 END) AS propios_total,
+                COUNT(CASE WHEN cheque_tipo = 'PROPIO' AND tabla_estado_registro_id = 31 THEN 1 END) AS propios_cant,
 
-                SUM(CASE WHEN tabla_estado_registro_id = 2178 THEN importe ELSE 0 END) AS rechazados_total,
-                COUNT(CASE WHEN tabla_estado_registro_id = 2178 THEN 1 END) AS rechazados_cant
+                SUM(CASE WHEN tabla_estado_registro_id = 25 THEN importe ELSE 0 END) AS rechazados_total,
+                COUNT(CASE WHEN tabla_estado_registro_id = 25 THEN 1 END) AS rechazados_cant
             FROM gestion__cheques
             WHERE empresa_id = ?";
 
@@ -250,18 +218,21 @@ function depositarChequeTercero($conexion, $cheque_id, $banco_cuenta_id, $f_depo
         $cta_valores_id = intval($chq['tesoreria_cuenta_id']);
         if ($cta_valores_id <= 0) {
             $res_v = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND cuenta_tipo = 'VALORES' LIMIT 1");
-            $cta_valores_id = intval($res_v->fetch_assoc()['tesoreria_cuenta_id'] ?? 6);
+            $cta_valores_id = intval($res_v->fetch_assoc()['tesoreria_cuenta_id'] ?? 0);
+            if ($cta_valores_id <= 0) {
+                throw new Exception('La empresa no tiene una cuenta de tesorería de Valores en cartera.');
+            }
         }
 
         // Obtener cuenta contable del banco destino
-        $res_cb = $conexion->query("SELECT tesoreria_cuenta, cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = $banco_cuenta_id");
+        $res_cb = $conexion->query("SELECT tesoreria_cuenta, cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = $banco_cuenta_id AND empresa_id = $empresa_id");
         $banco_info = $res_cb->fetch_assoc();
         if (!$banco_info) throw new Exception("Cuenta bancaria destino no válida.");
         $cta_contable_banco = intval($banco_info['cont_cuenta_id']);
 
         $monto = floatval($chq['importe']);
 
-        // 1. Transición de estado a DEPOSITADO (2174)
+        // 1. Transición de estado a DEPOSITADO (32)
         $sql_upd = "UPDATE gestion__cheques 
                     SET tabla_estado_registro_id = ?, tesoreria_cuenta_id = ?, usuario_modificacion_id = ?, fecha_modificacion = NOW()
                     WHERE cheque_id = ?";
@@ -310,7 +281,7 @@ function depositarChequeTercero($conexion, $cheque_id, $banco_cuenta_id, $f_depo
         ]);
 
         // 4. Asiento Contable Automático: DEBE Banco / HABER Valores a Depositar (D27 / D36)
-        $res_val = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Valores en Cartera', 851);
+        $res_val = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Valores en Cartera', emp_cuenta_concepto_id($conexion, $empresa_id, 'VALORES_CARTERA'));
         $res_ban = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Banco', $cta_contable_banco);
 
         tesoreriaGenerarAsiento($conexion, [
@@ -321,7 +292,6 @@ function depositarChequeTercero($conexion, $cheque_id, $banco_cuenta_id, $f_depo
             'f_asiento'            => $f_deposito,
             'descripcion'          => "Depósito Cheque N° {$chq['numero']} en {$banco_info['tesoreria_cuenta']}",
             'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2 // AUT
         ], [
             [
                 'cuenta_id'   => $res_ban['cont_cuenta_id'],
@@ -385,7 +355,7 @@ function debitarChequePropio($conexion, $cheque_id, $f_debito, $empresa_id, $usu
         $monto = floatval($chq['importe']);
         $cta_banco = intval($chq['tesoreria_cuenta_id']);
 
-        // 1. Transición a DEBITADO (2176)
+        // 1. Transición a DEBITADO (34)
         $sql_upd = "UPDATE gestion__cheques 
                     SET tabla_estado_registro_id = ?, usuario_modificacion_id = ?, fecha_modificacion = NOW()
                     WHERE cheque_id = ?";
@@ -427,7 +397,6 @@ function debitarChequePropio($conexion, $cheque_id, $f_debito, $empresa_id, $usu
                 'f_asiento'            => $f_debito,
                 'descripcion'          => "Compensación Débito Chq Propio N° {$chq['numero']}",
                 'usuario_id'           => $usuario_id,
-                'cont_tipo_asiento_id' => 2 // AUT
             ], [
                 [
                     'cuenta_id'   => $res_vap['cont_cuenta_id'],
@@ -488,9 +457,9 @@ function rechazarCheque($conexion, $cheque_id, $motivo, $f_rechazo, $empresa_id,
         $est_ant = intval($chq['tabla_estado_registro_id']);
         $monto = floatval($chq['importe']);
 
-        // Transición a RECHAZADO (2178)
+        // Transición a RECHAZADO (25)
         $sql_upd = "UPDATE gestion__cheques 
-                    SET tabla_estado_registro_id = 2178, motivo_rechazo = ?, usuario_modificacion_id = ?, fecha_modificacion = NOW()
+                    SET tabla_estado_registro_id = 25, motivo_rechazo = ?, usuario_modificacion_id = ?, fecha_modificacion = NOW()
                     WHERE cheque_id = ?";
         $stmt_u = mysqli_prepare($conexion, $sql_upd);
         mysqli_stmt_bind_param($stmt_u, "sii", $motivo, $usuario_id, $cheque_id);

@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['cont__mayores.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -15,6 +18,7 @@ function manejarError($mensaje, $codigo = 500) {
 }
 
 require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 require_once "cont__mayores_model.php";
 
 // Verificar conexión
@@ -28,12 +32,13 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 
 try {
     switch ($accion) {
         case 'obtener_cuentas':
-            $cuentas = obtenerCuentasContables($conexion, $empresa_idx);
+            $search = $_GET['search'] ?? null;
+            $cuentas = obtenerCuentasContables($conexion, $empresa_idx, $search);
             enviarRespuesta($cuentas);
             break;
             
@@ -41,8 +46,6 @@ try {
             $fecha_desde = $_GET['fecha_desde'] ?? null;
             $fecha_hasta = $_GET['fecha_hasta'] ?? null;
             $cuenta_id = !empty($_GET['cuenta_id']) ? intval($_GET['cuenta_id']) : null;
-            
-            error_log("Consulta saldos - empresa: $empresa_idx, desde: $fecha_desde, hasta: $fecha_hasta, cuenta: " . ($cuenta_id ?? 'todas'));
             
             $saldos = obtenerSaldosCuentas($conexion, $empresa_idx, $fecha_desde, $fecha_hasta, $cuenta_id);
             enviarRespuesta($saldos);
@@ -72,7 +75,7 @@ try {
         default:
             manejarError('Acción no definida: ' . $accion, 400);
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     error_log("Excepción en cont__mayores_ajax.php: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
     manejarError('Error del servidor: ' . $e->getMessage(), 500);

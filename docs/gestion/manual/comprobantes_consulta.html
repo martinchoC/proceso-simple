@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Comprobantes - Consulta</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    .badge-primary { background: var(--azul); }
+    .badge-info { background: #0dcaf0; color: #055160; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-folder-open"></i> Manual de usuario: Comprobantes - Consulta</h1>
+<p class="subtitulo">Cómo buscar cualquier comprobante de la empresa (ventas, compras, stock y tesorería), ver su saldo y saber con qué se pagó.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#filtros">Filtros de búsqueda</a></li>
+        <li><a href="#listado">El listado</a></li>
+        <li><a href="#estados">Qué significa cada estado</a></li>
+        <li><a href="#detalle">Ver el detalle de un comprobante</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Comprobantes - Consulta</strong> (menú Tesorería) reúne en un solo listado <strong>todos los documentos con número</strong> que genera el sistema: pedidos, remitos, facturas, notas de crédito y débito, recibos, órdenes de pago, comprobantes de tesorería y otros.</p>
+<p>Es una pantalla <strong>solo de consulta</strong>: desde acá no se crea, modifica, confirma ni anula nada. Para eso, el detalle de cada comprobante tiene un botón que te lleva a su pantalla de origen.</p>
+
+<h2 id="filtros">Filtros de búsqueda</h2>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Para qué sirve</th></tr>
+    <tr><td>Emisión desde / Emisión hasta</td><td>Rango de fechas. Al entrar, "desde" viene con la fecha de hace 90 días.</td></tr>
+    <tr><td>Grupo</td><td>Familia de comprobantes (ventas, compras, caja/bancos, etc.). Al elegirlo, la lista de Tipo muestra solo los de ese grupo.</td></tr>
+    <tr><td>Tipo</td><td>Un tipo concreto (por ejemplo, Factura A o Recibo).</td></tr>
+    <tr><td>Estado</td><td>Borrador, Confirmado, Cancelado parcial, Cancelado total, Anulado, etc.</td></tr>
+    <tr><td>Entidad</td><td>Escribí al menos 3 letras del nombre o del CUIT y <strong>elegí</strong> una opción de la lista que aparece. Si no elegís de la lista, no se filtra por entidad.</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal del comprobante.</td></tr>
+    <tr><td>PV / Número</td><td>Punto de venta y número exactos.</td></tr>
+    <tr><td>Moneda</td><td>Pesos, dólares, etc.</td></tr>
+    <tr><td>Texto libre</td><td>Busca en nombre o CUIT de la entidad, código del comprobante u observaciones.</td></tr>
+    <tr><td>Solo con saldo</td><td>Muestra solo comprobantes que todavía tienen algo por cobrar o pagar.</td></tr>
+</table>
+<p>Apretá <span class="boton-ejemplo boton-primario">Buscar</span> (o Enter en cualquier campo). <span class="boton-ejemplo boton-outline">Limpiar</span> vuelve los filtros a sus valores iniciales y busca de nuevo.</p>
+
+<h2 id="listado">El listado</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Emisión / Vto.</td><td>Fecha del comprobante y su vencimiento.</td></tr>
+    <tr><td>Comprobante</td><td>Tipo, letra, punto de venta y número (por ejemplo, "FA A 0001-00000012"). Si todavía es borrador, dice "(borrador)".</td></tr>
+    <tr><td>Grupo</td><td>Familia del comprobante.</td></tr>
+    <tr><td>Entidad</td><td>Cliente, proveedor u organismo, con su CUIT.</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal del comprobante.</td></tr>
+    <tr><td>Total</td><td>Importe total.</td></tr>
+    <tr><td>Saldo</td><td>Lo que falta cobrar o pagar. En rojo si queda saldo. Un guion (-) indica que ese tipo de comprobante no maneja saldo (por ejemplo, un remito).</td></tr>
+    <tr><td>Estado</td><td>Estado actual (ver la sección siguiente).</td></tr>
+    <tr><td>Ver</td><td>Abre el detalle.</td></tr>
+</table>
+<p>Al pie, la fila <strong>Totales</strong> suma el Total y el Saldo de las filas que se ven según los filtros, convertidos a pesos. El cuadro de búsqueda rápida de la tabla también afecta esos totales.</p>
+<div class="nota-lateral">Solo ves comprobantes de las sucursales a las que tu usuario tiene acceso. Si tu pantalla muestra botones de Excel o PDF, exportan el listado tal como lo estás viendo.</div>
+
+<h2 id="estados">Qué significa cada estado</h2>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa</th></tr>
+    <tr><td><span class="badge badge-secondary">Borrador</span></td><td>Cargado pero no confirmado. Todavía no tiene número ni efectos.</td></tr>
+    <tr><td><span class="badge badge-warning">Pendiente de Aprobación / de Facturación</span></td><td>Pasos intermedios propios de cada proceso (ver el manual de la pantalla de origen).</td></tr>
+    <tr><td><span class="badge badge-primary">Confirmado</span></td><td>Vigente. Si es una factura, todavía no recibió pagos.</td></tr>
+    <tr><td><span class="badge badge-info">Cancelado parcial</span></td><td>Recibió pagos pero todavía tiene saldo.</td></tr>
+    <tr><td><span class="badge badge-success">Cancelado total</span></td><td>Totalmente pagado. Saldo cero.</td></tr>
+    <tr><td><span class="badge badge-danger">Anulado / Eliminado</span></td><td>Sin efecto.</td></tr>
+</table>
+<p>"Cancelado parcial" y "Cancelado total" no los pone nadie a mano: los calcula el sistema cada vez que se confirma o anula un recibo, una orden de pago o la aplicación de una nota de crédito.</p>
+<div class="flujo">
+    <div class="flujo-caja">Confirmado</div>
+    <div class="flujo-flecha">→ pago parcial →</div>
+    <div class="flujo-caja">Cancelado parcial</div>
+    <div class="flujo-flecha">→ pago del resto →</div>
+    <div class="flujo-caja final">Cancelado total</div>
+</div>
+
+<h2 id="detalle">Ver el detalle de un comprobante</h2>
+<p>El botón del ojo abre una ventana con:</p>
+<ul>
+    <li><strong>Datos</strong>: comprobante, estado, entidad, emisión, vencimiento, sucursal, neto, IVA y total (y tipo de cambio, si no es en pesos).</li>
+    <li><strong>Saldo pendiente</strong>, con el desglose "imputado como cancelado" (lo que otros comprobantes pagaron de este) y "aplicado a otros" (lo que este comprobante pagó de otros, por ejemplo un recibo).</li>
+    <li><strong>Observaciones</strong>, si tiene.</li>
+    <li><strong>Imputaciones</strong>: la lista de cruces con otros comprobantes. "Cancelado por" indica qué recibo, OP o nota de crédito pagó este comprobante. "Cancela a" indica qué comprobantes pagó este. Las imputaciones anuladas aparecen tachadas.</li>
+</ul>
+<p>El botón <span class="boton-ejemplo boton-outline">Ir a ...</span> abre en otra pestaña la pantalla donde se gestiona ese comprobante (por ejemplo, "Ir a Facturación").</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Se muestran los primeros 5000 comprobantes: acote los filtros.</td><td>La búsqueda trajo demasiados resultados. Achicá el rango de fechas o agregá filtros.</td></tr>
+    <tr><td>Fecha inválida.</td><td>Revisá las fechas desde y hasta.</td></tr>
+    <tr><td>Comprobante no encontrado.</td><td>Puede haberse eliminado mientras mirabas el listado. Buscá de nuevo.</td></tr>
+    <tr><td>Error de conexión con el servidor.</td><td>Probá de nuevo en unos segundos.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>¿Cómo sé con qué recibo se pagó una factura?</td><td>Abrí el detalle de la factura. En Imputaciones, las filas "Cancelado por" muestran cada recibo con su importe.</td></tr>
+    <tr><td>¿Puedo anular o editar un comprobante desde acá?</td><td>No. Usá el botón "Ir a ..." del detalle para abrir la pantalla de origen.</td></tr>
+    <tr><td>¿Cómo veo todo lo que un cliente me debe?</td><td>Filtrá por la entidad y marcá "Solo con saldo". Para un estado de cuenta completo usá <a href="clientes_ctacte.html">Cuenta Corriente Clientes</a>.</td></tr>
+    <tr><td>Un comprobante viejo muestra saldo aunque sé que está pagado.</td><td>Puede haberse pagado antes de que se usara Tesorería en el sistema, sin registrar el recibo. Consultá con el responsable de tesorería.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="cobranzas.html">Cobranzas</a> y <a href="pagos.html">Órdenes de Pago</a>: donde se generan las imputaciones.</li>
+        <li><a href="clientes_ctacte.html">Cuenta Corriente Clientes</a></li>
+        <li><a href="ventas_facturas.html">Facturación</a> y <a href="facturas_proveedores.html">Facturas de Proveedores</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tesorería / Comprobantes - Consulta. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -35,11 +35,13 @@ function obtenerSucursales($conexion)
     return $data;
 }
 
-function obtenerComprobantesTipos($conexion)
+function obtenerComprobantesTipos($conexion, $empresa_idx = null)
 {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT ct.*, cg.comprobante_grupo
             FROM `gestion__comprobantes_tipos` ct
             INNER JOIN `gestion__comprobantes_grupos` cg ON ct.comprobante_grupo_id = cg.comprobante_grupo_id
+            WHERE ct.empresa_id = $empresa_idx
             ORDER BY cg.comprobante_grupo, ct.comprobante_tipo";
     $res = mysqli_query($conexion, $sql);
     $data = [];

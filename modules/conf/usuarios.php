@@ -35,6 +35,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">                                
                                     <div class="card-body">
                                         <button class="btn btn-primary mb-3" id="btnNuevo">Nuevo Usuario</button>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label mb-1" for="filtro_usuario">Usuario</label>
+                                                <select class="form-select form-select-sm" id="filtro_usuario"><option value="">Todos</option></select>
+                                            </div>
+                                            <div class="col-12 col-md-2">
+                                                <label class="form-label mb-1" for="filtro_estado">Estado</label>
+                                                <select class="form-select form-select-sm" id="filtro_estado">
+                                                    <option value="1" selected>Activos</option>
+                                                    <option value="0">Inactivos</option>
+                                                    <option value="">Todos</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                         <table id="tablaUsuarios" class="table table-striped table-bordered">
                                             <thead>
                                                 <tr>
@@ -209,6 +223,35 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             $(row).find('td').css('color', '#6c757d');
                         }
                     }
+                });
+
+                // Filtros de la grilla (usuario, estado); al ingresar solo activos
+                $.fn.dataTable.ext.search.push(function(settings, searchData, dataIndex, rowData) {
+                    if (settings.nTable.id !== 'tablaUsuarios') return true;
+                    var usuario = $('#filtro_usuario').val();
+                    var estado = $('#filtro_estado').val();
+                    if (usuario && String(rowData.usuario_id) !== usuario) return false;
+                    if (estado === '1' && rowData.tabla_estado_registro_id != 1) return false;
+                    if (estado === '0' && rowData.tabla_estado_registro_id == 1) return false;
+                    return true;
+                });
+
+                // Las opciones del filtro de usuario salen de los registros listados
+                tabla.on('xhr', function(e, settings, json) {
+                    var $select = $('#filtro_usuario');
+                    var actual = $select.val();
+                    $select.find('option:not(:first)').remove();
+                    $.each(json || [], function(i, u) {
+                        $select.append($('<option>', {
+                            value: u.usuario_id,
+                            text: (u.usuario_nombre || '') + ' (' + (u.usuario || u.usuario_id) + ')'
+                        }));
+                    });
+                    if (actual && $select.find('option[value="' + actual + '"]').length) $select.val(actual);
+                });
+
+                $('#filtro_usuario, #filtro_estado').on('change', function() {
+                    tabla.draw();
                 });
 
                 // Manejar el cambio de estado con el interruptor

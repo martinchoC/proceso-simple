@@ -6,6 +6,7 @@ function obtenerUsuarios($conexion) {
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
+        unset($fila['password'], $fila['password_temporal']); // nunca enviar hashes al navegador
         $data[] = $fila;
     }
     return $data;
@@ -71,5 +72,9 @@ function obtenerUsuarioPorId($conexion, $id) {
     $id = intval($id);
     $sql = "SELECT * FROM conf__usuarios WHERE usuario_id = $id";
     $res = mysqli_query($conexion, $sql);
-    return mysqli_fetch_assoc($res);
+    $fila = mysqli_fetch_assoc($res);
+    if ($fila) {
+        unset($fila['password'], $fila['password_temporal']); // nunca enviar hashes al navegador
+    }
+    return $fila;
 }

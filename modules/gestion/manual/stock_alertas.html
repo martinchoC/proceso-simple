@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Stock: Alertas de Reposición</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-primary { background: var(--azul); }
+    .rojo { color: var(--rojo); font-weight: 600; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-caja.alerta { border-color: var(--amarillo); background: #fff8e1; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } h2 { page-break-after: avoid; } }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="bi bi-exclamation-triangle-fill"></i> Manual de usuario: Stock - Alertas de Reposición</h1>
+<p class="subtitulo">La lista de productos que quedaron por debajo de su stock mínimo en algún depósito, con cuánto conviene reponer. Desde acá avisás que te estás ocupando o descartás la alerta.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es una alerta de reposición?</a></li>
+        <li><a href="#campana">La campana de la barra superior</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados de una alerta</a></li>
+        <li><a href="#botones">Botones: Tomar y Descartar</a></li>
+        <li><a href="#cierre-automatico">Cuándo se cierra sola</a></li>
+        <li><a href="#flujo">El recorrido completo</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es una alerta de reposición?</h2>
+<p>En <a href="stock_niveles.html">Mínimos y Máximos</a> se carga cuánto stock mínimo se quiere tener de cada producto en cada <strong>boca</strong> (depósito o local). Cuando una venta, un remito o un ajuste deja el stock <strong>por debajo</strong> de ese mínimo, el sistema abre solo una <strong>alerta de reposición</strong>. Nadie las crea a mano.</p>
+<p>Hay una sola alerta abierta por producto y boca. Mientras siga abierta, se va actualizando sola con el stock y la cantidad a reponer.</p>
+
+<h2 id="campana">La campana de la barra superior</h2>
+<p>Si tu usuario tiene acceso a esta pantalla, en la barra superior del sistema aparece una <strong>campana</strong>. El número amarillo es la cantidad de alertas abiertas de tus sucursales. Al tocarla ves "N productos bajo el stock mínimo" y el enlace <strong>Ver alertas de reposición</strong>, que trae a esta pantalla.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Arriba elegís qué ver:</p>
+<ul>
+    <li><span class="boton-ejemplo boton-outline">Abiertas</span> (con un número): las alertas que todavía están pendientes o en gestión. Es la vista por defecto.</li>
+    <li><span class="boton-ejemplo boton-outline">Cerradas (30 días)</span>: las que se cerraron en el último mes, para consultar qué pasó.</li>
+    <li><strong>Boca:</strong> una boca en particular o todas. Solo ves las de tus sucursales.</li>
+    <li><span class="boton-ejemplo boton-outline">↻</span> para recargar.</li>
+</ul>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Desde</td><td>Fecha y hora en que el stock quedó por debajo del mínimo. Las más nuevas, primero.</td></tr>
+    <tr><td>Sucursal / Boca</td><td>Dónde falta mercadería.</td></tr>
+    <tr><td>Código / Producto</td><td>El producto.</td></tr>
+    <tr><td>Stock</td><td>Stock actual (en <span class="rojo">rojo</span> si la alerta sigue abierta).</td></tr>
+    <tr><td>Mínimo / Máximo</td><td>Los valores cargados. Raya (—) si no hay máximo.</td></tr>
+    <tr><td>A reponer</td><td>Cantidad sugerida: hasta el máximo, o hasta el mínimo si no hay máximo. Solo en las abiertas.</td></tr>
+    <tr><td>Estado</td><td>Ver la sección siguiente.</td></tr>
+    <tr><td>Gestión</td><td>Quién la tomó y cuándo; y, si está cerrada, el motivo, la fecha y quién la cerró.</td></tr>
+    <tr><td>Acciones</td><td>Tomar / Descartar (solo en las abiertas).</td></tr>
+</table>
+
+<h2 id="estados">Estados de una alerta</h2>
+<div class="flujo">
+    <div class="flujo-caja alerta">Pendiente<small>nadie la tomó</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">En gestión<small>alguien se ocupa</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Repuesta<small>se cierra sola</small></div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja alerta">Pendiente o En gestión</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Descartada</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-warning">Pendiente</span></td><td>El producto está bajo el mínimo y nadie avisó que se esté ocupando.</td></tr>
+    <tr><td><span class="badge badge-primary">En gestión</span></td><td>Alguien la tomó (por ejemplo, ya pidió la mercadería). Queda registrado quién y cuándo.</td></tr>
+    <tr><td><span class="badge badge-success">Repuesta</span></td><td>Entró mercadería y el stock volvió al mínimo o más. La cierra el sistema solo.</td></tr>
+    <tr><td><span class="badge badge-secondary">Descartada</span></td><td>Cerrada sin reponer: porque alguien la descartó, porque se cambió el mínimo o porque se dejó de controlar el producto en esa boca.</td></tr>
+</table>
+
+<h2 id="botones">Botones: Tomar y Descartar</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Tomar</td><td>Pasa la alerta a <strong>En gestión</strong> a tu nombre. Sirve para que los demás sepan que ya te estás ocupando. Igual se cierra sola cuando ingrese la mercadería.</td><td>Pendiente.</td></tr>
+    <tr><td>Descartar</td><td>Cierra la alerta sin reponer (por ejemplo, el producto se discontinuó o no hace falta reponerlo ahora).</td><td>Pendiente y En gestión.</td></tr>
+</table>
+<p>Los dos piden confirmación y muestran el nombre del producto. Al terminar ves "Tomar: listo" o "Descartar: listo".</p>
+<div class="alert alert-warning"><strong>Ojo al descartar:</strong> una alerta descartada <strong>no vuelve a abrirse</strong> con la próxima venta. Recién se vuelve a abrir cuando el stock se repone y vuelve a caer bajo el mínimo, o cuando se cambia el mínimo. Si el producto no se va a reponer nunca más en esa boca, es mejor inhabilitarlo en <a href="stock_niveles.html">Mínimos y Máximos</a>.</div>
+
+<h2 id="cierre-automatico">Cuándo se cierra sola</h2>
+<table class="tabla-referencia">
+    <tr><th>Situación</th><th>Resultado (motivo en "Gestión")</th></tr>
+    <tr><td>Ingresa mercadería y el stock llega al mínimo o más (compra, ajuste, devolución).</td><td>Repuesta</td></tr>
+    <tr><td>Se baja el mínimo por debajo del stock actual.</td><td>Descartada — "Cambió el mínimo"</td></tr>
+    <tr><td>Se inhabilita el mínimo de ese producto en esa boca.</td><td>Descartada — "Nivel inhabilitado"</td></tr>
+    <tr><td>Alguien toca Descartar.</td><td>Descartada</td></tr>
+</table>
+
+<h2 id="flujo">El recorrido completo</h2>
+<ol>
+    <li>Se carga el mínimo del producto en <a href="stock_niveles.html">Mínimos y Máximos</a>.</li>
+    <li>Las ventas bajan el stock por debajo del mínimo: aparece la alerta <strong>Pendiente</strong> y sube el número de la campana.</li>
+    <li>Quien compra entra acá, mira "A reponer" y toca <strong>Tomar</strong>.</li>
+    <li>Hace el pedido al proveedor y, cuando llega, se confirma la factura de compra.</li>
+    <li>El stock vuelve al mínimo: la alerta pasa sola a <strong>Repuesta</strong> y desaparece de "Abiertas".</li>
+</ol>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>"La alerta ya está cerrada (se repuso el stock o la descartaron)."</td><td>Alguien o el sistema la cerró mientras la tenías en pantalla. Recargá.</td></tr>
+    <tr><td>"Acción no permitida para el estado actual."</td><td>La alerta cambió de estado. Recargá la tabla.</td></tr>
+    <tr><td>"Alerta no encontrada."</td><td>Recargá la pantalla.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>¿Tengo que cerrar la alerta cuando llega la mercadería?</td>
+        <td>No. Se cierra sola cuando el stock vuelve al mínimo, siempre que la compra o el ajuste estén confirmados.</td>
+    </tr>
+    <tr>
+        <td>Llegó la mercadería pero la alerta sigue abierta.</td>
+        <td>Revisá que la factura de compra o el ajuste estén <strong>confirmados</strong> y que hayan entrado en la misma boca. Si entró menos de lo necesario para llegar al mínimo, la alerta sigue abierta con la nueva cantidad a reponer.</td>
+    </tr>
+    <tr>
+        <td>No veo la campana.</td>
+        <td>Solo aparece si tu perfil tiene acceso a esta pantalla.</td>
+    </tr>
+    <tr>
+        <td>Descarté una alerta por error.</td>
+        <td>No se puede reabrir con un botón. Se vuelve a abrir sola cuando el stock se repone y cae de nuevo, o si alguien edita el mínimo de ese producto en esa boca.</td>
+    </tr>
+</table>
+
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="stock_niveles.html">Stock - Mínimos y Máximos</a></li>
+    <li><a href="stock_dashboard.html">Dashboard de Stock</a> (indicador "Bajo el mínimo")</li>
+    <li><a href="stock_ajustes.html">Ajustes de Stock</a></li>
+    <li><a href="facturas_proveedores.html">Facturas de Proveedores</a> (ingreso de la mercadería comprada)</li>
+</ul>
+
+<footer>
+    Manual de usuario — Módulo Stock / Alertas de Reposición. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
+</footer>
+
+</body>
+</html>

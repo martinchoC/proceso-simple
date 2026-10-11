@@ -31,6 +31,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">                                
                                     <div class="card-body">
                                         <button class="btn btn-primary mb-3" id="btnNuevo">Asignar Nuevo Módulo</button>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label mb-1" for="filtro_empresa">Empresa</label>
+                                                <select class="form-select form-select-sm" id="filtro_empresa"><option value="">Todas</option></select>
+                                            </div>
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label mb-1" for="filtro_modulo">Módulo</label>
+                                                <select class="form-select form-select-sm" id="filtro_modulo"><option value="">Todos</option></select>
+                                            </div>
+                                            <div class="col-12 col-md-2">
+                                                <label class="form-label mb-1" for="filtro_estado">Estado</label>
+                                                <select class="form-select form-select-sm" id="filtro_estado">
+                                                    <option value="1" selected>Activos</option>
+                                                    <option value="0">Inactivos</option>
+                                                    <option value="">Todos</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                         <table id="tablaEmpresasModulos" class="table table-striped table-bordered">
                                             <thead>
                                                 <tr>
@@ -259,6 +277,43 @@ $(document).ready(function(){
                 }
             }
         ]
+    });
+
+    // Filtros de la grilla (empresa, módulo, estado); al ingresar solo activos
+    $.fn.dataTable.ext.search.push(function(settings, searchData, dataIndex, rowData) {
+        if (settings.nTable.id !== 'tablaEmpresasModulos') return true;
+        var empresa = $('#filtro_empresa').val();
+        var modulo = $('#filtro_modulo').val();
+        var estado = $('#filtro_estado').val();
+        if (empresa && String(rowData.empresa_id) !== empresa) return false;
+        if (modulo && String(rowData.modulo_id) !== modulo) return false;
+        if (estado === '1' && rowData.tabla_estado_registro_id != 1) return false;
+        if (estado === '0' && rowData.tabla_estado_registro_id == 1) return false;
+        return true;
+    });
+
+    function llenarFiltro($select, valores) {
+        var actual = $select.val();
+        $select.find('option:not(:first)').remove();
+        Object.keys(valores)
+            .sort(function(a, b) { return valores[a].localeCompare(valores[b]); })
+            .forEach(function(id) { $select.append($('<option>', {value: id, text: valores[id]})); });
+        if (actual && $select.find('option[value="' + actual + '"]').length) $select.val(actual);
+    }
+
+    // Las opciones de los filtros salen de los registros listados (incluye empresas/módulos inactivos)
+    tabla.on('xhr', function(e, settings, json) {
+        var empresas = {}, modulos = {};
+        $.each(json || [], function(i, r) {
+            if (r.empresa_id) empresas[r.empresa_id] = r.empresa || ('Empresa ' + r.empresa_id);
+            if (r.modulo_id) modulos[r.modulo_id] = r.modulo || ('Módulo ' + r.modulo_id);
+        });
+        llenarFiltro($('#filtro_empresa'), empresas);
+        llenarFiltro($('#filtro_modulo'), modulos);
+    });
+
+    $('#filtro_empresa, #filtro_modulo, #filtro_estado').on('change', function() {
+        tabla.draw();
     });
 
     // Cargar opciones al iniciar

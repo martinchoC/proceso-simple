@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Sucursales - Accesos por Perfil</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-shield-alt"></i> Manual de usuario: Sucursales - Accesos por Perfil</h1>
+<p class="subtitulo">Cómo definir en qué sucursales, bocas y puntos de venta puede operar cada perfil de usuario.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve esta pantalla?</a></li>
+        <li><a href="#regla-de-oro">La regla más importante: sin acceso, no ve nada</a></li>
+        <li><a href="#como-funciona">Cómo se arma una regla de acceso</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#otorgar">Otorgar un acceso</a></li>
+        <li><a href="#revocar">Revocar un acceso</a></li>
+        <li><a href="#excepciones">Excepciones por usuario</a></li>
+        <li><a href="#ejemplos">Ejemplos</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve esta pantalla?</h2>
+<p>Cada usuario del sistema tiene un <strong>perfil</strong> (por ejemplo "Vendedor", "Administración", "Depósito"). El perfil ya define <em>qué pantallas</em> puede usar. Esta pantalla agrega otra capa: <strong>en qué lugares</strong> puede operar ese perfil.</p>
+<p>Por ejemplo: que los vendedores del local céntrico solo vean y facturen con los puntos de venta de ese local, y no con los de otra sucursal.</p>
+<p>Estos accesos se aplican en las pantallas de ventas (pedidos, remitos, facturas), compras (órdenes de compra, facturas de proveedores), cobranzas, ajustes de stock y ubicaciones de depósito: el usuario solo ve los registros y las opciones de las sucursales, bocas y puntos de venta a los que tiene acceso.</p>
+
+<h2 id="regla-de-oro">La regla más importante: sin acceso, no ve nada</h2>
+<div class="alert alert-warning"><strong>Un perfil sin ninguna regla cargada acá no tiene acceso a ninguna sucursal.</strong> Sus usuarios van a ver listados vacíos y no van a poder elegir sucursal ni punto de venta. Cuando creás un perfil nuevo, acordate de darle acceso acá.</div>
+<p>Solo el usuario administrador principal del sistema ve todo sin necesidad de reglas.</p>
+
+<h2 id="como-funciona">Cómo se arma una regla de acceso</h2>
+<p>Cada regla va de lo general a lo particular. Cuanto menos niveles elijas, más amplio es el acceso:</p>
+<div class="flujo">
+    <div class="flujo-caja">Empresa completa</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Sucursal</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Boca</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Punto de Venta</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Tipo de Comprobante</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Si elegís…</th><th>El perfil puede operar en…</th></tr>
+    <tr><td>Sucursal: "Todas las Sucursales (Acceso Total)"</td><td>Toda la empresa: todas las sucursales, bocas y puntos de venta, incluidos los que se carguen en el futuro.</td></tr>
+    <tr><td>Una sucursal, sin boca ni punto de venta</td><td>Esa sucursal completa, con todas sus bocas y puntos de venta.</td></tr>
+    <tr><td>Una sucursal y una boca</td><td>Solo esa boca de esa sucursal.</td></tr>
+    <tr><td>Una sucursal y un punto de venta</td><td>Solo ese punto de venta.</td></tr>
+</table>
+<p>Un perfil puede tener varias reglas: los accesos se suman.</p>
+<div class="alert alert-warning">Para un mismo perfil, no mezcles reglas de "sucursal completa" con reglas de una boca o un punto de venta puntual. Si un perfil tiene al menos una regla con una boca (o un punto de venta) específica, el sistema le muestra <strong>solo</strong> las bocas (o puntos de venta) nombradas en sus reglas, también dentro de las sucursales que le diste completas. Si necesitás combinar, cargá todas las reglas al mismo nivel de detalle.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Parte</th><th>Qué tiene</th></tr>
+    <tr><td>1. Seleccionar Perfil (izquierda)</td><td>El desplegable "Perfil de la Empresa" con los perfiles de la empresa.</td></tr>
+    <tr><td>2. Asignar Acceso (izquierda)</td><td>Aparece recién cuando elegís un perfil. Es el formulario para cargar una regla nueva.</td></tr>
+    <tr><td>Grilla de accesos (derecha)</td><td>Las reglas cargadas. Sin perfil elegido muestra las de <strong>todos los perfiles</strong>; con un perfil elegido, el título cambia a "Alcance para: …" y muestra solo las de ese perfil.</td></tr>
+</table>
+<p>Columnas de la grilla:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Perfil</td><td>A qué perfil corresponde la regla.</td></tr>
+    <tr><td>Sucursal</td><td>La sucursal, o <span class="badge badge-success">Acceso Total</span> si la regla es para toda la empresa.</td></tr>
+    <tr><td>Boca / Depósito, Punto de Venta, Comprobante</td><td>El elemento puntual, o "Todas" / "Todos" si la regla no restringe ese nivel.</td></tr>
+    <tr><td>Default</td><td>Un tilde verde si la regla está marcada para preseleccionarse.</td></tr>
+    <tr><td>Acción</td><td>El botón <span class="boton-ejemplo boton-peligro">🗑</span> para revocar la regla.</td></tr>
+</table>
+<p>La grilla tiene buscador y paginado. El botón <span class="boton-ejemplo boton-outline">↻</span> la recarga.</p>
+
+<h2 id="otorgar">Otorgar un acceso</h2>
+<ol>
+    <li>Elegí el perfil en <strong>1. Seleccionar Perfil</strong>.</li>
+    <li>En <strong>2. Asignar Acceso</strong>, elegí la <strong>Sucursal</strong>. Si la dejás en "Todas las Sucursales (Acceso Total)", el acceso es a toda la empresa.</li>
+    <li>Si querés limitar más, elegí la <strong>Boca / Depósito</strong> (se habilita al elegir sucursal; las de depósito dicen "[Depósito]").</li>
+    <li>Opcionalmente, elegí el <strong>Punto de Venta</strong> (se habilita al elegir sucursal, y se acota si elegiste boca).</li>
+    <li>Opcionalmente, elegí el <strong>Tipo de Comprobante</strong>. Solo se habilita si elegiste un punto de venta, y muestra los tipos habilitados en ese punto de venta.</li>
+    <li>Si querés que esta sucursal / boca / punto de venta se proponga primero al operar, marcá <strong>"Preseleccionar por defecto en combos"</strong>.</li>
+    <li>Hacé clic en <span class="boton-ejemplo boton-exito">✓ Otorgar Acceso</span>.</li>
+</ol>
+<p>Si está todo bien, ves "Acceso otorgado", el formulario se limpia y la regla aparece en la grilla.</p>
+<div class="nota-lateral">Los cambios se aplican la próxima vez que el usuario abra una pantalla o recargue la que tiene abierta.</div>
+<div class="nota-lateral">Por ahora, las pantallas de operación filtran por sucursal, boca y punto de venta. La restricción por tipo de comprobante y la marca de preselección quedan guardadas en la regla, pero todavía no todas las pantallas las tienen en cuenta.</div>
+
+<h2 id="revocar">Revocar un acceso</h2>
+<p>Hacé clic en <span class="boton-ejemplo boton-peligro">🗑</span> en la fila de la regla. El sistema pregunta "¿Revocar este acceso? El perfil dejará de tener alcance sobre esta selección." Al confirmar con <strong>Sí, revocar</strong> ves "Acceso revocado".</p>
+<div class="alert alert-warning">Si revocás la última regla de un perfil, sus usuarios se quedan sin acceso a ninguna sucursal.</div>
+
+<h2 id="excepciones">Excepciones por usuario</h2>
+<p>Además de las reglas por perfil, el sistema admite <strong>excepciones para un usuario puntual</strong>, con fecha desde y hasta:</p>
+<ul>
+    <li><strong>Permite</strong>: le suma a ese usuario un acceso que su perfil no tiene (por ejemplo, un vendedor que cubre otra sucursal durante sus vacaciones).</li>
+    <li><strong>Deniega</strong>: le quita un acceso aunque su perfil lo tenga. La denegación siempre gana.</li>
+</ul>
+<p>Estas excepciones <strong>no se cargan desde esta pantalla</strong>. Si necesitás una, pedísela a quien administra el sistema.</p>
+
+<h2 id="ejemplos">Ejemplos</h2>
+<table class="tabla-referencia">
+    <tr><th>Necesidad</th><th>Regla a cargar</th></tr>
+    <tr><td>Administración ve todo</td><td>Perfil "Administración" → Sucursal: Todas las Sucursales (Acceso Total).</td></tr>
+    <tr><td>Los vendedores de Casa Central solo operan ahí</td><td>Perfil "Vendedor Central" → Sucursal: Casa Central (sin boca ni punto de venta).</td></tr>
+    <tr><td>El cajero solo factura en la caja 2</td><td>Perfil "Cajero" → Sucursal: Casa Central → Punto de Venta: Caja 2.</td></tr>
+    <tr><td>El encargado de depósito solo mueve stock del depósito</td><td>Perfil "Depósito" → Sucursal: Casa Central → Boca: Depósito.</td></tr>
+</table>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué hacer</th></tr>
+    <tr><td>Seleccione un perfil primero</td><td>Elegí el perfil en el paso 1.</td></tr>
+    <tr><td>Ya existe una regla idéntica asignada a este perfil</td><td>Esa regla ya está cargada; no hace falta repetirla.</td></tr>
+    <tr><td>Para restringir por comprobante primero debe seleccionar un punto de venta puntual</td><td>Elegí un punto de venta antes del tipo de comprobante.</td></tr>
+    <tr><td>El tipo de comprobante no está habilitado en ese punto de venta</td><td>Habilitalo primero en <a href="puntos_venta.html#comprobantes">Puntos de Venta</a>.</td></tr>
+    <tr><td>La boca / El punto de venta no pertenece a la sucursal seleccionada</td><td>Volvé a elegir la sucursal y después los demás niveles.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Un usuario entra a Facturas y el listado está vacío.</td><td>Su perfil probablemente no tiene reglas acá. Revisá eligiendo el perfil en el paso 1.</td></tr>
+    <tr><td>Agregué una sucursal nueva, ¿tengo que dar acceso de nuevo?</td><td>Solo a los perfiles que tienen reglas por sucursal. Los que tienen "Acceso Total" la ven automáticamente.</td></tr>
+    <tr><td>Le di la sucursal completa y además una boca de otra sucursal, y ahora no ve las bocas de la primera.</td><td>Es lo que explica el aviso de <a href="#como-funciona">cómo se arma una regla</a>: al nombrar una boca puntual, el perfil queda limitado a las bocas nombradas. Cargá también las bocas de la primera sucursal, una por una.</td></tr>
+    <tr><td>¿Dónde asigno un perfil a un usuario?</td><td>En la administración de usuarios y perfiles, no en esta pantalla. Consultá con quien administra el sistema.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Sucursales - Accesos por Perfil. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['pagos.php']]);
 /**
  * pagos_ajax.php
  *
@@ -36,7 +39,7 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx  = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 106);
 
 if (!$conexion) {
@@ -71,7 +74,7 @@ try {
 
         case 'maestros':
             $proveedores        = obtenerProveedoresPago($conexion, $empresa_idx);
-            $medios_pago        = $conexion->query("SELECT medio_pago_id, codigo, medio_pago, medio_pago_tipo, cont_cuenta_id FROM gestion__medios_pago WHERE tabla_estado_registro_id = 1 ORDER BY medio_pago_id ASC")->fetch_all(MYSQLI_ASSOC);
+            $medios_pago        = $conexion->query("SELECT medio_pago_id, codigo, medio_pago, medio_pago_tipo, cont_cuenta_id FROM gestion__medios_pago WHERE empresa_id = " . intval($empresa_idx) . " AND tabla_estado_registro_id = 1 ORDER BY medio_pago_id ASC")->fetch_all(MYSQLI_ASSOC);
             $cuentas_tesoreria  = obtenerCuentasTesoreriaEmpresa($conexion, $empresa_idx);
             $bancos             = obtenerBancosDisponibles($conexion);
             $cheques_en_cartera = obtenerChequesTercerosEnCartera($conexion, $empresa_idx);

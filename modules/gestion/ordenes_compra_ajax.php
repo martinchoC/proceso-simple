@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['ordenes_compra.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -28,8 +31,9 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
-$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 65);
+$empresa_idx = intval($ctx['empresa_id']);
+// Página fija (conf__paginas 51 = ordenes_compra.php), nunca del request: define qué funciones/transiciones valen.
+$pagina_idx = 51;
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
@@ -86,10 +90,7 @@ try {
         case 'ejecutar_accion':
             $orden_compra_id = intval($_POST['orden_compra_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
-            $pagina_id = intval($_POST['pagina_idx'] ?? 0);
-            
-            $resultado = ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empresa_idx, $pagina_id);
+            $resultado = ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $ctx['empresa_id'], $pagina_idx);
             echo json_encode($resultado);
             break;
 
@@ -225,7 +226,7 @@ try {
             break;
 
         case 'obtener_comprobantes_tipos':
-            $tipos = obtenerComprobantesTipos($conexion);
+            $tipos = obtenerComprobantesTipos($conexion, $empresa_idx);
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -342,6 +343,16 @@ try {
             ];
             
             $resultado = agregarProductoRapido($conexion, $data);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'vincular_producto_proveedor':
+            $resultado = vincularProductoProveedor($conexion, [
+                'producto_id' => intval($_POST['producto_id'] ?? 0),
+                'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+                'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? ''),
+                'empresa_id' => $ctx['empresa_id']
+            ]);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

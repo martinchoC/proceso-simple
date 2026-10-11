@@ -488,10 +488,11 @@ function obtenerConfiguracionPorId($conexion, $id, $empresa_idx)
 // ==================== FUNCIONES PARA OPERACIONES (Métodos por tipo de bien) ====================
 
 // Obtener tipos de bien (productos_tipos)
-function obtenerTiposBien($conexion) {
+function obtenerTiposBien($conexion, $empresa_idx = null) {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT producto_tipo_id, producto_tipo, producto_tipo_codigo, maneja_stock, es_compuesto 
             FROM gestion__productos_tipos 
-            WHERE tabla_estado_registro_id = 1
+            WHERE empresa_id = $empresa_idx AND tabla_estado_registro_id = 1
             ORDER BY producto_tipo";
     
     $result = mysqli_query($conexion, $sql);
@@ -878,12 +879,13 @@ function obtenerCondicionesFiscales($conexion) {
 // ==================== FUNCIONES PARA SUBGRUPOS DE COMPROBANTES ====================
 
 // Obtener subgrupos de comprobantes disponibles
-function obtenerSubgruposComprobantes($conexion) {
+function obtenerSubgruposComprobantes($conexion, $empresa_idx = null) {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT cs.comprobante_subgrupo_id, cs.comprobante_subgrupo, cs.codigo,
                    cg.comprobante_grupo
             FROM gestion__comprobantes_subgrupos cs
             LEFT JOIN gestion__comprobantes_grupos cg ON cs.comprobante_grupo_id = cg.comprobante_grupo_id
-            WHERE cs.tabla_estado_registro_id = 1
+            WHERE cs.empresa_id = $empresa_idx AND cs.tabla_estado_registro_id = 1
             ORDER BY cg.comprobante_grupo, cs.comprobante_subgrupo";
     
     $result = mysqli_query($conexion, $sql);

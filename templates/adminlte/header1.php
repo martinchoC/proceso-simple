@@ -149,6 +149,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             $current_modulo_id = 3;
         } elseif (strpos($uri_actual, '/modules/conf/') !== false || strpos($uri_actual, 'conf/') !== false) {
             $current_modulo_id = 1;
+        } elseif (strpos($uri_actual, '/modules/gestion_normal/') !== false || strpos($uri_actual, 'gestion_normal/') !== false) {
+            $current_modulo_id = 5;
         } elseif (strpos($uri_actual, '/modules/gestion/') !== false || strpos($uri_actual, 'gestion/') !== false) {
             $current_modulo_id = 2;
         } elseif (strpos($uri_actual, '/modules/estudio_contable/') !== false || strpos($uri_actual, 'estudio_contable/') !== false) {
@@ -170,6 +172,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
     if ($current_empresa_id > 0) {
         $_SESSION['empresa_id'] = $current_empresa_id;
     }
+    // Empresa activa para los .js de las páginas (nunca hardcodear la empresa en el JS)
+    echo '<script>window.EMPRESA_ID = ' . (int)$current_empresa_id . ';</script>';
     if ($current_modulo_id > 0) {
         $_SESSION['modulo_id'] = $current_modulo_id;
     }
@@ -451,17 +455,38 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 
         <div class="ms-auto d-flex align-items-center">
           <ul class="navbar-nav ms-auto">
+            <?php
+            // Alertas de reposición de stock (página 113): solo si el usuario tiene esa página.
+            $alertas_stock_visible = $current_empresa_id > 0 && ($es_superusuario || isset($paginas_permitidas[113]));
+            $alertas_stock_abiertas = 0;
+            if ($alertas_stock_visible && file_exists(__DIR__ . '/../../modules/gestion/stock_alertas_model.php')) {
+              try {
+                require_once __DIR__ . '/../../modules/gestion/stock_alertas_model.php';
+                $alertas_stock_abiertas = salContarAbiertas($conexion, (int) $current_empresa_id, (int) $usuario_logueado_id);
+              } catch (Throwable $e) {
+                error_log('header1 alertas de stock: ' . $e->getMessage());
+              }
+            }
+            ?>
+            <?php if ($alertas_stock_visible): ?>
             <li class="nav-item dropdown">
-              <a class="nav-link" data-bs-toggle="dropdown" href="#">
+              <a class="nav-link" data-bs-toggle="dropdown" href="#" title="Alertas de reposición de stock">
                 <i class="bi bi-bell-fill"></i>
-                <span class="navbar-badge badge text-bg-warning">0</span>
+                <?php if ($alertas_stock_abiertas > 0): ?>
+                  <span class="navbar-badge badge text-bg-warning"><?= $alertas_stock_abiertas ?></span>
+                <?php endif; ?>
               </a>
               <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
-                <span class="dropdown-item dropdown-header">15 Notifications</span>
+                <span class="dropdown-item dropdown-header">
+                  <?= $alertas_stock_abiertas > 0
+                    ? $alertas_stock_abiertas . ' producto' . ($alertas_stock_abiertas === 1 ? '' : 's') . ' bajo el stock mínimo'
+                    : 'Sin alertas de reposición' ?>
+                </span>
                 <div class="dropdown-divider"></div>
-                <a href="#" class="dropdown-item dropdown-footer"> See All Notifications </a>
+                <a href="<?= url('modules/gestion/stock_alertas.php') ?>" class="dropdown-item dropdown-footer">Ver alertas de reposición</a>
               </div>
             </li>
+            <?php endif; ?>
             <li class="nav-item">
               <a class="nav-link" href="#" data-lte-toggle="fullscreen">
                 <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>

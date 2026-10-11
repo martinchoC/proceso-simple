@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * pagos_model.php
  *
@@ -20,10 +21,10 @@ require_once __DIR__ . '/tesoreria_core_model.php';
 
 $conexion = $conn;
 
-const ESTADO_PAGO_BORRADOR   = 2125;
-const ESTADO_PAGO_CONFIRMADO = 2126;
-const ESTADO_PAGO_ANULADO    = 2127;
-const ESTADO_PAGO_ELIMINADO  = 2128;
+const ESTADO_PAGO_BORRADOR   = 3;
+const ESTADO_PAGO_CONFIRMADO = 5;
+const ESTADO_PAGO_ANULADO    = 38;
+const ESTADO_PAGO_ELIMINADO  = 6;
 
 const TIPO_COMPROBANTE_OP_ID = 26;  // Orden de Pago en gestion__comprobantes_tipos
 const TABLA_PAGOS_ID         = 276; // gestion__pagos en conf__tablas
@@ -36,15 +37,15 @@ function syncComprobantePago($conexion, $pago_id, $data)
     $pago_id = intval($pago_id);
     if ($pago_id <= 0) return null;
 
-    $empresa_id          = intval($data['empresa_id'] ?? 2);
-    $sucursal_id         = intval($data['sucursal_id'] ?? 1);
+    $empresa_id          = intval($data['empresa_id'] ?? 0);
+    $sucursal_id         = intval($data['sucursal_id'] ?? 0);
     $comprobante_pv      = intval($data['comprobante_pv'] ?? 0);
     $comprobante_nro     = intval($data['comprobante_nro'] ?? 0);
     $entidad_id          = intval($data['entidad_id'] ?? 0);
     $entidad_sucursal_id = !empty($data['entidad_sucursal_id']) ? intval($data['entidad_sucursal_id']) : null;
     $f_emision           = !empty($data['f_emision']) ? $data['f_emision'] : date('Y-m-d');
     $f_contabilidad      = !empty($data['f_contabilidad']) ? $data['f_contabilidad'] : $f_emision;
-    $moneda_id           = intval($data['moneda_id'] ?? 1);
+    $moneda_id           = emp_moneda_id($conexion, $empresa_id, $data['moneda_id'] ?? 0);
     $tipo_cambio         = floatval($data['tipo_cambio'] ?? 1.0);
     $importe_total       = floatval($data['importe_total'] ?? 0);
     $tabla_estado_id     = intval($data['tabla_estado_registro_id'] ?? ESTADO_PAGO_BORRADOR);
@@ -75,8 +76,7 @@ function syncComprobantePago($conexion, $pago_id, $data)
                         COALESCE(SUM(CASE WHEN ci.comp_origen_id = ? THEN ci.importe_origen ELSE 0 END), 0) AS imp_origen,
                         COUNT(*) AS total_imputaciones
                     FROM gestion__comprobantes_imputaciones ci
-                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
-                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = ci.tabla_estado_registro_id
                     WHERE (ci.comp_destino_id = ? OR ci.comp_origen_id = ?)
                       AND er.codigo_estandar = 'CONFIRMADO'";
         $stmt_imp = mysqli_prepare($conexion, $sql_imp);
@@ -161,20 +161,19 @@ function obtenerPagosListado($conexion, $empresa_id, $pagina_id = 106, $filtros 
 {
     $empresa_id = intval($empresa_id);
 
-    $sql = "SELECT p.pago_id, p.f_emision, p.comprobante_pv, p.comprobante_nro,
+    $sql = "SELECT p.pago_id, p.f_emision, " . emp_sql_pv_mostrar('p.comprobante_pv', 'p.empresa_id') . " AS comprobante_pv, p.comprobante_nro,
                    p.importe_total, p.observaciones, p.tabla_estado_registro_id,
-                   e.entidad_id, e.entidad_nombre AS proveedor_nombre, e.cuit AS proveedor_cuit,
+                   p.entidad_id, COALESCE(e.entidad_nombre, 'Consumidor Final') AS proveedor_nombre, e.cuit AS proveedor_cuit,
                    s.sucursal_nombre,
                    m.simbolo AS moneda_simbolo,
                    er.codigo_estandar AS estado_codigo, er.estado_registro,
                    comp.importe_pendiente AS saldo_anticipo
             FROM gestion__pagos p
-            JOIN gestion__entidades e ON e.entidad_id = p.entidad_id
+            LEFT JOIN gestion__entidades e ON e.entidad_id = p.entidad_id
             JOIN gestion__sucursales s ON s.sucursal_id = p.sucursal_id
             JOIN gestion__monedas m ON m.moneda_id = p.moneda_id
             LEFT JOIN gestion__comprobantes comp ON comp.comprobante_id = p.comprobante_id
-            LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = p.tabla_estado_registro_id
-            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = p.tabla_estado_registro_id
             WHERE p.empresa_id = ? ";
 
     $params = [$empresa_id];
@@ -276,15 +275,15 @@ function obtenerPagoDetalle($conexion, $pago_id, $empresa_id)
     $empresa_id = intval($empresa_id);
 
     // Cabecera
-    $sql_c = "SELECT p.*, e.entidad_nombre, e.cuit, e.domicilio_legal,
+    $sql_c = "SELECT p.*, " . emp_sql_pv_mostrar('p.comprobante_pv', 'p.empresa_id') . " AS pv_nro, COALESCE(e.entidad_nombre, 'Consumidor Final') AS entidad_nombre, e.cuit, e.domicilio_legal,
+                     e.es_cliente, e.es_proveedor, e.cont_cuenta_id_cliente, e.cont_cuenta_id_proveedor,
                      s.sucursal_nombre, m.codigo AS moneda_codigo, m.simbolo AS moneda_simbolo,
                      er.codigo_estandar AS estado_codigo, er.estado_registro
               FROM gestion__pagos p
-              JOIN gestion__entidades e ON e.entidad_id = p.entidad_id
+              LEFT JOIN gestion__entidades e ON e.entidad_id = p.entidad_id
               JOIN gestion__sucursales s ON s.sucursal_id = p.sucursal_id
               JOIN gestion__monedas m ON m.moneda_id = p.moneda_id
-              LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = p.tabla_estado_registro_id
-              LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+              LEFT JOIN conf__estados_registros er ON er.estado_registro_id = p.tabla_estado_registro_id
               WHERE p.pago_id = ? AND p.empresa_id = ?";
     $stmt_c = mysqli_prepare($conexion, $sql_c);
     mysqli_stmt_bind_param($stmt_c, "ii", $pago_id, $empresa_id);
@@ -321,7 +320,7 @@ function obtenerPagoDetalle($conexion, $pago_id, $empresa_id)
     $comp_origen_id = intval($cabecera['comprobante_id']);
     $imputaciones = [];
     if ($comp_origen_id > 0) {
-        $sql_i = "SELECT ci.*, cd.comprobante_pv, cd.comprobante_nro, cd.f_emision AS destino_f_emision,
+        $sql_i = "SELECT ci.*, " . emp_sql_pv_mostrar('cd.comprobante_pv', 'cd.empresa_id', 'cd.tabla_origen_id') . " AS comprobante_pv, cd.comprobante_nro, cd.f_emision AS destino_f_emision,
                          cd.importe_total AS destino_total, cd.importe_pendiente AS destino_pendiente,
                          ct.codigo AS comprobante_tipo_codigo, ct.comprobante_tipo
                   FROM gestion__comprobantes_imputaciones ci
@@ -351,12 +350,12 @@ function obtenerPagoDetalle($conexion, $pago_id, $empresa_id)
  */
 function guardarPagoBorrador($conexion, $data)
 {
-    $empresa_id     = intval($data['empresa_id'] ?? 2);
-    $sucursal_id    = intval($data['sucursal_id'] ?? 1);
+    $empresa_id     = intval($data['empresa_id'] ?? 0);
+    $sucursal_id    = intval($data['sucursal_id'] ?? 0);
     $entidad_id     = intval($data['entidad_id'] ?? 0);
     $f_emision      = !empty($data['f_emision']) ? $data['f_emision'] : date('Y-m-d');
     $f_contabilidad = !empty($data['f_contabilidad']) ? $data['f_contabilidad'] : $f_emision;
-    $moneda_id      = intval($data['moneda_id'] ?? 1);
+    $moneda_id      = emp_moneda_id($conexion, $empresa_id, $data['moneda_id'] ?? 0);
     $tipo_cambio    = floatval($data['tipo_cambio'] ?? 1.0);
     $observaciones  = trim($data['observaciones'] ?? '');
     $usuario_id     = intval($data['usuario_id'] ?? 1);
@@ -365,10 +364,13 @@ function guardarPagoBorrador($conexion, $data)
     $medios         = $data['medios'] ?? [];
     $imputaciones   = $data['imputaciones'] ?? [];
 
-    if ($empresa_id <= 0 || $entidad_id <= 0) {
+    // consumidor_final: devolución automática de una nota de crédito a consumidor final (entidad NULL)
+    if ($empresa_id <= 0 || ($entidad_id <= 0 && empty($data['consumidor_final']))) {
         throw new Exception("Debe seleccionar un proveedor y empresa válidos.");
     }
-    if (empty($medios)) {
+    $entidad_pago = $entidad_id > 0 ? $entidad_id : null;   // FK a entidades: NULL para consumidor final
+    // pago_cero: OP en $0 que documenta la aplicación de notas de crédito de proveedor (sin medios)
+    if (empty($medios) && empty($data['pago_cero'])) {
         throw new Exception("Debe agregar al menos un medio de pago.");
     }
 
@@ -420,7 +422,7 @@ function guardarPagoBorrador($conexion, $data)
         $stmt_u = mysqli_prepare($conexion, $sql_upd);
         mysqli_stmt_bind_param(
             $stmt_u, "iiissiddsiiii",
-            $sucursal_id, $comprobante_pv, $entidad_id,
+            $sucursal_id, $comprobante_pv, $entidad_pago,
             $f_emision, $f_contabilidad, $moneda_id,
             $tipo_cambio, $importe_total, $observaciones,
             $usuario_id, $pago_id, $empresa_id, $estado_borrador
@@ -433,9 +435,9 @@ function guardarPagoBorrador($conexion, $data)
         $res_cid = $conexion->query("SELECT comprobante_id FROM gestion__pagos WHERE pago_id = $pago_id");
         $cid = intval($res_cid->fetch_assoc()['comprobante_id'] ?? 0);
         if ($cid > 0) {
-            $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE comp_origen_id = $cid AND tabla_estado_registro_id = 2153");
+            $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE comp_origen_id = $cid AND tabla_estado_registro_id = 3");
             // Borrar cheques propios en borrador que se hayan creado en este pago
-            $conexion->query("DELETE FROM gestion__cheques WHERE comp_origen_id = $cid AND cheque_tipo = 'PROPIO' AND tabla_estado_registro_id = 2171");
+            $conexion->query("DELETE FROM gestion__cheques WHERE comp_origen_id = $cid AND cheque_tipo = 'PROPIO' AND tabla_estado_registro_id = 3");
         }
     } else {
         // INSERT nuevo Borrador
@@ -449,7 +451,7 @@ function guardarPagoBorrador($conexion, $data)
         mysqli_stmt_bind_param(
             $stmt_i, "iiiiisssidssi",
             $empresa_id, $sucursal_id, $comprobante_tipo_id, $comprobante_pv,
-            $entidad_id, $f_emision, $f_contabilidad,
+            $entidad_pago, $f_emision, $f_contabilidad,
             $moneda_id, $tipo_cambio, $importe_total,
             $observaciones, $estado_borrador, $usuario_id
         );
@@ -488,7 +490,7 @@ function guardarPagoBorrador($conexion, $data)
     foreach ($medios as $m) {
         $medio_pago_id   = intval($m['medio_pago_id']);
         $tes_cuenta_id   = !empty($m['tesoreria_cuenta_id']) ? intval($m['tesoreria_cuenta_id']) : null;
-        $mon_id          = intval($m['moneda_id'] ?? $moneda_id);
+        $mon_id          = emp_moneda_id($conexion, $empresa_id, $m['moneda_id'] ?? $moneda_id);
         $tc              = floatval($m['tipo_cambio'] ?? 1.0);
         $imp             = floatval($m['importe'] ?? 0);
         $imp_comp        = floatval($m['importe_comprobante'] ?? $imp);
@@ -517,7 +519,7 @@ function guardarPagoBorrador($conexion, $data)
                                 f_pago, es_diferido, moneda_id, importe,
                                 entidad_id, endosable, comp_origen_id,
                                 clave_propio_cuenta_id, tabla_estado_registro_id, usuario_id
-                           ) VALUES (?, ?, 'PROPIO', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 2171, ?)";
+                           ) VALUES (?, ?, 'PROPIO', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 3, ?)";
             $stmt_cp = mysqli_prepare($conexion, $sql_ins_cp);
             if ($stmt_cp) {
                 mysqli_stmt_bind_param(
@@ -550,13 +552,13 @@ function guardarPagoBorrador($conexion, $data)
     }
     mysqli_stmt_close($stmt_med);
 
-    // Insertar Imputaciones tentativas en Borrador (2153)
+    // Insertar Imputaciones tentativas en Borrador (3)
     if (!empty($imputaciones) && $comprobante_id > 0) {
         $sql_imp_ins = "INSERT INTO gestion__comprobantes_imputaciones (
                             empresa_id, comp_origen_id, comp_destino_id, f_imputacion,
                             importe_imputado, moneda_origen_id, tipo_cambio, importe_origen,
                             tabla_estado_registro_id, usuario_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 2153, ?)";
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 3, ?)";
         $stmt_ii = mysqli_prepare($conexion, $sql_imp_ins);
 
         foreach ($imputaciones as $imp) {
@@ -581,13 +583,16 @@ function guardarPagoBorrador($conexion, $data)
 /**
  * Confirmación Transaccional de Orden de Pago (§2.5 / RT01 - RT21 / C2 / D27 - D36)
  */
-function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
+// $en_transaccion = true: corre dentro de la transacción del llamador (OP en $0 al aplicar notas de crédito).
+function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transaccion = false)
 {
     $pago_id    = intval($pago_id);
     $empresa_id = intval($empresa_id);
     $usuario_id = intval($usuario_id);
 
-    mysqli_begin_transaction($conexion);
+    if (!$en_transaccion) {
+        mysqli_begin_transaction($conexion);
+    }
 
     try {
         // 1. Transición optimista RT04
@@ -666,7 +671,7 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
                 'comp_destino_id'  => $dest_id,
                 'importe_imputado' => $monto_imp,
                 'f_imputacion'     => $cab['f_emision'],
-                'moneda_origen_id' => intval($cab['moneda_id'] ?? 1),
+                'moneda_origen_id' => emp_moneda_id($conexion, $empresa_id, $cab['moneda_id'] ?? 0),
                 'tipo_cambio'      => floatval($cab['tipo_cambio'] ?? 1.0),
                 'usuario_id'       => $usuario_id
             ]);
@@ -721,7 +726,7 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
         mysqli_stmt_close($stmt_upd_compn);
 
         // 5. Movimientos en Libro de Tesorería y Gestión de Cheques
-        $concepto_op = "Orden de Pago OP " . str_pad($punto_venta_id, 4, '0', STR_PAD_LEFT) . "-" . str_pad($proximo_nro, 8, '0', STR_PAD_LEFT) . " - " . ($cab['entidad_nombre'] ?? 'Proveedor');
+        $concepto_op = "Orden de Pago OP " . emp_numero_comprobante($conexion, $empresa_id, $punto_venta_id, $proximo_nro) . " - " . ($cab['entidad_nombre'] ?? 'Proveedor');
 
         foreach ($medios as $m) {
             $monto_m = floatval($m['importe_comprobante']);
@@ -741,7 +746,7 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
                         'importe'             => $monto_m,
                         'f_movimiento'        => $cab['f_emision'],
                         'f_valor'             => $m['f_valor'] ?? $cab['f_emision'],
-                        'moneda_id'           => intval($cab['moneda_id'] ?? 1),
+                        'moneda_id'           => emp_moneda_id($conexion, $empresa_id, $cab['moneda_id'] ?? 0),
                         'tipo_cambio'         => floatval($cab['tipo_cambio'] ?? 1.0),
                         'medio_pago_id'       => intval($m['medio_pago_id']),
                         'concepto'            => $concepto_op,
@@ -757,18 +762,21 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
                 // Verificar que el cheque siga en cartera
                 $res_chq = $conexion->query("SELECT cheque_id, numero, tabla_estado_registro_id, tesoreria_cuenta_id FROM gestion__cheques WHERE cheque_id = $chq_id FOR UPDATE");
                 $row_chq = $res_chq->fetch_assoc();
-                if (!$row_chq || intval($row_chq['tabla_estado_registro_id']) !== 2172) {
+                if (!$row_chq || intval($row_chq['tabla_estado_registro_id']) !== 29) {
                     throw new Exception("El cheque de tercero N° {$row_chq['numero']} ya no se encuentra en cartera para ser endosado (RT06).");
                 }
 
-                // Transición a ENDOSADO (2175) y comp_destino_id = OP
-                $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 2175, comp_destino_id = $comp_origen_id, usuario_modificacion_id = $usuario_id WHERE cheque_id = $chq_id");
+                // Transición a ENDOSADO (33) y comp_destino_id = OP
+                $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 33, comp_destino_id = $comp_origen_id, usuario_modificacion_id = $usuario_id WHERE cheque_id = $chq_id");
 
                 // EGRESO en la cuenta de Valores en Cartera (D15)
                 $cta_valores = intval($row_chq['tesoreria_cuenta_id']);
                 if ($cta_valores <= 0) {
                     $res_vc = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND cuenta_tipo = 'VALORES' LIMIT 1");
-                    $cta_valores = intval($res_vc->fetch_assoc()['tesoreria_cuenta_id'] ?? 6);
+                    $cta_valores = intval($res_vc->fetch_assoc()['tesoreria_cuenta_id'] ?? 0);
+                    if ($cta_valores <= 0) {
+                        throw new Exception('La empresa no tiene una cuenta de tesorería de Valores en cartera.');
+                    }
                 }
 
                 tesoreriaRegistrarMovimiento($conexion, [
@@ -780,7 +788,7 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
                     'importe'             => $monto_m,
                     'f_movimiento'        => $cab['f_emision'],
                     'f_valor'             => $cab['f_emision'],
-                    'moneda_id'           => intval($cab['moneda_id'] ?? 1),
+                    'moneda_id'           => emp_moneda_id($conexion, $empresa_id, $cab['moneda_id'] ?? 0),
                     'tipo_cambio'         => floatval($cab['tipo_cambio'] ?? 1.0),
                     'medio_pago_id'       => intval($m['medio_pago_id']),
                     'concepto'            => $concepto_op . " (Endoso Chq N° {$row_chq['numero']})",
@@ -792,8 +800,8 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
 
             // Caso C: Cheque Propio (D28 / C2)
             elseif ($tipo_medio === 'CHEQUE_PROPIO' && $chq_id > 0) {
-                // Cheque propio pasa a EMITIDO (2173)
-                $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 2173, usuario_modificacion_id = $usuario_id WHERE cheque_id = $chq_id");
+                // Cheque propio pasa a EMITIDO (31)
+                $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 31, usuario_modificacion_id = $usuario_id WHERE cheque_id = $chq_id");
 
                 // Verificar si es común o diferido
                 $res_cp_info = $conexion->query("SELECT es_diferido, tesoreria_cuenta_id, numero FROM gestion__cheques WHERE cheque_id = $chq_id");
@@ -812,7 +820,7 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
                         'importe'             => $monto_m,
                         'f_movimiento'        => $cab['f_emision'],
                         'f_valor'             => $cab['f_emision'],
-                        'moneda_id'           => intval($cab['moneda_id'] ?? 1),
+                        'moneda_id'           => emp_moneda_id($conexion, $empresa_id, $cab['moneda_id'] ?? 0),
                         'tipo_cambio'         => floatval($cab['tipo_cambio'] ?? 1.0),
                         'medio_pago_id'       => intval($m['medio_pago_id']),
                         'concepto'            => $concepto_op . " (Chq Propio N° {$cp_info['numero']})",
@@ -837,12 +845,12 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
             $tipo_medio = $m['medio_pago_tipo'] ?? '';
 
             if (!empty($m['tesoreria_cuenta_id'])) {
-                $res_cta = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = " . intval($m['tesoreria_cuenta_id']));
+                $res_cta = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = " . intval($m['tesoreria_cuenta_id']) . " AND empresa_id = $empresa_id");
                 $cta_contable_id = intval($res_cta->fetch_assoc()['cont_cuenta_id'] ?? 0);
             } elseif ($tipo_medio === 'CHEQUE_TERCERO') {
-                // Cuenta de Valores en Cartera (851)
+                // Cuenta de Valores en Cartera de la empresa
                 $res_val = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND cuenta_tipo = 'VALORES' LIMIT 1");
-                $cta_contable_id = intval($res_val->fetch_assoc()['cont_cuenta_id'] ?? 851);
+                $cta_contable_id = intval($res_val->fetch_assoc()['cont_cuenta_id'] ?? 0);
             } elseif ($tipo_medio === 'CHEQUE_PROPIO') {
                 // Si es diferido, cuenta VALORES_A_PAGAR (D35/D36)
                 $res_ch = $conexion->query("SELECT es_diferido, tesoreria_cuenta_id FROM gestion__cheques WHERE cheque_id = " . intval($m['cheque_id']));
@@ -852,7 +860,7 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
                     $cta_contable_id = $res_vap['cont_cuenta_id'];
                 } else {
                     $cta_banco = intval($ch_d['tesoreria_cuenta_id'] ?? 0);
-                    $res_cta_b = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = $cta_banco");
+                    $res_cta_b = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = $cta_banco AND empresa_id = $empresa_id");
                     $cta_contable_id = intval($res_cta_b->fetch_assoc()['cont_cuenta_id'] ?? 0);
                 }
             } elseif ($tipo_medio === 'RETENCION') {
@@ -861,7 +869,7 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
                     $cta_contable_id = intval($res_it->fetch_assoc()['cuenta_contable_id'] ?? 0);
                 }
                 if ($cta_contable_id <= 0) {
-                    $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']));
+                    $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']) . " AND empresa_id = $empresa_id");
                     $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
                 }
             }
@@ -878,14 +886,23 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
             $total_haber += $monto_linea;
         }
 
-        // Cuenta del Proveedor (DEBE)
-        $cta_prov_id = intval($cab['cont_cuenta_id_prov'] ?? 0);
-        if ($cta_prov_id <= 0) {
-            // Resolver Proveedores Locales (2.1.01.01)
-            $res_cp = $conexion->query("SELECT cont_cuenta_id FROM gestion__cont_cuentas WHERE empresa_id = $empresa_id AND codigo = '2.1.01.01' LIMIT 1");
-            $cta_prov_id = intval($res_cp->fetch_assoc()['cont_cuenta_id'] ?? 211);
+        // Cuenta de la entidad (DEBE). Un cliente al que se le devuelve dinero de su nota de crédito cancela
+        // Deudores por Ventas; un proveedor, la cuenta del proveedor o la de proveedores de la empresa.
+        $es_devolucion_cliente = intval($cab['entidad_id'] ?? 0) <= 0   // consumidor final
+                              || (intval($cab['es_cliente'] ?? 0) === 1 && intval($cab['es_proveedor'] ?? 0) !== 1);
+        if ($es_devolucion_cliente) {
+            $cta_prov_id = intval($cab['cont_cuenta_id_cliente'] ?? 0);
+            if ($cta_prov_id <= 0) {
+                $cta_prov_id = emp_cuenta_id($conexion, $empresa_id, 'DEUDORES_VENTAS', 'cuenta_deudores_ventas_id');
+            }
+            $cta_prov_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Deudores por Ventas', $cta_prov_id);
+        } else {
+            $cta_prov_id = intval($cab['cont_cuenta_id_proveedor'] ?? 0);
+            if ($cta_prov_id <= 0) {
+                $cta_prov_id = emp_cuenta_id($conexion, $empresa_id, 'PROVEEDORES', 'cuenta_proveedores_id');
+            }
+            $cta_prov_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Locales', $cta_prov_id);
         }
-        $cta_prov_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Locales', $cta_prov_id);
 
         array_unshift($lineas_asiento, [
             'cuenta_id'   => $cta_prov_valida['cont_cuenta_id'],
@@ -894,29 +911,36 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id)
             'descripcion' => "Cancelación cuenta corriente proveedor " . ($cab['entidad_nombre'] ?? '')
         ]);
 
-        $descripcion_asiento = "Orden de Pago OP " . str_pad($punto_venta_id, 4, '0', STR_PAD_LEFT) . "-" . str_pad($proximo_nro, 8, '0', STR_PAD_LEFT) . " - " . ($cab['entidad_nombre'] ?? '');
+        $descripcion_asiento = "Orden de Pago OP " . emp_numero_comprobante($conexion, $empresa_id, $punto_venta_id, $proximo_nro) . " - " . ($cab['entidad_nombre'] ?? '');
 
-        tesoreriaGenerarAsiento($conexion, [
-            'empresa_id'           => $empresa_id,
-            'sucursal_id'          => intval($cab['sucursal_id']),
-            'comprobante_id'       => $comp_origen_id,
-            'entidad_id'           => intval($cab['entidad_id']),
-            'f_asiento'            => $cab['f_emision'],
-            'descripcion'          => $descripcion_asiento,
-            'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2 // AUT
-        ], $lineas_asiento);
+        // OP en $0 (aplicación de notas de crédito): no mueve fondos ni genera asiento
+        if ($total_haber > 0.0001) {
+            tesoreriaGenerarAsiento($conexion, [
+                'empresa_id'           => $empresa_id,
+                'sucursal_id'          => intval($cab['sucursal_id']),
+                'comprobante_id'       => $comp_origen_id,
+                'entidad_id'           => intval($cab['entidad_id']),
+                'f_asiento'            => $cab['f_emision'],
+                'descripcion'          => $descripcion_asiento,
+                'usuario_id'           => $usuario_id,
+            ], $lineas_asiento);
+        }
 
-        mysqli_commit($conexion);
+        if (!$en_transaccion) {
+            mysqli_commit($conexion);
+        }
 
         return [
             'success'         => true,
+            'comprobante_id'  => $comp_origen_id,
             'comprobante_nro' => $proximo_nro,
-            'message'         => "Orden de Pago confirmada con éxito. OP N° " . str_pad($punto_venta_id, 4, '0', STR_PAD_LEFT) . "-" . str_pad($proximo_nro, 8, '0', STR_PAD_LEFT)
+            'message'         => "Orden de Pago confirmada con éxito. OP N° " . emp_numero_comprobante($conexion, $empresa_id, $punto_venta_id, $proximo_nro)
         ];
 
     } catch (Exception $e) {
-        mysqli_rollback($conexion);
+        if (!$en_transaccion) {
+            mysqli_rollback($conexion);
+        }
         error_log("Error confirmando pago $pago_id: " . $e->getMessage());
         throw $e;
     }
@@ -970,7 +994,7 @@ function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '')
 
         // 2. Anular imputaciones vigentes reabriendo las facturas de compra (§2.6)
         $sql_imps = "SELECT imputacion_id FROM gestion__comprobantes_imputaciones 
-                     WHERE comp_origen_id = ? AND tabla_estado_registro_id = 2154";
+                     WHERE comp_origen_id = ? AND tabla_estado_registro_id = 5";
         $stmt_im = mysqli_prepare($conexion, $sql_imps);
         mysqli_stmt_bind_param($stmt_im, "i", $comp_id);
         mysqli_stmt_execute($stmt_im);
@@ -993,11 +1017,11 @@ function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '')
         mysqli_stmt_close($stmt_mv);
 
         // 4. Gestión de cheques afectados:
-        // A) Cheques propios: pasan a ANULADOS (2179)
-        $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 2179, usuario_modificacion_id = $usuario_id WHERE comp_origen_id = $comp_id AND cheque_tipo = 'PROPIO'");
+        // A) Cheques propios: pasan a ANULADOS (38)
+        $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 38, usuario_modificacion_id = $usuario_id WHERE comp_origen_id = $comp_id AND cheque_tipo = 'PROPIO'");
 
-        // B) Cheques de terceros que fueron endosados: vuelven a EN_CARTERA (2172) y se desvincula comp_destino_id (C2 / RT06)
-        $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 2172, comp_destino_id = NULL, usuario_modificacion_id = $usuario_id WHERE comp_destino_id = $comp_id AND cheque_tipo = 'TERCERO'");
+        // B) Cheques de terceros que fueron endosados: vuelven a EN_CARTERA (29) y se desvincula comp_destino_id (C2 / RT06)
+        $conexion->query("UPDATE gestion__cheques SET tabla_estado_registro_id = 29, comp_destino_id = NULL, usuario_modificacion_id = $usuario_id WHERE comp_destino_id = $comp_id AND cheque_tipo = 'TERCERO'");
 
         // 5. Anular comprobante OP
         $conexion->query("UPDATE gestion__comprobantes SET tabla_estado_registro_id = $est_anul, importe_pendiente = 0, usuario_modificacion_id = $usuario_id WHERE comprobante_id = $comp_id");
@@ -1067,9 +1091,10 @@ function eliminarPagoBorrador($conexion, $pago_id, $empresa_id, $usuario_id)
 function obtenerProveedoresPago($conexion, $empresa_id)
 {
     $empresa_id = intval($empresa_id);
-    $sql = "SELECT entidad_id, entidad_nombre, cuit, domicilio_legal
+    // Incluye clientes: devolución de dinero de una nota de crédito de venta
+    $sql = "SELECT entidad_id, entidad_nombre, cuit, domicilio_legal, es_cliente, es_proveedor
             FROM gestion__entidades
-            WHERE empresa_id = ? AND es_proveedor = 1 AND tabla_estado_registro_id = 1
+            WHERE empresa_id = ? AND (es_proveedor = 1 OR es_cliente = 1) AND tabla_estado_registro_id = 1
             ORDER BY entidad_nombre ASC";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
@@ -1097,7 +1122,7 @@ function obtenerChequesTercerosEnCartera($conexion, $empresa_id)
             JOIN gestion__monedas m ON m.moneda_id = chq.moneda_id
             WHERE chq.empresa_id = ? 
               AND chq.cheque_tipo = 'TERCERO'
-              AND chq.tabla_estado_registro_id = 2172
+              AND chq.tabla_estado_registro_id = 29
             ORDER BY chq.f_pago ASC, chq.numero ASC";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];

@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['empresa' => false, 'solo_superadmin' => true]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once "productos_model.php";

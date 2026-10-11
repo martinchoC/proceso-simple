@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Bocas</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-store"></i> Manual de usuario: Bocas</h1>
+<p class="subtitulo">Cómo cargar las bocas de cada sucursal: los mostradores, salones o depósitos desde donde se vende o se mueve mercadería.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es una Boca?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados: Activo e Inactivo</a></li>
+        <li><a href="#agregar">Agregar una boca</a></li>
+        <li><a href="#opciones">Las opciones de la boca (depósito, ingresos, egresos, principal)</a></li>
+        <li><a href="#editar">Editar una boca</a></li>
+        <li><a href="#inhabilitar-habilitar">Inhabilitar o habilitar</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es una Boca?</h2>
+<p>Una <strong>Boca</strong> es un sector de una sucursal que opera por su cuenta. Puede ser:</p>
+<ul>
+    <li><strong>Comercial</strong>: un mostrador o salón de ventas, sin stock propio.</li>
+    <li><strong>De depósito</strong>: un lugar donde se guarda mercadería y se lleva stock.</li>
+</ul>
+<p>Toda boca pertenece a una <a href="sucursales.html">sucursal</a>, y todo <a href="puntos_venta.html">punto de venta</a> pertenece a una boca.</p>
+<div class="flujo">
+    <div class="flujo-caja">Sucursal</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Boca</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Punto de Venta</div>
+</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno de la boca.</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal a la que pertenece.</td></tr>
+    <tr><td>Nombre</td><td>Nombre de la boca.</td></tr>
+    <tr><td>Código</td><td>Código corto de la boca.</td></tr>
+    <tr><td>Depósito</td><td>"Sí" si la boca maneja stock; "No" si es solo comercial.</td></tr>
+    <tr><td>Descripción</td><td>Texto libre.</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles según el estado.</td></tr>
+</table>
+<p>La tabla recuerda la página, el orden y la búsqueda que usaste la última vez. Las bocas inactivas aparecen con fondo gris.</p>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>La boca está en uso y se ofrece al cargar puntos de venta, ubicaciones y movimientos.</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>La boca ya no se usa. Sus datos se conservan, pero no se puede editar mientras esté inactiva.</td></tr>
+</table>
+
+<h2 id="agregar">Agregar una boca</h2>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">+ Agregar</span>. Se abre la ventana <strong>Nueva Boca</strong> (con el botón ⤢ la podés ver en pantalla completa):</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Sucursal *</td><td>Sucursal a la que pertenece. Obligatoria.</td></tr>
+    <tr><td>Nombre *</td><td>Obligatorio, hasta 100 caracteres.</td></tr>
+    <tr><td>Código *</td><td>Obligatorio, hasta 20 caracteres. No se puede repetir dentro de la misma sucursal.</td></tr>
+    <tr><td>Orden</td><td>Número para ordenar las bocas en las listas. Por defecto 1.</td></tr>
+    <tr><td>Provincia / Localidad</td><td>Primero elegí la provincia; recién ahí se habilita la lista de localidades de esa provincia.</td></tr>
+    <tr><td>Dirección</td><td>Si la boca está en otra dirección que la sucursal.</td></tr>
+    <tr><td>Descripción</td><td>Texto libre.</td></tr>
+    <tr><td>Casillas de opciones</td><td>Ver la sección siguiente.</td></tr>
+</table>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">Guardar</span>. Si está todo bien, ves "¡Guardado! Boca guardada correctamente". La boca nueva queda <strong>Activa</strong>.</p>
+
+<h2 id="opciones">Las opciones de la boca</h2>
+<table class="tabla-referencia">
+    <tr><th>Casilla</th><th>Qué significa</th><th>Por defecto</th></tr>
+    <tr><td>Maneja stock (depósito)</td><td>Marcala si en esta boca se guarda mercadería. Solo las bocas marcadas así aparecen en <a href="sucursales_ubicaciones.html">Depósitos - Ubicaciones</a>.</td><td>Desmarcada</td></tr>
+    <tr><td>Permite Ingresos</td><td>La boca puede recibir mercadería.</td><td>Marcada</td></tr>
+    <tr><td>Permite Egresos</td><td>De la boca puede salir mercadería.</td><td>Marcada</td></tr>
+    <tr><td>Boca Principal</td><td>Marca la boca principal de la sucursal. En las listas se muestra primero.</td><td>Desmarcada</td></tr>
+</table>
+
+<h2 id="editar">Editar una boca</h2>
+<p>Con el botón del lápiz (<strong>Editar</strong>) se abre la ventana <strong>Editar Boca</strong> con los datos cargados. Solo aparece en bocas Activas. Al guardar ves "Boca guardada correctamente".</p>
+
+<h2 id="inhabilitar-habilitar">Inhabilitar o habilitar</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-peligro">Inhabilitar</span></td><td>Pasa la boca a Inactivo. Pide confirmación: "¿Está seguro de inactivar la boca …?".</td><td>Boca Activa</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Habilitar</span></td><td>La vuelve a Activo. Pide confirmación.</td><td>Boca Inactiva</td></tr>
+</table>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha: <span class="boton-ejemplo boton-outline">↻</span> recarga la tabla, y el menú <span class="boton-ejemplo boton-outline">Exportar</span> tiene Excel, PDF, CSV e Imprimir. Se exporta lo que ves, con la búsqueda aplicada.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué hacer</th></tr>
+    <tr><td>Ya existe una boca con este código en la sucursal seleccionada</td><td>Elegí otro código.</td></tr>
+    <tr><td>Debe seleccionar una sucursal / El nombre es obligatorio / El código es obligatorio</td><td>Completá el campo indicado.</td></tr>
+    <tr><td>Acción no permitida para este estado</td><td>La boca cambió de estado. Recargá con ↻.</td></tr>
+    <tr><td>Error de conexión</td><td>Probá de nuevo; si sigue, avisá al equipo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>No me aparece la boca al cargar ubicaciones de depósito.</td><td>Revisá que tenga marcada "Maneja stock (depósito)" y que esté Activa.</td></tr>
+    <tr><td>¿Necesito una boca aunque la sucursal sea un solo local?</td><td>Sí. Todo punto de venta tiene que estar en una boca, así que cada sucursal necesita al menos una.</td></tr>
+    <tr><td>Un usuario no ve esta boca al operar.</td><td>Revisá su acceso en <a href="accesos_perfiles.html">Sucursales - Accesos por Perfil</a>.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Bocas. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -331,9 +331,10 @@ function agregarComprobanteTipo($conexion, $data)
     $orden = intval($data['orden'] ?? 1);
     $comentario = mysqli_real_escape_string($conexion, trim($data['comentario'] ?? ''));
     $impacta_stock = intval($data['impacta_stock'] ?? 0);
+    list($impacta_stock, $stock_signo) = normalizarStockComprobanteTipo($data);
     $impacta_contabilidad = intval($data['impacta_contabilidad'] ?? 0);
     $impacta_ctacte = intval($data['impacta_ctacte'] ?? 0);
-    $empresa_idx = intval($data['empresa_idx'] ?? 2);
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
 
     // Validaciones
     if (empty($comprobante_tipo)) {
@@ -401,16 +402,17 @@ function agregarComprobanteTipo($conexion, $data)
                 orden,
                 comentario,
                 impacta_stock,
+                stock_signo,
                 impacta_contabilidad,
                 impacta_ctacte,
                 tabla_estado_registro_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issiiissisiiii", 
+    mysqli_stmt_bind_param($stmt, "issiiissisisiii", 
         $empresa_idx,
         $comprobante_tipo,
         $codigo,
@@ -422,6 +424,7 @@ function agregarComprobanteTipo($conexion, $data)
         $orden,
         $comentario,
         $impacta_stock,
+        $stock_signo,
         $impacta_contabilidad,
         $impacta_ctacte,
         $estado_inicial
@@ -453,9 +456,10 @@ function editarComprobanteTipo($conexion, $id, $data)
     $orden = intval($data['orden'] ?? 1);
     $comentario = mysqli_real_escape_string($conexion, trim($data['comentario'] ?? ''));
     $impacta_stock = intval($data['impacta_stock'] ?? 0);
+    list($impacta_stock, $stock_signo) = normalizarStockComprobanteTipo($data);
     $impacta_contabilidad = intval($data['impacta_contabilidad'] ?? 0);
     $impacta_ctacte = intval($data['impacta_ctacte'] ?? 0);
-    $empresa_idx = intval($data['empresa_idx'] ?? 2);
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
 
     // Validaciones
     if (empty($comprobante_tipo)) {
@@ -536,6 +540,7 @@ function editarComprobanteTipo($conexion, $id, $data)
                 orden = ?,
                 comentario = ?,
                 impacta_stock = ?,
+                stock_signo = ?,
                 impacta_contabilidad = ?,
                 impacta_ctacte = ?
             WHERE comprobante_tipo_id = ? AND empresa_id = ?";
@@ -544,7 +549,7 @@ function editarComprobanteTipo($conexion, $id, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssiiissisiiiii", 
+    mysqli_stmt_bind_param($stmt, "ssiiissisisiiii", 
         $comprobante_tipo,
         $codigo,
         $comprobante_grupo_id,
@@ -555,6 +560,7 @@ function editarComprobanteTipo($conexion, $id, $data)
         $orden,
         $comentario,
         $impacta_stock,
+        $stock_signo,
         $impacta_contabilidad,
         $impacta_ctacte,
         $id,
@@ -769,7 +775,7 @@ function obtenerEstadosDisponibles($conexion)
 function copiarComprobanteTipo($conexion, $id, $data)
 {
     $id = intval($id);
-    $empresa_idx = intval($data['empresa_idx'] ?? 2);
+    $empresa_idx = intval($data['empresa_idx'] ?? 0);
     
     // Verificar que el tipo original exista
     $sql_check = "SELECT * FROM gestion__comprobantes_tipos 
@@ -840,16 +846,17 @@ function copiarComprobanteTipo($conexion, $id, $data)
                 orden,
                 comentario,
                 impacta_stock,
+                stock_signo,
                 impacta_contabilidad,
                 impacta_ctacte,
                 tabla_estado_registro_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
     
-    mysqli_stmt_bind_param($stmt, "issiiissisiiii", 
+    mysqli_stmt_bind_param($stmt, "issiiissisisiii", 
         $empresa_idx,
         $comprobante_tipo,
         $codigo,
@@ -861,6 +868,7 @@ function copiarComprobanteTipo($conexion, $id, $data)
         $original['orden'],
         $original['comentario'],
         $original['impacta_stock'],
+        $original['stock_signo'],
         $original['impacta_contabilidad'],
         $original['impacta_ctacte'],
         $estado_inicial
@@ -877,4 +885,15 @@ function copiarComprobanteTipo($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Error al copiar el tipo de comprobante'];
     }
 }
+// Stock del tipo: stock_signo dice el sentido ('+', '-', '+/-') y impacta_stock se deriva de él.
+// Si el formulario no manda stock_signo (clientes viejos), se respeta impacta_stock sin sentido.
+function normalizarStockComprobanteTipo($data)
+{
+    if (array_key_exists('stock_signo', $data) && $data['stock_signo'] !== null) {
+        $signo = in_array($data['stock_signo'], ['+', '-', '+/-'], true) ? $data['stock_signo'] : null;
+        return [$signo !== null ? 1 : 0, $signo];
+    }
+    return [intval($data['impacta_stock'] ?? 0) === 1 ? 1 : 0, null];
+}
+
 ?>

@@ -1,4 +1,8 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['facturas_proveedores.php']]);
+require_once __DIR__ . '/../../core/empresa_config.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -28,8 +32,9 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
-$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 52);
+$empresa_idx = intval($ctx['empresa_id']);
+// Página fija (conf__paginas 57 = facturas_proveedores.php), nunca del request: define qué funciones/transiciones valen.
+$pagina_idx = 57;
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
@@ -57,10 +62,7 @@ try {
         case 'ejecutar_accion':
             $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
-            $pagina_id = intval($_POST['pagina_idx'] ?? 0);
-            
-            $resultado = ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $empresa_idx, $pagina_id);
+            $resultado = ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $ctx['empresa_id'], $pagina_idx);
             echo json_encode($resultado);
             break;
 
@@ -129,6 +131,8 @@ try {
                 'total' => floatval($_POST['total'] ?? 0),
                 'descuento_general_pct' => floatval($_POST['descuento_general_pct'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'orden_compra_id' => intval($_POST['orden_compra_id'] ?? 0),
+                'comprobante_asociado_id' => intval($_POST['comprobante_asociado_id'] ?? 0),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
@@ -178,6 +182,8 @@ try {
                 'total' => floatval($_POST['total'] ?? 0),
                 'descuento_general_pct' => floatval($_POST['descuento_general_pct'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'orden_compra_id' => intval($_POST['orden_compra_id'] ?? 0),
+                'comprobante_asociado_id' => intval($_POST['comprobante_asociado_id'] ?? 0),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx
             ];
@@ -206,7 +212,7 @@ try {
             break;
 
         case 'obtener_comprobantes_tipos':
-            $tipos = obtenerComprobantesTipos($conexion);
+            $tipos = obtenerComprobantesTipos($conexion, $empresa_idx);
             echo json_encode($tipos, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -340,6 +346,76 @@ try {
             $resultado = agregarProductoRapido($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
+
+        // Notas de crédito / débito: comprobante asociado y aplicación de NC con saldo (OP en $0)
+        case 'obtener_asiento':
+            $asiento = fpObtenerAsientoFactura($conexion, intval($_GET['factura_proveedor_id'] ?? 0), $ctx['empresa_id']);
+            echo json_encode(['success' => (bool) $asiento, 'data' => $asiento], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'comprobantes_asociables':
+            $tipo_nota = intval($_GET['comprobante_tipo_id'] ?? 0);
+            echo json_encode(['success' => true, 'es_nota' => fpTipoEsNota($conexion, $ctx['empresa_id'], $tipo_nota),
+                'data' => fpComprobantesAsociables($conexion, $ctx['empresa_id'], intval($_GET['entidad_id'] ?? 0), $tipo_nota)], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'notas_credito_disponibles':
+            $disp = fpNotasCreditoDisponiblesFactura($conexion, intval($_GET['factura_proveedor_id'] ?? 0), $ctx['empresa_id']);
+            echo json_encode(['success' => true, 'data' => $disp], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'aplicar_notas_credito':
+            $disp = fpNotasCreditoDisponiblesFactura($conexion, intval($_POST['factura_proveedor_id'] ?? 0), $ctx['empresa_id']);
+            if (!$disp) {
+                echo json_encode(['success' => false, 'error' => 'La factura no tiene saldo o no hay notas de crédito para aplicar.'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $aplicaciones = json_decode($_POST['aplicaciones'] ?? '[]', true);
+            if (!is_array($aplicaciones)) $aplicaciones = [];
+            echo json_encode(fpAplicarNotasCredito($conexion, $ctx['empresa_id'], $disp['comprobante_id'], $aplicaciones, $ctx['usuario_id']), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'listar_oc_pendientes':
+            // OC del proveedor (Confirmado / Pend. Recepción / Recibido parcial) con algo pendiente de recibir
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            $factura_excluir_id = intval($_GET['factura_proveedor_id'] ?? 0);
+            if ($entidad_id <= 0) {
+                echo json_encode(['success' => false, 'data' => [], 'message' => 'Seleccione un proveedor'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $ordenes = fpOcPendientesProveedor($conexion, $ctx['empresa_id'], $entidad_id, $factura_excluir_id);
+            echo json_encode(['success' => true, 'data' => $ordenes, 'message' => ''], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_oc_lineas':
+            $orden_compra_id = intval($_GET['orden_compra_id'] ?? 0);
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            $factura_excluir_id = intval($_GET['factura_proveedor_id'] ?? 0);
+            $ordenes = fpOcPendientesProveedor($conexion, $ctx['empresa_id'], $entidad_id, $factura_excluir_id);
+            $orden = null;
+            foreach ($ordenes as $o) {
+                if ($o['orden_compra_id'] === $orden_compra_id) {
+                    $orden = $o;
+                    break;
+                }
+            }
+            if (!$orden) {
+                echo json_encode(['success' => false, 'data' => null, 'message' => 'La orden de compra no tiene pendientes para este proveedor'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $orden['lineas'] = fpOcLineas($conexion, $ctx['empresa_id'], $orden_compra_id, $factura_excluir_id);
+            echo json_encode(['success' => true, 'data' => $orden, 'message' => ''], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'vincular_producto_proveedor':
+            $resultado = vincularProductoProveedor($conexion, [
+                'producto_id' => intval($_POST['producto_id'] ?? 0),
+                'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+                'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? ''),
+                'empresa_id' => $ctx['empresa_id']
+            ]);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
         
         case 'obtener_depositos':
             $sucursal_id = intval($_GET['sucursal_id'] ?? 0);
@@ -355,7 +431,7 @@ try {
             break;
         
         case 'obtener_impuestos_config':
-            $comprobante_subgrupo_id = intval($_GET['comprobante_subgrupo_id'] ?? 5);
+            $comprobante_subgrupo_id = intval($_GET['comprobante_subgrupo_id'] ?? 0);   // 0: Facturas de Compra (FC) de la empresa
             $impuestos = obtenerImpuestosConfig($conexion, $empresa_idx, $comprobante_subgrupo_id);
             echo json_encode($impuestos, JSON_UNESCAPED_UNICODE);
             break;
@@ -370,8 +446,8 @@ try {
        // En facturas_proveedores_ajax.php, reemplazar el case 'obtener_impuestos_config':
 
         case 'obtener_impuestos_config':
-            $comprobante_subgrupo_id = intval($_GET['comprobante_subgrupo_id'] ?? 5);
-            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
+            $empresa_idx_local = intval($ctx['empresa_id']);
+            $comprobante_subgrupo_id = emp_subgrupo_valido_id($conexion, $empresa_idx_local, $_GET['comprobante_subgrupo_id'] ?? 0, 'FC');
             
             $sql = "SELECT 
                         config.empresa_impuesto_config_id,

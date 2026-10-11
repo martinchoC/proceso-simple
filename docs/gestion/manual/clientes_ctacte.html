@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Cuenta Corriente de Clientes</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    .rojo { color: var(--rojo); font-weight: 600; }
+    .verde { color: var(--verde); font-weight: 600; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-caja.final { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-caja.alerta { border-color: var(--amarillo); background: #fff8e1; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } h2 { page-break-after: avoid; } }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-balance-scale"></i> Manual de usuario: Cuenta Corriente de Clientes</h1>
+<p class="subtitulo">Para saber cuánto te debe cada cliente, qué tiene vencido y cómo se llegó a ese saldo, movimiento por movimiento. Es una pantalla de consulta: no se carga nada.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es la cuenta corriente?</a></li>
+        <li><a href="#que-incluye">Qué comprobantes cuentan (y cuáles no)</a></li>
+        <li><a href="#saldos">Paso 1: la tabla de saldos de todos los clientes</a></li>
+        <li><a href="#detalle">Paso 2: el detalle de un cliente</a></li>
+        <li><a href="#solapa-deuda">Solapa Deuda</a></li>
+        <li><a href="#solapa-cuenta">Solapa Cuenta corriente</a></li>
+        <li><a href="#solapa-comprobantes">Solapa Comprobantes emitidos</a></li>
+        <li><a href="#ver-detalle">Ver el detalle de un comprobante</a></li>
+        <li><a href="#flujo">De la factura al saldo: el recorrido</a></li>
+        <li><a href="#desde-clientes">Acceso desde la ficha del cliente</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#exportar">Exportar</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es la cuenta corriente?</h2>
+<p>Es la "libreta" de cada cliente. Cada factura o nota de débito que le hacés <strong>suma</strong> a lo que te debe (Debe). Cada recibo de cobro o nota de crédito <strong>resta</strong> (Haber). La diferencia es el <strong>saldo</strong>.</p>
+<ul>
+    <li>Saldo en <span class="rojo">rojo</span>: el cliente te debe (deudor).</li>
+    <li>Saldo en <span class="verde">verde</span>: vos le debés al cliente, por ejemplo porque pagó de más o tiene una nota de crédito sin usar (acreedor, a favor del cliente).</li>
+    <li>Saldo en cero: está al día.</li>
+</ul>
+<div class="alert alert-info">Esta pantalla es <strong>solo de consulta</strong>. No tiene botones para cargar, cobrar ni anular. Para cobrar una factura usá la solapa "Medios de Pago" de <a href="ventas_facturas.html">Facturación</a> o la pantalla de <a href="cobranzas.html">Cobranzas</a>.</div>
+
+<h2 id="que-incluye">Qué comprobantes cuentan (y cuáles no)</h2>
+<table class="tabla-referencia">
+    <tr><th>Cuentan</th><th>No cuentan</th></tr>
+    <tr>
+        <td>Facturas, notas de débito, recibos de cobro y notas de crédito que ya están <strong>Confirmados</strong>, o que ya tienen cobros aplicados (Cancelado parcial / Cancelado total).</td>
+        <td>Comprobantes en <strong>Borrador</strong>, <strong>Pendiente de Aprobación</strong> (por ejemplo, facturas que todavía esperan el CAE de ARCA), <strong>Eliminados</strong> o <strong>Anulados</strong>. Tampoco las ventas a <strong>Consumidor Final</strong>, que no tienen un cliente con cuenta.</td>
+    </tr>
+</table>
+<p>Los importes se muestran siempre en pesos. Si un comprobante se hizo en otra moneda, se convierte con el tipo de cambio de ese comprobante.</p>
+
+<h2 id="saldos">Paso 1: la tabla de saldos de todos los clientes</h2>
+<p>Al entrar ves arriba los filtros y la tabla con un cliente por fila.</p>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Cómo funciona</th></tr>
+    <tr><td>Cliente / CUIT</td><td>Escribí parte del nombre o del CUIT y tocá <span class="boton-ejemplo boton-primario">Filtrar</span> (o Enter).</td></tr>
+    <tr><td>Solo con saldo</td><td>Viene marcado. Oculta los clientes que están en cero. Al tildarlo o destildarlo la tabla se actualiza sola.</td></tr>
+    <tr><td>Solo con deuda vencida</td><td>Muestra solo los clientes que tienen algo vencido. También se actualiza solo.</td></tr>
+</table>
+<p>A la derecha de los filtros ves un resumen: cuántos clientes hay en la lista, el <strong>saldo total</strong> y el total <strong>vencido</strong>.</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Cliente</td><td>Nombre y, abajo, nombre de fantasía.</td></tr>
+    <tr><td>CUIT</td><td>CUIT del cliente.</td></tr>
+    <tr><td>Saldo</td><td>Lo que debe en total, descontando lo que tiene a favor. Rojo si debe, verde si tiene a favor.</td></tr>
+    <tr><td>Deuda pendiente</td><td>Suma de lo que falta cobrar de sus facturas y notas de débito.</td></tr>
+    <tr><td>Vencido</td><td>La parte de esa deuda cuya fecha de vencimiento ya pasó.</td></tr>
+    <tr><td>A favor</td><td>Recibos o notas de crédito que todavía no se aplicaron a ninguna factura.</td></tr>
+    <tr><td>Vence desde</td><td>Vencimiento del comprobante impago más viejo.</td></tr>
+    <tr><td>Último mov.</td><td>Fecha del último comprobante de ese cliente.</td></tr>
+</table>
+<p>La tabla viene ordenada por saldo, de mayor a menor. <strong>Hacé clic en una fila</strong> para ver el detalle de ese cliente más abajo (la fila queda resaltada y la página baja sola).</p>
+
+<h2 id="detalle">Paso 2: el detalle de un cliente</h2>
+<p>Arriba del detalle aparece el nombre del cliente, su nombre de fantasía, su CUIT y su condición fiscal. El botón <span class="boton-ejemplo boton-outline">↻</span> vuelve a leer los datos (útil si alguien acaba de cobrar o facturar).</p>
+<p>Debajo hay cinco tarjetas de resumen:</p>
+<table class="tabla-referencia">
+    <tr><th>Tarjeta</th><th>Qué te dice</th></tr>
+    <tr><td>Saldo cuenta corriente</td><td>El saldo, con la aclaración "Deudor", "Acreedor (a favor del cliente)" o "Sin saldo".</td></tr>
+    <tr><td>Deuda pendiente</td><td>Cuánto debe, cuántos comprobantes son y desde qué fecha vence el más viejo.</td></tr>
+    <tr><td>Vencido</td><td>Cuánto de eso ya venció y en cuántos comprobantes.</td></tr>
+    <tr><td>Saldo a favor sin aplicar</td><td>Recibos o notas de crédito que todavía no se usaron para cancelar una factura.</td></tr>
+    <tr><td>Último cobro</td><td>Fecha e importe del último recibo, o "Sin cobros".</td></tr>
+</table>
+<p>Y tres solapas, que se explican a continuación.</p>
+
+<h2 id="solapa-deuda">Solapa Deuda</h2>
+<p>Es la que se abre primero. El número junto al nombre de la solapa es la cantidad de comprobantes adeudados (se pone rojo si alguno está vencido).</p>
+<h3>Comprobantes adeudados</h3>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Emisión / Vencimiento</td><td>Fechas del comprobante. Si no tiene vencimiento, se toma la de emisión.</td></tr>
+    <tr><td>Comprobante / Sucursal</td><td>Tipo y número, y sucursal que lo emitió.</td></tr>
+    <tr><td>Total / Pendiente</td><td>Importe original y lo que falta cobrar.</td></tr>
+    <tr><td>Atraso</td><td>"al día" si todavía no venció. Si venció, la cantidad de días: en amarillo hasta 30 días, en <span class="badge badge-danger">rojo</span> si pasa de 30.</td></tr>
+    <tr><td>Ojo</td><td>Abre el detalle del comprobante (ver <a href="#ver-detalle">más abajo</a>).</td></tr>
+</table>
+<p>Abajo está el <strong>Total adeudado</strong>. Los comprobantes vienen ordenados por vencimiento, del más viejo al más nuevo.</p>
+<h3>Saldo a favor</h3>
+<p>Si el cliente tiene recibos o notas de crédito sin aplicar, aparece una segunda tabla con esos comprobantes y cuánto les queda "sin aplicar".</p>
+
+<h2 id="solapa-cuenta">Solapa Cuenta corriente</h2>
+<p>Es el extracto, como el de un banco. Elegí <strong>Desde</strong> y <strong>Hasta</strong> (por defecto, el último año) y tocá <span class="boton-ejemplo boton-primario">Filtrar</span>.</p>
+<ul>
+    <li>Arriba se muestra el <strong>Saldo anterior</strong> al "Desde": lo que debía antes del período.</li>
+    <li>Cada fila es un comprobante, en orden de fecha, con su <strong>Debe</strong> (facturas, notas de débito) o su <strong>Haber</strong> (recibos, notas de crédito) y el <strong>Saldo</strong> acumulado después de ese movimiento.</li>
+    <li>Si el comprobante fue en otra moneda, se ve un recuadro con la moneda y el tipo de cambio.</li>
+    <li>Al pie: totales de Debe y Haber del período y saldo final.</li>
+</ul>
+<div class="nota-lateral">En esta solapa no se puede reordenar por columna: el saldo acumulado solo tiene sentido en orden de fecha.</div>
+
+<h2 id="solapa-comprobantes">Solapa Comprobantes emitidos</h2>
+<p>Lista todos los comprobantes del cliente en el período (Desde / Hasta y <strong>Filtrar</strong>), sin importar si están pagos o no: emisión, número y tipo, grupo (ventas, cobranzas, etc.), sucursal, total, saldo y <strong>estado</strong>. Sirve para encontrar un comprobante puntual del cliente.</p>
+
+<h2 id="ver-detalle">Ver el detalle de un comprobante</h2>
+<p>El botón con el ojo, en cualquiera de las tablas, abre una ventana con: número, tipo, estado, cliente, fechas, sucursal, neto, IVA, total, el CAE (si es una factura autorizada por ARCA), el <strong>saldo pendiente</strong> y la lista de <strong>imputaciones</strong> (qué recibos o notas de crédito lo cancelaron, o a qué facturas se aplicó, con importe y fecha). Las imputaciones anuladas se ven tachadas.</p>
+<p>Si está disponible, el botón <span class="boton-ejemplo boton-outline">Ir a …</span> abre en otra pestaña la pantalla donde se cargó ese comprobante.</p>
+
+<h2 id="flujo">De la factura al saldo: el recorrido</h2>
+<div class="flujo">
+    <div class="flujo-caja">Factura confirmada<small>suma al Debe</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja alerta">Deuda pendiente<small>(vencida si pasó la fecha)</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Recibo o nota de crédito aplicada<small>suma al Haber</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Saldo en cero</div>
+</div>
+<p>Si el cliente paga solo una parte, la factura queda con saldo pendiente (Cancelado parcial) hasta que se termine de cobrar.</p>
+
+<h2 id="desde-clientes">Acceso desde la ficha del cliente</h2>
+<p>En la pantalla <a href="clientes.html">Clientes</a>, al editar un cliente ya guardado, la solapa <strong>Cuenta Corriente</strong> muestra este mismo detalle. Desde ahí, el botón <strong>Abrir en Cuenta Corriente de Clientes</strong> abre esta pantalla, en otra pestaña, ya posicionada en ese cliente.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>"La empresa no tiene configurada la matriz de cancelaciones del recibo de cobro (RCX)."</td><td>Falta una configuración de la empresa y la pantalla no puede saber qué comprobantes forman la cuenta corriente. Avisale al administrador del sistema.</td></tr>
+    <tr><td>"Seleccione un cliente."</td><td>Hacé clic en una fila de la tabla de saldos.</td></tr>
+    <tr><td>"Fecha inválida."</td><td>Revisá los campos Desde / Hasta.</td></tr>
+    <tr><td>"Error al consultar la cuenta corriente."</td><td>Problema del sistema. Probá de nuevo con <span class="boton-ejemplo boton-outline">↻</span>; si sigue, avisá al equipo.</td></tr>
+</table>
+
+<h2 id="exportar">Exportar</h2>
+<p>Las tablas de esta pantalla tienen botones <span class="boton-ejemplo boton-outline">Excel</span> y <span class="boton-ejemplo boton-outline">PDF</span> para bajar lo que estás viendo (por ejemplo, para mandarle el extracto al cliente).</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Le hice una factura a un cliente y no la veo en su cuenta corriente.</td>
+        <td>Revisá su estado en <a href="ventas_facturas.html">Facturación</a>. Si está en Borrador o en Pendiente de Aprobación (por ejemplo, esperando el CAE), todavía no cuenta. Recién cuenta cuando queda Confirmada.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué "Saldo" y "Deuda pendiente" son distintos?</td>
+        <td>Porque el saldo descuenta lo que el cliente tiene a favor (recibos o notas de crédito sin aplicar). La deuda pendiente es solo lo que falta cobrar de las facturas.</td>
+    </tr>
+    <tr>
+        <td>El cliente tiene saldo a favor y deuda a la vez, ¿cómo lo compenso?</td>
+        <td>Hay que aplicar ese recibo o nota de crédito a la factura. Al aprobar una factura, el sistema ofrece imputar las notas de crédito con saldo del cliente. Para recibos, consultá el manual de <a href="cobranzas.html">Cobranzas</a>.</td>
+    </tr>
+    <tr>
+        <td>No encuentro a un consumidor final.</td>
+        <td>Las ventas a Consumidor Final no tienen cuenta corriente: se cobran en el momento.</td>
+    </tr>
+    <tr>
+        <td>Veo un saldo de comprobantes de una sucursal a la que no tengo acceso.</td>
+        <td>Es a propósito: el saldo de un cliente es el de toda la empresa, lo mire quien lo mire.</td>
+    </tr>
+</table>
+
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="clientes.html">Clientes</a> (solapa Cuenta Corriente de la ficha).</li>
+    <li><a href="ventas_facturas.html">Facturación</a>: emitir, aprobar y cobrar facturas.</li>
+    <li><a href="cobranzas.html">Cobranzas</a>: recibos de cobro.</li>
+    <li><a href="ventas_remitos_pendientes_facturacion.html">Cola de Facturación</a>.</li>
+</ul>
+
+<footer>
+    Manual de usuario — Módulo Ventas / Cuenta Corriente de Clientes. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
+</footer>
+
+</body>
+</html>

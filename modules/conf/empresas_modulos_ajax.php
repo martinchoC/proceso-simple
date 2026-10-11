@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 1, 'paginas_url' => ['empresas_modulos.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once "empresas_modulos_model.php";
@@ -29,6 +32,12 @@ switch ($accion) {
         // Verificar si ya existe la combinación
         if (existeEmpresaModulo($conexion, $data['empresa_id'], $data['modulo_id'])) {
             echo json_encode(['resultado' => false, 'error' => 'Esta empresa ya tiene asignado este módulo']);
+            break;
+        }
+
+        // Verificar exclusividad mutua entre Gestión de Empresas (2) y Gestión Normal (5)
+        if (intval($data['tabla_estado_registro_id']) == 1 && ($conflicto = obtenerModuloConflictoExcluyente($conexion, $data['empresa_id'], $data['modulo_id']))) {
+            echo json_encode(['resultado' => false, 'error' => "Los módulos 'Gestión de Empresas' (con compatibilidad) y 'Gestión Normal' (sin compatibilidad) son mutuamente excluyentes. No se puede activar para esta empresa porque ya tiene activo '" . $conflicto . "'."]);
             break;
         }
         
@@ -67,6 +76,12 @@ switch ($accion) {
             echo json_encode(['resultado' => false, 'error' => 'Esta empresa ya tiene asignado este módulo']);
             break;
         }
+
+        // Verificar exclusividad mutua entre Gestión de Empresas (2) y Gestión Normal (5)
+        if (intval($data['tabla_estado_registro_id']) == 1 && ($conflicto = obtenerModuloConflictoExcluyente($conexion, $data['empresa_id'], $data['modulo_id'], $id))) {
+            echo json_encode(['resultado' => false, 'error' => "Los módulos 'Gestión de Empresas' (con compatibilidad) y 'Gestión Normal' (sin compatibilidad) son mutuamente excluyentes. No se puede activar para esta empresa porque ya tiene activo '" . $conflicto . "'."]);
+            break;
+        }
         
         $resultado = editarEmpresaModulo($conexion, $id, $data);
         echo json_encode(['resultado' => $resultado]);
@@ -75,6 +90,13 @@ switch ($accion) {
     case 'cambiar_estado':
         $id = intval($_GET['empresa_modulo_id']);
         $nuevo_estado = intval($_GET['nuevo_estado']);
+        $em = obtenerEmpresaModuloPorId($conexion, $id);
+
+        if ($em && $nuevo_estado == 1 && ($conflicto = obtenerModuloConflictoExcluyente($conexion, $em['empresa_id'], $em['modulo_id'], $id))) {
+            echo json_encode(['resultado' => false, 'error' => "Los módulos 'Gestión de Empresas' (con compatibilidad) y 'Gestión Normal' (sin compatibilidad) son mutuamente excluyentes. No se puede activar para esta empresa porque ya tiene activo '" . $conflicto . "'."]);
+            break;
+        }
+
         $resultado = cambiarEstadoEmpresaModulo($conexion, $id, $nuevo_estado);
         echo json_encode(['resultado' => $resultado]);
         break;

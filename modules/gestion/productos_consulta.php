@@ -11,7 +11,7 @@ $pageTitle = "Consulta de Productos";
 $currentPage = 'productos_consulta';
 $modudo_idx = 2;
 $pagina_idx = 98; // ID de página en conf__paginas (ver sql/mantenimiento/20260926_productos_consulta.sql)
-$empresa_idx = 2; // TODO: reemplazar por el valor real de sesión/contexto cuando exista
+$empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 // Las listas de precios se traen acá (en el render de la página) y no por AJAX
 // al cargar, para no sumar una vuelta de red extra antes de poder pedir los
@@ -973,7 +973,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script>
         $(document).ready(function () {
             // Variables de contexto MULTIEMPRESA
-            const empresa_idx = 2;
+            const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
             const pagina_idx = <?php echo $pagina_idx; ?>;
 
             // Listas de precios activas, resueltas ya en el servidor al renderizar

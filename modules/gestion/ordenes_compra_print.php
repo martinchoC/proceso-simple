@@ -1,10 +1,14 @@
 <?php
 // ordenes_compra_print.php
+// Mismo guard que ordenes_compra_ajax.php: sesión + empresa del usuario + acceso a la página.
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['ordenes_compra.php']]);
+
 require_once __DIR__ . '/../../db.php';
 require_once "ordenes_compra_model.php";
 
 $orden_compra_id = intval($_GET['orden_compra_id'] ?? 0);
-$empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+$empresa_idx = $ctx['empresa_id'];
 
 if (!$orden_compra_id) {
     die('ID de orden no proporcionado');
@@ -16,8 +20,8 @@ if (!$orden) {
     die('Orden no encontrada');
 }
 
-// Obtener datos de la empresa
-$sql_empresa = "SELECT * FROM gestion__empresas WHERE empresa_id = ?";
+// Obtener datos de la empresa (gestion__empresas no existe: la empresa vive en conf__empresas)
+$sql_empresa = "SELECT empresa AS empresa_nombre, documento_numero, domicilio, telefono FROM conf__empresas WHERE empresa_id = ?";
 $stmt = mysqli_prepare($conexion, $sql_empresa);
 mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
 mysqli_stmt_execute($stmt);
@@ -26,21 +30,41 @@ $empresa = mysqli_fetch_assoc($result);
 mysqli_stmt_close($stmt);
 
 // Obtener datos de la sucursal
-$sql_sucursal = "SELECT * FROM gestion__sucursales WHERE sucursal_id = ? AND empresa_id = ?";
+$sql_sucursal = "SELECT sucursal_nombre, direccion AS sucursal_direccion, telefono AS sucursal_telefono
+                 FROM gestion__sucursales WHERE sucursal_id = ? AND empresa_id = ?";
 $stmt = mysqli_prepare($conexion, $sql_sucursal);
 mysqli_stmt_bind_param($stmt, "ii", $orden['sucursal_id'], $empresa_idx);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
 $sucursal = mysqli_fetch_assoc($result);
 mysqli_stmt_close($stmt);
+
+// Punto de venta (la OC guarda punto_venta_id, no comprobante_pv) y condición de pago
+$stmt = mysqli_prepare($conexion, "SELECT codigo_fiscal FROM gestion__puntos_venta WHERE punto_venta_id = ? AND empresa_id = ?");
+mysqli_stmt_bind_param($stmt, "ii", $orden['punto_venta_id'], $empresa_idx);
+mysqli_stmt_execute($stmt);
+$pv = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+mysqli_stmt_close($stmt);
+$orden['comprobante_pv'] = str_pad((string) intval($pv['codigo_fiscal'] ?? 0), 5, '0', STR_PAD_LEFT);
+
+$orden['condicion_pago'] = '';
+if (!empty($orden['condicion_pago_id'])) {
+    $stmt = mysqli_prepare($conexion, "SELECT condicion_pago FROM gestion__condiciones_pago WHERE condicion_pago_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $orden['condicion_pago_id'], $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $cp = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    $orden['condicion_pago'] = $cp['condicion_pago'] ?? '';
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orden de Compra #<?= $orden['comprobante_tipo'] ?> <?= $orden['comprobante_pv'] ?>-<?= $orden['comprobante_nro'] ?></title>
+    <title>Orden de Compra <?= htmlspecialchars($orden['comprobante_pv'] . '-' . $orden['comprobante_nro']) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -191,6 +215,7 @@ mysqli_stmt_close($stmt);
                     <th>Código</th>
                     <th>Producto</th>
                     <th class="text-center">Cantidad</th>
+                    <th class="text-center">Recibido</th>
                     <th class="text-end">Precio Unit.</th>
                     <th class="text-center">IVA %</th>
                     <th class="text-end">IVA $</th>
@@ -214,6 +239,7 @@ mysqli_stmt_close($stmt);
                     <td><?= htmlspecialchars($detalle['codigo_proveedor'] ?? $detalle['producto_id']) ?></td>
                     <td><?= htmlspecialchars($detalle['producto_nombre']) ?></td>
                     <td class="text-center"><?= number_format($detalle['cantidad'], 2) ?></td>
+                    <td class="text-center"><?= number_format($detalle['cantidad_recibida'] ?? 0, 2) ?></td>
                     <td class="text-end">$ <?= number_format($detalle['precio_unitario'], 4) ?></td>
                     <td class="text-center"><?= number_format($detalle['iva_porcentaje'], 2) ?>%</td>
                     <td class="text-end">$ <?= number_format($detalle['iva_importe'], 2) ?></td>
@@ -264,7 +290,6 @@ mysqli_stmt_close($stmt);
         </div>
     </div>
 
-    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

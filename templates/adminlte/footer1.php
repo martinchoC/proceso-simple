@@ -33,6 +33,20 @@
     }
   });
 </script>
+<script>
+  // core/ajax_guard.php responde 401 cuando la sesión venció: llevar al login en vez de que
+  // cada pantalla muestre un error genérico. (Los fetch() de cada página lo manejan aparte.)
+  if (window.jQuery) {
+    let redirigiendoLogin = false;
+    jQuery(document).ajaxError(function (event, xhr) {
+      if (xhr.status === 401 && !redirigiendoLogin) {
+        redirigiendoLogin = true;
+        alert('La sesión expiró. Vuelva a ingresar al sistema.');
+        window.location.href = '<?= url('login.php') ?>';
+      }
+    });
+  }
+</script>
 <script src="<?= asset_local('js/Sortable.min.js') ?>"></script>
 <script>
   const connectedSortable = document.querySelector('.connectedSortable');

@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['ventas_pedidos_gestion.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -29,7 +32,7 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 // Pagina propia de esta página (dada de alta en conf__paginas), la pasa el
 // front leyéndola de la URL con la que se abrió ventas_pedidos_gestion.php —
 // no hay default hardcodeado porque es una página nueva sin convención previa.
@@ -80,9 +83,9 @@ try {
 
             $pendientes_pedido = obtenerPedidosPendientesCliente($conexion, $empresa_idx, $pedido['entidad_id'], null, $venta_pedido_id, true);
 
-            // Todos los pendientes del cliente, sin filtro de pedido, menos los de
-            // este mismo pedido (ya están en la sección de arriba).
-            $pendientes_cliente_todos = obtenerPedidosPendientesCliente($conexion, $empresa_idx, $pedido['entidad_id'], null, null);
+            // Todos los pendientes del cliente (incluyendo líneas que ya forman parte de un remito en borrador),
+            // sin filtro de pedido, menos los de este mismo pedido (ya están en la sección de arriba).
+            $pendientes_cliente_todos = obtenerPedidosPendientesCliente($conexion, $empresa_idx, $pedido['entidad_id'], null, null, false, true);
             $pendientes_otros = array_values(array_filter($pendientes_cliente_todos, function ($p) use ($venta_pedido_id) {
                 return intval($p['venta_pedido_id']) !== intval($venta_pedido_id);
             }));

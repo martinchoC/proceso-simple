@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../db.php';
 
 // Obtener parámetros de la URL
 $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 0;
-$empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 // Deep-link: permite abrir esta pantalla directo en modo edición de un remito
 // puntual (usado por la solapa "Remitos" del módulo de pedidos, vía target="_blank").
@@ -211,12 +211,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                 </select>
                                                                 <div class="invalid-feedback small">Seleccione el tipo</div>
                                                             </div>
-                                                            <div class="col-md-12">
+                                                            <div class="col-md-7">
                                                                 <label for="entidad_combo" class="form-label fw-bold small">Cliente / Sucursal *</label>
                                                                 <select class="form-select form-select-sm" id="entidad_combo" name="entidad_combo" required>
                                                                     <option value="">Seleccionar cliente o sucursal</option>
                                                                 </select>
                                                                 <div class="invalid-feedback small">Seleccione cliente o sucursal</div>
+                                                            </div>
+                                                            <div class="col-md-5">
+                                                                <label for="cliente_condicion_fiscal" class="form-label fw-bold small">Condición Fiscal</label>
+                                                                <input type="text" class="form-control form-control-sm bg-light" id="cliente_condicion_fiscal" name="cliente_condicion_fiscal" readonly placeholder="Condición fiscal">
                                                             </div>
                                                             <!-- Solo con "Consumidor Final" elegido en el combo (precio de mostrador, sin cliente) -->
                                                             <div class="col-md-12" id="grupo_consumidor_final_nombre" style="display: none;">
@@ -236,7 +240,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                     <input type="number" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" value="0" min="1" readonly>
                                                                     <span class="input-group-text bg-light"><i class="fas fa-hashtag"></i></span>
                                                                 </div>
-                                                                <small class="text-muted">Se asigna al confirmar</small>
                                                             </div>
                                                             <div class="col-md-6">
                                                                 <label for="f_emision" class="form-label fw-bold small">Fecha Emisión *</label>
@@ -350,41 +353,46 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="card-body py-2" id="facturasDelRemitoContainer"></div>
                                                 </div>
 
-                                                <div class="card-header py-1 bg-success bg-opacity-10 rounded mb-2 d-flex justify-content-between align-items-center">
-                                                    <h6 class="mb-0 small" id="facturarFormTitulo"><i class="fas fa-plus-circle me-2"></i>Nueva Factura Desde Este Remito</h6>
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnCancelarEdicionFacturaRemito">
-                                                        <i class="fas fa-times me-1"></i>Cancelar edición
-                                                    </button>
-                                                </div>
-                                                <!-- Líneas de la factura en edición que NO vienen de este remito (manuales u
-                                                     otro remito): se muestran de referencia y se conservan tal cual al guardar. -->
-                                                <div id="facturarLineasFijasContainer"></div>
-                                                <div class="row g-2 mb-2">
-                                                    <div class="col-md-4">
-                                                        <label class="form-label fw-bold small">Punto De Venta *</label>
-                                                        <select class="form-select form-select-sm" id="facturar_punto_venta_id">
-                                                            <option value="">Seleccionar</option>
-                                                        </select>
+                                                <div id="contenedorNuevaFacturaRemito">
+                                                    <div class="card-header py-1 bg-success bg-opacity-10 rounded mb-2 d-flex justify-content-between align-items-center">
+                                                        <h6 class="mb-0 small" id="facturarFormTitulo"><i class="fas fa-plus-circle me-2"></i>Nueva Factura Desde Este Remito</h6>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnCancelarEdicionFacturaRemito">
+                                                            <i class="fas fa-times me-1"></i>Cancelar edición
+                                                        </button>
                                                     </div>
-                                                    <div class="col-md-4">
-                                                        <label class="form-label fw-bold small">Tipo Comprobante *</label>
-                                                        <select class="form-select form-select-sm" id="facturar_comprobante_tipo_id">
-                                                            <option value="">Seleccionar PV</option>
-                                                        </select>
+                                                    <!-- Líneas de la factura en edición que NO vienen de este remito (manuales u
+                                                         otro remito): se muestran de referencia y se conservan tal cual al guardar. -->
+                                                    <div id="facturarLineasFijasContainer"></div>
+                                                    <div class="row g-2 mb-2">
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-bold small">Punto De Venta *</label>
+                                                            <select class="form-select form-select-sm" id="facturar_punto_venta_id">
+                                                                <option value="">Seleccionar</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-bold small">Tipo Comprobante *</label>
+                                                            <select class="form-select form-select-sm" id="facturar_comprobante_tipo_id">
+                                                                <option value="">Seleccionar PV</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-bold small">Vencimiento *</label>
+                                                            <input type="date" class="form-control form-control-sm" id="facturar_f_vto">
+                                                        </div>
                                                     </div>
-                                                    <div class="col-md-4">
-                                                        <label class="form-label fw-bold small">Vencimiento *</label>
-                                                        <input type="date" class="form-control form-control-sm" id="facturar_f_vto">
+                                                    <div id="facturarLineasContainer">
+                                                        <div class="text-muted small text-center p-3 border rounded bg-light">Elegí punto de venta para continuar.</div>
+                                                    </div>
+                                                    <div id="facturarTotales"></div>
+                                                    <div class="text-end mt-3">
+                                                        <button type="button" class="btn btn-sm btn-primary px-4" id="btnGuardarFacturaDesdeRemito">
+                                                            <i class="fas fa-save me-1"></i>Guardar Factura
+                                                        </button>
                                                     </div>
                                                 </div>
-                                                <div id="facturarLineasContainer">
-                                                    <div class="text-muted small text-center p-3 border rounded bg-light">Elegí punto de venta para continuar.</div>
-                                                </div>
-                                                <div id="facturarTotales"></div>
-                                                <div class="text-end mt-3">
-                                                    <button type="button" class="btn btn-sm btn-primary px-4" id="btnGuardarFacturaDesdeRemito">
-                                                        <i class="fas fa-save me-1"></i>Guardar Factura
-                                                    </button>
+                                                <div id="alertaRemitoCompletamenteFacturado" class="alert alert-info border small mb-0" style="display: none;">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>Todos los ítems de este remito ya forman parte de una factura.
                                                 </div>
                                             </div>
                                         </div>

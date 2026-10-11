@@ -129,13 +129,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <label class="form-label small fw-bold mb-1">Estado</label>
                             <select class="form-select form-select-sm" id="filtroEstado" name="estado_id">
                                 <option value="">-- Todos --</option>
-                                <option value="2172">En Cartera</option>
-                                <option value="2173">Emitido</option>
-                                <option value="2174">Depositado</option>
-                                <option value="2176">Debitado</option>
-                                <option value="2175">Endosado</option>
-                                <option value="2178">Rechazado</option>
-                                <option value="2179">Anulado</option>
+                                <option value="29">En Cartera</option>
+                                <option value="31">Emitido</option>
+                                <option value="32">Depositado</option>
+                                <option value="34">Debitado</option>
+                                <option value="33">Endosado</option>
+                                <option value="25">Rechazado</option>
+                                <option value="38">Anulado</option>
                             </select>
                         </div>
                         <div class="col-md-3">

@@ -629,9 +629,13 @@ function obtenerComprobantesPorPuntoVenta($conexion, $punto_venta_id, $empresa_i
     $punto_venta_id = intval($punto_venta_id);
     $empresa_idx = intval($empresa_idx);
 
-    $sql = "SELECT comprobante_tipo_id, requiere_afip
-            FROM gestion__puntos_venta_comprobantes
-            WHERE punto_venta_id = ? AND empresa_id = ?";
+    $sql = "SELECT pvc.comprobante_tipo_id, pvc.requiere_afip, COALESCE(cn.ultimo_numero, 0) AS ultimo_numero
+            FROM gestion__puntos_venta_comprobantes pvc
+            LEFT JOIN gestion__comprobantes_numeradores cn 
+                ON cn.empresa_id = pvc.empresa_id 
+                AND cn.punto_venta_id = pvc.punto_venta_id 
+                AND cn.comprobante_tipo_id = pvc.comprobante_tipo_id
+            WHERE pvc.punto_venta_id = ? AND pvc.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -644,15 +648,18 @@ function obtenerComprobantesPorPuntoVenta($conexion, $punto_venta_id, $empresa_i
 
     $habilitados = [];
     while ($fila = mysqli_fetch_assoc($result)) {
-        $habilitados[intval($fila['comprobante_tipo_id'])] = intval($fila['requiere_afip']);
+        $habilitados[intval($fila['comprobante_tipo_id'])] = [
+            'requiere_afip' => intval($fila['requiere_afip']),
+            'ultimo_numero' => intval($fila['ultimo_numero'])
+        ];
     }
 
     mysqli_stmt_close($stmt);
     return $habilitados;
 }
 
-// Sincroniza gestion__puntos_venta_comprobantes con la selección actual:
-// borra todo lo previo y vuelve a insertar lo elegido. Se llama SIEMPRE
+// Sincroniza gestion__puntos_venta_comprobantes y gestion__comprobantes_numeradores con la selección actual:
+// borra todo lo previo de tipos y actualiza el último número. Se llama SIEMPRE
 // dentro de la transacción de agregarPuntoVenta/editarPuntoVenta — no
 // abre ni cierra transacción propia, y propaga la excepción para que el
 // caller haga rollback.
@@ -684,12 +691,22 @@ function guardarComprobantesPuntoVenta($conexion, $punto_venta_id, $empresa_idx,
         throw new Exception("Error preparando insert de comprobantes: " . mysqli_error($conexion));
     }
 
+    $sql_num = "INSERT INTO gestion__comprobantes_numeradores
+                (empresa_id, punto_venta_id, comprobante_tipo_id, ultimo_numero)
+                VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE ultimo_numero = VALUES(ultimo_numero)";
+    $stmt_num = mysqli_prepare($conexion, $sql_num);
+    if (!$stmt_num) {
+        throw new Exception("Error preparando upsert de numeradores: " . mysqli_error($conexion));
+    }
+
     foreach ($comprobantes as $item) {
         $comprobante_tipo_id_val = intval($item['comprobante_tipo_id'] ?? 0);
         if ($comprobante_tipo_id_val <= 0) {
             continue;
         }
         $requiere_afip_val = !empty($item['requiere_afip']) ? 1 : 0;
+        $ultimo_numero_val = max(0, intval($item['ultimo_numero'] ?? 0));
 
         mysqli_stmt_bind_param($stmt, "iiii",
             $empresa_idx, $punto_venta_id, $comprobante_tipo_id_val, $requiere_afip_val
@@ -697,9 +714,17 @@ function guardarComprobantesPuntoVenta($conexion, $punto_venta_id, $empresa_idx,
         if (!mysqli_stmt_execute($stmt)) {
             throw new Exception("Error guardando comprobante habilitado: " . mysqli_stmt_error($stmt));
         }
+
+        mysqli_stmt_bind_param($stmt_num, "iiii",
+            $empresa_idx, $punto_venta_id, $comprobante_tipo_id_val, $ultimo_numero_val
+        );
+        if (!mysqli_stmt_execute($stmt_num)) {
+            throw new Exception("Error actualizando último número de comprobante: " . mysqli_stmt_error($stmt_num));
+        }
     }
 
     mysqli_stmt_close($stmt);
+    mysqli_stmt_close($stmt_num);
 }
 
 function obtenerPuntoVentaPorId($conexion, $id, $empresa_idx)

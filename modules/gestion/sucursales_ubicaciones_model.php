@@ -81,6 +81,13 @@ function obtenerBocasPorSucursal($conexion, $sucursal_id)
     $result = mysqli_stmt_get_result($stmt);
     $data = mysqli_fetch_all($result, MYSQLI_ASSOC);
     mysqli_stmt_close($stmt);
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $empresa_id = intval($_SESSION['empresa_id'] ?? 0);
+        $data = AccesosSucursalesHelper::filtrarBocas($conexion, $empresa_id, $data);
+    }
+
     return $data;
 }
 

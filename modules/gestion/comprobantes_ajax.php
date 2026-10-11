@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['comprobantes.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once "comprobantes_model.php";
@@ -19,7 +22,7 @@ switch ($accion) {
         break;
     
     case 'listar_comprobantes_tipos':
-        $comprobantes_tipos = obtenerComprobantesTipos($conexion);
+        $comprobantes_tipos = obtenerComprobantesTipos($conexion, $ctx['empresa_id']);
         echo json_encode($comprobantes_tipos);
         break;
     

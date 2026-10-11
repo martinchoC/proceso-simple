@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Tipos de Comprobante</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; } .alert-warning { background: #fff3cd; color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; } .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Tipos de Comprobante</h1>
+<p class="subtitulo">La lista de todos los documentos que maneja el sistema (Factura A, Nota de Crédito B, Remito, Pedido, Recibo…) y cómo se comporta cada uno: si suma o resta en cuenta corriente, si mueve stock y si genera asiento.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es un tipo de comprobante?</a></li>
+        <li><a href="#jerarquia">Dónde encaja: grupo, subgrupo, tipo y comprobante fiscal</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal y los filtros</a></li>
+        <li><a href="#agregar">Agregar o editar un tipo</a></li>
+        <li><a href="#comportamiento">Signo, stock, contabilidad y cuenta corriente</a></li>
+        <li><a href="#donde-aparece">¿Por qué un tipo aparece (o no) en una pantalla?</a></li>
+        <li><a href="#estados">Activo e Inactivo</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es un tipo de comprobante?</h2>
+<p>Cada documento que se emite o registra en el sistema es de un <strong>tipo</strong>: "Factura A", "Nota de Crédito B", "Remito R", "Pedido", "Recibo X", etc. El tipo define cómo impacta ese documento: en la cuenta corriente del cliente o proveedor, en el stock y en la contabilidad.</p>
+<div class="alert alert-warning">Es una tabla de configuración sensible: un cambio afecta a todos los comprobantes que se emitan con ese tipo de ahí en más. Si no estás seguro, consultá con el equipo antes de modificar.</div>
+
+<h2 id="jerarquia">Dónde encaja: grupo, subgrupo, tipo y comprobante fiscal</h2>
+<div class="flujo">
+    <div class="flujo-caja">Grupo<br><small>ej. Ventas</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Subgrupo<br><small>ej. Facturas de venta</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Tipo de comprobante<br><small>ej. Factura A</small></div>
+    <div class="flujo-flecha">↔</div>
+    <div class="flujo-caja inactivo">Comprobante fiscal<br><small>ej. 001 FACTURAS A</small></div>
+</div>
+<ul>
+    <li>Los <strong>grupos y subgrupos</strong> se configuran en <a href="comprobantes_grupos.html">Grupos y Subgrupos de Comprobantes</a>. El subgrupo es el que vincula el tipo con una pantalla del sistema (facturas, remitos, pedidos…).</li>
+    <li>El <strong>comprobante fiscal</strong> es el código oficial de ARCA (ex AFIP); se configura en <a href="comprobantes_fiscales.html">Comprobantes Fiscales</a>. Los comprobantes internos (pedidos, remitos X, etc.) no llevan comprobante fiscal.</li>
+</ul>
+
+<h2 id="pantalla-principal">La pantalla principal y los filtros</h2>
+<p>Arriba de la tabla hay cuatro filtros: <strong>Filtrar por Grupo</strong>, <strong>Filtrar por Subgrupo</strong>, <strong>Filtrar por Signo</strong> y <strong>Filtrar por Estado</strong>, con los botones <span class="boton-ejemplo boton-outline">Limpiar</span> y <span class="boton-ejemplo boton-primario">Aplicar</span>.</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno.</td></tr>
+    <tr><td>Código</td><td>Código corto del tipo.</td></tr>
+    <tr><td>Tipo de Comprobante</td><td>Nombre.</td></tr>
+    <tr><td>Grupo / Subgrupo</td><td>Dónde está clasificado.</td></tr>
+    <tr><td>Letra</td><td>A, B, C, E, X, R… si corresponde.</td></tr>
+    <tr><td>Signo</td><td>+, - o +/- (ver más abajo).</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+    <tr><td>Acciones</td><td>Botones según el estado.</td></tr>
+</table>
+<p>También tenés buscador, recarga <span class="boton-ejemplo boton-outline">↻</span> y menú <span class="boton-ejemplo boton-outline">Exportar</span> (Excel, PDF, CSV, Imprimir).</p>
+
+<h2 id="agregar">Agregar o editar un tipo</h2>
+<p><span class="boton-ejemplo boton-exito">+ Agregar</span> abre la ventana del tipo; el lápiz de una fila la abre para editar.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código *</td><td>Hasta 10 caracteres. No puede repetirse.</td></tr>
+    <tr><td>Tipo de Comprobante *</td><td>Nombre, hasta 100 caracteres.</td></tr>
+    <tr><td>Grupo *</td><td>Grupo al que pertenece.</td></tr>
+    <tr><td>Subgrupo *</td><td>Subgrupo dentro del grupo elegido (la lista depende del grupo).</td></tr>
+    <tr><td>Comprobante Fiscal</td><td>Código oficial de ARCA, o "Sin comprobante fiscal" para documentos internos.</td></tr>
+    <tr><td>Letra</td><td>Una sola letra (A, B, C…).</td></tr>
+    <tr><td>Signo *</td><td>Positivo (+), Negativo (-) o Ambos (+/-).</td></tr>
+    <tr><td>Stock</td><td>No mueve stock, Suma stock (+), Resta stock (-) o Según cada línea (+/-).</td></tr>
+    <tr><td>Impacta Contabilidad</td><td>Si está marcado, al confirmarse genera asiento contable.</td></tr>
+    <tr><td>Impacta Cta. Cte.</td><td>Si está marcado, mueve la cuenta corriente del cliente o proveedor.</td></tr>
+    <tr><td>Orden</td><td>Orden en que aparece en las listas.</td></tr>
+    <tr><td>Comentario</td><td>Nota interna, hasta 255 caracteres.</td></tr>
+</table>
+<p>Al guardar aparece "Tipo de comprobante guardado correctamente". Errores posibles: <em>"Debe seleccionar un grupo"</em>, <em>"Debe seleccionar un subgrupo"</em>, <em>"La letra debe ser un solo carácter"</em>, <em>"Ya existe un tipo de comprobante con este código"</em>.</p>
+
+<h2 id="comportamiento">Signo, stock, contabilidad y cuenta corriente</h2>
+<table class="tabla-referencia">
+    <tr><th>Configuración</th><th>Qué significa</th><th>Ejemplos</th></tr>
+    <tr><td>Signo <strong>+</strong></td><td>Aumenta el saldo de la cuenta corriente (lo que te deben o lo que debés).</td><td>Facturas, notas de débito.</td></tr>
+    <tr><td>Signo <strong>-</strong></td><td>Disminuye el saldo: cancela o resta.</td><td>Notas de crédito, recibos.</td></tr>
+    <tr><td>Signo <strong>+/-</strong></td><td>Puede sumar o restar según el caso.</td><td>Ajustes.</td></tr>
+    <tr><td>Stock <strong>+</strong> / <strong>-</strong></td><td>Entra o sale mercadería. Es independiente del signo de cuenta corriente: una factura de venta es (+) en cuenta corriente pero resta stock.</td><td>Remito de compra suma; remito de venta resta.</td></tr>
+    <tr><td>Stock <strong>según cada línea</strong></td><td>Cada renglón dice si entra o sale.</td><td>Ajustes de stock.</td></tr>
+</table>
+
+<h2 id="donde-aparece">¿Por qué un tipo aparece (o no) en una pantalla?</h2>
+<p>Para que un tipo se ofrezca, por ejemplo, en la pantalla de facturas de venta, se tienen que cumplir tres cosas:</p>
+<ol>
+    <li>Su <strong>subgrupo</strong> tiene que estar vinculado a esa pantalla (en <a href="comprobantes_grupos.html">Grupos y Subgrupos</a>).</li>
+    <li>El tipo tiene que estar <strong>habilitado en el punto de venta</strong> elegido (en <a href="puntos_venta.html">Puntos de Venta</a>).</li>
+    <li>En facturas, además, su <strong>comprobante fiscal</strong> tiene que coincidir con el que indica la <a href="comprobantes_relacion_fiscal.html">Relación Fiscal</a> entre tu empresa y el cliente (por ejemplo, a un consumidor final se le ofrecen sólo los tipos "B").</li>
+</ol>
+
+<h2 id="estados">Activo e Inactivo</h2>
+<div class="flujo"><div class="flujo-caja">Activo</div><div class="flujo-flecha">⇄</div><div class="flujo-caja inactivo">Inactivo</div></div>
+<p>Un tipo inactivo deja de ofrecerse para documentos nuevos, pero los comprobantes ya emitidos con él no cambian.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea un tipo.</td><td>Siempre.</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Modifica el tipo.</td><td>Activo.</td></tr>
+    <tr><td>Inhabilitar (rojo)</td><td>Lo pasa a Inactivo. Pregunta "¿Está seguro de inactivar el tipo …?".</td><td>Activo.</td></tr>
+    <tr><td>Habilitar (verde)</td><td>Lo vuelve a Activo, previa confirmación.</td><td>Inactivo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Creé un tipo y no aparece al facturar.</td><td>Revisá los tres puntos de <a href="#donde-aparece">¿Por qué un tipo aparece (o no)?</a>: subgrupo vinculado a la pantalla, habilitado en el punto de venta y comprobante fiscal correcto.</td></tr>
+    <tr><td>Una nota de crédito me suma deuda en lugar de restarla.</td><td>Revisá que el tipo tenga Signo "-".</td></tr>
+    <tr><td>Una factura no generó asiento.</td><td>Revisá que el tipo tenga marcado "Impacta Contabilidad".</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Tipos de Comprobante. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

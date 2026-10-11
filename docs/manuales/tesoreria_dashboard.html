@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Dashboard Financiero</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+    .badge-success-suave { background: #d1e7dd; color: #0f5132; }
+    .badge-danger-suave { background: #f8d7da; color: #842029; }
+    .badge-warning-suave { background: #fff3cd; color: #664d03; }
+    .badge-info-suave { background: #cff4fc; color: #055160; }
+    .badge-primary-suave { background: #cfe2ff; color: #084298; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-amarillo { background: #fff; border-color: var(--amarillo); color: #997404; }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-landmark"></i> Manual de usuario: Dashboard Financiero</h1>
+<p class="subtitulo">Cómo ver de un vistazo cuánto dinero tiene la empresa en cajas y bancos, qué entró y salió en un período, qué se espera cobrar y pagar en los próximos días, y qué cheques están por vencer.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#de-donde">¿De dónde salen los datos?</a></li>
+        <li><a href="#encabezado">Sucursal y botón Actualizar</a></li>
+        <li><a href="#tarjetas">Las cuatro tarjetas de arriba</a></li>
+        <li><a href="#aviso-integridad">Aviso de Integridad Contable</a></li>
+        <li><a href="#cuentas">Pestaña 1: Cuentas y Saldos Disponibles</a></li>
+        <li><a href="#reconciliar">Reconciliar el saldo de una cuenta</a></li>
+        <li><a href="#movimientos">Pestaña 2: Movimientos del Período</a></li>
+        <li><a href="#flujo-fondos">Pestaña 3: Flujo de Fondos Proyectado</a></li>
+        <li><a href="#valores">Pestaña 4: Valores a Depositar (Cheques)</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p>El <strong>Dashboard Financiero</strong> (menú Tesorería) es un tablero de consulta de la situación del dinero de la empresa. No se cargan operaciones: solo se miran. La única acción que modifica algo es <a href="#reconciliar">Reconciliar</a>, pensada para el responsable de tesorería.</p>
+
+<h2 id="de-donde">¿De dónde salen los datos?</h2>
+<p>Todo lo que ves acá lo generan las demás pantallas de Tesorería:</p>
+<div class="flujo">
+    <div class="flujo-caja">Cobranzas, Órdenes de Pago, Movimientos Internos, Cartera de Cheques, Obligaciones y Rendiciones</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Saldos de cajas, bancos y valores</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Dashboard Financiero</div>
+</div>
+<p>Si un cobro o un pago no se ve acá, revisá que esté <strong>confirmado</strong> en su pantalla. Los borradores no mueven dinero.</p>
+
+<h2 id="encabezado">Sucursal y botón Actualizar</h2>
+<p>Arriba a la derecha hay un selector de <strong>sucursal</strong> ("Todas las Sucursales" por defecto) y el botón <span class="boton-ejemplo boton-outline">Actualizar</span>, que vuelve a traer todos los datos. Al cambiar la sucursal, el tablero se recarga solo.</p>
+
+<h2 id="tarjetas">Las cuatro tarjetas de arriba</h2>
+<table class="tabla-referencia">
+    <tr><th>Tarjeta</th><th>Qué muestra</th></tr>
+    <tr><td>Saldo Total Disponible (ARS)</td><td>El dinero en pesos, con el detalle de cuánto hay en <strong>Cajas</strong> y cuánto en <strong>Bancos</strong>.</td></tr>
+    <tr><td>Moneda Extranjera (USD)</td><td>El saldo en dólares, la <strong>Cotización ref.</strong> que usa el sistema y el <strong>Equiv. Total</strong>: todo convertido a pesos.</td></tr>
+    <tr><td>Flujo Neto del Período</td><td>Ingresos menos egresos del período elegido en la pestaña Movimientos (por defecto, el mes actual). En verde si entró más de lo que salió, en rojo si salió más.</td></tr>
+    <tr><td>Cheques en Cartera</td><td>Importe y cantidad de cheques de clientes sin depositar. Abajo, un aviso: "Al día", "N al cobro hoy" o "N vencido(s)".</td></tr>
+</table>
+
+<h2 id="aviso-integridad">Aviso de Integridad Contable</h2>
+<p>Si aparece un recuadro amarillo <strong>Aviso de Integridad Contable</strong>, el saldo guardado de una o más cuentas no coincide con la suma de sus movimientos. Suele pasar por cargas o ajustes hechos por fuera de las pantallas habituales. El aviso indica cuántas cuentas tienen diferencia. Revisalas en la pestaña Cuentas (columna Integridad) y avisá al responsable de tesorería.</p>
+
+<h2 id="cuentas">Pestaña 1: Cuentas y Saldos Disponibles</h2>
+<p>Lista cada caja, banco y cuenta de valores de la empresa. Con los botones <strong>Todas / Cajas / Bancos / Valores</strong> filtrás por tipo.</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Tipo</td><td><span class="badge badge-success-suave">Caja</span>, <span class="badge badge-primary-suave">Banco</span> o <span class="badge badge-warning-suave">Valores</span> (cheques en cartera).</td></tr>
+    <tr><td>Cuenta de Tesorería</td><td>Nombre de la cuenta.</td></tr>
+    <tr><td>Cuenta Contable Vinculada</td><td>Cuenta del plan contable donde se registra.</td></tr>
+    <tr><td>Banco / CBU / Alias</td><td>Datos bancarios (solo en bancos).</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal de la cuenta, o "Corporativa" si es de toda la empresa.</td></tr>
+    <tr><td>Saldo Actual</td><td>Saldo de hoy. En rojo si es negativo. "Admite descubierto" indica que la cuenta puede quedar en negativo.</td></tr>
+    <tr><td>Integridad</td><td><span class="badge badge-success-suave">OK</span> si el saldo coincide con sus movimientos. <span class="badge badge-danger-suave">Desfasaje</span> si no coincide.</td></tr>
+    <tr><td>Acciones</td><td>Botón para auditar o <strong>Reconciliar</strong> la cuenta.</td></tr>
+</table>
+<div class="nota-lateral">Solo aparecen las cuentas cuya cuenta contable está marcada como de caja o banco en el plan de cuentas. Si falta una cuenta, pedile al responsable de contabilidad que revise esa marca.</div>
+
+<h2 id="reconciliar">Reconciliar el saldo de una cuenta</h2>
+<p>En las cuentas con <strong>Desfasaje</strong> aparece el botón <span class="boton-ejemplo boton-amarillo">Reconciliar</span>. En las que están OK hay un botón con un tilde que abre la misma ventana para revisar.</p>
+<p>La ventana <strong>Reconciliar Saldo Materializado</strong> muestra el <strong>Saldo Materializado</strong> (el que figura hoy), el <strong>Saldo según Libro</strong> (la suma de todos los movimientos) y la <strong>Discrepancia</strong>. Con <span class="boton-ejemplo boton-amarillo">Aplicar Reconciliación</span>, el saldo de la cuenta pasa a ser el que surge de los movimientos. Mensaje: "Saldo Reconciliado. El saldo de la cuenta fue actualizado de $ ... a $ ...".</p>
+<div class="alert alert-warning">Usá esta opción solo si sabés por qué hay diferencia (por ejemplo, después de una carga inicial o un ajuste manual). Si tenés dudas, consultá antes con el responsable de tesorería o contabilidad.</div>
+
+<h2 id="movimientos">Pestaña 2: Movimientos del Período</h2>
+<p>Muestra lo que entró y salió de las cuentas en un rango de fechas.</p>
+<ul>
+    <li><strong>PERÍODO</strong>: fecha desde y hasta (por defecto, el mes actual). Botones rápidos: <strong>Hoy</strong>, <strong>Semana</strong>, <strong>Este Mes</strong> y <strong>Últimos 30d</strong>.</li>
+    <li><strong>Todas las cuentas</strong>: elegí una cuenta para ver solo sus movimientos.</li>
+    <li><span class="boton-ejemplo boton-primario">Filtrar</span> aplica las fechas y la cuenta.</li>
+</ul>
+<p>Debajo hay un gráfico de <strong>Evolución de Ingresos y Egresos Diarios</strong> y la tabla <strong>Libro Subdiario de Tesorería</strong>, con Fecha, Tipo (ingreso o egreso), Cuenta, Medio de Pago, Concepto, Comprobante e Importe. Al filtrar se actualiza también la tarjeta Flujo Neto del Período.</p>
+<div class="nota-lateral">Las anulaciones aparecen como movimientos inversos: un recibo anulado muestra su ingreso original y, después, un egreso por el mismo importe.</div>
+
+<h2 id="flujo-fondos">Pestaña 3: Flujo de Fondos Proyectado</h2>
+<p>Es una <strong>estimación</strong> de cómo va a evolucionar el dinero en los próximos días. Parte del saldo de hoy en cajas y bancos (en pesos) y le suma y resta:</p>
+<ul>
+    <li><strong>Cobros esperados</strong>: saldos pendientes de las facturas a clientes, según su vencimiento, y cheques de terceros en cartera, según su fecha de cobro.</li>
+    <li><strong>Pagos esperados</strong>: saldos pendientes de las facturas de proveedores, según su vencimiento, y cheques propios emitidos que el banco todavía no debitó.</li>
+</ul>
+<p>Con <strong>15 Días / 30 Días / 60 Días</strong> elegís hasta dónde mirar. Lo ya vencido se cuenta como si se cobrara o pagara hoy.</p>
+<table class="tabla-referencia">
+    <tr><th>Parte</th><th>Qué muestra</th></tr>
+    <tr><td>Recuadros por tramo</td><td>Ingresos (+) y egresos (−) de <strong>Vencidos / Hoy</strong>, <strong>Días 1 a 7</strong>, <strong>Días 8 a 15</strong> y <strong>Días 16 a 30</strong>.</td></tr>
+    <tr><td>Gráfico</td><td>Evolución del saldo acumulado proyectado día por día.</td></tr>
+    <tr><td>Tabla</td><td>Por cada día: Cobros Esperados, Pagos Esperados y Saldo Estimado al Cierre.</td></tr>
+</table>
+<div class="alert alert-info">Es una proyección: supone que todos pagan y cobran en fecha. Sirve para anticipar días con saldo negativo, no como saldo real.</div>
+
+<h2 id="valores">Pestaña 4: Valores a Depositar (Cheques)</h2>
+<p>Lista los cheques de clientes que siguen en cartera. Con los botones de arriba filtrás: <strong>Todos</strong>, <strong>Vencidos</strong>, <strong>Al Cobro Hoy</strong> y <strong>Próximos 7d</strong> (cada uno con su cantidad).</p>
+<table class="tabla-referencia">
+    <tr><th>Situación</th><th>Qué significa</th></tr>
+    <tr><td><span class="badge badge-danger-suave">Vencido</span></td><td>Su fecha de cobro ya pasó. Indica cuántos días hace.</td></tr>
+    <tr><td><span class="badge badge-warning-suave">Al Cobro Hoy</span></td><td>Se puede cobrar desde hoy.</td></tr>
+    <tr><td><span class="badge badge-info-suave">Próximos 7d</span></td><td>Se puede cobrar dentro de la semana.</td></tr>
+    <tr><td><span class="badge badge-success-suave">Diferido</span></td><td>Falta más de una semana.</td></tr>
+</table>
+<p>El botón de la columna Acción te lleva a <a href="cheques_cartera.html">Cartera de Cheques</a>, donde podés depositarlo.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Error al cargar dashboard</td><td>El sistema no pudo calcular los datos. Probá con Actualizar. Si sigue, avisá al soporte.</td></tr>
+    <tr><td>Error de comunicación</td><td>No hubo conexión con el servidor. Probá de nuevo.</td></tr>
+    <tr><td>No se encontraron cuentas activas con la configuración seleccionada.</td><td>No hay cuentas del tipo elegido (o ninguna está marcada como caja o banco en el plan de cuentas).</td></tr>
+    <tr><td>Saldo Reconciliado</td><td>La reconciliación se aplicó.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Cargué una cobranza y el saldo de la caja no cambió.</td><td>Revisá que la cobranza esté <strong>Confirmada</strong> y apretá Actualizar.</td></tr>
+    <tr><td>Cambié la sucursal pero los movimientos o el flujo no cambiaron.</td><td>Apretá <strong>Actualizar</strong> después de cambiar la sucursal para recargar todo el tablero.</td></tr>
+    <tr><td>¿Por qué el flujo proyectado muestra facturas viejas?</td><td>Las facturas con saldo cuya fecha ya pasó se cuentan en "Vencidos / Hoy". Si en realidad ya se cobraron o pagaron, falta registrar el recibo o la orden de pago.</td></tr>
+    <tr><td>¿Puedo cargar un movimiento desde acá?</td><td>No. Usá <a href="tesoreria_movimientos.html">Movimientos Internos</a>, <a href="cobranzas.html">Cobranzas</a> u <a href="pagos.html">Órdenes de Pago</a> según el caso.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="cobranzas.html">Cobranzas</a> (incluye los <a href="cobranzas.html#conceptos">conceptos básicos de Tesorería</a>)</li>
+        <li><a href="pagos.html">Órdenes de Pago</a></li>
+        <li><a href="cheques_cartera.html">Cartera de Cheques</a></li>
+        <li><a href="tesoreria_movimientos.html">Movimientos Internos</a></li>
+        <li><a href="obligaciones_rendiciones.html">Obligaciones y Rendiciones</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tesorería / Dashboard Financiero. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

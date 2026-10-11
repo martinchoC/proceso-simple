@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../db.php';
 // sin default hardcodeado de pagina_id, viene sí o sí por GET desde el
 // menú/acceso directo que arma la URL de esta página.
 $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 0;
-$empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 
 $pageTitle = "Precios de Proveedores";
@@ -136,6 +136,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                             <i class="fas fa-plus me-1"></i>Nuevo Precio
                                                         </button>
                                                     </div>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnArmarListaDesdePrecios" disabled title="Cargar el precio de lista de los productos vinculados a este proveedor que no lo tienen, deducido del precio de venta actual o del costo registrado">
+                                                        <i class="fas fa-magic me-1"></i>Armar lista desde precios
+                                                    </button>
                                                     <button type="button" class="btn btn-sm btn-outline-warning" id="btnActualizarCostosMasivo" disabled title="Actualizar el costo Y la lista de precios de TODOS los productos de este proveedor">
                                                         <i class="fas fa-coins me-1"></i>Actualizar Costos y Precios
                                                     </button>
@@ -362,6 +365,60 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="modal-footer py-2">
                             <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                             <button class="btn btn-success" id="btnProcesarImportacion">Procesar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- MODAL: Armar lista del proveedor desde precios actuales      -->
+            <!-- ============================================================ -->
+            <div class="modal fade" id="modalArmarLista" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header bg-gradient-primary text-white py-2">
+                            <h5 class="modal-title">Armar lista del proveedor desde precios actuales</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-3">
+                            <p class="text-muted small mb-2">
+                                Para los productos vinculados a <strong id="armarListaProveedor"></strong> que todavía no tienen
+                                precio en su lista (los de la solapa Control), se deduce el precio de lista desde el precio de
+                                venta actual (deshaciendo la regla de la lista elegida) o desde el costo registrado, y se le
+                                suma el descuento de compra vigente del proveedor:
+                                <code>precio de lista = costo / (1 − descuento)</code>.
+                                Quedan cargados con origen <strong>ESTIMADO</strong>; no se tocan costos ni listas de venta.
+                                Cuando llegue la lista real del proveedor, importarla los reemplaza.
+                            </p>
+                            <div class="row g-2 align-items-end mb-2">
+                                <div class="col-md-5">
+                                    <label class="form-label small mb-1" for="armarListaBase">Calcular desde</label>
+                                    <select class="form-select form-select-sm" id="armarListaBase"></select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnArmarListaCalcular">
+                                        <i class="fas fa-calculator me-1"></i>Calcular vista previa
+                                    </button>
+                                </div>
+                                <div class="col-md-4 small text-end" id="armarListaResumen"></div>
+                            </div>
+                            <table class="table table-sm table-striped table-bordered" id="tablaArmarLista" style="width:100%">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center" width="30"><input type="checkbox" id="armarListaTodos" checked title="Tildar / destildar todos"></th>
+                                        <th>Cód. Prov.</th><th>Código</th><th>Producto</th>
+                                        <th class="text-end">Base</th><th class="text-end">Costo deducido</th>
+                                        <th class="text-end">Precio de lista</th><th>Observación</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button class="btn btn-primary" id="btnArmarListaGenerar" disabled>
+                                <i class="fas fa-check me-1"></i>Cargar en la lista del proveedor
+                            </button>
                         </div>
                     </div>
                 </div>

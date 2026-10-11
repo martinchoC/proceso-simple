@@ -117,7 +117,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script>
         $(document).ready(function () {
             // Variables de contexto MULTIEMPRESA
-            const empresa_idx = 2;
+            const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
             const pagina_idx = <?php echo $pagina_idx; ?>;
 
             // Cargar marcas para el select

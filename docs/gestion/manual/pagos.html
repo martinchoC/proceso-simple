@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Órdenes de Pago</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    .badge-info { background: #0dcaf0; color: #055160; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-money-check-alt"></i> Manual de usuario: Órdenes de Pago</h1>
+<p class="subtitulo">Cómo registrar los pagos a proveedores, indicar con qué se paga (transferencia, efectivo, cheques) y qué facturas de compra quedan canceladas.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#conceptos">Conceptos que conviene tener claros</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados de la Orden de Pago</a></li>
+        <li><a href="#flujo">El proceso completo, de principio a fin</a></li>
+        <li><a href="#botones">Botones de cada Orden de Pago</a></li>
+        <li><a href="#nueva-op">Cargar una Orden de Pago nueva</a>
+            <ul>
+                <li><a href="#datos-proveedor">1. Datos del proveedor y emisión</a></li>
+                <li><a href="#medios">2. Medios de pago salientes</a></li>
+                <li><a href="#facturas">3. Facturas y comprobantes a cancelar</a></li>
+                <li><a href="#resumen">4. Resumen y anticipo</a></li>
+            </ul>
+        </li>
+        <li><a href="#guardar-borrador">Guardar como borrador</a></li>
+        <li><a href="#confirmar">Confirmar y emitir la OP</a></li>
+        <li><a href="#ver-op">Ver e imprimir la OP</a></li>
+        <li><a href="#anular">Anular una OP confirmada</a></li>
+        <li><a href="#eliminar">Eliminar un borrador</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Órdenes de Pago</strong> (menú Tesorería) es donde registrás cada pago que la empresa le hace a un proveedor. Cada pago confirmado genera una <strong>Orden de Pago (OP)</strong> con número propio. En la carga indicás con qué pagás (de qué caja o banco sale el dinero, qué cheques entregás) y qué facturas de compra estás pagando.</p>
+<p>Al confirmar, el sistema descuenta el dinero de la caja o el banco, baja la deuda de las facturas del proveedor, actualiza el estado de los cheques usados y genera el registro contable.</p>
+
+<h2 id="conceptos">Conceptos que conviene tener claros</h2>
+<p>Esta pantalla usa los mismos conceptos que Cobranzas, pero al revés: acá el dinero <strong>sale</strong>. Si es la primera vez que usás Tesorería, leé la sección <a href="cobranzas.html#conceptos">Conceptos básicos de Tesorería</a> del manual de Cobranzas. En resumen:</p>
+<ul>
+    <li><strong>Imputar</strong>: indicar qué factura del proveedor cancela este pago, y por cuánto.</li>
+    <li><strong>Saldo pendiente</strong>: lo que todavía le debés al proveedor por cada factura.</li>
+    <li><strong>Cancelado parcial / total</strong>: estado que toman solas las facturas según cuánto les falte pagar.</li>
+    <li><strong>Anticipo</strong> (pago a cuenta): dinero que le pagaste al proveedor sin aplicarlo a ninguna factura. Queda a favor de la empresa para aplicarlo más adelante.</li>
+    <li><strong>Anular</strong>: deja la OP sin efecto con movimientos inversos. No se borra nada.</li>
+</ul>
+<h3 id="cheques">Cheque propio y cheque de tercero</h3>
+<table class="tabla-referencia">
+    <tr><th>Tipo</th><th>Qué es</th></tr>
+    <tr><td><strong>Cheque propio</strong></td><td>Un cheque que la empresa libra de su propia chequera. Si su fecha de pago es la del día, es un cheque <strong>común</strong> y el dinero sale del banco enseguida. Si la fecha de pago es posterior, es un cheque <strong>diferido</strong>: el banco lo descuenta recién cuando el proveedor lo cobre, y eso se registra después en <a href="cheques_cartera.html#debitar">Cartera de Cheques</a>.</td></tr>
+    <tr><td><strong>Cheque de tercero</strong> (endoso)</td><td>Un cheque que te dio un cliente y que tenés en cartera. Lo entregás al proveedor como pago. Ese paso se llama <strong>endosar</strong>.</td></tr>
+</table>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>La tarjeta <strong>Órdenes de Pago y Borradores</strong> tiene los botones <span class="boton-ejemplo boton-outline">Actualizar</span> y <span class="boton-ejemplo boton-primario">+ Nueva Orden de Pago</span>.</p>
+<h3 id="filtros">Filtros</h3>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Para qué sirve</th></tr>
+    <tr><td>Fecha Desde / Fecha Hasta</td><td>Rango de fechas de emisión.</td></tr>
+    <tr><td>Proveedor</td><td>Solo las OP de un proveedor.</td></tr>
+    <tr><td>Estado</td><td>Borrador, Confirmado o Anulado.</td></tr>
+</table>
+<h3 id="columnas">Columnas del listado</h3>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Emisión</td><td>Fecha de la OP.</td></tr>
+    <tr><td>Orden N°</td><td>Número de la OP. Mientras es borrador dice "Borrador (Sin emitir)".</td></tr>
+    <tr><td>Proveedor</td><td>A quién se paga.</td></tr>
+    <tr><td>Sucursal</td><td>Sucursal que emite el pago.</td></tr>
+    <tr><td>Total Pagado</td><td>Suma de todos los medios de pago.</td></tr>
+    <tr><td>Aplicación</td><td>"Totalmente aplicado" si todo se imputó a facturas. Si quedó un monto sin aplicar, muestra <span class="badge badge-info">Anticipo: $ ...</span>.</td></tr>
+    <tr><td>Estado</td><td><span class="badge badge-warning">Borrador</span>, <span class="badge badge-success">Confirmada</span> o <span class="badge badge-danger">Anulada</span>.</td></tr>
+    <tr><td>Acciones</td><td>Botones según el estado.</td></tr>
+</table>
+
+<h2 id="estados">Estados de la Orden de Pago</h2>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-warning">Borrador</span></td><td>La OP está cargada pero no tiene número ni movió dinero. Los cheques todavía no se usaron. Podés editarla, confirmarla o eliminarla.</td></tr>
+    <tr><td><span class="badge badge-success">Confirmada</span></td><td>La OP tiene número, el dinero salió de caja o banco, los cheques se entregaron y las facturas del proveedor bajaron su saldo. No se puede editar: si hay un error, se anula.</td></tr>
+    <tr><td><span class="badge badge-danger">Anulada</span></td><td>La OP quedó sin efecto y se revirtió todo lo que había hecho. Queda en el listado como registro.</td></tr>
+</table>
+
+<h2 id="flujo">El proceso completo, de principio a fin</h2>
+<div class="flujo">
+    <div class="flujo-caja">Nueva Orden de Pago</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→ Confirmar →</div>
+    <div class="flujo-caja final">Confirmada</div>
+    <div class="flujo-flecha">→ Anular →</div>
+    <div class="flujo-caja inactivo">Anulada</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→ Eliminar →</div>
+    <div class="flujo-caja inactivo">Desaparece del listado</div>
+</div>
+<ol>
+    <li>Elegís el proveedor y cargás con qué pagás.</li>
+    <li>Imputás el pago a sus facturas pendientes, o lo dejás como anticipo.</li>
+    <li>Confirmás. Se numera la OP, sale el dinero, los cheques cambian de estado y las facturas bajan su saldo.</li>
+    <li>Si usaste un cheque propio diferido, cuando el banco lo debite lo registrás en <a href="cheques_cartera.html">Cartera de Cheques</a>.</li>
+</ol>
+
+<h2 id="botones">Botones de cada Orden de Pago</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Ver Orden de Pago (ojo)</td><td>Abre la OP completa, lista para imprimir.</td><td>Siempre</td></tr>
+    <tr><td>Editar Borrador (lápiz)</td><td>Reabre el formulario.</td><td>Solo en Borrador</td></tr>
+    <tr><td>Confirmar Pago (tilde)</td><td>Emite la OP y aplica todo.</td><td>Solo en Borrador</td></tr>
+    <tr><td>Eliminar Borrador (tacho)</td><td>Borra el borrador.</td><td>Solo en Borrador</td></tr>
+    <tr><td>Anular Orden de Pago (círculo tachado)</td><td>Deja sin efecto una OP confirmada.</td><td>Solo en Confirmada</td></tr>
+</table>
+
+<h2 id="nueva-op">Cargar una Orden de Pago nueva</h2>
+<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Orden de Pago</span> se abre el formulario <strong>Nueva Orden de Pago (OP)</strong>, en cuatro partes.</p>
+
+<h3 id="datos-proveedor">1. Datos del Proveedor y Emisión</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Proveedor <em>(obligatorio)</em></td><td>A quién pagás. Al elegirlo se cargan sus facturas pendientes. En la lista también aparecen clientes con la aclaración "cliente (devolución de NC)": se usan cuando le devolvés dinero a un cliente por una nota de crédito.</td></tr>
+    <tr><td>Sucursal <em>(obligatorio)</em></td><td>Sucursal que emite el pago.</td></tr>
+    <tr><td>Fecha Emisión <em>(obligatorio)</em></td><td>Por defecto, hoy.</td></tr>
+    <tr><td>Fecha Contable</td><td>Fecha con la que se registra en contabilidad. Por defecto, hoy.</td></tr>
+    <tr><td>Observaciones</td><td>Detalle o referencia del pago.</td></tr>
+</table>
+<p>No hay campo de número: se asigna al confirmar.</p>
+
+<h3 id="medios">2. Medios de Pago Salientes</h3>
+<p>El formulario arranca con una fila de <strong>Transferencia</strong>. Con <span class="boton-ejemplo boton-primario">+ Agregar Medio</span> sumás filas y con la <strong>X</strong> las quitás. Según el medio, la fila pide:</p>
+<table class="tabla-referencia">
+    <tr><th>Medio</th><th>Datos que pide</th></tr>
+    <tr><td>Efectivo</td><td>La <strong>Caja Origen</strong> de donde sale el dinero.</td></tr>
+    <tr><td>Transferencia</td><td>La cuenta bancaria de la empresa desde la que transferís y el N° de operación.</td></tr>
+    <tr><td>Cheque propio</td><td>La cuenta bancaria o chequera, el N° de cheque y la fecha de pago. Si la fecha de pago es posterior a la emisión, el cheque queda como <strong>diferido</strong>.</td></tr>
+    <tr><td>Cheque de tercero</td><td>Elegís de la lista uno de los cheques <strong>en cartera</strong> (se ve número, banco, vencimiento e importe). El importe se completa solo con el del cheque.</td></tr>
+    <tr><td>Retención</td><td>La retención practicada, el N° de certificado, la base imponible y la alícuota.</td></tr>
+</table>
+<p>Abajo ves el <strong>TOTAL FONDOS / VALORES EMITIDOS</strong>.</p>
+
+<h3 id="facturas">3. Facturas y Comprobantes a Cancelar</h3>
+<p>Al elegir el proveedor se listan sus comprobantes confirmados con saldo pendiente. Si no tiene, aparece: "El proveedor no registra facturas pendientes de pago. Todo pago ingresado quedará como anticipo".</p>
+<p>Funciona igual que en Cobranzas:</p>
+<ul>
+    <li>Marcá la casilla de una factura para pagarle todo el saldo, o escribí un monto parcial en "Importe a Imputar". No puede superar el pendiente.</li>
+    <li><span class="boton-ejemplo boton-outline">Auto Imputar</span> reparte el total pagado empezando por las facturas más antiguas.</li>
+    <li><span class="boton-ejemplo boton-outline">Limpiar</span> pone todo en 0.</li>
+</ul>
+
+<h3 id="resumen">4. Resumen y anticipo</h3>
+<table class="tabla-referencia">
+    <tr><th>Recuadro</th><th>Qué es</th></tr>
+    <tr><td>Total Pagado</td><td>Todo lo que sale (parte 2).</td></tr>
+    <tr><td>Total Imputado</td><td>Lo aplicado a facturas (parte 3).</td></tr>
+    <tr><td>Saldo Anticipo</td><td>Lo pagado que no se aplicó a ninguna factura.</td></tr>
+</table>
+<ul>
+    <li>Si sobra dinero sin aplicar, aparece el aviso celeste <strong>Pago a cuenta / Anticipo</strong>. Es válido: queda a favor de la empresa.</li>
+    <li>Si imputaste más de lo que pagás, aparece un aviso rojo y no vas a poder guardar hasta corregirlo.</li>
+</ul>
+
+<h2 id="guardar-borrador">Guardar como borrador</h2>
+<p><span class="boton-ejemplo boton-outline">Guardar Borrador</span> graba la OP sin emitirla. No sale dinero ni se usan los cheques. Vas a ver "El borrador de Orden de Pago fue guardado correctamente." Para retomarla, usá <strong>Editar Borrador</strong> (el formulario se titula "Editar Borrador de OP #...").</p>
+
+<h2 id="confirmar">Confirmar y emitir la OP</h2>
+<p>Con <span class="boton-ejemplo boton-exito">Confirmar y Emitir OP</span> (en el formulario) o con el tilde del listado. El sistema pregunta "¿Confirmar Orden de Pago?" y avisa que se van a debitar las cuentas y aplicar las cancelaciones de facturas.</p>
+<p>Al confirmar:</p>
+<ol>
+    <li>Se asigna el número de la OP.</li>
+    <li>Sale el dinero de cada caja o banco usado. Si una cuenta no tiene saldo suficiente (y no admite descubierto), la confirmación se rechaza.</li>
+    <li>Los cheques de terceros usados pasan a <strong>Endosado</strong>.</li>
+    <li>Los cheques propios pasan a <strong>Emitido</strong>. Si son comunes, el banco se descuenta en el momento. Si son diferidos, el descuento queda pendiente hasta que registres el débito en Cartera de Cheques.</li>
+    <li>Baja el saldo de cada factura imputada (pasan a Cancelado parcial o total).</li>
+    <li>Se genera el registro contable.</li>
+</ol>
+<p>Vas a ver "¡Orden de Pago Emitida!" (o "¡Orden de Pago Confirmada!") con el texto "Orden de Pago confirmada con éxito. OP N° 0001-00000005", y se abre la OP.</p>
+
+<h2 id="ver-op">Ver e imprimir la OP</h2>
+<p>El ojo abre el <strong>Detalle de Orden de Pago</strong>: proveedor, número, los medios usados con su detalle (caja, banco, datos de cada cheque o certificado) y las facturas canceladas. Si fue un anticipo, lo aclara: "Pago emitido como anticipo / pago a cuenta sin comprobantes aplicados". El botón <span class="boton-ejemplo boton-outline">Imprimir</span> abre la impresión del navegador.</p>
+
+<h2 id="anular">Anular una OP confirmada</h2>
+<p>El botón <strong>Anular Orden de Pago</strong> abre una ventana roja. Tenés que escribir el <strong>Motivo de Anulación</strong> (obligatorio) y apretar <span class="boton-ejemplo boton-peligro">Proceder con la Anulación</span>. La anulación:</p>
+<ul>
+    <li>Devuelve el dinero a las cajas y bancos de donde había salido (con movimientos inversos; no se borra nada).</li>
+    <li>Reabre el saldo de las facturas del proveedor.</li>
+    <li>Devuelve a <strong>En Cartera</strong> los cheques de terceros que se habían endosado.</li>
+    <li>Deja <strong>Anulados</strong> los cheques propios emitidos en esa OP.</li>
+    <li>Anula el registro contable.</li>
+</ul>
+<p>Mensaje: "Orden de Pago anulada exitosamente y saldos revertidos."</p>
+
+<h2 id="eliminar">Eliminar un borrador</h2>
+<p>Con el tacho borrás un borrador. El sistema pregunta "¿Eliminar Borrador? Esta acción no se puede deshacer." Solo se pueden eliminar borradores. Mensaje: "Borrador de Orden de Pago eliminado."</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Debe seleccionar un proveedor.</td><td>Falta el proveedor.</td></tr>
+    <tr><td>Debe ingresar al menos un medio de pago.</td><td>Agregá al menos una fila de medio.</td></tr>
+    <tr><td>Todos los medios de pago deben tener un importe mayor a cero.</td><td>Hay una fila sin importe.</td></tr>
+    <tr><td>Complete los datos obligatorios del cheque propio (Chequera, Número y Fecha de Pago).</td><td>Faltan datos del cheque propio.</td></tr>
+    <tr><td>Seleccione el cheque de cartera a endosar.</td><td>Elegiste "cheque de tercero" pero no elegiste cuál.</td></tr>
+    <tr><td>El total imputado supera el total pagado.</td><td>Bajá imputaciones o agregá medios.</td></tr>
+    <tr><td>Saldo insuficiente en '...'. Saldo actual: ..., egreso requerido: ...</td><td>La caja o el banco elegido no tiene fondos. Elegí otra cuenta o registrá antes el ingreso que falta (por ejemplo, con una <a href="tesoreria_movimientos.html">transferencia interna</a>).</td></tr>
+    <tr><td>El cheque de tercero N° ... ya no se encuentra en cartera para ser endosado.</td><td>Ese cheque ya se depositó, se usó en otra OP o se rechazó. Elegí otro.</td></tr>
+    <tr><td>El monto a imputar (...) supera el saldo pendiente (...)</td><td>La factura ya no tiene tanto saldo (quizás se pagó en otra OP). Ajustá el importe.</td></tr>
+    <tr><td>El pago ya no está en estado Borrador o fue modificado por otro usuario.</td><td>Actualizá el listado.</td></tr>
+    <tr><td>Error contable: No se encontró cuenta contable válida ...</td><td>Falta configurar una cuenta contable. Avisá al responsable de contabilidad (ver <a href="empresas_cuentas_conceptos.html">Conceptos Contables</a>).</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>No me aparece una factura del proveedor para pagar.</td><td>Solo aparecen las facturas de compra confirmadas con saldo. Revisá su estado en <a href="facturas_proveedores.html">Facturas de Proveedores</a>.</td></tr>
+    <tr><td>Pagué con un cheque diferido, ¿por qué el banco no bajó?</td><td>Porque el dinero sale del banco recién cuando el proveedor cobra el cheque. Ese día registrá el débito con el botón correspondiente en <a href="cheques_cartera.html#debitar">Cartera de Cheques</a>.</td></tr>
+    <tr><td>¿Puedo adelantarle dinero a un proveedor sin factura?</td><td>Sí. Cargá el pago sin imputar nada. Queda como <strong>anticipo</strong> y en el listado se ve "Anticipo: $ ...".</td></tr>
+    <tr><td>Me equivoqué en una OP confirmada.</td><td>Anulala (con motivo) y cargá una nueva. No se puede editar una OP confirmada.</td></tr>
+    <tr><td>En la lista de cheques de tercero no aparece un cheque que recibí.</td><td>Solo aparecen los cheques <strong>En Cartera</strong>. Si ya lo depositaste o lo usaste en otra OP, no está disponible. Verificalo en <a href="cheques_cartera.html">Cartera de Cheques</a>.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="facturas_proveedores.html">Facturas de Proveedores</a>: las facturas que se pagan acá.</li>
+        <li><a href="cheques_cartera.html">Cartera de Cheques</a>: cheques propios emitidos y cheques de terceros.</li>
+        <li><a href="cobranzas.html">Cobranzas</a>: el proceso equivalente para cobrar a clientes.</li>
+        <li><a href="comprobantes_consulta.html">Comprobantes - Consulta</a>: ver imputaciones de cualquier comprobante.</li>
+        <li><a href="tesoreria_dashboard.html">Dashboard Financiero</a>: saldos y pagos proyectados.</li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tesorería / Órdenes de Pago. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

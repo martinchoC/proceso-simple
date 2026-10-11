@@ -7,12 +7,14 @@ $currentPage = 'clientes';
 $modudo_idx = 2;
 // ABM de Clientes: reutiliza la misma tabla gestion__entidades que
 // entidades.php (filtrada acá por es_cliente = 1), pero el pagina_id NO
-// se hardcodea: se toma del GET porque esta pantalla vive como una página
+// se hardcodea: se resuelve desde conf__paginas por url porque esta pantalla vive como una página
 // propia en conf__paginas (con sus propias conf__paginas_funciones), distinta
 // de la de "Entidades" (pagina_id 50) y de la de Proveedores.
-$pagina_idx = intval($_GET['pagina_id'] ?? 0);
-
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
+require_once ROOT_PATH . '/config.php';
+// El pagina_id del GET solo elige entre las páginas configuradas con esta url: no puede
+// apuntar a otra página ni valer 0 (header1.php no controla permisos con pagina_idx <= 0).
+$pagina_idx = pagina_id_por_url($conexion, $modudo_idx, 'clientes.php', intval($_GET['pagina_id'] ?? 0));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
@@ -103,6 +105,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="200">Nombre</th>
                                                     <th width="100">Tipo</th>
                                                     <th width="120">CUIT</th>
+                                                    <th width="160">Condición Fiscal</th>
                                                     <th width="180">Condiciones Clientes</th>
                                                     <th width="120">Estado</th>
                                                     <th width="200" class="text-center">Acciones</th>
@@ -121,7 +124,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <!-- Modal para crear/editar entidad -->
             <div class="modal fade" id="modalEntidad" tabindex="-1" aria-labelledby="modalLabel"
                 aria-hidden="true">
-                <div class="modal-dialog modal-xl">
+                <div class="modal-dialog modal-xl modal-ancho">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalLabel">Entidad</h5>
@@ -162,6 +165,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <span id="contador-sucursales-compra" class="badge bg-secondary ms-1">0</span>
                                     </button>
                                 </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link disabled" id="ctacte-cliente-tab" data-bs-toggle="tab"
+                                            data-bs-target="#ctacte-cliente" type="button" role="tab"
+                                            aria-controls="ctacte-cliente" aria-selected="false">
+                                        <i class="fas fa-balance-scale me-1"></i>Cuenta Corriente
+                                    </button>
+                                </li>
                             </ul>
                             
                             
@@ -171,92 +181,217 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <form id="formEntidad" class="needs-validation" novalidate>
                                         <input type="hidden" id="entidad_id" name="entidad_id" />
                                         
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label for="entidad_nombre" class="form-label">Nombre Legal *</label>
-                                                <input type="text" class="form-control" id="entidad_nombre"
-                                                    name="entidad_nombre" maxlength="255" required>
-                                                
+                                        <!-- SECCIÓN 1: IDENTIFICACIÓN -->
+                                        <div class="card card-outline card-primary mb-3 shadow-sm">
+                                            <div class="card-header py-2 bg-light">
+                                                <h6 class="card-title mb-0 fs-6 fw-bold text-primary">
+                                                    <i class="fas fa-id-card me-2"></i>1. Identificación de la Entidad
+                                                </h6>
                                             </div>
-                                            
-                                            <div class="col-md-6 mb-3">
-                                                <label for="entidad_fantasia" class="form-label">Nombre Fantasía</label>
-                                                <input type="text" class="form-control" id="entidad_fantasia"
-                                                    name="entidad_fantasia" maxlength="255">
-                                                
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="row">
-                                            <div class="col-md-4 mb-3">
-                                                <label for="entidad_tipo_id" class="form-label">Tipo de Entidad</label>
-                                                <select class="form-select" id="entidad_tipo_id" name="entidad_tipo_id">                                                    
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="col-md-4 mb-3">
-                                                <label for="cuit" class="form-label">CUIT (11 dígitos sin guiones)</label>
-                                                <input type="number" class="form-control" id="cuit"
-                                                    name="cuit" min="0" max="99999999999">                                                
-                                            </div>
-                                            
-                                            <div class="col-md-4 mb-3">
-                                                <label for="sitio_web" class="form-label">Sitio Web (Ej: https://empresa.com)</label>
-                                                <input type="url" class="form-control" id="sitio_web"
-                                                    name="sitio_web" maxlength="150">
-                                                
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="row">
-                                            <div class="col-md-8 mb-3">
-                                                <label for="domicilio_legal" class="form-label">Domicilio Legal</label>
-                                                <input type="text" class="form-control" id="domicilio_legal"
-                                                    name="domicilio_legal" maxlength="150">
-                                            </div>
-                                            
-                                            <div class="col-md-4 mb-3">
-                                                <label for="localidad_id" class="form-label">Localidad</label>
-                                                <select class="form-select" id="localidad_id" name="localidad_id">
-                                                    <option value="">Seleccionar localidad...</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="row">
-                                            <div class="col-md-2 mb-3">
-                                                <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" id="es_proveedor" name="es_proveedor" value="1">
-                                                    <label class="form-check-label" for="es_proveedor">Es Proveedor</label>
+                                            <div class="card-body py-3">
+                                                <div class="row">
+                                                    <div class="col-md-6 mb-3">
+                                                        <label for="entidad_nombre" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-building text-primary me-1"></i>Nombre Legal / Razón Social <span class="text-danger">*</span>
+                                                        </label>
+                                                        <input type="text" class="form-control" id="entidad_nombre"
+                                                            name="entidad_nombre" maxlength="255" placeholder="Ej: Razón Social S.A." required>
+                                                        <div class="invalid-feedback">El nombre legal es requerido.</div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-6 mb-3">
+                                                        <label for="entidad_fantasia" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-tag text-info me-1"></i>Nombre Fantasía
+                                                        </label>
+                                                        <input type="text" class="form-control" id="entidad_fantasia"
+                                                            name="entidad_fantasia" maxlength="255" placeholder="Nombre comercial o de fantasía">
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            
-                                            <div class="col-md-2 mb-3">
-                                                <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" id="es_cliente" name="es_cliente" value="1">
-                                                    <label class="form-check-label" for="es_cliente">Es Cliente</label>
+                                                
+                                                <div class="row">
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="entidad_tipo_id" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-users-cog text-secondary me-1"></i>Tipo de Entidad
+                                                        </label>
+                                                        <select class="form-select" id="entidad_tipo_id" name="entidad_tipo_id">                                                    
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="cuit" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-fingerprint text-secondary me-1"></i>CUIT <small class="text-muted fw-normal">(11 dígitos sin guiones)</small>
+                                                        </label>
+                                                        <input type="number" class="form-control" id="cuit"
+                                                            name="cuit" min="0" max="99999999999" placeholder="20123456789">
+                                                    </div>
+                                                    
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="sitio_web" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-globe text-secondary me-1"></i>Sitio Web
+                                                        </label>
+                                                        <input type="url" class="form-control" id="sitio_web"
+                                                            name="sitio_web" maxlength="150" placeholder="https://empresa.com">
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div class="col-md-4 mb-3">
-                                                <label for="cont_cuenta_id_proveedor" class="form-label">Cuenta Contable (Proveedor)</label>
-                                                <select class="form-select" id="cont_cuenta_id_proveedor" name="cont_cuenta_id_proveedor">
-                                                    <option value="">Seleccionar cuenta...</option>
-                                                </select>                                                
-                                            </div>
-                                            <div class="col-md-4 mb-3">
-                                                <label for="cont_cuenta_id_cliente" class="form-label">Cuenta Contable (Cliente)</label>
-                                                <select class="form-select" id="cont_cuenta_id_cliente" name="cont_cuenta_id_cliente">
-                                                    <option value="">Seleccionar cuenta...</option>
-                                                </select>                                                
                                             </div>
                                         </div>
 
-                                        <div class="row">
-                                            <div class="col-md-12 mb-3">
-                                                <label for="observaciones" class="form-label">Observaciones</label>
-                                                <textarea class="form-control" id="observaciones" name="observaciones"
-                                                    rows="3" maxlength="1000"></textarea>
-                                                <div class="form-text">Máximo 1000 caracteres</div>
+                                        <!-- SECCIÓN 2: SITUACIÓN FISCAL. Se guarda junto con la entidad: si algún dato
+                                             difiere de la condición vigente, se cierra la vigente y se abre una nueva
+                                             (gestion__entidades_condiciones_fiscales / _iibb), así queda el historial. -->
+                                        <div class="card card-outline card-warning mb-3 shadow-sm">
+                                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center">
+                                                <h6 class="card-title mb-0 fs-6 fw-bold text-warning-emphasis">
+                                                    <i class="fas fa-file-invoice-dollar me-2"></i>2. Situación Fiscal (IVA / Ingresos Brutos)
+                                                </h6>
+                                                <button type="button" class="btn btn-sm btn-outline-info ms-auto" id="btnHistorialFiscal" disabled>
+                                                    <i class="fas fa-history me-1"></i>Historial
+                                                </button>
+                                            </div>
+                                            <div class="card-body py-3">
+                                                <div class="row">
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="condicion_fiscal_id" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-percent text-warning me-1"></i>Condición IVA
+                                                        </label>
+                                                        <select class="form-select" id="condicion_fiscal_id" name="condicion_fiscal_id">
+                                                            <option value="">Seleccione condición fiscal...</option>
+                                                        </select>
+                                                        <div class="form-text small" id="vigencia-iva"></div>
+                                                    </div>
+
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="regimen_iibb_id" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-landmark text-warning me-1"></i>Régimen IIBB
+                                                        </label>
+                                                        <select class="form-select" id="regimen_iibb_id" name="regimen_iibb_id">
+                                                            <option value="">Seleccione régimen de IIBB...</option>
+                                                        </select>
+                                                        <div class="form-text small" id="vigencia-iibb"></div>
+                                                    </div>
+
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="numero_inscripcion_iibb" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-hashtag text-warning me-1"></i>N° Inscripción IIBB
+                                                        </label>
+                                                        <input type="text" class="form-control" id="numero_inscripcion_iibb"
+                                                            name="numero_inscripcion_iibb" maxlength="50" placeholder="N° local, CM o CUIT">
+                                                    </div>
+                                                </div>
+
+                                                <div class="row">
+                                                    <div class="col-md-8 mb-2">
+                                                        <label for="jurisdiccion_sede_id" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-map-pin text-warning me-1"></i>Jurisdicción Sede IIBB
+                                                        </label>
+                                                        <select class="form-select" id="jurisdiccion_sede_id" name="jurisdiccion_sede_id">
+                                                            <option value="">Seleccione jurisdicción sede (código ARCA/COMARB)...</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="fiscal_f_desde" class="form-label fw-bold text-dark">
+                                                            <i class="far fa-calendar-alt text-warning me-1"></i>Cambios vigentes desde
+                                                        </label>
+                                                        <input type="date" class="form-control" id="fiscal_f_desde" name="fiscal_f_desde">
+                                                        <div class="form-text small">Solo se usa si cambia algún dato fiscal.</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- SECCIÓN 3: UBICACIÓN Y DOMICILIO LEGAL -->
+                                        <div class="card card-outline card-success mb-3 shadow-sm">
+                                            <div class="card-header py-2 bg-light">
+                                                <h6 class="card-title mb-0 fs-6 fw-bold text-success">
+                                                    <i class="fas fa-map-marked-alt me-2"></i>3. Domicilio Legal y Ubicación
+                                                </h6>
+                                            </div>
+                                            <div class="card-body py-3">
+                                                <div class="row">
+                                                    <div class="col-md-8 mb-2">
+                                                        <label for="domicilio_legal" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-home text-success me-1"></i>Domicilio Legal
+                                                        </label>
+                                                        <input type="text" class="form-control" id="domicilio_legal"
+                                                            name="domicilio_legal" maxlength="150" placeholder="Calle, número, piso, dpto.">
+                                                    </div>
+                                                    
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="localidad_id" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-city text-success me-1"></i>Localidad
+                                                        </label>
+                                                        <select class="form-select" id="localidad_id" name="localidad_id">
+                                                            <option value="">Seleccionar localidad...</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- SECCIÓN 4: ROLES Y CONTABILIDAD -->
+                                        <div class="card card-outline card-info mb-3 shadow-sm">
+                                            <div class="card-header py-2 bg-light">
+                                                <h6 class="card-title mb-0 fs-6 fw-bold text-info">
+                                                    <i class="fas fa-balance-scale me-2"></i>4. Roles Comerciales y Cuentas Contables
+                                                </h6>
+                                            </div>
+                                            <div class="card-body py-3">
+                                                <div class="row align-items-center mb-2">
+                                                    <div class="col-md-2 mb-3 mb-md-0">
+                                                        <div class="form-check form-switch p-2 bg-light rounded border">
+                                                            <input class="form-check-input ms-0 me-2" type="checkbox" id="es_proveedor" name="es_proveedor" value="1">
+                                                            <label class="form-check-label fw-bold text-dark" for="es_proveedor">
+                                                                <i class="fas fa-truck text-primary me-1"></i>Proveedor
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-2 mb-3 mb-md-0">
+                                                        <div class="form-check form-switch p-2 bg-light rounded border">
+                                                            <input class="form-check-input ms-0 me-2" type="checkbox" id="es_cliente" name="es_cliente" value="1">
+                                                            <label class="form-check-label fw-bold text-dark" for="es_cliente">
+                                                                <i class="fas fa-user-tie text-success me-1"></i>Cliente
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="cont_cuenta_id_proveedor" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-book text-secondary me-1"></i>Cuenta Contable (Proveedor)
+                                                        </label>
+                                                        <select class="form-select" id="cont_cuenta_id_proveedor" name="cont_cuenta_id_proveedor">
+                                                            <option value="">Seleccionar cuenta...</option>
+                                                        </select>                                                
+                                                    </div>
+                                                    
+                                                    <div class="col-md-4 mb-2">
+                                                        <label for="cont_cuenta_id_cliente" class="form-label fw-bold text-dark">
+                                                            <i class="fas fa-book text-secondary me-1"></i>Cuenta Contable (Cliente)
+                                                        </label>
+                                                        <select class="form-select" id="cont_cuenta_id_cliente" name="cont_cuenta_id_cliente">
+                                                            <option value="">Seleccionar cuenta...</option>
+                                                        </select>                                                
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- SECCIÓN 5: OBSERVACIONES -->
+                                        <div class="card card-outline card-secondary mb-2 shadow-sm">
+                                            <div class="card-header py-2 bg-light">
+                                                <h6 class="card-title mb-0 fs-6 fw-bold text-secondary">
+                                                    <i class="fas fa-comment-alt me-2"></i>5. Observaciones Generales
+                                                </h6>
+                                            </div>
+                                            <div class="card-body py-2">
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        <textarea class="form-control" id="observaciones" name="observaciones"
+                                                            rows="3" maxlength="1000" placeholder="Comentarios o notas adicionales sobre la entidad..."></textarea>
+                                                        <div class="form-text text-end small">Máximo 1000 caracteres</div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>                                        
                                     </form>
@@ -297,6 +432,72 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="alert alert-info mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         <small>Las sucursales representan los domicilios comerciales de la entidad.</small>
+                                    </div>
+                                </div>
+
+                                <!-- Historial de situación fiscal (IVA + IIBB). Cada cambio guardado desde
+                                     "Datos Principales" cierra la condición vigente y abre una nueva; desde acá se
+                                     corrigen fechas o se inhabilita una fila cargada por error. -->
+                                <div class="modal fade" id="modalHistorialFiscal" tabindex="-1" aria-labelledby="modalHistorialFiscalLabel" aria-hidden="true">
+                                    <div class="modal-dialog modal-xl modal-ancho modal-dialog-centered modal-dialog-scrollable">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="modalHistorialFiscalLabel">
+                                                    <i class="fas fa-history me-2 text-primary"></i>Historial de Situación Fiscal
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                            </div>
+                                            <div class="modal-body p-3">
+                                                <h6 class="fw-bold text-primary mb-2">
+                                                    <i class="fas fa-file-invoice-dollar me-1"></i>Nivel Nacional (ARCA / IVA)
+                                                </h6>
+                                                <div class="table-responsive mb-4">
+                                                    <table id="tablaCondicionesFiscales" class="table table-sm table-hover table-striped mb-0" style="width:100%">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th width="60" class="text-center">ID</th>
+                                                                <th>Condición Fiscal</th>
+                                                                <th width="100" class="text-center">Código</th>
+                                                                <th width="120" class="text-center">Fecha Desde</th>
+                                                                <th width="120" class="text-center">Fecha Hasta</th>
+                                                                <th width="110" class="text-center">Estado</th>
+                                                                <th width="120" class="text-center">Acciones</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody></tbody>
+                                                    </table>
+                                                </div>
+
+                                                <h6 class="fw-bold text-success mb-2">
+                                                    <i class="fas fa-landmark me-1"></i>Nivel Provincial (Ingresos Brutos)
+                                                </h6>
+                                                <div class="table-responsive">
+                                                    <table id="tablaCondicionesIIBB" class="table table-sm table-hover table-striped mb-0" style="width:100%">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th width="60" class="text-center">ID</th>
+                                                                <th>Régimen IIBB</th>
+                                                                <th width="150" class="text-center">N° Inscripción</th>
+                                                                <th>Sede Principal (COMARB)</th>
+                                                                <th width="110" class="text-center">Fecha Desde</th>
+                                                                <th width="110" class="text-center">Fecha Hasta</th>
+                                                                <th width="100" class="text-center">Estado</th>
+                                                                <th width="110" class="text-center">Acciones</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody></tbody>
+                                                    </table>
+                                                </div>
+
+                                                <h6 class="fw-bold text-warning mt-4 mb-2">
+                                                    <i class="fas fa-hand-holding-usd me-1"></i>Percepciones IIBB (cuando la empresa es agente)
+                                                </h6>
+                                                <div id="percepcionesIibbCliente" class="mb-1"></div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -346,7 +547,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     
                                     <!-- Modal para historial de clientes -->
                                     <div class="modal fade" id="modalHistorialCliente" tabindex="-1" aria-hidden="true">
-                                        <div class="modal-dialog modal-xl">
+                                        <div class="modal-dialog modal-xl modal-ancho">
                                             <div class="modal-content">
                                                 <div class="modal-header">
                                                     <h5 class="modal-title">
@@ -407,6 +608,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </table>
                                     </div>
                                 </div>
+
+                                <!-- Pestaña Cuenta Corriente: deuda, movimientos y comprobantes emitidos
+                                     (widget de ctacte_cliente.js, lee clientes_ctacte_ajax.php) -->
+                                <div class="tab-pane fade" id="ctacte-cliente" role="tabpanel" aria-labelledby="ctacte-cliente-tab">
+                                    <div class="text-end mb-2">
+                                        <a href="#" class="btn btn-sm btn-outline-primary" id="btnAbrirCtacteCompleta" target="_blank" rel="noopener">
+                                            <i class="fas fa-external-link-alt me-1"></i>Abrir en Cuenta Corriente de Clientes
+                                        </a>
+                                    </div>
+                                    <div id="ctacte-cliente-contenido"></div>
+                                </div>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -422,7 +634,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <!-- Modal para crear/editar sucursal -->
             <div class="modal fade" id="modalSucursal" tabindex="-1" aria-labelledby="modalSucursalLabel"
                 aria-hidden="true">
-                <div class="modal-dialog modal-lg">
+                <div class="modal-dialog modal-xl">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalSucursalLabel">Sucursal</h5>
@@ -496,7 +708,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <!-- Modal para condición de cliente -->
             <div class="modal fade" id="modalCondicionCliente" tabindex="-1" aria-labelledby="modalCondicionClienteLabel" aria-hidden="true">
-                <div class="modal-dialog">
+                <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalCondicionClienteLabel">Condición de Cliente</h5>
@@ -571,7 +783,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <!-- Modal para condición de proveedor -->
             <div class="modal fade" id="modalCondicionProveedor" tabindex="-1" aria-labelledby="modalCondicionProveedorLabel" aria-hidden="true">
-                <div class="modal-dialog">
+                <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalCondicionProveedorLabel">Condición de Proveedor</h5>
@@ -629,7 +841,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <!-- Modal para vincular sucursal de compra -->
             <div class="modal fade" id="modalVinculacionCompra" tabindex="-1" aria-labelledby="modalVinculacionCompraLabel" aria-hidden="true">
-                <div class="modal-dialog">
+                <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalVinculacionCompraLabel">Vincular Sucursal de Compra</h5>
@@ -686,10 +898,142 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
+
+            <!-- Modal para crear/editar Condición Fiscal -->
+            <div class="modal fade" id="modalCondicionFiscal" tabindex="-1" aria-labelledby="modalCondicionFiscalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalCondicionFiscalLabel">
+                                <i class="fas fa-file-invoice-dollar me-2"></i>Condición Fiscal
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="formCondicionFiscal" class="needs-validation" novalidate>
+                                <input type="hidden" id="entidad_condicion_fiscal_id" name="entidad_condicion_fiscal_id" />
+                                <input type="hidden" id="entidad_id_condicion_fiscal" name="entidad_id" />
+                                
+                                <div class="mb-3">
+                                    <label for="select_condicion_fiscal_id" class="form-label fw-bold">Condición Fiscal *</label>
+                                    <select class="form-select" id="select_condicion_fiscal_id" name="condicion_fiscal_id" required>
+                                        <option value="">Seleccione condición fiscal...</option>
+                                    </select>
+                                    <div class="invalid-feedback">Debe seleccionar una condición fiscal</div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="cf_f_desde" class="form-label fw-bold">Fecha Desde *</label>
+                                        <input type="date" class="form-control" id="cf_f_desde" name="f_desde" required>
+                                        <div class="invalid-feedback">La fecha de inicio es requerida</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="cf_f_hasta" class="form-label fw-bold">Fecha Hasta</label>
+                                        <input type="date" class="form-control" id="cf_f_hasta" name="f_hasta">
+                                        <small class="text-muted">Vacío para vigencia indefinida</small>
+                                    </div>
+                                </div>
+
+                                <div class="form-check form-switch mb-2" id="divCerrarAnterior">
+                                    <input class="form-check-input" type="checkbox" id="cerrar_anterior" name="cerrar_anterior" value="1" checked>
+                                    <label class="form-check-label small" for="cerrar_anterior">
+                                        Cerrar vigencia de condición anterior a la fecha de inicio
+                                    </label>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" id="btnGuardarCondicionFiscal">
+                                <i class="fas fa-save me-1"></i>Guardar Condición
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal para crear/editar Condición IIBB (Nivel Provincial) -->
+            <div class="modal fade" id="modalCondicionIIBB" tabindex="-1" aria-labelledby="modalCondicionIIBBLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalCondicionIIBBLabel">
+                                <i class="fas fa-landmark me-2"></i>Condición IIBB (Nivel Provincial)
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="formCondicionIIBB" class="needs-validation" novalidate>
+                                <input type="hidden" id="entidad_condicion_iibb_id" name="entidad_condicion_iibb_id" />
+                                <input type="hidden" id="entidad_id_condicion_iibb" name="entidad_id" />
+                                
+                                <div class="mb-3">
+                                    <label for="select_regimen_iibb_id" class="form-label fw-bold">Régimen de IIBB *</label>
+                                    <select class="form-select" id="select_regimen_iibb_id" name="regimen_iibb_id" required>
+                                        <option value="">Seleccione régimen de IIBB...</option>
+                                    </select>
+                                    <div class="invalid-feedback">Debe seleccionar un régimen de IIBB</div>
+                                    <div class="form-text text-primary small mt-1" id="descripcion_regimen_iibb"></div>
+                                </div>
+
+                                <div class="mb-3" id="grupo_numero_inscripcion">
+                                    <label for="iibb_numero_inscripcion" class="form-label fw-bold">Número de Inscripción en IIBB</label>
+                                    <input type="text" class="form-control" id="iibb_numero_inscripcion" name="numero_inscripcion" placeholder="Número local o número de CUIT / Convenio">
+                                    <small class="text-muted">Número local o número de CUIT / Convenio Interprovincial</small>
+                                </div>
+
+                                <div class="mb-3" id="grupo_jurisdiccion_sede">
+                                    <label for="select_jurisdiccion_sede_id" class="form-label fw-bold">Sede Principal / Jurisdicción Sede</label>
+                                    <select class="form-select" id="select_jurisdiccion_sede_id" name="jurisdiccion_sede_id">
+                                        <option value="">Seleccione jurisdicción sede (código ARCA/COMARB)...</option>
+                                    </select>
+                                    <small class="text-muted">Código de provincia ARCA/COMARB (ej. 901 para CABA, 902 para Bs. As.)</small>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="iibb_f_desde" class="form-label fw-bold">Fecha Desde *</label>
+                                        <input type="date" class="form-control" id="iibb_f_desde" name="f_desde" required>
+                                        <div class="invalid-feedback">La fecha de inicio es requerida</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="iibb_f_hasta" class="form-label fw-bold">Fecha Hasta</label>
+                                        <input type="date" class="form-control" id="iibb_f_hasta" name="f_hasta">
+                                        <small class="text-muted">Vacío para vigencia indefinida</small>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="iibb_observaciones" class="form-label">Observaciones</label>
+                                    <input type="text" class="form-control" id="iibb_observaciones" name="observaciones" placeholder="Detalles u observaciones opcionales">
+                                </div>
+
+                                <div class="form-check form-switch mb-2" id="divCerrarAnteriorIIBB">
+                                    <input class="form-check-input" type="checkbox" id="cerrar_anterior_iibb" name="cerrar_anterior" value="1" checked>
+                                    <label class="form-check-label small" for="cerrar_anterior_iibb">
+                                        Cerrar vigencia de condición anterior a la fecha de inicio
+                                    </label>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-success" id="btnGuardarCondicionIIBB">
+                                <i class="fas fa-save me-1"></i>Guardar Condición IIBB
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <style>
+        /* Modales más anchos que modal-xl (1140px): hasta el 95% de la pantalla */
+        @media (min-width: 1200px) {
+            .modal-dialog.modal-ancho { --bs-modal-width: min(1600px, 95vw); }
+        }
         .dt-buttons .btn {
             margin-right: 5px;
             margin-bottom: 5px;
@@ -731,10 +1075,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             opacity: 0.5;
             cursor: not-allowed;
         }
-        <!-- Añadir esto antes de las librerías, después del último </style> existente -->
-<style>
-    /* ... estilos existentes ... */
-    
+
     /* ========== ESTILOS RESPONSIVE ========== */
     @media (max-width: 767.98px) {
         /* Header */
@@ -1081,7 +1422,7 @@ $(document).ready(function () {
     // ============================================
     // VARIABLES DE CONTEXTO MULTIEMPRESA
     // ============================================
-    const empresa_idx = 2;
+    const empresa_idx = <?= intval($current_empresa_id) ?>;
     const pagina_idx = <?php echo $pagina_idx; ?>;
 
     // ============================================
@@ -1092,12 +1433,42 @@ $(document).ready(function () {
     var tablaSucursalesCompra;
     var tablaCondicionesClientes;
     var tablaCondicionesProveedores;
+    var tablaCondicionesFiscales;
+    var catalogoCondicionesFiscales = [];
+    var tablaCondicionesIIBB;
+    var catalogoRegimenesIIBB = [];
+    var catalogoJurisdiccionesSedesIIBB = [];
     var tablaHistorialClientes;
     var tablaHistorialProveedores;
     var currentPage = 0;
     var currentOrder = [[1, 'asc']];
     var currentSearch = '';
     var entidadActualId = 0;
+
+    // ============================================
+    // CUENTA CORRIENTE (solapa): se carga recién al abrir la solapa
+    // ============================================
+    var ctacteCliente = CtacteCliente.crear('#ctacte-cliente-contenido', { empresaId: <?= intval($current_empresa_id) ?>, enSolapa: true });
+    var ctacteEntidadCargada = 0;
+
+    function habilitarSolapaCtacte(entidadId) {
+        ctacteEntidadCargada = 0;
+        $('#ctacte-cliente-tab').removeClass('disabled');
+        $('#btnAbrirCtacteCompleta').attr('href', 'clientes_ctacte.php?entidad_id=' + entidadId);
+        if ($('#ctacte-cliente-tab').hasClass('active')) {
+            ctacteEntidadCargada = entidadId;
+            ctacteCliente.cargar(entidadId);
+        }
+    }
+
+    $('#ctacte-cliente-tab').on('shown.bs.tab', function () {
+        if (entidadActualId && ctacteEntidadCargada !== entidadActualId) {
+            ctacteEntidadCargada = entidadActualId;
+            ctacteCliente.cargar(entidadActualId);
+        } else {
+            ctacteCliente.ajustar();
+        }
+    });
 
     // ============================================
     // FUNCIONES PARA VINCULACIÓN ENTIDAD - SUCURSAL DE COMPRA
@@ -1215,7 +1586,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>'
             },
             responsive: true,
             drawCallback: function() {
@@ -1830,7 +2201,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>'
             },
             order: [[5, 'desc']]
         });
@@ -1885,7 +2256,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>'
             },
             order: [[4, 'desc']]
         });
@@ -2066,7 +2437,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>'
             },
             responsive: true,
             createdRow: function(row, data, dataIndex) {
@@ -2177,7 +2548,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>'
             },
             responsive: true,
             createdRow: function(row, data, dataIndex) {
@@ -2246,21 +2617,19 @@ $(document).ready(function () {
         }
 
         tablaEntidades = $('#tablaEntidades').DataTable({
+            processing: true,
+            serverSide: true,
             ajax: {
                 url: 'clientes_ajax.php',
                 type: 'GET',
-                data: {
-                    accion: 'listar_entidades',
-                    empresa_idx: empresa_idx,
-                    pagina_idx: pagina_idx
-                },
-                dataSrc: ''
+                data: function (d) {
+                    d.accion = 'listar_entidades';
+                    d.empresa_idx = empresa_idx;
+                    d.pagina_idx = pagina_idx;
+                }
             },
             stateSave: true,
             stateSaveParams: function (settings, data) {
-                data.page = currentPage;
-                data.order = currentOrder;
-                
                 if (currentSearch !== '-1' && currentSearch !== '') {
                     data.search = { search: currentSearch };
                 } else {
@@ -2323,7 +2692,7 @@ $(document).ready(function () {
                     className: 'btn btn-success btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5],
+                        columns: [0, 1, 2, 3, 4, 5, 6],
                         orthogonal: 'export'
                     }
                 },
@@ -2335,7 +2704,7 @@ $(document).ready(function () {
                     orientation: 'portrait',
                     pageSize: 'A4',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5],
+                        columns: [0, 1, 2, 3, 4, 5, 6],
                         orthogonal: 'export'
                     }
                 },
@@ -2345,7 +2714,7 @@ $(document).ready(function () {
                     className: 'btn btn-primary btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5]
+                        columns: [0, 1, 2, 3, 4, 5, 6]
                     }
                 },
                 {
@@ -2354,7 +2723,7 @@ $(document).ready(function () {
                     className: 'btn btn-secondary btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5],
+                        columns: [0, 1, 2, 3, 4, 5, 6],
                         stripHtml: false
                     }
                 }
@@ -2405,6 +2774,23 @@ $(document).ready(function () {
                         var cuitStr = data.toString().padStart(11, '0');
                         var formattedCuit = cuitStr.replace(/^(\d{2})(\d{8})(\d{1})$/, '$1-$2-$3');
                         return `<span class="fw-medium">${formattedCuit}</span>`;
+                    }
+                },
+                {
+                    data: 'condicion_fiscal_info',
+                    className: 'text-center',
+                    render: function (data, type, row) {
+                        if (!data || !data.condicion_fiscal) {
+                            if (type === 'export') {
+                                return 'Sin condición';
+                            }
+                            return '<span class="text-muted fst-italic">Sin condición</span>';
+                        }
+                        if (type === 'export') {
+                            return data.condicion_fiscal + (data.condicion_fiscal_codigo ? ' (' + data.condicion_fiscal_codigo + ')' : '');
+                        }
+                        return `<span class="badge bg-light text-dark border">${data.condicion_fiscal}</span>` +
+                            (data.condicion_fiscal_codigo ? ` <small class="text-muted fw-bold">(${data.condicion_fiscal_codigo})</small>` : '');
                     }
                 },
                 {
@@ -2512,7 +2898,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>',
                 buttons: {
                     excel: 'Excel',
                     pdf: 'PDF',
@@ -2734,7 +3120,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>'
             },
             responsive: true,
             createdRow: function (row, data, dataIndex) {
@@ -2755,19 +3141,7 @@ $(document).ready(function () {
             var btn = $(this);
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
 
-            var savedState = {
-                page: tablaEntidades.page(),
-                order: tablaEntidades.order(),
-                search: tablaEntidades.search()
-            };
-
             tablaEntidades.ajax.reload(function (json) {
-                if (savedState.page !== undefined) {
-                    tablaEntidades.page(savedState.page).draw('page');
-                }
-                if (savedState.search && savedState.search !== '') {
-                    tablaEntidades.search(savedState.search).draw();
-                }
                 btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>');
             }, false);
         });
@@ -3352,12 +3726,6 @@ $(document).ready(function () {
         }, function (res) {
             if (res.success) {
                 tablaEntidades.ajax.reload(function (json) {
-                    if (savedState.page !== undefined) {
-                        tablaEntidades.page(savedState.page).draw('page');
-                    }
-                    if (savedState.search && savedState.search !== '') {
-                        tablaEntidades.search(savedState.search).draw();
-                    }
 
                     tablaEntidades.rows().every(function (rowIdx, tableLoop, rowLoop) {
                         var data = this.data();
@@ -3476,9 +3844,14 @@ $(document).ready(function () {
                 $('#modalLabel').text('Editar Entidad');
                 entidadActualId = res.entidad_id;
                 $('#sucursales-tab').removeClass('disabled');
+                habilitarSolapaCtacte(entidadActualId);
                 
                 // Cargar todas las tablas
                 inicializarDataTableSucursales(entidadActualId);
+                inicializarDataTableCondicionesFiscales(entidadActualId);
+                cargarCondicionFiscalVigente(entidadActualId);
+                inicializarDataTableCondicionesIIBB(entidadActualId);
+                cargarCondicionIIBBVigente(entidadActualId);
                 inicializarDataTableCondicionesClientes(entidadActualId);
                 inicializarDataTableCondicionesProveedores(entidadActualId);
                 cargarCondicionClienteVigente();
@@ -3556,8 +3929,20 @@ $(document).ready(function () {
         $('#formEntidad').removeClass('was-validated');
         entidadActualId = 0;
         $('#sucursales-tab').addClass('disabled');
+        $('#ctacte-cliente-tab').addClass('disabled');
+        ctacteEntidadCargada = 0;
+        ctacteCliente.limpiar();
         $('#tablaSucursales tbody').html('<tr><td colspan="9" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
         $('#contador-sucursales').text('0').addClass('bg-secondary').removeClass('bg-primary');
+        
+        // Resetear situación fiscal (sección de Datos Principales)
+        resetSituacionFiscal();
+        if ($.fn.DataTable.isDataTable('#tablaCondicionesFiscales')) {
+            $('#tablaCondicionesFiscales tbody').html('<tr><td colspan="7" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+        }
+        if ($.fn.DataTable.isDataTable('#tablaCondicionesIIBB')) {
+            $('#tablaCondicionesIIBB tbody').html('<tr><td colspan="8" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+        }
         
         // Resetear condiciones
         if ($.fn.DataTable.isDataTable('#tablaCondicionesClientes')) {
@@ -3658,18 +4043,17 @@ $(document).ready(function () {
                 es_proveedor: esProveedor,
                 es_cliente: esCliente,
                 observaciones: $('#observaciones').val().trim(),
+                condicion_fiscal_id: $('#condicion_fiscal_id').val(),
+                regimen_iibb_id: $('#regimen_iibb_id').val(),
+                numero_inscripcion_iibb: $('#numero_inscripcion_iibb').val().trim(),
+                jurisdiccion_sede_id: $('#jurisdiccion_sede_id').val(),
+                fiscal_f_desde: $('#fiscal_f_desde').val(),
                 empresa_idx: empresa_idx,
                 pagina_idx: pagina_idx
             },
             success: function (res) {
                 if (res.resultado) {
                     tablaEntidades.ajax.reload(function (json) {
-                        if (savedState.page !== undefined) {
-                            tablaEntidades.page(savedState.page).draw('page');
-                        }
-                        if (savedState.search && savedState.search !== '') {
-                            tablaEntidades.search(savedState.search).draw();
-                        }
 
                         if (id) {
                             tablaEntidades.rows().every(function (rowIdx, tableLoop, rowLoop) {
@@ -3683,13 +4067,23 @@ $(document).ready(function () {
                             });
                             // El CUIT pudo haber cambiado: refrescar estado de usuario web
                             cargarUsuarioWebEntidad();
+                            // Situación fiscal: mostrar la vigente (y su historial) tras el cambio
+                            cargarCondicionFiscalVigente(id);
+                            cargarCondicionIIBBVigente(id);
+                            if (tablaCondicionesFiscales) tablaCondicionesFiscales.ajax.reload();
+                            if (tablaCondicionesIIBB) tablaCondicionesIIBB.ajax.reload();
                         } else if (res.entidad_id) {
                             // NUEVA ENTIDAD: Inicializar todas las tablas
                             entidadActualId = res.entidad_id;
                             $('#entidad_id').val(entidadActualId);
                             $('#sucursales-tab').removeClass('disabled');
+                            habilitarSolapaCtacte(entidadActualId);
                             
                             inicializarDataTableSucursales(entidadActualId);
+                            inicializarDataTableCondicionesFiscales(entidadActualId);
+                            cargarCondicionFiscalVigente(entidadActualId);
+                            inicializarDataTableCondicionesIIBB(entidadActualId);
+                            cargarCondicionIIBBVigente(entidadActualId);
                             inicializarDataTableCondicionesClientes(entidadActualId);
                             inicializarDataTableCondicionesProveedores(entidadActualId);
                             inicializarDataTableSucursalesCompra(entidadActualId);
@@ -3908,6 +4302,8 @@ $(document).ready(function () {
     cargarListasPrecios();
     cargarCategoriasProveedores();
     cargarTiposCliente();
+    cargarCatalogoCondicionesFiscales();
+    cargarCatalogosIIBB();
 
     // Agregar tooltips a los botones
     $('[title]').tooltip({
@@ -3990,6 +4386,704 @@ $(document).ready(function () {
     $(document).on('change', '#entidad_cliente_tipo_id', function() {
         actualizarAccesoWeb();
     });
+
+    // ============================================
+    // FUNCIONES PARA CONDICIONES FISCALES
+    // ============================================
+
+    function cargarCatalogoCondicionesFiscales() {
+        $.get('clientes_ajax.php', {
+            accion: 'obtener_condiciones_fiscales_catalogo'
+        }, function(res) {
+            catalogoCondicionesFiscales = res || [];
+            var select = $('#select_condicion_fiscal_id, #condicion_fiscal_id');
+            select.empty();
+            select.append('<option value="">Seleccione condición fiscal...</option>');
+            if (catalogoCondicionesFiscales.length > 0) {
+                catalogoCondicionesFiscales.forEach(function(item) {
+                    var texto = item.condicion_fiscal + (item.condicion_fiscal_codigo ? ' (' + item.condicion_fiscal_codigo + ')' : '');
+                    select.append(`<option value="${item.condicion_fiscal_id}">${texto}</option>`);
+                });
+            }
+        }, 'json');
+    }
+
+    // La condición vigente ya no se muestra en una solapa: carga los campos de la sección
+    // "Situación Fiscal" de Datos Principales (se llama al abrir la entidad, al guardarla y al
+    // corregir una fila desde el Historial).
+    function cargarCondicionFiscalVigente(entidadId) {
+        $('#btnHistorialFiscal').prop('disabled', !entidadId);
+        if (!entidadId) {
+            $('#condicion_fiscal_id').val('');
+            $('#vigencia-iva').text('');
+            return;
+        }
+
+        $.get('clientes_ajax.php', {
+            accion: 'obtener_condicion_fiscal_vigente',
+            entidad_id: entidadId
+        }, function(condicion) {
+            if (condicion && condicion.entidad_condicion_fiscal_id) {
+                $('#condicion_fiscal_id').val(condicion.condicion_fiscal_id);
+                $('#vigencia-iva').html('<i class="fas fa-check-circle text-success me-1"></i>Vigente desde ' + moment(condicion.f_desde).format('DD/MM/YYYY'));
+            } else {
+                $('#condicion_fiscal_id').val('');
+                $('#vigencia-iva').html('<i class="fas fa-exclamation-circle text-warning me-1"></i>Sin condición IVA vigente');
+            }
+        }, 'json').fail(function() {
+            $('#vigencia-iva').html('<span class="text-danger">Error al cargar la condición IVA</span>');
+        });
+    }
+
+    function inicializarDataTableCondicionesFiscales(entidadId) {
+        if ($.fn.DataTable.isDataTable('#tablaCondicionesFiscales')) {
+            if (tablaCondicionesFiscales) {
+                tablaCondicionesFiscales.destroy();
+                tablaCondicionesFiscales = null;
+            }
+            $('#tablaCondicionesFiscales tbody').empty();
+        }
+
+        if (!entidadId) {
+            $('#tablaCondicionesFiscales tbody').html('<tr><td colspan="7" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+            $('#contador-condicion-fiscal').text('0').addClass('bg-secondary').removeClass('bg-primary');
+            return;
+        }
+
+        tablaCondicionesFiscales = $('#tablaCondicionesFiscales').DataTable({
+            ajax: {
+                url: 'clientes_ajax.php',
+                type: 'GET',
+                data: {
+                    accion: 'obtener_historial_condiciones_fiscales',
+                    entidad_id: entidadId
+                },
+                dataSrc: function(json) {
+                    if (json.error) {
+                        console.error('Error:', json.error);
+                        return [];
+                    }
+                    return json || [];
+                }
+            },
+            dom: '<"row"<"col-sm-12"tr>>' +
+                 '<"row align-items-center mt-2"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
+            pageLength: 5,
+            lengthMenu: [[5, 10, 25], [5, 10, 25]],
+            order: [[3, 'desc']],
+            columns: [
+                { data: 'entidad_condicion_fiscal_id', className: 'text-center fw-bold' },
+                {
+                    data: 'condicion_fiscal',
+                    render: function(data, type, row) {
+                        var vigenteBadge = (!row.f_hasta && row.tabla_estado_registro_id == 1)
+                            ? ' <span class="badge bg-success ms-1"><i class="fas fa-check me-1"></i>Vigente</span>'
+                            : '';
+                        return `<strong>${data || '-'}</strong>${vigenteBadge}`;
+                    }
+                },
+                {
+                    data: 'condicion_fiscal_codigo',
+                    className: 'text-center',
+                    render: function(data) {
+                        return data ? `<span class="badge bg-light text-dark border">${data}</span>` : '-';
+                    }
+                },
+                {
+                    data: 'f_desde',
+                    className: 'text-center',
+                    render: function(data) {
+                        return data ? moment(data).format('DD/MM/YYYY') : '-';
+                    }
+                },
+                {
+                    data: 'f_hasta',
+                    className: 'text-center',
+                    render: function(data) {
+                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Abierta</span>';
+                    }
+                },
+                {
+                    data: 'estado_info',
+                    className: 'text-center',
+                    render: function(data) {
+                        if (!data || !data.estado_registro) {
+                            return '<span class="badge bg-secondary">Sin estado</span>';
+                        }
+                        var badgeClass = data.bg_clase ? 'badge ' + data.bg_clase : 'badge bg-secondary';
+                        return `<span class="${badgeClass}">${data.estado_registro}</span>`;
+                    }
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    searchable: false,
+                    className: "text-center",
+                    render: function(data, type, row) {
+                        var botones = '';
+                        botones += `<button type="button" class="btn btn-xs btn-outline-primary btn-editar-cf me-1" 
+                                        data-id="${row.entidad_condicion_fiscal_id}" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>`;
+                        if (row.tabla_estado_registro_id == 1) {
+                            botones += `<button type="button" class="btn btn-xs btn-outline-danger btn-estado-cf" 
+                                            data-id="${row.entidad_condicion_fiscal_id}" data-estado="2" title="Inhabilitar">
+                                        <i class="fas fa-ban"></i>
+                                    </button>`;
+                        } else {
+                            botones += `<button type="button" class="btn btn-xs btn-outline-success btn-estado-cf" 
+                                            data-id="${row.entidad_condicion_fiscal_id}" data-estado="1" title="Habilitar">
+                                        <i class="fas fa-check"></i>
+                                    </button>`;
+                        }
+                        return `<div class="btn-group" role="group">${botones}</div>`;
+                    }
+                }
+            ],
+            language: {
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>'
+            },
+            responsive: true,
+            drawCallback: function() {
+                var total = tablaCondicionesFiscales ? tablaCondicionesFiscales.rows().count() : 0;
+                $('#contador-condicion-fiscal').text(total).toggleClass('bg-secondary', total === 0).toggleClass('bg-primary', total > 0);
+            }
+        });
+    }
+
+    function resetModalCondicionFiscal() {
+        $('#formCondicionFiscal')[0].reset();
+        $('#entidad_condicion_fiscal_id').val('');
+        $('#entidad_id_condicion_fiscal').val(entidadActualId);
+        $('#formCondicionFiscal').removeClass('was-validated');
+        $('#divCerrarAnterior').show();
+        $('#cerrar_anterior').prop('checked', true);
+        var today = new Date().toISOString().split('T')[0];
+        $('#cf_f_desde').val(today);
+        $('#cf_f_hasta').val('');
+        $('#modalCondicionFiscalLabel').html('<i class="fas fa-file-invoice-dollar me-2"></i>Nueva Condición Fiscal');
+    }
+
+    function cargarCondicionFiscalParaEditar(id) {
+        $.get('clientes_ajax.php', {
+            accion: 'obtener_condicion_fiscal',
+            entidad_condicion_fiscal_id: id
+        }, function(res) {
+            if (res && res.entidad_condicion_fiscal_id) {
+                resetModalCondicionFiscal();
+                $('#entidad_condicion_fiscal_id').val(res.entidad_condicion_fiscal_id);
+                $('#entidad_id_condicion_fiscal').val(res.entidad_id);
+                $('#select_condicion_fiscal_id').val(res.condicion_fiscal_id);
+                $('#cf_f_desde').val(res.f_desde);
+                $('#cf_f_hasta').val(res.f_hasta || '');
+                $('#divCerrarAnterior').hide();
+                $('#modalCondicionFiscalLabel').html('<i class="fas fa-file-invoice-dollar me-2"></i>Editar Condición Fiscal');
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCondicionFiscal'));
+                modal.show();
+            } else {
+                Swal.fire('Error', res.error || 'No se pudo cargar la condición fiscal', 'error');
+            }
+        }, 'json');
+    }
+
+    // Historial de situación fiscal (IVA + IIBB en un solo modal)
+    $(document).on('click', '#btnHistorialFiscal', function () {
+        if (!entidadActualId) {
+            Swal.fire({
+                icon: "warning",
+                title: "Advertencia",
+                text: "Guarde la entidad primero",
+                confirmButtonText: "Entendido"
+            });
+            return;
+        }
+        inicializarDataTableCondicionesFiscales(entidadActualId);
+        inicializarDataTableCondicionesIIBB(entidadActualId);
+        $('#modalHistorialFiscal').attr('data-entidad-id', entidadActualId);
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHistorialFiscal'));
+        modal.show();
+    });
+
+    $(document).on('click', '#btnNuevaCondicionFiscal, #btnAsignarPrimeraCondicionFiscal', function() {
+        if (!entidadActualId) {
+            Swal.fire('Atención', 'Seleccione o guarde la entidad primero', 'warning');
+            return;
+        }
+        resetModalCondicionFiscal();
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCondicionFiscal'));
+        modal.show();
+    });
+
+    $(document).on('click', '.btn-editar-cf', function() {
+        var id = $(this).data('id');
+        var modalHist = bootstrap.Modal.getInstance(document.getElementById('modalHistorialFiscal'));
+        if (modalHist) modalHist.hide();
+        cargarCondicionFiscalParaEditar(id);
+    });
+
+    $(document).on('click', '.btn-estado-cf', function() {
+        var id = $(this).data('id');
+        var nuevoEstado = $(this).data('estado');
+        var accionTexto = nuevoEstado == 1 ? 'habilitar' : 'inhabilitar';
+
+        Swal.fire({
+            title: `¿Desea ${accionTexto} el registro?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cancelar'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                $.post('clientes_ajax.php', {
+                    accion: 'cambiar_estado_condicion_fiscal',
+                    entidad_condicion_fiscal_id: id,
+                    nuevo_estado: nuevoEstado
+                }, function(res) {
+                    if (res && res.resultado) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Estado actualizado',
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 1500
+                        });
+                        if (tablaCondicionesFiscales) tablaCondicionesFiscales.ajax.reload();
+                        cargarCondicionFiscalVigente(entidadActualId);
+                    } else {
+                        Swal.fire('Error', (res && res.error) || 'No se pudo cambiar el estado', 'error');
+                    }
+                }, 'json');
+            }
+        });
+    });
+
+    $(document).on('click', '#btnGuardarCondicionFiscal', function() {
+        var form = document.getElementById('formCondicionFiscal');
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
+        var fDesde = $('#cf_f_desde').val();
+        var fHasta = $('#cf_f_hasta').val();
+        if (fHasta && fHasta < fDesde) {
+            Swal.fire('Fechas inválidas', 'La fecha hasta debe ser posterior o igual a la fecha desde', 'warning');
+            return;
+        }
+
+        var btn = $(this);
+        var origHtml = btn.html();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+        $.ajax({
+            url: 'clientes_ajax.php',
+            type: 'POST',
+            data: {
+                accion: 'guardar_condicion_fiscal',
+                entidad_condicion_fiscal_id: $('#entidad_condicion_fiscal_id').val(),
+                entidad_id: $('#entidad_id_condicion_fiscal').val(),
+                condicion_fiscal_id: $('#select_condicion_fiscal_id').val(),
+                f_desde: fDesde,
+                f_hasta: fHasta,
+                cerrar_anterior: $('#cerrar_anterior').is(':checked') ? 1 : 0
+            },
+            dataType: 'json',
+            success: function(res) {
+                btn.prop('disabled', false).html(origHtml);
+                if (res && res.resultado) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Guardado',
+                        text: res.mensaje || 'Condición fiscal guardada con éxito',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                    var modalEl = document.getElementById('modalCondicionFiscal');
+                    var modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (tablaCondicionesFiscales) tablaCondicionesFiscales.ajax.reload();
+                    cargarCondicionFiscalVigente(entidadActualId);
+                } else {
+                    Swal.fire('Error', (res && res.error) || 'No se pudo guardar la condición fiscal', 'error');
+                }
+            },
+            error: function() {
+                btn.prop('disabled', false).html(origHtml);
+                Swal.fire('Error', 'Error de comunicación con el servidor', 'error');
+            }
+        });
+    });
+
+    // ============================================
+    // FUNCIONES NIVEL PROVINCIAL (IIBB)
+    // ============================================
+
+    function cargarCatalogosIIBB() {
+        $.get('clientes_ajax.php', {
+            accion: 'obtener_regimenes_iibb'
+        }, function(res) {
+            catalogoRegimenesIIBB = res || [];
+            var select = $('#select_regimen_iibb_id, #regimen_iibb_id');
+            select.empty();
+            select.append('<option value="">Seleccione régimen de IIBB...</option>');
+            catalogoRegimenesIIBB.forEach(function(item) {
+                select.append(`<option value="${item.regimen_iibb_id}" data-codigo="${item.regimen_iibb_codigo}" data-desc="${item.regimen_iibb_descripcion || ''}">${item.regimen_iibb}</option>`);
+            });
+        }, 'json');
+
+        $.get('clientes_ajax.php', {
+            accion: 'obtener_jurisdicciones_sedes_iibb'
+        }, function(res) {
+            catalogoJurisdiccionesSedesIIBB = res || [];
+            var select = $('#select_jurisdiccion_sede_id, #jurisdiccion_sede_id');
+            select.empty();
+            select.append('<option value="">Seleccione jurisdicción sede (código ARCA/COMARB)...</option>');
+            catalogoJurisdiccionesSedesIIBB.forEach(function(item) {
+                var label = `${item.codigo_comarb} - ${item.jurisdiccion_sede}` + (item.organismo ? ` (${item.organismo})` : '');
+                select.append(`<option value="${item.jurisdiccion_sede_id}">${label}</option>`);
+            });
+        }, 'json');
+    }
+
+    $(document).on('change', '#select_regimen_iibb_id', function() {
+        var selected = $(this).find('option:selected');
+        var desc = selected.data('desc') || '';
+        var codigo = selected.data('codigo') || '';
+        $('#descripcion_regimen_iibb').text(desc);
+
+        if (codigo === 'EXENTO') {
+            $('#iibb_numero_inscripcion').attr('placeholder', 'Exento / No alcanzado (opcional)');
+        } else if (codigo === 'CM') {
+            $('#iibb_numero_inscripcion').attr('placeholder', 'Número de CUIT / Convenio Interprovincial');
+        } else {
+            $('#iibb_numero_inscripcion').attr('placeholder', 'Número local de inscripción (o CUIT)');
+        }
+    });
+
+    function cargarCondicionIIBBVigente(entidadId) {
+        if (!entidadId) {
+            $('#regimen_iibb_id, #jurisdiccion_sede_id, #numero_inscripcion_iibb').val('');
+            $('#vigencia-iibb').text('');
+            return;
+        }
+
+        $.get('clientes_ajax.php', {
+            accion: 'obtener_condicion_iibb_vigente',
+            entidad_id: entidadId
+        }, function(condicion) {
+            if (condicion && condicion.entidad_condicion_iibb_id) {
+                $('#regimen_iibb_id').val(condicion.regimen_iibb_id);
+                $('#numero_inscripcion_iibb').val(condicion.numero_inscripcion || '');
+                $('#jurisdiccion_sede_id').val(condicion.jurisdiccion_sede_id || '');
+                var desde = condicion.f_desde ? ' desde ' + moment(condicion.f_desde).format('DD/MM/YYYY') : '';
+                $('#vigencia-iibb').html('<i class="fas fa-check-circle text-success me-1"></i>Vigente' + desde);
+            } else {
+                $('#regimen_iibb_id, #jurisdiccion_sede_id, #numero_inscripcion_iibb').val('');
+                $('#vigencia-iibb').html('<i class="fas fa-exclamation-circle text-warning me-1"></i>Sin condición IIBB vigente');
+            }
+        }, 'json').fail(function() {
+            $('#vigencia-iibb').html('<span class="text-danger">Error al cargar la condición IIBB</span>');
+        });
+    }
+
+    function resetSituacionFiscal() {
+        $('#condicion_fiscal_id, #regimen_iibb_id, #jurisdiccion_sede_id, #numero_inscripcion_iibb').val('');
+        $('#vigencia-iva, #vigencia-iibb').text('');
+        $('#fiscal_f_desde').val(moment().format('YYYY-MM-DD')).attr('max', moment().format('YYYY-MM-DD'));
+        $('#btnHistorialFiscal').prop('disabled', true);
+    }
+
+    function inicializarDataTableCondicionesIIBB(entidadId) {
+        if ($.fn.DataTable.isDataTable('#tablaCondicionesIIBB')) {
+            if (tablaCondicionesIIBB) {
+                tablaCondicionesIIBB.destroy();
+                tablaCondicionesIIBB = null;
+            }
+            $('#tablaCondicionesIIBB tbody').empty();
+        }
+
+        if (!entidadId) {
+            $('#tablaCondicionesIIBB tbody').html('<tr><td colspan="8" class="text-center text-muted">Seleccione una entidad primero</td></tr>');
+            return;
+        }
+
+        tablaCondicionesIIBB = $('#tablaCondicionesIIBB').DataTable({
+            ajax: {
+                url: 'clientes_ajax.php',
+                type: 'GET',
+                data: {
+                    accion: 'obtener_historial_condiciones_iibb',
+                    entidad_id: entidadId
+                },
+                dataSrc: function(json) {
+                    if (json.error) {
+                        console.error('Error IIBB:', json.error);
+                        return [];
+                    }
+                    return json || [];
+                }
+            },
+            dom: '<"row"<"col-sm-12"tr>>' +
+                 '<"row align-items-center mt-2"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
+            pageLength: 5,
+            lengthMenu: [[5, 10, 25], [5, 10, 25]],
+            order: [[4, 'desc']],
+            columns: [
+                { data: 'entidad_condicion_iibb_id', className: 'text-center fw-bold' },
+                {
+                    data: 'regimen_iibb',
+                    render: function(data, type, row) {
+                        var badge = row.regimen_iibb_codigo ? ` <span class="badge bg-light text-dark border">${row.regimen_iibb_codigo}</span>` : '';
+                        var vigenteBadge = (!row.f_hasta && row.tabla_estado_registro_id == 1)
+                            ? ' <span class="badge bg-success ms-1"><i class="fas fa-check me-1"></i>Vigente</span>'
+                            : '';
+                        return `<strong>${data || '-'}</strong>${badge}${vigenteBadge}`;
+                    }
+                },
+                {
+                    data: 'numero_inscripcion',
+                    className: 'text-center',
+                    render: function(data) {
+                        return data ? `<span class="fw-medium">${data}</span>` : '<span class="text-muted fst-italic">-</span>';
+                    }
+                },
+                {
+                    data: null,
+                    render: function(data, type, row) {
+                        if (row.codigo_comarb) {
+                            return `<span class="badge bg-secondary me-1">${row.codigo_comarb}</span> ${row.jurisdiccion_sede || ''}` + (row.organismo ? ` <small class="text-muted">(${row.organismo})</small>` : '');
+                        }
+                        return '<span class="text-muted fst-italic">Sin sede</span>';
+                    }
+                },
+                {
+                    data: 'f_desde',
+                    className: 'text-center',
+                    render: function(data) {
+                        return data ? moment(data).format('DD/MM/YYYY') : '-';
+                    }
+                },
+                {
+                    data: 'f_hasta',
+                    className: 'text-center',
+                    render: function(data) {
+                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Abierta</span>';
+                    }
+                },
+                {
+                    data: 'estado_info',
+                    className: 'text-center',
+                    render: function(data, type, row) {
+                        if (row.tabla_estado_registro_id == 1) {
+                            return '<span class="badge bg-success">Activo</span>';
+                        }
+                        return '<span class="badge bg-secondary">Inactivo</span>';
+                    }
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    searchable: false,
+                    className: "text-center",
+                    render: function(data, type, row) {
+                        var botones = '';
+                        botones += `<button type="button" class="btn btn-xs btn-outline-primary btn-editar-iibb me-1" 
+                                        data-id="${row.entidad_condicion_iibb_id}" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>`;
+                        if (row.tabla_estado_registro_id == 1) {
+                            botones += `<button type="button" class="btn btn-xs btn-outline-danger btn-estado-iibb" 
+                                            data-id="${row.entidad_condicion_iibb_id}" data-estado="2" title="Inhabilitar">
+                                        <i class="fas fa-ban"></i>
+                                    </button>`;
+                        } else {
+                            botones += `<button type="button" class="btn btn-xs btn-outline-success btn-estado-iibb" 
+                                            data-id="${row.entidad_condicion_iibb_id}" data-estado="1" title="Habilitar">
+                                        <i class="fas fa-check"></i>
+                                    </button>`;
+                        }
+                        return `<div class="btn-group" role="group">${botones}</div>`;
+                    }
+                }
+            ],
+            language: {
+                url: '<?= asset_local("js/datatables-es-ES.json") ?>'
+            },
+            responsive: true
+        });
+    }
+
+    function resetModalCondicionIIBB() {
+        $('#formCondicionIIBB')[0].reset();
+        $('#entidad_condicion_iibb_id').val('');
+        $('#entidad_id_condicion_iibb').val(entidadActualId);
+        $('#formCondicionIIBB').removeClass('was-validated');
+        $('#descripcion_regimen_iibb').text('');
+        $('#divCerrarAnteriorIIBB').show();
+        $('#cerrar_anterior_iibb').prop('checked', true);
+        var today = new Date().toISOString().split('T')[0];
+        $('#iibb_f_desde').val(today);
+        $('#iibb_f_hasta').val('');
+        $('#modalCondicionIIBBLabel').html('<i class="fas fa-landmark me-2"></i>Nueva Condición IIBB (Nivel Provincial)');
+    }
+
+    function cargarCondicionIIBBParaEditar(id) {
+        $.get('clientes_ajax.php', {
+            accion: 'obtener_condicion_iibb',
+            entidad_condicion_iibb_id: id
+        }, function(res) {
+            if (res && res.entidad_condicion_iibb_id) {
+                resetModalCondicionIIBB();
+                $('#entidad_condicion_iibb_id').val(res.entidad_condicion_iibb_id);
+                $('#entidad_id_condicion_iibb').val(res.entidad_id);
+                $('#select_regimen_iibb_id').val(res.regimen_iibb_id).trigger('change');
+                $('#iibb_numero_inscripcion').val(res.numero_inscripcion || '');
+                $('#select_jurisdiccion_sede_id').val(res.jurisdiccion_sede_id || '');
+                $('#iibb_f_desde').val(res.f_desde);
+                $('#iibb_f_hasta').val(res.f_hasta || '');
+                $('#iibb_observaciones').val(res.observaciones || '');
+                $('#divCerrarAnteriorIIBB').hide();
+                $('#modalCondicionIIBBLabel').html('<i class="fas fa-landmark me-2"></i>Editar Condición IIBB (Nivel Provincial)');
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCondicionIIBB'));
+                modal.show();
+            } else {
+                Swal.fire('Error', res.error || 'No se pudo cargar la condición IIBB', 'error');
+            }
+        }, 'json');
+    }
+
+
+    $(document).on('click', '#btnNuevaCondicionIIBB, #btnAsignarPrimeraCondicionIIBB', function() {
+        if (!entidadActualId) {
+            Swal.fire('Atención', 'Seleccione o guarde la entidad primero', 'warning');
+            return;
+        }
+        resetModalCondicionIIBB();
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCondicionIIBB'));
+        modal.show();
+    });
+
+    $(document).on('click', '.btn-editar-iibb', function() {
+        var id = $(this).data('id');
+        var modalHist = bootstrap.Modal.getInstance(document.getElementById('modalHistorialFiscal'));
+        if (modalHist) modalHist.hide();
+        cargarCondicionIIBBParaEditar(id);
+    });
+
+    $(document).on('click', '.btn-estado-iibb', function() {
+        var id = $(this).data('id');
+        var nuevoEstado = $(this).data('estado');
+        var accionTexto = nuevoEstado == 1 ? 'habilitar' : 'inhabilitar';
+
+        Swal.fire({
+            title: `¿Desea ${accionTexto} el registro de IIBB?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cancelar'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                $.post('clientes_ajax.php', {
+                    accion: 'cambiar_estado_condicion_iibb',
+                    entidad_condicion_iibb_id: id,
+                    nuevo_estado: nuevoEstado
+                }, function(res) {
+                    if (res && res.resultado) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Estado actualizado',
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 1500
+                        });
+                        if (tablaCondicionesIIBB) tablaCondicionesIIBB.ajax.reload();
+                        cargarCondicionIIBBVigente(entidadActualId);
+                    } else {
+                        Swal.fire('Error', (res && res.error) || 'No se pudo cambiar el estado', 'error');
+                    }
+                }, 'json');
+            }
+        });
+    });
+
+    $(document).on('click', '#btnGuardarCondicionIIBB', function() {
+        var form = document.getElementById('formCondicionIIBB');
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
+        var fDesde = $('#iibb_f_desde').val();
+        var fHasta = $('#iibb_f_hasta').val();
+        if (fHasta && fHasta < fDesde) {
+            Swal.fire('Fechas inválidas', 'La fecha hasta debe ser posterior o igual a la fecha desde', 'warning');
+            return;
+        }
+
+        var btn = $(this);
+        var origHtml = btn.html();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+        $.ajax({
+            url: 'clientes_ajax.php',
+            type: 'POST',
+            data: {
+                accion: 'guardar_condicion_iibb',
+                entidad_condicion_iibb_id: $('#entidad_condicion_iibb_id').val(),
+                entidad_id: $('#entidad_id_condicion_iibb').val(),
+                regimen_iibb_id: $('#select_regimen_iibb_id').val(),
+                numero_inscripcion: $('#iibb_numero_inscripcion').val().trim(),
+                jurisdiccion_sede_id: $('#select_jurisdiccion_sede_id').val(),
+                f_desde: fDesde,
+                f_hasta: fHasta,
+                observaciones: $('#iibb_observaciones').val().trim(),
+                cerrar_anterior: $('#cerrar_anterior_iibb').is(':checked') ? 1 : 0
+            },
+            dataType: 'json',
+            success: function(res) {
+                btn.prop('disabled', false).html(origHtml);
+                if (res && res.resultado) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Guardado',
+                        text: res.mensaje || 'Condición IIBB guardada con éxito',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                    var modalEl = document.getElementById('modalCondicionIIBB');
+                    var modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (tablaCondicionesIIBB) tablaCondicionesIIBB.ajax.reload();
+                    cargarCondicionIIBBVigente(entidadActualId);
+                } else {
+                    Swal.fire('Error', (res && res.error) || 'No se pudo guardar la condición IIBB', 'error');
+                }
+            },
+            error: function() {
+                btn.prop('disabled', false).html(origHtml);
+                Swal.fire('Error', 'Error de comunicación con el servidor', 'error');
+            }
+        });
+    });
+
+    // Ajuste de DataTables al abrir modales de historial
+    $('#modalHistorialFiscal').on('shown.bs.modal', function () {
+        if (tablaCondicionesFiscales) {
+            tablaCondicionesFiscales.columns.adjust().draw();
+        }
+        if (tablaCondicionesIIBB) {
+            tablaCondicionesIIBB.columns.adjust().draw();
+        }
+    });
+
     // ============================================
     // FUNCIONES RESPONSIVE
     // ============================================
@@ -3999,10 +5093,10 @@ $(document).ready(function () {
                 tablaEntidades.settings()[0].oInit.pageLength = 10;
                 tablaEntidades.page.len(10).draw();
             }
-            $('#tablaEntidades').DataTable().columns([2, 3, 6]).visible(false);
+            $('#tablaEntidades').DataTable().columns([2, 3, 4]).visible(false);
         } else {
             if ($.fn.DataTable.isDataTable('#tablaEntidades')) {
-                $('#tablaEntidades').DataTable().columns([2, 3, 6]).visible(true);
+                $('#tablaEntidades').DataTable().columns([2, 3, 4]).visible(true);
             }
         }
     }
@@ -4077,6 +5171,10 @@ $(document).ready(function () {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/locale/es.min.js"></script>
+    <!-- Solapa Cuenta Corriente -->
+    <script src="comprobantes_ui.js?v=<?= filemtime(__DIR__ . '/comprobantes_ui.js') ?>"></script>
+    <script src="ctacte_cliente.js?v=<?= filemtime(__DIR__ . '/ctacte_cliente.js') ?>"></script>
+<script src="percepciones_iibb_clientes.js?v=<?= filemtime(__DIR__ . '/percepciones_iibb_clientes.js') ?>"></script>
 </main>
 
 <?php

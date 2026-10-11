@@ -11,6 +11,7 @@ let maestros = {
     cuentas_tesoreria: [],
     bancos: [],
     impuestos_retencion: [],
+    jurisdicciones: [],
     sucursales: [],
     puntos_venta: []
 };
@@ -70,7 +71,7 @@ function inicializarFechasFiltro() {
  */
 async function cargarMaestros() {
     try {
-        const resp = await fetch('cobranzas_ajax.php?accion=maestros&empresa_idx=2');
+        const resp = await fetch('cobranzas_ajax.php?accion=maestros&empresa_idx=' + window.EMPRESA_ID);
         const res = await resp.json();
         if (res.success && res.data) {
             maestros = res.data;
@@ -95,7 +96,7 @@ function poblarSelectClientes() {
     if (selectFiltro) {
         let opts = '<option value="">-- Todos los Clientes --</option>';
         (maestros.clientes || []).forEach(c => {
-            opts += `<option value="${c.entidad_id}">${escapeHtml(c.entidad_nombre)} (CUIT: ${c.cuit || 'S/D'})</option>`;
+            opts += `<option value="${c.entidad_id}">${escapeHtml(c.entidad_nombre)} (CUIT: ${c.cuit || 'S/D'})${(+c.es_proveedor === 1 && +c.es_cliente !== 1) ? ' · proveedor (devolución de NC)' : ''}</option>`;
         });
         selectFiltro.innerHTML = opts;
     }
@@ -103,7 +104,7 @@ function poblarSelectClientes() {
     if (selectModal) {
         let opts = '<option value="">-- Seleccionar Cliente --</option>';
         (maestros.clientes || []).forEach(c => {
-            opts += `<option value="${c.entidad_id}">${escapeHtml(c.entidad_nombre)} (CUIT: ${c.cuit || 'S/D'})</option>`;
+            opts += `<option value="${c.entidad_id}">${escapeHtml(c.entidad_nombre)} (CUIT: ${c.cuit || 'S/D'})${(+c.es_proveedor === 1 && +c.es_cliente !== 1) ? ' · proveedor (devolución de NC)' : ''}</option>`;
         });
         selectModal.innerHTML = opts;
     }
@@ -134,7 +135,7 @@ function poblarSelectPuntosVenta(sucursalId = null) {
         let opts = '<option value="">-- Todos los PV --</option>';
         (maestros.puntos_venta || []).forEach(pv => {
             const boca = pv.boca_nombre ? ` (${pv.boca_nombre})` : '';
-            opts += `<option value="${pv.punto_venta_id}">${escapeHtml(pv.nombre)}${escapeHtml(boca)} - PV ${String(pv.punto_venta_id).padStart(4, '0')}</option>`;
+            opts += `<option value="${pv.punto_venta_id}">${escapeHtml(pv.nombre)}${escapeHtml(boca)} - PV ${String(pv.codigo_fiscal || pv.punto_venta_id).padStart(4, '0')}</option>`;
         });
         selectFiltro.innerHTML = opts;
     }
@@ -150,7 +151,7 @@ function poblarSelectPuntosVenta(sucursalId = null) {
         let opts = '';
         lista.forEach(pv => {
             const boca = pv.boca_nombre ? ` (${pv.boca_nombre})` : '';
-            opts += `<option value="${pv.punto_venta_id}">${escapeHtml(pv.nombre)}${escapeHtml(boca)} - PV ${String(pv.punto_venta_id).padStart(4, '0')}</option>`;
+            opts += `<option value="${pv.punto_venta_id}">${escapeHtml(pv.nombre)}${escapeHtml(boca)} - PV ${String(pv.codigo_fiscal || pv.punto_venta_id).padStart(4, '0')}</option>`;
         });
         selectModal.innerHTML = opts;
     }
@@ -172,7 +173,7 @@ async function cargarTiposPorPuntoVenta(tipoPreseleccionado = null) {
     }
 
     try {
-        const empId = typeof EMPRESA_ID !== 'undefined' ? EMPRESA_ID : 2;
+        const empId = typeof EMPRESA_ID !== 'undefined' ? EMPRESA_ID : window.EMPRESA_ID;
         const pagId = typeof PAGINA_ID !== 'undefined' ? PAGINA_ID : 105;
         const resp = await fetch(`cobranzas_ajax.php?accion=tipos_por_punto_venta&empresa_idx=${empId}&pagina_idx=${pagId}&punto_venta_id=${pvId}`);
         const tipos = await resp.json();
@@ -209,10 +210,9 @@ function inicializarDataTable() {
         ajax: {
             url: 'cobranzas_ajax.php',
             type: 'GET',
-            dataSrc: '',
+            dataSrc: 'data',
             data: function (d) {
                 d.accion = 'listar';
-                d.empresa_idx = 2;
                 d.desde = document.getElementById('filtroDesde')?.value || '';
                 d.hasta = document.getElementById('filtroHasta')?.value || '';
                 d.entidad_id = document.getElementById('filtroCliente')?.value || '';
@@ -386,7 +386,7 @@ async function abrirModalNuevaCobranza() {
     if (cobranzaIdInput) cobranzaIdInput.value = '0';
 
     const modalLabel = document.getElementById('modalCobranzaLabel');
-    if (modalLabel) modalLabel.innerHTML = '<i class="fas fa-hand-holding-usd me-2"></i>Nueva Cobranza (Recibo de Cobro RCX)';
+    if (modalLabel) modalLabel.innerHTML = '<i class="fas fa-hand-holding-usd me-2"></i>Nueva Cobranza (Recibo de Cobro)';
 
     const hoy = new Date().toISOString().split('T')[0];
     const inpEmision = document.getElementById('inputFechaEmision');
@@ -446,7 +446,7 @@ async function cargarComprobantesPendientes(entidadId, imputacionesPrevias = [])
     tbody.innerHTML = '';
 
     try {
-        const resp = await fetch(`cobranzas_ajax.php?accion=comprobantes_pendientes&empresa_idx=2&entidad_id=${entidadId}`);
+        const resp = await fetch(`cobranzas_ajax.php?accion=comprobantes_pendientes&empresa_idx=${window.EMPRESA_ID}&entidad_id=${entidadId}`);
         const res = await resp.json();
 
         spinner.classList.add('d-none');
@@ -687,35 +687,107 @@ function renderizarCamposEspecificosMedio(tr, datosPrevios = null) {
             </div>
         `;
     } else if (tipo === 'RETENCION') {
-        // Retenciones impositivas sufridas
+        // Retenciones impositivas sufridas (IVA, Ganancias, Ingresos Brutos)
+        let defaultImpTipoId = datosPrevios ? parseInt(datosPrevios.impuesto_tipo_id) : 0;
+        if (!defaultImpTipoId && codigo) {
+            if (codigo === 'RET_IVA') {
+                const match = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === 5 || it.impuesto_tipo.toUpperCase().includes('IVA'));
+                if (match) defaultImpTipoId = parseInt(match.impuesto_tipo_id);
+            } else if (codigo === 'RET_GAN') {
+                const match = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === 21 || it.impuesto_tipo.toUpperCase().includes('GANANCIA'));
+                if (match) defaultImpTipoId = parseInt(match.impuesto_tipo_id);
+            } else if (codigo === 'RET_IIBB') {
+                const match = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === 4 || it.impuesto_tipo.toUpperCase().includes('IIBB') || it.impuesto_tipo.toUpperCase().includes('INGRESOS BRUTOS'));
+                if (match) defaultImpTipoId = parseInt(match.impuesto_tipo_id);
+            }
+        }
+
         let optionsImp = '<option value="">-- Tipo Impuesto --</option>';
-        maestros.impuestos_retencion.forEach(it => {
-            const sel = (datosPrevios && parseInt(datosPrevios.impuesto_tipo_id) === parseInt(it.impuesto_tipo_id)) ? 'selected' : '';
+        (maestros.impuestos_retencion || []).forEach(it => {
+            const sel = (defaultImpTipoId && parseInt(defaultImpTipoId) === parseInt(it.impuesto_tipo_id)) ? 'selected' : '';
             optionsImp += `<option value="${it.impuesto_tipo_id}" ${sel}>${escapeHtml(it.impuesto_tipo)}</option>`;
+        });
+
+        let defaultJurId = datosPrevios ? parseInt(datosPrevios.jurisdiccion_id) : 0;
+        let optionsJur = '<option value="">-- Jurisdicción --</option>';
+        (maestros.jurisdicciones || []).forEach(j => {
+            const sel = (defaultJurId && parseInt(defaultJurId) === parseInt(j.jurisdiccion_id)) ? 'selected' : '';
+            optionsJur += `<option value="${j.jurisdiccion_id}" ${sel}>${escapeHtml(j.jurisdiccion_nombre)}</option>`;
         });
 
         const nroCert = datosPrevios ? escapeHtml(datosPrevios.retencion_certificado_nro || '') : '';
         const base = datosPrevios ? (datosPrevios.retencion_base_imponible || '') : '';
         const ali = datosPrevios ? (datosPrevios.retencion_alicuota || '') : '';
 
+        const impObj = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === parseInt(defaultImpTipoId));
+        const esIIBBInicial = (codigo === 'RET_IIBB') || (impObj && (impObj.impuesto_tipo.toUpperCase().includes('IIBB') || impObj.impuesto_tipo.toUpperCase().includes('INGRESOS BRUTOS')));
+
         contenedor.innerHTML = `
-            <div class="row g-1">
-                <div class="col-sm-4">
-                    <select class="form-select form-select-sm input-retencion-tipo" required>
+            <div class="row g-1 align-items-center">
+                <div class="col-sm-3">
+                    <select class="form-select form-select-sm input-retencion-tipo" required title="Tipo de Retención">
                         ${optionsImp}
                     </select>
                 </div>
-                <div class="col-sm-3">
-                    <input type="text" class="form-control form-control-sm input-retencion-cert" placeholder="N° Certificado" value="${nroCert}" required>
+                <div class="col-sm-3 col-jurisdiccion ${esIIBBInicial ? '' : 'd-none'}">
+                    <select class="form-select form-select-sm input-retencion-jurisdiccion" title="Jurisdicción de Ingresos Brutos">
+                        ${optionsJur}
+                    </select>
                 </div>
-                <div class="col-sm-3">
-                    <input type="number" step="0.01" class="form-control form-control-sm input-retencion-base" placeholder="Base Imp." value="${base}">
+                <div class="${esIIBBInicial ? 'col-sm-2' : 'col-sm-3'} col-cert">
+                    <input type="text" class="form-control form-control-sm input-retencion-cert" placeholder="N° Certificado" value="${nroCert}" title="Número de Certificado de Retención" required>
                 </div>
                 <div class="col-sm-2">
-                    <input type="number" step="0.01" class="form-control form-control-sm input-retencion-ali" placeholder="%" value="${ali}">
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm input-retencion-base" placeholder="Base Imp. ($)" value="${base}" title="Base Imponible ($)">
+                </div>
+                <div class="col-sm-2">
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm input-retencion-ali" placeholder="%" value="${ali}" title="Alícuota (%)">
                 </div>
             </div>
         `;
+
+        const selTipoRet = contenedor.querySelector('.input-retencion-tipo');
+        const colJur = contenedor.querySelector('.col-jurisdiccion');
+        const selJur = contenedor.querySelector('.input-retencion-jurisdiccion');
+        const colCert = contenedor.querySelector('.col-cert');
+        const inpBase = contenedor.querySelector('.input-retencion-base');
+        const inpAli = contenedor.querySelector('.input-retencion-ali');
+
+        const recalcularMontoRetencion = () => {
+            const b = parseFloat(inpBase?.value) || 0;
+            const a = parseFloat(inpAli?.value) || 0;
+            if (b > 0 && a > 0) {
+                const impInput = tr.querySelector('.input-medio-importe');
+                if (impInput && (!impInput.value || parseFloat(impInput.value) === 0)) {
+                    impInput.value = (Math.round((b * a / 100) * 100) / 100).toFixed(2);
+                    recalcularBalance();
+                }
+            }
+        };
+
+        if (inpBase) inpBase.addEventListener('input', recalcularMontoRetencion);
+        if (inpAli) inpAli.addEventListener('input', recalcularMontoRetencion);
+
+        if (selTipoRet) {
+            selTipoRet.addEventListener('change', function() {
+                const selectedId = parseInt(this.value);
+                const selectedObj = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === selectedId);
+                const esIIBB = selectedObj && (selectedObj.impuesto_tipo.toUpperCase().includes('IIBB') || selectedObj.impuesto_tipo.toUpperCase().includes('INGRESOS BRUTOS'));
+
+                if (esIIBB) {
+                    colJur?.classList.remove('d-none');
+                    if (selJur) selJur.required = true;
+                    if (colCert) colCert.className = 'col-sm-2 col-cert';
+                } else {
+                    colJur?.classList.add('d-none');
+                    if (selJur) {
+                        selJur.required = false;
+                        selJur.value = '';
+                    }
+                    if (colCert) colCert.className = 'col-sm-3 col-cert';
+                }
+            });
+        }
     }
 }
 
@@ -770,11 +842,16 @@ function autoImputarPendientes() {
 /**
  * Limpia todas las imputaciones de la tabla de comprobantes pendientes
  */
+/**
+ * Limpia todas las imputaciones de la tabla de comprobantes pendientes
+ */
 function limpiarImputaciones() {
     const rows = document.querySelectorAll('#tbodyPendientes tr');
     rows.forEach(tr => {
-        tr.querySelector('.input-imputar').value = '0.00';
-        tr.querySelector('.check-pendiente').checked = false;
+        const inp = tr.querySelector('.input-imputar');
+        const chk = tr.querySelector('.check-pendiente');
+        if (inp) inp.value = '0.00';
+        if (chk) chk.checked = false;
     });
     const checkTodos = document.getElementById('checkTodosPendientes');
     if (checkTodos) checkTodos.checked = false;
@@ -814,11 +891,15 @@ function recalcularBalance() {
     const diferencia = Math.round((totalMedios - totalImputado) * 100) / 100;
 
     // Actualizar visualizaciones
-    document.getElementById('totalMediosDisplay').innerText = `$ ${formatearMoneda(totalMedios)}`;
-    document.getElementById('resumenTotalMedios').innerText = `$ ${formatearMoneda(totalMedios)}`;
+    const totalMediosDisp = document.getElementById('totalMediosDisplay');
+    const resTotalMedios = document.getElementById('resumenTotalMedios');
+    if (totalMediosDisp) totalMediosDisp.innerText = `$ ${formatearMoneda(totalMedios)}`;
+    if (resTotalMedios) resTotalMedios.innerText = `$ ${formatearMoneda(totalMedios)}`;
 
-    document.getElementById('totalImputadoDisplay').innerText = `$ ${formatearMoneda(totalImputado)}`;
-    document.getElementById('resumenTotalImputado').innerText = `$ ${formatearMoneda(totalImputado)}`;
+    const totalImpDisp = document.getElementById('totalImputadoDisplay');
+    const resTotalImp = document.getElementById('resumenTotalImputado');
+    if (totalImpDisp) totalImpDisp.innerText = `$ ${formatearMoneda(totalImputado)}`;
+    if (resTotalImp) resTotalImp.innerText = `$ ${formatearMoneda(totalImputado)}`;
 
     const elDif = document.getElementById('resumenDiferencia');
     const alertaDesbalance = document.getElementById('alertaDesbalance');
@@ -828,28 +909,35 @@ function recalcularBalance() {
 
     if (totalImputado > totalMedios + 0.001) {
         // ERROR: Imputó más de lo cobrado
-        elDif.innerText = `-$ ${formatearMoneda(Math.abs(diferencia))}`;
-        elDif.className = 'mb-0 fw-bold text-danger';
-        alertaDesbalance.classList.remove('d-none');
-        avisoACuenta.classList.add('d-none');
-        btnGuardar.disabled = true;
-        btnConfirmar.disabled = true;
+        if (elDif) {
+            elDif.innerText = `-$ ${formatearMoneda(Math.abs(diferencia))}`;
+            elDif.className = 'mb-0 fw-bold text-danger';
+        }
+        if (alertaDesbalance) alertaDesbalance.classList.remove('d-none');
+        if (avisoACuenta) avisoACuenta.classList.add('d-none');
+        // No deshabilitamos los botones para que al hacer click se le avise al usuario mediante SweetAlert
+        if (btnGuardar) btnGuardar.disabled = false;
+        if (btnConfirmar) btnConfirmar.disabled = false;
     } else if (diferencia > 0.001) {
         // VÁLIDO: Hay saldo a cuenta para el cliente (D6 / RT02)
-        elDif.innerText = `$ ${formatearMoneda(diferencia)}`;
-        elDif.className = 'mb-0 fw-bold text-info';
-        alertaDesbalance.classList.add('d-none');
-        avisoACuenta.classList.remove('d-none');
-        btnGuardar.disabled = false;
-        btnConfirmar.disabled = false;
+        if (elDif) {
+            elDif.innerText = `$ ${formatearMoneda(diferencia)}`;
+            elDif.className = 'mb-0 fw-bold text-info';
+        }
+        if (alertaDesbalance) alertaDesbalance.classList.add('d-none');
+        if (avisoACuenta) avisoACuenta.classList.remove('d-none');
+        if (btnGuardar) btnGuardar.disabled = false;
+        if (btnConfirmar) btnConfirmar.disabled = false;
     } else {
         // VÁLIDO: Balance exacto 0
-        elDif.innerText = `$ 0,00`;
-        elDif.className = 'mb-0 fw-bold text-success';
-        alertaDesbalance.classList.add('d-none');
-        avisoACuenta.classList.add('d-none');
-        btnGuardar.disabled = false;
-        btnConfirmar.disabled = false;
+        if (elDif) {
+            elDif.innerText = `$ 0,00`;
+            elDif.className = 'mb-0 fw-bold text-success';
+        }
+        if (alertaDesbalance) alertaDesbalance.classList.add('d-none');
+        if (avisoACuenta) avisoACuenta.classList.add('d-none');
+        if (btnGuardar) btnGuardar.disabled = false;
+        if (btnConfirmar) btnConfirmar.disabled = false;
     }
 }
 
@@ -857,13 +945,15 @@ function recalcularBalance() {
  * Recopila y valida los datos para guardar la cobranza
  */
 function recopilarDatosCobranza() {
-    const cobranzaId = parseInt(document.getElementById('cobranza_id').value) || 0;
-    const entidadId = parseInt(document.getElementById('selectCliente').value) || 0;
-    const sucursalId = parseInt(document.getElementById('selectSucursal').value) || 1;
+    const cobranzaId = parseInt(document.getElementById('cobranza_id')?.value) || 0;
+    const entidadId = parseInt(document.getElementById('selectCliente')?.value) || 0;
+    const sucursalId = parseInt(document.getElementById('selectSucursal')?.value) || 1;
     const comprobantePv = parseInt(document.getElementById('selectPuntoVenta')?.value) || 0;
-    const fEmision = document.getElementById('inputFechaEmision').value;
-    const fContabilidad = document.getElementById('inputFechaContable').value || fEmision;
-    const observaciones = document.getElementById('inputObservaciones').value.trim();
+    const inpEmision = document.getElementById('inputFechaEmision');
+    const inpContable = document.getElementById('inputFechaContable');
+    const fEmision = inpEmision ? inpEmision.value : new Date().toISOString().split('T')[0];
+    const fContabilidad = (inpContable && inpContable.value) ? inpContable.value : fEmision;
+    const observaciones = document.getElementById('inputObservaciones')?.value?.trim() || '';
 
     if (entidadId <= 0) {
         Swal.fire('Atención', 'Debe seleccionar un cliente.', 'warning');
@@ -873,6 +963,20 @@ function recopilarDatosCobranza() {
     if (comprobantePv <= 0) {
         Swal.fire('Atención', 'Debe seleccionar un punto de venta.', 'warning');
         return null;
+    }
+
+    // Auto-seleccionar tipo de comprobante si no está seleccionado pero hay opciones válidas
+    const selectTipoComp = document.getElementById('selectComprobanteTipo');
+    let comprobanteTipoId = parseInt(selectTipoComp?.value) || 0;
+    if (comprobanteTipoId <= 0 && selectTipoComp && selectTipoComp.options.length > 0) {
+        for (let i = 0; i < selectTipoComp.options.length; i++) {
+            const v = parseInt(selectTipoComp.options[i].value);
+            if (v > 0) {
+                selectTipoComp.selectedIndex = i;
+                comprobanteTipoId = v;
+                break;
+            }
+        }
     }
 
     // Recopilar medios
@@ -885,13 +989,23 @@ function recopilarDatosCobranza() {
 
     for (const tr of filasMedios) {
         const select = tr.querySelector('.select-medio-tipo');
+        if (!select || select.selectedIndex < 0) {
+            Swal.fire('Atención', 'Seleccione el medio de cobro en cada fila.', 'warning');
+            return null;
+        }
         const opt = select.options[select.selectedIndex];
-        const medioPagoId = parseInt(select.value);
-        const tipo = opt.dataset.tipo;
-        const importe = parseFloat(tr.querySelector('.input-medio-importe').value) || 0;
+        const medioPagoId = parseInt(select.value) || 0;
+        if (medioPagoId <= 0) {
+            Swal.fire('Atención', 'Seleccione un medio de pago válido.', 'warning');
+            return null;
+        }
+        const tipo = opt ? (opt.dataset.tipo || '') : '';
+        const inputImp = tr.querySelector('.input-medio-importe');
+        const importe = parseFloat(inputImp?.value) || 0;
 
         if (importe <= 0) {
             Swal.fire('Atención', 'Todos los medios de cobro deben tener un importe mayor a cero.', 'warning');
+            if (inputImp) inputImp.focus();
             return null;
         }
 
@@ -915,7 +1029,7 @@ function recopilarDatosCobranza() {
             const inpVto = tr.querySelector('.input-cheque-vto');
             const inpLib = tr.querySelector('.input-cheque-librador');
 
-            if (!selBanco.value || !inpNro.value || !inpVto.value) {
+            if (!selBanco?.value || !inpNro?.value || !inpVto?.value) {
                 Swal.fire('Atención', 'Complete los datos obligatorios del cheque (Banco, Número y Fecha de Pago).', 'warning');
                 return null;
             }
@@ -928,19 +1042,30 @@ function recopilarDatosCobranza() {
             };
         } else if (tipo === 'RETENCION') {
             const selImp = tr.querySelector('.input-retencion-tipo');
+            const selJur = tr.querySelector('.input-retencion-jurisdiccion');
             const inpCert = tr.querySelector('.input-retencion-cert');
             const inpBase = tr.querySelector('.input-retencion-base');
             const inpAli = tr.querySelector('.input-retencion-ali');
 
-            if (!selImp.value || !inpCert.value) {
+            if (!selImp?.value || !inpCert?.value) {
                 Swal.fire('Atención', 'Complete el tipo y número de certificado de la retención.', 'warning');
                 return null;
             }
 
-            medioObj.impuesto_tipo_id = parseInt(selImp.value);
+            const impId = parseInt(selImp.value);
+            const impObj = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === impId);
+            const esIIBB = impObj && (impObj.impuesto_tipo.toUpperCase().includes('IIBB') || impObj.impuesto_tipo.toUpperCase().includes('INGRESOS BRUTOS'));
+
+            if (esIIBB && (!selJur || !selJur.value)) {
+                Swal.fire('Atención', 'Para la retención de Ingresos Brutos (IIBB), debe seleccionar la Jurisdicción (ARBA, AGIP, etc.).', 'warning');
+                return null;
+            }
+
+            medioObj.impuesto_tipo_id = impId;
+            medioObj.jurisdiccion_id = selJur && selJur.value ? parseInt(selJur.value) : null;
             medioObj.retencion_certificado_nro = inpCert.value.trim();
-            medioObj.retencion_base_imponible = parseFloat(inpBase.value) || 0;
-            medioObj.retencion_alicuota = parseFloat(inpAli.value) || 0;
+            medioObj.retencion_base_imponible = parseFloat(inpBase?.value) || 0;
+            medioObj.retencion_alicuota = parseFloat(inpAli?.value) || 0;
         }
 
         medios.push(medioObj);
@@ -963,11 +1088,9 @@ function recopilarDatosCobranza() {
     const totalImputado = calcularTotalImputado();
 
     if (totalImputado > totalMedios + 0.001) {
-        Swal.fire('Atención', 'El total imputado supera el total de medios cobrados.', 'warning');
+        Swal.fire('Atención', `El total imputado ($ ${formatearMoneda(totalImputado)}) supera el total de medios cobrados ($ ${formatearMoneda(totalMedios)}).`, 'warning');
         return null;
     }
-
-    const comprobanteTipoId = parseInt(document.getElementById('selectComprobanteTipo')?.value) || 0;
 
     return {
         cobranza_id: cobranzaId,
@@ -1011,7 +1134,7 @@ async function guardarCobranza(confirmarInmediato = false) {
         });
 
         // 1. Guardar borrador
-        const respGuardar = await fetch('cobranzas_ajax.php?accion=guardar&empresa_idx=2', {
+        const respGuardar = await fetch('cobranzas_ajax.php?accion=guardar&empresa_idx=' + window.EMPRESA_ID, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -1029,7 +1152,7 @@ async function guardarCobranza(confirmarInmediato = false) {
         if (confirmarInmediato) {
             Swal.update({ text: 'Confirmando e imputando saldos en tesorería...' });
 
-            const respConf = await fetch('cobranzas_ajax.php?accion=confirmar&empresa_idx=2', {
+            const respConf = await fetch('cobranzas_ajax.php?accion=confirmar&empresa_idx=' + window.EMPRESA_ID, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: idGenerado })
@@ -1073,7 +1196,7 @@ async function editarBorrador(id) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch(`cobranzas_ajax.php?accion=obtener&empresa_idx=2&id=${id}`);
+        const resp = await fetch(`cobranzas_ajax.php?accion=obtener&empresa_idx=${window.EMPRESA_ID}&id=${id}`);
         const res = await resp.json();
         Swal.close();
 
@@ -1098,7 +1221,7 @@ async function editarBorrador(id) {
         const nroInput = document.getElementById('inputComprobanteNro');
         if (nroInput) {
             nroInput.value = (cabecera.comprobante_nro > 0)
-                ? `${cabecera.comprobante_codigo || 'RCX'} ${String(cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
+                ? `${String(cabecera.pv_nro ?? cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
                 : 'Borrador (Sin emitir)';
         }
         document.getElementById('inputFechaEmision').value = cabecera.f_emision;
@@ -1187,7 +1310,7 @@ async function confirmarCobranzaDirecta(id) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch('cobranzas_ajax.php?accion=confirmar&empresa_idx=2', {
+        const resp = await fetch('cobranzas_ajax.php?accion=confirmar&empresa_idx=' + window.EMPRESA_ID, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id })
@@ -1222,7 +1345,7 @@ async function verRecibo(id) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch(`cobranzas_ajax.php?accion=obtener&empresa_idx=2&id=${id}`);
+        const resp = await fetch(`cobranzas_ajax.php?accion=obtener&empresa_idx=${window.EMPRESA_ID}&id=${id}`);
         const res = await resp.json();
         Swal.close();
 
@@ -1235,9 +1358,8 @@ async function verRecibo(id) {
         const cuerpo = document.getElementById('cuerpoReciboImpresion');
 
         const tituloComprobante = cabecera.comprobante_tipo ? cabecera.comprobante_tipo.toUpperCase() : 'RECIBO DE COBRO';
-        const codigoTipo = cabecera.comprobante_codigo || 'RCX';
         const nroRecibo = (cabecera.comprobante_nro > 0)
-            ? `${codigoTipo} ${String(cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
+            ? `${String(cabecera.pv_nro ?? cabecera.comprobante_pv).padStart(4, '0')}-${String(cabecera.comprobante_nro).padStart(8, '0')}`
             : 'BORRADOR';
 
         let tablaMediosHtml = '';
@@ -1250,7 +1372,19 @@ async function verRecibo(id) {
             } else if (m.medio_pago_tipo === 'CHEQUE_TERCERO') {
                 detalle += ` (${m.cheque_banco || 'Banco'} N° ${m.cheque_nro || 'S/N'} Vto: ${m.cheque_f_pago || '-'})`;
             } else if (m.medio_pago_tipo === 'RETENCION') {
-                detalle += ` (Certificado: ${m.retencion_certificado_nro || 'S/N'})`;
+                let detRet = m.impuesto_tipo ? escapeHtml(m.impuesto_tipo) : 'Retención';
+                if (m.jurisdiccion_nombre) {
+                    detRet += ` - ${escapeHtml(m.jurisdiccion_nombre)}`;
+                }
+                detRet += ` (Certificado N° ${escapeHtml(m.retencion_certificado_nro || 'S/N')}`;
+                if (parseFloat(m.retencion_base_imponible) > 0) {
+                    detRet += ` · Base: $ ${formatearMoneda(m.retencion_base_imponible)}`;
+                }
+                if (parseFloat(m.retencion_alicuota) > 0) {
+                    detRet += ` @ ${formatearMoneda(m.retencion_alicuota)}%`;
+                }
+                detRet += `)`;
+                detalle = `${m.medio_pago}: ${detRet}`;
             }
 
             tablaMediosHtml += `
@@ -1407,7 +1541,7 @@ async function ejecutarAnulacion(e) {
             didOpen: () => Swal.showLoading()
         });
 
-        const resp = await fetch('cobranzas_ajax.php?accion=anular&empresa_idx=2', {
+        const resp = await fetch('cobranzas_ajax.php?accion=anular&empresa_idx=' + window.EMPRESA_ID, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: id, motivo: motivo })
@@ -1442,7 +1576,7 @@ async function eliminarBorrador(id) {
     if (!confirmacion.isConfirmed) return;
 
     try {
-        const resp = await fetch(`cobranzas_ajax.php?accion=eliminar&empresa_idx=2&id=${id}`, { method: 'POST' });
+        const resp = await fetch(`cobranzas_ajax.php?accion=eliminar&empresa_idx=${window.EMPRESA_ID}&id=${id}`, { method: 'POST' });
         const res = await resp.json();
 
         if (res.success) {

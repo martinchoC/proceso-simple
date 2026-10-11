@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Cartera de Cheques</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    .badge-danger { background: var(--rojo); }
+    .badge-primary { background: var(--azul); }
+    .badge-dark { background: #212529; }
+    .badge-danger-suave { background: #f8d7da; color: #842029; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .boton-amarillo { background: var(--amarillo); border-color: var(--amarillo); color: #212529; }
+    .boton-oscuro { background: #212529; border-color: #212529; color: #fff; }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-caja.error { border-color: var(--rojo); background: #fdecee; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-money-check"></i> Manual de usuario: Cartera de Cheques</h1>
+<p class="subtitulo">Cómo seguir cada cheque de la empresa: los que recibiste de clientes y los que emitiste a proveedores. Desde acá se registran los depósitos, los débitos del banco y los rechazos.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#de-donde">¿De dónde salen los cheques?</a></li>
+        <li><a href="#resumen">Las cuatro tarjetas de resumen</a></li>
+        <li><a href="#pantalla-principal">Filtros y listado</a></li>
+        <li><a href="#estados">Estados de un cheque</a></li>
+        <li><a href="#flujo">El recorrido de un cheque</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#depositar">Depositar un cheque de tercero</a></li>
+        <li><a href="#debitar">Registrar el débito de un cheque propio</a></li>
+        <li><a href="#rechazar">Registrar un rechazo</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Cartera de Cheques</strong> (menú Tesorería) muestra todos los cheques que pasan por la empresa y en qué situación está cada uno. Hay dos clases:</p>
+<table class="tabla-referencia">
+    <tr><th>Tipo</th><th>Qué es</th></tr>
+    <tr><td><strong>Tercero</strong></td><td>Un cheque que te entregó un cliente como pago. Mientras lo tenés en tu poder está <strong>en cartera</strong>. Después lo depositás en el banco o se lo entregás (endosás) a un proveedor.</td></tr>
+    <tr><td><strong>Propio</strong></td><td>Un cheque librado de la chequera de la empresa para pagarle a un proveedor. Queda <strong>emitido</strong> hasta que el proveedor lo cobra y el banco lo descuenta.</td></tr>
+</table>
+
+<h2 id="de-donde">¿De dónde salen los cheques?</h2>
+<p>En esta pantalla <strong>no se cargan cheques nuevos</strong>. Cada cheque entra al sistema desde otra pantalla:</p>
+<ul>
+    <li>Los cheques de terceros entran al confirmar un recibo en <a href="cobranzas.html">Cobranzas</a> con el medio "Cheque de tercero".</li>
+    <li>Los cheques propios se crean al confirmar una <a href="pagos.html">Orden de Pago</a> con el medio "Cheque propio".</li>
+    <li>El endoso de un cheque de tercero a un proveedor también se hace desde <a href="pagos.html">Órdenes de Pago</a>, eligiendo el cheque de la cartera.</li>
+</ul>
+
+<h2 id="resumen">Las cuatro tarjetas de resumen</h2>
+<table class="tabla-referencia">
+    <tr><th>Tarjeta</th><th>Qué muestra</th></tr>
+    <tr><td>Terceros en Cartera</td><td>Importe total y cantidad de cheques de clientes que tenés disponibles.</td></tr>
+    <tr><td>Depositados a Acreditar</td><td>Cheques que depositaste y todavía están en proceso en el banco (clearing).</td></tr>
+    <tr><td>Propios Diferidos / Emitidos</td><td>Cheques propios entregados que el banco todavía no descontó.</td></tr>
+    <tr><td>Rechazados / Devueltos</td><td>Cheques que el banco rechazó.</td></tr>
+</table>
+
+<h2 id="pantalla-principal">Filtros y listado</h2>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Para qué sirve</th></tr>
+    <tr><td>Tipo de Cheque</td><td>Terceros o Propios.</td></tr>
+    <tr><td>Estado</td><td>En Cartera, Emitido, Depositado, Debitado, Endosado, Rechazado o Anulado.</td></tr>
+    <tr><td>Banco</td><td>Banco del cheque.</td></tr>
+    <tr><td>Vto Desde / Vto Hasta</td><td>Rango de fecha de cobro del cheque.</td></tr>
+</table>
+<p>Aplicá los filtros con el botón del embudo. <span class="boton-ejemplo boton-outline">Actualizar</span> recarga el listado.</p>
+<p>Columnas: Tipo, N° Cheque, Banco, Titular / CUIT, F. Emisión, <strong>F. Cobro</strong> (desde cuándo se puede cobrar), Importe, Cuenta Bancaria (donde se depositó o de qué cuenta es el cheque propio), Estado y Acciones. El listado viene ordenado por fecha de cobro, de la más próxima a la más lejana.</p>
+
+<h2 id="estados">Estados de un cheque</h2>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Tipo</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">En Cartera</span></td><td>Tercero</td><td>Lo tenés vos. Lo podés depositar o usar para pagar a un proveedor.</td></tr>
+    <tr><td><span class="badge badge-warning">Depositado</span></td><td>Tercero</td><td>Lo depositaste en una cuenta de la empresa. Su importe ya se sumó a esa cuenta bancaria.</td></tr>
+    <tr><td><span class="badge badge-secondary">Endosado</span></td><td>Tercero</td><td>Se lo entregaste a un proveedor en una Orden de Pago. Ya no está en tu poder.</td></tr>
+    <tr><td><span class="badge badge-primary">Emitido</span></td><td>Propio</td><td>Se lo entregaste a un proveedor y el banco todavía no lo descontó.</td></tr>
+    <tr><td><span class="badge badge-dark">Debitado</span></td><td>Propio</td><td>El banco ya lo pagó. Fin del recorrido.</td></tr>
+    <tr><td><span class="badge badge-danger">Rechazado</span></td><td>Ambos</td><td>El banco no lo pagó (sin fondos, defectos de firma, etc.).</td></tr>
+    <tr><td><span class="badge badge-danger-suave">Anulado</span></td><td>Propio</td><td>Se anuló la Orden de Pago donde se había emitido.</td></tr>
+</table>
+
+<h2 id="flujo">El recorrido de un cheque</h2>
+<h3>Cheque de tercero</h3>
+<div class="flujo">
+    <div class="flujo-caja">Cobranza confirmada</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">En Cartera</div>
+    <div class="flujo-flecha">→ Depositar →</div>
+    <div class="flujo-caja final">Depositado</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">En Cartera</div>
+    <div class="flujo-flecha">→ Orden de Pago →</div>
+    <div class="flujo-caja final">Endosado</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">En Cartera o Depositado</div>
+    <div class="flujo-flecha">→ Rechazo →</div>
+    <div class="flujo-caja error">Rechazado</div>
+</div>
+<h3>Cheque propio</h3>
+<div class="flujo">
+    <div class="flujo-caja">Orden de Pago confirmada</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Emitido</div>
+    <div class="flujo-flecha">→ Débito →</div>
+    <div class="flujo-caja final">Debitado</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Emitido</div>
+    <div class="flujo-flecha">→ Rechazo →</div>
+    <div class="flujo-caja error">Rechazado</div>
+</div>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-amarillo">Depositar en Banco</span> (edificio)</td><td>Registra el depósito del cheque en una cuenta de la empresa.</td><td>Cheque de tercero En Cartera</td></tr>
+    <tr><td><span class="boton-ejemplo boton-oscuro">Registrar Débito Bancario</span> (tilde)</td><td>Registra que el banco pagó el cheque propio.</td><td>Cheque propio Emitido</td></tr>
+    <tr><td><span class="boton-ejemplo boton-peligro">Registrar Rechazo</span> (círculo tachado)</td><td>Marca el cheque como rechazado.</td><td>Tercero En Cartera, tercero Depositado o propio Emitido</td></tr>
+</table>
+<p>En los demás estados (Endosado, Debitado, Rechazado, Anulado) no hay acciones: el cheque ya terminó su recorrido en esta pantalla.</p>
+
+<h2 id="depositar">Depositar un cheque de tercero</h2>
+<ol>
+    <li>Apretá el botón amarillo del cheque. Se abre <strong>Depositar Cheque de Tercero</strong> con número, banco emisor e importe.</li>
+    <li>Elegí la <strong>Cuenta Bancaria Destino</strong> (obligatoria) y la <strong>Fecha de Depósito</strong>.</li>
+    <li>Apretá <span class="boton-ejemplo boton-amarillo">Confirmar Depósito</span> y aceptá la pregunta "¿Confirmar depósito bancario?".</li>
+</ol>
+<p>El cheque sale de la cartera de valores, su importe se suma a la cuenta bancaria elegida y se genera el registro contable. Mensaje: "Cheque N° ... depositado con éxito en ...".</p>
+
+<h2 id="debitar">Registrar el débito de un cheque propio</h2>
+<p>Usalo cuando el banco ya pagó un cheque que emitiste (lo ves en el resumen o en el extracto bancario).</p>
+<ol>
+    <li>Apretá el botón oscuro del cheque. Se abre <strong>Registrar Débito Bancario (Cheque Propio)</strong> con número, cuenta e importe.</li>
+    <li>Indicá la <strong>Fecha de Débito Bancario</strong>.</li>
+    <li>Apretá <span class="boton-ejemplo boton-oscuro">Confirmar Débito</span> y aceptá "¿Confirmar débito bancario?".</li>
+</ol>
+<p>El cheque pasa a <strong>Debitado</strong>. Mensaje: "Cheque propio N° ... marcado como debitado correctamente."</p>
+<div class="nota-lateral">Si el cheque era <strong>diferido</strong>, recién en este paso el importe se descuenta de la cuenta bancaria. Si era un cheque <strong>común</strong> (fecha de pago igual a la de la Orden de Pago), el banco ya se había descontado al confirmar la OP: acá solo se cierra el seguimiento del cheque.</div>
+
+<h2 id="rechazar">Registrar un rechazo</h2>
+<ol>
+    <li>Apretá el botón rojo del cheque. Se abre <strong>Registrar Rechazo de Cheque</strong>.</li>
+    <li>Completá la <strong>Fecha de Rechazo</strong> y el <strong>Motivo de Rechazo</strong> (obligatorio; por ejemplo, "Sin fondos suficientes").</li>
+    <li>Apretá <span class="boton-ejemplo boton-peligro">Registrar Rechazo</span> y aceptá "¿Confirmar rechazo de cheque?".</li>
+</ol>
+<p>El cheque pasa a <strong>Rechazado</strong>. Si estaba <strong>Depositado</strong>, el importe se descuenta de la cuenta bancaria donde se había depositado. Mensaje: "Cheque N° ... registrado como RECHAZADO."</p>
+<div class="alert alert-warning"><strong>Importante:</strong> registrar el rechazo no le genera automáticamente una deuda al cliente que te dio el cheque (ni al proveedor, si el rechazado es propio). Ese reclamo hay que registrarlo aparte. Consultá con administración cómo lo manejan en tu empresa.</div>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Seleccione la cuenta bancaria de destino</td><td>Falta elegir dónde depositás.</td></tr>
+    <tr><td>Debe especificar el motivo del rechazo bancario</td><td>El motivo es obligatorio.</td></tr>
+    <tr><td>El cheque no está en estado En Cartera (estado actual: ...)</td><td>Alguien lo usó o lo depositó mientras tenías la pantalla abierta. Apretá Actualizar.</td></tr>
+    <tr><td>El cheque propio debe estar en estado Emitido.</td><td>Ya fue debitado o rechazado. Apretá Actualizar.</td></tr>
+    <tr><td>Saldo insuficiente en '...'</td><td>Al rechazar un cheque depositado, la cuenta bancaria no tiene saldo para descontarlo y no admite descubierto. Consultá con el responsable de tesorería.</td></tr>
+    <tr><td>Error contable: ...</td><td>Falta configurar una cuenta contable. Avisá al responsable de contabilidad (ver <a href="empresas_cuentas_conceptos.html">Conceptos Contables</a>).</td></tr>
+    <tr><td>Fallo de comunicación con el servidor</td><td>Problema de conexión. Probá de nuevo en unos segundos.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>¿Cómo cargo un cheque que me dio un cliente?</td><td>Desde <a href="cobranzas.html#medios">Cobranzas</a>, como medio de cobro "Cheque de tercero". Al confirmar el recibo aparece acá En Cartera.</td></tr>
+    <tr><td>¿Cómo le paso un cheque de la cartera a un proveedor?</td><td>Desde <a href="pagos.html#medios">Órdenes de Pago</a>, medio "Cheque de tercero". Al confirmar la OP el cheque pasa a Endosado.</td></tr>
+    <tr><td>Un proveedor me devolvió un cheque endosado rechazado. No veo el botón de rechazo.</td><td>Desde esta pantalla no se puede rechazar un cheque Endosado. Consultá con el responsable de tesorería cómo registrarlo.</td></tr>
+    <tr><td>¿Dónde veo qué cheques vencen pronto?</td><td>Ordená por F. Cobro o usá el filtro de vencimientos. También en el <a href="tesoreria_dashboard.html#valores">Dashboard Financiero</a>, pestaña "Valores a Depositar".</td></tr>
+    <tr><td>Anularon la cobranza y el cheque desapareció de la cartera.</td><td>Una cobranza solo se puede anular si sus cheques siguen En Cartera. Al anularla, los cheques de ese recibo dejan de estar disponibles.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="cobranzas.html">Cobranzas</a>: donde entran los cheques de terceros.</li>
+        <li><a href="pagos.html">Órdenes de Pago</a>: donde se emiten cheques propios y se endosan los de terceros.</li>
+        <li><a href="tesoreria_dashboard.html">Dashboard Financiero</a>: resumen de cartera y vencimientos.</li>
+        <li><a href="tesoreria_movimientos.html">Movimientos Internos</a>: pasar dinero entre cajas y bancos.</li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tesorería / Cartera de Cheques. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

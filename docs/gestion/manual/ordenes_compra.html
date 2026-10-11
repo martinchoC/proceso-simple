@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Órdenes de Compra</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert a { color: inherit; font-weight: 600; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.automatico { border-style: dashed; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-shopping-cart"></i> Manual de usuario: Órdenes de Compra</h1>
+<p class="subtitulo">Cómo pedirle mercadería a un proveedor, dejar el pedido en firme y seguir qué parte ya llegó.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es una Orden de Compra?</a></li>
+        <li><a href="#circuito">El circuito de compras completo</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Los estados de una orden</a></li>
+        <li><a href="#cargar-orden">Cargar una orden nueva</a></li>
+        <li><a href="#productos">Agregar productos a la orden</a></li>
+        <li><a href="#producto-rapido">Crear un producto nuevo desde la orden</a></li>
+        <li><a href="#guardar-orden">Guardar la orden</a></li>
+        <li><a href="#confirmar-orden">Confirmar la orden</a></li>
+        <li><a href="#pendiente-recepcion">Pasar a Pendiente de Recepción</a></li>
+        <li><a href="#recepcion">Cómo se registra lo que llega</a></li>
+        <li><a href="#recibido">Marcar como Recibido (cerrar la orden)</a></li>
+        <li><a href="#eliminar-orden">Eliminar una orden</a></li>
+        <li><a href="#visualizar-imprimir">Visualizar e imprimir</a></li>
+        <li><a href="#botones">Resumen de botones</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es una Orden de Compra?</h2>
+<p>Una <strong>Orden de Compra</strong> es el pedido que le hacés a un proveedor: qué productos le pedís, cuántos, a qué precio y para cuándo los necesitás. Sirve para dejar registrado lo que se encargó y, más adelante, controlar qué parte de ese pedido ya llegó.</p>
+<div class="alert alert-info">
+    La orden de compra <strong>no mueve stock</strong> ni genera deuda con el proveedor. Eso pasa recién cuando cargás y confirmás la factura del proveedor en <a href="facturas_proveedores.html">Facturas de Proveedores</a>.
+</div>
+
+<h2 id="circuito">El circuito de compras completo</h2>
+<p>Así encaja esta pantalla con el resto del módulo de Compras:</p>
+<ol>
+    <li>Cargás la orden en <strong>Borrador</strong> y la revisás.</li>
+    <li>La <strong>confirmás</strong>: recibe su número y queda en firme. A partir de acá ya no se puede modificar.</li>
+    <li>Opcionalmente, la pasás a <strong>Pendiente de Recepción</strong> para marcar que ya se envió al proveedor y estás esperando la mercadería.</li>
+    <li>Cuando llega la mercadería con su factura, cargás la factura en <a href="facturas_proveedores.html">Facturas de Proveedores</a> y usás <strong>Importar OC</strong> para traer las líneas de esta orden.</li>
+    <li>Al confirmar esa factura, el sistema suma lo recibido a la orden. Si llegó una parte, la orden pasa sola a <strong>Recibido parcial</strong>; si llegó todo, pasa sola a <strong>Recibido</strong>.</li>
+    <li>Si el proveedor no va a mandar lo que falta, podés cerrar la orden a mano con <strong>Recibido (cerrar)</strong>.</li>
+</ol>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<h3 id="tarjetas-estados">Tarjetas de estados</h3>
+<p>Arriba de todo hay una fila de tarjetas: una que dice <strong>Todas</strong> y una por cada estado que tengan tus órdenes. Cada tarjeta muestra cuántas órdenes hay en ese estado y el importe total que suman. Al hacer clic en una tarjeta, el listado muestra solo las órdenes de ese estado. Para volver a ver todo, hacé clic de nuevo en la misma tarjeta, en <strong>Todas</strong> o en el botón <span class="boton-ejemplo boton-outline">Ver Todas</span>.</p>
+
+<h3 id="listado">El listado</h3>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno de la orden en el sistema</td></tr>
+    <tr><td>Tipo</td><td>Tipo de comprobante de la orden</td></tr>
+    <tr><td>Sucursal</td><td>Tu sucursal que hace el pedido</td></tr>
+    <tr><td>Punto Venta</td><td>Punto de venta usado para numerar la orden</td></tr>
+    <tr><td>Número</td><td>Número de la orden (vale 0 mientras está en Borrador)</td></tr>
+    <tr><td>Proveedor</td><td>Nombre del proveedor y, debajo, su nombre de fantasía</td></tr>
+    <tr><td>Emisión</td><td>Fecha de la orden</td></tr>
+    <tr><td>Entrega Est.</td><td>Fecha en la que esperás recibir la mercadería</td></tr>
+    <tr><td>Total</td><td>Importe total de la orden</td></tr>
+    <tr><td>Estado</td><td>Estado actual (ver <a href="#estados">más abajo</a>)</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles para esa orden según su estado</td></tr>
+</table>
+<p>Debajo del título de cada columna hay un casillero <em>"Filtrar..."</em> para buscar solo en esa columna (por ejemplo, el nombre de un proveedor). También tenés el buscador general y el selector "Mostrar N registros". El sistema recuerda la página, el orden y la búsqueda la próxima vez que entres.</p>
+<div class="nota-lateral">Los botones de la columna Acciones muestran solo un ícono. Pasá el mouse por encima de cada uno para ver su nombre.</div>
+
+<h2 id="estados">Los estados de una orden</h2>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Confirmado</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Pendiente de Recepción</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja automatico">Recibido parcial</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Recibido</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+</div>
+<p>La caja con borde punteado (<strong>Recibido parcial</strong>) no se elige con un botón: la pone el sistema solo cuando confirmás una factura que trae parte de lo pedido. Lo mismo pasa con <strong>Recibido</strong> cuando las facturas confirmadas ya cubren todo lo pedido. Una orden confirmada puede pasar directo a Recibido parcial o Recibido sin pasar por Pendiente de Recepción.</p>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td>Borrador</td><td>La orden está cargada pero todavía no está en firme. Podés editarla, confirmarla o eliminarla.</td></tr>
+    <tr><td>Confirmado</td><td>La orden quedó en firme y tiene número. Ya no se puede modificar. Se puede imprimir para mandar al proveedor.</td></tr>
+    <tr><td>Pendiente de Recepción</td><td>Marcaste que la orden ya se envió y estás esperando la mercadería. En el sistema puede aparecer escrito "Pendien de Recepcion".</td></tr>
+    <tr><td>Recibido parcial</td><td>Ya se confirmó al menos una factura con parte de lo pedido, pero todavía falta mercadería.</td></tr>
+    <tr><td>Recibido</td><td>Llegó todo lo pedido, o cerraste la orden a mano. Es el estado final.</td></tr>
+    <tr><td>Eliminado</td><td>La orden se dio de baja desde Borrador. Sigue en el listado, pero sin acciones.</td></tr>
+</table>
+
+<h2 id="cargar-orden">Cargar una orden nueva</h2>
+<p>Con el botón <span class="boton-ejemplo boton-primario">+ Agregar</span> (arriba a la izquierda del listado) se abre la ventana <strong>Nueva Orden de Compra</strong>. El ícono de flechas de la esquina superior la agranda a pantalla completa. La parte de arriba, <strong>Datos de la Orden</strong>, tiene estos campos:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Sucursal</td><td>Tu sucursal que hace el pedido. Obligatoria.</td></tr>
+    <tr><td>Punto de Venta</td><td>Se habilita al elegir la sucursal. Define con qué numeración sale la orden. Obligatorio.</td></tr>
+    <tr><td>Proveedor / Sucursal</td><td>A quién le comprás. Si el proveedor tiene sucursales cargadas, aparece una opción por cada una ("Proveedor - Sucursal"). Obligatorio.</td></tr>
+    <tr><td>Tipo</td><td>Tipo de comprobante. Si hay uno solo, ya viene elegido. Obligatorio.</td></tr>
+    <tr><td>Número</td><td>No se escribe: el sistema lo asigna al confirmar la orden.</td></tr>
+    <tr><td>Emisión</td><td>Fecha de la orden. Viene con la fecha de hoy. Obligatoria.</td></tr>
+    <tr><td>Entrega Est.</td><td>Fecha en la que esperás la mercadería. Si la cargás, no puede ser anterior a la fecha de emisión.</td></tr>
+    <tr><td>Moneda</td><td>Viene elegida la moneda principal de la empresa. Obligatoria.</td></tr>
+    <tr><td>TC</td><td>Tipo de cambio. Se completa solo con la cotización de la moneda elegida; podés corregirlo.</td></tr>
+    <tr><td>Condición Pago</td><td>Cómo le vas a pagar. Viene elegida la primera de la lista; cambiala si corresponde.</td></tr>
+    <tr><td>Dirección de Entrega</td><td>Dónde tiene que entregar el proveedor, si querés aclararlo.</td></tr>
+    <tr><td>Observaciones</td><td>Notas libres.</td></tr>
+</table>
+<p>Debajo de los botones de guardar hay un recuadro verde con los totales: <strong>Total Neto</strong>, <strong>No Gravado</strong>, <strong>Exento</strong>, <strong>Impuestos</strong> y <strong>TOTAL</strong>. Se actualizan solos a medida que agregás productos.</p>
+
+<h2 id="productos">Agregar productos a la orden</h2>
+<p>En la sección <strong>Detalle de Productos</strong>, el bloque <strong>Agregar Producto</strong> tiene una fila para cargar cada línea:</p>
+<ol>
+    <li>Elegí primero el proveedor. Sin proveedor, el buscador no muestra resultados.</li>
+    <li>En <strong>Producto</strong> escribí al menos 2 letras del código, del nombre o del código que usa el proveedor. Aparece una lista: podés elegir con el mouse o con las flechas del teclado y Enter. Los productos que ya trabajás con ese proveedor aparecen primero, con su código de proveedor debajo.</li>
+    <li>Al elegir un producto, el sistema completa el IVA del producto y, si ya le compraste ese producto a este proveedor en otra orden, sugiere el último precio.</li>
+    <li>Completá <strong>Cant.</strong> (mayor a 0), <strong>Precio</strong>, y si hace falta <strong>No Grav.</strong> o <strong>Exento</strong>. El <strong>IVA Importe</strong> se calcula solo.</li>
+    <li>Hacé clic en el botón verde <span class="boton-ejemplo boton-primario">+</span>. La línea pasa a la tabla de abajo con la marca <span class="badge badge-secondary">Nuevo</span>.</li>
+</ol>
+<h3 id="producto-no-vinculado">Productos que el proveedor no tiene vinculados</h3>
+<p>Si elegís un producto que tiene la marca amarilla <span class="badge badge-warning">No vinculado al proveedor</span>, el sistema te pregunta si querés vincularlo:</p>
+<ul>
+    <li><span class="boton-ejemplo boton-primario">Vincular y usar</span>: escribís el código que usa este proveedor para ese producto. El vínculo queda guardado (lo ves también en <a href="productos_proveedores.html">Productos - Proveedores</a>) y el producto pasa a la línea.</li>
+    <li><span class="boton-ejemplo boton-outline">Usar sin vincular</span>: el producto se usa en esta orden sin guardar ningún código.</li>
+    <li><strong>Cancelar</strong>: no se elige nada.</li>
+</ul>
+<p>Si el código que escribís ya lo tiene otro producto de ese mismo proveedor, el sistema te avisa cuál es y no deja vincular.</p>
+
+<h3 id="editar-linea">Corregir o quitar una línea</h3>
+<p>Cada línea de la tabla tiene dos botones:</p>
+<ul>
+    <li><span class="boton-ejemplo boton-outline">✎</span> <strong>Editar</strong>: sube los datos de la línea a la fila de carga y <strong>la saca de la tabla</strong>. Corregí lo que necesites y volvé a tocar <span class="boton-ejemplo boton-primario">+</span>. Si no lo hacés, la línea queda afuera de la orden.</li>
+    <li><span class="boton-ejemplo boton-peligro">🗑</span> <strong>Eliminar</strong>: pide confirmación ("¿Eliminar producto?") y quita la línea.</li>
+</ul>
+<p>Cuando una orden ya tiene mercadería recibida, debajo de la cantidad de cada línea aparece <strong>Recib.: N</strong>, con lo que ya llegó en facturas confirmadas.</p>
+
+<h2 id="producto-rapido">Crear un producto nuevo desde la orden</h2>
+<p>Si el producto todavía no existe en el sistema, usá <span class="boton-ejemplo boton-outline">⚡ Nuevo Producto Rápido</span> (arriba a la derecha de Detalle de Productos). Antes tenés que haber elegido el proveedor. Se abre un formulario corto:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Detalle</th></tr>
+    <tr><td>Código *</td><td>Tu código interno para el producto</td></tr>
+    <tr><td>Nombre *</td><td>Nombre del producto</td></tr>
+    <tr><td>Categoría *</td><td>Categoría del producto</td></tr>
+    <tr><td>IVA</td><td>Alícuota de IVA (viene 21% por defecto)</td></tr>
+    <tr><td>Código Barras / Unidad Medida</td><td>Opcionales</td></tr>
+    <tr><td>Código del Proveedor Actual *</td><td>El código que usa el proveedor elegido para este producto. Así queda vinculado desde el primer momento.</td></tr>
+    <tr><td>Descripción</td><td>Opcional</td></tr>
+</table>
+<p>Al tocar <span class="boton-ejemplo boton-primario">Guardar y Agregar</span> aparece el aviso "Producto creado". Después buscalo en el campo <strong>Producto</strong> para sumarlo a la orden. Si el código ya existe, vas a ver "Ya existe un producto con este código"; si el código de proveedor ya está usado con ese proveedor, "Ya existe un producto con este código de proveedor para el proveedor seleccionado".</p>
+
+<h2 id="guardar-orden">Guardar la orden</h2>
+<p>Con <span class="boton-ejemplo boton-primario">Guardar Orden</span> la orden queda grabada en estado <strong>Borrador</strong>. Antes de guardar, el sistema revisa:</p>
+<ul>
+    <li>Que estén completos los campos obligatorios. Los que falten se marcan en rojo.</li>
+    <li>Que la fecha de entrega estimada no sea anterior a la de emisión ("Fecha inválida").</li>
+    <li>Que haya al menos un producto ("Detalles requeridos").</li>
+    <li>Que haya un proveedor elegido ("Proveedor requerido").</li>
+</ul>
+<p>Si todo está bien, aparece el aviso "Orden de compra guardada correctamente" y la ventana se cierra. <span class="boton-ejemplo boton-outline">Cancelar</span> cierra sin guardar.</p>
+<div class="nota-lateral">Una orden se puede editar solo mientras está en Borrador. Si intentás guardar cambios de una orden que ya se confirmó, el sistema responde "Solo se puede editar una orden de compra en Borrador".</div>
+
+<h2 id="confirmar-orden">Confirmar la orden</h2>
+<p><strong>Cuándo aparece:</strong> solo en órdenes en Borrador, como el botón <strong>Confirmar Pedido</strong> de la columna Acciones.</p>
+<p><strong>Qué hace:</strong> pide confirmación ("¿Está seguro de confirmar la orden…?", con el proveedor). Si aceptás, el sistema le asigna el siguiente número del punto de venta y tipo elegidos y la pasa a <strong>Confirmado</strong>. El aviso de éxito dice "Estado actualizado correctamente - Número asignado: N".</p>
+<p><strong>Qué cambia después:</strong> la orden ya no se puede editar ni eliminar. Aparecen Visualizar, Imprimir y Pasar a Pendiente de Recepción. Desde este momento la orden ya se puede importar en una factura del proveedor.</p>
+<p><strong>Errores posibles:</strong> "La orden no tiene punto de venta asignado. No se puede generar número de comprobante." Editá la orden, elegí el punto de venta y volvé a confirmar.</p>
+
+<h2 id="pendiente-recepcion">Pasar a Pendiente de Recepción</h2>
+<p><strong>Cuándo aparece:</strong> en órdenes Confirmadas, con el nombre <strong>Pasar a Pendiente de Recepcion</strong>.</p>
+<p><strong>Qué hace:</strong> después de una confirmación, marca la orden como enviada al proveedor y a la espera de la mercadería. No cambia nada de la orden, solo su estado. Es útil para separar las órdenes que ya mandaste de las que todavía no.</p>
+<div class="nota-lateral">En Pendiente de Recepción la orden tiene solo los botones Visualizar y Recibido. Si necesitás imprimirla, hacelo antes de pasarla a este estado.</div>
+
+<h2 id="recepcion">Cómo se registra lo que llega</h2>
+<p>La recepción no se carga en esta pantalla. Se hace desde <a href="facturas_proveedores.html#importar-oc">Facturas de Proveedores → Importar OC</a>:</p>
+<ol>
+    <li>Cargás la factura del proveedor y en la pestaña Productos usás <strong>Importar OC</strong>.</li>
+    <li>Elegís esta orden y marcás las líneas y cantidades que llegaron.</li>
+    <li>Al <strong>confirmar</strong> la factura, el sistema suma esas cantidades a la orden.</li>
+</ol>
+<p>Una orden puede recibirse con varias facturas. Si después de una factura todavía falta mercadería, la orden pasa a <strong>Recibido parcial</strong>. Cuando las facturas confirmadas cubren todo, pasa a <strong>Recibido</strong>. Solo cuentan las facturas <strong>confirmadas</strong>: una factura en Borrador todavía no descuenta nada de la orden.</p>
+
+<h2 id="recibido">Marcar como Recibido (cerrar la orden)</h2>
+<p><strong>Cuándo aparece:</strong> en órdenes en Pendiente de Recepción (botón <strong>Recibido</strong>) y en Recibido parcial (botón <strong>Recibido (cerrar)</strong>). Una orden en estado Confirmado no tiene este botón: primero hay que pasarla a Pendiente de Recepción.</p>
+<p><strong>Qué hace:</strong> después de una confirmación, pasa la orden a <strong>Recibido</strong> aunque falte mercadería. Usalo cuando el proveedor no va a mandar el resto, o cuando la mercadería llegó por otro camino. La orden deja de aparecer como pendiente al importar órdenes en una factura.</p>
+<div class="alert alert-warning">Cerrar la orden a mano no mueve stock. El stock entra solamente cuando se confirma la factura del proveedor.</div>
+
+<h2 id="eliminar-orden">Eliminar una orden</h2>
+<p><strong>Cuándo aparece:</strong> solo en Borrador. Pide confirmación con el número y el proveedor. La orden pasa a <strong>Eliminado</strong>: sigue en el listado, pero ya no tiene botones.</p>
+
+<h2 id="visualizar-imprimir">Visualizar e imprimir</h2>
+<ul>
+    <li><strong>Visualizar</strong> (Confirmado, Pendiente de Recepción, Recibido parcial y Recibido): abre la orden en modo de solo lectura. No se puede tocar nada y no aparece el botón de guardar.</li>
+    <li><strong>Imprimir</strong> (Confirmado, Recibido parcial y Recibido): abre la orden lista para imprimir en una ventana aparte, para mandarla al proveedor o archivarla.</li>
+</ul>
+
+<h2 id="botones">Resumen de botones</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Agregar</td><td>Abre el formulario de una orden nueva</td><td>Siempre (arriba del listado)</td></tr>
+    <tr><td>Editar</td><td>Abre la orden para modificarla</td><td>Borrador</td></tr>
+    <tr><td>Confirmar Pedido</td><td>Numera la orden y la deja en firme</td><td>Borrador</td></tr>
+    <tr><td>Eliminar</td><td>Da de baja la orden</td><td>Borrador</td></tr>
+    <tr><td>Visualizar</td><td>Muestra la orden sin permitir cambios</td><td>Confirmado, Pendiente de Recepción, Recibido parcial, Recibido</td></tr>
+    <tr><td>Imprimir</td><td>Abre la orden para imprimir</td><td>Confirmado, Recibido parcial, Recibido</td></tr>
+    <tr><td>Pasar a Pendiente de Recepcion</td><td>Marca la orden como enviada y en espera</td><td>Confirmado</td></tr>
+    <tr><td>Recibido / Recibido (cerrar)</td><td>Cierra la orden aunque falte mercadería</td><td>Pendiente de Recepción / Recibido parcial</td></tr>
+</table>
+<div class="nota-lateral">Si al usar un botón aparece "Acción no permitida para este estado", probablemente otra persona cambió la orden mientras la tenías abierta. Tocá el botón de recargar (↻) y volvé a intentar.</div>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha del listado están los botones para <span class="boton-ejemplo boton-outline">↻</span> recargar la tabla sin recargar la página, y para exportar el listado a <span class="boton-ejemplo boton-outline">Excel</span>, <span class="boton-ejemplo boton-outline">PDF</span>, <span class="boton-ejemplo boton-outline">CSV</span> o <span class="boton-ejemplo boton-outline">Imprimir</span>.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Confirmé una orden y me equivoqué en una cantidad. ¿La puedo corregir?</td>
+        <td>No desde esta pantalla: una orden confirmada ya no se edita. Si la diferencia es chica, podés recibir la cantidad correcta al importar la orden en la factura (la factura acepta cantidades distintas a las pedidas). Si no, cargá una orden nueva y dejá cerrada la anterior: pasala a Pendiente de Recepción y después usá "Recibido". Consultá con el equipo si necesitás anularla.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué el número de la orden aparece en 0?</td>
+        <td>Porque está en Borrador. El número se asigna al confirmarla.</td>
+    </tr>
+    <tr>
+        <td>Llegó la mercadería, ¿dónde la cargo para que entre al stock?</td>
+        <td>En <a href="facturas_proveedores.html">Facturas de Proveedores</a>, importando esta orden y confirmando la factura. La orden de compra nunca mueve stock.</td>
+    </tr>
+    <tr>
+        <td>La orden quedó en "Recibido parcial" y el proveedor no va a mandar el resto. ¿Qué hago?</td>
+        <td>Usá el botón <strong>Recibido (cerrar)</strong>. La orden queda como Recibido y deja de figurar como pendiente.</td>
+    </tr>
+    <tr>
+        <td>Busco un producto y no aparece nada.</td>
+        <td>Revisá que hayas elegido el proveedor y que hayas escrito al menos 2 letras. El buscador muestra solo productos activos.</td>
+    </tr>
+    <tr>
+        <td>Creé un producto con "Nuevo Producto Rápido" pero no aparece en la orden.</td>
+        <td>El producto queda creado, pero hay que buscarlo en el campo Producto y agregarlo con el botón + como cualquier otro.</td>
+    </tr>
+</table>
+
+<div class="alert alert-info">
+    <strong>Manuales relacionados:</strong>
+    <a href="facturas_proveedores.html">Facturas de Proveedores</a> ·
+    <a href="proveedores.html">Proveedores</a> ·
+    <a href="productos_proveedores.html">Productos - Proveedores</a> ·
+    <a href="proveedor_precios.html">Lista Precios Proveedores</a> ·
+    <a href="productos.html">Productos</a>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Compras / Órdenes de Compra. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

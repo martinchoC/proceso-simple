@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['productos_generales.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -30,7 +33,7 @@ if (empty($accion)) {
 }
 
 // Parámetros del contexto (MULTIEMPRESA)
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 97);
 
 if (!$conexion) {
@@ -72,10 +75,10 @@ try {
         case 'obtener_combos':
             // Todos los combos del formulario en una sola vuelta
             enviarRespuesta(['success' => true, 'data' => [
-                'tipos' => obtenerTiposProductoGenerales($conexion),
+                'tipos' => obtenerTiposProductoGenerales($conexion, $empresa_idx),
                 'categorias' => obtenerCategoriasProductoGenerales($conexion, $empresa_idx),
                 'unidades' => obtenerUnidadesMedidaGenerales($conexion, $empresa_idx),
-                'iva_alicuotas' => obtenerIvaAlicuotasGenerales($conexion),
+                'iva_alicuotas' => obtenerIvaAlicuotasGenerales($conexion, $empresa_idx),
                 'cuentas' => obtenerCuentasContablesGenerales($conexion, $empresa_idx)
             ]]);
             break;

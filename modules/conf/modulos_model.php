@@ -63,11 +63,15 @@ function editarModulo($conexion, $id, $data)
     return mysqli_query($conexion, $sql);
 }
 
+// Baja lógica: el módulo no se borra (lo referencian páginas, empresas_modulos, etc.), pasa a 2 = Inactivo.
 function eliminarModulo($conexion, $id)
 {
     $id = intval($id);
-    $sql = "DELETE FROM conf__modulos WHERE modulo_id = $id";
-    return mysqli_query($conexion, $sql);
+    $stmt = mysqli_prepare($conexion, "UPDATE conf__modulos SET tabla_estado_registro_id = 2 WHERE modulo_id = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    $ok = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    return $ok;
 }
 
 function obtenerModuloPorId($conexion, $id)

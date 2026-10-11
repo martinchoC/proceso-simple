@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['entidades.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -8,7 +11,7 @@ require_once "entidades_model.php";
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto (MULTIEMPRESA)
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 50);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -75,7 +78,15 @@ try {
                 'pagina_idx' => $pagina_idx
             ];
 
-            $resultado = agregarEntidad($conexion, $data);
+            // Situación fiscal (sección de Datos Principales): se versiona en la misma transacción
+            $fiscal = [
+                'condicion_fiscal_id' => intval($_POST['condicion_fiscal_id'] ?? 0),
+                'regimen_iibb_id' => intval($_POST['regimen_iibb_id'] ?? 0),
+                'numero_inscripcion_iibb' => trim($_POST['numero_inscripcion_iibb'] ?? ''),
+                'jurisdiccion_sede_id' => intval($_POST['jurisdiccion_sede_id'] ?? 0),
+                'fiscal_f_desde' => trim($_POST['fiscal_f_desde'] ?? '')
+            ];
+            $resultado = guardarEntidadConSituacionFiscal($conexion, null, $data, $fiscal);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -97,7 +108,15 @@ try {
                 'empresa_idx' => $empresa_idx
             ];
 
-            $resultado = editarEntidad($conexion, $id, $data);
+            // Situación fiscal (sección de Datos Principales): se versiona en la misma transacción
+            $fiscal = [
+                'condicion_fiscal_id' => intval($_POST['condicion_fiscal_id'] ?? 0),
+                'regimen_iibb_id' => intval($_POST['regimen_iibb_id'] ?? 0),
+                'numero_inscripcion_iibb' => trim($_POST['numero_inscripcion_iibb'] ?? ''),
+                'jurisdiccion_sede_id' => intval($_POST['jurisdiccion_sede_id'] ?? 0),
+                'fiscal_f_desde' => trim($_POST['fiscal_f_desde'] ?? '')
+            ];
+            $resultado = guardarEntidadConSituacionFiscal($conexion, $id, $data, $fiscal);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -190,12 +209,12 @@ try {
             }
             break;
             case 'obtener_condiciones_pago':
-    $condiciones = obtenerCondicionesPago($conexion);
+    $condiciones = obtenerCondicionesPago($conexion, $empresa_idx);
     echo json_encode($condiciones, JSON_UNESCAPED_UNICODE);
     break;
 
 case 'obtener_listas_precios':
-    $listas = obtenerListasPrecios($conexion);
+    $listas = obtenerListasPrecios($conexion, $empresa_idx);
     echo json_encode($listas, JSON_UNESCAPED_UNICODE);
     break;
 
@@ -543,8 +562,133 @@ case 'listar_condiciones_proveedor':
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
         break;
 
+    // ============================================
+    // CONDICIONES FISCALES (gestion__entidades_condiciones_fiscales)
+    // ============================================
+    case 'obtener_condicion_fiscal_vigente':
+        $entidad_id = intval($_GET['entidad_id'] ?? 0);
+        if (empty($entidad_id)) {
+            echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        $condicion = obtenerCondicionFiscalVigente($conexion, $entidad_id);
+        echo json_encode($condicion, JSON_UNESCAPED_UNICODE);
+        break;
 
-        default:
+    case 'listar_condiciones_fiscales':
+    case 'obtener_historial_condiciones_fiscales':
+        $entidad_id = intval($_GET['entidad_id'] ?? 0);
+        if (empty($entidad_id)) {
+            echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        $historial = obtenerHistorialCondicionesFiscales($conexion, $entidad_id);
+        echo json_encode($historial, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'obtener_condiciones_fiscales_catalogo':
+        $catalogo = obtenerCondicionesFiscalesCatalogo($conexion);
+        echo json_encode($catalogo, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'obtener_condicion_fiscal':
+        $id = intval($_GET['entidad_condicion_fiscal_id'] ?? 0);
+        if (empty($id)) {
+            echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        $condicion = obtenerCondicionFiscalPorId($conexion, $id);
+        echo json_encode($condicion, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'guardar_condicion_fiscal':
+        $data = [
+            'entidad_condicion_fiscal_id' => intval($_POST['entidad_condicion_fiscal_id'] ?? 0),
+            'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+            'condicion_fiscal_id' => intval($_POST['condicion_fiscal_id'] ?? 0),
+            'f_desde' => $_POST['f_desde'] ?? '',
+            'f_hasta' => !empty($_POST['f_hasta']) ? $_POST['f_hasta'] : null,
+            'cerrar_anterior' => isset($_POST['cerrar_anterior']) ? intval($_POST['cerrar_anterior']) : 0
+        ];
+        $resultado = guardarCondicionFiscal($conexion, $data);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'cambiar_estado_condicion_fiscal':
+        $id = intval($_POST['entidad_condicion_fiscal_id'] ?? 0);
+        $nuevo_estado = intval($_POST['nuevo_estado'] ?? 1);
+        $resultado = cambiarEstadoCondicionFiscal($conexion, $id, $nuevo_estado);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    // ============================================
+    // NIVEL PROVINCIAL (IIBB) (gestion__entidades_condiciones_iibb)
+    // ============================================
+    case 'obtener_regimenes_iibb':
+        $regimenes = obtenerRegimenesIIBB($conexion);
+        echo json_encode($regimenes, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'obtener_jurisdicciones_sedes_iibb':
+        $sedes = obtenerJurisdiccionesSedesIIBB($conexion);
+        echo json_encode($sedes, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'obtener_condicion_iibb_vigente':
+        $entidad_id = intval($_GET['entidad_id'] ?? 0);
+        if (empty($entidad_id)) {
+            echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        $condicion = obtenerCondicionIIBBVigente($conexion, $entidad_id);
+        echo json_encode($condicion, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'listar_condiciones_iibb':
+    case 'obtener_historial_condiciones_iibb':
+        $entidad_id = intval($_GET['entidad_id'] ?? 0);
+        if (empty($entidad_id)) {
+            echo json_encode(['error' => 'ID de entidad no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        $historial = obtenerHistorialCondicionesIIBB($conexion, $entidad_id);
+        echo json_encode($historial, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'obtener_condicion_iibb':
+        $id = intval($_GET['entidad_condicion_iibb_id'] ?? 0);
+        if (empty($id)) {
+            echo json_encode(['error' => 'ID no proporcionado'], JSON_UNESCAPED_UNICODE);
+            break;
+        }
+        $condicion = obtenerCondicionIIBBPorId($conexion, $id);
+        echo json_encode($condicion, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'guardar_condicion_iibb':
+        $data = [
+            'entidad_condicion_iibb_id' => intval($_POST['entidad_condicion_iibb_id'] ?? 0),
+            'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+            'regimen_iibb_id' => intval($_POST['regimen_iibb_id'] ?? 0),
+            'numero_inscripcion' => $_POST['numero_inscripcion'] ?? null,
+            'jurisdiccion_sede_id' => !empty($_POST['jurisdiccion_sede_id']) ? intval($_POST['jurisdiccion_sede_id']) : null,
+            'f_desde' => $_POST['f_desde'] ?? '',
+            'f_hasta' => !empty($_POST['f_hasta']) ? $_POST['f_hasta'] : null,
+            'observaciones' => $_POST['observaciones'] ?? null,
+            'cerrar_anterior' => isset($_POST['cerrar_anterior']) ? intval($_POST['cerrar_anterior']) : 0
+        ];
+        $resultado = guardarCondicionIIBB($conexion, $data);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'cambiar_estado_condicion_iibb':
+        $id = intval($_POST['entidad_condicion_iibb_id'] ?? 0);
+        $nuevo_estado = intval($_POST['nuevo_estado'] ?? 1);
+        $resultado = cambiarEstadoCondicionIIBB($conexion, $id, $nuevo_estado);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }
 } catch (Exception $e) {

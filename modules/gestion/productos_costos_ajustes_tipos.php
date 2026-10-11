@@ -193,7 +193,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script>
         $(document).ready(function () {
             // Variables de contexto
-            const empresa_idx = <?php echo isset($_GET['empresa_id']) ? $_GET['empresa_id'] : 2; ?>;
+            const empresa_idx = window.EMPRESA_ID;
             const pagina_idx = <?php echo $pagina_idx; ?>;
 
             // Variables para mantener el estado del DataTable

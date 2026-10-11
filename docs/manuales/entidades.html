@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manual de usuario — Entidades</title>
+<title>Manual de usuario — Entidades Comerciales</title>
 <style>
     :root {
         --azul: #0d6efd;
@@ -29,6 +29,8 @@
     h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
     h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
     .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
     .card {
         border: 1px solid var(--gris-borde);
         border-radius: 8px;
@@ -127,43 +129,63 @@
 </head>
 <body>
 
-<h1><i class="fas fa-building"></i> Manual de usuario: Entidades</h1>
-<p class="subtitulo">Cómo dar de alta y gestionar clientes y proveedores en el sistema.</p>
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-building"></i> Manual de usuario: Entidades Comerciales</h1>
+<p class="subtitulo">Cómo dar de alta y gestionar clientes y proveedores: sus datos, su situación fiscal y sus condiciones comerciales.</p>
 
 <div class="toc">
     <strong>Contenido</strong>
     <ul>
         <li><a href="#que-es">¿Qué es una Entidad?</a></li>
+        <li><a href="#flujo">Pasos para dejar lista una entidad</a></li>
         <li><a href="#pantalla-principal">La pantalla principal</a></li>
         <li><a href="#estados">Estados: Activo e Inactivo</a></li>
         <li><a href="#agregar-editar">Agregar o editar una entidad</a></li>
         <li><a href="#datos-principales">Pestaña: Datos Principales</a></li>
+        <li><a href="#situacion-fiscal">Situación Fiscal (IVA / Ingresos Brutos)</a></li>
+        <li><a href="#historial-fiscal">Historial de Situación Fiscal</a></li>
         <li><a href="#sucursales">Pestaña: Sucursales</a></li>
         <li><a href="#condiciones-clientes">Pestaña: Condiciones Clientes</a></li>
         <li><a href="#acceso-web">Acceso web al carrito de pedidos</a></li>
         <li><a href="#condiciones-proveedores">Pestaña: Condiciones Proveedores</a></li>
         <li><a href="#sucursales-compra">Pestaña: Sucursales de Compra</a></li>
         <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
         <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
     </ul>
 </div>
 
 <h2 id="que-es">¿Qué es una Entidad?</h2>
-<p>Una <strong>Entidad</strong> es cualquier persona o empresa con la que trabajás: un cliente, un proveedor, o ambas cosas a la vez. En esta pantalla cargás sus datos generales (nombre, CUIT, domicilio) y después definís si es cliente, proveedor, o las dos cosas, con sus condiciones comerciales propias para cada rol.</p>
+<p>Una <strong>Entidad</strong> es cualquier persona o empresa con la que trabajás: un cliente, un proveedor, o ambas cosas a la vez. En esta pantalla cargás sus datos generales (nombre, CUIT, domicilio), su situación fiscal, y después definís si es cliente, proveedor, o las dos cosas, con sus condiciones comerciales propias para cada rol.</p>
+
+<h2 id="flujo">Pasos para dejar lista una entidad</h2>
+<div class="flujo">
+    <div class="flujo-caja">1. Datos Principales<br><small>+ situación fiscal</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">2. Guardar Entidad</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">3. Condiciones Clientes<br><small>y/o Proveedores</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">4. Sucursales / Acceso web<br><small>(si corresponde)</small></div>
+</div>
+<div class="alert alert-info">Para poder venderle, un cliente necesita una <strong>condición comercial vigente</strong> con su lista de precios. Sin lista de precios, al cargar un pedido no se pueden buscar productos.</div>
 
 <h2 id="pantalla-principal">La pantalla principal</h2>
 <p>Al entrar a <strong>Entidades</strong> ves un listado con todas las entidades cargadas. Cada fila muestra:</p>
 <table class="tabla-referencia">
     <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno de la entidad</td></tr>
     <tr><td>Nombre</td><td>Nombre legal de la entidad</td></tr>
     <tr><td>Fantasía</td><td>Nombre comercial, si tiene uno distinto al legal</td></tr>
     <tr><td>Tipo</td><td>Categoría de la entidad (según lo configurado en el sistema)</td></tr>
     <tr><td>CUIT</td><td>CUIT formateado, si está cargado</td></tr>
+    <tr><td>Condición Fiscal</td><td>Su condición frente al IVA vigente hoy (Responsable Inscripto, Monotributo, etc.)</td></tr>
     <tr><td>Proveedor / Cliente</td><td>Un ícono verde (✓) indica que la entidad cumple ese rol; un ícono gris indica que no</td></tr>
     <tr><td>Estado</td><td>Activo o Inactivo (ver más abajo)</td></tr>
     <tr><td>Acciones</td><td>Los botones disponibles para esa fila, según su estado actual</td></tr>
 </table>
-<p>Podés buscar cualquier entidad escribiendo en el buscador de la tabla, y ordenar por cualquier columna haciendo clic en su título. Las filas donde la entidad es <em>cliente y proveedor a la vez</em> se resaltan en celeste para identificarlas rápido.</p>
+<p>Podés buscar cualquier entidad escribiendo en el buscador de la tabla, y ordenar por cualquier columna haciendo clic en su título. Las filas donde la entidad es <em>cliente y proveedor a la vez</em> se resaltan en celeste, y las inactivas en gris.</p>
 
 <h2 id="estados">Estados: Activo e Inactivo</h2>
 <p>Cada entidad tiene un estado que determina si está disponible para usarse en el resto del sistema (por ejemplo, para facturarle o comprarle):</p>
@@ -172,48 +194,90 @@
     <div class="flujo-flecha">⇄</div>
     <div class="flujo-caja inactivo">Inactivo</div>
 </div>
-<p>Una entidad nueva siempre arranca en estado <strong>Activo</strong>. Pasás una entidad a <strong>Inactivo</strong> con el botón "Inhabilitar" cuando ya no operás con ella (por ejemplo, un proveedor que dejó de trabajar con vos), y podés volver a activarla en cualquier momento con "Habilitar". Las filas inactivas se ven resaltadas en gris en el listado.</p>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>Operás con esta entidad: aparece para elegir en pedidos, facturas, compras, cobranzas y pagos.</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>Ya no operás con ella. Sus datos y su historia se conservan, pero no se puede editar mientras esté inactiva.</td></tr>
+</table>
+<p>Una entidad nueva siempre arranca en estado <strong>Activo</strong>.</p>
 
 <h2 id="agregar-editar">Agregar o editar una entidad</h2>
 <p>Arriba de la tabla, a la izquierda, está el botón para <span class="boton-ejemplo boton-primario">+ Agregar</span> una entidad nueva. En cada fila del listado vas a ver, según el estado de esa entidad, algunos de estos botones:</p>
 <table class="tabla-referencia">
     <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
-    <tr><td>Editar</td><td>Abre la ficha completa de la entidad para modificar cualquier dato</td><td>Siempre</td></tr>
-    <tr><td>Inhabilitar</td><td>Pasa la entidad a estado Inactivo</td><td>Solo si está Activo</td></tr>
-    <tr><td>Habilitar</td><td>Vuelve a poner la entidad en estado Activo</td><td>Solo si está Inactivo</td></tr>
+    <tr><td>Editar</td><td>Abre la ficha completa de la entidad para modificar cualquier dato</td><td>Solo si está Activo</td></tr>
+    <tr><td><span class="boton-ejemplo boton-peligro">Inhabilitar</span></td><td>Pasa la entidad a Inactivo. Pide confirmación ("¿Está seguro de inactivar …?")</td><td>Solo si está Activo</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Habilitar</span></td><td>Vuelve a poner la entidad en Activo. Pide confirmación</td><td>Solo si está Inactivo</td></tr>
 </table>
-<p>Al hacer clic en "Agregar" o "Editar" se abre una ficha con varias pestañas, que se explican a continuación. Recordá hacer clic en <span class="boton-ejemplo boton-primario">Guardar Entidad</span> al terminar de cargar los datos principales — recién ahí quedan guardados y podés pasar a cargar sucursales o condiciones comerciales.</p>
-<div class="nota-lateral">Si intentás vincular una sucursal de compra antes de guardar la entidad, el sistema te va a avisar que primero tenés que guardarla.</div>
+<p>Al hacer clic en "Agregar" o "Editar" se abre una ficha con varias pestañas, que se explican a continuación. Recordá hacer clic en <span class="boton-ejemplo boton-primario">Guardar Entidad</span> al terminar de cargar los datos principales — recién ahí quedan guardados y podés pasar a cargar sucursales, condiciones comerciales o ver el historial fiscal.</p>
+<div class="nota-lateral">Si intentás usar las otras pestañas (historial fiscal, sucursales de compra, etc.) antes de guardar la entidad, el sistema te avisa "Guarde la entidad primero".</div>
 
 <h2 id="datos-principales">Pestaña: Datos Principales</h2>
-<p>Acá cargás la información general de la entidad:</p>
+<p>Está organizada en cinco bloques:</p>
 <table class="tabla-referencia">
-    <tr><th>Campo</th><th>Para qué sirve</th></tr>
-    <tr><td>Nombre Legal *</td><td>Razón social o nombre completo (obligatorio)</td></tr>
+    <tr><th>Bloque / Campo</th><th>Para qué sirve</th></tr>
+    <tr><td colspan="2"><strong>1. Identificación de la Entidad</strong></td></tr>
+    <tr><td>Nombre Legal / Razón Social *</td><td>Razón social o nombre completo (obligatorio). No puede repetirse.</td></tr>
     <tr><td>Nombre Fantasía</td><td>Nombre comercial, si es distinto al legal</td></tr>
     <tr><td>Tipo de Entidad</td><td>Categoría según la clasificación del sistema</td></tr>
     <tr><td>CUIT</td><td>11 dígitos, sin guiones</td></tr>
-    <tr><td>Sitio Web</td><td>Página web de la entidad, si tiene</td></tr>
+    <tr><td>Sitio Web</td><td>Página web, con formato válido (por ejemplo https://empresa.com)</td></tr>
+    <tr><td colspan="2"><strong>2. Situación Fiscal (IVA / Ingresos Brutos)</strong> — ver <a href="#situacion-fiscal">la sección siguiente</a></td></tr>
+    <tr><td colspan="2"><strong>3. Domicilio Legal y Ubicación</strong></td></tr>
     <tr><td>Domicilio Legal / Localidad</td><td>Dirección fiscal</td></tr>
-    <tr><td>Es Proveedor / Es Cliente</td><td>Marcá una, otra o ambas según el rol que cumple esta entidad. Habilita las pestañas de condiciones correspondientes</td></tr>
+    <tr><td colspan="2"><strong>4. Roles Comerciales y Cuentas Contables</strong></td></tr>
+    <tr><td>Proveedor / Cliente</td><td>Encendé uno, otro o ambos según el rol que cumple esta entidad. Habilita las pestañas de condiciones correspondientes</td></tr>
     <tr><td>Cuenta Contable (Proveedor / Cliente)</td><td>Cuenta contable con la que se vincula esta entidad en cada rol</td></tr>
+    <tr><td colspan="2"><strong>5. Observaciones Generales</strong></td></tr>
     <tr><td>Observaciones</td><td>Notas libres, hasta 1000 caracteres</td></tr>
 </table>
 
+<h2 id="situacion-fiscal">Situación Fiscal (IVA / Ingresos Brutos)</h2>
+<p>Este bloque define cómo hay que facturarle a la entidad. Con su <strong>Condición IVA</strong> y la de tu empresa, el sistema decide qué letra de factura corresponde (A, B o C).</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Condición IVA</td><td>Responsable Inscripto, Monotributo, Exento, Consumidor Final, etc. Debajo se ve desde cuándo rige la actual.</td></tr>
+    <tr><td>Régimen IIBB</td><td>Cómo está inscripta en Ingresos Brutos (local, Convenio Multilateral, exento…). Debajo se ve desde cuándo rige.</td></tr>
+    <tr><td>N° Inscripción IIBB</td><td>Número local, de Convenio Multilateral o el CUIT.</td></tr>
+    <tr><td>Jurisdicción Sede IIBB</td><td>Provincia de la sede, con su código (por ejemplo 901 CABA, 902 Buenos Aires).</td></tr>
+    <tr><td>Cambios vigentes desde</td><td>Fecha desde la que rige el cambio. Viene con la fecha de hoy y no puede ser posterior a hoy. Solo se usa si cambiaste algún dato fiscal.</td></tr>
+</table>
+<p>Estos datos se guardan con el botón <strong>Guardar Entidad</strong>. Si alguno cambió respecto de lo vigente, el sistema <strong>cierra la situación anterior y abre una nueva</strong> desde la fecha indicada, para que quede el historial (por ejemplo, si un cliente pasó de Monotributo a Responsable Inscripto, las facturas viejas siguen mostrando su condición de aquel momento).</p>
+<div class="nota-lateral">Si un cliente no tiene condición IVA cargada, se lo trata como Consumidor Final al facturar.</div>
+
+<h2 id="historial-fiscal">Historial de Situación Fiscal</h2>
+<p>El botón <span class="boton-ejemplo boton-outline">Historial</span> del bloque Situación Fiscal (se habilita una vez guardada la entidad) abre una ventana con dos tablas:</p>
+<ul>
+    <li><strong>Nivel Nacional (ARCA / IVA)</strong>: todas las condiciones de IVA que tuvo, con fecha desde, fecha hasta y estado.</li>
+    <li><strong>Nivel Provincial (Ingresos Brutos)</strong>: los regímenes de IIBB, con número de inscripción, sede, fechas y estado.</li>
+</ul>
+<p>Cada fila tiene un botón para <strong>editarla</strong> (por ejemplo, corregir una fecha mal cargada) y otro para <strong>inhabilitarla</strong> o <strong>habilitarla</strong> (para una fila cargada por error). Estos últimos piden confirmación ("¿Desea inhabilitar el registro?") y muestran "Estado actualizado".</p>
+
 <h2 id="sucursales">Pestaña: Sucursales</h2>
-<p>Acá registrás los distintos domicilios comerciales que puede tener una misma entidad (por ejemplo, varias sucursales de un mismo cliente). Con <span class="boton-ejemplo boton-primario">+ Nueva Sucursal</span> cargás nombre, dirección, localidad, teléfono, email y persona de contacto de cada una. El contador junto a la solapa te muestra cuántas sucursales tiene cargadas la entidad.</p>
+<p>Acá registrás los distintos domicilios comerciales que puede tener una misma entidad (por ejemplo, varias sucursales de un mismo cliente). Con <span class="boton-ejemplo boton-primario">+ Nueva Sucursal</span> cargás nombre (obligatorio, no puede repetirse dentro de la misma entidad), dirección, localidad, teléfono, email y persona de contacto de cada una. El contador junto a la solapa te muestra cuántas sucursales tiene cargadas la entidad.</p>
+<div class="nota-lateral">Estas son las sucursales del cliente o proveedor. Las sucursales de tu propia empresa se cargan en <a href="sucursales.html">Sucursales</a>.</div>
 
 <h2 id="condiciones-clientes">Pestaña: Condiciones Clientes</h2>
-<p>Esta solapa solo tiene sentido si marcaste "Es Cliente" en Datos Principales. Acá se define <strong>en qué condiciones le vendés</strong> a esta entidad:</p>
+<p>Esta solapa solo tiene sentido si encendiste "Cliente" en Datos Principales. Acá se define <strong>en qué condiciones le vendés</strong> a esta entidad:</p>
 <div class="card card-outline-primary">
-    <strong>Condición vigente</strong>
+    <strong>Condición Comercial Vigente - Cliente</strong>
     <p>La tarjeta superior muestra la condición comercial que está activa hoy: tipo de cliente, condición de pago, lista de precios, descuento general, límite de crédito, desde cuándo rige, y si tiene o no acceso al carrito de pedidos online.</p>
 </div>
-<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Condición</span> cargás una condición comercial nueva (con su fecha de inicio, y opcionalmente una fecha de fin si ya sabés hasta cuándo va a regir). Con <span class="boton-ejemplo boton-outline">Ver Historial</span> podés consultar todas las condiciones que tuvo esta entidad a lo largo del tiempo, no solo la vigente.</p>
+<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Condición</span> cargás una condición comercial nueva:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Tipo de Cliente</td><td>Clasificación del cliente.</td></tr>
+    <tr><td>Condición de Pago *</td><td>Contado, cuenta corriente, etc. (ver <a href="condiciones_pago.html">Condiciones de Pago</a>).</td></tr>
+    <tr><td>Lista de Precios</td><td>Con qué lista se le vende (ver <a href="listas_precios.html">Listas de Precios</a>).</td></tr>
+    <tr><td>Límite de Crédito ($)</td><td>Tope de deuda en cuenta corriente.</td></tr>
+    <tr><td>Descuento General (%)</td><td>Descuento que se le aplica siempre.</td></tr>
+    <tr><td>Fecha Desde * / Fecha Hasta</td><td>Vigencia. "Desde" no puede ser anterior a hoy ni anterior a la condición anterior.</td></tr>
+</table>
+<p>Al guardarla, la condición anterior se cierra sola. Con <span class="boton-ejemplo boton-outline">Ver Historial</span> podés consultar todas las condiciones que tuvo esta entidad a lo largo del tiempo, no solo la vigente.</p>
 <div class="nota-lateral">Dejar la fecha "Hasta" vacía significa que la condición sigue vigente hasta que se cargue una nueva.</div>
 
 <h2 id="acceso-web">Acceso web al carrito de pedidos</h2>
-<p>Dentro de la misma pestaña de Condiciones Clientes, más abajo, está el bloque de <strong>acceso web</strong>: si la entidad ya tiene usuario para hacer pedidos desde el carrito online, o si todavía no.</p>
+<p>Dentro de la misma pestaña de Condiciones Clientes, más abajo, está el bloque <strong>Acceso Web - Carrito de Pedidos</strong>: si la entidad ya tiene usuario para hacer pedidos desde el carrito online, o si todavía no.</p>
 <ul>
     <li>Si <strong>no tiene usuario</strong>, aparece el botón <span class="boton-ejemplo boton-primario">Dar de alta usuario</span>, que genera automáticamente un usuario (el CUIT de la entidad) y una contraseña.</li>
     <li>Si <strong>ya tiene usuario</strong>, se muestran el usuario, la contraseña y el email, junto con el botón <span class="boton-ejemplo boton-outline">Regenerar contraseña</span> por si el cliente la perdió o necesitás cambiarla — tené en cuenta que al regenerarla, la contraseña anterior deja de funcionar al instante, así que después hay que avisarle la nueva al cliente.</li>
@@ -222,28 +286,52 @@
 <div class="alert alert-warning">La contraseña se muestra en texto plano de forma temporal mientras el carrito de pedidos está en esta etapa del proyecto — tenelo en cuenta al compartir esta información.</div>
 
 <h2 id="condiciones-proveedores">Pestaña: Condiciones Proveedores</h2>
-<p>Funciona igual que "Condiciones Clientes" pero para cuando esta entidad te vende a vos: condición de pago, categoría del proveedor, descuento general y vigencia. También tiene su tarjeta de condición vigente y su botón de historial.</p>
+<p>Funciona igual que "Condiciones Clientes" pero para cuando esta entidad te vende a vos: <strong>Condición de Pago *</strong>, <strong>Categoría</strong> del proveedor, <strong>Descuento General (%)</strong> y vigencia (<strong>Fecha Desde *</strong> / Fecha Hasta, con las mismas reglas de fechas). También tiene su tarjeta de condición vigente y su botón <span class="boton-ejemplo boton-outline">Ver Historial</span>.</p>
 
 <h2 id="sucursales-compra">Pestaña: Sucursales de Compra</h2>
-<p>Esta pestaña vincula al proveedor con las sucursales <em>de tu empresa</em> donde efectivamente le comprás (no confundir con la pestaña "Sucursales", que son los domicilios del proveedor). Con <span class="boton-ejemplo boton-primario">Vincular Sucursal</span> elegís una de tus sucursales y marcás si es la principal de compra para ese proveedor.</p>
+<p>Esta pestaña vincula al proveedor con las sucursales <em>de tu empresa</em> donde efectivamente le comprás (no confundir con la pestaña "Sucursales", que son los domicilios del proveedor). Con <span class="boton-ejemplo boton-primario">+ Vincular Sucursal</span> elegís una de tus sucursales, la fecha desde (y opcionalmente hasta), observaciones, y marcás si es la principal de compra para ese proveedor.</p>
 <ul>
     <li>Si es la primera vinculación que cargás para ese proveedor, el sistema la marca como principal automáticamente.</li>
     <li>Cada vinculación tiene su propia vigencia (desde/hasta). Mientras esté vigente, podés cerrarla con el botón <span class="boton-ejemplo boton-peligro">✕</span> de la tabla, que te pide confirmación antes de cerrarla.</li>
 </ul>
 
 <h2 id="exportar">Exportar e imprimir el listado</h2>
-<p>Arriba a la derecha de la tabla principal tenés el botón <span class="boton-ejemplo boton-outline">Exportar</span>, con las opciones Excel, PDF, CSV e Imprimir, para sacar el listado de entidades tal como lo estás viendo en pantalla (con los filtros y el orden que tengas aplicados). El botón de recargar (<span class="boton-ejemplo boton-outline">↻</span>), junto al de agregar, actualiza la tabla sin necesidad de recargar toda la página.</p>
+<p>Arriba a la derecha de la tabla principal tenés el botón <span class="boton-ejemplo boton-outline">Exportar</span>, con las opciones Excel, PDF, CSV e Imprimir, para sacar el listado de entidades tal como lo estás viendo en pantalla (con los filtros y el orden que tengas aplicados). El botón de recargar (<span class="boton-ejemplo boton-outline">↻</span>) actualiza la tabla sin necesidad de recargar toda la página.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué hacer</th></tr>
+    <tr><td>Ya existe una entidad con este nombre</td><td>Buscá la entidad existente (puede estar inactiva) antes de crear otra.</td></tr>
+    <tr><td>CUIT inválido / CUIT debe tener 11 dígitos</td><td>Revisá el CUIT: 11 números, sin guiones.</td></tr>
+    <tr><td>URL inválida</td><td>El sitio web tiene que empezar con http:// o https://.</td></tr>
+    <tr><td>Guarde la entidad primero</td><td>Hacé clic en Guardar Entidad antes de usar las otras pestañas.</td></tr>
+    <tr><td>La fecha desde no puede ser menor al día de hoy</td><td>Una condición comercial nueva rige desde hoy o una fecha futura.</td></tr>
+    <tr><td>La nueva fecha no puede ser menor a la fecha de la condición anterior (…)</td><td>Elegí una fecha posterior a la de la condición vigente.</td></tr>
+    <tr><td>Ya existe una sucursal con este nombre para esta entidad</td><td>Usá otro nombre para la sucursal.</td></tr>
+</table>
 
 <h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
 <table class="tabla-referencia">
     <tr><th>Pregunta</th><th>Respuesta</th></tr>
     <tr>
         <td>¿Puedo cargar una entidad que sea cliente y proveedor al mismo tiempo?</td>
-        <td>Sí, marcando ambos switches ("Es Proveedor" y "Es Cliente") en Datos Principales. Se van a habilitar las dos pestañas de condiciones comerciales por separado.</td>
+        <td>Sí, encendiendo ambos switches ("Proveedor" y "Cliente") en Datos Principales. Se van a habilitar las dos pestañas de condiciones comerciales por separado.</td>
     </tr>
     <tr>
         <td>¿Qué pasa si inhabilito una entidad por error?</td>
         <td>Podés volver a activarla en cualquier momento con el botón "Habilitar" — no se pierde ningún dato cargado.</td>
+    </tr>
+    <tr>
+        <td>No aparece el lápiz para editar una entidad.</td>
+        <td>Está Inactiva. Habilitala primero.</td>
+    </tr>
+    <tr>
+        <td>Un cliente cambió de condición de IVA, ¿cómo lo registro?</td>
+        <td>Editá la entidad, cambiá la Condición IVA, poné en "Cambios vigentes desde" la fecha del cambio y guardá. La condición anterior queda en el historial.</td>
+    </tr>
+    <tr>
+        <td>Al cargar un pedido no puedo buscar productos para este cliente.</td>
+        <td>Revisá que tenga una condición comercial vigente con lista de precios asignada (pestaña Condiciones Clientes).</td>
     </tr>
     <tr>
         <td>¿Las sucursales de la pestaña "Sucursales" son las mías o las del cliente/proveedor?</td>
@@ -252,7 +340,7 @@
 </table>
 
 <footer>
-    Manual de usuario — Módulo Gestión / Entidades. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Entidades Comerciales. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
 </footer>
 
 </body>

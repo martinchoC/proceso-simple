@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Parámetros de Empresa</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-sliders-h"></i> Manual de usuario: Parámetros de Empresa</h1>
+<p class="subtitulo">Dónde se configura la situación fiscal de la empresa (IVA, Ingresos Brutos), si factura electrónicamente con ARCA, y los valores que el sistema propone por defecto al emitir comprobantes.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve esta pantalla?</a></li>
+        <li><a href="#vigencias">Cómo funcionan las versiones (vigencias)</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#nueva-version">Cargar una nueva versión de parámetros</a></li>
+        <li><a href="#campos">Los campos del formulario</a></li>
+        <li><a href="#arca">El switch "Facturación electrónica con ARCA"</a></li>
+        <li><a href="#editar">Editar una versión ya cargada</a></li>
+        <li><a href="#habilitar-inhabilitar">Habilitar o inhabilitar una versión</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve esta pantalla?</h2>
+<p>Acá le decís al sistema <strong>quién es tu empresa ante el fisco</strong>: su condición de IVA (Responsable Inscripto, Monotributo, etc.), cómo está inscripta en Ingresos Brutos y en qué provincia tiene la sede. Con esos datos el sistema decide, por ejemplo, qué letra de factura (A, B o C) corresponde emitir a cada cliente.</p>
+<p>También se define acá si las facturas se autorizan electrónicamente con ARCA, y qué punto de venta, lista de precios y condición de pago se proponen por defecto en los comprobantes.</p>
+
+<h2 id="vigencias">Cómo funcionan las versiones (vigencias)</h2>
+<p>Los parámetros no se pisan: cada cambio importante se carga como una <strong>nueva versión</strong> con su fecha de inicio ("Fecha Desde"). Así queda el historial de cómo estaba configurada la empresa en cada momento (por ejemplo, si pasó de Monotributo a Responsable Inscripto).</p>
+<div class="flujo">
+    <div class="flujo-caja inactivo">Versión anterior<br><small>(cerrada con "Fecha Hasta")</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Versión vigente<br><small>(sin "Fecha Hasta")</small></div>
+</div>
+<p>La versión <strong>vigente</strong> es la que está Activa y no tiene fecha de fin. Es la única que el sistema usa para facturar. Las versiones anteriores quedan en el historial solo como registro.</p>
+<div class="alert alert-warning">Tiene que haber <strong>una sola versión vigente</strong> por empresa. Al cargar una versión nueva, dejá marcada la opción "Cerrar automáticamente la vigencia anterior" para que la anterior se cierre sola.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>La pantalla tiene tres partes:</p>
+<table class="tabla-referencia">
+    <tr><th>Parte</th><th>Qué muestra</th></tr>
+    <tr><td>Selector "Empresa"</td><td>Arriba de todo. Elegís de qué empresa querés ver o cambiar los parámetros. A la derecha está el botón <span class="boton-ejemplo boton-primario">+ Nueva Versión de Parámetros</span>.</td></tr>
+    <tr><td>Condición y Parámetros Fiscales Vigentes</td><td>Un resumen de la versión que rige hoy, en cuatro bloques: Nivel Nacional (IVA, CUIT, inicio de actividades, leyenda, y si ARCA está habilitado), Nivel Provincial (régimen y número de Ingresos Brutos, sede), Valores Defecto (punto de venta, lista de precios, condición de pago) y Vigencia (desde, hasta, observaciones). Abajo a la derecha tiene el botón <span class="boton-ejemplo boton-outline">Editar Registro Vigente</span>.</td></tr>
+    <tr><td>Historial de Modificaciones y Vigencias</td><td>Todas las versiones cargadas para la empresa, de la más nueva a la más vieja, con su condición de IVA, régimen de IIBB y sede, número de IIBB, punto de venta por defecto, fechas desde/hasta, observaciones, estado y acciones. La versión que rige hoy lleva la marca <span class="badge badge-success">Vigente</span>, y las que no tienen fecha de fin dicen <span class="badge badge-success">Abierta</span>.</td></tr>
+</table>
+<p>Si la empresa todavía no tiene ninguna versión cargada, en lugar del resumen vas a ver el aviso "Esta empresa no tiene parámetros vigentes configurados" con el botón <span class="boton-ejemplo boton-primario">+ Configurar Parámetros Iniciales</span>, que abre el mismo formulario que "Nueva Versión de Parámetros".</p>
+
+<h2 id="nueva-version">Cargar una nueva versión de parámetros</h2>
+<ol>
+    <li>Elegí la empresa en el selector de arriba.</li>
+    <li>Hacé clic en <span class="boton-ejemplo boton-primario">+ Nueva Versión de Parámetros</span>.</li>
+    <li>Completá el formulario (ver <a href="#campos">los campos</a>). La "Fecha Desde" viene con la fecha de hoy.</li>
+    <li>Dejá marcada la opción <em>"Cerrar automáticamente la vigencia anterior un día antes de la nueva fecha de inicio"</em>, salvo que sepas que no corresponde.</li>
+    <li>Hacé clic en <span class="boton-ejemplo boton-primario">Guardar Parámetros</span>.</li>
+</ol>
+<p>Si todo está bien, aparece arriba a la derecha el aviso "Parámetros guardados — Nueva vigencia de parámetros registrada con éxito", la ventana se cierra y el resumen y el historial se actualizan.</p>
+<div class="nota-lateral">Si cargás una versión con "Fecha Hasta" ya completa, se guarda como una versión cerrada: no reemplaza a la vigente ni cierra la anterior.</div>
+
+<h2 id="campos">Los campos del formulario</h2>
+<h3 id="campos-nacional">Nivel Nacional (IVA / ARCA)</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Condición Fiscal Emisora *</td><td>Tu condición frente al IVA (Responsable Inscripto, Monotributo, Exento...). Obligatoria. Es la que define qué letra de factura emitís.</td></tr>
+    <tr><td>Fecha Inicio de Actividades</td><td>La que figura en tu constancia de inscripción. Se usa en los comprobantes.</td></tr>
+    <tr><td>Leyenda Fiscal en Comprobantes</td><td>Texto que se imprime en los comprobantes (por ejemplo "IVA Responsable Inscripto").</td></tr>
+    <tr><td>Facturación electrónica con ARCA (CAE)</td><td>Switch que activa la autorización electrónica de facturas. Ver <a href="#arca">la sección siguiente</a>.</td></tr>
+</table>
+<h3 id="campos-provincial">Nivel Provincial (Ingresos Brutos)</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Régimen de IIBB *</td><td>Local / Simplificado, Convenio Multilateral o Exento / No alcanzado. Al elegirlo, debajo aparece una breve explicación de su alcance. Obligatorio.</td></tr>
+    <tr><td>Sede Principal / Jurisdicción Sede *</td><td>Provincia donde está la sede, con su código (por ejemplo 901 CABA, 902 Buenos Aires). Obligatoria. Por defecto viene Buenos Aires.</td></tr>
+    <tr><td>Número de Inscripción en IIBB</td><td>Tu número de Ingresos Brutos. El botón <span class="boton-ejemplo boton-outline">Copiar CUIT</span> lo completa con el CUIT de la empresa (útil cuando el número de IIBB es el mismo CUIT, como en Convenio Multilateral).</td></tr>
+</table>
+<h3 id="campos-defecto">Valores por Defecto para Emisión de Comprobantes</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Punto de Venta Defecto</td><td>El punto de venta que se propone al emitir. Solo muestra puntos de venta activos de la empresa (ver <a href="puntos_venta.html">Puntos de Venta</a>).</td></tr>
+    <tr><td>Lista de Precios Defecto</td><td>La lista de precios que se propone (ver <a href="listas_precios.html">Listas de Precios</a>).</td></tr>
+    <tr><td>Condición Pago Defecto</td><td>La condición de pago que se propone (ver <a href="condiciones_pago.html">Condiciones de Pago</a>).</td></tr>
+</table>
+<p>Los tres son opcionales: si los dejás en "Sin definir", el sistema no propone nada.</p>
+<h3 id="campos-vigencia">Vigencia y Control</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Fecha Desde (Inicio Vigencia) *</td><td>Desde cuándo rige esta versión. Obligatoria.</td></tr>
+    <tr><td>Fecha Hasta (Fin Vigencia)</td><td>Hasta cuándo rige. Dejala vacía para que quede vigente sin fecha de fin (lo normal en la versión actual).</td></tr>
+    <tr><td>Cerrar automáticamente la vigencia anterior...</td><td>Solo aparece al cargar una versión nueva. Si está marcada, la versión que estaba vigente queda cerrada el día anterior a la nueva "Fecha Desde".</td></tr>
+    <tr><td>Observaciones / Motivo del cambio</td><td>Por qué cambiaste los parámetros (por ejemplo, "Pasaje a Responsable Inscripto").</td></tr>
+</table>
+<div class="alert alert-info">Al guardar una versión vigente, el sistema actualiza automáticamente la condición fiscal y el régimen de Ingresos Brutos de la empresa en el resto del sistema. No hace falta cambiarlos en otro lado.</div>
+
+<h2 id="arca">El switch "Facturación electrónica con ARCA"</h2>
+<p>Este switch define cómo se confirman las facturas de venta con letra (A, B, C):</p>
+<table class="tabla-referencia">
+    <tr><th>Switch</th><th>Qué pasa al confirmar una factura</th></tr>
+    <tr><td><span class="badge badge-success">Habilitado</span></td><td>La factura queda <strong>Pendiente de ARCA</strong> y sin número. Cuando alguien usa el botón "Aprobada", el sistema le pide la autorización (CAE) a ARCA y la factura recibe el número que asigna ARCA. Si ARCA la rechaza, se puede volver a Borrador, corregir y reintentar.</td></tr>
+    <tr><td><span class="badge badge-secondary">No habilitado</span></td><td>La factura se numera al confirmarla, con la numeración del sistema, y la aprobación se marca a mano.</td></tr>
+</table>
+<div class="alert alert-warning">Antes de habilitarlo, tiene que existir una integración con ARCA activa para la facturación electrónica (se configura en <a href="arca_integraciones.html">Integraciones - ARCA</a>), con el certificado cargado. Si no, las facturas van a quedar trabadas en "Pendiente de ARCA".</div>
+<p>Las facturas sin letra fiscal (tipo X) no se ven afectadas por este switch. Para el detalle del circuito de facturación, ver <a href="ventas_facturas.html">Facturas de Venta</a>.</p>
+<div class="nota-lateral">El switch forma parte de la versión de parámetros: si querés activarlo a partir de hoy, podés cargar una versión nueva o editar la vigente.</div>
+
+<h2 id="editar">Editar una versión ya cargada</h2>
+<p>Usá <span class="boton-ejemplo boton-outline">Editar Registro Vigente</span> (en el resumen) o el botón con el lápiz de cualquier fila del historial. Se abre el mismo formulario con los datos cargados, con el título "Editar Parámetros de Empresa". En la edición no aparece la opción de cerrar la vigencia anterior.</p>
+<p>Al guardar ves el aviso "Parámetros actualizados correctamente".</p>
+<div class="nota-lateral">Editar sirve para corregir errores de carga. Si lo que cambió es tu situación fiscal real (por ejemplo, cambiaste de régimen), conviene cargar una <strong>versión nueva</strong> para que quede el historial.</div>
+
+<h2 id="habilitar-inhabilitar">Habilitar o inhabilitar una versión</h2>
+<p>En cada fila del historial hay un segundo botón:</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-peligro">⊘</span> Inhabilitar</td><td>Desactiva esa versión. Si era la vigente, la empresa se queda sin parámetros vigentes hasta que habilites o cargues otra.</td><td>Versión Activa</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">✓</span> Habilitar</td><td>Vuelve a activar la versión.</td><td>Versión Inactiva</td></tr>
+</table>
+<p>Los dos piden confirmación ("¿Desea inhabilitar este registro?" / "¿Desea habilitar este registro?") y al terminar muestran "Estado actualizado".</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Campos marcados en rojo</td><td>Falta completar un campo obligatorio (condición fiscal, régimen de IIBB, sede o fecha desde).</td></tr>
+    <tr><td>Fechas inválidas: La fecha hasta debe ser posterior o igual a la fecha desde</td><td>Corregí las fechas de vigencia.</td></tr>
+    <tr><td>Debe seleccionar una condición fiscal</td><td>Elegí la condición fiscal emisora.</td></tr>
+    <tr><td>La fecha de inicio de vigencia es obligatoria</td><td>Completá "Fecha Desde".</td></tr>
+    <tr><td>Error de comunicación con el servidor</td><td>Se cortó la conexión. Probá de nuevo; si sigue, avisá al equipo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Cambié de Monotributo a Responsable Inscripto, ¿qué hago?</td>
+        <td>Cargá una <strong>Nueva Versión de Parámetros</strong> con la nueva condición fiscal y la fecha desde la que rige, dejando marcada la opción de cerrar la anterior. Así se conserva el historial.</td>
+    </tr>
+    <tr>
+        <td>Aparecen dos versiones "Abierta" en el historial, ¿es un problema?</td>
+        <td>Sí. Debería haber una sola. Editá la que ya no corresponde y completale la "Fecha Hasta", o inhabilitala.</td>
+    </tr>
+    <tr>
+        <td>Activé ARCA y las facturas quedan en "Pendiente de ARCA", ¿está bien?</td>
+        <td>Sí, es el funcionamiento esperado. La factura recibe su número recién cuando alguien usa "Aprobada" y ARCA otorga el CAE.</td>
+    </tr>
+    <tr>
+        <td>No me aparece un punto de venta en "Punto de Venta Defecto".</td>
+        <td>Solo se listan puntos de venta activos de la empresa elegida. Revisalo en <a href="puntos_venta.html">Puntos de Venta</a>.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Parámetros de Empresa. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * obligaciones_rendiciones_model.php
  *
@@ -19,22 +20,40 @@ require_once __DIR__ . '/tesoreria_core_model.php';
 
 $conexion = $conn;
 
-if (!defined('COMP_TIPO_I_LIQ'))   define('COMP_TIPO_I_LIQ', 46);
-if (!defined('COMP_TIPO_I_PAG'))   define('COMP_TIPO_I_PAG', 47);
-if (!defined('COMP_TIPO_RG_ANT'))  define('COMP_TIPO_RG_ANT', 48);
-if (!defined('COMP_TIPO_RG_REND')) define('COMP_TIPO_RG_REND', 49);
-if (!defined('COMP_TIPO_RG_REEM')) define('COMP_TIPO_RG_REEM', 50);
+// Tipos de comprobante: se resuelven por código y empresa con orTipoComprobanteId() (antes ids fijos 46-50 de la empresa 2).
 
 // Tablas ID
-if (!defined('TABLA_OBLIGACIONES_ID')) define('TABLA_OBLIGACIONES_ID', 277);
-if (!defined('TABLA_PAGOS_IMP_ID'))    define('TABLA_PAGOS_IMP_ID', 278);
-if (!defined('TABLA_RENDICIONES_ID'))  define('TABLA_RENDICIONES_ID', 279);
-if (!defined('TABLA_ANTICIPOS_ID'))    define('TABLA_ANTICIPOS_ID', 280);
-if (!defined('TABLA_REEMBOLSOS_ID'))   define('TABLA_REEMBOLSOS_ID', 281);
+// conf__tablas.tabla_id de cada tabla origen (gestion__comprobantes.tabla_origen_id).
+// recalcularEstadoDestino() reconoce I_LIQ y RG_REND por este id.
+if (!defined('TABLA_OBLIGACIONES_ID')) define('TABLA_OBLIGACIONES_ID', 286); // gestion__obligaciones_impositivas
+if (!defined('TABLA_PAGOS_IMP_ID'))    define('TABLA_PAGOS_IMP_ID', 277);    // gestion__pagos_impuestos
+if (!defined('TABLA_RENDICIONES_ID'))  define('TABLA_RENDICIONES_ID', 287);  // gestion__rendiciones
+if (!defined('TABLA_ANTICIPOS_ID'))    define('TABLA_ANTICIPOS_ID', 281);    // gestion__rendiciones_anticipos
+if (!defined('TABLA_REEMBOLSOS_ID'))   define('TABLA_REEMBOLSOS_ID', 282);   // gestion__rendiciones_reembolsos
 
-if (!defined('ESTADO_BORRADOR'))   define('ESTADO_BORRADOR', 2125);
-if (!defined('ESTADO_CONFIRMADO')) define('ESTADO_CONFIRMADO', 2126);
-if (!defined('ESTADO_ANULADO'))    define('ESTADO_ANULADO', 2127);
+// Tipo de comprobante de la empresa por código (I_LIQ, I_PAG, RG_ANT, RG_REND, RG_REEM): los ids de
+// gestion__comprobantes_tipos son por empresa (46 = I_LIQ solo en la empresa 2), nunca constantes.
+function orTipoComprobanteId($conexion, $empresa_id, $codigo)
+{
+    $id = emp_comprobante_tipo_id($conexion, intval($empresa_id), $codigo);
+    if ($id <= 0) throw new Exception("La empresa no tiene configurado el tipo de comprobante $codigo.");
+    return $id;
+}
+
+function orProximoNumero($conexion, $empresa_id, $comprobante_tipo_id, $pv)
+{
+    $stmt = mysqli_prepare($conexion, "SELECT COALESCE(MAX(comprobante_nro), 0) + 1 AS prox_nro FROM gestion__comprobantes
+                                       WHERE empresa_id = ? AND comprobante_tipo_id = ? AND comprobante_pv = ?");
+    mysqli_stmt_bind_param($stmt, 'iii', $empresa_id, $comprobante_tipo_id, $pv);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    return intval($row['prox_nro'] ?? 1);
+}
+
+if (!defined('ESTADO_BORRADOR'))   define('ESTADO_BORRADOR', 3);
+if (!defined('ESTADO_CONFIRMADO')) define('ESTADO_CONFIRMADO', 5);
+if (!defined('ESTADO_ANULADO'))    define('ESTADO_ANULADO', 38);
 
 // =========================================================================
 // 1. LIQUIDACIONES IMPOSITIVAS (I_LIQ / I_PAG)
@@ -47,7 +66,7 @@ function obtenerObligacionesListado($conexion, $empresa_id, $filtros = [])
 {
     $empresa_id = intval($empresa_id);
 
-    $sql = "SELECT oi.*, c.importe_pendiente, c.comprobante_pv, c.comprobante_nro,
+    $sql = "SELECT oi.*, c.importe_pendiente, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS comprobante_pv, c.comprobante_nro,
                    e.entidad_nombre AS organismo,
                    s.sucursal_nombre AS sucursal,
                    er.codigo_estandar AS estado_codigo, er.estado_registro
@@ -55,8 +74,7 @@ function obtenerObligacionesListado($conexion, $empresa_id, $filtros = [])
             JOIN gestion__comprobantes c ON c.comprobante_id = oi.comprobante_id
             JOIN gestion__sucursales s ON s.sucursal_id = oi.sucursal_id
             LEFT JOIN gestion__entidades e ON e.entidad_id = oi.entidad_id
-            LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = c.tabla_estado_registro_id
-            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = c.tabla_estado_registro_id
             WHERE oi.empresa_id = ? ";
 
     $params = [$empresa_id];
@@ -152,12 +170,18 @@ function obtenerObligacionesListado($conexion, $empresa_id, $filtros = [])
 
 /**
  * Registra una Liquidación Impositiva (I_LIQ)
+ * Opcionales en $datos:
+ *  - cuenta_debe_id: cuenta del Debe del asiento de devengamiento (por defecto Otros Gastos Generales). Las
+ *    percepciones IIBB practicadas ya están en el pasivo: se liquidan con Debe = Haber = la cuenta a depositar.
+ *  - en_transaccion: true = corre dentro de la transacción del llamador (no abre ni confirma la suya).
  */
 function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
 {
+    $propia = empty($datos['en_transaccion']);
+    $cuenta_debe_id = intval($datos['cuenta_debe_id'] ?? 0);
     $empresa_id       = intval($empresa_id);
     $usuario_id       = intval($usuario_id);
-    $sucursal_id      = intval($datos['sucursal_id'] ?? 2);
+    $sucursal_id      = intval($datos['sucursal_id'] ?? 0);
     $entidad_id       = intval($datos['entidad_id'] ?? 3); // Organismo recaudador (AFIP, ARBA, etc)
     $f_emision        = !empty($datos['f_emision']) ? $datos['f_emision'] : date('Y-m-d');
     $f_vto            = !empty($datos['f_vto']) ? $datos['f_vto'] : date('Y-m-d', strtotime('+10 days'));
@@ -166,7 +190,7 @@ function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_
     $nro_ddjj         = trim($datos['nro_ddjj'] ?? '');
     $nro_vep          = trim($datos['nro_vep'] ?? '');
     $importe_total    = floatval($datos['importe_total'] ?? 0);
-    $moneda_id        = intval($datos['moneda_id'] ?? 1);
+    $moneda_id        = emp_moneda_id($conexion, $empresa_id, $datos['moneda_id'] ?? 0);
     $cont_cuenta_id   = intval($datos['cont_cuenta_id'] ?? 0);
     $impuesto_tipo_id = intval($datos['impuesto_tipo_id'] ?? 7);
     if ($impuesto_tipo_id <= 0) {
@@ -180,19 +204,20 @@ function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_
         throw new Exception("Debe especificar el período fiscal (AAAA-MM).");
     }
 
-    mysqli_begin_transaction($conexion);
+    if ($propia) mysqli_begin_transaction($conexion);
 
     try {
         // Resolver cuenta contable del impuesto si no viene
         if ($cont_cuenta_id <= 0) {
-            $res_c = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'IVA a Pagar', 332);
+            $res_c = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'IVA a Pagar', emp_cuenta_concepto_id($conexion, $empresa_id, 'IVA_A_PAGAR'));
             $cont_cuenta_id = $res_c['cont_cuenta_id'];
         }
 
         // Correlativo
-        $prefijo = 1;
-        $res_n = $conexion->query("SELECT COALESCE(MAX(comprobante_nro), 0) + 1 AS prox_nro FROM gestion__comprobantes WHERE empresa_id = $empresa_id AND comprobante_tipo_id = " . COMP_TIPO_I_LIQ . " AND comprobante_pv = $prefijo");
-        $numero = intval($res_n->fetch_assoc()['prox_nro'] ?? 1);
+        $prefijo = emp_punto_venta_id($conexion, $empresa_id);   // punto de venta de la empresa
+        if ($prefijo <= 0) throw new Exception('La empresa no tiene puntos de venta: no se puede numerar el comprobante.');
+        $tipo_i_liq = orTipoComprobanteId($conexion, $empresa_id, 'I_LIQ');
+        $numero = orProximoNumero($conexion, $empresa_id, $tipo_i_liq, $prefijo);
 
         // 1. Insertar Cabecera en gestion__comprobantes
         $res_reg = $conexion->query("SELECT COALESCE(MAX(registro_origen_id), 0) + 1 AS prox_reg FROM gestion__comprobantes WHERE tabla_origen_id = " . TABLA_OBLIGACIONES_ID);
@@ -210,7 +235,7 @@ function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_
 
         $stmt_c = mysqli_prepare($conexion, $sql_comp);
         $est_conf = ESTADO_CONFIRMADO;
-        $comp_tipo_id = COMP_TIPO_I_LIQ;
+        $comp_tipo_id = $tipo_i_liq;
         mysqli_stmt_bind_param(
             $stmt_c, "iisiiiiiisssiddddsii",
             $tabla_origen_id, $registro_origen_id, $modulo, $entidad_id,
@@ -246,8 +271,10 @@ function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_
         $conexion->query("UPDATE gestion__comprobantes SET registro_origen_id = $obligacion_id WHERE comprobante_id = $comprobante_id");
 
         // 3. Asiento Contable Automático de Devengamiento Impositivo (D27 / D36)
-        // DEBE: Otros Gastos Generales (873) / HABER: IVA a Pagar (332)
-        $res_gasto = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Otros Gastos Generales', 873);
+        // DEBE: Otros Gastos Generales (GASTOS_GENERALES) / HABER: IVA a Pagar (IVA_A_PAGAR)
+        $res_gasto = $cuenta_debe_id > 0
+            ? ['cont_cuenta_id' => $cuenta_debe_id]
+            : tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Otros Gastos Generales', emp_cuenta_concepto_id($conexion, $empresa_id, 'GASTOS_GENERALES'));
 
         $asiento_id = tesoreriaGenerarAsiento($conexion, [
             'empresa_id'           => $empresa_id,
@@ -257,7 +284,6 @@ function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_
             'f_asiento'            => $f_emision,
             'descripcion'          => "Devengamiento {$descripcion} ({$periodo_fiscal}) VEP: {$nro_vep}",
             'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2
         ], [
             [
                 'cuenta_id'   => $res_gasto['cont_cuenta_id'],
@@ -273,19 +299,19 @@ function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_
             ]
         ]);
 
-        mysqli_commit($conexion);
+        if ($propia) mysqli_commit($conexion);
 
         return [
             'success'        => true,
             'obligacion_id'  => $obligacion_id,
             'comprobante_id' => $comprobante_id,
-            'numero'         => sprintf("%04d-%08d", $prefijo, $numero),
+            'numero'         => emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero),
             'asiento_id'     => $asiento_id,
-            'mensaje'        => "Obligación impositiva " . sprintf("%04d-%08d", $prefijo, $numero) . " registrada con éxito."
+            'mensaje'        => "Obligación impositiva " . emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero) . " registrada con éxito."
         ];
 
     } catch (Exception $e) {
-        mysqli_rollback($conexion);
+        if ($propia) mysqli_rollback($conexion);
         error_log("Error en registrarObligacionImpositiva: " . $e->getMessage());
         throw $e;
     }
@@ -351,9 +377,10 @@ function pagarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
         }
 
         // Correlativo I_PAG
-        $prefijo = 1;
-        $res_n = $conexion->query("SELECT COALESCE(MAX(comprobante_nro), 0) + 1 AS prox_nro FROM gestion__comprobantes WHERE empresa_id = $empresa_id AND comprobante_tipo_id = " . COMP_TIPO_I_PAG . " AND comprobante_pv = $prefijo");
-        $numero = intval($res_n->fetch_assoc()['prox_nro'] ?? 1);
+        $prefijo = emp_punto_venta_id($conexion, $empresa_id);   // punto de venta de la empresa
+        if ($prefijo <= 0) throw new Exception('La empresa no tiene puntos de venta: no se puede numerar el comprobante.');
+        $tipo_i_pag = orTipoComprobanteId($conexion, $empresa_id, 'I_PAG');
+        $numero = orProximoNumero($conexion, $empresa_id, $tipo_i_pag, $prefijo);
 
         // 1. Insertar Cabecera I_PAG en gestion__comprobantes
         $res_reg = $conexion->query("SELECT COALESCE(MAX(registro_origen_id), 0) + 1 AS prox_reg FROM gestion__comprobantes WHERE tabla_origen_id = " . TABLA_PAGOS_IMP_ID);
@@ -372,7 +399,7 @@ function pagarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
 
         $stmt_c = mysqli_prepare($conexion, $sql_comp);
         $est_conf = ESTADO_CONFIRMADO;
-        $comp_tipo_pag = COMP_TIPO_I_PAG;
+        $comp_tipo_pag = $tipo_i_pag;
         $moneda_id = intval($ob['moneda_id']);
         $ob_entidad_id = intval($ob['entidad_id']);
         $ob_sucursal_id = intval($ob['sucursal_id']);
@@ -450,9 +477,10 @@ function pagarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
                         empresa_id, comp_origen_id, comp_destino_id, f_imputacion,
                         importe_imputado, moneda_origen_id, tipo_cambio, importe_origen,
                         tabla_estado_registro_id, usuario_id
-                    ) VALUES (?, ?, ?, ?, ?, 1, 1.0, ?, 2154, ?)";
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1.0, ?, 5, ?)";
+        $moneda_imp = emp_moneda_base_id($conexion, $empresa_id);
         $stmt_imp = mysqli_prepare($conexion, $sql_imp);
-        mysqli_stmt_bind_param($stmt_imp, "iiisddi", $empresa_id, $comprobante_pag_id, $comp_liq_id, $f_pago, $importe_pago, $importe_pago, $usuario_id);
+        mysqli_stmt_bind_param($stmt_imp, "iiisdidi", $empresa_id, $comprobante_pag_id, $comp_liq_id, $f_pago, $importe_pago, $moneda_imp, $importe_pago, $usuario_id);
         mysqli_stmt_execute($stmt_imp);
         mysqli_stmt_close($stmt_imp);
 
@@ -483,7 +511,6 @@ function pagarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
             'f_asiento'            => $f_pago,
             'descripcion'          => "Cancelación VEP {$ob['nro_vep']} de {$ob['descripcion']}",
             'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2
         ], [
             [
                 'cuenta_id'   => $cta_cont_pasivo,
@@ -505,9 +532,9 @@ function pagarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
             'success'            => true,
             'pago_impuesto_id'   => $pago_impuesto_id,
             'comprobante_pag_id' => $comprobante_pag_id,
-            'numero'             => sprintf("%04d-%08d", $prefijo, $numero),
+            'numero'             => emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero),
             'asiento_id'         => $asiento_id,
-            'mensaje'            => "Pago de obligación " . sprintf("%04d-%08d", $prefijo, $numero) . " registrado con éxito."
+            'mensaje'            => "Pago de obligación " . emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero) . " registrado con éxito."
         ];
 
     } catch (Exception $e) {
@@ -528,7 +555,7 @@ function obtenerRendicionesListado($conexion, $empresa_id, $filtros = [])
 {
     $empresa_id = intval($empresa_id);
 
-    $sql = "SELECT r.*, c.comprobante_pv, c.comprobante_nro,
+    $sql = "SELECT r.*, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS comprobante_pv, c.comprobante_nro,
                    e.entidad_nombre AS responsable,
                    s.sucursal_nombre AS sucursal,
                    er.codigo_estandar AS estado_codigo, er.estado_registro
@@ -536,8 +563,7 @@ function obtenerRendicionesListado($conexion, $empresa_id, $filtros = [])
             JOIN gestion__comprobantes c ON c.comprobante_id = r.comprobante_id
             JOIN gestion__sucursales s ON s.sucursal_id = r.sucursal_id
             LEFT JOIN gestion__entidades e ON e.entidad_id = r.entidad_id
-            LEFT JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = c.tabla_estado_registro_id
-            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = c.tabla_estado_registro_id
             WHERE r.empresa_id = ? ";
 
     $params = [$empresa_id];
@@ -573,7 +599,13 @@ function obtenerRendicionesListado($conexion, $empresa_id, $filtros = [])
 
         $comprobante_nro = sprintf("%04d-%08d", $row['comprobante_pv'], $row['comprobante_nro']);
 
-        $badge = '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Aprobada</span>';
+        // r.tabla_estado_registro_id: estado propio de la rendición (Reembolsada lo deriva
+        // recalcularEstadoDestino() cuando el saldo llega a 0).
+        if (intval($row['tabla_estado_registro_id']) === ESTADO_RG_REND_REEMBOLSADA) {
+            $badge = '<span class="badge bg-secondary"><i class="fas fa-check-double me-1"></i>Reembolsada</span>';
+        } else {
+            $badge = '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Aprobada</span>';
+        }
 
         $botones = '<div class="btn-group btn-group-sm" role="group">';
         if ($reembolsar > 0) {
@@ -612,9 +644,9 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
 {
     $empresa_id          = intval($empresa_id);
     $usuario_id          = intval($usuario_id);
-    $sucursal_id         = intval($datos['sucursal_id'] ?? 2);
+    $sucursal_id         = intval($datos['sucursal_id'] ?? 0);
     $entidad_id          = intval($datos['entidad_id'] ?? 3); // Empleado / Beneficiario
-    $tesoreria_cuenta_id = intval($datos['tesoreria_cuenta_id'] ?? 1); // Caja o Banco
+    $tesoreria_cuenta_id = intval($datos['tesoreria_cuenta_id'] ?? 0); // Caja o Banco
     $f_emision           = !empty($datos['f_emision']) ? $datos['f_emision'] : date('Y-m-d');
     $importe_total       = floatval($datos['importe_total'] ?? 0);
     $descripcion         = trim($datos['descripcion'] ?? 'Anticipo de gastos a rendir');
@@ -638,9 +670,10 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
         }
 
         // Correlativo RG_ANT
-        $prefijo = 1;
-        $res_n = $conexion->query("SELECT COALESCE(MAX(comprobante_nro), 0) + 1 AS prox_nro FROM gestion__comprobantes WHERE empresa_id = $empresa_id AND comprobante_tipo_id = " . COMP_TIPO_RG_ANT . " AND comprobante_pv = $prefijo");
-        $numero = intval($res_n->fetch_assoc()['prox_nro'] ?? 1);
+        $prefijo = emp_punto_venta_id($conexion, $empresa_id);   // punto de venta de la empresa
+        if ($prefijo <= 0) throw new Exception('La empresa no tiene puntos de venta: no se puede numerar el comprobante.');
+        $tipo_rg_ant = orTipoComprobanteId($conexion, $empresa_id, 'RG_ANT');
+        $numero = orProximoNumero($conexion, $empresa_id, $tipo_rg_ant, $prefijo);
 
         // 1. Cabecera en gestion__comprobantes
         $res_reg = $conexion->query("SELECT COALESCE(MAX(registro_origen_id), 0) + 1 AS prox_reg FROM gestion__comprobantes WHERE tabla_origen_id = " . TABLA_ANTICIPOS_ID);
@@ -658,7 +691,7 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
 
         $stmt_comp = mysqli_prepare($conexion, $sql_comp);
         $est_conf = ESTADO_CONFIRMADO;
-        $comp_tipo_ant = COMP_TIPO_RG_ANT;
+        $comp_tipo_ant = $tipo_rg_ant;
         mysqli_stmt_bind_param(
             $stmt_comp, "iisiiiiiisssddddsii",
             $tabla_origen_id, $registro_origen_id, $modulo, $entidad_id,
@@ -701,9 +734,9 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
             'importe'             => $importe_total,
             'f_movimiento'        => $f_emision,
             'f_valor'             => $f_emision,
-            'moneda_id'           => 1,
+            'moneda_id'           => emp_moneda_base_id($conexion, $empresa_id),
             'tipo_cambio'         => 1.0,
-            'medio_pago_id'       => 1, // Efectivo
+            'medio_pago_id'       => emp_medio_pago_id($conexion, $empresa_id, 'EFECTIVO'),
             'concepto'            => "Anticipo a Rendir N° {$prefijo}-{$numero} a personal",
             'tabla_origen_id'     => TABLA_ANTICIPOS_ID,
             'registro_origen_id'  => $anticipo_id,
@@ -711,7 +744,7 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
         ]);
 
         // 4. Asiento Contable Automático: DEBE Anticipos al Personal / HABER Caja o Banco (D27)
-        $res_ant_cta = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Empleados - Anticipos y Rendiciones', 856);
+        $res_ant_cta = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Empleados - Anticipos y Rendiciones', emp_cuenta_concepto_id($conexion, $empresa_id, 'EMPLEADOS'));
         $cta_cont_origen = intval($cta['cont_cuenta_id']);
         if ($cta_cont_origen <= 0) {
             $r_or = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Caja');
@@ -726,7 +759,6 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
             'f_asiento'            => $f_emision,
             'descripcion'          => "Anticipo de gastos a rendir RG_ANT {$prefijo}-{$numero}",
             'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2
         ], [
             [
                 'cuenta_id'   => $res_ant_cta['cont_cuenta_id'],
@@ -748,9 +780,9 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
             'success'        => true,
             'anticipo_id'    => $anticipo_id,
             'comprobante_id' => $comprobante_id,
-            'numero'         => sprintf("%04d-%08d", $prefijo, $numero),
+            'numero'         => emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero),
             'asiento_id'     => $asiento_id,
-            'mensaje'        => "Anticipo N° " . sprintf("%04d-%08d", $prefijo, $numero) . " registrado con éxito."
+            'mensaje'        => "Anticipo N° " . emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero) . " registrado con éxito."
         ];
 
     } catch (Exception $e) {
@@ -767,7 +799,7 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
 {
     $empresa_id    = intval($empresa_id);
     $usuario_id    = intval($usuario_id);
-    $sucursal_id   = intval($datos['sucursal_id'] ?? 2);
+    $sucursal_id   = intval($datos['sucursal_id'] ?? 0);
     $entidad_id    = intval($datos['entidad_id'] ?? 3); // Empleado que rinde
     $anticipo_id   = intval($datos['anticipo_id'] ?? 0); // Opcional: Anticipo a descontar
     $f_emision     = !empty($datos['f_emision']) ? $datos['f_emision'] : date('Y-m-d');
@@ -811,9 +843,10 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
         $monto_a_reembolsar = max(0.0, $total_gastos - $monto_anticipo);
 
         // Correlativo RG_REND
-        $prefijo = 1;
-        $res_n = $conexion->query("SELECT COALESCE(MAX(comprobante_nro), 0) + 1 AS prox_nro FROM gestion__comprobantes WHERE empresa_id = $empresa_id AND comprobante_tipo_id = " . COMP_TIPO_RG_REND . " AND comprobante_pv = $prefijo");
-        $numero = intval($res_n->fetch_assoc()['prox_nro'] ?? 1);
+        $prefijo = emp_punto_venta_id($conexion, $empresa_id);   // punto de venta de la empresa
+        if ($prefijo <= 0) throw new Exception('La empresa no tiene puntos de venta: no se puede numerar el comprobante.');
+        $tipo_rg_rend = orTipoComprobanteId($conexion, $empresa_id, 'RG_REND');
+        $numero = orProximoNumero($conexion, $empresa_id, $tipo_rg_rend, $prefijo);
 
         // 1. Cabecera en gestion__comprobantes
         $res_reg = $conexion->query("SELECT COALESCE(MAX(registro_origen_id), 0) + 1 AS prox_reg FROM gestion__comprobantes WHERE tabla_origen_id = " . TABLA_RENDICIONES_ID);
@@ -831,7 +864,7 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
 
         $stmt_comp = mysqli_prepare($conexion, $sql_comp);
         $est_conf = ESTADO_CONFIRMADO;
-        $comp_tipo_rend = COMP_TIPO_RG_REND;
+        $comp_tipo_rend = $tipo_rg_rend;
         mysqli_stmt_bind_param(
             $stmt_comp, "iisiiiiiisssddddsii",
             $tabla_origen_id, $registro_origen_id, $modulo, $entidad_id,
@@ -873,14 +906,15 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
                     proveedor_nombre, proveedor_cuit, comprobante_externo_nro, tiene_comprobante,
                     moneda_id, tipo_cambio, importe, importe_convertido, cont_cuenta_id,
                     tabla_estado_registro_id, usuario_id
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 1.0, ?, ?, ?, 1, ?)";
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1.0, ?, ?, ?, 1, ?)";
         $stmt_it = mysqli_prepare($conexion, $sql_it);
 
         $lineas_asiento_gastos = [];
+        $moneda_it = emp_moneda_base_id($conexion, $empresa_id);
 
         foreach ($items as $it) {
             $f_gasto = !empty($it['f_gasto']) ? $it['f_gasto'] : $f_emision;
-            $cat_id = intval($it['categoria_gasto_id'] ?? 1);
+            $cat_id = intval($it['categoria_gasto_id'] ?? 0);
             $desc_it = trim($it['descripcion'] ?? 'Gasto general');
             $prov_nom = trim($it['proveedor_nombre'] ?? 'Varios');
             $prov_cuit = !empty($it['proveedor_cuit']) ? intval($it['proveedor_cuit']) : null;
@@ -889,14 +923,14 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
             $cuenta_gasto_id = intval($it['cont_cuenta_id'] ?? 0);
 
             if ($cuenta_gasto_id <= 0) {
-                $r_cg = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Otros Gastos Generales', 873);
+                $r_cg = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Otros Gastos Generales', emp_cuenta_concepto_id($conexion, $empresa_id, 'GASTOS_GENERALES'));
                 $cuenta_gasto_id = $r_cg['cont_cuenta_id'];
             }
 
             mysqli_stmt_bind_param(
-                $stmt_it, "iisissisddii",
+                $stmt_it, "iisissisiddii",
                 $rendicion_id, $empresa_id, $f_gasto, $cat_id, $desc_it,
-                $prov_nom, $prov_cuit, $ext_nro,
+                $prov_nom, $prov_cuit, $ext_nro, $moneda_it,
                 $imp_it, $imp_it, $cuenta_gasto_id, $usuario_id
             );
             mysqli_stmt_execute($stmt_it);
@@ -916,9 +950,10 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
                             empresa_id, comp_origen_id, comp_destino_id, f_imputacion,
                             importe_imputado, moneda_origen_id, tipo_cambio, importe_origen,
                             tabla_estado_registro_id, usuario_id
-                        ) VALUES (?, ?, ?, ?, ?, 1, 1.0, ?, 2154, ?)";
+                        ) VALUES (?, ?, ?, ?, ?, ?, 1.0, ?, 5, ?)";
+            $moneda_imp = emp_moneda_base_id($conexion, $empresa_id);
             $stmt_imp = mysqli_prepare($conexion, $sql_imp);
-            mysqli_stmt_bind_param($stmt_imp, "iiisddi", $empresa_id, $comprobante_id, $comp_ant_id, $f_emision, $monto_anticipo, $monto_anticipo, $usuario_id);
+            mysqli_stmt_bind_param($stmt_imp, "iiisdidi", $empresa_id, $comprobante_id, $comp_ant_id, $f_emision, $monto_anticipo, $moneda_imp, $monto_anticipo, $usuario_id);
             mysqli_stmt_execute($stmt_imp);
             mysqli_stmt_close($stmt_imp);
 
@@ -935,8 +970,8 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
         // DEBE: Cuentas de Gasto ($total_gastos)
         // HABER: Anticipos al Personal ($monto_anticipo)
         // HABER: Cuentas por Pagar al Personal ($monto_a_reembolsar)
-        $res_cta_ant = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Empleados - Anticipos y Rendiciones', 856);
-        $res_cta_pas = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Nacionales', 301);
+        $res_cta_ant = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Empleados - Anticipos y Rendiciones', emp_cuenta_concepto_id($conexion, $empresa_id, 'EMPLEADOS'));
+        $res_cta_pas = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Nacionales', emp_cuenta_concepto_id($conexion, $empresa_id, 'PROVEEDORES'));
 
         $detalles_asiento = $lineas_asiento_gastos;
 
@@ -966,7 +1001,6 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
             'f_asiento'            => $f_emision,
             'descripcion'          => "Rendición de Gastos RG_REND {$prefijo}-{$numero}: {$descripcion}",
             'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2
         ], $detalles_asiento);
 
         mysqli_commit($conexion);
@@ -975,10 +1009,10 @@ function registrarRendicionGastos($conexion, $datos, $empresa_id, $usuario_id)
             'success'              => true,
             'rendicion_id'         => $rendicion_id,
             'comprobante_id'       => $comprobante_id,
-            'numero'               => sprintf("%04d-%08d", $prefijo, $numero),
+            'numero'               => emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero),
             'asiento_id'           => $asiento_id,
             'monto_a_reembolsar'   => $monto_a_reembolsar,
-            'mensaje'              => "Rendición N° " . sprintf("%04d-%08d", $prefijo, $numero) . " registrada y aprobada con éxito."
+            'mensaje'              => "Rendición N° " . emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero) . " registrada y aprobada con éxito."
         ];
 
     } catch (Exception $e) {
@@ -996,7 +1030,7 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
     $empresa_id          = intval($empresa_id);
     $usuario_id          = intval($usuario_id);
     $rendicion_id        = intval($datos['rendicion_id'] ?? 0);
-    $tesoreria_cuenta_id = intval($datos['tesoreria_cuenta_id'] ?? 1); // Caja o Banco
+    $tesoreria_cuenta_id = intval($datos['tesoreria_cuenta_id'] ?? 0); // Caja o Banco
     $f_pago              = !empty($datos['f_pago']) ? $datos['f_pago'] : date('Y-m-d');
     $importe_reembolso   = floatval($datos['importe_reembolso'] ?? 0);
 
@@ -1038,16 +1072,17 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
         }
 
         // Correlativo RG_REEM
-        $prefijo = 1;
-        $res_n = $conexion->query("SELECT COALESCE(MAX(comprobante_nro), 0) + 1 AS prox_nro FROM gestion__comprobantes WHERE empresa_id = $empresa_id AND comprobante_tipo_id = " . COMP_TIPO_RG_REEM . " AND comprobante_pv = $prefijo");
-        $numero = intval($res_n->fetch_assoc()['prox_nro'] ?? 1);
+        $prefijo = emp_punto_venta_id($conexion, $empresa_id);   // punto de venta de la empresa
+        if ($prefijo <= 0) throw new Exception('La empresa no tiene puntos de venta: no se puede numerar el comprobante.');
+        $tipo_rg_reem = orTipoComprobanteId($conexion, $empresa_id, 'RG_REEM');
+        $numero = orProximoNumero($conexion, $empresa_id, $tipo_rg_reem, $prefijo);
 
         // 1. Cabecera en gestion__comprobantes
         $res_reg = $conexion->query("SELECT COALESCE(MAX(registro_origen_id), 0) + 1 AS prox_reg FROM gestion__comprobantes WHERE tabla_origen_id = " . TABLA_REEMBOLSOS_ID);
         $registro_origen_id = intval($res_reg->fetch_assoc()['prox_reg'] ?? 1);
         $tabla_origen_id = TABLA_REEMBOLSOS_ID;
         $modulo = 'TESORERIA';
-        $desc_reem = "Reembolso por Gastos Excedentes Rendición {$rend['comprobante_pv']}-{$rend['comprobante_nro']}";
+        $desc_reem = "Reembolso por Gastos Excedentes Rendición " . emp_numero_comprobante($conexion, $empresa_id, $rend['comprobante_pv'], $rend['comprobante_nro']) . "";
 
         $sql_comp = "INSERT INTO gestion__comprobantes (
                         tabla_origen_id, registro_origen_id, modulo, entidad_id,
@@ -1059,7 +1094,7 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
 
         $stmt_comp = mysqli_prepare($conexion, $sql_comp);
         $est_conf = ESTADO_CONFIRMADO;
-        $comp_tipo_reem = COMP_TIPO_RG_REEM;
+        $comp_tipo_reem = $tipo_rg_reem;
         $rend_ent_id = intval($rend['entidad_id']);
         $rend_suc_id = intval($rend['sucursal_id']);
         $pendiente_cero = 0.0;
@@ -1107,10 +1142,10 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
             'importe'             => $importe_reembolso,
             'f_movimiento'        => $f_pago,
             'f_valor'             => $f_pago,
-            'moneda_id'           => 1,
+            'moneda_id'           => emp_moneda_base_id($conexion, $empresa_id),
             'tipo_cambio'         => 1.0,
-            'medio_pago_id'       => 1,
-            'concepto'            => "Reembolso Rendición N° {$rend['comprobante_pv']}-{$rend['comprobante_nro']}",
+            'medio_pago_id'       => emp_medio_pago_id($conexion, $empresa_id, 'EFECTIVO'),
+            'concepto'            => "Reembolso Rendición N° " . emp_numero_comprobante($conexion, $empresa_id, $rend['comprobante_pv'], $rend['comprobante_nro']) . "",
             'tabla_origen_id'     => TABLA_REEMBOLSOS_ID,
             'registro_origen_id'  => $reembolso_id,
             'usuario_id'          => $usuario_id
@@ -1122,9 +1157,10 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
                         empresa_id, comp_origen_id, comp_destino_id, f_imputacion,
                         importe_imputado, moneda_origen_id, tipo_cambio, importe_origen,
                         tabla_estado_registro_id, usuario_id
-                    ) VALUES (?, ?, ?, ?, ?, 1, 1.0, ?, 2154, ?)";
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1.0, ?, 5, ?)";
+        $moneda_imp = emp_moneda_base_id($conexion, $empresa_id);
         $stmt_imp = mysqli_prepare($conexion, $sql_imp);
-        mysqli_stmt_bind_param($stmt_imp, "iiisddi", $empresa_id, $comprobante_reem_id, $comp_rend_id, $f_pago, $importe_reembolso, $importe_reembolso, $usuario_id);
+        mysqli_stmt_bind_param($stmt_imp, "iiisdidi", $empresa_id, $comprobante_reem_id, $comp_rend_id, $f_pago, $importe_reembolso, $moneda_imp, $importe_reembolso, $usuario_id);
         mysqli_stmt_execute($stmt_imp);
         mysqli_stmt_close($stmt_imp);
 
@@ -1137,7 +1173,7 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
         recalcularEstadoDestino($conexion, $comp_rend_id, $usuario_id);
 
         // 5. Asiento Contable Automático: DEBE Cuentas por Pagar al Personal / HABER Caja o Banco (D27)
-        $res_cta_pas = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Nacionales', 301);
+        $res_cta_pas = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Nacionales', emp_cuenta_concepto_id($conexion, $empresa_id, 'PROVEEDORES'));
         $cta_cont_origen = intval($cta['cont_cuenta_id']);
         if ($cta_cont_origen <= 0) {
             $r_or = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Caja');
@@ -1152,7 +1188,6 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
             'f_asiento'            => $f_pago,
             'descripcion'          => "Reembolso por rendición RG_REEM {$prefijo}-{$numero}",
             'usuario_id'           => $usuario_id,
-            'cont_tipo_asiento_id' => 2
         ], [
             [
                 'cuenta_id'   => $res_cta_pas['cont_cuenta_id'],
@@ -1174,9 +1209,9 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
             'success'             => true,
             'reembolso_id'        => $reembolso_id,
             'comprobante_reem_id' => $comprobante_reem_id,
-            'numero'              => sprintf("%04d-%08d", $prefijo, $numero),
+            'numero'              => emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero),
             'asiento_id'          => $asiento_id,
-            'mensaje'             => "Reembolso N° " . sprintf("%04d-%08d", $prefijo, $numero) . " registrado con éxito."
+            'mensaje'             => "Reembolso N° " . emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero) . " registrado con éxito."
         ];
 
     } catch (Exception $e) {

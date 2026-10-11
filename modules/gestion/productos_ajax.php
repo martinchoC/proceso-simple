@@ -1,14 +1,49 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['cont_asientos.php', 'listas_precios_productos.php', 'productos.php', 'productos_consulta.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once __DIR__ . '/../../db.php';
 require_once "productos_model.php";
+require_once __DIR__ . '/stock_niveles_model.php';
+
+/**
+ * Stock mínimo / máximo por boca cargado en la solapa Información de productos.php.
+ * Se graba después del producto, en su propia transacción (snvGuardarNivelesProducto, que también
+ * reevalúa las alertas de reposición). Solo para quien tiene acceso a productos.php (página 40).
+ * @return string|null aviso para el usuario si los niveles no se pudieron guardar
+ */
+function productosGuardarNivelesStock($conexion, array $ctx, int $producto_id): ?string
+{
+    if (!isset($_POST['niveles_stock']) || $producto_id <= 0) return null;
+    $empresa_id = (int)$ctx['empresa_id'];
+    $usuario_id = (int)$ctx['usuario_id'];
+    if (!usuario_tiene_acceso_pagina($conexion, $usuario_id, $empresa_id, 40)) {
+        return 'No tiene permiso para cargar stock mínimo y máximo.';
+    }
+    $niveles = json_decode((string)$_POST['niveles_stock'], true);
+    if (!is_array($niveles)) return 'Los niveles de stock llegaron con un formato inválido.';
+    try {
+        snvGuardarNivelesProducto($conexion, $empresa_id, $usuario_id, $producto_id, $niveles);
+        return null;
+    } catch (InvalidArgumentException | RuntimeException $e) {
+        if ($e instanceof mysqli_sql_exception) {
+            error_log('productosGuardarNivelesStock SQL: ' . $e->getMessage());
+            return 'El producto se guardó, pero no el stock mínimo / máximo (error de base de datos).';
+        }
+        return 'El producto se guardó, pero no el stock mínimo / máximo: ' . $e->getMessage();
+    } catch (Throwable $e) {
+        error_log('productosGuardarNivelesStock: ' . $e->getMessage());
+        return 'El producto se guardó, pero no el stock mínimo / máximo (error interno).';
+    }
+}
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto (MULTIEMPRESA)
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 40);
 
 // Parámetros de DataTables para paginación
@@ -72,7 +107,7 @@ try {
             break;
         case 'buscar_ubicaciones':
             $termino = $_GET['termino'] ?? '';
-            $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+            $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
             
             if (strlen($termino) < 2) {
                 echo json_encode(['results' => []]);
@@ -84,7 +119,7 @@ try {
             break;
         case 'buscar_ubicaciones_rapidas':
             $termino = $_GET['termino'] ?? '';
-            $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+            $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
             $limite = intval($_GET['limite'] ?? 15);
             
             if (strlen($termino) < 2) {
@@ -134,6 +169,10 @@ try {
             ];
 
             $resultado = agregarProducto($conexion, $data);
+            if (!empty($resultado['resultado'])) {
+                $aviso = productosGuardarNivelesStock($conexion, $ctx, intval($resultado['producto_id'] ?? 0));
+                if ($aviso) $resultado['aviso'] = $aviso;
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -158,7 +197,17 @@ try {
             ];
 
             $resultado = editarProducto($conexion, $id, $data);
+            if (!empty($resultado['resultado'])) {
+                $aviso = productosGuardarNivelesStock($conexion, $ctx, $id);
+                if ($aviso) $resultado['aviso'] = $aviso;
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_niveles_stock':
+            // Bocas del usuario con el mínimo / máximo y el stock actual del producto (0 = nuevo).
+            echo json_encode(snvNivelesProducto($conexion, (int)$ctx['empresa_id'], (int)$ctx['usuario_id'],
+                intval($_GET['producto_id'] ?? $_POST['producto_id'] ?? 0)), JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_iva_alicuotas':
@@ -602,7 +651,7 @@ try {
             break;
         case 'obtener_secciones':
     $boca_id = intval($_GET['boca_id'] ?? 0);
-    $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+    $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
     
     if ($boca_id == 0) {
         echo json_encode([]);
@@ -616,7 +665,7 @@ try {
 case 'obtener_estanterias':
     $boca_id = intval($_GET['boca_id'] ?? 0);
     $seccion = $_GET['seccion'] ?? '';
-    $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+    $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
     
     if ($boca_id == 0 || empty($seccion)) {
         echo json_encode([]);
@@ -631,7 +680,7 @@ case 'obtener_estantes':
     $boca_id = intval($_GET['boca_id'] ?? 0);
     $seccion = $_GET['seccion'] ?? '';
     $estanteria = $_GET['estanteria'] ?? '';
-    $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+    $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
     
     if ($boca_id == 0 || empty($seccion) || empty($estanteria)) {
         echo json_encode([]);
@@ -647,7 +696,7 @@ case 'obtener_posiciones':
     $seccion = $_GET['seccion'] ?? '';
     $estanteria = $_GET['estanteria'] ?? '';
     $estante = $_GET['estante'] ?? '';
-    $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+    $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
     
     if ($boca_id == 0 || empty($seccion) || empty($estanteria) || empty($estante)) {
         echo json_encode([]);
@@ -660,7 +709,7 @@ case 'obtener_posiciones':
 
 case 'obtener_ubicacion_detalle':
     $sucursal_ubicacion_id = intval($_GET['sucursal_ubicacion_id'] ?? 0);
-    $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+    $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
     
     if ($sucursal_ubicacion_id == 0) {
         echo json_encode(null);
@@ -673,7 +722,7 @@ case 'obtener_ubicacion_detalle':
 
 case 'obtener_detalle_ubicacion_sucursal':
     $sucursal_ubicacion_id = intval($_GET['sucursal_ubicacion_id'] ?? 0);
-    $empresa_idx = intval($_GET['empresa_idx'] ?? 2);
+    $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
     
     if ($sucursal_ubicacion_id == 0) {
         echo json_encode(null);

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Productos - Proveedores</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert a { color: inherit; font-weight: 600; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-secondary { background: #6c757d; }
+    .chip { display: inline-block; background: #eef2f7; border: 1px solid #dde3ea; border-radius: 1rem; padding: 2px 10px; font-size: 0.85rem; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-tachometer-alt"></i> Manual de usuario: Productos - Proveedores</h1>
+<p class="subtitulo">Cómo relacionar cada producto tuyo con los proveedores que lo venden y con el código que usa cada uno de ellos.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve?</a></li>
+        <li><a href="#listado">Pestaña Listado</a></li>
+        <li><a href="#filtros">Buscar y filtrar</a></li>
+        <li><a href="#vincular">Vincular un proveedor a un producto</a></li>
+        <li><a href="#editar-codigo">Cambiar el código de proveedor</a></li>
+        <li><a href="#quitar-vinculo">Quitar un vínculo</a></li>
+        <li><a href="#dashboard">Pestaña Dashboard</a></li>
+        <li><a href="#exportar">Exportar</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve?</h2>
+<p>Cada proveedor identifica los productos con su propio código, distinto del tuyo. Esta pantalla guarda esa correspondencia: "mi producto X es el código 1234 del proveedor A y el código AB-77 del proveedor B". Ese vínculo se usa en:</p>
+<ul>
+    <li><a href="ordenes_compra.html">Órdenes de Compra</a> y <a href="facturas_proveedores.html">Facturas de Proveedores</a>: el buscador de productos encuentra por código del proveedor y muestra primero los productos vinculados.</li>
+    <li><a href="proveedor_precios.html">Lista Precios Proveedores</a>: al importar el Excel del proveedor, cada código se busca acá para saber a qué producto tuyo le corresponde el precio.</li>
+    <li>El buscador general de <a href="productos.html">Productos</a>, que también encuentra por código de proveedor.</li>
+</ul>
+<p>También se crean vínculos desde las órdenes y facturas (opción "Vincular y usar", o al crear un producto rápido) y desde Lista Precios Proveedores al cargar el precio de un producto que todavía no estaba vinculado. Todos aparecen acá.</p>
+
+<h2 id="listado">Pestaña Listado</h2>
+<p>La tabla muestra tus productos con sus vínculos:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Código</td><td>Tu código del producto</td></tr>
+    <tr><td>Nombre</td><td>Nombre del producto y, debajo en gris, sus compatibilidades (marca, modelo, etc.)</td></tr>
+    <tr><td>Cant.</td><td>Cuántos proveedores tiene vinculados</td></tr>
+    <tr><td>Proveedores</td><td>Una etiqueta por proveedor con la forma <span class="chip">Proveedor: <strong>código</strong> ✎ ✕</span>, o "Sin proveedores vinculados". Si el vínculo no tiene código, dice "(sin código)".</td></tr>
+    <tr><td>(última columna)</td><td>Botón <span class="boton-ejemplo boton-outline">+</span> para vincular un proveedor nuevo</td></tr>
+</table>
+
+<h2 id="filtros">Buscar y filtrar</h2>
+<ul>
+    <li><strong>"Buscar por código, nombre o código de proveedor..."</strong>: busca mientras escribís.</li>
+    <li><strong>Todos los proveedores</strong>: muestra solo los productos vinculados a un proveedor.</li>
+    <li><strong>Todos los productos / Con proveedor vinculado / Sin proveedor vinculado</strong>: útil para encontrar productos a los que les falta el vínculo.</li>
+    <li><strong>Marca → Modelo → Submodelo</strong>: filtra por compatibilidad. Cada uno se habilita al elegir el anterior.</li>
+</ul>
+
+<h2 id="vincular">Vincular un proveedor a un producto</h2>
+<ol>
+    <li>Tocá <span class="boton-ejemplo boton-outline">+</span> en la fila del producto. Se abre "Vincular proveedor" con el nombre del producto.</li>
+    <li>Elegí el <strong>Proveedor</strong> (obligatorio; si falta, avisa "Falta el proveedor").</li>
+    <li>Escribí el <strong>Código de proveedor</strong> (hasta 50 caracteres).</li>
+    <li>Tocá <span class="boton-ejemplo boton-primario">Guardar</span>. Aparece "¡Vinculado!".</li>
+</ol>
+<p>Si ese proveedor ya está vinculado al producto, el sistema avisa "Este proveedor ya está vinculado (activo) a este producto". Si el vínculo existía pero se había quitado, se vuelve a activar ("Vínculo reactivado correctamente").</p>
+<div class="nota-lateral">Cargá el código tal como figura en la lista de precios del proveedor. Si no coincide, la importación de su lista no va a encontrar el producto.</div>
+
+<h2 id="editar-codigo">Cambiar el código de proveedor</h2>
+<p>Tocá el lápiz ✎ de la etiqueta. Se abre "Editar código de (proveedor)" con el código actual. Cambialo y tocá <span class="boton-ejemplo boton-primario">Guardar</span>. Aparece "¡Actualizado!". Usalo cuando el proveedor cambió el código de un producto (la importación de su lista te lo indica con un "Posible código nuevo").</p>
+
+<h2 id="quitar-vinculo">Quitar un vínculo</h2>
+<p>Tocá la ✕ de la etiqueta. Después de una confirmación ("¿Quitar vínculo?"), el vínculo se da de baja y aparece "¡Quitado!". El producto deja de aparecer como vinculado a ese proveedor y su código ya no se reconoce al importar la lista. Si lo necesitás de nuevo, volvé a vincularlo con <span class="boton-ejemplo boton-outline">+</span>.</p>
+
+<h2 id="dashboard">Pestaña Dashboard</h2>
+<p>Muestra el grado de avance de la carga de vínculos:</p>
+<ul>
+    <li>Indicadores: <strong>Productos activos</strong>, <strong>Con proveedor vinculado</strong>, <strong>Sin vincular</strong> y <strong>Correlación</strong> (% de productos con al menos un proveedor; en verde desde 75%, en amarillo desde 40%, en rojo por debajo).</li>
+    <li><strong>Top 10 proveedores</strong> por cantidad de productos vinculados.</li>
+    <li><strong>Correlación por marca</strong>: % de productos vinculados en las 10 marcas con más productos.</li>
+    <li><strong>Proveedores sin ningún producto vinculado</strong>, con su CUIT.</li>
+</ul>
+
+<h2 id="exportar">Exportar</h2>
+<p>Arriba a la derecha: <span class="boton-ejemplo boton-outline">↻</span> recarga la tabla, y los botones de Excel y PDF exportan el listado.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Importé la lista de un proveedor y un producto quedó como "no vinculado".</td>
+        <td>Buscá el producto acá y vinculalo a ese proveedor con el código exacto que trae el Excel. Después volvé a importar.</td>
+    </tr>
+    <tr>
+        <td>¿Un producto puede tener varios proveedores?</td>
+        <td>Sí, uno por cada proveedor, cada uno con su código.</td>
+    </tr>
+    <tr>
+        <td>Veo un vínculo "(sin código)". ¿Por qué?</td>
+        <td>Se creó sin código; por ejemplo, al cargar a mano en Lista Precios Proveedores el precio de un producto que todavía no estaba vinculado. Completalo con el lápiz ✎ para que la importación lo reconozca.</td>
+    </tr>
+</table>
+
+<div class="alert alert-info">
+    <strong>Manuales relacionados:</strong>
+    <a href="proveedor_precios.html">Lista Precios Proveedores</a> ·
+    <a href="proveedores.html">Proveedores</a> ·
+    <a href="productos.html">Productos</a> ·
+    <a href="ordenes_compra.html">Órdenes de Compra</a> ·
+    <a href="facturas_proveedores.html">Facturas de Proveedores</a>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Compras / Productos - Proveedores. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

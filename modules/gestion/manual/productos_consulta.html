@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Consulta de Productos</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-search"></i> Manual de usuario: Consulta de Productos</h1>
+<p class="subtitulo">Para buscar un producto y ver sus datos, precios, compatibilidad, ubicaciones y proveedores sin riesgo de modificar nada.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve esta pantalla?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#buscar">Buscar y filtrar</a></li>
+        <li><a href="#ver">Ver la ficha de un producto</a></li>
+        <li><a href="#exportar">Exportar, imprimir y catálogo offline</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve esta pantalla?</h2>
+<p>Es la misma información que la pantalla <a href="productos.html">Productos</a>, pero <strong>solo para consultar</strong>: no se puede agregar, editar, inhabilitar ni cambiar precios, imágenes, ubicaciones, etc. Es ideal para vendedores o mostrador, que necesitan encontrar un repuesto, ver su precio o saber dónde está guardado.</p>
+<div class="alert alert-info">Muestra los productos que controlan stock. Los servicios y conceptos sin stock se ven en <a href="productos_generales.html">Productos y Servicios</a>.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Código / Nombre</td><td>Identificación del producto.</td></tr>
+    <tr><td>Marcas / Modelos / Submodelos / Años</td><td>Vehículos con los que es compatible.</td></tr>
+    <tr><td>Ubicaciones</td><td>Dónde está guardado en el depósito.</td></tr>
+    <tr><td>Cód. Proveedor</td><td>Códigos con que lo identifican sus proveedores.</td></tr>
+    <tr><td>Imagen</td><td>Miniatura; al hacer clic se abre la galería de imágenes.</td></tr>
+    <tr><td>Una columna por lista de precios</td><td>El precio en cada lista activa.</td></tr>
+    <tr><td>Acciones</td><td>Solo el botón <strong>Visualizar</strong> (ojo).</td></tr>
+</table>
+
+<h2 id="buscar">Buscar y filtrar</h2>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Cómo se usa</th></tr>
+    <tr><td>Código...</td><td>Busca por código mientras escribís.</td></tr>
+    <tr><td>Estado</td><td>Activos, Inactivos o todos.</td></tr>
+    <tr><td>Marca → Modelo → Submodelo</td><td>Elegí la marca para habilitar el modelo, y el modelo para habilitar el submodelo. Muestra los productos compatibles con ese vehículo.</td></tr>
+    <tr><td>Buscador por etiquetas</td><td>Escribí una palabra y presioná <strong>Espacio</strong> para convertirla en etiqueta; las etiquetas se combinan. Para dos palabras juntas usá comillas, por ejemplo <em>"renault 18"</em>.</td></tr>
+    <tr><td>✕</td><td>Limpia los filtros.</td></tr>
+</table>
+
+<h2 id="ver">Ver la ficha de un producto</h2>
+<p>Con el botón <strong>Visualizar</strong> de la fila se abre <strong>Consultar Producto</strong>, con las mismas pestañas que en Productos: Información, Compatibilidad, Imágenes, Ubicaciones, Proveedores y Precios. Todos los campos aparecen deshabilitados y no hay botones para agregar, editar ni borrar.</p>
+<div class="nota-lateral">El botón Visualizar aparece tanto en productos activos como inactivos.</div>
+
+<h2 id="exportar">Exportar, imprimir y catálogo offline</h2>
+<p>El menú <span class="boton-ejemplo boton-outline">Exportar</span> ofrece Excel, PDF, CSV, Imprimir y <strong>Catálogo Offline &amp; Enviar Email</strong>. El botón <span class="boton-ejemplo boton-outline">↻</span> recarga la tabla.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Encontré un dato mal cargado, ¿cómo lo corrijo?</td><td>Desde esta pantalla no se puede. Pedile a alguien con acceso a <a href="productos.html">Productos</a> que lo corrija.</td></tr>
+    <tr><td>No aparece una columna de precios que esperaba.</td><td>Solo se muestran las listas de precios activas (ver <a href="listas_precios.html">Listas de Precios - Seteo</a>).</td></tr>
+    <tr><td>No encuentro el producto.</td><td>Probá limpiar los filtros con ✕, cambiar el filtro de estado o buscar por una sola palabra.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Consulta de Productos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

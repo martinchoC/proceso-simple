@@ -40,7 +40,10 @@ if (!$db_encontrado || !isset($conn) || !$conn) {
 }
 
 $conexion = $conn;
-$empresa_id = 2; // Cambia según tu empresa
+$empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
+if ($empresa_id <= 0) {
+    die("<h1>❌ Falta la empresa</h1><p>Indicar ?empresa_id=N en la URL.</p>");
+}
 
 // ============================================================
 // FUNCIÓN PARA FORMATEAR TAMAÑO

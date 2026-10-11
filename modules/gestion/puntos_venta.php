@@ -194,21 +194,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
 
                                         <label class="form-label small mb-1">Tipos de comprobante habilitados</label>
-                                        <div style="max-width: 600px;">
+                                        <div style="max-width: 750px;">
                                             <div class="table-responsive" style="min-height: 440px; border: 1px solid #dee2e6; border-radius: 0.25rem;">
-                                                <table class="table table-sm table-hover mb-0" id="tablaComprobantesSeleccionados" style="width: auto; max-width: 600px;">
+                                                <table class="table table-sm table-hover mb-0" id="tablaComprobantesSeleccionados" style="width: auto; max-width: 750px;">
                                                     <thead class="table-light">
                                                         <tr>
                                                             <th>Subgrupo / Tipo</th>
                                                             <th width="70" class="text-center">Código</th>
                                                             <th width="60" class="text-center">Letra</th>
                                                             <th width="110" class="text-center">Requiere AFIP</th>
+                                                            <th width="120" class="text-center">Último Nro</th>
                                                             <th width="50" class="text-center">Quitar</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         <tr>
-                                                            <td colspan="5" class="text-center text-muted small py-2">Cargando...</td>
+                                                            <td colspan="6" class="text-center text-muted small py-2">Cargando...</td>
                                                         </tr>
                                                     </tbody>
                                                 </table>

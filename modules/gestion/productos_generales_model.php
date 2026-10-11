@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
@@ -19,7 +20,6 @@ $conexion = $conn;
 // genérico (1 = Activo, 2 = Inactivo), que es contra lo que comparan
 // tabla_estado_registro_origen_id / _destino_id de conf__paginas_funciones.
 
-define('PRODUCTOS_GENERALES_CUENTA_LEGACY', 131);
 
 // ✅ Resolver el tabla_id de gestion__productos en conf__tablas (sin hardcodear)
 function obtenerTablaIdProductos($conexion)
@@ -320,14 +320,14 @@ function obtenerEstadoInicialProductosGenerales($conexion, $pagina_id)
 // ========== COMBOS ==========
 
 // ✅ Tipos de producto activos, con los flags y cuentas default que usa el alta.
-// Sin filtro de empresa, igual que obtenerTiposProducto de productos_model.php
-// (los tipos existentes son compartidos por el combo de productos.php).
-function obtenerTiposProductoGenerales($conexion)
+// Tipos de la empresa (gestion__productos_tipos es por empresa; solo el código es único global).
+function obtenerTiposProductoGenerales($conexion, $empresa_idx = null)
 {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT producto_tipo_id, producto_tipo, producto_tipo_codigo, maneja_stock,
                    cont_cuenta_compra_default_id, cont_cuenta_venta_default_id, cont_cuenta_cmv_default_id
             FROM gestion__productos_tipos
-            WHERE tabla_estado_registro_id = 1
+            WHERE empresa_id = $empresa_idx AND tabla_estado_registro_id = 1
             ORDER BY producto_tipo";
 
     $result = mysqli_query($conexion, $sql);
@@ -376,12 +376,13 @@ function obtenerCuentasContablesGenerales($conexion, $empresa_idx)
         $empresa_idx);
 }
 
-// ✅ Alícuotas de IVA activas (tabla global, sin empresa)
-function obtenerIvaAlicuotasGenerales($conexion)
+// ✅ Alícuotas de IVA activas de la empresa
+function obtenerIvaAlicuotasGenerales($conexion, $empresa_idx = null)
 {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT iva_alicuota_id, iva_alicuota, porcentaje
             FROM gestion__impuestos__iva_alicuotas
-            WHERE tabla_estado_registro_id = 1
+            WHERE empresa_id = $empresa_idx AND tabla_estado_registro_id = 1
             ORDER BY porcentaje DESC, iva_alicuota";
 
     $result = mysqli_query($conexion, $sql);
@@ -633,7 +634,7 @@ function agregarProductoGeneral($conexion, $data, $empresa_idx, $pagina_id)
     }
 
     $estado_inicial = obtenerEstadoInicialProductosGenerales($conexion, $pagina_id);
-    $cont_cuenta_id = PRODUCTOS_GENERALES_CUENTA_LEGACY;
+    $cont_cuenta_id = emp_cuenta_concepto_id($conexion, $empresa_idx, 'MERCADERIAS'); // columna legacy NOT NULL: Mercaderías de la empresa
 
     mysqli_begin_transaction($conexion);
     try {

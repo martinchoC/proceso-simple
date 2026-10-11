@@ -152,9 +152,10 @@ $(document).ready(function(){
                     <button class="btn btn-sm btn-primary btnEditar me-1" title="Editar">
                       <i class="fa fa-pencil-alt"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger btnEliminar" title="Eliminar">
-                      <i class="fa fa-trash"></i>
-                    </button>
+                    ${data.tabla_estado_registro_id != 2 ? `
+                    <button class="btn btn-sm btn-danger btnEliminar" title="Inactivar">
+                      <i class="fa fa-ban"></i>
+                    </button>` : ''}
                   `;
                 }
             }
@@ -195,29 +196,30 @@ $(document).ready(function(){
     $('#tablaModulos tbody').on('click', '.btnEliminar', function(){
         
         Swal.fire({
-            title: "Are you sure?",
-            text: "You won't be able to revert this!",
+            title: "¿Inactivar el módulo?",
+            text: "El módulo no se elimina: queda Inactivo y se puede reactivar editándolo.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonColor: "#3085d6",
             cancelButtonColor: "#d33",
-            confirmButtonText: "Yes, delete it!"
+            confirmButtonText: "Sí, inactivar",
+            cancelButtonText: "Cancelar"
             }).then((result) => {
             if (result.isConfirmed) {
                 var data = tabla.row($(this).parents('tr')).data();
                 $.get('modulos_ajax.php', {accion: 'eliminar', modulo_id: data.modulo_id}, function(res){
                     if(res.resultado){
                         tabla.ajax.reload();
+                        Swal.fire({
+                            icon: "success",
+                            title: "Módulo inactivado",
+                            showConfirmButton: false,
+                            timer: 1000
+                        });
                     } else {
-                        alert('Error al eliminar');                        
+                        Swal.fire('Error', 'No se pudo inactivar el módulo', 'error');
                     }
                 }, 'json');
-                Swal.fire({                    
-                    icon: "success",
-                    title: "Datos Eliminados!",
-                    showConfirmButton: false,
-                    timer: 1000
-                });    
             }
             });
         

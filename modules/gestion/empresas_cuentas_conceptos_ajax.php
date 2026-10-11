@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['empresas_cuentas_conceptos.php']]);
 /**
  * empresas_cuentas_conceptos_ajax.php
  *
@@ -22,11 +25,15 @@ function manejarError($mensaje, $codigo = 500) {
 }
 
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    if (!(error_reporting() & $errno) || in_array($errno, [E_NOTICE, E_USER_NOTICE, E_DEPRECATED, E_USER_DEPRECATED])) {
+        return false;
+    }
     error_log("Error PHP en conceptos AJAX: $errstr en $errfile línea $errline");
     manejarError("Error interno: $errstr");
 });
 
 require_once __DIR__ . '/../../db.php';
+$conexion = $conn;
 require_once __DIR__ . '/empresas_cuentas_conceptos_model.php';
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
@@ -34,15 +41,17 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id'] ?? $_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 0);
 $pagina_idx  = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 101);
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
 }
 
-session_start();
-$usuario_id = intval($_SESSION['usuario_id'] ?? 1);
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+$usuario_id = intval($ctx['usuario_id'] ?? $_SESSION['usuario_id'] ?? 1);
 
 try {
     switch ($accion) {
@@ -78,7 +87,7 @@ try {
             manejarError("Acción '$accion' no reconocida", 400);
             break;
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     error_log("Excepción en empresas_cuentas_conceptos_ajax: " . $e->getMessage());
     manejarError($e->getMessage(), 500);
 }

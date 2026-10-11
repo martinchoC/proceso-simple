@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['sucursales.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -9,7 +12,7 @@ require_once "sucursales_model.php";
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto (MULTIEMPRESA)
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 36); // ✅ CORREGIDO: Página ID para sucursales
 
 header('Content-Type: application/json; charset=utf-8');

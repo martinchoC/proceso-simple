@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
@@ -295,7 +296,7 @@ function syncComprobanteRemito($conexion, $data, $tabla_origen_id)
     $f_emision = $data['f_emision'] ?? date('Y-m-d');
     $f_contabilidad = $data['f_contabilidad'] ?? $f_emision;
     $f_vto = $data['f_vto'] ?? null;
-    $moneda_id = intval($data['moneda_id'] ?? 1);
+    $moneda_id = emp_moneda_id($conexion, $empresa_id, $data['moneda_id'] ?? 0);
     $tipo_cambio = floatval($data['tipo_cambio'] ?? 1.0);
     $registro_origen_id = intval($data['registro_origen_id'] ?? 0);
     $tabla_estado_registro_id = intval($data['tabla_estado_registro_id'] ?? 1);
@@ -340,8 +341,7 @@ function syncComprobanteRemito($conexion, $data, $tabla_origen_id)
                         COALESCE(SUM(CASE WHEN ci.comp_origen_id = ? THEN ci.importe_origen ELSE 0 END), 0) AS imp_origen,
                         COUNT(*) AS total_imputaciones
                     FROM gestion__comprobantes_imputaciones ci
-                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
-                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = ci.tabla_estado_registro_id
                     WHERE (ci.comp_destino_id = ? OR ci.comp_origen_id = ?)
                       AND er.codigo_estandar = 'CONFIRMADO'";
         $stmt_imp = mysqli_prepare($conexion, $sql_imp);
@@ -584,7 +584,7 @@ function actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id)
 // se pasa $boca_id (la boca del punto de venta elegido en el remito) se filtra y ordena
 // solo por esa boca, que es la relevante para quien arma el remito. Sin $boca_id (todavía
 // no se eligió punto de venta) se muestran/ordenan las ubicaciones de todas las bocas.
-function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $boca_id = null, $pedido_id = null, $incluir_lineas_completas = false)
+function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $boca_id = null, $pedido_id = null, $incluir_lineas_completas = false, $incluir_en_borrador = false)
 {
     $empresa_idx = intval($empresa_idx);
     $entidad_id = intval($entidad_id);
@@ -595,6 +595,7 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
     // standalone). Mismo patrón null-safe "= ? OR ? IS NULL" que ya usa boca_id acá.
     $pedido_id = !empty($pedido_id) ? intval($pedido_id) : null;
     $incluir_lineas_completas = $incluir_lineas_completas ? 1 : 0;
+    $incluir_en_borrador = $incluir_en_borrador ? 1 : 0;
 
     $sql = "SELECT vp.venta_pedido_id, vp.comprobante_nro, vp.f_emision,
                    ct.comprobante_tipo,
@@ -679,7 +680,22 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
             LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
             WHERE vp.entidad_id = ?
             AND vp.empresa_id = ?
-            AND (? = 1 OR vpd.cantidad > vpd.cantidad_entregada)
+            AND (
+                ? = 1
+                OR vpd.cantidad > vpd.cantidad_entregada
+                OR (
+                    ? = 1
+                    AND EXISTS (
+                        SELECT 1
+                        FROM gestion__ventas_remitos_detalles rd_b
+                        INNER JOIN gestion__ventas_remitos vr_b ON rd_b.venta_remito_id = vr_b.venta_remito_id
+                        WHERE rd_b.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+                          AND rd_b.tabla_estado_registro_id = 1
+                          AND vr_b.empresa_id = vp.empresa_id
+                          AND vr_b.tabla_estado_registro_id = 3
+                    )
+                )
+            )
             AND vp.tabla_estado_registro_id != 137
             AND (er.codigo_estandar IS NULL OR er.codigo_estandar NOT IN ('BORRADOR', 'CANCELADO', 'ELIMINADO'))
             AND (vp.venta_pedido_id = ? OR ? IS NULL)
@@ -694,9 +710,9 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
 
     mysqli_stmt_bind_param(
         $stmt,
-        "iiiiiiiiiiiiiii",
+        "iiiiiiiiiiiiiiii",
         $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id, $boca_id,
-        $entidad_id, $empresa_idx, $incluir_lineas_completas, $pedido_id, $pedido_id
+        $entidad_id, $empresa_idx, $incluir_lineas_completas, $incluir_en_borrador, $pedido_id, $pedido_id
     );
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
@@ -789,8 +805,17 @@ function obtenerRemitosVenta($conexion, $empresa_idx, $pagina_id, $solo_pendient
                 WHERE tabla_estado_registro_id = 1
                 GROUP BY venta_remito_id
             ) td ON td.venta_remito_id = vr.venta_remito_id
-            WHERE vr.empresa_id = ? $sql_where_estado
-            ORDER BY vr.f_emision DESC, vr.venta_remito_id DESC";
+            WHERE vr.empresa_id = ? $sql_where_estado";
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $uid = intval($_SESSION['usuario_id'] ?? 0);
+        if ($uid > 0) {
+            $sql .= AccesosSucursalesHelper::filtroSqlSucursal($conexion, $uid, $empresa_idx, 'vr.sucursal_id');
+        }
+    }
+
+    $sql .= " ORDER BY vr.f_emision DESC, vr.venta_remito_id DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -833,12 +858,26 @@ function obtenerRemitoVentaPorId($conexion, $id, $empresa_idx)
                    ct.comprobante_tipo,
                    e.entidad_nombre, e.entidad_fantasia,
                    b.boca_nombre,
-                   pv.nombre as punto_venta_nombre
+                   pv.nombre as punto_venta_nombre,
+                   cf.condicion_fiscal,
+                   cf.condicion_fiscal_codigo
             FROM gestion__ventas_remitos vr
             LEFT JOIN gestion__comprobantes_tipos ct ON vr.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON vr.entidad_id = e.entidad_id
             LEFT JOIN gestion__bocas b ON vr.boca_id = b.boca_id
             LEFT JOIN gestion__puntos_venta pv ON vr.comprobante_pv = pv.punto_venta_id AND pv.empresa_id = vr.empresa_id
+            LEFT JOIN gestion__entidades_condiciones_fiscales ecf
+                   ON ecf.entidad_condicion_fiscal_id = (
+                        SELECT ecf2.entidad_condicion_fiscal_id
+                        FROM gestion__entidades_condiciones_fiscales ecf2
+                        WHERE ecf2.entidad_id = vr.entidad_id
+                          AND ecf2.tabla_estado_registro_id = 1
+                          AND (ecf2.f_desde IS NULL OR ecf2.f_desde <= CURDATE())
+                          AND (ecf2.f_hasta IS NULL OR ecf2.f_hasta >= CURDATE())
+                        ORDER BY ecf2.f_desde DESC, ecf2.entidad_condicion_fiscal_id DESC
+                        LIMIT 1
+                   )
+            LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
             WHERE vr.venta_remito_id = ? AND vr.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -851,6 +890,40 @@ function obtenerRemitoVentaPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_close($stmt);
 
     if (!$remito) return null;
+
+    // Si por algún motivo el remito no tiene entidad_id o entidad_sucursal_id en su cabecera
+    // pero proviene de un pedido, lo recuperamos del pedido origen
+    if (empty($remito['entidad_id']) || empty($remito['entidad_sucursal_id'])) {
+        $sql_pedido = "SELECT vp.entidad_id, vp.entidad_sucursal_id, e.entidad_nombre, e.entidad_fantasia
+                       FROM gestion__ventas_remitos_detalles vrd
+                       JOIN gestion__ventas_pedidos_detalles vpd ON vrd.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+                       JOIN gestion__ventas_pedidos vp ON vpd.venta_pedido_id = vp.venta_pedido_id
+                       LEFT JOIN gestion__entidades e ON vp.entidad_id = e.entidad_id
+                       WHERE vrd.venta_remito_id = ?
+                       LIMIT 1";
+        $stmt_ped = mysqli_prepare($conexion, $sql_pedido);
+        if ($stmt_ped) {
+            mysqli_stmt_bind_param($stmt_ped, "i", $id);
+            mysqli_stmt_execute($stmt_ped);
+            $res_ped = mysqli_stmt_get_result($stmt_ped);
+            if ($ped_data = mysqli_fetch_assoc($res_ped)) {
+                if (empty($remito['entidad_id']) && !empty($ped_data['entidad_id'])) {
+                    $remito['entidad_id'] = $ped_data['entidad_id'];
+                    $remito['entidad_nombre'] = $ped_data['entidad_nombre'];
+                    $remito['entidad_fantasia'] = $ped_data['entidad_fantasia'];
+                }
+                if (empty($remito['entidad_sucursal_id']) && !empty($ped_data['entidad_sucursal_id'])) {
+                    $remito['entidad_sucursal_id'] = $ped_data['entidad_sucursal_id'];
+                }
+            }
+            mysqli_stmt_close($stmt_ped);
+        }
+    }
+
+    if (empty($remito['condicion_fiscal'])) {
+        $remito['condicion_fiscal'] = 'Consumidor Final';
+        $remito['condicion_fiscal_codigo'] = 'CF';
+    }
 
     // pendiente_disponible: la pendiente "de verdad" sumando de nuevo lo que esta misma
     // línea ya restó de cantidad_entregada, para poder subir la cantidad al editar sin
@@ -980,6 +1053,12 @@ function agregarRemitoVenta($conexion, $data)
         $boca_id_val = intval($ubicacion['boca_id']);
         $sucursal_id_val = intval($ubicacion['sucursal_id']);
 
+        if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+            require_once __DIR__ . '/../../core/accesos_sucursales.php';
+            AccesosSucursalesHelper::exigirAccesoSucursal($conexion, $empresa_id_val, $sucursal_id_val);
+            AccesosSucursalesHelper::exigirAccesoPuntoVenta($conexion, $empresa_id_val, $comprobante_pv_val);
+        }
+
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $comprobante_nro_val = 0;
         $entidad_id_val = $destinatario['entidad_id'];
@@ -1039,7 +1118,7 @@ function agregarRemitoVenta($conexion, $data)
             'entidad_sucursal_id' => $entidad_sucursal_id_val,
             'f_emision' => $f_emision_val,
             'f_contabilidad' => $f_emision_val,
-            'moneda_id' => 1,
+            'moneda_id' => emp_moneda_base_id($conexion, $empresa_id_val),
             'tipo_cambio' => 1,
             'registro_origen_id' => $venta_remito_id,
             'tabla_estado_registro_id' => $estado_inicial_val,
@@ -1175,7 +1254,7 @@ function editarRemitoVenta($conexion, $id, $data)
                 'entidad_sucursal_id' => $entidad_sucursal_id_val,
                 'f_emision' => $f_emision_val,
                 'f_contabilidad' => $f_emision_val,
-                'moneda_id' => 1,
+                'moneda_id' => emp_moneda_base_id($conexion, $empresa_idx_val),
                 'tipo_cambio' => 1,
                 'registro_origen_id' => $id,
                 'tabla_estado_registro_id' => $actual['tabla_estado_registro_id'],
@@ -1460,6 +1539,22 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
         }
         mysqli_stmt_close($stmt);
 
+        // Espejo en gestion__comprobantes: estado y número del remito (antes quedaba en Borrador y sin número)
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes c
+                 JOIN gestion__ventas_remitos r ON r.venta_remito_id = c.registro_origen_id
+                 SET c.tabla_estado_registro_id = r.tabla_estado_registro_id, c.comprobante_nro = r.comprobante_nro
+                 WHERE r.venta_remito_id = ?
+                   AND c.tabla_origen_id = (SELECT t.tabla_id FROM conf__tablas t WHERE t.tabla_nombre = 'gestion__ventas_remitos')");
+        mysqli_stmt_bind_param($stmt, "i", $venta_remito_id);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception('Error sincronizando el comprobante del remito: ' . mysqli_stmt_error($stmt));
+        }
+        mysqli_stmt_close($stmt);
+
+        // Stock: lo decide el tipo (stock_signo) y el estado destino (aplica_stock); aprobar descuenta,
+        // eliminar un remito aprobado lo devuelve. Idempotente: va en toda transición.
+        sincronizarStockRemitoVenta($conexion, $venta_remito_id, intval($estado_destino_id), $pagina_id);
+
         mysqli_commit($conexion);
 
         $mensaje = 'Estado actualizado correctamente';
@@ -1473,6 +1568,55 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
         error_log("ERROR en ejecutarTransicionEstadoRemito: " . $e->getMessage());
         return ['success' => false, 'error' => $e->getMessage()];
     }
+}
+
+// Lleva el libro de stock al estado del remito (ver stock_core_model.php). Corre dentro de la
+// transacción del llamador; la boca sale del propio remito.
+function sincronizarStockRemitoVenta($conexion, $venta_remito_id, $estado_id, $pagina_id)
+{
+    require_once __DIR__ . '/stock_core_model.php';
+
+    $tabla_origen_id = obtenerTablaOrigenPorPaginaRemitos($conexion, $pagina_id);
+    if (!$tabla_origen_id) throw new Exception('No se pudo determinar la tabla de origen del remito.');
+
+    $stmt = mysqli_prepare($conexion, "SELECT r.empresa_id, r.boca_id, r.comprobante_tipo_id, r.comprobante_pv, r.comprobante_nro,
+                                              COALESCE(NULLIF(r.comprobante_id, 0), c.comprobante_id, 0) AS comprobante_id
+                                       FROM gestion__ventas_remitos r
+                                       LEFT JOIN gestion__comprobantes c ON c.tabla_origen_id = ? AND c.registro_origen_id = r.venta_remito_id
+                                       WHERE r.venta_remito_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $tabla_origen_id, $venta_remito_id);
+    mysqli_stmt_execute($stmt);
+    $remito = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$remito) throw new Exception('Remito no encontrado.');
+
+    $stmt = mysqli_prepare($conexion, "SELECT venta_remito_detalle_id, producto_id, cantidad
+                                       FROM gestion__ventas_remitos_detalles
+                                       WHERE venta_remito_id = ? AND tabla_estado_registro_id <> 6");
+    mysqli_stmt_bind_param($stmt, "i", $venta_remito_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $lineas = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $lineas[] = [
+            'registro_detalle_id' => intval($row['venta_remito_detalle_id']),
+            'producto_id' => intval($row['producto_id']),
+            'cantidad' => floatval($row['cantidad']),
+        ];
+    }
+    mysqli_stmt_close($stmt);
+
+    return stockSincronizarComprobante($conexion, [
+        'empresa_id' => intval($remito['empresa_id']),
+        'comprobante_id' => intval($remito['comprobante_id']),
+        'comprobante_tipo_id' => intval($remito['comprobante_tipo_id']),
+        'tabla_origen_id' => $tabla_origen_id,
+        'registro_origen_id' => intval($venta_remito_id),
+        'estado_registro_id' => intval($estado_id),
+        'boca_id' => intval($remito['boca_id']),
+        'usuario_id' => $_SESSION['usuario_id'] ?? null,
+        'observaciones' => 'Remito N° ' . $remito['comprobante_pv'] . '-' . $remito['comprobante_nro'],
+    ], $lineas);
 }
 
 
@@ -1569,6 +1713,12 @@ function obtenerPuntosVentaDepositoRemitos($conexion, $empresa_idx)
         $puntos_venta[] = $fila;
     }
     mysqli_stmt_close($stmt);
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $puntos_venta = AccesosSucursalesHelper::filtrarPuntosVenta($conexion, $empresa_idx, $puntos_venta);
+    }
+
     return $puntos_venta;
 }
 
@@ -1608,12 +1758,26 @@ function resolverBocaYSucursalPorPuntoVentaRemitos($conexion, $empresa_idx, $pun
 
 function obtenerClientesRemitos($conexion, $empresa_idx)
 {
-    $sql = "SELECT entidad_id, entidad_nombre, entidad_fantasia
-            FROM gestion__entidades
-            WHERE empresa_id = ?
-            AND es_cliente = 1
-            AND tabla_estado_registro_id = 1
-            ORDER BY entidad_nombre";
+    $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia,
+                   COALESCE(cf.condicion_fiscal, 'Consumidor Final') AS condicion_fiscal,
+                   COALESCE(cf.condicion_fiscal_codigo, 'CF') AS condicion_fiscal_codigo
+            FROM gestion__entidades e
+            LEFT JOIN gestion__entidades_condiciones_fiscales ecf
+                   ON ecf.entidad_condicion_fiscal_id = (
+                        SELECT ecf2.entidad_condicion_fiscal_id
+                        FROM gestion__entidades_condiciones_fiscales ecf2
+                        WHERE ecf2.entidad_id = e.entidad_id
+                          AND ecf2.tabla_estado_registro_id = 1
+                          AND (ecf2.f_desde IS NULL OR ecf2.f_desde <= CURDATE())
+                          AND (ecf2.f_hasta IS NULL OR ecf2.f_hasta >= CURDATE())
+                        ORDER BY ecf2.f_desde DESC, ecf2.entidad_condicion_fiscal_id DESC
+                        LIMIT 1
+                   )
+            LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
+            WHERE e.empresa_id = ?
+            AND e.es_cliente = 1
+            AND e.tabla_estado_registro_id = 1
+            ORDER BY e.entidad_nombre";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
@@ -1663,13 +1827,34 @@ function obtenerListaPrecioVigenteClienteRemitos($conexion, $entidad_id)
 {
     $entidad_id = intval($entidad_id);
 
-    $sql = "SELECT ecc.lista_precio_id, ecc.cliente_descuento_general
-            FROM gestion__entidades_condiciones_clientes ecc
-            WHERE ecc.entidad_id = ?
-            AND ecc.tabla_estado_registro_id = 1
-            AND ecc.f_desde <= CURDATE()
-            AND (ecc.f_hasta IS NULL OR ecc.f_hasta >= CURDATE())
-            ORDER BY ecc.f_desde DESC
+    $sql = "SELECT ecc.lista_precio_id, ecc.cliente_descuento_general,
+                   COALESCE(cf.condicion_fiscal, 'Consumidor Final') AS condicion_fiscal,
+                   COALESCE(cf.condicion_fiscal_codigo, 'CF') AS condicion_fiscal_codigo
+            FROM gestion__entidades e
+            LEFT JOIN gestion__entidades_condiciones_clientes ecc
+                   ON ecc.entidad_condicion_cliente_id = (
+                        SELECT ecc2.entidad_condicion_cliente_id
+                        FROM gestion__entidades_condiciones_clientes ecc2
+                        WHERE ecc2.entidad_id = e.entidad_id
+                          AND ecc2.tabla_estado_registro_id = 1
+                          AND ecc2.f_desde <= CURDATE()
+                          AND (ecc2.f_hasta IS NULL OR ecc2.f_hasta >= CURDATE())
+                        ORDER BY ecc2.f_desde DESC, ecc2.entidad_condicion_cliente_id DESC
+                        LIMIT 1
+                   )
+            LEFT JOIN gestion__entidades_condiciones_fiscales ecf
+                   ON ecf.entidad_condicion_fiscal_id = (
+                        SELECT ecf2.entidad_condicion_fiscal_id
+                        FROM gestion__entidades_condiciones_fiscales ecf2
+                        WHERE ecf2.entidad_id = e.entidad_id
+                          AND ecf2.tabla_estado_registro_id = 1
+                          AND (ecf2.f_desde IS NULL OR ecf2.f_desde <= CURDATE())
+                          AND (ecf2.f_hasta IS NULL OR ecf2.f_hasta >= CURDATE())
+                        ORDER BY ecf2.f_desde DESC, ecf2.entidad_condicion_fiscal_id DESC
+                        LIMIT 1
+                   )
+            LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
+            WHERE e.entidad_id = ?
             LIMIT 1";
 
     $stmt = mysqli_prepare($conexion, $sql);

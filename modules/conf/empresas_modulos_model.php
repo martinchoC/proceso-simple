@@ -64,6 +64,32 @@ function existeEmpresaModuloEditando($conexion, $empresa_id, $modulo_id, $exclui
     return mysqli_num_rows($res) > 0;
 }
 
+function obtenerModuloConflictoExcluyente($conexion, $empresa_id, $modulo_id, $excluir_empresa_modulo_id = 0)
+{
+    $empresa_id = intval($empresa_id);
+    $modulo_id = intval($modulo_id);
+    $excluir_empresa_modulo_id = intval($excluir_empresa_modulo_id);
+
+    // Consulta la tabla relacional conf__modulos_incompatibles
+    $sql = "SELECT m.modulo, mi.motivo
+            FROM conf__empresas_modulos em
+            INNER JOIN conf__modulos_incompatibles mi 
+                ON ( (mi.modulo_id_1 = $modulo_id AND mi.modulo_id_2 = em.modulo_id) 
+                  OR (mi.modulo_id_2 = $modulo_id AND mi.modulo_id_1 = em.modulo_id) )
+                AND mi.tabla_estado_registro_id = 1
+            INNER JOIN conf__modulos m ON m.modulo_id = em.modulo_id
+            WHERE em.empresa_id = $empresa_id 
+              AND em.tabla_estado_registro_id = 1
+              AND em.empresa_modulo_id != $excluir_empresa_modulo_id
+            LIMIT 1";
+
+    $res = mysqli_query($conexion, $sql);
+    if ($res && ($row = mysqli_fetch_assoc($res))) {
+        return $row['modulo'];
+    }
+    return null;
+}
+
 function agregarEmpresaModulo($conexion, $data)
 {
     if (empty($data['empresa_id']) || empty($data['modulo_id'])) {

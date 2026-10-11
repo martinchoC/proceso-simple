@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Depósitos - Ubicaciones</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-sitemap"></i> Manual de usuario: Depósitos - Ubicaciones</h1>
+<p class="subtitulo">Cómo armar el mapa físico de cada depósito: secciones, estanterías, estantes y posiciones donde se guarda la mercadería.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es una Ubicación?</a></li>
+        <li><a href="#antes">Antes de empezar</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#arbol">Cómo leer y recorrer el árbol</a></li>
+        <li><a href="#agregar">Agregar una ubicación</a></li>
+        <li><a href="#agregar-desde-arbol">Agregar desde el árbol (botón +)</a></li>
+        <li><a href="#editar">Editar una ubicación</a></li>
+        <li><a href="#estado">Activar o desactivar una ubicación</a></li>
+        <li><a href="#imprimir">Imprimir</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es una Ubicación?</h2>
+<p>Una <strong>Ubicación</strong> es un lugar exacto dentro de un depósito, para saber dónde buscar un producto. Se arma de lo general a lo particular:</p>
+<div class="flujo">
+    <div class="flujo-caja">Sucursal</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Boca (depósito)</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Sección</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Estantería</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Estante</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Posición</div>
+</div>
+<p>Por ejemplo: <em>Casa Central → Depósito → Sección A → Estantería 01 → Estante 03 → Posición 1A</em>. Cada ubicación que cargás es una <strong>posición</strong> completa con todos esos datos.</p>
+
+<h2 id="antes">Antes de empezar</h2>
+<ul>
+    <li>La sucursal tiene que estar cargada y activa (ver <a href="sucursales.html">Sucursales</a>).</li>
+    <li>La boca tiene que estar activa y tener marcada la opción <strong>"Maneja stock (depósito)"</strong> (ver <a href="bocas.html">Bocas</a>). Las bocas solo comerciales no aparecen acá.</li>
+    <li>Solo vas a ver las bocas a las que tu perfil tiene acceso (ver <a href="accesos_perfiles.html">Accesos por Perfil</a>).</li>
+</ul>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>La pantalla tiene dos columnas:</p>
+<table class="tabla-referencia">
+    <tr><th>Parte</th><th>Qué tiene</th></tr>
+    <tr><td>Filtros y Controles (izquierda)</td><td>El filtro <strong>Sucursal</strong> (para ver una sola o "Todas las sucursales"), los botones <span class="boton-ejemplo boton-outline">Expandir Todo</span> y <span class="boton-ejemplo boton-outline">Contraer Todo</span>, las <strong>Estadísticas</strong> (cuántas sucursales, bocas, secciones, estanterías, estantes y posiciones hay cargadas) y la <strong>Leyenda</strong> de colores de cada nivel.</td></tr>
+    <tr><td>Acciones Rápidas (izquierda, abajo)</td><td>El botón para agregar una ubicación, el menú Exportar y el botón Imprimir.</td></tr>
+    <tr><td>Árbol Jerárquico de Ubicaciones (derecha)</td><td>El mapa de ubicaciones, con un buscador arriba ("Buscar ubicación...").</td></tr>
+</table>
+
+<h2 id="arbol">Cómo leer y recorrer el árbol</h2>
+<ul>
+    <li>Cada nivel tiene un color distinto (ver la Leyenda).</li>
+    <li>Hacé clic en la flechita <strong>›</strong> para abrir o cerrar un nivel. Al entrar, las sucursales vienen abiertas y el resto cerrado.</li>
+    <li>En cada posición se ve su descripción (si tiene) y una etiqueta con su estado (Activo en verde, Inactivo en gris).</li>
+    <li>Al pasar el mouse sobre una fila aparecen sus botones: <strong>+</strong> (agregar debajo) en los niveles superiores, y el <strong>lápiz</strong> (editar) en las posiciones.</li>
+    <li>El buscador marca en amarillo lo que coincide y abre los niveles necesarios para mostrarlo. La <strong>✕</strong> limpia la búsqueda.</li>
+</ul>
+<div class="nota-lateral">El árbol muestra solo sucursales y bocas que ya tienen al menos una ubicación cargada. Para la primera ubicación de un depósito, usá el botón de agregar de "Acciones Rápidas".</div>
+
+<h2 id="agregar">Agregar una ubicación</h2>
+<p>Hacé clic en el botón de agregar de <strong>Acciones Rápidas</strong>. Se abre la ventana <strong>Nueva Ubicación</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Sucursal *</td><td>Sucursal del depósito.</td></tr>
+    <tr><td>Boca *</td><td>Se llena al elegir la sucursal. Solo muestra bocas de depósito activas. La boca principal dice "(Principal)".</td></tr>
+    <tr><td>Sección *</td><td>Por ejemplo "A".</td></tr>
+    <tr><td>Estantería *</td><td>Por ejemplo "01".</td></tr>
+    <tr><td>Estante *</td><td>Por ejemplo "01".</td></tr>
+    <tr><td>Posición *</td><td>Por ejemplo "1A".</td></tr>
+    <tr><td>Descripción</td><td>Texto libre (por ejemplo "Filtros de aceite").</td></tr>
+    <tr><td>Estado</td><td>Elegí <strong>Activo</strong> para una ubicación en uso. Si lo dejás vacío, se guarda como Activo.</td></tr>
+</table>
+<p>Arriba de la ventana, el recuadro <strong>Ruta Completa</strong> muestra el camino de la ubicación. Hacé clic en <span class="boton-ejemplo boton-primario">Guardar Ubicación</span>. Si está todo bien, ves "¡Guardado! Ubicación guardada correctamente" y el árbol se actualiza.</p>
+
+<h2 id="agregar-desde-arbol">Agregar desde el árbol (botón +)</h2>
+<p>Es la forma más rápida de cargar varias posiciones en el mismo lugar. Pasá el mouse sobre una sucursal, boca, sección, estantería o estante y hacé clic en <strong>+</strong>. Se abre la ventana <strong>Nueva Ubicación</strong> con los datos de ese nivel ya completos: solo completás lo que falta (por ejemplo, la posición nueva).</p>
+
+<h2 id="editar">Editar una ubicación</h2>
+<p>Pasá el mouse sobre una posición y hacé clic en el <strong>lápiz</strong>. Se abre <strong>Editar Ubicación</strong> con los datos cargados. Al guardar ves el mismo aviso de confirmación.</p>
+
+<h2 id="estado">Activar o desactivar una ubicación</h2>
+<p>En esta pantalla no hay botones de Inhabilitar o Habilitar. El estado se cambia <strong>editando</strong> la ubicación y eligiendo el valor en el campo <strong>Estado</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>La ubicación está en uso.</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>La ubicación ya no se usa (por ejemplo, se desarmó la estantería). Sigue en el árbol, con etiqueta gris.</td></tr>
+</table>
+<div class="alert alert-warning">La lista de "Estado" puede mostrar otras opciones además de Activo e Inactivo. Para ubicaciones, usá solo esas dos.</div>
+
+<h2 id="imprimir">Imprimir</h2>
+<p>El botón <span class="boton-ejemplo boton-outline">Imprimir</span> de Acciones Rápidas imprime la pantalla tal como la estás viendo. Abrí antes los niveles que quieras que salgan en el papel (por ejemplo con "Expandir Todo").</p>
+<div class="nota-lateral">El menú "Exportar" (Excel, PDF, CSV) todavía no genera archivos en esta pantalla.</div>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué hacer</th></tr>
+    <tr><td>Campos marcados en rojo</td><td>Faltan datos obligatorios: sucursal, boca, sección, estantería, estante y posición.</td></tr>
+    <tr><td>Todos los campos obligatorios deben estar completos</td><td>Lo mismo: revisá los campos con asterisco.</td></tr>
+    <tr><td>Ya existe esta ubicación / Ya existe otra ubicación con estos datos</td><td>Esa combinación exacta ya está cargada en esa boca. Usá otra posición o editá la existente.</td></tr>
+    <tr><td>Error de conexión</td><td>Probá de nuevo; si sigue, avisá al equipo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>En "Boca" dice "Seleccionar depósito..." pero la lista está vacía.</td><td>Esa sucursal no tiene bocas activas marcadas como depósito, o tu perfil no tiene acceso a ellas. Revisalo en <a href="bocas.html">Bocas</a>.</td></tr>
+    <tr><td>Cargué una sucursal nueva y no aparece en el árbol.</td><td>El árbol muestra solo lo que ya tiene ubicaciones. Cargá la primera con el botón de Acciones Rápidas.</td></tr>
+    <tr><td>¿Puedo borrar una ubicación?</td><td>No. Editala y pasala a Inactivo.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Depósitos - Ubicaciones. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

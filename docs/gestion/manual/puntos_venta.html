@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Puntos de Venta</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-info { background: #0dcaf0; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-cash-register"></i> Manual de usuario: Puntos de Venta</h1>
+<p class="subtitulo">Cómo cargar los puntos de venta de cada boca y elegir qué comprobantes (facturas, remitos, recibos, etc.) se pueden emitir en cada uno.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es un Punto de Venta?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados: Activo e Inactivo</a></li>
+        <li><a href="#agregar">Agregar un punto de venta</a></li>
+        <li><a href="#datos">Pestaña: Datos</a></li>
+        <li><a href="#comprobantes">Pestaña: Comprobantes</a></li>
+        <li><a href="#editar">Editar un punto de venta</a></li>
+        <li><a href="#inhabilitar-habilitar">Inhabilitar o habilitar</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es un Punto de Venta?</h2>
+<p>Un <strong>Punto de Venta</strong> es desde dónde se emiten y numeran los comprobantes. Cada factura, remito o pedido sale con el número del punto de venta adelante (por ejemplo <em>0003-00001234</em>). Para la facturación electrónica, el punto de venta tiene que coincidir con uno dado de alta en ARCA.</p>
+<div class="flujo">
+    <div class="flujo-caja"><a href="sucursales.html">Sucursal</a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bocas.html">Boca</a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Punto de Venta</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Comprobantes habilitados</div>
+</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno.</td></tr>
+    <tr><td>Sucursal / Boca</td><td>Dónde está el punto de venta.</td></tr>
+    <tr><td>Nombre</td><td>Nombre del punto de venta.</td></tr>
+    <tr><td>Descripción</td><td>Texto libre.</td></tr>
+    <tr><td>Código Fiscal</td><td>Número del punto de venta ante ARCA (el que sale en los comprobantes).</td></tr>
+    <tr><td>Web</td><td><span class="badge badge-info">Web</span> si es el punto de venta de la venta web.</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles según el estado.</td></tr>
+</table>
+<p>La tabla recuerda la página, el orden y la búsqueda de la última vez. Los inactivos aparecen con fondo gris.</p>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>Se puede usar para emitir comprobantes.</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>Ya no se ofrece para emitir. Los comprobantes ya emitidos no cambian. No se puede editar mientras esté inactivo.</td></tr>
+</table>
+
+<h2 id="agregar">Agregar un punto de venta</h2>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">+ Agregar</span>. Se abre la ventana <strong>Nuevo Punto de Venta</strong>, con dos pestañas: <strong>Datos</strong> y <strong>Comprobantes</strong>. Completá las dos y hacé clic en <span class="boton-ejemplo boton-primario">Guardar</span> (se guardan juntas). Si está todo bien, ves "¡Guardado! Punto de venta guardado correctamente".</p>
+
+<h2 id="datos">Pestaña: Datos</h2>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Sucursal *</td><td>Obligatoria.</td></tr>
+    <tr><td>Boca *</td><td>Se habilita al elegir la sucursal. Muestra las bocas de esa sucursal, indicando si son "(depósito)" o "(comercial)". Obligatoria.</td></tr>
+    <tr><td>Nombre *</td><td>Obligatorio, hasta 100 caracteres. No se puede repetir dentro de la misma sucursal.</td></tr>
+    <tr><td>Código Fiscal</td><td>El número de punto de venta habilitado en ARCA (por ejemplo 3). No puede repetirse en la empresa.</td></tr>
+    <tr><td>Es el punto de venta web</td><td>Marcalo en el punto de venta que corresponde a la venta web.</td></tr>
+    <tr><td>Descripción</td><td>Texto libre.</td></tr>
+</table>
+<div class="nota-lateral">Si al guardar falta un dato obligatorio, el sistema te lleva solo a la pestaña Datos y marca en rojo lo que falta.</div>
+
+<h2 id="comprobantes">Pestaña: Comprobantes</h2>
+<p>Acá elegís <strong>qué tipos de comprobante se pueden emitir</strong> desde este punto de venta. Solo los tipos de esta lista van a aparecer al cargar una factura, remito, pedido o recibo con este punto de venta. El número junto al nombre de la pestaña indica cuántos tipos hay habilitados.</p>
+<ol>
+    <li>En el buscador <strong>"Agregar tipo de comprobante"</strong> escribí parte del nombre, el código o la letra (por ejemplo "factura", "A", "remito").</li>
+    <li>Aparecen los tipos que coinciden, con su subgrupo, código y letra. Hacé clic en el botón verde <strong>+</strong> para agregarlo.</li>
+    <li>El tipo pasa a la tabla <strong>"Tipos de comprobante habilitados"</strong> de abajo.</li>
+</ol>
+<p>En la tabla de habilitados, cada fila tiene:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué es</th></tr>
+    <tr><td>Subgrupo / Tipo, Código, Letra</td><td>Qué comprobante es.</td></tr>
+    <tr><td>Requiere AFIP</td><td>Casilla que viene marcada al agregar. Indica si ese comprobante se informa a ARCA (ex AFIP).</td></tr>
+    <tr><td>Quitar</td><td>El botón <span class="boton-ejemplo boton-peligro">🗑</span> lo saca de la lista.</td></tr>
+</table>
+<p>Si hay muchos tipos, la tabla se pagina de a 12.</p>
+<div class="alert alert-warning">Los cambios en esta pestaña recién quedan guardados cuando hacés clic en <strong>Guardar</strong>. Si cerrás la ventana con "Cancelar", se pierden.</div>
+
+<h2 id="editar">Editar un punto de venta</h2>
+<p>Con el botón del lápiz (<strong>Editar</strong>) se abre <strong>Editar Punto de Venta</strong> con los datos y los comprobantes habilitados ya cargados. Solo aparece en puntos de venta Activos.</p>
+
+<h2 id="inhabilitar-habilitar">Inhabilitar o habilitar</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-peligro">Inhabilitar</span></td><td>Pasa el punto de venta a Inactivo. Pide confirmación: "¿Está seguro de inactivar el punto de venta …?".</td><td>Activo</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Habilitar</span></td><td>Lo vuelve a Activo. Pide confirmación.</td><td>Inactivo</td></tr>
+</table>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha: <span class="boton-ejemplo boton-outline">↻</span> recarga la tabla y el menú <span class="boton-ejemplo boton-outline">Exportar</span> ofrece Excel, PDF, CSV e Imprimir.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué hacer</th></tr>
+    <tr><td>Ya existe un punto de venta con este nombre en la sucursal seleccionada</td><td>Usá otro nombre.</td></tr>
+    <tr><td>Ya existe un punto de venta con este código fiscal</td><td>Ese número ya está usado en la empresa. Revisá el número que te dio ARCA.</td></tr>
+    <tr><td>La boca seleccionada no pertenece a la sucursal elegida</td><td>Volvé a elegir la sucursal y después la boca.</td></tr>
+    <tr><td>Esta sucursal no tiene bocas cargadas</td><td>Primero cargá una boca en <a href="bocas.html">Bocas</a>.</td></tr>
+    <tr><td>No se encontraron tipos de comprobante para ese filtro</td><td>Probá con otra palabra. Los tipos que ya agregaste no vuelven a aparecer en la búsqueda.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Al cargar una factura no me aparece el tipo de comprobante que necesito.</td><td>Ese tipo no está habilitado en el punto de venta elegido. Agregalo en la pestaña Comprobantes.</td></tr>
+    <tr><td>Al cargar un comprobante no aparece este punto de venta.</td><td>Revisá que esté Activo y que tu perfil tenga acceso en <a href="accesos_perfiles.html">Accesos por Perfil</a>.</td></tr>
+    <tr><td>¿Qué pongo en Código Fiscal?</td><td>El número de punto de venta que diste de alta en ARCA para facturar. Tiene que coincidir para que la facturación electrónica funcione (ver <a href="arca_integraciones.html">Integraciones - ARCA</a>).</td></tr>
+    <tr><td>¿Cómo elijo el punto de venta que se propone por defecto?</td><td>En <a href="empresas_parametros.html">Parámetros de Empresa</a>, campo "Punto de Venta Defecto".</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Puntos de Venta. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

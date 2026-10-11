@@ -1,13 +1,19 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['ventas_facturas.php', 'ventas_remitos.php', 'ventas_remitos_pendientes_facturacion.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 require_once __DIR__ . '/ventas_facturas_model.php';
+// Cobro desde la solapa "Medios de Pago": el recibo se arma con el modelo de cobranzas.
+require_once __DIR__ . '/tesoreria_core_model.php';
+require_once __DIR__ . '/cobranzas_model.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
-$empresa_id = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_id = intval($ctx['empresa_id']);
 $pagina_id = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 56);
 
 try {
@@ -25,7 +31,10 @@ try {
             echo json_encode(vfPuntosVenta($conexion, $empresa_id), JSON_UNESCAPED_UNICODE);
             break;
         case 'tipos_por_punto_venta':
-            echo json_encode(vfTiposPorPuntoVenta($conexion, $empresa_id, intval($_GET['punto_venta_id'] ?? 0), $pagina_id), JSON_UNESCAPED_UNICODE);
+            $entidad_param = isset($_GET['entidad_id']) ? $_GET['entidad_id'] : (isset($_POST['entidad_id']) ? $_POST['entidad_id'] : null);
+            // solo_raiz=1: sin NC/ND (tipos dependientes), para facturar desde un remito
+            $solo_raiz = !empty($_GET['solo_raiz'] ?? $_POST['solo_raiz'] ?? null);
+            echo json_encode(vfTiposPorPuntoVenta($conexion, $empresa_id, intval($_GET['punto_venta_id'] ?? $_POST['punto_venta_id'] ?? 0), $pagina_id, $entidad_param, $solo_raiz), JSON_UNESCAPED_UNICODE);
             break;
         // entidad_id = 0: consumidor final (lista Mostrador, contado). Ídem remitos_pendientes y buscar_productos.
         case 'condicion_cliente':
@@ -64,6 +73,13 @@ try {
             $data['detalles'] = $detalles;
             echo json_encode(guardarVentaFactura($conexion, $empresa_id, $pagina_id, $data), JSON_UNESCAPED_UNICODE);
             break;
+        case 'calcular_percepciones':
+            $detalles = json_decode($_POST['detalles'] ?? '[]', true);
+            if (!is_array($detalles)) throw new Exception('Detalle inválido.');
+            $data = $_POST;
+            $data['detalles'] = $detalles;
+            echo json_encode(vfPercepcionesPreview($conexion, $empresa_id, $data), JSON_UNESCAPED_UNICODE);
+            break;
         case 'editar':
             $id = intval($_POST['venta_factura_id'] ?? 0);
             $detalles = json_decode($_POST['detalles'] ?? '[]', true);
@@ -75,6 +91,7 @@ try {
         case 'ejecutar_accion':
             $id = intval($_POST['venta_factura_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
+            if ($accion_js === 'aprobada') @set_time_limit(180);   // puede pedir el CAE a ARCA
             echo json_encode(vfEjecutarTransicionEstado($conexion, $id, $accion_js, $empresa_id, $pagina_id), JSON_UNESCAPED_UNICODE);
             break;
         case 'generar_asiento_contable':
@@ -89,6 +106,43 @@ try {
             } else {
                 echo json_encode(['success' => false, 'error' => 'No se encontró asiento contable para esta factura.'], JSON_UNESCAPED_UNICODE);
             }
+            break;
+        // Solapa "Medios de Pago": recibo (RCX) con punto de venta imputado a la factura. La función
+        // 'cobrar' se valida contra la página de facturas, no contra el pagina_idx del request.
+        case 'cobro_factura':
+            $cobro = vfCobroFactura($conexion, intval($_GET['venta_factura_id'] ?? 0), $ctx['empresa_id'], pagina_id_por_url($conexion, 2, 'ventas_facturas.php'));
+            echo json_encode($cobro ? ['success' => true, 'data' => $cobro] : ['success' => false, 'message' => 'Factura no encontrada.'], JSON_UNESCAPED_UNICODE);
+            break;
+        case 'cobro_maestros':
+            echo json_encode(['success' => true, 'data' => vfMaestrosCobro($conexion, $ctx['empresa_id'])], JSON_UNESCAPED_UNICODE);
+            break;
+        case 'cobro_tipos_por_punto_venta':
+            echo json_encode(['success' => true, 'data' => vfTiposReciboPorPuntoVenta($conexion, $ctx['empresa_id'], intval($_GET['punto_venta_id'] ?? 0))], JSON_UNESCAPED_UNICODE);
+            break;
+        // Notas de crédito / débito: comprobante asociado y aplicación de NC con saldo (recibo en $0)
+        case 'comprobantes_asociables':
+            $tipo_nota = intval($_GET['comprobante_tipo_id'] ?? 0);
+            echo json_encode(['success' => true, 'es_nota' => vfTipoEsNota($conexion, $ctx['empresa_id'], $tipo_nota),
+                'data' => vfComprobantesAsociables($conexion, $ctx['empresa_id'], intval($_GET['entidad_id'] ?? 0), $tipo_nota)], JSON_UNESCAPED_UNICODE);
+            break;
+        case 'notas_credito_disponibles':
+            $disp = vfNotasCreditoDisponiblesFactura($conexion, intval($_GET['venta_factura_id'] ?? 0), $ctx['empresa_id']);
+            echo json_encode(['success' => true, 'data' => $disp], JSON_UNESCAPED_UNICODE);
+            break;
+        case 'aplicar_notas_credito':
+            $disp = vfNotasCreditoDisponiblesFactura($conexion, intval($_POST['venta_factura_id'] ?? 0), $ctx['empresa_id']);
+            if (!$disp) {
+                echo json_encode(['success' => false, 'error' => 'La factura no tiene saldo o no hay notas de crédito para aplicar.'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $aplicaciones = json_decode($_POST['aplicaciones'] ?? '[]', true);
+            if (!is_array($aplicaciones)) $aplicaciones = [];
+            echo json_encode(vfAplicarNotasCredito($conexion, $ctx['empresa_id'], $disp['comprobante_id'], $aplicaciones, $ctx['usuario_id']), JSON_UNESCAPED_UNICODE);
+            break;
+        case 'emitir_recibo':
+            $data = $_POST;
+            $data['medios'] = json_decode($_POST['medios'] ?? '[]', true);
+            echo json_encode(vfEmitirReciboFactura($conexion, intval($_POST['venta_factura_id'] ?? 0), $ctx['empresa_id'], pagina_id_por_url($conexion, 2, 'ventas_facturas.php'), $ctx['usuario_id'], $data), JSON_UNESCAPED_UNICODE);
             break;
         default:
             http_response_code(400);

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../arca/arca_lib.php';
 $conexion = $conn;
@@ -345,7 +346,7 @@ function cuitValido($cuit)
 }
 
 // Normaliza y valida los datos del formulario. Devuelve [datos, error].
-function normalizarDatosIntegracion($conexion, $data)
+function normalizarDatosIntegracion($conexion, $data, $empresa_idx)
 {
     $datos = [
         'integracion_ambiente_id' => intval($data['integracion_ambiente_id'] ?? 0),
@@ -375,13 +376,21 @@ function normalizarDatosIntegracion($conexion, $data)
     if (!cuitValido($datos['cuit'])) {
         return [null, 'El CUIT no es válido'];
     }
+    // El certificado de ARCA es de cada empresa: el CUIT tiene que ser el de la empresa
+    $cuit_empresa = emp_cuit($conexion, $empresa_idx);
+    if ($cuit_empresa === '') {
+        return [null, 'La empresa no tiene CUIT cargado (Empresas > documento): no se puede configurar ARCA'];
+    }
+    if ($datos['cuit'] !== $cuit_empresa) {
+        return [null, 'El CUIT de la integración tiene que ser el de la empresa (' . $cuit_empresa . ')'];
+    }
 
     $error = arca_validar_par_certificado($datos['certificado_ruta'], $datos['clave_privada_ruta']);
     if ($error !== null) {
         return [null, $error];
     }
     $certificado = arca_info_certificado($datos['certificado_ruta']);
-    if ($certificado['cuit'] !== '' && $certificado['cuit'] !== $datos['cuit']) {
+    if ($certificado['cuit'] !== $datos['cuit']) {
         return [null, 'El certificado fue emitido para el CUIT ' . $certificado['cuit'] . ', no para ' . $datos['cuit']];
     }
     if ($certificado['vencido']) {
@@ -414,7 +423,7 @@ function agregarIntegracionEmpresa($conexion, $data, $empresa_idx, $pagina_id, $
     $empresa_idx = intval($empresa_idx);
     error_log("=== INICIO agregarIntegracionEmpresa empresa: $empresa_idx ===");
 
-    [$datos, $error] = normalizarDatosIntegracion($conexion, $data);
+    [$datos, $error] = normalizarDatosIntegracion($conexion, $data, $empresa_idx);
     if ($error !== null) {
         return ['success' => false, 'message' => $error];
     }
@@ -482,7 +491,7 @@ function editarIntegracionEmpresa($conexion, $id, $data, $empresa_idx)
         return ['success' => false, 'message' => 'Integración no encontrada'];
     }
 
-    [$datos, $error] = normalizarDatosIntegracion($conexion, $data);
+    [$datos, $error] = normalizarDatosIntegracion($conexion, $data, $empresa_idx);
     if ($error !== null) {
         return ['success' => false, 'message' => $error];
     }
@@ -783,6 +792,10 @@ function ejecutarPruebaArca($conexion, $id, $operacion, $data, $empresa_idx, $pa
 
         case 'ptos_venta':
             $r = arca_wsfe_ptos_venta($conexion, $cfg);
+            break;
+
+        case 'tipos_tributos':
+            $r = arca_wsfe_tipos_tributos($conexion, $cfg);
             break;
 
         case 'ultimo_autorizado':

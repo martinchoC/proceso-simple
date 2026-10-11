@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['listas_precios_productos.php', 'productos.php', 'productos_consulta.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once "listas_precios_productos_model.php";
@@ -78,6 +81,7 @@ switch ($accion) {
             break;
         }
         
+        $data['empresa_id'] = (int)$ctx['empresa_id'];
         $resultado = agregarListaPrecioProducto($conexion, $data);
         if (!$resultado) {
             echo json_encode(['resultado' => false, 'error' => 'Ya existe un precio para este producto en la lista seleccionada']);
@@ -125,7 +129,7 @@ switch ($accion) {
         break;
 
     case 'obtener_listas':
-        $listas = obtenerListasPrecios($conexion);
+        $listas = obtenerListasPrecios($conexion, $ctx['empresa_id']);
         echo json_encode($listas);
         break;
 
@@ -181,7 +185,7 @@ switch ($accion) {
         }
         
         // Llamar a la función del modelo
-        $resultado = importarPreciosDesdeExcel($conexion, $lista_precio_id, $productos);
+        $resultado = importarPreciosDesdeExcel($conexion, $lista_precio_id, $productos, (int)$ctx['empresa_id']);
         echo json_encode($resultado);
         break;
 

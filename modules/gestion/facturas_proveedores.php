@@ -7,7 +7,7 @@ $currentPage = 'facturas_proveedores';
 
 $modudo_idx = 2;
 $pagina_idx = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 57;
-$empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -106,17 +106,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <!-- Modal principal -->
             <div class="modal fade" id="modalFacturaProveedor" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered" style="max-width: 1600px; width: 95%;">
+                <div class="modal-dialog modal-dialog-centered modal-factura-proveedor">
                     <div class="modal-content">
-                        <div class="modal-header py-2" style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <h5 class="modal-title" id="modalLabel">
+                        <div class="modal-header py-2 d-flex justify-content-between align-items-center" style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                            <h5 class="modal-title mb-0" id="modalLabel">
                                 <i class="fas fa-file-invoice me-2 text-primary"></i>Factura de Proveedor
                             </h5>
-                            <div class="d-flex align-items-center">
-                                <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="btnToggleFullscreen" title="Pantalla completa">
+                            <div class="d-flex align-items-center ms-auto gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnToggleFullscreen" title="Pantalla completa">
                                     <i class="fas fa-expand"></i>
                                 </button>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                <button type="button" class="btn-close m-0" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                             </div>
                         </div>
                         <div class="modal-body p-3">
@@ -142,6 +142,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <li class="nav-item" role="presentation">
                                         <button class="nav-link" id="impuestos-tab" data-bs-toggle="tab" data-bs-target="#impuestos" type="button" role="tab">
                                             <i class="fas fa-calculator me-1"></i>Otros Impuestos
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="asiento-tab" data-bs-toggle="tab" data-bs-target="#asiento" type="button" role="tab">
+                                            <i class="fas fa-book me-1"></i>Asiento Contable
+                                            <span class="badge bg-success ms-1 d-none" id="badgeAsientoProv"></span>
                                         </button>
                                     </li>
                                 </ul>
@@ -187,6 +193,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="col-md-2">
                                                         <label class="form-label small mb-1">Número</label>
                                                         <input type="number" class="form-control form-control-sm no-spinner" id="comprobante_nro" value="0" min="1" required>
+                                                    </div>
+                                                    <div class="col-md-12 mt-2 d-none" id="asociado_wrap">
+                                                        <label class="form-label small mb-1">Comprobante asociado <span class="text-muted">(nota de crédito / débito)</span></label>
+                                                        <select class="form-select form-select-sm" id="comprobante_asociado_id">
+                                                            <option value="">Sin comprobante asociado</option>
+                                                        </select>
+                                                        <small class="text-muted">Si el comprobante asociado tiene saldo, la nota de crédito se le aplica al confirmarla (con una OP en $0).</small>
                                                     </div>
                                                 </div>
 
@@ -258,10 +271,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="tab-pane fade" id="productos" role="tabpanel">
                                         <div class="card border-warning">
                                             <div class="card-header py-2 bg-warning bg-opacity-10 d-flex justify-content-between">
-                                                <h6 class="mb-0 text-warning"><i class="fas fa-boxes me-2"></i>Detalle de Productos</h6>
-                                                <button type="button" class="btn btn-sm btn-outline-warning" id="btnNuevoProductoRapido">
-                                                    <i class="fas fa-bolt me-1"></i>Nuevo Producto Rápido
-                                                </button>
+                                                <h6 class="mb-0 text-warning"><i class="fas fa-boxes me-2"></i>Detalle de Productos
+                                                    <span id="oc_vinculada_badge" class="badge bg-primary ms-2 d-none">
+                                                        <i class="fas fa-link me-1"></i><span id="oc_vinculada_texto"></span>
+                                                        <a href="#" class="text-white ms-1" id="btnDesvincularOC" title="Desvincular la orden de compra"><i class="fas fa-times"></i></a>
+                                                    </span>
+                                                </h6>
+                                                <input type="hidden" id="orden_compra_id" name="orden_compra_id" value="">
+                                                <div class="d-flex gap-1">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnImportarOC">
+                                                        <i class="fas fa-file-import me-1"></i>Importar OC
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-warning" id="btnNuevoProductoRapido">
+                                                        <i class="fas fa-bolt me-1"></i>Nuevo Producto Rápido
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div class="card-body p-2">
                                                 <!-- Agregar producto rápido -->
@@ -336,12 +360,63 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
                                     </div>
+                                    <!-- TAB 4: ASIENTO CONTABLE -->
+                                    <div class="tab-pane fade" id="asiento" role="tabpanel">
+                                        <div class="card border-primary">
+                                            <div class="card-header py-2 bg-primary bg-opacity-10">
+                                                <h6 class="mb-0 text-primary"><i class="fas fa-book me-2"></i>Asiento Contable</h6>
+                                            </div>
+                                            <div class="card-body p-2">
+                                                <div id="asientoProvVacio" class="text-center p-4 border rounded bg-light">
+                                                    <i class="fas fa-book-open fa-2x text-muted mb-2"></i>
+                                                    <p class="mb-0">La factura todavía no tiene asiento contable</p>
+                                                    <small class="text-muted">Se genera automáticamente al <strong>confirmarla</strong>.</small>
+                                                </div>
+                                                <div id="asientoProvDetalle" style="display: none;">
+                                                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                                        <div>
+                                                            <span class="fw-bold me-2">Asiento #<span id="asientoProvId"></span></span>
+                                                            <span class="badge bg-primary" id="asientoProvTipo"></span>
+                                                            <span class="badge bg-secondary ms-1" id="asientoProvEstado"></span>
+                                                        </div>
+                                                        <div>
+                                                            <small class="text-muted me-3">Fecha: <strong id="asientoProvFecha"></strong></small>
+                                                            <span id="asientoProvBalance"></span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="small text-muted fst-italic mb-2" id="asientoProvDescripcion"></div>
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-bordered mb-0" id="tablaAsientoProv">
+                                                            <thead class="table-light">
+                                                                <tr>
+                                                                    <th style="width: 120px;">Cuenta</th>
+                                                                    <th>Nombre</th>
+                                                                    <th class="text-end" style="width: 140px;">Debe</th>
+                                                                    <th class="text-end" style="width: 140px;">Haber</th>
+                                                                    <th>Detalle</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody></tbody>
+                                                            <tfoot class="table-light fw-bold">
+                                                                <tr>
+                                                                    <td colspan="2" class="text-end">Totales</td>
+                                                                    <td class="text-end" id="asientoProvTotalDebe"></td>
+                                                                    <td class="text-end" id="asientoProvTotalHaber"></td>
+                                                                    <td></td>
+                                                                </tr>
+                                                            </tfoot>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Botones -->
                                 <div class="row mt-3">
                                     <div class="col-12 text-center">
-                                        <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">
+                                        <button type="button" class="btn btn-secondary btn-sm px-4" id="btnCancelarFactura" data-bs-dismiss="modal">
                                             <i class="fas fa-times me-1"></i>Cancelar
                                         </button>
                                         <button type="button" class="btn btn-primary btn-sm px-4" id="btnGuardar">
@@ -367,11 +442,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="modal fade" id="modalNuevoProductoRapido" tabindex="-1" aria-labelledby="modalProductoRapidoLabel" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-centered">
                     <div class="modal-content">
-                        <div class="modal-header py-2 bg-info bg-opacity-10">
-                            <h5 class="modal-title" id="modalProductoRapidoLabel">
+                        <div class="modal-header py-2 d-flex justify-content-between align-items-center bg-info bg-opacity-10">
+                            <h5 class="modal-title mb-0" id="modalProductoRapidoLabel">
                                 <i class="fas fa-bolt me-2 text-info"></i>Nuevo Producto Rápido
                             </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            <button type="button" class="btn-close m-0 ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body p-3">
                             <form id="formNuevoProductoRapido" class="needs-validation" novalidate>
@@ -459,6 +534,72 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
+
+            <!-- Modal Importar Orden de Compra -->
+            <div class="modal fade" id="modalImportarOC" tabindex="-1" aria-labelledby="modalImportarOCLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header py-2 d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                            <h5 class="modal-title mb-0" id="modalImportarOCLabel">
+                                <i class="fas fa-file-import me-2"></i>Importar Orden de Compra
+                            </h5>
+                            <button type="button" class="btn-close m-0 ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-3">
+                            <!-- Paso 1: órdenes del proveedor con pendientes -->
+                            <div id="oc_paso_ordenes">
+                                <p class="small text-muted mb-2">Órdenes de compra del proveedor con mercadería pendiente de recibir.</p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>N°</th><th>Emisión</th><th>Entrega est.</th><th>Sucursal</th>
+                                                <th>Estado</th><th class="text-center">Líneas pend.</th><th class="text-end">Total</th><th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="oc_tabla_ordenes"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <!-- Paso 2: líneas de la OC elegida -->
+                            <div id="oc_paso_lineas" class="d-none">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="fw-bold" id="oc_lineas_titulo"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnOcVolver">
+                                        <i class="fas fa-arrow-left me-1"></i>Otras órdenes
+                                    </button>
+                                </div>
+                                <p class="small text-muted mb-2">
+                                    "En otras facturas" es lo cargado en facturas todavía sin confirmar. Puede facturar más cantidad que la pendiente.
+                                </p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="text-center"><input type="checkbox" class="form-check-input" id="oc_check_todos" checked></th>
+                                                <th>Producto</th>
+                                                <th class="text-end">Pedido</th>
+                                                <th class="text-end">Recibido</th>
+                                                <th class="text-end">En otras fact.</th>
+                                                <th class="text-end">Pendiente</th>
+                                                <th style="width: 110px;">Cantidad</th>
+                                                <th style="width: 120px;">Precio</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="oc_tabla_lineas"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-sm d-none" id="btnOcAgregarLineas">
+                                <i class="fas fa-plus me-1"></i>Agregar a la factura
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -510,14 +651,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             right: 0 !important;
             bottom: 0 !important;
         }
-        .modal-dialog {
-            max-width: 1400px;
-            width: 95%;
-            margin: 1.75rem auto;
+        /* Modal de la factura: casi pantalla completa (antes la regla era genérica y lo limitaba a 1400px) */
+        #modalFacturaProveedor .modal-factura-proveedor {
+            max-width: 98vw;
+            width: 98vw;
+            margin: 1vh auto;
         }
 
-        .modal-body {
-            max-height: calc(100vh - 200px);
+        #modalFacturaProveedor .modal-content {
+            min-height: 96vh;
+        }
+
+        #modalFacturaProveedor .modal-body {
+            max-height: calc(98vh - 70px);
             overflow-y: auto;
         }
 
@@ -624,16 +770,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         .detalles-vacio {
             color: #6c757d;
         }
-        /* Asegurar que el botón de cerrar siempre sea visible */
+        /* Asegurar que el botón de cerrar siempre sea visible y arriba a la derecha */
         .modal-header .btn-close {
-            background-color: rgba(0,0,0,0.1);
+            background-color: rgba(0,0,0,0.06);
             border-radius: 50%;
             padding: 0.5rem;
-            margin: -0.5rem -0.5rem -0.5rem auto;
+            margin: 0;
+            transition: background-color 0.2s ease;
         }
 
         .modal-header .btn-close:hover {
-            background-color: rgba(0,0,0,0.2);
+            background-color: rgba(0,0,0,0.15);
         }
 
         /* Mejorar el espaciado en pantalla completa */

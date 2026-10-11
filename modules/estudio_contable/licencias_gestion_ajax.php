@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['params' => ['empresa_idx'], 'pagina_idx' => 409]);
 /**
  * Controlador AJAX: Wizard de Licencias y Delegación Automática
  * Módulo 4: Estudio Contable (licencias_gestion_ajax.php)
@@ -17,8 +20,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$empresa_id = intval($_SESSION['empresa_id'] ?? 1);
-$usuario_id = intval($_SESSION['usuario_id'] ?? 1);
+$empresa_id = $ctx['empresa_id'];
+$usuario_id = $ctx['usuario_id'];
 
 $action = trim($_POST['action'] ?? $_GET['action'] ?? '');
 

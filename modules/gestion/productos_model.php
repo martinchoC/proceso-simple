@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
@@ -1090,7 +1091,7 @@ function obtenerTiposProducto($conexion, $empresa_idx)
 {
     $sql = "SELECT producto_tipo_id, producto_tipo, producto_tipo_codigo
             FROM gestion__productos_tipos
-            WHERE tabla_estado_registro_id = 1
+            WHERE empresa_id = " . intval($empresa_idx) . " AND tabla_estado_registro_id = 1
             AND maneja_stock = 1 -- productos.php solo da de alta productos con control de stock
             ORDER BY producto_tipo";
 
@@ -1237,15 +1238,15 @@ function agregarProducto($conexion, $data)
     $producto_descripcion = mysqli_real_escape_string($conexion, trim($data['producto_descripcion'] ?? ''));
     $iva_alicuota_id = intval($data['iva_alicuota_id'] ?? 0);
     // cont_cuenta_id ya no se edita desde el ABM, pero la columna es NOT NULL sin
-    // default: al dar de alta se asigna la cuenta contable por defecto (131), la
-    // misma que antes preseleccionaba el combo del formulario. En edición no se toca.
-    $cont_cuenta_id = 131;
-    // Default de negocio: si no llega tipo de producto al dar de alta, se asume 1.
+    // default: al dar de alta se asigna la cuenta del concepto MERCADERIAS de la empresa, 0 si no la tiene.
+    // En edición no se toca.
+    $cont_cuenta_id = emp_cuenta_concepto_id($conexion, intval($data['empresa_id'] ?? 0), 'MERCADERIAS');
+    // Default de negocio: si no llega tipo de producto al dar de alta, el primer tipo con stock de la empresa.
     // Se resuelve acá (no solo en el JS) para que la regla valga también si el
     // endpoint se invoca directo, sin depender del combo del formulario.
     $producto_tipo_id = intval($data['producto_tipo_id'] ?? 0);
     if ($producto_tipo_id <= 0) {
-        $producto_tipo_id = 1;
+        $producto_tipo_id = emp_producto_tipo_id($conexion, intval($data['empresa_id'] ?? 0), true);
     }
     $unidad_medida_id = !empty($data['unidad_medida_id']) ? intval($data['unidad_medida_id']) : null;
     $lado = mysqli_real_escape_string($conexion, trim($data['lado'] ?? ''));
@@ -2716,7 +2717,7 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx)
     $sql = "SELECT iva_alicuota_id, codigo, iva_alicuota, porcentaje, 
                    es_gravado, es_exento, es_no_gravado
             FROM gestion__impuestos__iva_alicuotas
-            WHERE tabla_estado_registro_id = 1
+            WHERE empresa_id = $empresa_idx AND tabla_estado_registro_id = 1
             ORDER BY porcentaje DESC, iva_alicuota";
     
     $stmt = mysqli_prepare($conexion, $sql);

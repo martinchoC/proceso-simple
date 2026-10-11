@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Productos</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-boxes"></i> Manual de usuario: Productos</h1>
+<p class="subtitulo">Cómo cargar y mantener los productos que se venden y se guardan en stock: datos, compatibilidad con vehículos, imágenes, ubicaciones en el depósito, proveedores y precios.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué productos se cargan acá?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#buscar">Buscar y filtrar productos</a></li>
+        <li><a href="#estados">Estados: Activo e Inactivo</a></li>
+        <li><a href="#flujo">Pasos para cargar un producto completo</a></li>
+        <li><a href="#agregar">Agregar un producto (pestaña Información)</a></li>
+        <li><a href="#stock-min-max">Stock mínimo y máximo por boca</a></li>
+        <li><a href="#compatibilidad">Pestaña: Compatibilidad</a></li>
+        <li><a href="#imagenes">Pestaña: Imágenes</a></li>
+        <li><a href="#ubicaciones">Pestaña: Ubicaciones</a></li>
+        <li><a href="#proveedores">Pestaña: Proveedores</a></li>
+        <li><a href="#precios">Pestaña: Precios</a></li>
+        <li><a href="#inhabilitar-habilitar">Inhabilitar o habilitar</a></li>
+        <li><a href="#exportar">Exportar, imprimir y catálogo offline</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué productos se cargan acá?</h2>
+<p>Esta pantalla es para los productos <strong>con stock</strong>: la mercadería que se compra, se guarda en el depósito y se vende (por ejemplo, repuestos).</p>
+<p>Los conceptos <strong>sin stock</strong> (servicios, fletes, gastos, honorarios) se cargan en <a href="productos_generales.html">Productos - Generales</a>. Si querés solo consultar datos y precios sin riesgo de modificar nada, usá <a href="productos_consulta.html">Productos - Consulta</a>.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Código</td><td>Código interno del producto.</td></tr>
+    <tr><td>Nombre</td><td>Nombre del producto.</td></tr>
+    <tr><td>Marcas / Modelos / Submodelos / Años</td><td>Los vehículos con los que es compatible (ver <a href="#compatibilidad">Compatibilidad</a>).</td></tr>
+    <tr><td>Ubicaciones</td><td>Dónde está guardado en el depósito.</td></tr>
+    <tr><td>Cód. Proveedor</td><td>Los códigos con que lo identifican sus proveedores.</td></tr>
+    <tr><td>Imagen</td><td>Miniatura de la imagen principal. Al hacer clic se abre la galería con todas sus imágenes.</td></tr>
+    <tr><td>Una columna por lista de precios</td><td>El precio del producto en cada lista de precios activa.</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles según el estado.</td></tr>
+</table>
+<p>Junto al botón de agregar hay un filtro de <strong>estado</strong>: al entrar muestra solo los productos Activos.</p>
+
+<h2 id="buscar">Buscar y filtrar productos</h2>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Cómo se usa</th></tr>
+    <tr><td>Código o cód. proveedor</td><td>Busca en el código del producto y en los códigos de sus proveedores.</td></tr>
+    <tr><td>Marca → Modelo → Submodelo</td><td>Elegí la marca; recién ahí se habilita el modelo, y después el submodelo. Muestra los productos compatibles con ese vehículo.</td></tr>
+    <tr><td>Buscador por etiquetas</td><td>Escribí una palabra y presioná <strong>Espacio</strong>: se convierte en una etiqueta. Las etiquetas se combinan (todas tienen que coincidir). Para dos palabras juntas usá comillas, por ejemplo <em>"renault 18"</em>, y después Espacio o Enter.</td></tr>
+    <tr><td>✕</td><td>Limpia todos los filtros de una vez.</td></tr>
+</table>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>El producto está a la venta y se puede usar en pedidos, compras y facturas.</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>Ya no se comercializa. Sus datos y su historia se conservan. No se puede editar mientras esté inactivo.</td></tr>
+</table>
+
+<h2 id="flujo">Pasos para cargar un producto completo</h2>
+<ol>
+    <li>Con <span class="boton-ejemplo boton-primario">+ Agregar</span>, cargá los datos de la pestaña <strong>Información</strong> y hacé clic en <span class="boton-ejemplo boton-primario">Guardar</span>.</li>
+    <li>Buscá el producto en el listado y abrilo con <strong>Editar</strong> (lápiz).</li>
+    <li>Completá las demás pestañas: Compatibilidad, Imágenes, Ubicaciones, Proveedores y Precios.</li>
+</ol>
+<div class="alert alert-warning">Las pestañas Compatibilidad, Imágenes, Ubicaciones, Proveedores y Precios funcionan sobre un producto <strong>ya guardado</strong>. En un producto nuevo sus botones no hacen nada hasta que lo guardes y lo vuelvas a abrir con Editar. Cada cosa que agregás en esas pestañas se guarda en el momento, sin necesidad del botón Guardar general.</div>
+
+<h2 id="agregar">Agregar un producto (pestaña Información)</h2>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código *</td><td>Obligatorio, hasta 50 caracteres. No puede repetirse.</td></tr>
+    <tr><td>Código de Barras</td><td>Para leer el producto con lector.</td></tr>
+    <tr><td>Tipo *</td><td>Tipo de producto (define, entre otras cosas, sus cuentas contables). Obligatorio.</td></tr>
+    <tr><td>Nombre *</td><td>Obligatorio, hasta 150 caracteres.</td></tr>
+    <tr><td>Descripción Extendida</td><td>Detalle largo del producto.</td></tr>
+    <tr><td>Unidad de Medida, Lado, Material, Color, Peso (kg), Garantía</td><td>Datos descriptivos opcionales.</td></tr>
+    <tr><td>IVA Alícuota</td><td>Porcentaje de IVA del producto (por ejemplo 21%).</td></tr>
+</table>
+<p>Al guardar ves "¡Guardado! Producto guardado correctamente" y la ventana se cierra.</p>
+
+<h2 id="stock-min-max">Stock mínimo y máximo por boca</h2>
+<p>Dentro de la pestaña Información hay una tabla con una fila por cada <a href="bocas.html">boca</a> a la que tenés acceso: muestra el <strong>stock actual</strong> y te deja cargar el <strong>Mínimo</strong> y el <strong>Máximo</strong>.</p>
+<ul>
+    <li>Si el stock de una boca queda por debajo del mínimo, el sistema genera una alerta de reposición.</li>
+    <li>Si dejás el mínimo vacío, esa boca no se controla. Para cargar un máximo hay que cargar también el mínimo.</li>
+    <li>El punto de color indica: verde = en nivel, rojo = bajo el mínimo, gris = sin control.</li>
+</ul>
+<p>Se guarda junto con el producto. Si los números no tienen sentido (mínimo negativo, máximo menor que el mínimo, máximo sin mínimo), el sistema avisa con "Stock mínimo / máximo" y te lleva a la pestaña para corregir. Si el producto se guardó pero los niveles no, ves "Producto guardado" con el detalle, y la ventana queda abierta para corregir.</p>
+
+<h2 id="compatibilidad">Pestaña: Compatibilidad</h2>
+<p>Indica con qué vehículos es compatible el producto. Es lo que permite encontrarlo filtrando por marca y modelo.</p>
+<ul>
+    <li><span class="boton-ejemplo boton-primario">+ Agregar</span>: abre una ventana para elegir <strong>Marca *</strong>, <strong>Modelo *</strong> (se habilita al elegir marca), <strong>Submodelo</strong> (opcional, o "Sin submodelo"), <strong>Año Desde *</strong> y <strong>Año Hasta</strong> (vacío o "Actual" = hasta hoy).</li>
+    <li><span class="boton-ejemplo boton-outline">Agregar varias</span>: escribí en el buscador (por ejemplo "ford fiesta"), hacé clic en los resultados para sumarlos a la lista "Seleccionadas para agregar", ajustá los años de cada una y hacé clic en <strong>Guardar todas</strong>.</li>
+    <li>Cada fila tiene botones para editar o eliminar. Eliminar pide confirmación ("¿Eliminar Compatibilidad? Esta acción no se puede deshacer").</li>
+</ul>
+
+<h2 id="imagenes">Pestaña: Imágenes</h2>
+<p>Con <strong>Agregar Imagen</strong> subís una foto (JPG, PNG, GIF o WebP, hasta 5 MB), con descripción, si es la <strong>principal</strong> y el orden. Se ve una vista previa antes de guardar.</p>
+<p>Podés arrastrar las imágenes para cambiar el orden; la primera es la principal. Cada imagen tiene opciones para editarla, marcarla como principal o eliminarla (las dos últimas piden confirmación).</p>
+
+<h2 id="ubicaciones">Pestaña: Ubicaciones</h2>
+<p>Indica en qué lugar del depósito está guardado el producto. Puede tener varias ubicaciones, incluso en distintas sucursales.</p>
+<ul>
+    <li><strong>Agregar Ubicación</strong>: elegís una ubicación ya existente bajando nivel por nivel (Sucursal → Boca → Sección → Estantería → Estante → Posición). Al completar, aparece "Ubicación seleccionada" y se habilita Guardar.</li>
+    <li><strong>Nueva Ubicación</strong>: si la ubicación todavía no existe, la creás acá mismo (sucursal, boca, sección, estantería, estante, posición y descripción). Al crearla, el sistema pregunta si querés asignarla al producto.</li>
+    <li>Cada fila tiene botones para cambiarla o eliminarla (pide confirmación).</li>
+</ul>
+<p>Las ubicaciones se administran en general en <a href="sucursales_ubicaciones.html">Depósitos - Ubicaciones</a>.</p>
+
+<h2 id="proveedores">Pestaña: Proveedores</h2>
+<p>Con <strong>Agregar Proveedor</strong> elegís un proveedor y, opcionalmente, el <strong>código con el que ese proveedor identifica el producto</strong>. Un producto puede tener varios proveedores, cada uno con su código. Ese código después sirve para buscar el producto desde el filtro "Código o cód. proveedor".</p>
+
+<h2 id="precios">Pestaña: Precios</h2>
+<p>Muestra el precio del producto en cada lista: precio unitario, precio con IVA y fecha de actualización.</p>
+<ul>
+    <li><strong>Agregar Precio</strong>: elegís la <strong>Lista de Precios</strong> y cargás el <strong>Precio Unitario (neto, sin IVA)</strong>. No puede haber dos precios del mismo producto en la misma lista.</li>
+    <li>Al <strong>editar</strong> un precio, la lista no se puede cambiar: si te equivocaste de lista, eliminá el precio y cargalo en la correcta.</li>
+</ul>
+<p>Para cargar o actualizar precios de muchos productos a la vez (incluso desde Excel), usá <a href="listas_precios_productos.html">Listas de Precios - Productos</a>. Las listas en sí se crean en <a href="listas_precios.html">Listas de Precios - Seteo</a>.</p>
+<div class="alert alert-warning">Si alguien usa "Recalcular Precios" en una lista (ver <a href="listas_precios.html#recalcular">Listas de Precios - Seteo</a>), los precios cargados a mano en esa lista se reemplazan por los calculados.</div>
+
+<h2 id="inhabilitar-habilitar">Inhabilitar o habilitar</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Editar (lápiz)</td><td>Abre la ficha del producto.</td><td>Producto Activo</td></tr>
+    <tr><td><span class="boton-ejemplo boton-peligro">Inhabilitar</span></td><td>Pasa el producto a Inactivo. Pide confirmación: "¿Está seguro de inactivar el producto …?".</td><td>Producto Activo</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Habilitar</span></td><td>Lo vuelve a Activo. Pide confirmación.</td><td>Producto Inactivo</td></tr>
+</table>
+<p>Para ver los inactivos, cambiá el filtro de estado de arriba.</p>
+
+<h2 id="exportar">Exportar, imprimir y catálogo offline</h2>
+<p>El menú <span class="boton-ejemplo boton-outline">Exportar</span> ofrece Excel, PDF, CSV e Imprimir (del listado tal como lo estás viendo), y además <strong>Catálogo Offline &amp; Enviar Email</strong>, que abre en otra pestaña la generación del catálogo para enviar. El botón <span class="boton-ejemplo boton-outline">↻</span> recarga la tabla.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué hacer</th></tr>
+    <tr><td>Ya existe un producto con este código</td><td>Usá otro código, o buscá el existente (puede estar inactivo).</td></tr>
+    <tr><td>Este producto no controla stock: editarlo desde Productos - Generales</td><td>Es un concepto sin stock. Editalo en <a href="productos_generales.html">Productos - Generales</a>.</td></tr>
+    <tr><td>Esta compatibilidad ya existe</td><td>Ese vehículo ya está cargado para el producto.</td></tr>
+    <tr><td>Esta ubicación ya está asignada al producto</td><td>No hace falta volver a asignarla.</td></tr>
+    <tr><td>Seleccione una ubicación: Debe seleccionar una posición válida para continuar</td><td>Bajá hasta el nivel Posición.</td></tr>
+    <tr><td>Ya existe un precio para este producto en la lista seleccionada</td><td>Editá el precio existente en lugar de agregar otro.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Toco "Agregar" en Compatibilidad (o Imágenes, Precios…) y no pasa nada.</td><td>El producto todavía no está guardado. Guardalo, buscalo en el listado y abrilo con Editar.</td></tr>
+    <tr><td>No encuentro un producto que sé que existe.</td><td>Revisá el filtro de estado (puede estar Inactivo), limpiá los filtros con ✕, y probá buscarlo por el código del proveedor. Si es un servicio o concepto sin stock, está en <a href="productos_generales.html">Productos - Generales</a>.</td></tr>
+    <tr><td>En la tabla de stock mínimo no aparece una boca.</td><td>Solo se muestran las bocas a las que tenés acceso (ver <a href="accesos_perfiles.html">Accesos por Perfil</a>).</td></tr>
+    <tr><td>¿Dónde veo el stock actual de un producto?</td><td>En la tabla de stock mínimo/máximo de la ficha (pestaña Información), una fila por boca.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Productos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -4,7 +4,7 @@ $pageTitle = 'Facturas de Clientes';
 $currentPage = 'ventas_facturas';
 $modudo_idx = 2;
 $pagina_idx = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 56;
-$empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 // Deep-link: llega desde ventas_remitos.php (botón "Facturado"/"Facturado Parcial") con un
 // remito puntual para precargar en el alta de factura nueva.
@@ -18,7 +18,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 <main class="app-main">
   <div class="app-content-header"><div class="container-fluid"><div class="row"><div class="col-sm-6"><h3 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i>Facturas de Clientes</h3></div><div class="col-sm-6"><ol class="breadcrumb float-sm-end"><li class="breadcrumb-item">Ventas</li><li class="breadcrumb-item active">Facturas de Clientes</li></ol></div></div></div></div>
-  <div class="app-content"><div class="container-fluid"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><button class="btn btn-sm btn-primary" id="btnNuevaFactura"><i class="fas fa-plus me-1"></i>Nueva Factura</button><div class="input-group input-group-sm" style="width: 250px;"><span class="input-group-text"><i class="fas fa-search"></i></span><input type="text" class="form-control" id="filtro_facturas" placeholder="Buscar factura / cliente..."></div></div><button class="btn btn-sm btn-outline-secondary" id="btnRecargar"><i class="fas fa-sync-alt"></i></button></div><div class="card-body"><table id="tablaFacturasCliente" class="table table-striped table-bordered table-sm table-slim" style="width:100%"><thead><tr><th>Número</th><th>Cliente</th><th>Tipo</th><th>Emisión</th><th>Condición De Pago</th><th>Total</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody></tbody></table></div></div></div></div>
+  <div class="app-content"><div class="container-fluid"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><button class="btn btn-sm btn-primary" id="btnNuevaFactura"><i class="fas fa-plus me-1"></i>Nueva Factura</button><div class="input-group input-group-sm" style="width: 250px;"><span class="input-group-text"><i class="fas fa-search"></i></span><input type="text" class="form-control" id="filtro_facturas" placeholder="Buscar factura / cliente..."></div></div><button class="btn btn-sm btn-outline-secondary" id="btnRecargar"><i class="fas fa-sync-alt"></i></button></div><div class="card-body"><table id="tablaFacturasCliente" class="table table-striped table-bordered table-sm table-slim" style="width:100%"><thead><tr><th>Número</th><th>Cliente</th><th>Tipo</th><th>Emisión</th><th>Condición De Pago</th><th>Total</th><th>CAE</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody></tbody></table></div></div></div></div>
 </main>
 <div class="modal fade" id="modalFacturaCliente" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -87,9 +87,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                   <label class="form-label">Tipo Comprobante</label>
                   <select class="form-select form-select-sm" id="factura_comprobante_tipo_id" required><option value="">Seleccionar PV</option></select>
                 </div>
+                <div class="col-md-12 d-none" id="factura_asociado_wrap">
+                  <label class="form-label">Comprobante asociado <small class="text-muted">(nota de crédito / débito)</small></label>
+                  <select class="form-select form-select-sm" id="factura_comprobante_asociado_id"><option value="">Sin comprobante asociado</option></select>
+                  <small class="text-muted">Si el comprobante asociado tiene saldo, la nota de crédito se le aplica al confirmarla (con recibo en $0).</small>
+                </div>
                 <div class="col-md-4">
                   <label class="form-label">Número</label>
                   <input type="text" class="form-control form-control-sm" id="factura_comprobante_nro" value="Se asigna al confirmar" readonly>
+                  <div class="form-text" id="factura_cae_info"></div>
                 </div>
               </div>
               <div class="card border-primary mb-3" id="cardRemitosFactura">
@@ -112,6 +118,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
               </div>
               <div id="contenedorDetalleFactura"></div>
               <textarea class="form-control form-control-sm mt-3" id="factura_observaciones" placeholder="Observaciones"></textarea>
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="factura_destino_bien_uso" value="1">
+                <label class="form-check-label small" for="factura_destino_bien_uso">El cliente declara destino <strong>bien de uso / insumo</strong> (sin percepción de IIBB; se imprime en la factura)</label>
+              </div>
             </form>
           </div>
 
@@ -123,17 +133,62 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 <span class="badge bg-info text-dark" id="badgeEstadoPago">Pendiente de Pago</span>
               </div>
               <div class="card-body p-3" id="contenedorMediosPago">
-                <div class="alert alert-light border d-flex align-items-center mb-3">
-                  <i class="fas fa-info-circle text-info fs-4 me-3"></i>
-                  <div>
-                    <strong>Carga de Medios de Pago</strong>
-                    <div class="small text-muted">Aquí se registrarán los cobros asociados (Efectivo, Cheques, Transferencias, Tarjetas, etc.).</div>
+                <!-- Resumen de saldo -->
+                <div class="factura-totales-box mb-3">
+                  <div class="factura-totales-item"><span class="factura-totales-label">Total Factura</span><span class="factura-totales-valor" id="cobroTotalFactura">$0,00</span></div>
+                  <div class="factura-totales-item"><span class="factura-totales-label">Cobrado / Aplicado</span><span class="factura-totales-valor" id="cobroCobrado">$0,00</span></div>
+                  <div class="factura-totales-final"><span class="factura-totales-label">Saldo Pendiente</span><span class="factura-totales-valor" id="cobroSaldo">$0,00</span></div>
+                </div>
+
+                <div class="alert alert-light border small py-2 mb-3" id="cobroMotivo" style="display:none;"></div>
+
+                <!-- Nuevo recibo -->
+                <div id="cobroFormulario" style="display:none;">
+                  <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                      <label class="form-label">Punto De Venta Del Recibo</label>
+                      <select class="form-select form-select-sm" id="cobro_punto_venta_id"></select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Tipo De Recibo</label>
+                      <select class="form-select form-select-sm" id="cobro_comprobante_tipo_id"></select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Fecha Del Recibo</label>
+                      <input type="date" class="form-control form-control-sm" id="cobro_f_emision">
+                    </div>
+                  </div>
+                  <table class="table table-sm table-bordered mb-2" id="tablaCobroMedios">
+                    <thead class="table-light">
+                      <tr><th style="width:22%">Medio</th><th>Detalle</th><th style="width:16%" class="text-end">Importe</th><th style="width:40px"></th></tr>
+                    </thead>
+                    <tbody></tbody>
+                    <tfoot>
+                      <tr>
+                        <td colspan="2">
+                          <button type="button" class="btn btn-sm btn-outline-primary" id="btnCobroAgregarMedio"><i class="fas fa-plus me-1"></i>Agregar Medio</button>
+                          <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCobroCompletarSaldo" title="Completar la última fila con el saldo pendiente"><i class="fas fa-equals me-1"></i>Completar Saldo</button>
+                        </td>
+                        <td class="text-end fw-bold" id="cobroTotalMedios">$0,00</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                  <input type="text" class="form-control form-control-sm mb-2" id="cobro_observaciones" maxlength="200" placeholder="Observaciones del recibo (opcional)">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted" id="cobroDiferencia"></small>
+                    <button type="button" class="btn btn-sm btn-success px-4" id="btnEmitirRecibo"><i class="fas fa-receipt me-1"></i>Emitir Recibo</button>
                   </div>
                 </div>
-                <div class="text-center py-4 text-muted">
-                  <i class="fas fa-cash-register fa-3x mb-2 text-secondary opacity-50"></i>
-                  <p class="mb-0">Próximamente: registro y aplicación de recibos y valores.</p>
-                </div>
+
+                <!-- Recibos / comprobantes ya aplicados -->
+                <h6 class="mt-4 mb-2 fw-semibold"><i class="fas fa-list me-1"></i>Cobros Aplicados</h6>
+                <table class="table table-sm table-bordered mb-0" id="tablaCobrosAplicados">
+                  <thead class="table-light">
+                    <tr><th>Comprobante</th><th>Fecha</th><th>Medios</th><th class="text-end">Importe Aplicado</th><th>Estado</th></tr>
+                  </thead>
+                  <tbody><tr><td colspan="5" class="text-muted text-center">Sin cobros aplicados.</td></tr></tbody>
+                </table>
               </div>
             </div>
           </div>

@@ -4,12 +4,25 @@ require_once __DIR__ . '/../../db.php';
 
 $pageTitle = "IVA Alícuotas";
 $currentPage = 'iva_alicuotas';
-$modudo_idx = 2;
-$pagina_idx = 65; // ID de página para IVA alícuotas
+$modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
+$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 65; // ID de página para IVA alícuotas
+$empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
+$pagina_idx = $pagina_id;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
+
+<!-- Estilos y librerías requeridas (Select2 y DataTables Buttons) -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+
 
 <main class="app-main">
     <div class="app-content-header">
@@ -260,8 +273,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script>
         $(document).ready(function () {
             // Variables de contexto MULTIEMPRESA
-            const empresa_idx = <?php echo isset($_GET['empresa_id']) ? $_GET['empresa_id'] : 2; ?>;
-            const pagina_idx = <?php echo $pagina_idx; ?>;
+            const empresa_idx = <?php echo isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : $empresa_id; ?>;
+            const pagina_idx = <?php echo isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : $pagina_idx; ?>;
 
             // Variables para mantener el estado del DataTable
             var tabla;
@@ -328,18 +341,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             // Inicializar Select2 en el modal
             function inicializarSelect2() {
-                $('#cont_cuenta_id').select2({
-                    theme: 'bootstrap-5',
-                    placeholder: 'Buscar cuenta contable...',
-                    allowClear: true,
-                    width: '100%',
-                    dropdownParent: $('#modalIvaAlicuota'),
-                    language: {
-                        noResults: function() {
-                            return "No se encontraron cuentas contables";
+                if (typeof $.fn.select2 === 'function') {
+                    $('#cont_cuenta_id').select2({
+                        theme: 'bootstrap-5',
+                        placeholder: 'Buscar cuenta contable...',
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('#modalIvaAlicuota'),
+                        language: {
+                            noResults: function () {
+                                return "No se encontraron cuentas contables";
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
 
             // Función para inicializar DataTable
@@ -601,7 +616,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
+                        url: '<?= asset_local("js/datatables-es-ES.json") ?>',
                         buttons: {
                             excel: 'Excel',
                             pdf: 'PDF',
@@ -1089,18 +1104,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             });
         });
     </script>
-
-    <!-- Librerías necesarias para DataTables Buttons -->
-    <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </main>
 
 <?php

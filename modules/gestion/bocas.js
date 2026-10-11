@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    const empresa_idx = 2;          // ID de la empresa (ajustar según contexto)
+    const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
     const pagina_idx = 71;          // ID de página en conf__paginas
 
     var tabla;

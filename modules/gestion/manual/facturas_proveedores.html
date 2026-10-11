@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Facturas de Proveedores</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert a { color: inherit; font-weight: 600; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-primary { background: var(--azul); }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-file-invoice"></i> Manual de usuario: Facturas de Proveedores</h1>
+<p class="subtitulo">Cómo cargar las facturas, notas de crédito y notas de débito que te mandan tus proveedores, y qué pasa con el stock, los costos y la contabilidad al confirmarlas.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#flujo">El recorrido de una factura</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Los estados de una factura</a></li>
+        <li><a href="#cargar-factura">Cargar una factura nueva: pestaña Datos</a></li>
+        <li><a href="#productos">Pestaña Productos</a></li>
+        <li><a href="#importar-oc">Importar una Orden de Compra</a></li>
+        <li><a href="#producto-rapido">Crear un producto nuevo desde la factura</a></li>
+        <li><a href="#otros-impuestos">Pestaña Otros Impuestos</a></li>
+        <li><a href="#pestana-asiento">Pestaña Asiento Contable</a></li>
+        <li><a href="#guardar-factura">Guardar la factura</a></li>
+        <li><a href="#pasar-aprobacion">Pasar a Aprobación</a></li>
+        <li><a href="#confirmar-factura">Confirmar la factura</a></li>
+        <li><a href="#notas-credito">Notas de crédito y débito</a></li>
+        <li><a href="#columna-asiento">Columna Asiento: regenerar el asiento</a></li>
+        <li><a href="#eliminar-factura">Eliminar una factura</a></li>
+        <li><a href="#visualizar-imprimir">Visualizar e imprimir</a></li>
+        <li><a href="#botones">Resumen de botones</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p>Acá registrás los comprobantes que te emiten tus proveedores: facturas, notas de débito y notas de crédito. Es el paso que hace que la compra "exista" para el sistema. Al <strong>confirmar</strong> una factura:</p>
+<ul>
+    <li>la mercadería <strong>entra al stock</strong> del depósito que elegiste,</li>
+    <li>se <strong>actualiza el costo</strong> de cada producto con el precio de esta compra,</li>
+    <li>se genera el <strong>asiento contable</strong>,</li>
+    <li>queda la <strong>deuda con el proveedor</strong>, que después se paga desde <a href="pagos.html">Órdenes de Pago</a>,</li>
+    <li>y, si la factura viene de una <a href="ordenes_compra.html">Orden de Compra</a>, se descuenta lo recibido de esa orden.</li>
+</ul>
+
+<h2 id="flujo">El recorrido de una factura</h2>
+<ol>
+    <li>Cargás la factura con los datos del papel del proveedor y la guardás. Queda en <strong>Borrador</strong>.</li>
+    <li>Cuando está lista para revisar, usás <strong>Pasar a Aprobación</strong>. Desde ahí ya no se puede editar.</li>
+    <li>Quien la revisa usa <strong>Confirmar</strong>. Recién ahí se mueve el stock, se actualizan costos y se genera el asiento.</li>
+    <li>Si el proveedor tenía notas de crédito a tu favor, el sistema te ofrece descontarlas de esta factura.</li>
+    <li>La factura queda lista para pagarse.</li>
+</ol>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno de la factura en el sistema</td></tr>
+    <tr><td>Tipo</td><td>Tipo de comprobante (Factura A, Nota de Crédito B, etc.)</td></tr>
+    <tr><td>Número</td><td>Punto de venta y número del comprobante del proveedor</td></tr>
+    <tr><td>Proveedor</td><td>A quién le compraste</td></tr>
+    <tr><td>Sucursal / Depósito</td><td>Tu sucursal y el depósito donde entra la mercadería</td></tr>
+    <tr><td>Emisión / Vencimiento</td><td>Fecha del comprobante y fecha en que vence el pago</td></tr>
+    <tr><td>Total</td><td>Importe total del comprobante</td></tr>
+    <tr><td>Estado</td><td>Estado actual (ver <a href="#estados">más abajo</a>)</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles según el estado. Muestran solo un ícono: pasá el mouse por encima para ver el nombre.</td></tr>
+    <tr><td>Asiento</td><td>En facturas confirmadas, el botón <span class="boton-ejemplo boton-outline">Asiento</span>; en las demás, la marca <span class="badge badge-secondary">Pendiente</span></td></tr>
+</table>
+<p>Las facturas más nuevas aparecen primero. Usá el buscador de arriba a la derecha de la tabla para encontrar una factura por proveedor, número o cualquier dato visible. Solo ves las facturas de las sucursales a las que tenés acceso.</p>
+
+<h2 id="estados">Los estados de una factura</h2>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Pendiente de Aprobación</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Confirmado</div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td>Borrador</td><td>La factura está cargada pero no tiene ningún efecto todavía. Podés editarla, pasarla a aprobación o eliminarla.</td></tr>
+    <tr><td>Pendiente de Aprobación</td><td>La factura está lista y espera que alguien la revise y confirme. Ya no se puede editar. Todavía no movió stock ni costos.</td></tr>
+    <tr><td>Confirmado</td><td>La factura está en firme: entró el stock, se actualizaron los costos, tiene asiento contable y queda como deuda con el proveedor.</td></tr>
+    <tr><td>Eliminado</td><td>La factura se dio de baja desde Borrador. Queda en el listado como registro, sin acciones.</td></tr>
+</table>
+
+<h2 id="cargar-factura">Cargar una factura nueva: pestaña Datos</h2>
+<p>Con <span class="boton-ejemplo boton-primario">+ Agregar</span> se abre la ventana <strong>Nueva Factura de Proveedor</strong>, organizada en cuatro pestañas: <strong>Datos</strong>, <strong>Productos</strong>, <strong>Otros Impuestos</strong> y <strong>Asiento Contable</strong>. El ícono de flechas de arriba la agranda a pantalla completa.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Sucursal</td><td>Tu sucursal que recibe la compra. Obligatoria.</td></tr>
+    <tr><td>Depósito</td><td>Se completa al elegir la sucursal, con el depósito principal ya elegido. Es donde va a entrar la mercadería. Obligatorio.</td></tr>
+    <tr><td>Proveedor / Sucursal</td><td>Quién te factura. Si el proveedor tiene sucursales, aparece una opción por cada una. Obligatorio.</td></tr>
+    <tr><td>Tipo</td><td>Factura, nota de crédito o nota de débito, con su letra. Obligatorio.</td></tr>
+    <tr><td>PV</td><td>El punto de venta impreso en el comprobante del proveedor (los primeros dígitos del número).</td></tr>
+    <tr><td>Número</td><td>El número impreso en el comprobante del proveedor. Obligatorio.</td></tr>
+    <tr><td>Comprobante asociado</td><td>Aparece solo para notas de crédito y de débito. Ver <a href="#notas-credito">Notas de crédito y débito</a>.</td></tr>
+    <tr><td>Emisión</td><td>Fecha del comprobante. Viene con la fecha de hoy. Obligatoria.</td></tr>
+    <tr><td>Contabilidad</td><td>Fecha con la que se registra en la contabilidad. Copia la fecha de emisión cada vez que la cambiás; se puede corregir.</td></tr>
+    <tr><td>Vencimiento</td><td>Cuándo vence el pago. Se calcula solo sumando a la emisión los días de la condición de pago. No puede ser anterior a la emisión.</td></tr>
+    <tr><td>Moneda / TC</td><td>Moneda del comprobante y tipo de cambio (se completa con la cotización de la moneda).</td></tr>
+    <tr><td>Cond. Pago</td><td>Al elegir el proveedor se completa con su condición de pago vigente.</td></tr>
+    <tr><td>Dto.%</td><td>Descuento general sobre toda la factura. Al elegir el proveedor se completa con su descuento vigente. Si lo cambiás, se recalculan todas las líneas.</td></tr>
+    <tr><td>Dirección / Observaciones</td><td>Campos de texto libres.</td></tr>
+</table>
+<p>Debajo, una franja verde muestra los totales: <strong>Neto</strong>, <strong>Descuentos</strong>, <strong>No Gravado</strong>, <strong>Exento</strong>, <strong>IVA</strong>, <strong>Otros Imp</strong> y <strong>TOTAL</strong>. Compará este total con el del papel antes de guardar.</p>
+<div class="nota-lateral">La condición de pago y el descuento del proveedor salen de la pestaña Condiciones Proveedores de <a href="proveedores.html#condiciones-proveedores">Proveedores</a>.</div>
+
+<h2 id="productos">Pestaña Productos</h2>
+<p>Acá cargás las líneas de la factura. Primero tenés que haber elegido el proveedor en la pestaña Datos. Arriba hay dos botones: <span class="boton-ejemplo boton-outline">Importar OC</span> y <span class="boton-ejemplo boton-outline">⚡ Nuevo Producto Rápido</span>. Debajo está la fila <strong>Agregar Producto</strong>:</p>
+<ol>
+    <li>Escribí al menos 2 letras del código, del nombre o del código del proveedor. Elegí el producto de la lista con el mouse o con flechas y Enter. Los productos que ya trabajás con ese proveedor aparecen primero.</li>
+    <li>El sistema completa el IVA del producto y sugiere el último precio que le pagaste a ese proveedor, si lo hay.</li>
+    <li>Completá <strong>Cant.</strong> y <strong>Precio</strong> (sin IVA). Los dos tienen que ser mayores a 0.</li>
+    <li>Si el proveedor hizo un descuento para esa línea, cargalo en <strong>Dto%</strong>. Se suma al descuento general de la pestaña Datos.</li>
+    <li>Si hace falta, completá <strong>No Grav.</strong> o <strong>Exento</strong> (importes).</li>
+    <li>Tocá el botón verde <span class="boton-ejemplo boton-primario">+</span>.</li>
+</ol>
+<p>Las líneas se ven en una tabla con cantidad, precio, descuentos, neto, IVA y total. Las nuevas llevan la marca <span class="badge badge-secondary">Nuevo</span> y las que vinieron de una orden de compra, la marca <span class="badge badge-primary">OC</span>.</p>
+<p>Si el producto que elegís tiene la marca <span class="badge badge-warning">No vinculado al proveedor</span>, el sistema te ofrece <strong>Vincular y usar</strong> (escribís el código del proveedor y queda guardado), <strong>Usar sin vincular</strong> o <strong>Cancelar</strong>. Es igual que en <a href="ordenes_compra.html#producto-no-vinculado">Órdenes de Compra</a>.</p>
+<h3 id="editar-linea">Corregir o quitar una línea</h3>
+<ul>
+    <li><span class="boton-ejemplo boton-outline">✎</span> <strong>Editar</strong>: sube la línea a la fila de carga y la saca de la tabla. Corregí y volvé a tocar <span class="boton-ejemplo boton-primario">+</span>. Si la línea venía de una orden de compra y no cambiás el producto, sigue vinculada a esa orden.</li>
+    <li><span class="boton-ejemplo boton-peligro">🗑</span> <strong>Eliminar</strong>: pide confirmación y quita la línea.</li>
+</ul>
+
+<h2 id="importar-oc">Importar una Orden de Compra</h2>
+<p>Si esta factura corresponde a una <a href="ordenes_compra.html">Orden de Compra</a>, usá <span class="boton-ejemplo boton-outline">Importar OC</span> para traer sus líneas en vez de cargarlas a mano. Así el sistema sabe qué parte de la orden se está recibiendo.</p>
+<ol>
+    <li>Tocá <strong>Importar OC</strong>. Se listan las órdenes de ese proveedor que tienen mercadería pendiente (en estado Confirmado, Pendiente de Recepción o Recibido parcial), con su número, fechas, estado, cantidad de líneas pendientes y total. Si hay una sola, se abre directamente.</li>
+    <li>Tocá <span class="boton-ejemplo boton-outline">Ver líneas</span> en la orden que corresponde.</li>
+    <li>Para cada línea vas a ver: <strong>Pedido</strong>, <strong>Recibido</strong> (lo que ya llegó en facturas confirmadas), <strong>En otras fact.</strong> (lo cargado en otras facturas todavía sin confirmar) y <strong>Pendiente</strong>. Las líneas con pendiente vienen marcadas, con la cantidad pendiente y el precio de la orden ya cargados.</li>
+    <li>Desmarcá lo que no llegó y corregí cantidades o precios según el papel del proveedor. Podés facturar más de lo pendiente. Cantidad y precio tienen que ser mayores a 0.</li>
+    <li>Tocá <span class="boton-ejemplo boton-primario">Agregar a la factura</span>. Aparece el aviso "N línea(s) agregadas de la OC".</li>
+</ol>
+<p>En el título de la pestaña Productos aparece una etiqueta azul <span class="badge badge-primary">OC N° …</span> con la orden vinculada. Una factura solo puede estar vinculada a <strong>una</strong> orden: si volvés a usar Importar OC, solo te ofrece la misma orden. El botón <span class="boton-ejemplo boton-outline">Otras órdenes</span> vuelve a la lista de órdenes.</p>
+<h3 id="desvincular-oc">Desvincular la orden</h3>
+<p>La ✕ de la etiqueta azul desvincula la orden ("¿Desvincular la orden de compra?"). Las líneas quedan en la factura, pero ya no se descuentan de la orden. Si cambiás el proveedor de la factura, la orden se desvincula sola y te avisa "Se desvinculó la orden de compra".</p>
+<div class="nota-lateral">Lo recibido se suma a la orden recién cuando <strong>confirmás</strong> la factura. Mientras la factura está en Borrador o Pendiente de Aprobación, esas cantidades aparecen como "En otras fact." si importás la misma orden en otra factura.</div>
+
+<h2 id="producto-rapido">Crear un producto nuevo desde la factura</h2>
+<p><span class="boton-ejemplo boton-outline">⚡ Nuevo Producto Rápido</span> funciona igual que en <a href="ordenes_compra.html#producto-rapido">Órdenes de Compra</a>: pide Código, Nombre, Categoría y el <strong>Código del Proveedor Actual</strong> (obligatorios), y opcionalmente IVA, código de barras, unidad de medida y descripción. Al guardar aparece "Producto creado". Después buscalo en la fila Agregar Producto para sumarlo a la factura.</p>
+
+<h2 id="otros-impuestos">Pestaña Otros Impuestos</h2>
+<p>Acá van las percepciones y otros impuestos que figuran en la factura además del IVA (por ejemplo, percepciones de Ingresos Brutos). En una factura nueva, el sistema trae solos los impuestos configurados para la empresa en las compras.</p>
+<p>Cada impuesto se muestra con su <strong>Base Imponible</strong>, <strong>Alícuota %</strong> e <strong>Importe</strong>, y los tres se pueden escribir:</p>
+<ul>
+    <li>Si cambiás la base o la alícuota, el importe se recalcula.</li>
+    <li>Si cambiás el importe (y hay base), se recalcula la alícuota.</li>
+</ul>
+<p>Con <span class="boton-ejemplo boton-outline">+ Agregar Impuesto</span> sumás otro impuesto: elegís uno de los impuestos configurados, completás base, alícuota e importe (se calcula solo como base × alícuota ÷ 100) y un detalle opcional. El botón <span class="boton-ejemplo boton-peligro">🗑</span> lo quita, previa confirmación. El total de otros impuestos se suma al TOTAL de la factura.</p>
+<div class="alert alert-warning">Cuando agregás, cambiás o quitás productos, el sistema vuelve a calcular la base de cada impuesto con los nuevos totales y pisa lo que habías escrito a mano. Cargá los productos primero y ajustá los impuestos <strong>al final</strong>, comparándolos con el papel.</div>
+
+<h2 id="pestana-asiento">Pestaña Asiento Contable</h2>
+<p>Es solo de consulta. Mientras la factura no está confirmada, dice "La factura todavía no tiene asiento contable. Se genera automáticamente al confirmarla". Una vez confirmada, muestra el número de asiento, su fecha, cada cuenta con su Debe y Haber, los totales y una marca <span class="badge badge-success">Balanceado</span> (o "Desbalanceado" con la diferencia, si algo no cierra). El número del asiento también aparece junto al nombre de la pestaña.</p>
+
+<h2 id="guardar-factura">Guardar la factura</h2>
+<p>Con <span class="boton-ejemplo boton-primario">Guardar Factura</span> la factura queda en <strong>Borrador</strong>. El sistema revisa:</p>
+<ul>
+    <li>Que la fecha de vencimiento no sea anterior a la de emisión ("Fecha inválida").</li>
+    <li>Que estén completos los campos obligatorios (se marcan en rojo).</li>
+    <li>Que haya al menos un producto ("Detalles requeridos").</li>
+    <li>Que haya un proveedor elegido ("Proveedor requerido").</li>
+    <li>Que no exista otra factura de ese mismo proveedor con el mismo número. Si existe, vas a ver "Ya existe una factura de este proveedor con este número de comprobante".</li>
+</ul>
+<p>Si todo está bien, aparece "Factura de proveedor guardada correctamente". Una factura solo se puede modificar en Borrador; si no, el sistema responde "Solo se puede editar una factura en Borrador".</p>
+
+<h2 id="pasar-aprobacion">Pasar a Aprobación</h2>
+<p><strong>Cuándo aparece:</strong> en facturas en Borrador, con el nombre <strong>Pasar a Aprobacion</strong>.</p>
+<p><strong>Qué hace:</strong> pide confirmación y deja la factura en <strong>Pendiente de Aprobación</strong>. Desde ahí no se puede editar ni eliminar: solo visualizar, imprimir o confirmar. Todavía no mueve stock ni costos.</p>
+
+<h2 id="confirmar-factura">Confirmar la factura</h2>
+<p><strong>Cuándo aparece:</strong> solo en facturas Pendientes de Aprobación, como el botón <strong>Confirmar</strong>.</p>
+<p><strong>Qué hace:</strong> después de una confirmación, en un solo paso:</p>
+<ol>
+    <li>Suma la mercadería al stock del depósito de la factura (una nota de crédito la resta, según cómo esté configurado ese tipo de comprobante).</li>
+    <li>Actualiza el costo de cada producto con el precio neto de esta compra, y lo deja registrado en el historial de <a href="productos_costos.html">Productos - Costos</a>.</li>
+    <li>Si la factura tiene una orden de compra vinculada, suma lo recibido y pasa la orden a Recibido parcial o Recibido.</li>
+    <li>Genera el asiento contable.</li>
+    <li>Si es una nota de crédito con comprobante asociado, la aplica a ese comprobante (ver <a href="#notas-credito">más abajo</a>).</li>
+</ol>
+<p>Si todo sale bien, aparece "Estado actualizado y stock registrado correctamente".</p>
+<h3 id="confirmar-error">Si la factura no se confirma</h3>
+<p>Los cinco pasos van juntos: si uno falla, no se hace ninguno. Vas a ver el cartel <strong>"La factura no se confirmó"</strong>, que aclara que la factura sigue en su estado anterior, que no se movió stock ni se generaron asientos, y el motivo. Los casos más comunes:</p>
+<ul>
+    <li><strong>Falta configuración contable</strong>, por ejemplo: "el proveedor no tiene cuenta contable (cargarla en Proveedores) y la empresa no tiene cuenta de proveedores por defecto". Completá lo que indica el mensaje (la cuenta del proveedor, del producto o de su tipo, de la alícuota de IVA o del impuesto) y volvé a confirmar.</li>
+    <li><strong>"Error al actualizar costo del producto: Costo inválido"</strong>: alguna línea quedó con importe neto 0 (por ejemplo, con 100% de descuento). Como el costo de un producto no puede quedar en 0, la factura no se confirma.</li>
+</ul>
+
+<h2 id="notas-credito">Notas de crédito y débito</h2>
+<h3 id="comprobante-asociado">Comprobante asociado</h3>
+<p>Cuando elegís un tipo de nota de crédito o débito y el proveedor ya está elegido, aparece el campo <strong>Comprobante asociado</strong>. Ahí elegís a qué factura confirmada de ese proveedor corresponde la nota; cada opción muestra el número, el total y el saldo pendiente. Si la factura asociada todavía tiene saldo, al confirmar la nota de crédito el sistema se la descuenta automáticamente, registrando una orden de pago en $0 que deja asentada la compensación.</p>
+<h3 id="ofrecer-nc">Descontar notas de crédito al confirmar una factura</h3>
+<p>Al confirmar una factura o nota de débito, si el proveedor tiene notas de crédito con saldo a tu favor, aparece el cartel <strong>"El proveedor tiene notas de crédito con saldo"</strong> con el saldo de la factura y la lista de notas (todas marcadas):</p>
+<ul>
+    <li><span class="boton-ejemplo boton-primario">Imputar</span>: descuenta las notas marcadas de esta factura y registra una orden de pago en $0. Aparece "Notas de crédito imputadas". Si no marcaste ninguna, avisa "Marcá al menos una nota de crédito".</li>
+    <li><span class="boton-ejemplo boton-outline">Ahora no</span>: la factura queda confirmada igual y las notas siguen disponibles para usarlas después desde <a href="pagos.html">Órdenes de Pago</a>.</li>
+</ul>
+
+<h2 id="columna-asiento">Columna Asiento: regenerar el asiento</h2>
+<p>En facturas confirmadas, el botón <span class="boton-ejemplo boton-outline">Asiento</span> de la última columna vuelve a generar el asiento contable de la factura, o lo actualiza si ya existe (compras y crédito fiscal de IVA al Debe, proveedor al Haber). Sirve, por ejemplo, después de corregir la cuenta contable de un producto o de un proveedor. Al terminar, muestra "¡Asiento generado!" con el número de asiento. El asiento se puede consultar en <a href="cont_asientos.html">Asientos Contables</a>.</p>
+<div class="alert alert-warning">Al tocar este botón el asiento puede empezar a generarse enseguida, aunque todavía esté abierto el cartel que pide confirmación. Usalo solo cuando realmente quieras regenerar el asiento.</div>
+
+<h2 id="eliminar-factura">Eliminar una factura</h2>
+<p><strong>Cuándo aparece:</strong> solo en Borrador. Pide confirmación y pasa la factura a <strong>Eliminado</strong>. Como una factura en Borrador todavía no movió stock ni costos, eliminarla no tiene otros efectos.</p>
+
+<h2 id="visualizar-imprimir">Visualizar e imprimir</h2>
+<ul>
+    <li><strong>Visualizar</strong> (Pendiente de Aprobación y Confirmado): abre la factura en modo de solo lectura. Podés recorrer todas las pestañas, pero no modificar nada. Se cierra con la ✕ de arriba.</li>
+    <li><strong>Imprimir</strong> (Pendiente de Aprobación y Confirmado): abre el comprobante en una ventana aparte para imprimirlo.</li>
+</ul>
+
+<h2 id="botones">Resumen de botones</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Agregar</td><td>Abre el formulario de una factura nueva</td><td>Siempre (arriba del listado)</td></tr>
+    <tr><td>Editar</td><td>Abre la factura para modificarla</td><td>Borrador</td></tr>
+    <tr><td>Pasar a Aprobacion</td><td>Deja la factura lista para revisar; ya no se edita</td><td>Borrador</td></tr>
+    <tr><td>Eliminar</td><td>Da de baja la factura</td><td>Borrador</td></tr>
+    <tr><td>Confirmar</td><td>Mueve stock, actualiza costos, genera el asiento y la deja en firme</td><td>Pendiente de Aprobación</td></tr>
+    <tr><td>Visualizar</td><td>Muestra la factura sin permitir cambios</td><td>Pendiente de Aprobación, Confirmado</td></tr>
+    <tr><td>Imprimir</td><td>Abre el comprobante para imprimir</td><td>Pendiente de Aprobación, Confirmado</td></tr>
+    <tr><td>Asiento (columna Asiento)</td><td>Genera o actualiza el asiento contable</td><td>Confirmado</td></tr>
+</table>
+<div class="nota-lateral">Si aparece "Acción no permitida para este estado", probablemente otra persona cambió la factura mientras la mirabas. Tocá el botón de recargar (↻) y volvé a intentar.</div>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha está <span class="boton-ejemplo boton-outline">↻</span> para recargar la tabla y el menú <span class="boton-ejemplo boton-outline">Exportar</span> con las opciones Excel, PDF, CSV e Imprimir.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Guardé la factura pero el stock no cambió.</td>
+        <td>Es lo esperado: el stock entra recién cuando la factura se <strong>confirma</strong>. Pasala a aprobación y confirmala.</td>
+    </tr>
+    <tr>
+        <td>Pasé la factura a aprobación y encontré un error. ¿Cómo la corrijo?</td>
+        <td>Desde Pendiente de Aprobación no hay un botón para volver a Borrador, y Editar solo aparece en Borrador. Consultá con el equipo para que la devuelvan a Borrador.</td>
+    </tr>
+    <tr>
+        <td>Confirmé una factura con un error. ¿Se puede anular?</td>
+        <td>Desde esta pantalla no hay un botón para anular una factura confirmada. Lo habitual es cargar una nota de crédito del proveedor asociada a esa factura. Si no corresponde, consultá con el equipo.</td>
+    </tr>
+    <tr>
+        <td>Me dice "Ya existe una factura de este proveedor con este número de comprobante".</td>
+        <td>Esa factura ya está cargada (puede estar en otro estado o en otra sucursal). Buscala en el listado antes de cargarla de nuevo.</td>
+    </tr>
+    <tr>
+        <td>La factura no se confirma y habla de "asiento contable".</td>
+        <td>Falta configurar alguna cuenta contable. El mensaje dice cuál. La más común es la cuenta del proveedor: se carga en <a href="proveedores.html#datos-principales">Proveedores</a>, en "Cuenta Contable (Proveedor)".</td>
+    </tr>
+    <tr>
+        <td>El proveedor me bonificó un producto (precio 0). ¿Cómo lo cargo?</td>
+        <td>La factura no acepta líneas con precio 0, y una línea con 100% de descuento impide confirmarla, porque el sistema usa ese precio como nuevo costo del producto. Consultá con el equipo cómo registrar la mercadería bonificada (por ejemplo, con un <a href="stock_ajustes.html">ajuste de stock</a>).</td>
+    </tr>
+    <tr>
+        <td>Importar OC dice "Sin órdenes pendientes".</td>
+        <td>El proveedor no tiene órdenes confirmadas con mercadería pendiente, o la orden ya está cerrada (Recibido). Revisá en <a href="ordenes_compra.html">Órdenes de Compra</a> que esté confirmada.</td>
+    </tr>
+    <tr>
+        <td>Los importes de Otros Impuestos cambiaron solos.</td>
+        <td>Se recalculan cada vez que cambian los productos. Ajustalos al final, después de cargar todas las líneas.</td>
+    </tr>
+</table>
+
+<div class="alert alert-info">
+    <strong>Manuales relacionados:</strong>
+    <a href="ordenes_compra.html">Órdenes de Compra</a> ·
+    <a href="proveedores.html">Proveedores</a> ·
+    <a href="pagos.html">Órdenes de Pago</a> ·
+    <a href="productos_costos.html">Productos - Costos</a> ·
+    <a href="productos_proveedores.html">Productos - Proveedores</a> ·
+    <a href="stock_ajustes.html">Ajustes de Stock</a> ·
+    <a href="cont_asientos.html">Asientos Contables</a>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Compras / Facturas de Proveedores. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

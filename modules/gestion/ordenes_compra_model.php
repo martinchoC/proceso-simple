@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
@@ -317,7 +318,7 @@ function ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empr
                          pv.punto_venta_id as pv_id
                   FROM gestion__ordenes_compra oc
                   LEFT JOIN gestion__puntos_venta pv ON oc.punto_venta_id = pv.punto_venta_id
-                  WHERE oc.orden_compra_id = ?";
+                  WHERE oc.orden_compra_id = ? AND oc.empresa_id = ?";
     
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) {
@@ -325,7 +326,8 @@ function ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $empr
         return ['success' => false, 'error' => 'Error en la consulta'];
     }
 
-    mysqli_stmt_bind_param($stmt, "i", $orden_compra_id);
+    $empresa_idx = intval($empresa_idx);
+    mysqli_stmt_bind_param($stmt, "ii", $orden_compra_id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $orden = mysqli_fetch_assoc($result);
@@ -490,8 +492,17 @@ function obtenerOrdenesCompra($conexion, $empresa_idx, $pagina_id)
             LEFT JOIN gestion__monedas m ON oc.moneda_id = m.moneda_id
             LEFT JOIN gestion__sucursales s ON oc.sucursal_id = s.sucursal_id AND s.empresa_id = oc.empresa_id
             LEFT JOIN gestion__puntos_venta pv ON oc.punto_venta_id = pv.punto_venta_id AND pv.empresa_id = oc.empresa_id
-            WHERE oc.empresa_id = ?
-            ORDER BY oc.f_emision DESC, oc.orden_compra_id DESC";
+            WHERE oc.empresa_id = ?";
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $uid = intval($_SESSION['usuario_id'] ?? 0);
+        if ($uid > 0) {
+            $sql .= AccesosSucursalesHelper::filtroSqlSucursal($conexion, $uid, $empresa_idx, 'oc.sucursal_id');
+        }
+    }
+
+    $sql .= " ORDER BY oc.f_emision DESC, oc.orden_compra_id DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -668,6 +679,21 @@ function editarOrdenCompra($conexion, $id, $data)
     mysqli_begin_transaction($conexion);
 
     try {
+        // Solo se edita en Borrador (función Editar 3→3); el número lo asigna Confirmar, no el cliente.
+        $empresa_idx_chk = intval($data['empresa_idx']);
+        $stmt_chk = mysqli_prepare($conexion, "SELECT tabla_estado_registro_id, comprobante_nro FROM gestion__ordenes_compra
+                                               WHERE orden_compra_id = ? AND empresa_id = ? FOR UPDATE");
+        mysqli_stmt_bind_param($stmt_chk, "ii", $id, $empresa_idx_chk);
+        mysqli_stmt_execute($stmt_chk);
+        $actual = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_chk));
+        mysqli_stmt_close($stmt_chk);
+        if (!$actual) {
+            throw new Exception('Orden de compra no encontrada');
+        }
+        if (intval($actual['tabla_estado_registro_id']) !== 3) {
+            throw new Exception('Solo se puede editar una orden de compra en Borrador');
+        }
+
         $f_entrega_estimada = (!empty($data['f_entrega_estimada'])) ? $data['f_entrega_estimada'] : null;
         $condicion_pago_id = (!empty($data['condicion_pago_id']) && $data['condicion_pago_id'] > 0) ? intval($data['condicion_pago_id']) : null;
         $tipo_cambio = floatval($data['tipo_cambio'] ?? 1.000000);
@@ -677,7 +703,7 @@ function editarOrdenCompra($conexion, $id, $data)
         $direccion_entrega = isset($data['direccion_entrega']) ? trim($data['direccion_entrega']) : '';
         $observaciones = isset($data['observaciones']) ? trim($data['observaciones']) : '';
         
-        $comprobante_nro = intval($data['comprobante_nro'] ?? 0);
+        $comprobante_nro = intval($actual['comprobante_nro'] ?? 0);
 
         $sql = "UPDATE gestion__ordenes_compra 
                 SET sucursal_id = ?,
@@ -844,7 +870,12 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
                             iva.porcentaje as iva_porcentaje
                      FROM gestion__ordenes_compra_detalle d
                      LEFT JOIN gestion__productos p ON d.producto_id = p.producto_id
-                     LEFT JOIN gestion__productos_proveedores pp ON d.producto_id = pp.producto_id AND pp.entidad_id = ?
+                     LEFT JOIN (
+                         SELECT producto_id, MAX(codigo_proveedor) AS codigo_proveedor
+                         FROM gestion__productos_proveedores
+                         WHERE entidad_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1
+                         GROUP BY producto_id
+                     ) pp ON d.producto_id = pp.producto_id
                      LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id
                      WHERE d.orden_compra_id = ?
                      ORDER BY d.ordenes_compra_detalle_id";
@@ -853,7 +884,7 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
     if (!$stmt)
         return $orden;
 
-    mysqli_stmt_bind_param($stmt, "ii", $orden['entidad_id'], $id);
+    mysqli_stmt_bind_param($stmt, "iii", $orden['entidad_id'], $orden['empresa_id'], $id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
@@ -864,10 +895,11 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
             'producto_id' => $detalle['producto_id'],
             'producto_nombre' => $detalle['producto_nombre'] . ' (' . $detalle['producto_codigo'] . ')',
             'cantidad' => floatval($detalle['cantidad']),
+            'cantidad_recibida' => floatval($detalle['cantidad_recibida'] ?? 0),
             'precio_unitario' => floatval($detalle['precio_unitario']),
             'no_gravado' => floatval($detalle['no_gravado'] ?? 0),
             'exento' => floatval($detalle['exento'] ?? 0),
-            'iva_alicuota_id' => $detalle['producto_iva_id'] ?? $detalle['iva_alicuota_id'] ?? 1,
+            'iva_alicuota_id' => $detalle['producto_iva_id'] ?? $detalle['iva_alicuota_id'] ?? emp_iva_alicuota_id($conexion, $empresa_idx),
             'iva_porcentaje' => floatval($detalle['iva_porcentaje'] ?? 21),
             'neto_gravado' => floatval($detalle['neto_gravado']),
             'iva_importe' => floatval($detalle['iva_importe']),
@@ -881,13 +913,15 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
     return $orden;
 }
 
-function obtenerComprobantesTipos($conexion)
+function obtenerComprobantesTipos($conexion, $empresa_idx = null)
 {
-    $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra 
-            FROM gestion__comprobantes_tipos 
-            WHERE comprobante_grupo_id = 2 
-            AND comprobante_subgrupo_id = 8
-            AND tabla_estado_registro_id = 1 
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
+    $subgrupo_id = emp_subgrupo_id($conexion, $empresa_idx, 'OC');   // Pedido de Compra de la empresa
+    if ($subgrupo_id <= 0) return [];   // la empresa no tiene ese subgrupo activo
+    $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra
+            FROM gestion__comprobantes_tipos
+            WHERE empresa_id = $empresa_idx AND comprobante_subgrupo_id = $subgrupo_id
+            AND tabla_estado_registro_id = 1
             ORDER BY comprobante_tipo";
     
     $result = mysqli_query($conexion, $sql);
@@ -1109,8 +1143,16 @@ function obtenerUnidadesMedida($conexion)
     return $unidades;
 }
 
+/* =========================================================================
+ * Alta rápida de producto desde la carga del comprobante, ya vinculado al
+ * proveedor con su código. Producto + vínculo en una sola transacción y
+ * recálculo de gestion__productos.proveedores_busqueda (si no, el producto
+ * nuevo no aparece al buscar por código de proveedor en otras pantallas).
+ * ========================================================================= */
 function agregarProductoRapido($conexion, $data)
 {
+    error_log("=== INICIO agregarProductoRapido codigo: " . ($data['producto_codigo'] ?? '') . " ===");
+
     if (empty($data['producto_codigo']) || empty($data['producto_nombre'])) {
         return ['success' => false, 'error' => 'Código y nombre son obligatorios'];
     }
@@ -1126,131 +1168,283 @@ function agregarProductoRapido($conexion, $data)
     if (empty($data['entidad_id'])) {
         return ['success' => false, 'error' => 'Debe seleccionar un proveedor'];
     }
-    
-    $sql_check = "SELECT COUNT(*) as total FROM gestion__productos 
-                  WHERE producto_codigo = ? AND empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check);
-    if (!$stmt)
-        return ['success' => false, 'error' => 'Error en la consulta'];
-    
-    mysqli_stmt_bind_param($stmt, "si", $data['producto_codigo'], $data['empresa_idx']);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    
-    if ($row['total'] > 0) {
-        return ['success' => false, 'error' => 'Ya existe un producto con este código'];
-    }
-    
-    $sql_check_proveedor = "SELECT COUNT(*) as total FROM gestion__productos_proveedores pp
-                            INNER JOIN gestion__productos p ON pp.producto_id = p.producto_id
-                            WHERE pp.entidad_id = ? AND pp.codigo_proveedor = ? AND p.empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_check_proveedor);
-    mysqli_stmt_bind_param($stmt, "isi", $data['entidad_id'], $data['codigo_proveedor'], $data['empresa_idx']);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row_proveedor = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    
-    if ($row_proveedor && $row_proveedor['total'] > 0) {
-        return ['success' => false, 'error' => 'Ya existe un producto con este código de proveedor para el proveedor seleccionado'];
-    }
-    
-    $sql = "INSERT INTO gestion__productos 
-            (empresa_id, producto_codigo, producto_nombre, codigo_barras, 
-             producto_descripcion, producto_categoria_id, producto_tipo_id, 
-             iva_alicuota_id, unidad_medida_id, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 1)";
-    
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return ['success' => false, 'error' => 'Error en la consulta'];
-    
-    mysqli_stmt_bind_param($stmt, "issssiii", 
-        $data['empresa_idx'],
-        $data['producto_codigo'],
-        $data['producto_nombre'],
-        $data['codigo_barras'],
-        $data['producto_descripcion'],
-        $data['producto_categoria_id'],
-        $data['iva_alicuota_id'],
-        $data['unidad_medida_id']
-    );
-    
-    $success = mysqli_stmt_execute($stmt);
-    
-    if ($success) {
-        $producto_id = mysqli_insert_id($conexion);
+
+    $empresa_id = intval($data['empresa_idx']);
+    $entidad_id = intval($data['entidad_id']);
+    $categoria_id = intval($data['producto_categoria_id']);
+    $iva_alicuota_id = intval($data['iva_alicuota_id']);
+    $unidad_medida_id = intval($data['unidad_medida_id']);
+
+    mysqli_begin_transaction($conexion);
+    try {
+        $stmt = mysqli_prepare($conexion, "SELECT COUNT(*) as total FROM gestion__productos 
+                                           WHERE producto_codigo = ? AND empresa_id = ?");
+        mysqli_stmt_bind_param($stmt, "si", $data['producto_codigo'], $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
         mysqli_stmt_close($stmt);
-        
-        $sql_proveedor = "INSERT INTO gestion__productos_proveedores 
-                          (empresa_id, producto_id, entidad_id, codigo_proveedor, tabla_estado_registro_id) 
-                          VALUES (?, ?, ?, ?, 1)";
-        
-        $stmt_proveedor = mysqli_prepare($conexion, $sql_proveedor);
-        if ($stmt_proveedor) {
-            mysqli_stmt_bind_param($stmt_proveedor, "iiis", 
-                $data['empresa_idx'],
-                $producto_id,
-                $data['entidad_id'],
-                $data['codigo_proveedor']
-            );
-            $success_proveedor = mysqli_stmt_execute($stmt_proveedor);
-            mysqli_stmt_close($stmt_proveedor);
-            
-            if (!$success_proveedor) {
-                $sql_delete = "DELETE FROM gestion__productos WHERE producto_id = ?";
-                $stmt_delete = mysqli_prepare($conexion, $sql_delete);
-                mysqli_stmt_bind_param($stmt_delete, "i", $producto_id);
-                mysqli_stmt_execute($stmt_delete);
-                mysqli_stmt_close($stmt_delete);
-                
-                return ['success' => false, 'error' => 'Error al asociar el producto con el proveedor'];
-            }
+        if ($row['total'] > 0) {
+            throw new RuntimeException('Ya existe un producto con este código');
         }
-        
-        return ['success' => true, 'producto_id' => $producto_id];
-    } else {
+
+        // Solo cuentan los vínculos activos (los inactivos no se usan al buscar)
+        $stmt = mysqli_prepare($conexion, "SELECT COUNT(*) as total FROM gestion__productos_proveedores
+                                           WHERE empresa_id = ? AND entidad_id = ? AND codigo_proveedor = ?
+                                           AND tabla_estado_registro_id = 1");
+        mysqli_stmt_bind_param($stmt, "iis", $empresa_id, $entidad_id, $data['codigo_proveedor']);
+        mysqli_stmt_execute($stmt);
+        $row_proveedor = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
         mysqli_stmt_close($stmt);
-        return ['success' => false, 'error' => 'Error al crear el producto'];
+        if ($row_proveedor && $row_proveedor['total'] > 0) {
+            throw new RuntimeException('Ya existe un producto con este código de proveedor para el proveedor seleccionado');
+        }
+
+        $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__productos 
+                (empresa_id, producto_codigo, producto_nombre, codigo_barras, 
+                 producto_descripcion, producto_categoria_id, producto_tipo_id, 
+                 iva_alicuota_id, unidad_medida_id, tabla_estado_registro_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+        $producto_tipo_id = emp_producto_tipo_id($conexion, $empresa_id, true);
+        mysqli_stmt_bind_param($stmt, "issssiiii", 
+            $empresa_id,
+            $data['producto_codigo'],
+            $data['producto_nombre'],
+            $data['codigo_barras'],
+            $data['producto_descripcion'],
+            $categoria_id,
+            $producto_tipo_id,
+            $iva_alicuota_id,
+            $unidad_medida_id
+        );
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new RuntimeException('Error al crear el producto: ' . mysqli_stmt_error($stmt));
+        }
+        $producto_id = intval(mysqli_insert_id($conexion));
+        mysqli_stmt_close($stmt);
+
+        $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__productos_proveedores 
+                (empresa_id, producto_id, entidad_id, codigo_proveedor, tabla_estado_registro_id) 
+                VALUES (?, ?, ?, ?, 1)");
+        mysqli_stmt_bind_param($stmt, "iiis", $empresa_id, $producto_id, $entidad_id, $data['codigo_proveedor']);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new RuntimeException('Error al asociar el producto con el proveedor: ' . mysqli_stmt_error($stmt));
+        }
+        mysqli_stmt_close($stmt);
+
+        recalcularProveedoresBusqueda($conexion, $producto_id);
+        mysqli_commit($conexion);
+
+        return ['success' => true, 'producto_id' => $producto_id];
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        error_log("Error agregarProductoRapido: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
     }
 }
 
+/* =========================================================================
+ * Busca entre TODOS los productos activos de la empresa, no solo los
+ * vinculados al proveedor. Los vinculados (vínculo activo en
+ * gestion__productos_proveedores) vienen primero con vinculado = 1 y su
+ * código de proveedor; el resto con vinculado = 0, para que el front ofrezca
+ * vincularlos (vincularProductoProveedor) al seleccionarlos.
+ * ========================================================================= */
 function buscarProductosPorProveedor($conexion, $empresa_idx, $entidad_id, $q)
 {
     $entidad_id = intval($entidad_id);
-    $q = mysqli_real_escape_string($conexion, $q);
-    
-    $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre, 
-                   pp.codigo_proveedor, p.iva_alicuota_id,
-                   iva.porcentaje as iva_porcentaje
+    $empresa_idx = intval($empresa_idx);
+
+    $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre,
+                   pp.codigo_proveedor,
+                   IF(pp.producto_id IS NULL, 0, 1) AS vinculado,
+                   p.iva_alicuota_id,
+                   iva.porcentaje as iva_porcentaje,
+                   iva.iva_alicuota as iva_nombre
             FROM gestion__productos p
-            INNER JOIN gestion__productos_proveedores pp ON p.producto_id = pp.producto_id
-            LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id
-            WHERE p.empresa_id = ? 
-            AND pp.entidad_id = ?
+            LEFT JOIN (
+                SELECT producto_id, MAX(codigo_proveedor) AS codigo_proveedor
+                FROM gestion__productos_proveedores
+                WHERE empresa_id = ?
+                AND entidad_id = ?
+                AND tabla_estado_registro_id = 1
+                GROUP BY producto_id
+            ) pp ON pp.producto_id = p.producto_id
+            LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id AND iva.empresa_id = p.empresa_id
+            WHERE p.empresa_id = ?
             AND p.tabla_estado_registro_id = 1
-            AND pp.tabla_estado_registro_id = 1
             AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR pp.codigo_proveedor LIKE ?)
-            ORDER BY p.producto_nombre
-            LIMIT 20";
-    
+            ORDER BY vinculado DESC, p.producto_nombre
+            LIMIT 30";
+
     $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt) return [];
-    
+    if (!$stmt) {
+        error_log("Error preparando consulta productos: " . mysqli_error($conexion));
+        return [];
+    }
+
     $search = "%$q%";
-    mysqli_stmt_bind_param($stmt, "iisss", $empresa_idx, $entidad_id, $search, $search, $search);
+    mysqli_stmt_bind_param($stmt, "iiisss", $empresa_idx, $entidad_id, $empresa_idx, $search, $search, $search);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    
+
     $productos = [];
     while ($fila = mysqli_fetch_assoc($result)) {
-        $productos[] = $fila;
+        $productos[] = [
+            'producto_id' => $fila['producto_id'],
+            'producto_codigo' => $fila['producto_codigo'],
+            'producto_nombre' => $fila['producto_nombre'],
+            'codigo_proveedor' => $fila['codigo_proveedor'],
+            'vinculado' => intval($fila['vinculado']),
+            'iva_alicuota_id' => $fila['iva_alicuota_id'],
+            'iva_porcentaje' => floatval($fila['iva_porcentaje'] ?? 21),
+            'iva_nombre' => $fila['iva_nombre'] ?? 'IVA ' . ($fila['iva_porcentaje'] ?? 21) . '%'
+        ];
     }
-    
+
     mysqli_stmt_close($stmt);
     return $productos;
+}
+
+/* =========================================================================
+ * Vincula un producto existente al proveedor con su código, desde la carga
+ * de la factura. Si ya hay una fila INACTIVA para producto + proveedor la
+ * reactiva en vez de duplicarla (mismo criterio que
+ * productos_proveedores_model.php::agregarVinculoProveedor). El código de
+ * proveedor no puede repetirse en otro producto del mismo proveedor.
+ * ========================================================================= */
+function vincularProductoProveedor($conexion, $data)
+{
+    $producto_id = intval($data['producto_id'] ?? 0);
+    $entidad_id = intval($data['entidad_id'] ?? 0);
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    $codigo_proveedor = trim($data['codigo_proveedor'] ?? '');
+
+    error_log("=== INICIO vincularProductoProveedor producto: $producto_id proveedor: $entidad_id ===");
+
+    if ($producto_id <= 0) {
+        return ['success' => false, 'message' => 'Producto no válido'];
+    }
+    if ($entidad_id <= 0) {
+        return ['success' => false, 'message' => 'Debe seleccionar un proveedor'];
+    }
+    if ($codigo_proveedor === '') {
+        return ['success' => false, 'message' => 'El código del proveedor es obligatorio'];
+    }
+    if (mb_strlen($codigo_proveedor) > 50) {
+        return ['success' => false, 'message' => 'El código del proveedor no puede superar los 50 caracteres'];
+    }
+
+    mysqli_begin_transaction($conexion);
+    try {
+        // El producto tiene que ser de la empresa y estar activo
+        $stmt = mysqli_prepare($conexion, "SELECT producto_id FROM gestion__productos
+                                           WHERE producto_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1
+                                           FOR UPDATE");
+        mysqli_stmt_bind_param($stmt, "ii", $producto_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $producto = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$producto) {
+            throw new RuntimeException('El producto no existe o está inactivo');
+        }
+
+        // Código repetido en otro producto del mismo proveedor
+        $stmt = mysqli_prepare($conexion, "SELECT p.producto_codigo, p.producto_nombre
+                                           FROM gestion__productos_proveedores pp
+                                           INNER JOIN gestion__productos p ON p.producto_id = pp.producto_id
+                                           WHERE pp.empresa_id = ? AND pp.entidad_id = ? AND pp.codigo_proveedor = ?
+                                           AND pp.producto_id <> ? AND pp.tabla_estado_registro_id = 1
+                                           LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "iisi", $empresa_id, $entidad_id, $codigo_proveedor, $producto_id);
+        mysqli_stmt_execute($stmt);
+        $repetido = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if ($repetido) {
+            throw new RuntimeException('El código ' . $codigo_proveedor . ' ya está asignado para este proveedor al producto '
+                . $repetido['producto_codigo'] . ' - ' . $repetido['producto_nombre']);
+        }
+
+        $stmt = mysqli_prepare($conexion, "SELECT producto_proveedor_id, tabla_estado_registro_id
+                                           FROM gestion__productos_proveedores
+                                           WHERE producto_id = ? AND entidad_id = ? AND empresa_id = ?
+                                           ORDER BY (tabla_estado_registro_id = 1) DESC, producto_proveedor_id
+                                           LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "iii", $producto_id, $entidad_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $existente = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+
+        if ($existente) {
+            // Activo (vinculado mientras se cargaba la factura) o inactivo: se deja activo con el código informado
+            $stmt = mysqli_prepare($conexion, "UPDATE gestion__productos_proveedores
+                                               SET tabla_estado_registro_id = 1, codigo_proveedor = ?
+                                               WHERE producto_proveedor_id = ?");
+            mysqli_stmt_bind_param($stmt, "si", $codigo_proveedor, $existente['producto_proveedor_id']);
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new RuntimeException('Error al reactivar el vínculo: ' . mysqli_stmt_error($stmt));
+            }
+            mysqli_stmt_close($stmt);
+            $producto_proveedor_id = intval($existente['producto_proveedor_id']);
+        } else {
+            $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__productos_proveedores
+                                               (producto_id, entidad_id, empresa_id, codigo_proveedor, tabla_estado_registro_id)
+                                               VALUES (?, ?, ?, ?, 1)");
+            mysqli_stmt_bind_param($stmt, "iiis", $producto_id, $entidad_id, $empresa_id, $codigo_proveedor);
+            if (!mysqli_stmt_execute($stmt)) {
+                throw new RuntimeException('Error al vincular el producto: ' . mysqli_stmt_error($stmt));
+            }
+            $producto_proveedor_id = intval(mysqli_insert_id($conexion));
+            mysqli_stmt_close($stmt);
+        }
+
+        recalcularProveedoresBusqueda($conexion, $producto_id);
+        mysqli_commit($conexion);
+
+        return [
+            'success' => true,
+            'data' => ['producto_proveedor_id' => $producto_proveedor_id, 'codigo_proveedor' => $codigo_proveedor],
+            'message' => 'Producto vinculado al proveedor'
+        ];
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        error_log("Error vincularProductoProveedor: " . $e->getMessage());
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+/* =========================================================================
+ * Mantiene materializada gestion__productos.proveedores_busqueda — MISMA
+ * función que productos_model.php / productos_proveedores_model.php, duplicada
+ * acá por la convención de no cruzar includes entre archivos de página.
+ * ========================================================================= */
+function recalcularProveedoresBusqueda($conexion, $producto_id)
+{
+    $producto_id = intval($producto_id);
+    if ($producto_id <= 0) return false;
+
+    $sql = "UPDATE gestion__productos p
+            SET p.proveedores_busqueda = (
+                SELECT GROUP_CONCAT(DISTINCT pp.codigo_proveedor SEPARATOR ' ')
+                FROM gestion__productos_proveedores pp
+                WHERE pp.producto_id = p.producto_id
+                AND pp.tabla_estado_registro_id = 1
+                AND pp.codigo_proveedor IS NOT NULL
+                AND pp.codigo_proveedor <> ''
+            )
+            WHERE p.producto_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando UPDATE proveedores_busqueda: " . mysqli_error($conexion));
+        return false;
+    }
+    mysqli_stmt_bind_param($stmt, "i", $producto_id);
+    $ok = mysqli_stmt_execute($stmt);
+    if (!$ok) {
+        error_log("Error ejecutando UPDATE proveedores_busqueda($producto_id): " . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
+    return $ok;
 }
 
 function obtenerUltimoPrecioProducto($conexion, $producto_id, $entidad_id, $empresa_id)
@@ -1391,6 +1585,12 @@ function obtenerSucursalesEmpresa($conexion, $empresa_idx) {
     }
     
     mysqli_stmt_close($stmt);
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $sucursales = AccesosSucursalesHelper::filtrarSucursales($conexion, $empresa_idx, $sucursales);
+    }
+
     return $sucursales;
 }
 

@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 1, 'paginas_url' => ['empresas_perfiles.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once "empresas_perfiles_model.php";

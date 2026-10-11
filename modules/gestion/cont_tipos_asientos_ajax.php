@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['params' => ['empresa_id', 'empresa_idx'], 'modulo_id' => 2, 'paginas_url' => ['cont_tipos_asientos.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -28,7 +31,7 @@ if (empty($accion)) {
     manejarError('Acción no especificada', 400);
 }
 
-$empresa_id = intval($_GET['empresa_id'] ?? $_POST['empresa_id'] ?? 2);
+$empresa_id = intval($ctx['empresa_id']);
 $pagina_id = intval($_GET['pagina_id'] ?? $_POST['pagina_id'] ?? 78);
 
 if (!$conexion) {

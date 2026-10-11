@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Proveedores</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        margin: 0;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert a { color: inherit; font-weight: 600; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-truck"></i> Manual de usuario: Proveedores</h1>
+<p class="subtitulo">Cómo dar de alta y mantener a tus proveedores: sus datos fiscales, sucursales, condiciones de compra y la cuenta contable que se usa al registrar sus facturas.</p>
+
+<div class="alert alert-info">
+    <strong>Antes de empezar:</strong> la pantalla <strong>Proveedores</strong> no es una lista separada. Es la misma lista de <a href="entidades.html">Entidades</a> del sistema, mostrando solo las que están marcadas como proveedor. Si editás un dato acá, el cambio se ve también en Entidades y, si la entidad además es cliente, en <a href="clientes.html">Clientes</a>.
+</div>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es la pantalla Proveedores?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados: Activo e Inactivo</a></li>
+        <li><a href="#agregar-editar">Agregar, editar, habilitar o inhabilitar</a></li>
+        <li><a href="#datos-principales">Pestaña: Datos Principales</a></li>
+        <li><a href="#situacion-fiscal">Situación fiscal y su historial</a></li>
+        <li><a href="#sucursales">Pestaña: Sucursales</a></li>
+        <li><a href="#condiciones-proveedores">Pestaña: Condiciones Proveedores</a></li>
+        <li><a href="#sucursales-compra">Pestaña: Sucursales de Compra</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es la pantalla Proveedores?</h2>
+<p>Es el padrón de las personas y empresas a las que les comprás. Los datos que cargás acá se usan en <a href="ordenes_compra.html">Órdenes de Compra</a>, <a href="facturas_proveedores.html">Facturas de Proveedores</a>, <a href="pagos.html">Órdenes de Pago</a> y en las listas de precios de proveedores. Por ejemplo, la condición de pago y el descuento que cargás en <a href="#condiciones-proveedores">Condiciones Proveedores</a> se completan solos al cargar una factura de ese proveedor.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno del proveedor</td></tr>
+    <tr><td>Nombre</td><td>Nombre legal o razón social</td></tr>
+    <tr><td>Tipo</td><td>Tipo de entidad según la clasificación del sistema</td></tr>
+    <tr><td>CUIT</td><td>CUIT, si está cargado</td></tr>
+    <tr><td>Condición Fiscal</td><td>Condición frente al IVA vigente hoy</td></tr>
+    <tr><td>Condiciones Proveedores</td><td>Resumen de la condición de compra vigente (condición de pago y descuento)</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo</td></tr>
+    <tr><td>Acciones</td><td>Botones disponibles según el estado</td></tr>
+</table>
+<p>Para encontrar un proveedor, escribí en <strong>"Buscar proveedor..."</strong>; la ✕ al lado limpia la búsqueda. Los proveedores inactivos se ven en gris.</p>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td>Activo</td><td>El proveedor se puede usar en órdenes, facturas y pagos. Es el estado con el que arranca todo proveedor nuevo.</td></tr>
+    <tr><td>Inactivo</td><td>Ya no operás con él. Deja de ofrecerse para elegirlo en las pantallas de compras, pero sus datos y comprobantes anteriores se conservan.</td></tr>
+</table>
+
+<h2 id="agregar-editar">Agregar, editar, habilitar o inhabilitar</h2>
+<p>Arriba del listado está <span class="boton-ejemplo boton-primario">+ Agregar</span> para cargar un proveedor nuevo. En cada fila:</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Editar</td><td>Abre la ficha completa del proveedor</td><td>Solo si está Activo</td></tr>
+    <tr><td>Inhabilitar</td><td>Lo pasa a Inactivo (pide confirmación)</td><td>Solo si está Activo</td></tr>
+    <tr><td>Habilitar</td><td>Lo vuelve a Activo (pide confirmación)</td><td>Solo si está Inactivo</td></tr>
+</table>
+<p>La ficha tiene cuatro pestañas: <strong>Datos Principales</strong>, <strong>Sucursales</strong>, <strong>Condiciones Proveedores</strong> y <strong>Sucursales de Compra</strong>. Al terminar con los datos principales hacé clic en <span class="boton-ejemplo boton-primario">Guardar Entidad</span>. Aparece "Entidad guardada correctamente".</p>
+<div class="nota-lateral">Las pestañas Sucursales, Condiciones Proveedores y Sucursales de Compra se pueden usar solo con un proveedor ya guardado. Si no, el sistema avisa "Debe guardar la entidad primero…".</div>
+
+<h2 id="datos-principales">Pestaña: Datos Principales</h2>
+<p>Está dividida en cinco bloques:</p>
+<table class="tabla-referencia">
+    <tr><th>Bloque</th><th>Campos</th></tr>
+    <tr><td>1. Identificación</td><td><strong>Nombre Legal / Razón Social</strong> (obligatorio), Nombre Fantasía, Tipo de Entidad, CUIT (11 dígitos sin guiones) y Sitio Web.</td></tr>
+    <tr><td>2. Situación Fiscal</td><td>Condición IVA, Régimen IIBB, N° Inscripción IIBB, Jurisdicción Sede IIBB y "Cambios vigentes desde". Ver <a href="#situacion-fiscal">la sección siguiente</a>.</td></tr>
+    <tr><td>3. Domicilio Legal y Ubicación</td><td>Domicilio legal y localidad.</td></tr>
+    <tr><td>4. Roles Comerciales y Cuentas Contables</td><td>Interruptores <strong>Proveedor</strong> y <strong>Cliente</strong>, y las cuentas contables de cada rol. En un proveedor nuevo, "Proveedor" ya viene activado.</td></tr>
+    <tr><td>5. Observaciones Generales</td><td>Notas libres, hasta 1000 caracteres.</td></tr>
+</table>
+<div class="alert alert-warning"><strong>Cuenta Contable (Proveedor):</strong> es la cuenta donde se registra la deuda con este proveedor cuando confirmás sus facturas. Si no la cargás y la empresa tampoco tiene una cuenta de proveedores por defecto, las facturas de este proveedor <strong>no se van a poder confirmar</strong>.</div>
+<p>Si activás también <strong>Cliente</strong>, la entidad aparece en la pantalla <a href="clientes.html">Clientes</a>, donde se cargan sus condiciones de venta.</p>
+
+<h2 id="situacion-fiscal">Situación fiscal y su historial</h2>
+<p>La situación fiscal se guarda junto con el resto de los datos al tocar <strong>Guardar Entidad</strong>. Debajo de la condición IVA y del régimen IIBB se ve desde cuándo rige cada uno.</p>
+<p>Si cambiás algún dato fiscal (por ejemplo, el proveedor pasó de Monotributo a Responsable Inscripto), el sistema cierra la condición anterior y abre una nueva a partir de la fecha de <strong>"Cambios vigentes desde"</strong>. Así queda el historial y los comprobantes viejos siguen asociados a la condición que tenían en su momento. Si no cambiaste nada fiscal, esa fecha no se usa.</p>
+<p>El botón <span class="boton-ejemplo boton-outline">Historial</span> (se habilita con el proveedor ya guardado) muestra todas las condiciones que tuvo, en dos tablas: <strong>Nivel Nacional (IVA)</strong> y <strong>Nivel Provincial (Ingresos Brutos)</strong>, con sus fechas desde/hasta. La vigente lleva la marca <span class="badge badge-success">Vigente</span>. Desde ahí se pueden corregir fechas o inhabilitar una condición cargada por error.</p>
+
+<h2 id="sucursales">Pestaña: Sucursales</h2>
+<p>Son los domicilios comerciales del proveedor (por ejemplo, varias sucursales de una misma distribuidora). Con <span class="boton-ejemplo boton-primario">+ Nueva Sucursal</span> cargás Nombre de la Sucursal (obligatorio), Dirección, Localidad, Teléfono, Email y Persona de Contacto. El número al lado del nombre de la pestaña indica cuántas tiene.</p>
+<p>Cada sucursal aparece como una opción propia ("Proveedor - Sucursal") al elegir el proveedor en órdenes de compra y facturas.</p>
+
+<h2 id="condiciones-proveedores">Pestaña: Condiciones Proveedores</h2>
+<p>Define <strong>en qué condiciones le comprás</strong> a este proveedor. La tarjeta muestra la condición vigente: <strong>condición de pago</strong>, <strong>categoría</strong>, <strong>descuento general</strong> y vigencia desde/hasta.</p>
+<ul>
+    <li><span class="boton-ejemplo boton-primario">+ Nueva Condición</span>: carga una condición nueva con Condición de Pago (obligatoria), Categoría, Descuento General (%), Fecha Desde (obligatoria) y Fecha Hasta. Si ya había una vigente, el formulario viene con sus datos ("Datos precargados"): modificá solo lo que cambia.</li>
+    <li><span class="boton-ejemplo boton-outline">Ver Historial</span>: muestra todas las condiciones que tuvo el proveedor a lo largo del tiempo.</li>
+</ul>
+<div class="nota-lateral">Esta condición es la que se completa sola en <a href="facturas_proveedores.html#cargar-factura">Facturas de Proveedores</a> (condición de pago, vencimiento y Dto.%). El descuento general también se usa en <a href="proveedor_precios.html">Lista Precios Proveedores</a> para calcular el costo neto de compra.</div>
+
+<h2 id="sucursales-compra">Pestaña: Sucursales de Compra</h2>
+<p>Vincula al proveedor con las sucursales <em>de tu empresa</em> que le compran. No confundir con la pestaña Sucursales, que son domicilios del proveedor. Con <span class="boton-ejemplo boton-primario">+ Vincular Sucursal</span> elegís:</p>
+<ul>
+    <li><strong>Sucursal</strong> (obligatoria) y si es la <strong>principal</strong>. La primera que vinculás se marca como principal automáticamente ("Esta será la sucursal principal de compra por ser la primera").</li>
+    <li><strong>Fecha Desde</strong> (obligatoria, no puede ser anterior a hoy), <strong>Fecha Hasta</strong> (opcional, no anterior a la fecha desde) y observaciones.</li>
+</ul>
+<p>Cada vinculación vigente tiene un botón para cerrarla, que pide confirmación ("¿Cerrar vinculación?").</p>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha está <span class="boton-ejemplo boton-outline">↻</span> para recargar y el menú <span class="boton-ejemplo boton-outline">Exportar</span> con Excel, PDF, CSV e Imprimir.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>¿"Proveedores" y "Entidades" tienen datos distintos?</td>
+        <td>No. Es el mismo registro: Proveedores muestra solo las entidades marcadas como proveedor. Si no encontrás a alguien, puede estar en Entidades sin el interruptor "Proveedor" activado.</td>
+    </tr>
+    <tr>
+        <td>Las facturas de un proveedor no se pueden confirmar y el mensaje habla de "cuenta contable".</td>
+        <td>Editá el proveedor y completá <strong>Cuenta Contable (Proveedor)</strong> en el bloque 4 de Datos Principales.</td>
+    </tr>
+    <tr>
+        <td>No veo el botón Editar en un proveedor.</td>
+        <td>Está Inactivo. Primero habilitalo con "Habilitar" y después vas a poder editarlo.</td>
+    </tr>
+    <tr>
+        <td>Cambió la condición frente al IVA de un proveedor. ¿Cómo lo cargo?</td>
+        <td>Editalo, elegí la nueva condición IVA, poné en "Cambios vigentes desde" la fecha del cambio y guardá. La condición anterior queda en el historial.</td>
+    </tr>
+    <tr>
+        <td>¿Qué pasa si inhabilito un proveedor por error?</td>
+        <td>Nada se pierde. Lo volvés a activar con "Habilitar".</td>
+    </tr>
+</table>
+
+<div class="alert alert-info">
+    <strong>Manuales relacionados:</strong>
+    <a href="entidades.html">Entidades</a> ·
+    <a href="clientes.html">Clientes</a> ·
+    <a href="ordenes_compra.html">Órdenes de Compra</a> ·
+    <a href="facturas_proveedores.html">Facturas de Proveedores</a> ·
+    <a href="pagos.html">Órdenes de Pago</a> ·
+    <a href="proveedor_precios.html">Lista Precios Proveedores</a> ·
+    <a href="productos_proveedores.html">Productos - Proveedores</a>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Compras / Proveedores. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

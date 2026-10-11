@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Ajustes de Stock</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .rojo { color: var(--rojo); font-weight: 600; }
+    .verde { color: var(--verde); font-weight: 600; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } h2 { page-break-after: avoid; } }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-boxes"></i> Manual de usuario: Ajustes de Stock</h1>
+<p class="subtitulo">Para corregir el stock del sistema cuando no coincide con lo que contaste físicamente en un depósito (sobrantes, faltantes, roturas, inventarios).</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es un ajuste de stock?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados de un ajuste</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#cargar">Cargar un ajuste nuevo</a></li>
+        <li><a href="#productos">Agregar productos al ajuste</a></li>
+        <li><a href="#guardar">Guardar el ajuste</a></li>
+        <li><a href="#confirmar">Confirmar el ajuste (impacta en el stock)</a></li>
+        <li><a href="#flujo">El recorrido completo</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#exportar">Exportar e imprimir el listado</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es un ajuste de stock?</h2>
+<p>El sistema lleva el stock de cada producto en cada depósito según lo que se compra y se vende. A veces lo que hay en la estantería no coincide: se rompió algo, apareció mercadería que no estaba registrada, hubo un error de carga. El <strong>ajuste de stock</strong> es el comprobante con el que dejás asentada esa diferencia, para que el sistema vuelva a coincidir con la realidad.</p>
+<p>La idea es simple: por cada producto, el sistema te muestra cuánto <strong>cree</strong> que hay (Stock Sistema), vos cargás cuánto <strong>contaste</strong> (Stock Físico), y la diferencia es lo que se ajusta.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Ves un listado con todos los ajustes cargados:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número del ajuste (es también su número de comprobante).</td></tr>
+    <tr><td>Tipo</td><td>Tipo de ajuste elegido (por ejemplo, sobrante o faltante físico).</td></tr>
+    <tr><td>Sucursal / Depósito</td><td>Dónde se hizo el conteo.</td></tr>
+    <tr><td>Fecha</td><td>Fecha y hora del ajuste.</td></tr>
+    <tr><td>Descripción</td><td>El motivo que se cargó.</td></tr>
+    <tr><td>Estado</td><td>Borrador, Confirmado o Eliminado (ver más abajo).</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles según el estado.</td></tr>
+</table>
+<p>Debajo del título de cada columna hay un casillero "Filtrar..." para buscar dentro de esa columna. A la izquierda, arriba, está el botón para cargar un ajuste nuevo.</p>
+
+<h2 id="estados">Estados de un ajuste</h2>
+<div class="flujo">
+    <div class="flujo-caja">Borrador<small>no toca el stock</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Confirmado<small>el stock ya cambió</small></div>
+</div>
+<div class="flujo">
+    <div class="flujo-caja">Borrador</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja inactivo">Eliminado</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td>Borrador</td><td>El ajuste está cargado pero todavía <strong>no modificó el stock</strong>. Lo podés seguir editando o eliminar.</td></tr>
+    <tr><td>Confirmado</td><td>El ajuste ya se aplicó: el stock del depósito cambió. Ya no se puede editar ni eliminar.</td></tr>
+    <tr><td>Eliminado</td><td>Se dio de baja estando en Borrador. Queda en el listado como registro, sin acciones.</td></tr>
+</table>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Agregar (arriba de la tabla)</td><td>Abre el formulario para un ajuste nuevo.</td><td>Siempre.</td></tr>
+    <tr><td>Editar</td><td>Abre el ajuste para modificar datos y productos.</td><td>Borrador.</td></tr>
+    <tr><td>Confirmar</td><td>Aplica el ajuste al stock.</td><td>Borrador.</td></tr>
+    <tr><td>Eliminar</td><td>Da de baja el ajuste sin tocar el stock.</td><td>Borrador.</td></tr>
+    <tr><td>Visualizar</td><td>Abre el ajuste en modo solo lectura.</td><td>Confirmado.</td></tr>
+    <tr><td>Imprimir</td><td>Reservado para más adelante: hoy no genera un impreso, solo muestra "Acción ejecutada correctamente".</td><td>Confirmado.</td></tr>
+</table>
+<div class="nota-lateral">Si en un ajuste confirmado ves además un botón "Generar Remito", tampoco hace nada todavía en esta pantalla. Los botones que ves dependen de los permisos de tu perfil.</div>
+
+<h2 id="cargar">Cargar un ajuste nuevo</h2>
+<p>Con el botón de agregar se abre la ventana <strong>Nuevo Ajuste de Stock</strong>. Arriba, en "Datos del Ajuste":</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Sucursal *</td><td>La sucursal donde contaste. Solo aparecen las sucursales a las que tenés acceso.</td></tr>
+    <tr><td>Depósito *</td><td>Se habilita al elegir la sucursal. Es el depósito cuyo stock vas a corregir.</td></tr>
+    <tr><td>Tipo *</td><td>El tipo de ajuste. Si hay uno solo, viene elegido.</td></tr>
+    <tr><td>Fecha *</td><td>Fecha y hora del ajuste. Viene con el momento actual.</td></tr>
+    <tr><td>Descripción</td><td>El motivo: "Inventario mensual", "Rotura en traslado", etc.</td></tr>
+</table>
+<div class="alert alert-warning"><strong>Ojo con el Tipo.</strong> Un tipo "sobrante" siempre <strong>suma</strong> al stock y un tipo "faltante" siempre <strong>resta</strong>, más allá del signo de la diferencia. Si en un mismo conteo tenés productos que sobran y otros que faltan, hacé dos ajustes: uno de sobrante y otro de faltante. Si tenés dudas sobre qué tipo usar, consultá con el administrador.</div>
+
+<h2 id="productos">Agregar productos al ajuste</h2>
+<p>En el bloque <strong>Agregar Producto</strong> (primero tenés que haber elegido el depósito):</p>
+<ol>
+    <li>En <strong>Producto</strong>, escribí al menos 2 letras del código o del nombre. Aparece una lista; elegí con el mouse o con las flechas y Enter. Cada resultado muestra el stock que tiene en ese depósito.</li>
+    <li><strong>Stock Sistema</strong> se completa solo con lo que el sistema tiene registrado. No se puede cambiar.</li>
+    <li>En <strong>Stock Físico</strong> escribí lo que contaste. Arranca igual al del sistema.</li>
+    <li><strong>Diferencia</strong> se calcula sola (físico menos sistema): positiva si sobra, negativa si falta.</li>
+    <li>En <strong>Costo Unitario</strong> poné el costo del producto, si lo sabés. En los sobrantes se usa para recalcular el costo promedio.</li>
+    <li>Tocá el botón verde <span class="boton-ejemplo boton-exito">+</span>.</li>
+</ol>
+<p>El producto se suma a la tabla de detalle (marcado como "Nuevo" hasta que guardes), con Stock Sistema, Stock Físico, Diferencia (<span class="verde">verde</span> si sobra, <span class="rojo">rojo</span> si falta), Cantidad de ajuste, Costo unitario y Costo total. En cada fila:</p>
+<ul>
+    <li><strong>Editar</strong> (lápiz): devuelve el producto al bloque de arriba para corregirlo; después lo volvés a agregar con <span class="boton-ejemplo boton-exito">+</span>.</li>
+    <li><strong>Eliminar</strong> (tacho): lo saca del ajuste, previa confirmación.</li>
+</ul>
+
+<h2 id="guardar">Guardar el ajuste</h2>
+<p>Tocá <span class="boton-ejemplo boton-primario">Guardar Ajuste</span> (está arriba del detalle de productos). El sistema revisa que estén completos los datos obligatorios y que haya al menos un producto. El ajuste queda en <strong>Borrador</strong>: todavía <strong>no cambió el stock</strong>.</p>
+
+<h2 id="confirmar">Confirmar el ajuste (impacta en el stock)</h2>
+<p>Cuando revisaste todo, tocá <strong>Confirmar</strong> en la fila del ajuste. En ese momento:</p>
+<ul>
+    <li>El stock del depósito se corrige con la cantidad de cada producto.</li>
+    <li>Si un producto había quedado por debajo de su mínimo y el ajuste lo sube, la <a href="stock_alertas.html">alerta de reposición</a> se cierra sola (y al revés: si lo baja del mínimo, se abre una).</li>
+    <li>El ajuste queda en <strong>Confirmado</strong> y ya no se puede editar ni eliminar.</li>
+</ul>
+<div class="alert alert-danger">Un ajuste confirmado no se puede deshacer desde esta pantalla. Si te equivocaste, cargá otro ajuste en sentido contrario.</div>
+<div class="nota-lateral">El "Stock Sistema" se toma en el momento en que agregás el producto. Si entre que contaste y confirmás hubo ventas o compras, la cantidad del ajuste no se recalcula sola: confirmá lo antes posible después del conteo.</div>
+
+<h2 id="flujo">El recorrido completo</h2>
+<ol>
+    <li>Contás la mercadería en el depósito.</li>
+    <li>Cargás el ajuste con los productos que dieron diferencia y tocás <strong>Guardar Ajuste</strong> (queda en Borrador).</li>
+    <li>Revisás, y si hace falta lo corregís con <strong>Editar</strong>.</li>
+    <li>Tocás <strong>Confirmar</strong>: el stock se corrige.</li>
+    <li>Verificás el resultado en el <a href="stock_dashboard.html">Dashboard de Stock</a> (el ajuste aparece en el kardex del producto).</li>
+</ol>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>"Producto requerido — Debe seleccionar un producto de la lista"</td><td>Elegí el producto de la lista desplegable antes de tocar +.</td></tr>
+    <tr><td>"Detalles requeridos — Debe agregar al menos un producto al detalle"</td><td>Agregá al menos un producto antes de guardar.</td></tr>
+    <tr><td>"Debe seleccionar un depósito" / "la sucursal" / "el tipo de comprobante" / "La fecha es obligatoria"</td><td>Falta completar ese dato.</td></tr>
+    <tr><td>"¡Guardado! Ajuste de stock guardado correctamente"</td><td>Quedó en Borrador.</td></tr>
+    <tr><td>"Stock insuficiente de [producto] en '[depósito]'. Disponible: …, requerido: …"</td><td>Al confirmar, un faltante dejaría el stock en negativo y ese depósito no lo permite. Revisá las cantidades.</td></tr>
+    <tr><td>"La boca '[depósito]' no admite ingresos (o egresos) de mercadería."</td><td>Ese depósito está configurado para no aceptar ese movimiento. Consultá con el administrador.</td></tr>
+    <tr><td>"Acción no permitida para este estado"</td><td>El ajuste cambió de estado mientras lo tenías abierto. Recargá la tabla.</td></tr>
+</table>
+
+<h2 id="exportar">Exportar e imprimir el listado</h2>
+<p>Arriba a la derecha: <span class="boton-ejemplo boton-outline">↻</span> recarga la tabla, y los otros botones exportan el listado a Excel, PDF, CSV o lo mandan a imprimir.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Guardé el ajuste pero el stock no cambió.</td>
+        <td>Falta <strong>confirmarlo</strong>. Un ajuste en Borrador no toca el stock.</td>
+    </tr>
+    <tr>
+        <td>Confirmé un ajuste equivocado, ¿cómo lo deshago?</td>
+        <td>Cargá y confirmá un ajuste nuevo con la diferencia contraria.</td>
+    </tr>
+    <tr>
+        <td>No aparece el producto en la búsqueda.</td>
+        <td>Escribí al menos 2 letras y verificá que hayas elegido el depósito. La búsqueda muestra hasta 20 productos activos; si hay muchos parecidos, escribí más letras o el código.</td>
+    </tr>
+    <tr>
+        <td>¿Para qué sirve el costo unitario?</td>
+        <td>Cuando el ajuste suma mercadería, ese costo se usa para recalcular el costo promedio del producto en ese depósito.</td>
+    </tr>
+    <tr>
+        <td>No veo mi sucursal en el desplegable.</td>
+        <td>Tu usuario no tiene acceso a esa sucursal. Consultá con el administrador.</td>
+    </tr>
+</table>
+
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="stock_dashboard.html">Dashboard de Stock</a>: ver el stock y el kardex.</li>
+    <li><a href="stock_niveles.html">Stock - Mínimos y Máximos</a></li>
+    <li><a href="stock_alertas.html">Stock - Alertas de Reposición</a></li>
+</ul>
+
+<footer>
+    Manual de usuario — Módulo Stock / Ajustes de Stock. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
+</footer>
+
+</body>
+</html>

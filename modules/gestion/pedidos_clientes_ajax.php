@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['pedidos_clientes.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once "pedidos_clientes_model.php";
@@ -9,7 +12,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 switch ($accion) {
     case 'listar':
-        $pedidos = obtenerPedidosClientes($conexion);
+        $pedidos = obtenerPedidosClientes($conexion, $ctx['empresa_id']);
         echo json_encode($pedidos);
         break;
     

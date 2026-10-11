@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Dashboard de Stock</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .rojo { color: var(--rojo); font-weight: 600; }
+    .verde { color: var(--verde); font-weight: 600; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a, a { color: var(--azul); text-decoration: none; }
+    .toc a:hover, a:hover { text-decoration: underline; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-caja.final { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } h2 { page-break-after: avoid; } }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="bi bi-boxes"></i> Manual de usuario: Dashboard de Stock</h1>
+<p class="subtitulo">Cuánta mercadería hay de cada producto en cada depósito, qué entró y qué salió, y la historia completa (kardex) de cada producto. Es una pantalla de consulta: no se modifica nada desde acá.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#conceptos">Antes de empezar: boca, movimiento y kardex</a></li>
+        <li><a href="#de-donde-sale">¿De dónde sale el stock que ves?</a></li>
+        <li><a href="#filtros">Filtros generales</a></li>
+        <li><a href="#indicadores">Indicadores (tarjetas de arriba)</a></li>
+        <li><a href="#grafico">Gráfico y rankings</a></li>
+        <li><a href="#stock-producto">Solapa Stock por producto</a></li>
+        <li><a href="#movimientos">Solapa Movimientos</a></li>
+        <li><a href="#kardex">Kardex de un producto</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="#relacionados">Manuales relacionados</a></li>
+    </ul>
+</div>
+
+<h2 id="conceptos">Antes de empezar: boca, movimiento y kardex</h2>
+<table class="tabla-referencia">
+    <tr><th>Palabra</th><th>Qué quiere decir</th></tr>
+    <tr><td><strong>Boca</strong></td><td>Cada lugar físico donde se guarda mercadería: un depósito, el salón de un local, etc. Cada sucursal puede tener una o más bocas. El stock se lleva por boca.</td></tr>
+    <tr><td><strong>Movimiento</strong></td><td>Cada entrada (ingreso) o salida (egreso) de mercadería de una boca, causada por un comprobante: una factura de proveedor, un remito de venta, un ajuste de stock, etc.</td></tr>
+    <tr><td><strong>Kardex</strong></td><td>La historia de un producto: todos sus movimientos uno tras otro, con el saldo que fue quedando después de cada uno.</td></tr>
+</table>
+
+<h2 id="de-donde-sale">¿De dónde sale el stock que ves?</h2>
+<p>Nadie carga el stock a mano en esta pantalla. Se mueve solo cuando se confirman comprobantes en otras pantallas:</p>
+<div class="flujo">
+    <div class="flujo-caja">Compra confirmada<small>suma</small></div>
+    <div class="flujo-caja">Remito o factura de venta confirmados<small>resta</small></div>
+    <div class="flujo-caja">Nota de crédito de venta<small>suma (devolución)</small></div>
+    <div class="flujo-caja">Ajuste de stock confirmado<small>suma o resta</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Stock por boca<small>lo que ves acá</small></div>
+</div>
+<ul>
+    <li>Los comprobantes en <strong>Borrador</strong> no mueven stock.</li>
+    <li>Una factura de venta que sale de un remito <strong>no vuelve a descontar</strong>: la mercadería ya se descontó con el remito.</li>
+    <li>Los productos marcados como "no controla stock" (servicios, conceptos) no aparecen.</li>
+</ul>
+<p>Para corregir diferencias con el conteo físico se usa <a href="stock_ajustes.html">Ajustes de Stock</a>.</p>
+
+<h2 id="filtros">Filtros generales</h2>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Qué afecta</th></tr>
+    <tr><td>Boca</td><td>"Todas las bocas" o una en particular (se muestra como "Sucursal — Boca"). Afecta todo: indicadores, gráfico, tablas y kardex. Solo aparecen las bocas de las sucursales a las que tenés acceso.</td></tr>
+    <tr><td>Movimientos desde / Hasta</td><td>El período de los movimientos, el gráfico y los rankings. No afecta al stock actual, que siempre es el de hoy.</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">7 días</span> <span class="boton-ejemplo boton-outline">30 días</span> <span class="boton-ejemplo boton-outline">90 días</span> <span class="boton-ejemplo boton-outline">12 meses</span></td><td>Atajos para el período. Al entrar viene marcado "30 días".</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">↻ Actualizar</span></td><td>Vuelve a leer todo.</td></tr>
+</table>
+
+<h2 id="indicadores">Indicadores (tarjetas de arriba)</h2>
+<table class="tabla-referencia">
+    <tr><th>Tarjeta</th><th>Qué muestra</th><th>¿Se puede tocar?</th></tr>
+    <tr><td>Productos con stock</td><td>Cuántos productos tienen stock mayor a cero.</td><td>Sí: filtra la tabla para ver esos productos.</td></tr>
+    <tr><td>Unidades en stock</td><td>Suma de todas las unidades.</td><td>No.</td></tr>
+    <tr><td>Valorizado (costo prom.)</td><td>Cuánto vale ese stock a costo promedio (solo cuenta el stock positivo).</td><td>No.</td></tr>
+    <tr><td>Bajo el mínimo</td><td>Cuántos productos tienen una <a href="stock_alertas.html">alerta de reposición</a> abierta.</td><td>Sí: filtra la tabla.</td></tr>
+    <tr><td>Stock negativo</td><td>Productos con stock por debajo de cero (se vendió más de lo que el sistema tenía registrado).</td><td>Sí: filtra la tabla.</td></tr>
+    <tr><td>Movimientos del período</td><td>Cantidad de movimientos y, debajo, unidades que <span class="verde">entraron (+)</span> y que <span class="rojo">salieron (−)</span>.</td><td>No.</td></tr>
+</table>
+
+<h2 id="grafico">Gráfico y rankings</h2>
+<ul>
+    <li><strong>Ingresos y egresos de unidades por día:</strong> barras verdes (entradas) y rojas (salidas) de cada día del período.</li>
+    <li><strong>Más egresos en el período:</strong> los productos que más salieron. Tocando el nombre se abre su <a href="#kardex">kardex</a>.</li>
+    <li><strong>Por tipo de comprobante:</strong> cuántas unidades movió cada tipo de comprobante (remitos, facturas, ajustes, etc.).</li>
+</ul>
+
+<h2 id="stock-producto">Solapa Stock por producto</h2>
+<p>Una fila por producto, con una columna por cada boca y el total. Si elegiste una boca arriba, solo se ve la columna de esa boca.</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Código / Producto / Categoría</td><td>Datos del producto. Un triángulo amarillo junto al nombre indica que está bajo el mínimo en alguna boca.</td></tr>
+    <tr><td>Una columna por boca</td><td>Stock en esa boca. Una raya (—) significa que nunca tuvo movimientos ahí. Los negativos se ven en <span class="rojo">rojo</span>.</td></tr>
+    <tr><td>Total</td><td>Stock total, con la unidad de medida.</td></tr>
+    <tr><td>Valorizado</td><td>Valor a costo promedio.</td></tr>
+    <tr><td>Últ. movimiento</td><td>Fecha y hora del último movimiento.</td></tr>
+</table>
+<p>Arriba de la tabla podés elegir qué productos ver:</p>
+<table class="tabla-referencia">
+    <tr><th>Opción</th><th>Muestra</th></tr>
+    <tr><td>Con stock registrado</td><td>Los productos que tuvieron algún movimiento (opción por defecto).</td></tr>
+    <tr><td>Con stock positivo</td><td>Solo los que tienen más de cero.</td></tr>
+    <tr><td>Con stock negativo</td><td>Solo los que están por debajo de cero.</td></tr>
+    <tr><td>Bajo el mínimo (alerta abierta)</td><td>Los que tienen una alerta de reposición abierta.</td></tr>
+    <tr><td>Todos los productos activos</td><td>Todos los que controlan stock, aunque nunca se hayan movido.</td></tr>
+</table>
+<p>También podés filtrar por <strong>categoría</strong> y buscar por código o nombre con el buscador de la tabla. <strong>Hacé clic en una fila</strong> para abrir el kardex de ese producto.</p>
+
+<h2 id="movimientos">Solapa Movimientos</h2>
+<p>Es el libro de todos los movimientos del período y la boca elegidos arriba, del más nuevo al más viejo:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Fecha</td><td>Fecha y hora del movimiento.</td></tr>
+    <tr><td>Boca</td><td>Boca y, debajo, sucursal.</td></tr>
+    <tr><td>Código / Producto</td><td>El producto.</td></tr>
+    <tr><td>Comprobante</td><td>Tipo y número del comprobante que lo generó ("s/n" si no tiene número, por ejemplo un ajuste).</td></tr>
+    <tr><td>Cliente / Proveedor</td><td>A quién se le vendió o a quién se le compró, si corresponde.</td></tr>
+    <tr><td>Cantidad</td><td><span class="verde">+</span> si entró, <span class="rojo">−</span> si salió.</td></tr>
+    <tr><td>Costo unit.</td><td>Costo unitario registrado en ese movimiento (en las compras y ajustes).</td></tr>
+    <tr><td>Usuario</td><td>Quién confirmó el comprobante.</td></tr>
+</table>
+<p>Podés filtrar por <strong>Solo ingresos / Solo egresos</strong> y por <strong>tipo de comprobante</strong>. Al hacer clic en una fila se abre el kardex de ese producto.</p>
+
+<h2 id="kardex">Kardex de un producto</h2>
+<p>Se abre en una ventana con el código y nombre del producto, su categoría y código de barras (o la etiqueta "No controla stock" si corresponde).</p>
+<h3>Stock por boca</h3>
+<p>Una fila por cada boca donde el producto tuvo stock: sucursal, boca, <strong>stock</strong> actual, <strong>mínimo</strong> y <strong>máximo</strong> cargados (ver <a href="stock_niveles.html">Mínimos y Máximos</a>), <strong>costo promedio</strong>, <strong>costo de la última compra</strong> y fecha del último movimiento.</p>
+<h3>Movimientos</h3>
+<p>Arriba dice el período que se está mostrando (el de los filtros generales). Con el selector de la derecha podés ver una boca o todas. La primera fila es el <strong>Saldo al inicio del período</strong>; después vienen los movimientos en orden, con columnas separadas de <span class="verde">Ingreso</span> y <span class="rojo">Egreso</span>, el <strong>Saldo</strong> que quedó, el costo y el usuario. Debajo del comprobante se ve su observación, si tiene.</p>
+<div class="nota-lateral">Si el producto tiene muchísimos movimientos, se muestran los primeros 2000 con el aviso "acotá el período". Elegí un rango de fechas más corto.</div>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>"Sin egresos en el período." / "Sin movimientos en el período."</td><td>No hubo movimientos en las fechas elegidas. Ampliá el período.</td></tr>
+    <tr><td>"Sin stock registrado en ninguna boca."</td><td>El producto nunca tuvo movimientos.</td></tr>
+    <tr><td>"Atención — Error de comunicación con el servidor"</td><td>Problema de conexión. Probá con <strong>Actualizar</strong>.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr>
+        <td>Cargué una factura de compra y el stock no subió.</td>
+        <td>Revisá que esté <strong>confirmada</strong>: los borradores no mueven stock. Revisá también que el producto controle stock.</td>
+    </tr>
+    <tr>
+        <td>¿Por qué un producto tiene stock negativo?</td>
+        <td>Porque se registró una salida mayor a lo que el sistema tenía (por ejemplo, la compra todavía no se cargó). Algunas bocas permiten quedar en negativo y otras no. Para corregirlo, cargá la compra pendiente o hacé un <a href="stock_ajustes.html">ajuste de stock</a>.</td>
+    </tr>
+    <tr>
+        <td>Facturé un remito y no veo dos salidas.</td>
+        <td>Es correcto: la mercadería se descuenta una sola vez, con el remito. La factura que sale de ese remito no vuelve a descontar.</td>
+    </tr>
+    <tr>
+        <td>¿Puedo corregir el stock desde acá?</td>
+        <td>No. Esta pantalla es solo de consulta. Usá <a href="stock_ajustes.html">Ajustes de Stock</a>.</td>
+    </tr>
+    <tr>
+        <td>No veo una boca en el filtro.</td>
+        <td>Solo aparecen las bocas que funcionan como depósito y que pertenecen a sucursales a las que tenés acceso.</td>
+    </tr>
+</table>
+
+<h2 id="relacionados">Manuales relacionados</h2>
+<ul>
+    <li><a href="stock_ajustes.html">Ajustes de Stock</a></li>
+    <li><a href="stock_niveles.html">Stock - Mínimos y Máximos</a></li>
+    <li><a href="stock_alertas.html">Stock - Alertas de Reposición</a></li>
+    <li><a href="ventas_remitos.html">Remitos de Pedidos</a> y <a href="ventas_facturas.html">Facturación</a> (salidas por venta)</li>
+</ul>
+
+<footer>
+    Manual de usuario — Módulo Stock / Dashboard de Stock. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+    <br><a href="index.html">← Volver al índice</a>
+</footer>
+
+</body>
+</html>

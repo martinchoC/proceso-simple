@@ -86,8 +86,27 @@ switch ($accion) {
     break;
 
   case 'asignar_modulo':
-    $empresa_id = $_POST['empresa_id'] ?? 0;
-    $modulo_id = $_POST['modulo_id'] ?? 0;
+    $empresa_id = intval($_POST['empresa_id'] ?? 0);
+    $modulo_id = intval($_POST['modulo_id'] ?? 0);
+
+    $chk_ex = $conn->prepare("
+      SELECT m.modulo, mi.motivo
+      FROM conf__empresas_modulos em
+      INNER JOIN conf__modulos_incompatibles mi 
+          ON ( (mi.modulo_id_1 = ? AND mi.modulo_id_2 = em.modulo_id) 
+            OR (mi.modulo_id_2 = ? AND mi.modulo_id_1 = em.modulo_id) )
+          AND mi.tabla_estado_registro_id = 1
+      INNER JOIN conf__modulos m ON m.modulo_id = em.modulo_id
+      WHERE em.empresa_id = ? AND em.tabla_estado_registro_id = 1
+      LIMIT 1
+    ");
+    $chk_ex->bind_param("iii", $modulo_id, $modulo_id, $empresa_id);
+    $chk_ex->execute();
+    $res_ex = $chk_ex->get_result();
+    if ($row_ex = $res_ex->fetch_assoc()) {
+      echo json_encode(['ok' => false, 'error' => "Este módulo es mutuamente excluyente con '" . $row_ex['modulo'] . "', el cual ya está activo para esta empresa."]);
+      break;
+    }
 
     // Validar si ya existe
     $check = $conn->prepare("SELECT 1 FROM conf__empresas_modulos WHERE empresa_id = ? AND modulo_id = ?");
@@ -96,7 +115,11 @@ switch ($accion) {
     $check->store_result();
 
     if ($check->num_rows == 0) {
-      $stmt = $conn->prepare("INSERT INTO conf__empresas_modulos (empresa_id, modulo_id, estado_registro_id) VALUES (?, ?, 1)");
+      $stmt = $conn->prepare("INSERT INTO conf__empresas_modulos (empresa_id, modulo_id, tabla_estado_registro_id) VALUES (?, ?, 1)");
+      $stmt->bind_param("ii", $empresa_id, $modulo_id);
+      $stmt->execute();
+    } else {
+      $stmt = $conn->prepare("UPDATE conf__empresas_modulos SET tabla_estado_registro_id = 1 WHERE empresa_id = ? AND modulo_id = ?");
       $stmt->bind_param("ii", $empresa_id, $modulo_id);
       $stmt->execute();
     }
@@ -104,9 +127,41 @@ switch ($accion) {
     break;
 
   case 'cambiar_estado_modulo':
-    $empresa_modulo_id = $_POST['empresa_modulo_id'] ?? 0;
-    $estado = $_POST['estado'] ?? 1;
-    $stmt = $conn->prepare("UPDATE conf__empresas_modulos SET estado_registro_id = ? WHERE empresa_modulo_id = ?");
+    $empresa_modulo_id = intval($_POST['empresa_modulo_id'] ?? 0);
+    $estado = intval($_POST['estado'] ?? 1);
+
+    if ($estado == 1) {
+      $em_stmt = $conn->prepare("SELECT empresa_id, modulo_id FROM conf__empresas_modulos WHERE empresa_modulo_id = ?");
+      $em_stmt->bind_param("i", $empresa_modulo_id);
+      $em_stmt->execute();
+      $em_res = $em_stmt->get_result()->fetch_assoc();
+
+      if ($em_res) {
+        $m_id = (int)$em_res['modulo_id'];
+        $e_id = (int)$em_res['empresa_id'];
+
+        $chk_ex = $conn->prepare("
+          SELECT m.modulo, mi.motivo
+          FROM conf__empresas_modulos em
+          INNER JOIN conf__modulos_incompatibles mi 
+              ON ( (mi.modulo_id_1 = ? AND mi.modulo_id_2 = em.modulo_id) 
+                OR (mi.modulo_id_2 = ? AND mi.modulo_id_1 = em.modulo_id) )
+              AND mi.tabla_estado_registro_id = 1
+          INNER JOIN conf__modulos m ON m.modulo_id = em.modulo_id
+          WHERE em.empresa_id = ? AND em.tabla_estado_registro_id = 1 AND em.empresa_modulo_id != ?
+          LIMIT 1
+        ");
+        $chk_ex->bind_param("iiii", $m_id, $m_id, $e_id, $empresa_modulo_id);
+        $chk_ex->execute();
+        $res_ex = $chk_ex->get_result();
+        if ($row_ex = $res_ex->fetch_assoc()) {
+          echo json_encode(['ok' => false, 'error' => "No se puede activar porque es mutuamente excluyente con '" . $row_ex['modulo'] . "'."]);
+          break;
+        }
+      }
+    }
+
+    $stmt = $conn->prepare("UPDATE conf__empresas_modulos SET tabla_estado_registro_id = ? WHERE empresa_modulo_id = ?");
     $stmt->bind_param("ii", $estado, $empresa_modulo_id);
     $stmt->execute();
     echo json_encode(['ok' => true]);

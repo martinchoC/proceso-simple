@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Jurisdicciones</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Jurisdicciones</h1>
+<p class="subtitulo">Los organismos o territorios que cobran impuestos (Nación, cada provincia para Ingresos Brutos, municipios), usados en la configuración de impuestos y en los datos de IIBB de clientes y proveedores.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID / Código / Nombre</td><td>Identificación de la jurisdicción.</td></tr>
+    <tr><td>Tipo</td><td>Nacional, Provincial, Municipal o Convenio Multilateral (ver <a href="jurisdicciones_tipos.html">Tipos de Jurisdicción</a>).</td></tr>
+    <tr><td>País / Provincia / Localidad</td><td>Ubicación geográfica, si se cargó.</td></tr>
+    <tr><td>Organismo Recaudador</td><td>Por ejemplo ARBA o AGIP.</td></tr>
+    <tr><td>Requiere Padrón</td><td>Si las alícuotas se toman del padrón de contribuyentes del organismo.</td></tr>
+    <tr><td>Estado / Acciones</td><td>Activa o Inactiva, y sus botones.</td></tr>
+</table>
+<p>Tiene buscador, recarga <span class="boton-ejemplo boton-outline">↻</span> y menú <span class="boton-ejemplo boton-outline">Exportar</span>.</p>
+
+<h2 id="agregar">Agregar o editar una jurisdicción</h2>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código *</td><td>Hasta 10 caracteres.</td></tr>
+    <tr><td>Nombre *</td><td>Hasta 100 caracteres.</td></tr>
+    <tr><td>Tipo de Jurisdicción *</td><td>Nacional, Provincial, etc.</td></tr>
+    <tr><td>País / Provincia / Localidad</td><td>Opcionales. La lista de provincias depende del país elegido y la de localidades, de la provincia.</td></tr>
+    <tr><td>Organismo Recaudador</td><td>Opcional.</td></tr>
+    <tr><td>Código Externo</td><td>Opcional: código usado por el organismo o por otros sistemas (hasta 20 caracteres).</td></tr>
+    <tr><td>Requiere Padrón</td><td>Activalo si esta jurisdicción trabaja con padrón de alícuotas por contribuyente.</td></tr>
+    <tr><td>Orden</td><td>Orden de aparición.</td></tr>
+</table>
+<p>Si falta el tipo, el sistema avisa <em>"Debe seleccionar un tipo de jurisdicción"</em>.</p>
+
+<h2 id="estados">Activa e Inactiva</h2>
+<div class="flujo"><div class="flujo-caja">Activo</div><div class="flujo-flecha">⇄</div><div class="flujo-caja inactivo">Inactivo</div></div>
+<p>Una jurisdicción inactiva no se borra; deja de ofrecerse en las listas.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea una jurisdicción.</td><td>Siempre.</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>La modifica.</td><td>Activa.</td></tr>
+    <tr><td>Inhabilitar (rojo)</td><td>La pasa a Inactiva, previa confirmación.</td><td>Activa.</td></tr>
+    <tr><td>Habilitar (verde)</td><td>La vuelve a Activa, previa confirmación.</td><td>Inactiva.</td></tr>
+</table>
+<p class="nota-lateral">Ver también: <a href="empresas_impuestos_config.html">Impuestos Adicionales - Configuración</a>, donde cada impuesto se asocia a una jurisdicción.</p>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Jurisdicciones. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

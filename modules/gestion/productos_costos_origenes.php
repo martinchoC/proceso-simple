@@ -180,7 +180,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <script>
         $(document).ready(function () {
-            const empresa_idx = <?php echo isset($_GET['empresa_id']) ? $_GET['empresa_id'] : 2; ?>;
+            const empresa_idx = window.EMPRESA_ID;
             const pagina_idx = <?php echo $pagina_idx; ?>;
 
             var tabla;

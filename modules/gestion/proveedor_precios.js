@@ -13,6 +13,9 @@ $(function () {
     var productoSeleccionado = null; // { producto_proveedor_id, producto_nombre, producto_codigo }
     var loteImportacion = []; // filas crudas leídas del Excel, antes de trocear
     var tablaControl = null; // DataTable de la solapa Control
+    var tablaArmarLista = null; // DataTable de la vista previa de "Armar lista desde precios"
+    var armarListaExcluidos = {}; // producto_proveedor_id destildados en la vista previa
+    var armarListaBaseCalculada = null; // base con la que se calculó la vista previa vigente
 
     var TAMANIO_LOTE = 300; // mismo tamaño de lote que listas_precios_productos.php
 
@@ -27,7 +30,7 @@ $(function () {
             proveedorActualNombre = $(this).find(':selected').text();
 
             var haySeleccion = !!proveedorActualId;
-            $('#btnAgregarPrecio, #btnImportarExcel, #btnActualizarCostosMasivo, #btnActualizarSoloCostosMasivo, #btnActualizarSoloPreciosMasivo, #btnAplicarPorcentajeCostos').prop('disabled', !haySeleccion);
+            $('#btnAgregarPrecio, #btnImportarExcel, #btnArmarListaDesdePrecios, #btnActualizarCostosMasivo, #btnActualizarSoloCostosMasivo, #btnActualizarSoloPreciosMasivo, #btnAplicarPorcentajeCostos').prop('disabled', !haySeleccion);
 
             // Cambiar de proveedor (o pasar a "todos") fuerza reconstruir
             // columnas — puede cambiar si mostramos o no la columna Proveedor.
@@ -47,6 +50,28 @@ $(function () {
             $('#modalImportarExcel').modal('show');
         });
         $('#inputArchivoExcel').on('change', leerArchivoExcel);
+        $('#btnArmarListaDesdePrecios').on('click', abrirModalArmarLista);
+        $('#btnArmarListaCalcular').on('click', calcularArmarLista);
+        $('#armarListaBase').on('change', function () {
+            // Cambió la base: la vista previa vigente ya no corresponde.
+            armarListaBaseCalculada = null;
+            $('#btnArmarListaGenerar').prop('disabled', true);
+        });
+        $('#btnArmarListaGenerar').on('click', generarArmarLista);
+        $('#armarListaTodos').on('change', function () {
+            var tildar = $(this).is(':checked');
+            armarListaExcluidos = {};
+            if (!tildar && tablaArmarLista) {
+                tablaArmarLista.rows().data().each(function (r) { armarListaExcluidos[r.producto_proveedor_id] = true; });
+            }
+            if (tablaArmarLista) tablaArmarLista.rows().invalidate('data').draw(false);
+            actualizarResumenArmarLista();
+        });
+        $(document).on('change', '.chk-armar-lista', function () {
+            var id = $(this).data('id');
+            if ($(this).is(':checked')) { delete armarListaExcluidos[id]; } else { armarListaExcluidos[id] = true; }
+            actualizarResumenArmarLista();
+        });
         $('#btnProcesarImportacion').on('click', procesarImportacionEnLotes);
 
         inicializarFiltrosCompatibilidad();
@@ -1101,6 +1126,164 @@ $(function () {
     // Vinculados a este proveedor sin precio en su lista. Se refresca al
     // cambiar de proveedor (también para el badge de la solapa, aunque no
     // esté visible), al guardar un precio y al terminar una importación.
+    // ------------------------------------------------------------------
+    // "Armar lista desde precios": vista previa + carga de los productos
+    // vinculados a este proveedor que no tienen precio en su lista.
+    // ------------------------------------------------------------------
+    function abrirModalArmarLista() {
+        if (!proveedorActualId) return;
+        $('#armarListaProveedor').text(proveedorActualNombre);
+        $('#armarListaResumen').html('').removeData('datos');
+        $('#btnArmarListaGenerar').prop('disabled', true);
+        armarListaBaseCalculada = null;
+        armarListaExcluidos = {};
+        $('#armarListaTodos').prop('checked', true);
+        if (tablaArmarLista) tablaArmarLista.clear().draw();
+
+        $.get('proveedor_precios_ajax.php', { accion: 'obtener_listas_precios', empresa_idx: empresa_idx }, function (res) {
+            var $sel = $('#armarListaBase').empty();
+            var listas = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+            var porDefecto = null;
+            listas.forEach(function (lp) {
+                if (parseInt(lp.lista_precio_origen_id, 10) === 3) return; // MANUAL: no hay regla para deshacer
+                $sel.append($('<option>').val(lp.lista_precio_id).text('Precio de venta — lista ' + lp.lista_precio_nombre));
+                // Por defecto la lista que parte del costo (un solo paso de regla).
+                if (porDefecto === null && parseInt(lp.lista_precio_origen_id, 10) === 1) porDefecto = lp.lista_precio_id;
+            });
+            $sel.append($('<option>').val('COSTO').text('Costo registrado del producto'));
+            if (porDefecto !== null) $sel.val(porDefecto);
+            $('#modalArmarLista').modal('show');
+        }, 'json').fail(function () {
+            Swal.fire('Error', 'No se pudieron cargar las listas de precios.', 'error');
+        });
+    }
+
+    function calcularArmarLista() {
+        var base = $('#armarListaBase').val();
+        if (!proveedorActualId || !base) return;
+        var $btn = $('#btnArmarListaCalcular').prop('disabled', true);
+        $('#armarListaResumen').html('<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>Calculando…</span>');
+
+        $.get({
+            url: 'proveedor_precios_ajax.php',
+            dataType: 'json',
+            data: { accion: 'armar_lista_calcular', empresa_idx: empresa_idx, entidad_id: proveedorActualId, base: base }
+        }).done(function (res) {
+            if (!res || !res.success) {
+                $('#armarListaResumen').html('');
+                Swal.fire('Atención', (res && res.message) || 'No se pudo calcular.', 'warning');
+                return;
+            }
+            armarListaBaseCalculada = base;
+            armarListaExcluidos = {};
+            $('#armarListaTodos').prop('checked', true);
+            pintarTablaArmarLista(res.data.filas || []);
+            actualizarResumenArmarLista(res.data);
+            if (!res.data.total && res.message) {
+                Swal.fire({ icon: 'info', title: res.message });
+            }
+        }).fail(function (xhr) {
+            console.error('Error calculando armado de lista:', xhr.status, xhr.responseText);
+            $('#armarListaResumen').html('');
+            Swal.fire('Error', 'No se pudo calcular la vista previa.', 'error');
+        }).always(function () {
+            $btn.prop('disabled', false);
+        });
+    }
+
+    function pintarTablaArmarLista(filas) {
+        if (tablaArmarLista) {
+            tablaArmarLista.clear().rows.add(filas).draw();
+            return;
+        }
+        var importe = function (d, type) { return d === null ? '' : (type === 'display' ? formatearMoneda(d) : d); };
+        tablaArmarLista = $('#tablaArmarLista').DataTable({
+            data: filas,
+            pageLength: 10,
+            order: [[3, 'asc']],
+            columns: [
+                {
+                    data: null,
+                    orderable: false,
+                    className: 'text-center',
+                    render: function (row, type) {
+                        if (type !== 'display' || row.precio_lista_propuesto === null) return '';
+                        var tildado = !armarListaExcluidos[row.producto_proveedor_id];
+                        return '<input type="checkbox" class="chk-armar-lista" data-id="' + row.producto_proveedor_id + '"' + (tildado ? ' checked' : '') + '>';
+                    }
+                },
+                { data: 'codigo_proveedor', defaultContent: '', render: function (d, type) { return type === 'display' ? escapeHtml(d) : (d || ''); } },
+                { data: 'producto_codigo', defaultContent: '', render: function (d, type) { return type === 'display' ? escapeHtml(d) : (d || ''); } },
+                { data: 'producto_nombre', render: function (d, type) { return type === 'display' ? escapeHtml(d) : d; } },
+                { data: 'precio_base', className: 'text-end', render: importe },
+                { data: 'costo_estimado', className: 'text-end', render: importe },
+                { data: 'precio_lista_propuesto', className: 'text-end fw-bold', render: importe },
+                { data: 'motivo', render: function (d, type) { return type === 'display' && d ? '<span class="badge bg-secondary">' + escapeHtml(d) + '</span>' : (d || ''); } }
+            ]
+        });
+    }
+
+    function idsArmarListaSeleccionados() {
+        var ids = [];
+        if (!tablaArmarLista) return ids;
+        tablaArmarLista.rows().data().each(function (r) {
+            if (r.precio_lista_propuesto !== null && !armarListaExcluidos[r.producto_proveedor_id]) ids.push(r.producto_proveedor_id);
+        });
+        return ids;
+    }
+
+    function actualizarResumenArmarLista(datos) {
+        if (datos) {
+            $('#armarListaResumen').data('datos', datos);
+        } else {
+            datos = $('#armarListaResumen').data('datos') || {};
+        }
+        var seleccionados = idsArmarListaSeleccionados().length;
+        $('#armarListaResumen').html(
+            (datos.total || 0) + ' sin precio · ' + (datos.calculables || 0) + ' calculables · ' +
+            '<strong>' + seleccionados + ' a cargar</strong>' +
+            '<br><span class="text-muted">Descuento de compra vigente: ' + (parseFloat(datos.descuento_pct) || 0).toFixed(2) + ' %</span>'
+        );
+        $('#btnArmarListaGenerar').prop('disabled', !seleccionados || armarListaBaseCalculada === null);
+    }
+
+    function generarArmarLista() {
+        var ids = idsArmarListaSeleccionados();
+        if (!proveedorActualId || !ids.length || armarListaBaseCalculada === null) return;
+
+        Swal.fire({
+            title: 'Cargar ' + ids.length + ' precio(s) en la lista del proveedor',
+            html: 'Se cargan con origen <strong>ESTIMADO</strong> para <strong>' + escapeHtml(proveedorActualNombre) + '</strong>. ' +
+                  'No se modifican costos ni listas de venta.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cargar'
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            Swal.fire({ title: 'Cargando…', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+
+            $.post('proveedor_precios_ajax.php', {
+                accion: 'armar_lista_generar',
+                empresa_idx: empresa_idx,
+                pagina_idx: pagina_idx,
+                entidad_id: proveedorActualId,
+                base: armarListaBaseCalculada,
+                producto_proveedor_ids: JSON.stringify(ids)
+            }, function (res) {
+                if (res && res.success) {
+                    $('#modalArmarLista').modal('hide');
+                    Swal.fire({ icon: 'success', title: res.message });
+                    intentarCargarTabla();
+                    cargarControl();
+                } else {
+                    Swal.fire('Error', (res && res.message) || 'No se pudo cargar la lista.', 'error');
+                }
+            }, 'json').fail(function () {
+                Swal.fire('Error', 'No se pudo completar la carga.', 'error');
+            });
+        });
+    }
+
     function cargarControl() {
         if (!proveedorActualId) {
             $('#avisoControlSinProveedor').removeClass('d-none');

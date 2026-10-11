@@ -8,7 +8,7 @@
 $(document).ready(function () {
     // Parámetros de entorno desde URL o por defecto
     const urlParams = new URLSearchParams(window.location.search);
-    const empresa_idx = urlParams.get('empresa_id') || urlParams.get('empresa_idx') || 2;
+    const empresa_idx = urlParams.get('empresa_id') || urlParams.get('empresa_idx') || window.EMPRESA_ID;
     const pagina_idx = 101;
     const ajaxUrl = 'empresas_cuentas_conceptos_ajax.php';
 

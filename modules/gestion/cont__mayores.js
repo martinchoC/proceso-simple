@@ -5,14 +5,21 @@ $(document).ready(function () {
     var fechaHasta = '';
     var cuentaSeleccionada = null;
     
-    // Inicializar fechas por defecto
+    // Inicializar fechas por defecto (mes en curso)
     function inicializarFechas() {
         var hoy = new Date();
         var primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
         var ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
         
-        fechaDesde = primerDia.toISOString().split('T')[0];
-        fechaHasta = ultimoDia.toISOString().split('T')[0];
+        function formatFechaISO(d) {
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+        }
+        
+        fechaDesde = formatFechaISO(primerDia);
+        fechaHasta = formatFechaISO(ultimoDia);
         
         $('#fecha_desde').val(fechaDesde);
         $('#fecha_hasta').val(fechaHasta);
@@ -22,7 +29,7 @@ $(document).ready(function () {
     function inicializarSelect2() {
         $('#cuenta_id').select2({
             theme: 'bootstrap-5',
-            placeholder: 'Seleccione una cuenta',
+            placeholder: 'Todas las cuentas',
             allowClear: true,
             ajax: {
                 url: 'cont__mayores_ajax.php',
@@ -37,7 +44,7 @@ $(document).ready(function () {
                 },
                 processResults: function(data) {
                     return {
-                        results: data.map(function(item) {
+                        results: (Array.isArray(data) ? data : []).map(function(item) {
                             return {
                                 id: item.cont_cuenta_id,
                                 text: item.codigo + ' - ' + item.nombre
@@ -57,10 +64,11 @@ $(document).ready(function () {
         }, function(data) {
             $('#cuenta_id').empty();
             $('#cuenta_id').append('<option value="">Todas las cuentas</option>');
-            data.forEach(function(cuenta) {
-                $('#cuenta_id').append(`<option value="${cuenta.cont_cuenta_id}">${escapeHtml(cuenta.codigo)} - ${escapeHtml(cuenta.nombre)}</option>`);
-            });
-            $('#cuenta_id').trigger('change');
+            if (Array.isArray(data)) {
+                data.forEach(function(cuenta) {
+                    $('#cuenta_id').append(`<option value="${cuenta.cont_cuenta_id}">${escapeHtml(cuenta.codigo)} - ${escapeHtml(cuenta.nombre)}</option>`);
+                });
+            }
         }, 'json');
     }
     
@@ -77,61 +85,162 @@ $(document).ready(function () {
     
     function getNaturalezaTexto(naturaleza) {
         if (naturaleza === 'D') return '<span class="badge bg-primary">Deudora</span>';
-        if (naturaleza === 'A') return '<span class="badge bg-danger">Acreedora</span>';
+        if (naturaleza === 'H' || naturaleza === 'A') return '<span class="badge bg-danger">Acreedora</span>';
         return '<span class="badge bg-secondary">' + escapeHtml(naturaleza) + '</span>';
     }
     
     // Inicializar DataTable de mayores
-    // Reemplazar la función inicializarDataTable con esta versión corregida:
-
-function inicializarDataTable() {
-    if ($.fn.DataTable.isDataTable('#tablaMayores')) {
-        $('#tablaMayores').DataTable().destroy();
-        $('#tablaMayores tbody').empty();
-    }
-    
-    tablaMayores = $('#tablaMayores').DataTable({
-        ajax: {
-            url: 'cont__mayores_ajax.php',
-            type: 'GET',
-            data: function(d) {
-                return {
-                    accion: 'obtener_saldos',
-                    empresa_idx: empresa_id,
-                    fecha_desde: fechaDesde,
-                    fecha_hasta: fechaHasta,
-                    cuenta_id: cuentaSeleccionada || ''
-                };
-            },
-            dataSrc: function(json) {
-                if (json.error) {
-                    console.error('Error del servidor:', json.error);
+    function inicializarDataTable() {
+        if ($.fn.DataTable.isDataTable('#tablaMayores')) {
+            $('#tablaMayores').DataTable().destroy();
+            $('#tablaMayores tbody').empty();
+        }
+        
+        tablaMayores = $('#tablaMayores').DataTable({
+            ajax: {
+                url: 'cont__mayores_ajax.php',
+                type: 'GET',
+                data: function(d) {
+                    return {
+                        accion: 'obtener_saldos',
+                        empresa_idx: empresa_id,
+                        fecha_desde: fechaDesde,
+                        fecha_hasta: fechaHasta,
+                        cuenta_id: cuentaSeleccionada || ''
+                    };
+                },
+                dataSrc: function(json) {
+                    if (json && json.error) {
+                        console.error('Error del servidor:', json.error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: json.error,
+                            confirmButtonText: 'Entendido'
+                        });
+                        return [];
+                    }
+                    return Array.isArray(json) ? json : [];
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error AJAX:', error);
+                    console.error('Respuesta del servidor:', xhr.responseText);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: json.error,
+                        text: 'Error al cargar los datos del mayor. Verifique la consola para más detalles.',
                         confirmButtonText: 'Entendido'
                     });
-                    return [];
                 }
-                return json;
             },
-            error: function(xhr, status, error) {
-                console.error('Error AJAX:', error);
-                console.error('Respuesta del servidor:', xhr.responseText);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Error al cargar los datos del mayor. Verifique la consola para más detalles.',
-                    confirmButtonText: 'Entendido'
-                });
+            columns: [
+                { 
+                    data: 'codigo', 
+                    className: 'text-nowrap' 
+                },
+                { 
+                    data: 'nombre',
+                    render: function(data) {
+                        return '<strong>' + escapeHtml(data) + '</strong>';
+                    }
+                },
+                { 
+                    data: 'naturaleza',
+                    className: 'text-center',
+                    render: function(data) {
+                        return getNaturalezaTexto(data);
+                    }
+                },
+                { 
+                    data: 'saldo_inicial',
+                    className: 'text-end',
+                    render: function(data) {
+                        var val = parseFloat(data || 0);
+                        var cls = val > 0 ? 'text-primary' : (val < 0 ? 'text-danger' : 'text-muted');
+                        return `<span class="${cls}">${formatNumber(val, 2)}</span>`;
+                    }
+                },
+                { 
+                    data: 'total_debe',
+                    className: 'text-end',
+                    render: function(data) {
+                        return formatNumber(data, 2);
+                    }
+                },
+                { 
+                    data: 'total_haber',
+                    className: 'text-end',
+                    render: function(data) {
+                        return formatNumber(data, 2);
+                    }
+                },
+                { 
+                    data: 'saldo_final',
+                    className: 'text-end',
+                    render: function(data) {
+                        var val = parseFloat(data || 0);
+                        var cls = val >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold';
+                        return `<span class="${cls}">${formatNumber(val, 2)}</span>`;
+                    }
+                },
+                { 
+                    data: null,
+                    className: 'text-center text-nowrap',
+                    orderable: false,
+                    render: function(data, type, row) {
+                        return `<button type="button" class="btn btn-sm btn-outline-info btn-ver-detalle" 
+                                    data-id="${row.cont_cuenta_id}" 
+                                    data-codigo="${escapeHtml(row.codigo)}" 
+                                    data-nombre="${escapeHtml(row.nombre)}" 
+                                    title="Ver Detalle del Mayor">
+                                    <i class="fas fa-eye me-1"></i>Detalle
+                                </button>`;
+                    }
+                }
+            ],
+            dom: '<"row align-items-center mb-2"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 text-end"B>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row align-items-center mt-3"<"col-12 col-md-5"i><"col-12 col-md-7 d-flex justify-content-md-end justify-content-center"p>>',
+            buttons: [
+                {
+                    extend: 'excelHtml5',
+                    className: 'd-none buttons-excel',
+                    title: 'Mayores Contables',
+                    footer: true
+                },
+                {
+                    extend: 'pdfHtml5',
+                    className: 'd-none buttons-pdf',
+                    title: 'Mayores Contables',
+                    footer: true
+                },
+                {
+                    extend: 'csvHtml5',
+                    className: 'd-none buttons-csv',
+                    title: 'Mayores Contables',
+                    footer: true
+                },
+                {
+                    extend: 'print',
+                    className: 'd-none buttons-print',
+                    title: 'Mayores Contables',
+                    footer: true
+                }
+            ],
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
+            },
+            responsive: true,
+            drawCallback: function() {
+                actualizarTotales();
             }
-        },
-        // ... resto de la configuración igual
-    });
-}
+        });
+    }
     
     function actualizarTotales() {
+        if (!tablaMayores) return;
         var data = tablaMayores.rows().data();
         var totalSaldoInicial = 0;
         var totalDebe = 0;
@@ -161,11 +270,11 @@ function inicializarDataTable() {
         tablaDetalle = $('#tablaDetalleMayor').DataTable({
             dom: '<"row"<"col-sm-12"tr>>' +
                  '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
-            pageLength: 10,
+            pageLength: 25,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             columns: [
-                { data: 'fecha' },
-                { data: 'numero_asiento' },
+                { data: 'fecha', className: 'text-nowrap' },
+                { data: 'numero_asiento', className: 'text-nowrap' },
                 { data: 'comprobante' },
                 { data: 'descripcion' },
                 { 
@@ -202,6 +311,7 @@ function inicializarDataTable() {
     }
     
     function actualizarTotalesDetalle() {
+        if (!tablaDetalle) return;
         var data = tablaDetalle.rows().data();
         var totalDebe = 0;
         var totalHaber = 0;
@@ -222,6 +332,11 @@ function inicializarDataTable() {
     function cargarDetalleCuenta(cuentaId, codigo, nombre) {
         $('#cuentaSeleccionada').html(`${escapeHtml(codigo)} - ${escapeHtml(nombre)}`);
         
+        // Reset totals before loading
+        $('#detalle_total_debe').text('0.00');
+        $('#detalle_total_haber').text('0.00');
+        $('#detalle_saldo_final').text('0.00');
+        
         $.get('cont__mayores_ajax.php', {
             accion: 'obtener_detalle',
             empresa_idx: empresa_id,
@@ -240,6 +355,9 @@ function inicializarDataTable() {
                     tablaDetalle.draw();
                 }
             } else {
+                if (tablaDetalle) {
+                    tablaDetalle.clear().draw();
+                }
                 Swal.fire({
                     icon: 'warning',
                     title: 'Sin datos',
@@ -259,6 +377,11 @@ function inicializarDataTable() {
     }
     
     // Eventos
+    $('#formFiltros').on('submit', function(e) {
+        e.preventDefault();
+        $('#btnConsultar').trigger('click');
+    });
+    
     $(document).on('click', '#btnConsultar', function() {
         fechaDesde = $('#fecha_desde').val();
         fechaHasta = $('#fecha_hasta').val();
@@ -310,7 +433,8 @@ function inicializarDataTable() {
         inicializarDataTableDetalle();
         cargarDetalleCuenta(cuentaId, codigo, nombre);
         
-        var modal = new bootstrap.Modal(document.getElementById('modalDetalleMayor'));
+        var modalEl = document.getElementById('modalDetalleMayor');
+        var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
         modal.show();
     });
     
@@ -330,8 +454,8 @@ function inicializarDataTable() {
                 ];
             });
             
-            var csvContent = headers.join(',') + '\n' + 
-                rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+            var csvContent = headers.join(';') + '\n' + 
+                rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
             
             var blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
             var link = document.createElement('a');

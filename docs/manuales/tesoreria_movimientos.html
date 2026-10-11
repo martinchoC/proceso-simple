@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Movimientos Internos</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-danger { background: var(--rojo); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-exchange-alt"></i> Manual de usuario: Movimientos Internos</h1>
+<p class="subtitulo">Cómo pasar dinero entre las cajas y las cuentas bancarias de la propia empresa: depositar la recaudación, reponer un fondo fijo o mover fondos entre bancos.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados de una transferencia</a></li>
+        <li><a href="#flujo">El proceso completo</a></li>
+        <li><a href="#nueva">Registrar una transferencia nueva</a></li>
+        <li><a href="#anular">Anular una transferencia</a></li>
+        <li><a href="#ver">El botón Ver Detalle</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Movimientos Internos</strong> (menú Tesorería) registra transferencias de dinero entre dos cuentas de la empresa: de una <strong>caja</strong> a un <strong>banco</strong>, de un banco a una caja, entre dos cajas o entre dos bancos. El dinero no entra ni sale de la empresa, solo cambia de lugar: una cuenta baja y la otra sube por el mismo importe. El registro contable se genera solo.</p>
+<p>Ejemplos típicos: depositar en el banco la recaudación del día, sacar efectivo del banco para la caja, o pasar fondos de un banco a otro.</p>
+<div class="nota-lateral">Si querés llevar al banco un <strong>cheque</strong> de la cartera, no uses esta pantalla: usá <a href="cheques_cartera.html#depositar">Depositar</a> en Cartera de Cheques.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>La tarjeta <strong>Registro de Transferencias Internas</strong> tiene los botones <span class="boton-ejemplo boton-outline">Actualizar</span> y <span class="boton-ejemplo boton-primario">+ Nueva Transferencia</span>.</p>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Para qué sirve</th></tr>
+    <tr><td>Fecha Desde / Fecha Hasta</td><td>Rango de fechas del movimiento.</td></tr>
+    <tr><td>Cuenta Involucrada</td><td>Muestra las transferencias donde esa caja o banco fue origen o destino.</td></tr>
+    <tr><td>Estado</td><td>Confirmado o Anulado.</td></tr>
+</table>
+<p>Columnas: Fecha, Comprobante (número de la transferencia), Sucursal, Cuenta Origen (de donde sale, en rojo), Cuenta Destino (a donde entra, en verde), Importe, Observaciones, Estado y Acciones.</p>
+
+<h2 id="estados">Estados de una transferencia</h2>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Confirmado</span></td><td>La transferencia ya movió el dinero: bajó el saldo del origen y subió el del destino. Las transferencias nacen confirmadas: no hay borrador.</td></tr>
+    <tr><td><span class="badge badge-danger">Anulado</span></td><td>Se revirtió: el dinero volvió a la cuenta de origen con un movimiento inverso. La transferencia queda en el listado como registro.</td></tr>
+</table>
+
+<h2 id="flujo">El proceso completo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Nueva Transferencia</div>
+    <div class="flujo-flecha">→ Confirmar y Registrar →</div>
+    <div class="flujo-caja final">Confirmado</div>
+    <div class="flujo-flecha">→ Anular →</div>
+    <div class="flujo-caja inactivo">Anulado</div>
+</div>
+
+<h2 id="nueva">Registrar una transferencia nueva</h2>
+<p>Con <span class="boton-ejemplo boton-primario">+ Nueva Transferencia</span> se abre <strong>Nueva Transferencia Interna entre Cuentas</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Fecha de Movimiento <em>(obligatorio)</em></td><td>Por defecto, hoy.</td></tr>
+    <tr><td>Sucursal Operativa <em>(obligatorio)</em></td><td>Sucursal donde se registra el movimiento.</td></tr>
+    <tr><td>Cuenta de Origen (Egreso) <em>(obligatorio)</em></td><td>De dónde sale el dinero. Debajo ves el <strong>Saldo Disponible</strong>.</td></tr>
+    <tr><td>Cuenta de Destino (Ingreso) <em>(obligatorio)</em></td><td>A dónde entra. Debajo ves su <strong>Saldo Actual</strong>.</td></tr>
+    <tr><td>Importe a Transferir <em>(obligatorio)</em></td><td>Si supera el saldo de la cuenta de origen, aparece en rojo el aviso "El importe supera el saldo disponible de la cuenta de origen".</td></tr>
+    <tr><td>Concepto / Motivo</td><td>Por ejemplo: "Depósito de recaudación diaria".</td></tr>
+</table>
+<p>En las listas de cuentas solo aparecen <strong>cajas y bancos</strong>, cada una con su saldo entre paréntesis. Origen y destino no pueden ser la misma cuenta.</p>
+<p>Apretá <span class="boton-ejemplo boton-primario">Confirmar y Registrar Movimiento</span>. El sistema muestra el resumen ("Se transferirán $ ... desde ... hacia la cuenta destino") y pide aceptar con <strong>Sí, transferir</strong>. Al terminar vas a ver "Transferencia N° 0001-00000003 registrada con éxito."</p>
+
+<h2 id="anular">Anular una transferencia</h2>
+<p>En las transferencias confirmadas aparece el botón rojo <strong>Anular Transferencia</strong>. El sistema pregunta "¿Anular Transferencia 0001-...?" y avisa que se van a revertir los saldos de ambas cuentas y se va a anular el registro contable. Al aceptar, el dinero vuelve a la cuenta de origen y la transferencia pasa a <span class="badge badge-danger">Anulado</span>. Mensaje: "Transferencia N° ... anulada correctamente con reversión de saldos."</p>
+<div class="nota-lateral">La anulación no borra nada: registra movimientos inversos, así siempre se puede ver qué pasó.</div>
+
+<h2 id="ver">El botón Ver Detalle</h2>
+<p>Cada fila tiene un botón con un ojo (<strong>Ver Detalle</strong>). Hoy ese botón no abre ninguna ventana: toda la información de la transferencia está en las columnas del listado.</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>La cuenta de origen y destino no pueden ser iguales</td><td>Elegiste la misma cuenta en los dos lados.</td></tr>
+    <tr><td>Seleccione tanto la cuenta de origen como la de destino</td><td>Falta alguna de las dos.</td></tr>
+    <tr><td>Ingrese un importe válido mayor a cero</td><td>Falta el importe.</td></tr>
+    <tr><td>Saldo Insuficiente: La cuenta de origen solo dispone de $ ...</td><td>No podés sacar más de lo que hay en la cuenta de origen.</td></tr>
+    <tr><td>La transferencia ya se encuentra anulada.</td><td>Alguien la anuló antes. Apretá Actualizar.</td></tr>
+    <tr><td>Fallo de comunicación con el servidor</td><td>Problema de conexión. Probá de nuevo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Me equivoqué de importe, ¿la puedo editar?</td><td>No. Anulala y registrala de nuevo con el importe correcto.</td></tr>
+    <tr><td>No aparece la cuenta de cheques en cartera (valores) ni la de tarjetas.</td><td>Esta pantalla solo mueve dinero entre cajas y bancos. Los cheques se depositan desde <a href="cheques_cartera.html">Cartera de Cheques</a>.</td></tr>
+    <tr><td>¿Dónde veo cómo quedaron los saldos?</td><td>En el <a href="tesoreria_dashboard.html">Dashboard Financiero</a>, pestaña "Cuentas y Saldos Disponibles".</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="tesoreria_dashboard.html">Dashboard Financiero</a></li>
+        <li><a href="cheques_cartera.html">Cartera de Cheques</a></li>
+        <li><a href="cobranzas.html#cuentas">Las cuentas de Tesorería (caja, banco, valores, cupones)</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tesorería / Movimientos Internos. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

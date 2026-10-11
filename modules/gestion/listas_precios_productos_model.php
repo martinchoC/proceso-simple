@@ -279,7 +279,10 @@ function agregarListaPrecioProducto($conexion, $data)
     $producto_id = intval($data['producto_id']);
     $precio_final = floatval($data['precio_unitario']);
     $ajuste_id = !empty($data['ajuste_id']) ? intval($data['ajuste_id']) : null;
-    $empresa_id = 2; // o tomarlo de sesión
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    if ($empresa_id <= 0) {
+        return false;
+    }
 
     // Verificar duplicado activo
     $sql_check = "SELECT COUNT(*) as existe FROM gestion__listas_precios_productos 
@@ -357,11 +360,12 @@ function obtenerListaPrecioProductoPorId($conexion, $id)
     return mysqli_fetch_assoc($result);
 }
 
-function obtenerListasPrecios($conexion)
+function obtenerListasPrecios($conexion, $empresa_idx = null)
 {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT lista_precio_id, lista_precio_nombre as nombre
-            FROM gestion__listas_precios 
-            WHERE tabla_estado_registro_id = 1
+            FROM gestion__listas_precios
+            WHERE empresa_id = $empresa_idx AND tabla_estado_registro_id = 1
             ORDER BY lista_precio_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -387,7 +391,7 @@ function obtenerProductos($conexion)
 // listas_precios_productos_model.php
 // ... (código existente) ...
 
-function importarPreciosDesdeExcel($conexion, $lista_precio_id, $productos_precios, $empresa_id = 2)
+function importarPreciosDesdeExcel($conexion, $lista_precio_id, $productos_precios, int $empresa_id)
 {
     // VERSION 2026-09-05: reescrita para procesar por LOTES desde el front
     // (ver listas_precios_productos.php) y para eliminar el problema N+1:

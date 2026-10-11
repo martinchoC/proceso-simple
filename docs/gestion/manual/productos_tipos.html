@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Tipos de Producto</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; } .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); } .badge-secondary { background: #6c757d; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; } .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Tipos de Producto</h1>
+<p class="subtitulo">Clasificación de los productos (mercadería, servicio, insumo, etc.) que define si mueven stock y qué cuentas contables usan por defecto.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#agregar">Agregar o editar un tipo</a></li>
+        <li><a href="#cuentas">Cuentas contables por defecto</a></li>
+        <li><a href="#estados">Activo e Inactivo</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve?</h2>
+<p>Cada producto pertenece a un <strong>tipo</strong>. El tipo dice cómo se comporta: si lleva control de stock, si es un producto compuesto por otros, si se factura, y qué cuentas contables le corresponden por defecto en compras, ventas y costo de mercadería vendida.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Código</td><td>Código del tipo (en mayúsculas).</td></tr>
+    <tr><td>Tipo</td><td>Nombre.</td></tr>
+    <tr><td>Stock / Compuesto / Factura</td><td>Sí o No para cada característica.</td></tr>
+    <tr><td>Cta. Compra / Cta. Venta / Cta. CMV</td><td>Cuentas contables por defecto.</td></tr>
+    <tr><td>Productos</td><td>Cuántos productos usan este tipo.</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo (filas inactivas en gris).</td></tr>
+    <tr><td>Acciones</td><td>Botones según el estado.</td></tr>
+</table>
+<p>Junto al botón Agregar hay un desplegable para <strong>filtrar por estado</strong>: al abrir la pantalla muestra sólo los <strong>Activos</strong>; elegí "Todos los estados" para ver también los inactivos. A la derecha: buscador, recarga <span class="boton-ejemplo boton-outline">↻</span> y menú <span class="boton-ejemplo boton-outline">Exportar</span>.</p>
+
+<h2 id="agregar">Agregar o editar un tipo</h2>
+<p><span class="boton-ejemplo boton-exito">+ Agregar</span> abre la ventana <strong>Nuevo Tipo de Producto</strong>; el lápiz de una fila la abre para editar.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código *</td><td>Hasta 20 caracteres; se pasa a mayúsculas solo. No puede repetirse.</td></tr>
+    <tr><td>Nombre *</td><td>Hasta 100 caracteres. No puede repetirse en la empresa.</td></tr>
+    <tr><td>Maneja stock</td><td>Si está activado, los productos de este tipo llevan control de existencias.</td></tr>
+    <tr><td>Es compuesto</td><td>El producto se arma con otros productos (kit o combo).</td></tr>
+    <tr><td>Afecta facturación</td><td>Viene activado. Indica que los productos de este tipo se facturan.</td></tr>
+</table>
+<p>Al guardar aparece "Tipo de producto creado correctamente" (o "actualizado"). Errores posibles: <em>"Ya existe un tipo de producto con el código …"</em> o <em>"… con el nombre …"</em>.</p>
+
+<h2 id="cuentas">Cuentas contables por defecto</h2>
+<p>En la sección <strong>Cuentas contables por defecto</strong> elegís la cuenta de <strong>compra</strong>, de <strong>venta</strong> y de <strong>CMV</strong> (costo de mercadería vendida; sólo se aplica a productos que controlan stock). Cualquiera puede quedar en "(Sin cuenta)".</p>
+<div class="alert alert-warning">Estas cuentas <strong>se copian al producto en el momento de darlo de alta</strong>. Cambiarlas acá no modifica los productos que ya existen: esos hay que corregirlos desde la pantalla de productos.</div>
+
+<h2 id="estados">Activo e Inactivo</h2>
+<div class="flujo"><div class="flujo-caja">Activo</div><div class="flujo-flecha">⇄</div><div class="flujo-caja inactivo">Inactivo</div></div>
+<p>Al inhabilitar un tipo que usan productos, el sistema avisa cuántos son: <em>"N producto(s) usan este tipo. Lo conservan, pero no se podrá elegir en productos nuevos."</em></p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea un tipo.</td><td>Siempre.</td></tr>
+    <tr><td>Editar (lápiz)</td><td>Modifica el tipo.</td><td>Activo.</td></tr>
+    <tr><td>Inhabilitar (rojo)</td><td>Lo pasa a Inactivo, previa confirmación.</td><td>Activo.</td></tr>
+    <tr><td>Habilitar (verde)</td><td>Lo vuelve a Activo, previa confirmación.</td><td>Inactivo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>No veo un tipo que sé que existe.</td><td>Probablemente está inactivo: cambiá el filtro de estado a "Todos los estados".</td></tr>
+    <tr><td>Cambié la cuenta de venta del tipo y las facturas siguen usando la anterior.</td><td>Las cuentas se copian al producto cuando se crea. Hay que actualizar la cuenta en cada producto existente.</td></tr>
+</table>
+<p>Ver también: <a href="productos.html">Productos</a>, <a href="plan_cuentas.html">Plan de Cuentas</a>, <a href="empresas_impuestos_config.html">Impuestos Adicionales - Configuración</a> (usa los tipos de producto como "tipo de bien").</p>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Tipos de Producto. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

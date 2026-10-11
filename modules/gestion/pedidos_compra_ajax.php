@@ -1,4 +1,8 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['params' => ['empresa_id', 'empresa_idx'], 'modulo_id' => 2, 'paginas_url' => ['pedidos_compra.php']]);
+require_once __DIR__ . '/../../core/empresa_config.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once __DIR__ . '/../../db.php';
@@ -67,7 +71,7 @@ switch ($accion) {
         $data = [
             'empresa_id' => $empresa_id,
             'sucursal_id' => $_POST['sucursal_id'] ?? 0,
-            'punto_venta_id' => $_POST['punto_venta_id'] ?? 1,
+            'punto_venta_id' => $_POST['punto_venta_id'] ?? emp_punto_venta_id($conexion, $ctx['empresa_id']),
             'comprobante_tipo_id' => $_POST['comprobante_tipo_id'] ?? 0,
             'numero_comprobante' => $_POST['numero_comprobante'] ?? 0,
             'entidad_id' => $_POST['entidad_id'] ?? 0,
@@ -119,7 +123,7 @@ switch ($accion) {
         $comprobante_id = intval($_POST['comprobante_id']);
         $data = [
             'sucursal_id' => $_POST['sucursal_id'] ?? 0,
-            'punto_venta_id' => $_POST['punto_venta_id'] ?? 1,
+            'punto_venta_id' => $_POST['punto_venta_id'] ?? emp_punto_venta_id($conexion, $ctx['empresa_id']),
             'comprobante_tipo_id' => $_POST['comprobante_tipo_id'] ?? 0,
             'numero_comprobante' => $_POST['numero_comprobante'] ?? 0,
             'entidad_id' => $_POST['entidad_id'] ?? 0,

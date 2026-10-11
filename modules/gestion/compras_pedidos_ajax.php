@@ -1,4 +1,8 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['compras_pedidos.php']]);
+require_once __DIR__ . '/../../core/empresa_config.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
@@ -107,7 +111,7 @@ function agregarPedido() {
         'importe_neto' => $_POST['importe_neto'] ?? 0,
         'importe_no_gravado' => $_POST['importe_no_gravado'] ?? 0,
         'total' => $_POST['total'] ?? 0,
-        'punto_venta_id' => $_POST['punto_venta_id'] ?? 1,
+        'punto_venta_id' => $_POST['punto_venta_id'] ?? emp_punto_venta_id($conexion, $ctx['empresa_id']),
         'tabla_estado_registro_id' => 3 // Borrador por defecto
     ];
     

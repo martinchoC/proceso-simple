@@ -377,7 +377,7 @@ $(document).ready(function () {
         });
     }
 
-    function cargarClientesYSucursales() {
+    function cargarClientesYSucursales(callback) {
         $.ajax({
             url: 'ventas_remitos_ajax.php',
             type: 'GET',
@@ -385,22 +385,25 @@ $(document).ready(function () {
             dataType: 'json',
             success: function (data) {
                 var options = '<option value="">Seleccionar cliente o sucursal</option>'
-                    + '<option value="CF" data-entidad-id="" data-sucursal-id="">Consumidor Final (precio de mostrador)</option>';
+                    + '<option value="CF" data-entidad-id="" data-sucursal-id="" data-condicion-fiscal="Consumidor Final">Consumidor Final (precio de mostrador)</option>';
                 if (data && data.length > 0) {
                     data.forEach(function (item) {
+                        var condFiscal = item.condicion_fiscal || '';
                         if (item.sucursales && item.sucursales.length > 0) {
                             item.sucursales.forEach(function (sucursal) {
-                                options += `<option value="S-${sucursal.sucursal_id}" data-entidad-id="${item.entidad_id}" data-sucursal-id="${sucursal.sucursal_id}">${item.entidad_nombre} - ${sucursal.sucursal_nombre}</option>`;
+                                options += `<option value="S-${sucursal.sucursal_id}" data-entidad-id="${item.entidad_id}" data-sucursal-id="${sucursal.sucursal_id}" data-condicion-fiscal="${condFiscal}">${item.entidad_nombre} - ${sucursal.sucursal_nombre}</option>`;
                             });
                         } else {
-                            options += `<option value="P-${item.entidad_id}" data-entidad-id="${item.entidad_id}" data-sucursal-id="">${item.entidad_nombre}</option>`;
+                            options += `<option value="P-${item.entidad_id}" data-entidad-id="${item.entidad_id}" data-sucursal-id="" data-condicion-fiscal="${condFiscal}">${item.entidad_nombre}</option>`;
                         }
                     });
                 }
                 $('#entidad_combo').html(options);
+                if (typeof callback === 'function') callback();
             },
             error: function () {
                 $('#entidad_combo').html('<option value="">Error al cargar</option>');
+                if (typeof callback === 'function') callback();
             }
         });
     }
@@ -418,6 +421,7 @@ $(document).ready(function () {
         var selectedOption = $(this).find('option:selected');
         var entidadId = selectedOption.data('entidad-id');
         var sucursalId = selectedOption.data('sucursal-id');
+        var condFiscal = selectedOption.data('condicion-fiscal') || '';
         var valorCombo = $(this).val();
         var destinoAnterior = esConsumidorFinal ? 'CF' : clienteActualId;
 
@@ -427,6 +431,7 @@ $(document).ready(function () {
             clienteActualId = null;
             clienteSucursalActualId = null;
             esConsumidorFinal = true;
+            $('#cliente_condicion_fiscal').val('Consumidor Final');
         } else if (valorCombo) {
             var tipo = valorCombo.split('-')[0];
 
@@ -435,12 +440,14 @@ $(document).ready(function () {
             clienteActualId = parseInt(entidadId);
             clienteSucursalActualId = tipo === 'S' ? parseInt(sucursalId) : null;
             esConsumidorFinal = false;
+            $('#cliente_condicion_fiscal').val(condFiscal || 'Consumidor Final');
         } else {
             $('#entidad_id').val('');
             $('#entidad_sucursal_id').val('');
             clienteActualId = null;
             clienteSucursalActualId = null;
             esConsumidorFinal = false;
+            $('#cliente_condicion_fiscal').val('');
         }
         mostrarCampoConsumidorFinal(esConsumidorFinal);
 
@@ -1312,6 +1319,7 @@ $(document).ready(function () {
         $('#venta_remito_id').val('');
         $('#entidad_id').val('');
         $('#entidad_sucursal_id').val('');
+        $('#cliente_condicion_fiscal').val('');
         $('#entidad_combo').prop('disabled', false).removeAttr('title');
         $('#punto_venta_id').html('<option value="">Seleccionar punto de venta</option>').prop('disabled', true);
         $('#comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>').prop('disabled', true);
@@ -1391,7 +1399,6 @@ $(document).ready(function () {
 
                 resetModal();
                 cargarCombosFormulario();
-                cargarClientesYSucursales();
 
                 $('#venta_remito_id').val(res.venta_remito_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
@@ -1401,27 +1408,41 @@ $(document).ready(function () {
 
                 poblarDetallesDesdeRespuesta(res);
 
-                setTimeout(function () {
-                    if (res.comprobante_pv) {
-                        $('#punto_venta_id').val(res.comprobante_pv);
-                        // Recién con el combo poblado tiene sentido setear el
-                        // tipo de comprobante guardado (antes se pisaba contra
-                        // un select todavía vacío y quedaba en blanco).
-                        cargarTiposComprobante(res.comprobante_pv, function () {
-                            $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
-                        });
-                    }
+                if (res.comprobante_pv) {
+                    $('#punto_venta_id').val(res.comprobante_pv);
+                    cargarTiposComprobante(res.comprobante_pv, function () {
+                        $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                    });
+                }
 
+                cargarClientesYSucursales(function () {
                     if (res.entidad_id) {
                         clienteActualId = parseInt(res.entidad_id);
-                        if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
-                            $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
-                            clienteSucursalActualId = parseInt(res.entidad_sucursal_id);
-                        } else {
+                        var targetVal = (res.entidad_sucursal_id && parseInt(res.entidad_sucursal_id) > 0)
+                            ? 'S-' + res.entidad_sucursal_id
+                            : 'P-' + res.entidad_id;
+
+                        $('#entidad_combo').val(targetVal);
+                        // Fallback si la sucursal no coincidió: intentar por P-entidad
+                        if (!$('#entidad_combo').val()) {
                             $('#entidad_combo').val('P-' + res.entidad_id);
-                            clienteSucursalActualId = null;
                         }
+                        // Fallback adicional: buscar opción que coincida por data-entidad-id
+                        if (!$('#entidad_combo').val()) {
+                            var matchedOpt = $('#entidad_combo option').filter(function () {
+                                return String($(this).data('entidad-id')) === String(res.entidad_id);
+                            }).first();
+                            if (matchedOpt.length) {
+                                $('#entidad_combo').val(matchedOpt.val());
+                            }
+                        }
+
+                        clienteSucursalActualId = (res.entidad_sucursal_id && parseInt(res.entidad_sucursal_id) > 0)
+                            ? parseInt(res.entidad_sucursal_id)
+                            : null;
                         $('#entidad_combo').prop('disabled', true).attr('title', 'El cliente no se puede modificar una vez guardado el remito');
+                        var cf = res.condicion_fiscal || $('#entidad_combo option:selected').data('condicion-fiscal') || 'Consumidor Final';
+                        $('#cliente_condicion_fiscal').val(cf);
                         cargarDescuentoGeneralCliente(clienteActualId);
 
                         if (!soloVisualizar) {
@@ -1434,6 +1455,7 @@ $(document).ready(function () {
                         $('#entidad_combo').val('CF');
                         mostrarCampoConsumidorFinal(true);
                         $('#consumidor_final_nombre').val(res.consumidor_final_nombre || '');
+                        $('#cliente_condicion_fiscal').val('Consumidor Final');
                         $('#entidad_combo').prop('disabled', true).attr('title', 'El cliente no se puede modificar una vez guardado el remito');
                         cargarDescuentoGeneralCliente(null);
                     }
@@ -1443,12 +1465,15 @@ $(document).ready(function () {
                         $('.btn-eliminar-detalle, .btn-agregar-pendiente, .btn-agregar-libre, #btnLimpiarTagsProductoLibre').prop('disabled', true).hide();
                         $('#busqueda_producto').prop('disabled', true);
                         $('#btnGuardar, .btn-secondary[data-bs-dismiss="modal"]').hide();
-                        $('#contenedor-pendientes').html('<div class="text-muted small p-2">No aplica en modo visualización.</div>');
-                        $('#resultados_busqueda').html('<div class="text-muted small p-2">No aplica en modo visualización.</div>');
+                        $('#contenedor-pendientes').empty();
+                        $('#resultados_busqueda').empty();
+                        $('#card-pedidos-pendientes').hide();
+                        $('.card-info').has('#busqueda_producto').hide();
                     } else {
                         $('#formVentaRemito :input').prop('disabled', false);
                         $('#entidad_combo').prop('disabled', true); // sigue fijo aunque se pueda editar el resto
                         $('#btnGuardar, .btn-secondary[data-bs-dismiss="modal"]').show();
+                        $('.card-info').has('#busqueda_producto').show();
                     }
 
                     // La solapa "Facturar" es un flujo aparte (arma y guarda una factura, no
@@ -1461,7 +1486,7 @@ $(document).ready(function () {
                         $('#facturar :input').prop('disabled', false);
                         abrirPestanaFacturar(res.venta_remito_id, clienteActualId, clienteSucursalActualId, res.comprobante_nro);
                     }
-                }, 400);
+                });
 
                 var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaRemito'), { backdrop: 'static', keyboard: false });
                 modal.show();
@@ -1502,11 +1527,13 @@ $(document).ready(function () {
     // Distinto de null mientras la solapa "Facturar" está editando una factura EXISTENTE (en
     // vez de armar una nueva) — ver cargarFacturaEnPestana().
     var facturaEnEdicionId = null;
+    var preciosFacturaEnEdicion = {};
 
     // Deja el formulario de la solapa "Facturar" listo para armar una factura NUEVA (no editar
     // una existente). volverAAlta = true cuando se llama para "salir" del modo edición.
     function resetFormularioFacturar(volverAAlta) {
         facturaEnEdicionId = null;
+        preciosFacturaEnEdicion = {};
         $('#facturarFormTitulo').html('<i class="fas fa-plus-circle me-2"></i>Nueva Factura Desde Este Remito');
         $('#btnCancelarEdicionFacturaRemito').addClass('d-none');
         $('#btnGuardarFacturaDesdeRemito').show().prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar Factura');
@@ -1596,6 +1623,12 @@ $(document).ready(function () {
                     // Facturación Parcial): refrescamos la lista de facturas y la grilla de fondo.
                     cargarFacturasDeRemito(remitoId);
                     tabla.ajax.reload(null, false);
+                    var remitoActual = $('#venta_remito_id').val();
+                    if (String(remitoActual) === String(remitoId)) {
+                        $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: empresa_idx, entidad_id: clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0, venta_remito_id: remitoId }, function (rows) {
+                            renderLineasFacturar(rows);
+                        });
+                    }
                 } else {
                     Swal.fire('Error', (res && res.error) || 'No se pudo ejecutar la acción.', 'error');
                 }
@@ -1635,8 +1668,16 @@ $(document).ready(function () {
             if (!res || !res.success || !res.data) { Swal.fire('Error', (res && res.error) || 'No se pudo obtener la factura.', 'error'); return; }
             var f = res.data;
             facturaEnEdicionId = facturaId;
+            $('#contenedorNuevaFacturaRemito').show();
+            $('#alertaRemitoCompletamenteFacturado').hide();
 
             var lineasFijas = (f.detalles || []).filter(function (d) { return Number(d.remito_id_origen || 0) !== Number(remitoId); });
+            preciosFacturaEnEdicion = {};
+            (f.detalles || []).forEach(function (d) {
+                if (d.venta_remito_detalle_id) {
+                    preciosFacturaEnEdicion[d.venta_remito_detalle_id] = parseFloat(d.precio_unitario) || 0;
+                }
+            });
             lineasParaFacturar = lineasFijas.map(function (d) {
                 return {
                     producto_id: d.producto_id,
@@ -1657,7 +1698,7 @@ $(document).ready(function () {
 
             $('#facturar_f_vto').val(f.f_vto || '').prop('disabled', soloVisualizar);
             $('#facturar_punto_venta_id').prop('disabled', soloVisualizar).val(f.punto_venta_id);
-            $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', empresa_idx: empresa_idx, punto_venta_id: f.punto_venta_id }, function (rows) {
+            $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', solo_raiz: 1, empresa_idx: empresa_idx, punto_venta_id: f.punto_venta_id, entidad_id: (f.entidad_id || clienteActualId || 'CF') }, function (rows) {
                 var html = '<option value="">Seleccionar tipo</option>';
                 (rows || []).forEach(function (r) {
                     var sel = (String(r.comprobante_tipo_id) === String(f.comprobante_tipo_id)) ? ' selected' : '';
@@ -1690,7 +1731,7 @@ $(document).ready(function () {
     $(document).on('change', '#facturar_punto_venta_id', function () {
         var pv = $(this).val();
         if (!pv) { $('#facturar_comprobante_tipo_id').html('<option value="">Seleccionar PV</option>'); return; }
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', empresa_idx: empresa_idx, punto_venta_id: pv }, function (rows) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'tipos_por_punto_venta', solo_raiz: 1, empresa_idx: empresa_idx, punto_venta_id: pv, entidad_id: (clienteActualId || 'CF') }, function (rows) {
             var html = '<option value="">Seleccionar tipo</option>';
             (rows || []).forEach(function (r) {
                 html += '<option value="' + r.comprobante_tipo_id + '" data-fiscal="' + (r.comprobante_fiscal_id || 0) + '">' + r.comprobante_tipo + (r.letra ? ' (' + r.letra + ')' : '') + '</option>';
@@ -1702,52 +1743,92 @@ $(document).ready(function () {
     $(document).on('change', '#facturar_comprobante_tipo_id', renderFacturarTotales);
 
     function renderLineasFacturar(rows) {
+        var hayPendientes = rows && rows.length > 0 && rows.some(function (r) {
+            return (parseFloat(r.cantidad_pendiente_facturar) || 0) > 0 || (parseFloat(r.cantidad_propia) || 0) > 0;
+        });
+
+        if (!hayPendientes && !facturaEnEdicionId) {
+            $('#contenedorNuevaFacturaRemito').hide();
+            $('#alertaRemitoCompletamenteFacturado').show();
+            $('#facturarLineasContainer').empty();
+            $('#facturarTotales').empty();
+            return;
+        }
+
+        $('#contenedorNuevaFacturaRemito').show();
+        $('#alertaRemitoCompletamenteFacturado').hide();
+
         if (!rows || !rows.length) {
             $('#facturarLineasContainer').html('<div class="text-muted small text-center p-3 border rounded bg-light">Este remito no tiene líneas pendientes de facturar.</div>');
             return;
         }
-        var html = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead><tr><th>Código</th><th>Detalle</th><th class="text-end">Pendiente</th><th class="text-end">Cantidad</th><th class="text-end">Precio</th><th class="text-end">Desc.</th><th class="text-end">Total Neto</th></tr></thead><tbody>';
+        var html = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead><tr><th>Código</th><th>Detalle</th><th class="text-end">Pendiente</th><th class="text-end" style="width: 100px;">Cantidad</th><th class="text-end" style="width: 130px;">Precio</th><th class="text-end">Desc.</th><th class="text-end">Total Neto</th></tr></thead><tbody>';
         rows.forEach(function (r) {
             // cantidad_propia > 0 = esta línea ya está en la factura que se está editando (se
             // precarga con esa cantidad en vez de con el máximo pendiente, que ya la incluye).
             var pendienteMax = parseFloat(r.cantidad_pendiente_facturar) || 0;
             var propia = parseFloat(r.cantidad_propia) || 0;
             var valorInicial = propia > 0 ? propia : pendienteMax;
-            var precio = parseFloat(r.precio_unitario_bruto) || 0;
+            var precio = (preciosFacturaEnEdicion && preciosFacturaEnEdicion[r.venta_remito_detalle_id] !== undefined)
+                ? preciosFacturaEnEdicion[r.venta_remito_detalle_id]
+                : (parseFloat(r.precio_unitario_bruto) || 0);
             html += '<tr><td>' + r.producto_codigo + '</td><td>' + r.producto_nombre + '</td>'
                 + '<td class="text-end">' + pendienteMax.toFixed(2) + '</td>'
-                + '<td class="text-end"><input type="number" class="form-control form-control-sm factura-remito-cantidad" data-detalle-id="' + r.venta_remito_detalle_id + '" data-producto-id="' + r.producto_id + '" data-pedido-detalle-id="' + (r.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + (r.descuento_general_pct || 0) + '" data-iva-id="' + (r.iva_alicuota_id || 1) + '" data-iva="' + (r.iva_porcentaje || 0) + '" value="' + valorInicial.toFixed(2) + '" min="0" max="' + pendienteMax + '" step="1"></td>'
-                + '<td class="text-end">$' + formatMoneda(precio) + '</td>'
+                + '<td class="text-end" style="width: 100px;"><input type="number" class="form-control form-control-sm text-end factura-remito-cantidad" data-detalle-id="' + r.venta_remito_detalle_id + '" data-producto-id="' + r.producto_id + '" data-pedido-detalle-id="' + (r.venta_pedido_detalle_id || '') + '" data-descuento-pct="' + (r.descuento_general_pct || 0) + '" data-iva-id="' + (r.iva_alicuota_id || 1) + '" data-iva="' + (r.iva_porcentaje || 0) + '" value="' + valorInicial.toFixed(2) + '" min="0" max="' + pendienteMax + '" step="1"></td>'
+                + '<td class="text-end" style="width: 130px;"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="number" class="form-control form-control-sm text-end factura-remito-precio" data-detalle-id="' + r.venta_remito_detalle_id + '" value="' + precio.toFixed(2) + '" min="0" step="0.01"></div></td>'
                 + '<td class="text-end">' + (parseFloat(r.descuento_general_pct) || 0) + '%</td>'
                 + '<td class="text-end fw-bold fila-total-neto">$0.00</td></tr>';
         });
         $('#facturarLineasContainer').html(html + '</tbody></table></div>');
-        $('#facturarLineasContainer .factura-remito-cantidad').trigger('change');
+        $('#facturarLineasContainer tbody tr').each(function () {
+            recalcularFilaFacturar($(this));
+        });
     }
 
-    $(document).on('change', '.factura-remito-cantidad', function () {
-        var el = $(this);
-        var valor = Math.max(0, Math.min(parseFloat(this.max) || 0, parseFloat(this.value) || 0));
-        this.value = valor.toFixed(2);
-        var detalleId = el.data('detalle-id');
+    function recalcularFilaFacturar(row) {
+        var inputCant = row.find('.factura-remito-cantidad');
+        var inputPrecio = row.find('.factura-remito-precio');
+        if (!inputCant.length) return;
+
+        var maxCant = parseFloat(inputCant.attr('max')) || 0;
+        var cant = Math.max(0, Math.min(maxCant, parseFloat(inputCant.val()) || 0));
+        var precio = Math.max(0, parseFloat(inputPrecio.val()) || 0);
+
+        var detalleId = inputCant.data('detalle-id');
         lineasParaFacturar = lineasParaFacturar.filter(function (l) { return l.venta_remito_detalle_id !== detalleId; });
-        if (valor > 0) {
+        if (cant > 0) {
             lineasParaFacturar.push({
-                producto_id: el.data('producto-id'),
+                producto_id: inputCant.data('producto-id'),
                 venta_remito_detalle_id: detalleId,
-                venta_pedido_detalle_id: el.data('pedido-detalle-id') || null,
-                cantidad: valor,
-                precio_unitario: parseFloat(el.data('precio')) || 0,
-                descuento_general_pct: parseFloat(el.data('descuento-pct')) || 0,
-                iva_alicuota_id: parseInt(el.data('iva-id'), 10) || 1,
-                iva_porcentaje: parseFloat(el.data('iva')) || 0
+                venta_pedido_detalle_id: inputCant.data('pedido-detalle-id') || null,
+                cantidad: cant,
+                precio_unitario: precio,
+                descuento_general_pct: parseFloat(inputCant.data('descuento-pct')) || 0,
+                iva_alicuota_id: parseInt(inputCant.data('iva-id'), 10) || 1,
+                iva_porcentaje: parseFloat(inputCant.data('iva')) || 0
             });
         }
-        var precioUnit = parseFloat(el.data('precio')) || 0;
-        var descPct = parseFloat(el.data('descuento-pct')) || 0;
-        var neto = precioUnit * (1 - descPct / 100);
-        el.closest('tr').find('.fila-total-neto').text('$' + formatMoneda(valor * neto));
+        var descPct = parseFloat(inputCant.data('descuento-pct')) || 0;
+        var neto = precio * (1 - descPct / 100);
+        row.find('.fila-total-neto').text('$' + formatMoneda(cant * neto));
         renderFacturarTotales();
+    }
+
+    $(document).on('input change', '.factura-remito-cantidad, .factura-remito-precio', function () {
+        recalcularFilaFacturar($(this).closest('tr'));
+    });
+
+    $(document).on('blur', '.factura-remito-cantidad', function () {
+        var maxCant = parseFloat(this.max) || 0;
+        var v = Math.max(0, Math.min(maxCant, parseFloat(this.value) || 0));
+        this.value = v.toFixed(2);
+        recalcularFilaFacturar($(this).closest('tr'));
+    });
+
+    $(document).on('blur', '.factura-remito-precio', function () {
+        var v = Math.max(0, parseFloat(this.value) || 0);
+        this.value = v.toFixed(2);
+        recalcularFilaFacturar($(this).closest('tr'));
     });
 
     function renderFacturarTotales() {
@@ -1794,7 +1875,7 @@ $(document).ready(function () {
             consumidor_final_nombre: esConsumidorFinal ? $.trim($('#consumidor_final_nombre').val()) : '',
             condicion_pago_id: 0, f_emision: fEmision, f_vto: fVto,
             sucursal_id: sucursalId, punto_venta_id: puntoVenta, comprobante_tipo_id: tipoComprobante,
-            comprobante_nro: 0, moneda_id: 1,
+            comprobante_nro: 0,
             observaciones: 'Generada desde remito ' + ($('#comprobante_nro').val() || remitoId),
             detalles: JSON.stringify(lineasParaFacturar)
         };

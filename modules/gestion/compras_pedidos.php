@@ -3,7 +3,7 @@
 $pageTitle = "Gestión de Pedidos de Compra";
 $currentPage = 'paginas';
 $modudo_idx = 2;
-$empresa_idx = 2;
+$empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $usuario_id = 1;
 
 // Definir constante para rutas

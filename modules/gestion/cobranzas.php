@@ -2,13 +2,13 @@
 /**
  * cobranzas.php
  *
- * Módulo de Cobranzas a Clientes (Recibos RCX)
+ * Módulo de Cobranzas a Clientes
  * Sistema gestion_multipyme - Módulo Tesorería
  */
 
 require_once __DIR__ . '/../../db.php';
 
-$pageTitle = "Cobranzas a Clientes (Recibos RCX)";
+$pageTitle = "Cobranzas a Clientes";
 $currentPage = 'cobranzas';
 $modudo_idx = 2; // Typo intencional y consistente con todo el ERP (ver CLAUDE.md)
 $pagina_idx = 105;
@@ -25,7 +25,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <h3 class="mb-0">
                         <i class="fas fa-hand-holding-usd text-success me-2"></i>Cobranzas a Clientes
                     </h3>
-                    <small class="text-muted">Emisión de Recibos RCX, Imputación a Cuenta Corriente y Gestión de Medios</small>
+                    <small class="text-muted">Emisión de Recibos, Imputación a Cuenta Corriente y Gestión de Medios</small>
                 </div>
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-end">
@@ -83,9 +83,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <label class="form-label small fw-bold mb-1">Estado</label>
                             <select class="form-select form-control-sm" id="filtroEstado" name="estado_id">
                                 <option value="">-- Todos --</option>
-                                <option value="2121">Borrador</option>
-                                <option value="2122">Confirmado</option>
-                                <option value="2123">Anulado</option>
+                                <option value="3">Borrador</option>
+                                <option value="5">Confirmado</option>
+                                <option value="38">Anulado</option>
                             </select>
                         </div>
                         <div class="col-md-1 d-grid">
@@ -125,7 +125,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         <div class="modal-content">
             <div class="modal-header bg-primary text-white py-2">
                 <h5 class="modal-title fs-6 fw-bold" id="modalCobranzaLabel">
-                    <i class="fas fa-hand-holding-usd me-2"></i>Nueva Cobranza (Recibo de Cobro RCX)
+                    <i class="fas fa-hand-holding-usd me-2"></i>Nueva Cobranza (Recibo de Cobro)
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -394,10 +394,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 }
 </style>
 
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    if (typeof Swal === 'undefined') {
+        document.write('<script src="<?= asset_local('js/sweetalert2.all.min.js') ?>"><\/script>');
+    }
+</script>
+
 <!-- Scripts específicos del módulo -->
 <script>
     const PAGINA_ID = <?= $pagina_idx ?>;
-    const EMPRESA_ID = 2;
+    const EMPRESA_ID = window.EMPRESA_ID; // empresa activa (header1.php)
 </script>
 <script src="cobranzas.js?v=<?= filemtime(__DIR__ . '/cobranzas.js') ?>"></script>
 

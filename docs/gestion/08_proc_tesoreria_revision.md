@@ -82,6 +82,15 @@ estados. No se puede implementar tal como está; con los ajustes de §3 sí.
 | D17 | I_LIQ e I_PAG con `impacta_ctacte = 1` (el doc decía 0). |
 | D18 | Unicidad de cheques por cuenta librada, no por banco. El CUIT del librador es obligatorio en cheques de terceros. |
 
+### Decisiones posteriores (2026-10-07, confirmadas por el usuario)
+
+Reemplazan lo que dice `08_proc_tesoreria_v3_11.docx` en §1 y en el punto de convenciones de estados. Aplicadas por `sql/mantenimiento/20261007_tesoreria_04_estados_genericos.sql` y el código de la misma fecha.
+
+| # | Decisión | Alternativa descartada |
+|---|---|---|
+| D37 | `tabla_estado_registro_id` de las tablas de tesorería guarda el id **genérico** de `conf__estados_registros`, como ventas/compras. `conf__tablas_estados_registros` queda como catálogo de etiquetas por `(tabla_id, estado_registro_id)`. | Guardar la PK de `conf__tablas_estados_registros` (un id distinto por tabla), como decía la v3.11. |
+| D38 | Estado derivado del saldo en `gestion__comprobantes` con dos estados genéricos nuevos: 39 Cancelado parcial (`CANC_PARCIAL`) y 40 Cancelado total (`CANC_TOTAL`). Los asigna `recalcularEstadoDestino()` solo sobre comprobantes en Confirmado/39/40; `syncComprobante()` no los revierte; los cancelables son `CONFIRMADO` o `CANC_PARCIAL`. | No tocar el estado de facturas/ND y leer el saldo solo de `importe_pendiente`. |
+
 ## 4. Próximo paso
 
 El DDL propuesto está en `sql/mantenimiento/20261003_tesoreria_01_ddl.sql`, generado por `disenador-modelo-datos` y **no ejecutado**.

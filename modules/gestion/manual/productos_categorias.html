@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Categorías de Productos</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; } .alert-warning { background: #fff3cd; color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; } .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); } .boton-rojo { background: var(--rojo); border-color: var(--rojo); color: #fff; }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Categorías de Productos</h1>
+<p class="subtitulo">El árbol de categorías y subcategorías con el que se agrupan los productos (por ejemplo Frenos → Pastillas).</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#agregar">Crear o editar una categoría</a></li>
+        <li><a href="#eliminar">Eliminar una categoría</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Las categorías se muestran como un <strong>árbol</strong>. Las que tienen subcategorías muestran a la izquierda un botón con una carpeta: tocalo para abrir o cerrar esa rama.</p>
+<ul>
+    <li><strong>Buscar categorías…</strong>: filtra el árbol mientras escribís y resalta el texto encontrado. Si una subcategoría coincide, también se muestra su categoría madre. El botón <span class="boton-ejemplo boton-outline">✕</span> limpia la búsqueda.</li>
+    <li><span class="boton-ejemplo boton-outline">Expandir Todo</span> y <span class="boton-ejemplo boton-outline">Contraer Todo</span> abren o cierran todas las ramas.</li>
+    <li>Cada categoría tiene a la derecha los botones <span class="boton-ejemplo boton-primario">✎</span> Editar y <span class="boton-ejemplo boton-rojo">🗑</span> Eliminar.</li>
+</ul>
+
+<h2 id="agregar">Crear o editar una categoría</h2>
+<p>El botón <span class="boton-ejemplo boton-primario">Nueva Categoría</span> abre el formulario; el lápiz de una categoría lo abre con sus datos.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Nombre de la Categoría *</td><td>Obligatorio.</td></tr>
+    <tr><td>Categoría Padre</td><td>Dejalo en "-- Sin categoría padre (categoría principal) --" para una categoría de primer nivel, o elegí la categoría dentro de la cual va.</td></tr>
+</table>
+<p>Tocá <span class="boton-ejemplo boton-exito">Guardar</span>: aparece "Categoría creada correctamente" (o "actualizada") y el árbol se recarga. <span class="boton-ejemplo boton-outline">Cerrar</span> sale sin guardar.</p>
+<div class="alert alert-warning">Al editar, no elijas como padre una de las subcategorías de la propia categoría: armarías un círculo y la categoría puede dejar de verse en el árbol.</div>
+
+<h2 id="eliminar">Eliminar una categoría</h2>
+<p>El botón rojo de papelera pide confirmación (<em>"¿Eliminar categoría? Esta acción no se puede deshacer"</em>). A diferencia de otras tablas, acá la categoría <strong>se borra definitivamente</strong>: no queda como inactiva.</p>
+<ul>
+    <li>Una categoría que tiene subcategorías <strong>no se puede eliminar</strong>: el sistema muestra un error. Eliminá o mové primero sus subcategorías.</li>
+    <li>Antes de eliminar, verificá que ningún producto la use.</li>
+</ul>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Eliminé una categoría por error.</td><td>No se puede recuperar desde la pantalla: hay que crearla de nuevo y volver a asignarla a los productos.</td></tr>
+    <tr><td>Busco una categoría y aparece "No se encontraron categorías…".</td><td>La búsqueda es por nombre; probá con menos letras o limpiá el filtro.</td></tr>
+</table>
+<p>Ver también: <a href="productos.html">Productos</a>, <a href="productos_tipos.html">Tipos de Producto</a>.</p>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Categorías de Productos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

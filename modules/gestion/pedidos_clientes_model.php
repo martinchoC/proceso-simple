@@ -1,12 +1,15 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
-function obtenerPedidosClientes($conexion)
+function obtenerPedidosClientes($conexion, $empresa_idx = null)
 {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
+    $tipo_pc = emp_comprobante_tipo_id($conexion, $empresa_idx, 'PC');   // Pedido de Cliente de la empresa
     $sql = "SELECT c.*, e.nombre as nombre_entidad 
             FROM `gestion__comprobantes` c
             LEFT JOIN `gestion__entidades` e ON c.entidad_id = e.entidad_id
-            WHERE c.comprobante_tipo_id = 1  -- Asumiendo que 1 es el tipo para Pedidos de Clientes
+            WHERE c.empresa_id = $empresa_idx AND c.comprobante_tipo_id = $tipo_pc
             ORDER BY c.f_emision DESC";
     $res = mysqli_query($conexion, $sql);
     $data = [];

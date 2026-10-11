@@ -7,7 +7,7 @@ $pageTitle = "Gestión de Productos";
 $currentPage = 'productos';
 $modudo_idx = 2;
 $pagina_idx = 40; // ID de página para gestión de productos
-$empresa_idx = 2; // TODO: reemplazar por el valor real de sesión/contexto cuando exista
+$empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 // Las listas de precios se traen acá (en el render de la página) y no por AJAX
 // al cargar, para no sumar una vuelta de red extra antes de poder pedir los
@@ -270,49 +270,70 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
 
                                         <div class="row g-2 mt-1">
-                                            <div class="col-md-6">
+                                            <div class="col-md-3">
                                                 <select class="form-select form-select-sm" id="unidad_medida_id"
-                                                    name="unidad_medida_id">
+                                                    name="unidad_medida_id" title="Unidad de Medida">
                                                     <option value="">Unidad de Medida</option>
                                                 </select>
                                             </div>
-                                        </div>
-
-                                        <div class="row g-2 mt-1">
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <input type="text" class="form-control form-control-sm" id="lado"
-                                                    name="lado" maxlength="10" placeholder="Lado">
+                                                    name="lado" maxlength="10" placeholder="Lado" title="Lado">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <input type="text" class="form-control form-control-sm" id="material"
-                                                    name="material" maxlength="50" placeholder="Material">
+                                                    name="material" maxlength="50" placeholder="Material" title="Material">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <input type="text" class="form-control form-control-sm" id="color"
-                                                    name="color" maxlength="50" placeholder="Color">
+                                                    name="color" maxlength="50" placeholder="Color" title="Color">
                                             </div>
                                         </div>
 
                                         <div class="row g-2 mt-1">
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <input type="number" class="form-control form-control-sm" id="peso"
-                                                    name="peso" min="0" step="0.01" placeholder="Peso (kg)">
+                                                    name="peso" min="0" step="0.01" placeholder="Peso (kg)" title="Peso (kg)">
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <input type="text" class="form-control form-control-sm" id="garantia"
-                                                    name="garantia" maxlength="50" placeholder="Garantía">
-                                            </div>
-                                        </div>
-                                        <div class="row g-2 mt-1 align-items-center">
-                                            <div class="col-md-4">
-                                                <small class="text-muted" title="Los servicios y productos sin control de stock se administran desde Productos - Generales">
-                                                    <i class="fas fa-boxes me-1"></i>Controla stock (siempre)
-                                                </small>
+                                                    name="garantia" maxlength="50" placeholder="Garantía" title="Garantía">
                                             </div>
                                             <div class="col-md-4">
-                                                <select class="form-select form-select-sm" id="iva_alicuota_id" name="iva_alicuota_id">
+                                                <select class="form-select form-select-sm" id="iva_alicuota_id" name="iva_alicuota_id" title="IVA Alícuota">
                                                     <option value="">IVA Alícuota</option>
                                                 </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Stock mínimo / máximo por boca (gestion__stock_niveles). Se graba con el producto. -->
+                                        <div class="niveles-stock mt-3">
+                                            <div class="niveles-stock-header">
+                                                <span class="niveles-stock-icono"><i class="bi bi-layers-fill"></i></span>
+                                                <div>
+                                                    <div class="fw-semibold">Stock mínimo y máximo por boca</div>
+                                                    <div class="small text-muted">Si el stock de una boca queda por debajo del mínimo, se genera una alerta de reposición.</div>
+                                                </div>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm align-middle mb-0" id="tablaNivelesStock">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Boca</th>
+                                                            <th class="text-center" style="width: 22%;">Stock actual</th>
+                                                            <th style="width: 21%;">Mínimo</th>
+                                                            <th style="width: 21%;">Máximo</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr><td colspan="4" class="text-center text-muted small py-3"><i class="fas fa-spinner fa-spin me-1"></i>Cargando bocas...</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="niveles-stock-leyenda">
+                                                <span><i class="bi bi-circle-fill text-success"></i>En nivel</span>
+                                                <span><i class="bi bi-circle-fill text-danger"></i>Bajo el mínimo</span>
+                                                <span><i class="bi bi-circle-fill text-secondary"></i>Sin control (mínimo vacío)</span>
                                             </div>
                                         </div>
                                     </form>
@@ -1048,6 +1069,114 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <!-- ========== ESTILOS ========== -->
     <style>
+        /* Stock mínimo / máximo por boca (solapa Información) */
+        .niveles-stock {
+            border: 1px solid var(--bs-border-color);
+            border-radius: .5rem;
+            overflow: hidden;
+            background: var(--bs-body-bg);
+        }
+        .niveles-stock-header {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .6rem .85rem;
+            background: var(--bs-tertiary-bg);
+            border-bottom: 1px solid var(--bs-border-color);
+        }
+        .niveles-stock-icono {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: .5rem;
+            background: var(--bs-primary-bg-subtle);
+            color: var(--bs-primary);
+            flex-shrink: 0;
+        }
+        #tablaNivelesStock thead th {
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            color: var(--bs-secondary-color);
+            font-weight: 600;
+            border-bottom-width: 1px;
+            padding: .45rem .85rem;
+            background: transparent;
+        }
+        #tablaNivelesStock tbody td {
+            padding: .4rem .85rem;
+            border-color: var(--bs-border-color-translucent);
+        }
+        #tablaNivelesStock tbody tr:last-child td {
+            border-bottom: 0;
+        }
+        #tablaNivelesStock tbody tr.nivel-bajo td {
+            background: var(--bs-danger-bg-subtle);
+        }
+        #tablaNivelesStock .nivel-boca {
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        #tablaNivelesStock .nivel-sucursal {
+            font-size: .75rem;
+            color: var(--bs-secondary-color);
+        }
+        #tablaNivelesStock .nivel-stock {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            min-width: 4.5rem;
+            justify-content: center;
+            padding: .25rem .6rem;
+            border-radius: 50rem;
+            font-weight: 600;
+            font-size: .8rem;
+            font-variant-numeric: tabular-nums;
+        }
+        #tablaNivelesStock .nivel-stock.ok {
+            background: var(--bs-success-bg-subtle);
+            color: var(--bs-success-text-emphasis);
+        }
+        #tablaNivelesStock .nivel-stock.bajo {
+            background: var(--bs-danger);
+            color: #fff;
+        }
+        #tablaNivelesStock .nivel-stock.sin-control {
+            background: var(--bs-secondary-bg);
+            color: var(--bs-secondary-color);
+        }
+        #tablaNivelesStock .input-group-text {
+            font-size: .7rem;
+            color: var(--bs-secondary-color);
+            min-width: 2.6rem;
+            justify-content: center;
+        }
+        #tablaNivelesStock input.form-control {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        #tablaNivelesStock input.form-control::placeholder {
+            color: var(--bs-tertiary-color);
+            font-style: italic;
+        }
+        .niveles-stock-leyenda {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: .45rem .85rem;
+            font-size: .72rem;
+            color: var(--bs-secondary-color);
+            border-top: 1px solid var(--bs-border-color);
+            background: var(--bs-tertiary-bg);
+        }
+        .niveles-stock-leyenda i {
+            font-size: .5rem;
+            margin-right: .35rem;
+            vertical-align: middle;
+        }
+
         /* Estilos para el buscador de etiquetas */
         .tag-item {
             display: inline-flex;
@@ -1549,7 +1678,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script>
         $(document).ready(function () {
             // Variables de contexto MULTIEMPRESA
-            const empresa_idx = 2;
+            const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
             const pagina_idx = <?php echo $pagina_idx; ?>;
 
             // Listas de precios activas, resueltas ya en el servidor al renderizar
@@ -3072,9 +3201,93 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         cargarUbicacionesProducto(productoId);
                         cargarProveedoresProducto(productoId);
                         cargarPreciosProducto(productoId);
+                        cargarNivelesStock(productoId);
                         new bootstrap.Modal(document.getElementById('modalProducto')).show();
                     } else Swal.fire({ icon: "error", title: "Error", text: "Error al obtener datos del producto" });
                 }, 'json');
+            }
+
+            // ========== STOCK MÍNIMO / MÁXIMO POR BOCA ==========
+            // Una fila por boca (con acceso del usuario). Se graba junto con el producto
+            // (niveles_stock en agregar / editar); vacío = no se controla en esa boca.
+            var nivelesStockToken = 0;
+
+            function escNivel(v) {
+                return $('<div>').text(v == null ? '' : String(v)).html();
+            }
+
+            function cargarNivelesStock(productoId) {
+                var token = ++nivelesStockToken;
+                var $tbody = $('#tablaNivelesStock tbody');
+                $tbody.html('<tr><td colspan="4" class="text-center text-muted small py-2">Cargando bocas...</td></tr>');
+                $.get('productos_ajax.php', { accion: 'obtener_niveles_stock', producto_id: productoId || 0, empresa_idx: empresa_idx }, function(filas) {
+                    if (token !== nivelesStockToken) return; // llegó una respuesta vieja
+                    if (!Array.isArray(filas) || !filas.length) {
+                        $tbody.html('<tr><td colspan="4" class="text-center text-muted small py-2">No hay bocas que manejen stock a las que tenga acceso</td></tr>');
+                        return;
+                    }
+                    $tbody.html(filas.map(function(f) {
+                        return '<tr data-boca-id="' + f.boca_id + '" data-stock="' + f.stock_actual + '">' +
+                            '<td>' +
+                                '<div class="nivel-boca">' + escNivel(f.boca_nombre) +
+                                    (f.alerta_abierta == 1 ? ' <i class="bi bi-bell-fill text-warning ms-1" title="Tiene una alerta de reposición abierta"></i>' : '') + '</div>' +
+                                '<div class="nivel-sucursal"><i class="fas fa-store me-1"></i>' + escNivel(f.sucursal_nombre) + '</div>' +
+                            '</td>' +
+                            '<td class="text-center"><span class="nivel-stock"></span></td>' +
+                            '<td><div class="input-group input-group-sm">' +
+                                '<span class="input-group-text">mín</span>' +
+                                '<input type="number" step="any" min="0" class="form-control nivel-minimo" value="' + (f.stock_minimo === null ? '' : f.stock_minimo) + '" placeholder="sin control">' +
+                            '</div></td>' +
+                            '<td><div class="input-group input-group-sm">' +
+                                '<span class="input-group-text">máx</span>' +
+                                '<input type="number" step="any" min="0" class="form-control nivel-maximo" value="' + (f.stock_maximo === null ? '' : f.stock_maximo) + '" placeholder="sin tope">' +
+                            '</div></td>' +
+                            '</tr>';
+                    }).join(''));
+                    $tbody.find('tr[data-boca-id]').each(function() { pintarNivelStock($(this)); });
+                }, 'json').fail(function() {
+                    if (token === nivelesStockToken) $tbody.html('<tr><td colspan="4" class="text-center text-danger small py-2">No se pudieron cargar las bocas</td></tr>');
+                });
+            }
+
+            // Etiqueta de stock según el mínimo que está escrito (se actualiza mientras se tipea).
+            var fmtNivelStock = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 });
+            function pintarNivelStock($tr) {
+                var stock = parseFloat($tr.data('stock')) || 0;
+                var minTxt = $tr.find('.nivel-minimo').val().trim();
+                var $badge = $tr.find('.nivel-stock').removeClass('ok bajo sin-control');
+                var bajo = minTxt !== '' && stock < parseFloat(minTxt);
+                $tr.toggleClass('nivel-bajo', bajo);
+                if (minTxt === '') {
+                    $badge.addClass('sin-control').attr('title', 'No se controla en esta boca');
+                    $badge.html(fmtNivelStock.format(stock));
+                } else if (bajo) {
+                    $badge.addClass('bajo').attr('title', 'Por debajo del mínimo: faltan ' + fmtNivelStock.format(parseFloat(minTxt) - stock));
+                    $badge.html('<i class="bi bi-arrow-down-short"></i>' + fmtNivelStock.format(stock));
+                } else {
+                    $badge.addClass('ok').attr('title', 'En nivel');
+                    $badge.html('<i class="bi bi-check2"></i>' + fmtNivelStock.format(stock));
+                }
+            }
+            $(document).on('input', '#tablaNivelesStock .nivel-minimo', function() {
+                pintarNivelStock($(this).closest('tr'));
+            });
+
+            // Devuelve el array a enviar, o un string con el error de validación.
+            function recolectarNivelesStock() {
+                var niveles = [];
+                var error = null;
+                $('#tablaNivelesStock tbody tr[data-boca-id]').each(function() {
+                    var $tr = $(this);
+                    var min = $tr.find('.nivel-minimo').val().trim();
+                    var max = $tr.find('.nivel-maximo').val().trim();
+                    $tr.find('input').removeClass('is-invalid');
+                    if (min === '' && max !== '') { error = 'Para cargar un máximo hay que cargar también el mínimo.'; $tr.find('.nivel-minimo').addClass('is-invalid'); }
+                    else if (min !== '' && parseFloat(min) < 0) { error = 'El stock mínimo no puede ser negativo.'; $tr.find('.nivel-minimo').addClass('is-invalid'); }
+                    else if (min !== '' && max !== '' && parseFloat(max) < parseFloat(min)) { error = 'El stock máximo no puede ser menor que el mínimo.'; $tr.find('.nivel-maximo').addClass('is-invalid'); }
+                    niveles.push({ boca_id: $tr.data('boca-id'), stock_minimo: min, stock_maximo: max });
+                });
+                return error || niveles;
             }
 
             function resetModal() {
@@ -3092,6 +3305,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }
                 $('#galeriaImagenes').empty();
                 $('#sinImagenes').show();
+                cargarNivelesStock(0);
                 if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
                     $('#tablaUbicaciones').DataTable().destroy();
                     $('#tablaUbicaciones tbody').empty();
@@ -4088,6 +4302,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     if (!$('#producto_codigo').val().trim()) { $('#producto_codigo').addClass('is-invalid'); return false; }
                     if (!$('#producto_nombre').val().trim()) { $('#producto_nombre').addClass('is-invalid'); return false; }
                     if (!$('#producto_tipo_id').val()) { $('#producto_tipo_id').addClass('is-invalid'); return false; }
+                    var nivelesStock = recolectarNivelesStock();
+                    if (typeof nivelesStock === 'string') {
+                        bootstrap.Tab.getOrCreateInstance(document.getElementById('nav-info-tab')).show();
+                        Swal.fire({ icon: "warning", title: "Stock mínimo / máximo", text: nivelesStock });
+                        return false;
+                    }
                     var btnGuardar = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
                     $.ajax({
                         url: 'productos_ajax.php',
@@ -4108,6 +4328,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             peso: $('#peso').val(),
                             dimensiones: $('#dimensiones').val(),
                             garantia: $('#garantia').val(),
+                            niveles_stock: JSON.stringify(nivelesStock),
                             empresa_idx: empresa_idx,
                             pagina_idx: pagina_idx
                         },
@@ -4115,6 +4336,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             btnGuardar.prop('disabled', false).html('Guardar');
                             if (res.resultado) {
                                 tabla.ajax.reload(function() {
+                                    if (res.aviso) {
+                                        // El producto se guardó pero los niveles no: el modal queda abierto para corregir.
+                                        if (!id && res.producto_id) $('#producto_id').val(res.producto_id);
+                                        Swal.fire({ icon: "warning", title: "Producto guardado", text: res.aviso });
+                                        return;
+                                    }
                                     Swal.fire({ icon: "success", title: "¡Guardado!", text: "Producto guardado correctamente", showConfirmButton: false, timer: 1500, toast: true, position: 'top-end' });
                                     bootstrap.Modal.getInstance(document.getElementById('modalProducto')).hide();
                                 });

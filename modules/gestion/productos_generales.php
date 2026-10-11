@@ -6,7 +6,7 @@ $pageTitle = "Productos y Servicios";
 $currentPage = 'productos_generales';
 $modudo_idx = 2;
 $pagina_idx = 97; // ID de página en conf__paginas (ver sql/mantenimiento/20260925_productos_generales_abm.sql)
-$empresa_idx = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 2;
+$empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';

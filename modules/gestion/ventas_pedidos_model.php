@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
@@ -235,7 +236,7 @@ function ejecutarTransicionEstado($conexion, $venta_pedido_id, $accion_js, $empr
     $pagina_id = intval($pagina_id);
 
     $sql_check = "SELECT vp.venta_pedido_id, vp.tabla_estado_registro_id, vp.comprobante_nro, 
-                         vp.comprobante_tipo_id, vp.punto_venta_id, vp.empresa_id
+                         vp.comprobante_tipo_id, vp.punto_venta_id, vp.empresa_id, vp.sucursal_id
                   FROM gestion__ventas_pedidos vp
                   WHERE vp.venta_pedido_id = ?";
     
@@ -253,6 +254,15 @@ function ejecutarTransicionEstado($conexion, $venta_pedido_id, $accion_js, $empr
 
     if (!$pedido) {
         return ['success' => false, 'error' => 'Registro no encontrado'];
+    }
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        try {
+            AccesosSucursalesHelper::exigirAccesoSucursal($conexion, intval($pedido['empresa_id']), intval($pedido['sucursal_id']));
+        } catch (RuntimeException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
     $estado_actual_id = $pedido['tabla_estado_registro_id'];
@@ -456,8 +466,17 @@ function obtenerPedidosVenta($conexion, $empresa_idx, $pagina_id)
             LEFT JOIN gestion__monedas m ON vp.moneda_id = m.moneda_id
             LEFT JOIN gestion__sucursales s ON vp.sucursal_id = s.sucursal_id AND s.empresa_id = vp.empresa_id
             LEFT JOIN gestion__puntos_venta pv ON vp.punto_venta_id = pv.punto_venta_id AND pv.empresa_id = vp.empresa_id
-            WHERE vp.empresa_id = ?
-            ORDER BY vp.f_emision DESC, vp.venta_pedido_id DESC";
+            WHERE vp.empresa_id = ?";
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $uid = intval($_SESSION['usuario_id'] ?? 0);
+        if ($uid > 0) {
+            $sql .= AccesosSucursalesHelper::filtroSqlSucursal($conexion, $uid, $empresa_idx, 'vp.sucursal_id');
+        }
+    }
+
+    $sql .= " ORDER BY vp.f_emision DESC, vp.venta_pedido_id DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -523,6 +542,17 @@ function agregarPedidoVenta($conexion, $data)
     }
     if (!isset($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
         return ['resultado' => false, 'error' => 'Debe agregar al menos un producto al detalle'];
+    }
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $empresa_idx_val = intval($data['empresa_idx'] ?? $_SESSION['empresa_id'] ?? 0);
+        try {
+            AccesosSucursalesHelper::exigirAccesoSucursal($conexion, $empresa_idx_val, intval($data['sucursal_id']));
+            AccesosSucursalesHelper::exigirAccesoPuntoVenta($conexion, $empresa_idx_val, intval($data['punto_venta_id']));
+        } catch (RuntimeException $e) {
+            return ['resultado' => false, 'error' => $e->getMessage()];
+        }
     }
 
     mysqli_begin_transaction($conexion);
@@ -907,7 +937,7 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx, $pagina_id = 0)
             'precio_unitario' => floatval($detalle['precio_unitario']),
             'no_gravado' => floatval($detalle['no_gravado'] ?? 0),
             'exento' => floatval($detalle['exento'] ?? 0),
-            'iva_alicuota_id' => $detalle['producto_iva_id'] ?? $detalle['iva_alicuota_id'] ?? 1,
+            'iva_alicuota_id' => $detalle['producto_iva_id'] ?? $detalle['iva_alicuota_id'] ?? emp_iva_alicuota_id($conexion, $empresa_idx),
             'iva_porcentaje' => floatval($detalle['iva_porcentaje'] ?? 21),
             'neto_gravado' => floatval($detalle['neto_gravado']),
             'iva_importe' => floatval($detalle['iva_importe']),
@@ -1334,19 +1364,21 @@ function agregarProductoRapido($conexion, $data)
             (empresa_id, producto_codigo, producto_nombre, codigo_barras, 
              producto_descripcion, producto_categoria_id, producto_tipo_id, 
              iva_alicuota_id, unidad_medida_id, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 1)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
     
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['success' => false, 'error' => 'Error en la consulta'];
     
-    mysqli_stmt_bind_param($stmt, "issssiii", 
+    $producto_tipo_id = emp_producto_tipo_id($conexion, intval($data['empresa_idx']), true);
+    mysqli_stmt_bind_param($stmt, "issssiiii",
         $data['empresa_idx'],
         $data['producto_codigo'],
         $data['producto_nombre'],
         $data['codigo_barras'],
         $data['producto_descripcion'],
         $data['producto_categoria_id'],
+        $producto_tipo_id,
         $data['iva_alicuota_id'],
         $data['unidad_medida_id']
     );
@@ -1382,23 +1414,18 @@ function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q)
     $entidad_id = intval($entidad_id);
     $empresa_idx = intval($empresa_idx);
 
+    // Se listan todos los productos activos de la empresa, estén o no en la lista de
+    // precios vigente del cliente: sin precio en la lista (o cliente sin lista) van
+    // con importe 0.
     $condicion = obtenerListaPrecioVigenteCliente($conexion, $entidad_id);
-    if (!$condicion || empty($condicion['lista_precio_id'])) {
-        error_log("Cliente $entidad_id sin lista de precios vigente en gestion__entidades_condiciones_clientes");
-        return [];
-    }
-    $lista_precio_id = intval($condicion['lista_precio_id']);
+    $lista_precio_id = intval($condicion['lista_precio_id'] ?? 0);
     $descuento_pct = floatval($condicion['cliente_descuento_general'] ?? 0);
 
     $where_conditions = [
-        "lp.lista_precio_id = ?",
-        "lp.empresa_id = ?",
         "p.empresa_id = ?",
-        "p.tabla_estado_registro_id = 1",
-        "lp.tabla_estado_registro_id = 1",
-        "lp.f_desde <= CURDATE()",
-        "(lp.f_hasta IS NULL OR lp.f_hasta >= CURDATE())"
+        "p.tabla_estado_registro_id = 1"
     ];
+    // Los dos primeros parámetros son los de la subconsulta del precio (va antes en el SQL).
     $where_params = [$lista_precio_id, $empresa_idx, $empresa_idx];
     $where_types = "iii";
 
@@ -1417,9 +1444,14 @@ function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q)
     $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre,
                    p.iva_alicuota_id, p.compatibilidad_texto,
                    iva.porcentaje as iva_porcentaje,
-                   lp.precio_final
-            FROM gestion__listas_precios_productos lp
-            INNER JOIN gestion__productos p ON p.producto_id = lp.producto_id
+                   COALESCE((SELECT lp.precio_final
+                             FROM gestion__listas_precios_productos lp
+                             WHERE lp.producto_id = p.producto_id AND lp.lista_precio_id = ?
+                               AND lp.empresa_id = ? AND lp.tabla_estado_registro_id = 1
+                               AND lp.f_desde <= CURDATE()
+                               AND (lp.f_hasta IS NULL OR lp.f_hasta >= CURDATE())
+                             ORDER BY lp.f_desde DESC LIMIT 1), 0) AS precio_final
+            FROM gestion__productos p
             LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id
             WHERE " . implode(" AND ", $where_conditions) . "
             ORDER BY p.producto_nombre
@@ -1744,6 +1776,12 @@ function obtenerSucursalesEmpresa($conexion, $empresa_idx) {
     }
     
     mysqli_stmt_close($stmt);
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $sucursales = AccesosSucursalesHelper::filtrarSucursales($conexion, $empresa_idx, $sucursales);
+    }
+
     return $sucursales;
 }
 
@@ -1787,8 +1825,12 @@ function obtenerEstadoInicialPagina($conexion, $pagina_id)
         return $row['tabla_estado_registro_destino_id'];
     }
 
-    error_log("No se encontró configuración de estado inicial para pagina_id=$pagina_id, usando fallback: 1");
-    return 1;
+    // Página sin función "agregar" (p. ej. 91, Nuevos Pedidos de Clientes): el estado inicial sale del
+    // catálogo de la tabla (es_inicial). Con el fallback fijo en 1 (Activo) el pedido nacía en un estado
+    // sin transiciones y no se podía confirmar ni editar.
+    $estado_catalogo = intval(obtenerEstadoInicial($conexion, $pagina_id));
+    error_log("Sin función 'agregar' para pagina_id=$pagina_id, estado inicial por es_inicial: $estado_catalogo");
+    return $estado_catalogo;
 }
 
 function obtenerTablaOrigenPorPagina($conexion, $pagina_id)
@@ -1834,7 +1876,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
     $f_emision = $data['f_emision'] ?? date('Y-m-d');
     $f_contabilidad = $data['f_contabilidad'] ?? $f_emision;
     $f_vto = $data['f_vto'] ?? null;
-    $moneda_id = intval($data['moneda_id'] ?? 1);
+    $moneda_id = emp_moneda_id($conexion, $empresa_id, $data['moneda_id'] ?? 0);
     $tipo_cambio = floatval($data['tipo_cambio'] ?? 1.0);
     $registro_origen_id = intval($data['registro_origen_id'] ?? 0);
     $tabla_estado_registro_id = intval($data['tabla_estado_registro_id'] ?? 3);
@@ -1881,8 +1923,7 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
                         COALESCE(SUM(CASE WHEN ci.comp_origen_id = ? THEN ci.importe_origen ELSE 0 END), 0) AS imp_origen,
                         COUNT(*) AS total_imputaciones
                     FROM gestion__comprobantes_imputaciones ci
-                    JOIN conf__tablas_estados_registros ter ON ter.tabla_estado_registro_id = ci.tabla_estado_registro_id
-                    JOIN conf__estados_registros er ON er.estado_registro_id = ter.estado_registro_id
+                    JOIN conf__estados_registros er ON er.estado_registro_id = ci.tabla_estado_registro_id
                     WHERE (ci.comp_destino_id = ? OR ci.comp_origen_id = ?)
                       AND er.codigo_estandar = 'CONFIRMADO'";
         $stmt_imp = mysqli_prepare($conexion, $sql_imp);
@@ -1897,6 +1938,13 @@ function syncComprobante($conexion, $data, $tabla_origen_id)
                 }
             }
             mysqli_stmt_close($stmt_imp);
+        }
+
+        // Estado derivado del saldo (mismo criterio que estadoComprobantePorSaldo() en
+        // tesoreria_core_model.php): un comprobante confirmado con imputaciones vigentes queda en
+        // Cancelado parcial (39) / Cancelado total (40) y no vuelve a Confirmado al re-sincronizar.
+        if ($tabla_estado_registro_id === 5 && $importe_pendiente < $importe_total - 0.001) {
+            $tabla_estado_registro_id = ($importe_pendiente <= 0.001) ? 40 : 39;
         }
 
         $sql_update = "UPDATE gestion__comprobantes SET

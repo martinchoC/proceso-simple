@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
@@ -154,16 +155,115 @@ function ejecutarTransicionEstado($conexion, $stock_ajuste_id, $accion_js, $empr
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
     }
 
-    $sql_update = "UPDATE gestion__stock_ajustes SET tabla_estado_registro_id = ? WHERE stock_ajuste_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql_update);
-    if (!$stmt) return ['success' => false, 'error' => 'Error preparando update: ' . mysqli_error($conexion)];
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $stock_ajuste_id);
-    if (!mysqli_stmt_execute($stmt)) {
+    mysqli_begin_transaction($conexion);
+    try {
+        $sql_update = "UPDATE gestion__stock_ajustes SET tabla_estado_registro_id = ? WHERE stock_ajuste_id = ? AND empresa_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql_update);
+        if (!$stmt) throw new Exception('Error preparando update: ' . mysqli_error($conexion));
+        mysqli_stmt_bind_param($stmt, "iii", $estado_destino_id, $stock_ajuste_id, $empresa_idx);
+        if (!mysqli_stmt_execute($stmt)) throw new Exception('Error actualizando estado: ' . mysqli_stmt_error($stmt));
         mysqli_stmt_close($stmt);
-        return ['success' => false, 'error' => 'Error actualizando estado: ' . mysqli_stmt_error($stmt)];
+
+        // Stock: el tipo (sobrante +, faltante -, o +/- con el signo de cada línea) y el estado destino
+        // (aplica_stock) deciden; confirmar aplica el ajuste y eliminarlo confirmado lo revierte.
+        sincronizarStockAjuste($conexion, $stock_ajuste_id, intval($estado_destino_id), $empresa_idx, $pagina_id);
+
+        mysqli_commit($conexion);
+        return ['success' => true, 'message' => 'Estado actualizado correctamente'];
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        error_log("ERROR en ejecutarTransicionEstado (stock_ajustes): " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// Espejo del ajuste en gestion__comprobantes (los movimientos de stock lo exigen) y sincronización
+// del libro de stock (stock_core_model.php). Corre dentro de la transacción del llamador.
+// El ajuste no tiene punto de venta: número = stock_ajuste_id, comprobante_pv NULL.
+function sincronizarStockAjuste($conexion, $stock_ajuste_id, $estado_id, $empresa_idx, $pagina_id) {
+    require_once __DIR__ . '/stock_core_model.php';
+
+    $stmt = mysqli_prepare($conexion, "SELECT tabla_id FROM conf__paginas WHERE pagina_id = ?");
+    mysqli_stmt_bind_param($stmt, "i", $pagina_id);
+    mysqli_stmt_execute($stmt);
+    $tabla_origen_id = intval(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['tabla_id'] ?? 0);
+    mysqli_stmt_close($stmt);
+    if ($tabla_origen_id <= 0) throw new Exception('No se pudo determinar la tabla de origen del ajuste.');
+
+    $stmt = mysqli_prepare($conexion, "SELECT empresa_id, sucursal_id, deposito_id, comprobante_tipo_id, comprobante_id, fecha, descripcion
+                                       FROM gestion__stock_ajustes WHERE stock_ajuste_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $stock_ajuste_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $ajuste = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$ajuste) throw new Exception('Ajuste no encontrado.');
+
+    $usuario_id = isset($_SESSION['usuario_id']) ? intval($_SESSION['usuario_id']) : null;
+    $sucursal_id = intval($ajuste['sucursal_id']);
+    $tipo_id = intval($ajuste['comprobante_tipo_id']);
+    $f_emision = substr((string)$ajuste['fecha'], 0, 10);
+    $observaciones = mb_substr((string)($ajuste['descripcion'] ?? ''), 0, 255);
+
+    $stmt = mysqli_prepare($conexion, "SELECT comprobante_id FROM gestion__comprobantes WHERE tabla_origen_id = ? AND registro_origen_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $tabla_origen_id, $stock_ajuste_id);
+    mysqli_stmt_execute($stmt);
+    $comprobante_id = intval(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['comprobante_id'] ?? 0);
+    mysqli_stmt_close($stmt);
+
+    if ($comprobante_id > 0) {
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes
+                                           SET sucursal_id = ?, comprobante_tipo_id = ?, f_emision = ?, f_contabilidad = ?,
+                                               tabla_estado_registro_id = ?, observaciones = ?, usuario_modificacion_id = ?
+                                           WHERE comprobante_id = ?");
+        mysqli_stmt_bind_param($stmt, "iissisii", $sucursal_id, $tipo_id, $f_emision, $f_emision, $estado_id, $observaciones, $usuario_id, $comprobante_id);
+    } else {
+        $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__comprobantes
+                                           (tabla_origen_id, registro_origen_id, modulo, empresa_id, sucursal_id, comprobante_tipo_id,
+                                            comprobante_pv, comprobante_nro, entidad_id, f_emision, f_contabilidad, moneda_id,
+                                            signo, tabla_estado_registro_id, observaciones, usuario_id)
+                                           VALUES (?, ?, 'stock', ?, ?, ?, NULL, ?, 0, ?, ?, 1, 1, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "iiiiiissisi", $tabla_origen_id, $stock_ajuste_id, $empresa_idx, $sucursal_id, $tipo_id,
+                               $stock_ajuste_id, $f_emision, $f_emision, $estado_id, $observaciones, $usuario_id);
+    }
+    if (!mysqli_stmt_execute($stmt)) throw new Exception('Error sincronizando el comprobante del ajuste: ' . mysqli_stmt_error($stmt));
+    if ($comprobante_id <= 0) $comprobante_id = mysqli_insert_id($conexion);
+    mysqli_stmt_close($stmt);
+
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__stock_ajustes SET comprobante_id = ? WHERE stock_ajuste_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $comprobante_id, $stock_ajuste_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    // deposito_id guarda gestion__bocas.boca_id; la línea puede traer su propia boca
+    $stmt = mysqli_prepare($conexion, "SELECT stock_ajuste_detalle_id, producto_id, deposito_id, cantidad_ajuste, costo_unitario
+                                       FROM gestion__stock_ajustes_detalles
+                                       WHERE stock_ajuste_id = ? AND tabla_estado_registro_id <> 6");
+    mysqli_stmt_bind_param($stmt, "i", $stock_ajuste_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $lineas = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $lineas[] = [
+            'registro_detalle_id' => intval($row['stock_ajuste_detalle_id']),
+            'producto_id' => intval($row['producto_id']),
+            'cantidad' => floatval($row['cantidad_ajuste']),
+            'boca_id' => intval($row['deposito_id']),
+            'costo_unitario' => floatval($row['costo_unitario'] ?? 0),
+        ];
     }
     mysqli_stmt_close($stmt);
-    return ['success' => true, 'message' => 'Estado actualizado correctamente'];
+
+    return stockSincronizarComprobante($conexion, [
+        'empresa_id' => intval($empresa_idx),
+        'comprobante_id' => $comprobante_id,
+        'comprobante_tipo_id' => $tipo_id,
+        'tabla_origen_id' => $tabla_origen_id,
+        'registro_origen_id' => intval($stock_ajuste_id),
+        'estado_registro_id' => intval($estado_id),
+        'boca_id' => intval($ajuste['deposito_id']),
+        'usuario_id' => $usuario_id,
+        'observaciones' => 'Ajuste de stock N° ' . $stock_ajuste_id . ($observaciones !== '' ? ' - ' . $observaciones : ''),
+    ], $lineas);
 }
 
 function obtenerStockAjustes($conexion, $empresa_idx, $pagina_id) {
@@ -189,13 +289,13 @@ function obtenerStockAjustes($conexion, $empresa_idx, $pagina_id) {
                    c.color_clase, c.bg_clase, c.text_clase,
                    ct.comprobante_tipo,
                    s.sucursal_nombre,
-                   d.deposito_nombre
+                   d.boca_nombre AS deposito_nombre
             FROM gestion__stock_ajustes sa
             LEFT JOIN conf__estados_registros er ON sa.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
             LEFT JOIN gestion__comprobantes_tipos ct ON sa.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__sucursales s ON sa.sucursal_id = s.sucursal_id AND s.empresa_id = sa.empresa_id
-            LEFT JOIN gestion__depositos d ON sa.deposito_id = d.deposito_id AND d.empresa_id = sa.empresa_id
+            LEFT JOIN gestion__bocas d ON sa.deposito_id = d.boca_id AND d.empresa_id = sa.empresa_id
             WHERE sa.empresa_id = ?
             ORDER BY sa.fecha DESC, sa.stock_ajuste_id DESC";
 
@@ -340,11 +440,11 @@ function editarStockAjuste($conexion, $id, $data) {
 
 function obtenerStockAjustePorId($conexion, $id, $empresa_idx) {
     $id = intval($id);
-    $sql = "SELECT sa.*, ct.comprobante_tipo, s.sucursal_nombre, d.deposito_nombre
+    $sql = "SELECT sa.*, ct.comprobante_tipo, s.sucursal_nombre, d.boca_nombre AS deposito_nombre
             FROM gestion__stock_ajustes sa
             LEFT JOIN gestion__comprobantes_tipos ct ON sa.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__sucursales s ON sa.sucursal_id = s.sucursal_id AND s.empresa_id = sa.empresa_id
-            LEFT JOIN gestion__depositos d ON sa.deposito_id = d.deposito_id AND d.empresa_id = sa.empresa_id
+            LEFT JOIN gestion__bocas d ON sa.deposito_id = d.boca_id AND d.empresa_id = sa.empresa_id
             WHERE sa.stock_ajuste_id = ? AND sa.empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return null;
@@ -386,11 +486,14 @@ function obtenerStockAjustePorId($conexion, $id, $empresa_idx) {
     return $ajuste;
 }
 
-function obtenerComprobantesTipos($conexion) {
-    $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra 
-            FROM gestion__comprobantes_tipos 
-            WHERE comprobante_subgrupo_id = 15
-            AND tabla_estado_registro_id = 1 
+function obtenerComprobantesTipos($conexion, $empresa_idx = null) {
+    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
+    $subgrupo_id = emp_subgrupo_id($conexion, $empresa_idx, 'AST');   // Ajustes de Stock de la empresa
+    if ($subgrupo_id <= 0) return [];   // la empresa no tiene ese subgrupo activo
+    $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra
+            FROM gestion__comprobantes_tipos
+            WHERE empresa_id = $empresa_idx AND comprobante_subgrupo_id = $subgrupo_id
+            AND tabla_estado_registro_id = 1
             ORDER BY comprobante_tipo";
     $result = mysqli_query($conexion, $sql);
     if (!$result) return [];
@@ -417,17 +520,25 @@ function obtenerSucursalesEmpresa($conexion, $empresa_idx) {
         $sucursales[] = $fila;
     }
     mysqli_stmt_close($stmt);
+
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $sucursales = AccesosSucursalesHelper::filtrarSucursales($conexion, $empresa_idx, $sucursales);
+    }
+
     return $sucursales;
 }
 
 function obtenerDepositos($conexion, $sucursal_id, $empresa_idx) {
     $sucursal_id = intval($sucursal_id);
-    $sql = "SELECT deposito_id, deposito_nombre 
-            FROM gestion__depositos 
+    // gestion__depositos se reemplazó por gestion__bocas (mismos ids): depósito = boca con es_deposito = 1.
+    $sql = "SELECT boca_id AS deposito_id, boca_nombre AS deposito_nombre
+            FROM gestion__bocas
             WHERE sucursal_id = ? 
             AND empresa_id = ?
             AND tabla_estado_registro_id = 1 
-            ORDER BY deposito_nombre";
+            AND es_deposito = 1
+            ORDER BY boca_nombre";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
     mysqli_stmt_bind_param($stmt, "ii", $sucursal_id, $empresa_idx);
@@ -447,9 +558,9 @@ function buscarProductosConStock($conexion, $empresa_idx, $deposito_id, $q) {
     $search = "%$q%";
 
     $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre, 
-                   COALESCE(ss.stock_actual, 0) as stock_sistema
+                   COALESCE(ss.cantidad, 0) as stock_sistema
             FROM gestion__productos p
-            LEFT JOIN gestion__stocks ss ON p.producto_id = ss.producto_id AND ss.deposito_id = ?
+            LEFT JOIN gestion__stock ss ON p.producto_id = ss.producto_id AND ss.boca_id = ? AND ss.empresa_id = p.empresa_id
             WHERE p.empresa_id = ? 
             AND p.tabla_estado_registro_id = 1
             AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ?)
@@ -501,7 +612,7 @@ function insertarDetallesAjuste($conexion, $stock_ajuste_id, $empresa_id, $detal
             return false;
         }
 
-        mysqli_stmt_bind_param($stmt, "iiiddddddd",
+        mysqli_stmt_bind_param($stmt, "iiidddddds",
             $stock_ajuste_id,
             $producto_id,
             $deposito_id,

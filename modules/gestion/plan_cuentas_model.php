@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
@@ -144,13 +145,14 @@ function ejecutarTransicionEstado($conexion, $cont_cuenta_id, $accion_js, $empre
     $pagina_id = intval($pagina_id);
 
     // Verificar que la cuenta exista
-    $sql_check = "SELECT cont_cuenta_id, tabla_estado_registro_id 
-                  FROM gestion__cont_cuentas 
-                  WHERE cont_cuenta_id = ?";
+    $empresa_id = intval($empresa_id);
+    $sql_check = "SELECT cont_cuenta_id, tabla_estado_registro_id
+                  FROM gestion__cont_cuentas
+                  WHERE cont_cuenta_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "i", $cont_cuenta_id);
+    mysqli_stmt_bind_param($stmt, "ii", $cont_cuenta_id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $cuenta = mysqli_fetch_assoc($result);
@@ -186,14 +188,14 @@ function ejecutarTransicionEstado($conexion, $cont_cuenta_id, $accion_js, $empre
     }
 
     // Actualizar estado
-    $sql_update = "UPDATE gestion__cont_cuentas 
-                   SET tabla_estado_registro_id = ? 
-                   WHERE cont_cuenta_id = ?";
+    $sql_update = "UPDATE gestion__cont_cuentas
+                   SET tabla_estado_registro_id = ?
+                   WHERE cont_cuenta_id = ? AND empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql_update);
     if (!$stmt) return ['success' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $cont_cuenta_id);
+    mysqli_stmt_bind_param($stmt, "iii", $estado_destino_id, $cont_cuenta_id, $empresa_id);
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -205,15 +207,16 @@ function ejecutarTransicionEstado($conexion, $cont_cuenta_id, $accion_js, $empre
 }
 
 // ✅ Obtener nivel desde cuenta padre (para cálculo automático)
-function obtenerNivelDesdePadre($conexion, $cuenta_padre_id)
+function obtenerNivelDesdePadre($conexion, $cuenta_padre_id, $empresa_id = 0)
 {
     if (empty($cuenta_padre_id)) return 1;
 
-    $sql = "SELECT nivel FROM gestion__cont_cuentas WHERE cont_cuenta_id = ?";
+    $empresa_id = intval($empresa_id ?: ($_SESSION['empresa_id'] ?? 0));
+    $sql = "SELECT nivel FROM gestion__cont_cuentas WHERE cont_cuenta_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return 1;
 
-    mysqli_stmt_bind_param($stmt, "i", $cuenta_padre_id);
+    mysqli_stmt_bind_param($stmt, "ii", $cuenta_padre_id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
@@ -357,6 +360,7 @@ function agregarCuenta($conexion, $data, $pagina_idx)
     $nivel = intval($data['nivel'] ?? 1);
     $orden = intval($data['orden'] ?? 0);
     $es_imputable = intval($data['es_imputable'] ?? 1);
+    $es_caja_banco = (!empty($data['es_caja_banco']) && $es_imputable == 1) ? 1 : 0;
 
     // Validaciones
     if (empty($codigo) || empty($nombre) || empty($naturaleza)) {
@@ -387,19 +391,25 @@ function agregarCuenta($conexion, $data, $pagina_idx)
         return ['resultado' => false, 'error' => 'Ya existe una cuenta con este código para la empresa'];
     }
 
+    // La cuenta padre tiene que ser del plan de cuentas de la misma empresa
+    if ($cuenta_padre_id !== null && intval(empresa_cfg_valor($conexion,
+            "SELECT cont_cuenta_id FROM gestion__cont_cuentas WHERE cont_cuenta_id = ? AND empresa_id = ?", "ii", [$cuenta_padre_id, $empresa_id])) <= 0) {
+        return ['resultado' => false, 'error' => 'La cuenta padre no pertenece al plan de cuentas de la empresa'];
+    }
+
     // Obtener estado inicial
     $estado_inicial = obtenerEstadoInicial($conexion);
 
     // Insertar
     $sql = "INSERT INTO gestion__cont_cuentas 
-            (empresa_id, codigo, nombre, naturaleza, cuenta_padre_id, nivel, orden, es_imputable, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            (empresa_id, codigo, nombre, naturaleza, cuenta_padre_id, nivel, orden, es_imputable, es_caja_banco, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "isssiiiii", 
-        $empresa_id, $codigo, $nombre, $naturaleza_bd, $cuenta_padre_id, $nivel, $orden, $es_imputable, $estado_inicial);
+    mysqli_stmt_bind_param($stmt, "isssiiiiii", 
+        $empresa_id, $codigo, $nombre, $naturaleza_bd, $cuenta_padre_id, $nivel, $orden, $es_imputable, $es_caja_banco, $estado_inicial);
 
     $success = mysqli_stmt_execute($stmt);
 
@@ -425,6 +435,7 @@ function editarCuenta($conexion, $id, $data)
     $nivel = intval($data['nivel'] ?? 1);
     $orden = intval($data['orden'] ?? 0);
     $es_imputable = intval($data['es_imputable'] ?? 1);
+    $es_caja_banco = (!empty($data['es_caja_banco']) && $es_imputable == 1) ? 1 : 0;
 
     // Validaciones
     if (empty($codigo) || empty($nombre) || empty($naturaleza)) {
@@ -441,17 +452,23 @@ function editarCuenta($conexion, $id, $data)
     }
 
     // Verificar que la cuenta exista
-    $sql_check = "SELECT cont_cuenta_id FROM gestion__cont_cuentas WHERE cont_cuenta_id = ?";
+    $sql_check = "SELECT cont_cuenta_id FROM gestion__cont_cuentas WHERE cont_cuenta_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     mysqli_stmt_close($stmt);
 
     if (mysqli_num_rows($result) == 0) {
         return ['resultado' => false, 'error' => 'Cuenta no encontrada'];
+    }
+
+    // La cuenta padre tiene que ser del plan de cuentas de la misma empresa
+    if ($cuenta_padre_id !== null && intval(empresa_cfg_valor($conexion,
+            "SELECT cont_cuenta_id FROM gestion__cont_cuentas WHERE cont_cuenta_id = ? AND empresa_id = ?", "ii", [$cuenta_padre_id, $empresa_id])) <= 0) {
+        return ['resultado' => false, 'error' => 'La cuenta padre no pertenece al plan de cuentas de la empresa'];
     }
 
     // Verificar código único (excluyendo esta cuenta)
@@ -472,14 +489,14 @@ function editarCuenta($conexion, $id, $data)
     // Actualizar
     $sql = "UPDATE gestion__cont_cuentas 
             SET codigo = ?, nombre = ?, naturaleza = ?, cuenta_padre_id = ?, 
-                nivel = ?, orden = ?, es_imputable = ?
-            WHERE cont_cuenta_id = ?";
+                nivel = ?, orden = ?, es_imputable = ?, es_caja_banco = ?
+            WHERE cont_cuenta_id = ? AND empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "sssiiiii", 
-        $codigo, $nombre, $naturaleza_bd, $cuenta_padre_id, $nivel, $orden, $es_imputable, $id);
+    mysqli_stmt_bind_param($stmt, "sssiiiiiii",
+        $codigo, $nombre, $naturaleza_bd, $cuenta_padre_id, $nivel, $orden, $es_imputable, $es_caja_banco, $id, $empresa_id);
 
     $success = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);

@@ -6,7 +6,7 @@
 
 $(document).ready(function () {
     // Variables de contexto MULTIEMPRESA
-    const empresa_id = 2; // ID de empresa fijo, se puede modificar según necesidad
+    const empresa_id = window.EMPRESA_ID; // empresa activa (header1.php)
     const pagina_idx = 68; // ID de página para plan de cuentas
 
     // Variables para mantener el estado del DataTable y jerarquía

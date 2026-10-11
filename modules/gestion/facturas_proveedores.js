@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    const empresa_idx = 2;
+    const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
     const pagina_idx = 57; // ID para facturas proveedor
     
     var tabla;
@@ -14,6 +14,8 @@ $(document).ready(function () {
     var timeoutBusqueda = null;
     var selectedIndex = -1;
     var impuestosFactura = [];
+    // Línea en edición que venía de una OC: se conserva el vínculo si no cambia el producto
+    var detalleEnEdicionOC = null;
 
     // ========== FUNCIONES DE DATATABLE ==========
     function calcularFechaVencimiento(fechaEmision, condicionPagoId) {
@@ -47,7 +49,6 @@ function cargarImpuestosConfig() {
         data: {
             accion: 'obtener_impuestos_config',
             empresa_idx: empresa_idx,
-            comprobante_subgrupo_id: 5  // Compras/Proveedores
         },
         dataType: 'json',
         success: function(data) {
@@ -508,7 +509,6 @@ function mostrarModalImpuesto(impuestoData, idx) {
         data: { 
             accion: 'obtener_impuestos_config',
             empresa_idx: empresa_idx,
-            comprobante_subgrupo_id: 5
         },
         dataType: 'json',
         success: function(configuraciones) {
@@ -1133,6 +1133,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
                 var textoCompleto = selectedOption.text();
                 $('#proveedor_actual_nombre').text(textoCompleto);
             }
+            desvincularOCSiOtroProveedor();
              if (entidadId) {
                 console.log("Llamando a cargarCondicionesProveedor con ID:", entidadId);
                 cargarCondicionesProveedor(entidadId);
@@ -1146,8 +1147,399 @@ function mostrarModalImpuesto(impuestoData, idx) {
             proveedorActualId = null;
             proveedorSucursalActualId = null;
             $('#proveedor_actual_nombre').text('No seleccionado');
+            desvincularOCSiOtroProveedor();
         }
     });
+
+    // ========== ORDEN DE COMPRA -> FACTURA ==========
+    // Una factura puede importar las líneas pendientes de UNA orden de compra del proveedor.
+    // Cada línea importada guarda ordenes_compra_detalle_id; al confirmar la factura el backend
+    // suma lo recibido en la OC y la pasa a Recibido parcial / Recibido.
+    var ordenCompraEntidadId = null;
+    var ocLineasActuales = [];
+    var ocSeleccionada = null;
+
+    function setOrdenCompraVinculada(ordenCompraId, ordenCompraNro, entidadId) {
+        ordenCompraId = parseInt(ordenCompraId) || 0;
+        if (ordenCompraId > 0) {
+            $('#orden_compra_id').val(ordenCompraId);
+            $('#oc_vinculada_texto').text('OC N° ' + (ordenCompraNro || ordenCompraId));
+            $('#oc_vinculada_badge').removeClass('d-none');
+            ordenCompraEntidadId = parseInt(entidadId) || null;
+        } else {
+            $('#orden_compra_id').val('');
+            $('#oc_vinculada_texto').text('');
+            $('#oc_vinculada_badge').addClass('d-none');
+            ordenCompraEntidadId = null;
+        }
+    }
+
+    function quitarVinculoOC() {
+        setOrdenCompraVinculada(null, null, null);
+        detalles.forEach(function(d) { d.ordenes_compra_detalle_id = null; });
+        detalleEnEdicionOC = null;
+        renderizarDetalles();
+    }
+
+    // Si cambia el proveedor, la OC vinculada (que es del anterior) deja de valer
+    function desvincularOCSiOtroProveedor() {
+        if (!$('#orden_compra_id').val()) return;
+        if (ordenCompraEntidadId && parseInt(proveedorActualId) === ordenCompraEntidadId) return;
+        quitarVinculoOC();
+        Swal.fire({
+            icon: 'info',
+            title: 'Se desvinculó la orden de compra',
+            text: 'La OC era de otro proveedor. Las líneas quedan en la factura sin vínculo.',
+            showConfirmButton: false,
+            timer: 3000,
+            toast: true,
+            position: 'top-end'
+        });
+    }
+
+    $(document).on('click', '#btnDesvincularOC', function(e) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'question',
+            title: '¿Desvincular la orden de compra?',
+            text: 'Las líneas importadas quedan en la factura, pero no se descontarán de la OC.',
+            showCancelButton: true,
+            confirmButtonText: 'Desvincular',
+            cancelButtonText: 'Cancelar'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                quitarVinculoOC();
+            }
+        });
+    });
+
+    $('#btnImportarOC').on('click', function() {
+        if (!proveedorActualId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Seleccione proveedor',
+                text: 'Debe seleccionar el proveedor antes de importar una orden de compra',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+
+        $.get('facturas_proveedores_ajax.php', {
+            accion: 'listar_oc_pendientes',
+            entidad_id: proveedorActualId,
+            factura_proveedor_id: $('#factura_proveedor_id').val() || 0,
+            empresa_idx: empresa_idx
+        }, function(res) {
+            if (!res || !res.success) {
+                Swal.fire({ icon: 'error', title: 'Error', text: (res && res.message) || 'No se pudieron obtener las órdenes de compra' });
+                return;
+            }
+            var ordenes = res.data || [];
+            var ocVinculada = parseInt($('#orden_compra_id').val()) || 0;
+            if (ocVinculada > 0) {
+                // Una sola OC por factura: si ya hay una, solo se puede seguir importando de esa
+                ordenes = ordenes.filter(function(o) { return o.orden_compra_id === ocVinculada; });
+            }
+            if (ordenes.length === 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin órdenes pendientes',
+                    text: ocVinculada > 0
+                        ? 'La orden de compra vinculada no tiene más líneas pendientes.'
+                        : 'El proveedor no tiene órdenes de compra con mercadería pendiente de recibir.'
+                });
+                return;
+            }
+            renderOrdenesOC(ordenes);
+            var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalImportarOC'));
+            modal.show();
+            if (ordenes.length === 1) {
+                verLineasOC(ordenes[0].orden_compra_id);
+            }
+        }, 'json').fail(function() {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor' });
+        });
+    });
+
+    function formatearFechaOC(fecha) {
+        if (!fecha) return '';
+        var p = String(fecha).split('-');
+        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : fecha;
+    }
+
+    function renderOrdenesOC(ordenes) {
+        var html = '';
+        ordenes.forEach(function(o) {
+            html += `<tr>
+                <td>${escapeHtml(String(o.comprobante_nro || o.orden_compra_id))}</td>
+                <td>${formatearFechaOC(o.f_emision)}</td>
+                <td>${formatearFechaOC(o.f_entrega_estimada)}</td>
+                <td>${escapeHtml(o.sucursal_nombre || '')}</td>
+                <td><span class="badge bg-secondary">${escapeHtml(o.estado_registro || '')}</span></td>
+                <td class="text-center">${o.lineas_pendientes} / ${o.lineas_total}</td>
+                <td class="text-end">${formatNumber(parseFloat(o.total) || 0, 2)}</td>
+                <td class="text-end">
+                    <button type="button" class="btn btn-sm btn-outline-primary btn-oc-ver" data-id="${o.orden_compra_id}">
+                        <i class="fas fa-list me-1"></i>Ver líneas
+                    </button>
+                </td>
+            </tr>`;
+        });
+        $('#oc_tabla_ordenes').html(html);
+        $('#oc_paso_ordenes').removeClass('d-none');
+        $('#oc_paso_lineas').addClass('d-none');
+        $('#btnOcAgregarLineas').addClass('d-none');
+    }
+
+    $(document).on('click', '.btn-oc-ver', function() {
+        verLineasOC($(this).data('id'));
+    });
+
+    $('#btnOcVolver').on('click', function() {
+        $('#oc_paso_ordenes').removeClass('d-none');
+        $('#oc_paso_lineas').addClass('d-none');
+        $('#btnOcAgregarLineas').addClass('d-none');
+    });
+
+    function verLineasOC(ordenCompraId) {
+        $.get('facturas_proveedores_ajax.php', {
+            accion: 'obtener_oc_lineas',
+            orden_compra_id: ordenCompraId,
+            entidad_id: proveedorActualId,
+            factura_proveedor_id: $('#factura_proveedor_id').val() || 0,
+            empresa_idx: empresa_idx
+        }, function(res) {
+            if (!res || !res.success) {
+                Swal.fire({ icon: 'error', title: 'Error', text: (res && res.message) || 'No se pudieron obtener las líneas' });
+                return;
+            }
+            ocSeleccionada = res.data;
+            // Las líneas de la OC que ya están en esta factura no se ofrecen de nuevo
+            var yaEnFactura = {};
+            detalles.forEach(function(d) {
+                if (d.ordenes_compra_detalle_id) yaEnFactura[d.ordenes_compra_detalle_id] = true;
+            });
+            ocLineasActuales = (res.data.lineas || []).filter(function(l) {
+                return !yaEnFactura[l.ordenes_compra_detalle_id];
+            });
+
+            var html = '';
+            ocLineasActuales.forEach(function(l, i) {
+                var pendiente = parseFloat(l.pendiente) || 0;
+                var marcada = pendiente > 0;
+                html += `<tr class="${marcada ? '' : 'text-muted'}">
+                    <td class="text-center"><input type="checkbox" class="form-check-input oc-linea-check" data-i="${i}" ${marcada ? 'checked' : ''}></td>
+                    <td>${escapeHtml(String(l.producto_codigo || ''))} - ${escapeHtml(l.producto_nombre || '')}</td>
+                    <td class="text-end">${formatNumber(l.cantidad, 2)}</td>
+                    <td class="text-end">${formatNumber(l.cantidad_recibida, 2)}</td>
+                    <td class="text-end">${formatNumber(l.en_otras_facturas, 2)}</td>
+                    <td class="text-end fw-bold">${formatNumber(pendiente, 2)}</td>
+                    <td><input type="number" class="form-control form-control-sm no-spinner oc-linea-cantidad" data-i="${i}" step="0.01" min="0.01" value="${pendiente > 0 ? pendiente : ''}"></td>
+                    <td><input type="number" class="form-control form-control-sm no-spinner oc-linea-precio" data-i="${i}" step="0.01" min="0" value="${l.precio_unitario > 0 ? l.precio_unitario : ''}"></td>
+                </tr>`;
+            });
+            if (ocLineasActuales.length === 0) {
+                html = '<tr><td colspan="8" class="text-center text-muted p-3">Todas las líneas de esta OC ya están en la factura</td></tr>';
+            }
+            $('#oc_tabla_lineas').html(html);
+            $('#oc_check_todos').prop('checked', true);
+            $('#oc_lineas_titulo').text('OC N° ' + (ocSeleccionada.comprobante_nro || ocSeleccionada.orden_compra_id)
+                + ' — ' + (ocSeleccionada.estado_registro || ''));
+            $('#oc_paso_ordenes').addClass('d-none');
+            $('#oc_paso_lineas').removeClass('d-none');
+            $('#btnOcAgregarLineas').toggleClass('d-none', ocLineasActuales.length === 0);
+        }, 'json').fail(function() {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor' });
+        });
+    }
+
+    $('#oc_check_todos').on('change', function() {
+        $('.oc-linea-check').prop('checked', $(this).is(':checked'));
+    });
+
+    $('#btnOcAgregarLineas').on('click', function() {
+        if (!ocSeleccionada) return;
+        var descuentoGeneralPct = parseFloat($('#descuento_general_pct').val()) || 0;
+        var nuevas = [];
+        var errores = [];
+
+        $('.oc-linea-check:checked').each(function() {
+            var i = $(this).data('i');
+            var l = ocLineasActuales[i];
+            var cantidad = parseFloat($('.oc-linea-cantidad[data-i="' + i + '"]').val()) || 0;
+            var precio = parseFloat($('.oc-linea-precio[data-i="' + i + '"]').val()) || 0;
+            var nombre = (l.producto_codigo || '') + ' - ' + (l.producto_nombre || '');
+            if (cantidad <= 0) { errores.push(nombre + ': cantidad'); return; }
+            if (precio <= 0) { errores.push(nombre + ': precio'); return; }
+
+            // Mismo cálculo que #btnAgregarProducto
+            var iva = parseFloat(l.iva_porcentaje) || 0;
+            var noGravado = parseFloat(l.no_gravado) || 0;
+            var exento = parseFloat(l.exento) || 0;
+            var netoBase = cantidad * precio;
+            var descuentoGeneral = netoBase * (descuentoGeneralPct / 100);
+            var netoGravado = netoBase - descuentoGeneral;
+            var ivaImporte = netoGravado * (iva / 100);
+
+            nuevas.push({
+                detalle_idx: 'temp_' + new Date().getTime() + '_' + i,
+                factura_proveedor_detalle_id: 0,
+                ordenes_compra_detalle_id: l.ordenes_compra_detalle_id,
+                producto_id: parseInt(l.producto_id),
+                producto_nombre: nombre,
+                cantidad: cantidad,
+                precio_unitario: precio,
+                descuento_item_pct: 0,
+                descuento_general_pct: descuentoGeneralPct,
+                descuento_item: 0,
+                descuento_general: descuentoGeneral,
+                descuento: descuentoGeneral,
+                no_gravado: noGravado,
+                exento: exento,
+                iva_alicuota_id: parseInt(l.iva_alicuota_id) || obtenerIdIva(iva),
+                iva_porcentaje: iva,
+                neto_gravado: netoGravado,
+                iva_importe: ivaImporte,
+                total_linea: netoGravado + ivaImporte + noGravado + exento
+            });
+        });
+
+        if (errores.length > 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Revise las líneas marcadas',
+                html: 'Cantidad y precio tienen que ser mayores a 0:<br><small>' + errores.map(escapeHtml).join('<br>') + '</small>'
+            });
+            return;
+        }
+        if (nuevas.length === 0) {
+            Swal.fire({ icon: 'info', title: 'Sin líneas', text: 'Marque al menos una línea para agregar' });
+            return;
+        }
+
+        detalles = detalles.concat(nuevas);
+        setOrdenCompraVinculada(ocSeleccionada.orden_compra_id, ocSeleccionada.comprobante_nro, proveedorActualId);
+        renderizarDetalles();
+        actualizarTotales();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalImportarOC')).hide();
+
+        Swal.fire({
+            icon: 'success',
+            title: nuevas.length + ' línea(s) agregadas de la OC',
+            showConfirmButton: false,
+            timer: 1500,
+            toast: true,
+            position: 'top-end'
+        });
+    });
+
+    // Rechazo de una transición. Al confirmar se explica por qué no se confirmó: el stock, el asiento
+    // y la aplicación de NC van en la misma transacción, así que si algo falla la factura queda como estaba.
+    function mostrarErrorConfirmacion(accionJs, comprobanteInfo, error) {
+        if (accionJs !== 'confirmar') {
+            Swal.fire({ icon: "error", title: "Error", text: error, confirmButtonText: "Entendido" });
+            return;
+        }
+        var esAsiento = /asiento contable/i.test(error);
+        var motivo = escapeHtml(error.replace(/^No se pudo generar el asiento contable:\s*/i, ''));
+        var html = '<p class="mb-2">La factura <strong>' + escapeHtml(comprobanteInfo || '') + '</strong> sigue en su estado anterior: no se movió stock ni se generaron asientos.</p>'
+                 + '<div class="alert alert-warning text-start small mb-2"><strong>' + (esAsiento ? 'No se pudo generar el asiento contable' : 'Motivo') + ':</strong><br>' + motivo + '</div>'
+                 + (esAsiento
+                    ? '<p class="small text-muted text-start mb-0">Completá la configuración contable indicada (cuenta del proveedor, del producto o de su tipo, de la alícuota de IVA o del impuesto) y volvé a confirmar.</p>'
+                    : '');
+        Swal.fire({ icon: "warning", title: "La factura no se confirmó", html: html, confirmButtonText: "Entendido", width: 600 });
+    }
+
+    // ========== SOLAPA ASIENTO CONTABLE ==========
+    function limpiarAsientoProveedor() {
+        $('#badgeAsientoProv').addClass('d-none').text('');
+        $('#asientoProvDetalle').hide();
+        $('#asientoProvVacio').show();
+        $('#tablaAsientoProv tbody').empty();
+    }
+
+    function cargarAsientoProveedor(facturaId) {
+        limpiarAsientoProveedor();
+        if (!facturaId) return;
+        $.getJSON('facturas_proveedores_ajax.php', { accion: 'obtener_asiento', factura_proveedor_id: facturaId, empresa_idx: empresa_idx }, function (res) {
+            if (!res || !res.success || !res.data) return;
+            var a = res.data;
+            $('#badgeAsientoProv').removeClass('d-none').text('#' + a.cont_asiento_id);
+            $('#asientoProvId').text(a.cont_asiento_id);
+            $('#asientoProvTipo').text(a.cont_tipo_asiento || 'Automático');
+            $('#asientoProvEstado').text(a.estado_registro || '');
+            $('#asientoProvFecha').text(a.f_asiento ? a.f_asiento.split('-').reverse().join('/') : '-');
+            $('#asientoProvDescripcion').text(a.descripcion || '');
+            var filas = '';
+            (a.detalles || []).forEach(function (d) {
+                var debe = parseFloat(d.debe) || 0, haber = parseFloat(d.haber) || 0;
+                filas += '<tr><td class="font-monospace text-muted">' + escapeHtml(d.cuenta_codigo || '-') + '</td>'
+                       + '<td class="fw-semibold">' + escapeHtml(d.cuenta_nombre || ('Cuenta ' + d.cuenta_id)) + '</td>'
+                       + '<td class="text-end font-monospace ' + (debe > 0 ? 'fw-bold text-success' : 'text-muted') + '">' + (debe > 0 ? '$' + formatNumber(debe, 2) : '-') + '</td>'
+                       + '<td class="text-end font-monospace ' + (haber > 0 ? 'fw-bold text-danger' : 'text-muted') + '">' + (haber > 0 ? '$' + formatNumber(haber, 2) : '-') + '</td>'
+                       + '<td class="small text-muted">' + escapeHtml(d.descripcion || '') + '</td></tr>';
+            });
+            $('#tablaAsientoProv tbody').html(filas);
+            var td = parseFloat(a.total_debe) || 0, th = parseFloat(a.total_haber) || 0;
+            $('#asientoProvTotalDebe').text('$' + formatNumber(td, 2));
+            $('#asientoProvTotalHaber').text('$' + formatNumber(th, 2));
+            $('#asientoProvBalance').html(Math.abs(td - th) < 0.01
+                ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Balanceado</span>'
+                : '<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>Desbalanceado: $' + formatNumber(Math.abs(td - th), 2) + '</span>');
+            $('#asientoProvVacio').hide();
+            $('#asientoProvDetalle').show();
+        });
+    }
+
+    // ========== NOTAS DE CRÉDITO / DÉBITO: COMPROBANTE ASOCIADO ==========
+    // El combo aparece solo para tipos NC/ND (es_nota) y con proveedor elegido.
+    function actualizarComprobanteAsociado(seleccionado) {
+        var tipo = $('#comprobante_tipo_id').val();
+        var wrap = $('#asociado_wrap'), sel = $('#comprobante_asociado_id');
+        if (!tipo || !proveedorActualId) { wrap.addClass('d-none'); sel.html('<option value="">Sin comprobante asociado</option>'); return; }
+        $.getJSON('facturas_proveedores_ajax.php', { accion: 'comprobantes_asociables', entidad_id: proveedorActualId, comprobante_tipo_id: tipo, empresa_idx: empresa_idx }, function (res) {
+            if (!res || !res.success || !res.es_nota) { wrap.addClass('d-none'); sel.html('<option value="">Sin comprobante asociado</option>'); return; }
+            var html = '<option value="">Sin comprobante asociado</option>';
+            (res.data || []).forEach(function (c) {
+                var nro = String(c.comprobante_pv).padStart(4, '0') + '-' + String(c.comprobante_nro).padStart(8, '0');
+                var s = String(c.comprobante_id) === String(seleccionado || '') ? ' selected' : '';
+                html += '<option value="' + c.comprobante_id + '"' + s + '>' + escapeHtml(c.comprobante_tipo) + ' ' + nro + ' · total $' + formatNumber(c.importe_total, 2)
+                      + ' · saldo $' + formatNumber(c.importe_pendiente, 2) + '</option>';
+            });
+            sel.html(html).prop('disabled', $('#comprobante_tipo_id').prop('disabled'));
+            wrap.removeClass('d-none');
+        });
+    }
+    $('#comprobante_tipo_id').on('change', function () { actualizarComprobanteAsociado(); });
+    $('#entidad_combo').on('change', function () { setTimeout(function () { actualizarComprobanteAsociado(); }, 0); });
+
+    // Al confirmar una factura/ND con notas de crédito con saldo del proveedor: ofrecer imputarlas (OP en $0)
+    function ofrecerNotasCredito(facturaId, disp) {
+        if (!disp || !disp.notas || !disp.notas.length) return;
+        var filas = disp.notas.map(function (n, i) {
+            var nro = String(n.comprobante_pv).padStart(4, '0') + '-' + String(n.comprobante_nro).padStart(8, '0');
+            return '<div class="form-check text-start"><input class="form-check-input nc-aplicar" type="checkbox" checked id="ncp_ap_' + i + '" value="' + n.comprobante_id + '">'
+                 + '<label class="form-check-label" for="ncp_ap_' + i + '">' + escapeHtml(n.comprobante_tipo) + ' ' + nro + ' · saldo $' + formatNumber(n.importe_pendiente, 2) + '</label></div>';
+        }).join('');
+        Swal.fire({
+            icon: 'question',
+            title: 'El proveedor tiene notas de crédito con saldo',
+            html: '<p class="mb-2">Saldo de la factura: <strong>$' + formatNumber(disp.saldo, 2) + '</strong>. ¿Imputar estas notas de crédito? Se genera una OP en $0.</p>' + filas,
+            showCancelButton: true, confirmButtonText: 'Imputar', cancelButtonText: 'Ahora no',
+            preConfirm: function () {
+                var apl = $('.nc-aplicar:checked').map(function () { return { nc_comprobante_id: parseInt(this.value, 10), importe: 0 }; }).get();
+                if (!apl.length) { Swal.showValidationMessage('Marcá al menos una nota de crédito'); return false; }
+                return $.post('facturas_proveedores_ajax.php', { accion: 'aplicar_notas_credito', factura_proveedor_id: facturaId, empresa_idx: empresa_idx, aplicaciones: JSON.stringify(apl) }, null, 'json')
+                    .then(function (r) { if (!r || !r.success) { Swal.showValidationMessage((r && r.error) || 'No se pudo imputar'); return false; } return r; },
+                          function () { Swal.showValidationMessage('No se pudo conectar con el servidor'); return false; });
+            }
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                tabla.ajax.reload(null, false);
+                Swal.fire({ icon: 'success', title: 'Notas de crédito imputadas', text: result.value.message });
+            }
+        });
+    }
 
     // ========== FUNCIÓN PARA IMPRIMIR COMPROBANTE ==========
     function imprimirComprobante(facturaId) {
@@ -1199,10 +1591,13 @@ function cargarFacturaParaVisualizar(facturaId) {
             $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
 
             $('#modalLabel').text('Visualizar Factura de Proveedor');
+            setOrdenCompraVinculada(res.orden_compra_id, res.orden_compra_nro, res.entidad_id);
 
             // Asignar valores después de que los combos se hayan cargado
             setTimeout(function() {
                 $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                // El proveedor se fija más abajo en este mismo bloque: el combo de comprobante asociado se carga después
+                setTimeout(function () { actualizarComprobanteAsociado(res.comprobante_asociado_id); }, 50);
                 $('#moneda_id').val(res.moneda_id);
                 $('#condicion_pago_id').val(res.condicion_pago_id);
                 
@@ -1249,6 +1644,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                         return {
                             detalle_idx: index,
                             factura_proveedor_detalle_id: detalle.factura_proveedor_detalle_id,
+                            ordenes_compra_detalle_id: detalle.ordenes_compra_detalle_id || null,
                             producto_id: detalle.producto_id,
                             producto_nombre: detalle.producto_nombre,
                             cantidad: detalle.cantidad,
@@ -1276,6 +1672,9 @@ function cargarFacturaParaVisualizar(facturaId) {
                 // --- MODO SOLO LECTURA ---
                 // Deshabilitar todos los inputs, selects y botones de acción dentro del modal
                 $('#formFacturaProveedor :input').prop('disabled', true);
+                // Las solapas son <button> dentro del form: quedaban deshabilitadas y no se podía ver Productos
+                $('#facturaTabs .nav-link').prop('disabled', false);
+                cargarAsientoProveedor(res.factura_proveedor_id);
                 $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoProveedor').prop('disabled', true);
                 
                 // OCULTAR botones de acción (en lugar de ocultar secciones enteras)
@@ -1283,9 +1682,11 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#btnNuevoProductoRapido').hide();
                 $('#btnAgregarImpuesto').hide();
                 $('#btnNuevoProductoRapido').hide();
+                $('#btnImportarOC, #btnDesvincularOC').hide();
                 
-                // Ocultar el botón guardar
+                // Ocultar el botón guardar y el cancelar de abajo (se cierra con la X del encabezado)
                 $('#btnGuardar').hide();
+                $('#btnCancelarFactura').hide();
                 // Cambiar texto del botón Cancelar a "Cerrar"
                 $('.modal-footer .btn-secondary').text('Cerrar');
                 
@@ -1305,6 +1706,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 // Restaurar habilitación y mostrar botones
                 $('#formFacturaProveedor :input').prop('disabled', false);
                 $('#btnGuardar').show();
+                $('#btnCancelarFactura').show();
                 $('.modal-footer .btn-secondary').text('Cancelar');
                 $('.btn-eliminar-detalle, .btn-editar-detalle, #btnAgregarProducto, #btnNuevoProductoRapido, #btnNuevoProveedor').prop('disabled', false);
                 
@@ -1312,6 +1714,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#btnAgregarProducto').show();
                 $('#btnNuevoProductoRapido').show();
                 $('#btnAgregarImpuesto').show();
+                $('#btnImportarOC, #btnDesvincularOC').show();
             });
 
         } else {
@@ -1492,23 +1895,22 @@ function cargarFacturaParaVisualizar(facturaId) {
                         tabla.search(savedState.search).draw();
                     }
 
+                    if (res.notas_credito_disponibles) {
+                        ofrecerNotasCredito(facturaId, res.notas_credito_disponibles);
+                        return;
+                    }
                     Swal.fire({
                         icon: "success",
                         title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
                         text: res.message || `Factura "${comprobanteInfo}" actualizada correctamente`,
                         showConfirmButton: false,
-                        timer: 1500,
+                        timer: 4000,
                         toast: true,
                         position: 'top-end'
                     });
                 }, false);
             } else {
-                Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: res.error || `Error al ${accionJs} la factura`,
-                    confirmButtonText: "Entendido"
-                });
+                mostrarErrorConfirmacion(accionJs, comprobanteInfo, res.error || `Error al ${accionJs} la factura`);
             }
         }, 'json').fail(function(xhr) {
             Swal.fire({
@@ -1554,14 +1956,20 @@ function cargarFacturaParaVisualizar(facturaId) {
                     
                     if (data && data.length > 0) {
                         data.forEach(function(item, index) {
+                            var texto = item.producto_codigo + ' - ' + item.producto_nombre;
+                            var vinculado = parseInt(item.vinculado) === 1;
                             resultadosDiv.append(
-                                `<a href="#" class="list-group-item list-group-item-action" 
+                                `<a href="#" class="list-group-item list-group-item-action"
                                    data-index="${index}"
                                    data-id="${item.producto_id}"
                                    data-iva-id="${item.iva_alicuota_id}"
-                                   data-iva="${item.iva_porcentaje || 21}">
-                                    <strong>${item.producto_codigo}</strong> - ${item.producto_nombre}
-                                    ${item.codigo_proveedor ? '<br><small>Código Proveedor: ' + item.codigo_proveedor + '</small>' : ''}
+                                   data-iva="${item.iva_porcentaje || 21}"
+                                   data-vinculado="${vinculado ? 1 : 0}"
+                                   data-texto="${escapeHtml(texto)}">
+                                    <strong>${escapeHtml(String(item.producto_codigo))}</strong> - ${escapeHtml(item.producto_nombre)}
+                                    ${vinculado
+                                        ? (item.codigo_proveedor ? '<br><small>Código Proveedor: ' + escapeHtml(item.codigo_proveedor) + '</small>' : '')
+                                        : '<span class="badge bg-warning text-dark ms-1">No vinculado al proveedor</span>'}
                                 </a>`
                             );
                         });
@@ -1629,11 +2037,78 @@ function cargarFacturaParaVisualizar(facturaId) {
         e.preventDefault();
         
         var item = $(this);
+        $('#resultados_busqueda').hide();
+        selectedIndex = -1;
+
+        if (parseInt(item.data('vinculado')) === 1) {
+            seleccionarProductoBusqueda(item);
+            return;
+        }
+
+        // Producto que el proveedor no tiene vinculado: ofrecer cargar su código
+        Swal.fire({
+            icon: 'question',
+            title: 'Producto no vinculado al proveedor',
+            html: `<p class="mb-2"><strong>${escapeHtml(String(item.data('texto')))}</strong></p>
+                   <p class="mb-0 small">Ingrese el código que usa este proveedor para vincularlo, o continúe sin vincular.</p>`,
+            input: 'text',
+            inputPlaceholder: 'Código del proveedor',
+            inputAttributes: { maxlength: 50 },
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: 'Vincular y usar',
+            denyButtonText: 'Usar sin vincular',
+            cancelButtonText: 'Cancelar',
+            showLoaderOnConfirm: true,
+            inputValidator: function(valor) {
+                if (!valor || !valor.trim()) {
+                    return 'Ingrese el código del proveedor';
+                }
+            },
+            preConfirm: function(codigo) {
+                return $.post('facturas_proveedores_ajax.php', {
+                    accion: 'vincular_producto_proveedor',
+                    producto_id: item.data('id'),
+                    entidad_id: proveedorActualId,
+                    codigo_proveedor: codigo.trim(),
+                    empresa_idx: empresa_idx
+                }, null, 'json').then(function(res) {
+                    if (!res || !res.success) {
+                        Swal.showValidationMessage((res && (res.message || res.error)) || 'No se pudo vincular el producto');
+                        return false;
+                    }
+                    return res;
+                }, function() {
+                    Swal.showValidationMessage('No se pudo conectar con el servidor');
+                    return false;
+                });
+            },
+            allowOutsideClick: function() { return !Swal.isLoading(); }
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Producto vinculado',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    toast: true,
+                    position: 'top-end'
+                });
+                seleccionarProductoBusqueda(item);
+            } else if (result.isDenied) {
+                seleccionarProductoBusqueda(item);
+            } else {
+                $('#busqueda_producto').focus();
+            }
+        });
+    });
+
+    function seleccionarProductoBusqueda(item) {
         var productoId = item.data('id');
         var iva = item.data('iva');
         var ivaId = item.data('iva-id');
-        var textoCompleto = item.text().trim();
-        
+        var textoCompleto = String(item.data('texto') || item.text().trim());
+
         $('#busqueda_producto').val(textoCompleto);
         $('#producto_seleccionado_id').val(productoId);
         $('#producto_iva').val(iva);
@@ -1651,10 +2126,7 @@ function cargarFacturaParaVisualizar(facturaId) {
             }
             calcularDescuentos();
         }, 'json');
-        
-        $('#resultados_busqueda').hide();
-        selectedIndex = -1;
-    });
+    }
 
     // Ocultar resultados al hacer clic fuera
     $(document).on('click', function(e) {
@@ -1756,8 +2228,16 @@ function cargarFacturaParaVisualizar(facturaId) {
     var totalLinea = netoGravado + ivaImporte + noGravado + exento;
     
     var productoText = $('#busqueda_producto').val();
-    
+
+    // Si se re-agrega una línea de OC editada con el mismo producto, conserva el vínculo
+    var ocDetalleId = null;
+    if (detalleEnEdicionOC && parseInt(detalleEnEdicionOC.producto_id) === parseInt(productoId)) {
+        ocDetalleId = detalleEnEdicionOC.ordenes_compra_detalle_id;
+    }
+    detalleEnEdicionOC = null;
+
     var nuevoDetalle = {
+        ordenes_compra_detalle_id: ocDetalleId,
         detalle_idx: 'temp_' + new Date().getTime(),
         factura_proveedor_detalle_id: 0,
         producto_id: parseInt(productoId),
@@ -1860,6 +2340,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 <td>
                     <div class="fw-bold">${escapeHtml(nombreProducto.substring(0, 50))}${nombreProducto.length > 50 ? '...' : ''}</div>
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
+                    ${detalle.ordenes_compra_detalle_id ? '<span class="badge bg-primary ms-1" title="Línea de la orden de compra vinculada">OC</span>' : ''}
                 </td>
                 <td class="text-center">${formatNumber(cantidad, 2)}</td>
                 <td class="text-end">${formatNumber(precioUnitario, 2)}</td>
@@ -1998,7 +2479,10 @@ function cargarFacturaParaVisualizar(facturaId) {
             $('#producto_iva_importe').val(detalle.iva_importe);
             $('#producto_no_gravado').val(detalle.no_gravado || 0);
             $('#producto_exento').val(detalle.exento || 0);
-            
+            detalleEnEdicionOC = detalle.ordenes_compra_detalle_id
+                ? { producto_id: detalle.producto_id, ordenes_compra_detalle_id: detalle.ordenes_compra_detalle_id }
+                : null;
+
             // Eliminar el detalle original
             detalles = detalles.filter(function(item) {
                 return item.detalle_idx != idx;
@@ -2155,6 +2639,12 @@ function cargarFacturaParaVisualizar(facturaId) {
         detalles = [];
         proveedorActualId = null;
         proveedorSucursalActualId = null;
+        detalleEnEdicionOC = null;
+        setOrdenCompraVinculada(null, null, null);
+        $('#asociado_wrap').addClass('d-none');
+        $('#comprobante_asociado_id').html('<option value="">Sin comprobante asociado</option>');
+        limpiarAsientoProveedor();
+        bootstrap.Tab.getOrCreateInstance(document.getElementById('datos-tab')).show();
         renderizarDetalles();
         actualizarTotales();
         
@@ -2231,9 +2721,13 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
                 $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
                 $('#modalLabel').text('Editar Factura de Proveedor');
+                setOrdenCompraVinculada(res.orden_compra_id, res.orden_compra_nro, res.entidad_id);
+                cargarAsientoProveedor(res.factura_proveedor_id);
 
                 setTimeout(function() {
                     $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                    // El proveedor se fija más abajo en este mismo bloque: el combo de comprobante asociado se carga después
+                    setTimeout(function () { actualizarComprobanteAsociado(res.comprobante_asociado_id); }, 50);
                     $('#moneda_id').val(res.moneda_id);
                     $('#condicion_pago_id').val(res.condicion_pago_id);
                     
@@ -2279,6 +2773,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                             return {
                                 detalle_idx: index,
                                 factura_proveedor_detalle_id: detalle.factura_proveedor_detalle_id,
+                                ordenes_compra_detalle_id: detalle.ordenes_compra_detalle_id || null,
                                 producto_id: detalle.producto_id,
                                 producto_nombre: detalle.producto_nombre,
                                 cantidad: detalle.cantidad,
@@ -2298,7 +2793,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                                 total_linea: detalle.total_linea
                             };
                         });
-                        
+
                         console.log("Detalles procesados:", detalles);
                         renderizarDetalles();
                         actualizarTotales();
@@ -2394,6 +2889,8 @@ function cargarFacturaParaVisualizar(facturaId) {
         formData.append('impuestos', $('#impuestos').val() || '0');
         formData.append('total', $('#total').val() || '0');
         formData.append('detalles', JSON.stringify(detalles));
+        formData.append('orden_compra_id', $('#orden_compra_id').val() || '');
+        formData.append('comprobante_asociado_id', $('#comprobante_asociado_id').val() || '');
         formData.append('descuento_general_pct', $('#descuento_general_pct').val() || '0');
         formData.append('deposito_id', $('#deposito_id').val() || '');
         formData.append('impuestos_adicionales', JSON.stringify(impuestosFactura));

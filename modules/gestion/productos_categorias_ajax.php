@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['productos_categorias.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once "productos_categorias_model.php";
@@ -9,31 +12,32 @@ header('Content-Type: application/json; charset=utf-8');
 
 switch ($accion) {
     case 'listar':
-        $categorias = obtenerCategorias($conexion);
+        $categorias = obtenerCategorias($conexion, $ctx['empresa_id']);
         echo json_encode($categorias);
         break;
     
     case 'listar_arbol':
-        $arbol = obtenerEstructuraJerarquica($conexion);
+        $arbol = obtenerEstructuraJerarquica($conexion, $ctx['empresa_id']);
         echo json_encode($arbol);
         break;
     
     case 'listar_categorias_padre':
         $excluir_id = $_GET['excluir_id'] ?? null;
-        $categorias = obtenerCategoriasPadre($conexion, $excluir_id);
+        $categorias = obtenerCategoriasPadre($conexion, $ctx['empresa_id'], $excluir_id);
         echo json_encode($categorias);
         break;
     
     case 'listar_todas_categorias':
         $excluir_id = $_GET['excluir_id'] ?? null;
-        $categorias = obtenerTodasCategorias($conexion, $excluir_id);
+        $categorias = obtenerTodasCategorias($conexion, $ctx['empresa_id'], $excluir_id);
         echo json_encode($categorias);
         break;
     
     case 'agregar':
         $data = [
             'producto_categoria_nombre' => $_POST['producto_categoria_nombre'] ?? '',
-            'producto_categoria_padre_id' => $_POST['producto_categoria_padre_id'] ?? null
+            'producto_categoria_padre_id' => $_POST['producto_categoria_padre_id'] ?? null,
+            'empresa_id' => $ctx['empresa_id']
         ];
         
         if (empty($data['producto_categoria_nombre'])) {
@@ -49,7 +53,8 @@ switch ($accion) {
         $id = intval($_POST['producto_categoria_id']);
         $data = [
             'producto_categoria_nombre' => $_POST['producto_categoria_nombre'] ?? '',
-            'producto_categoria_padre_id' => $_POST['producto_categoria_padre_id'] ?? null
+            'producto_categoria_padre_id' => $_POST['producto_categoria_padre_id'] ?? null,
+            'empresa_id' => $ctx['empresa_id']
         ];
         
         if (empty($data['producto_categoria_nombre'])) {
@@ -67,7 +72,7 @@ switch ($accion) {
 
     case 'eliminar':
         $id = intval($_GET['producto_categoria_id']);
-        $resultado = eliminarCategoria($conexion, $id);
+        $resultado = eliminarCategoria($conexion, $id, $ctx['empresa_id']);
         
         if ($resultado === false) {
             echo json_encode(['resultado' => false, 'error' => 'No se puede eliminar la categoría porque tiene subcategorías asociadas']);
@@ -78,7 +83,7 @@ switch ($accion) {
 
     case 'obtener':
         $id = intval($_GET['producto_categoria_id']);
-        $categoria = obtenerCategoriaPorId($conexion, $id);
+        $categoria = obtenerCategoriaPorId($conexion, $id, $ctx['empresa_id']);
         echo json_encode($categoria);
         break;
 

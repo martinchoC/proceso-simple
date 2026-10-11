@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Relación Fiscal de Comprobantes</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; } .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); } .badge-secondary { background: #6c757d; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    table.matriz td, table.matriz th { text-align: center; }
+    table.matriz td:first-child, table.matriz th:first-child { text-align: left; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; } .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.ok { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Relación Fiscal de Comprobantes</h1>
+<p class="subtitulo">La matriz que decide qué letra de factura (A, B, C, E) corresponde según la condición frente al IVA de quien emite y de quien recibe, y si se discrimina el IVA.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve?</a></li>
+        <li><a href="#como-funciona">Cómo la usa el sistema al facturar</a></li>
+        <li><a href="#matriz">La matriz configurada</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#agregar">Agregar o editar una regla</a></li>
+        <li><a href="#estados">Activa e Inactiva</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve?</h2>
+<p>En Argentina la letra de la factura depende de las dos partes: un Responsable Inscripto le emite Factura A a otro Responsable Inscripto, pero Factura B a un Consumidor Final; un Monotributista emite siempre Factura C. Esta pantalla guarda esas reglas, una por cada combinación <strong>Emisor × Receptor</strong>, para que el sistema elija solo la letra correcta.</p>
+<div class="alert alert-warning">Es una configuración general del sistema: un cambio impacta en la facturación de <strong>todas las empresas</strong> que lo usan. Modificala sólo con el visto bueno del contador o del equipo.</div>
+
+<h2 id="como-funciona">Cómo la usa el sistema al facturar</h2>
+<div class="flujo">
+    <div class="flujo-caja">Condición fiscal<br>de tu empresa</div>
+    <div class="flujo-flecha">+</div>
+    <div class="flujo-caja">Condición fiscal<br>del cliente</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Regla de esta matriz</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja ok">Letra del comprobante<br>y si discrimina IVA</div>
+</div>
+<ol>
+    <li>La condición de <strong>tu empresa</strong> sale de los datos fiscales de la empresa (Parámetros de Empresa).</li>
+    <li>La del <strong>cliente</strong> sale de su ficha (condición fiscal vigente). Si la factura no tiene cliente, se toma como <strong>Consumidor Final</strong>.</li>
+    <li>El sistema busca la regla <strong>activa</strong> para ese cruce y, en la pantalla de <a href="ventas_facturas.html">Facturas</a>, ofrece sólo los tipos de comprobante cuyo comprobante fiscal coincide con el de la regla.</li>
+</ol>
+
+<h2 id="matriz">La matriz configurada</h2>
+<p>Así está cargada hoy la matriz (filas: emisor; columnas: receptor). Entre paréntesis, si discrimina IVA.</p>
+<table class="tabla-referencia matriz">
+    <tr><th>Emisor \ Receptor</th><th>Resp. Inscripto</th><th>Consumidor Final</th><th>Monotributista</th><th>Exento</th><th>No Categorizado</th><th>Exterior</th></tr>
+    <tr><td><strong>Responsable Inscripto</strong></td><td>A (sí)</td><td>B (no)</td><td>A (sí)</td><td>B (no)</td><td>B (no)</td><td>E (no)</td></tr>
+    <tr><td><strong>Monotributista</strong></td><td>C</td><td>C</td><td>C</td><td>C</td><td>C</td><td>E</td></tr>
+    <tr><td><strong>Exento en IVA</strong></td><td>C</td><td>C</td><td>C</td><td>C</td><td>C</td><td>E</td></tr>
+</table>
+<p class="nota-lateral">Esta tabla es una foto de referencia; la vigente es la que muestra la pantalla.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno de la regla.</td></tr>
+    <tr><td>Condición Emisor</td><td>Condición fiscal de quien emite.</td></tr>
+    <tr><td>Condición Receptor</td><td>Condición fiscal de quien recibe.</td></tr>
+    <tr><td>Comprobante Fiscal</td><td>Comprobante resultante, con su código oficial entre paréntesis.</td></tr>
+    <tr><td>Discrimina IVA</td><td>Si en el comprobante se muestra el IVA por separado.</td></tr>
+    <tr><td>Estado</td><td>Activa o Inactiva.</td></tr>
+    <tr><td>Acciones</td><td>Botones según el estado.</td></tr>
+</table>
+<p>Tiene buscador, recarga <span class="boton-ejemplo boton-outline">↻</span> y menú <span class="boton-ejemplo boton-outline">Exportar</span> (Excel, PDF, CSV, Imprimir).</p>
+
+<h2 id="agregar">Agregar o editar una regla</h2>
+<p>El botón <span class="boton-ejemplo boton-exito">+ Agregar</span> abre la ventana; el lápiz de una fila la abre para editar.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Condición Fiscal Emisor *</td><td>Condición impositiva de la empresa que emite.</td></tr>
+    <tr><td>Condición Fiscal Receptor *</td><td>Condición impositiva del cliente o proveedor.</td></tr>
+    <tr><td>Comprobante Fiscal Resultante *</td><td>Letra y tipo legal (por ejemplo 001 Facturas A). Ver <a href="comprobantes_fiscales.html">Comprobantes Fiscales</a>.</td></tr>
+    <tr><td>Discriminación de IVA</td><td>Interruptor: si está activado, el comprobante muestra neto e IVA por separado; la etiqueta cambia entre "Discrimina IVA" y "No discrimina IVA".</td></tr>
+</table>
+<div class="alert alert-info">El cruce Emisor + Receptor tiene que ser <strong>único</strong>. Si ya existe una regla para esa combinación (aunque esté inactiva), el sistema avisa <em>"Ya existe una regla configurada para este cruce de Emisor y Receptor"</em>: editá o reactivá la existente.</div>
+<p>Otros mensajes: <em>"Debe seleccionar la condición fiscal del emisor"</em>, <em>"… del receptor"</em>, <em>"Debe seleccionar el comprobante fiscal"</em>.</p>
+
+<h2 id="estados">Activa e Inactiva</h2>
+<div class="flujo"><div class="flujo-caja">Activo</div><div class="flujo-flecha">⇄</div><div class="flujo-caja inactivo">Inactivo</div></div>
+<p>Una regla <strong>inactiva no se aplica</strong>: si inactivás, por ejemplo, la de Responsable Inscripto → Consumidor Final, al facturar a un consumidor final el sistema no va a encontrar letra y no ofrecerá tipos fiscales.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea una regla.</td><td>Siempre.</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Modifica la regla.</td><td>Activa.</td></tr>
+    <tr><td>Inhabilitar (rojo)</td><td>La pasa a Inactiva. Pregunta "¿Está seguro de que desea inactivar esta relación fiscal?".</td><td>Activa.</td></tr>
+    <tr><td>Habilitar (verde)</td><td>La vuelve a Activa, previa confirmación.</td><td>Inactiva.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Al facturar a un cliente no me aparece ningún tipo de factura fiscal.</td><td>Revisá que exista una regla <strong>activa</strong> para tu condición y la del cliente, y que el cliente tenga cargada su condición fiscal. También que haya un <a href="comprobantes_tipos.html">tipo de comprobante</a> con ese comprobante fiscal habilitado en el punto de venta.</td></tr>
+    <tr><td>Me sale Factura B y el cliente es Responsable Inscripto.</td><td>Revisá la condición fiscal vigente en la ficha del cliente; si no tiene, se lo trata como Consumidor Final.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Tablas / Relación Fiscal de Comprobantes. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Tipos de Asientos Contables</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.9rem; color: var(--azul); text-decoration: none; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); } .badge-secondary { background: #6c757d; } .badge-danger { background: var(--rojo); } .badge-info { background: #0dcaf0; color: #055160; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; } .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; } .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; } .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Tipos de Asientos Contables</h1>
+<p class="subtitulo">La lista de clasificaciones que se usan para identificar el origen de cada asiento (manual, ventas, compras, tesorería, etc.).</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve?</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#agregar">Agregar o editar un tipo</a></li>
+        <li><a href="#estados">Activo e Inactivo</a></li>
+        <li><a href="#botones">Botones disponibles</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Para qué sirve?</h2>
+<p>Cada asiento contable lleva un <strong>tipo</strong> que indica de dónde salió: los asientos que cargás a mano en <a href="cont_asientos.html">Asientos Contables</a> son siempre del tipo "Asiento Manual"; los que genera el sistema al confirmar comprobantes llevan el tipo que corresponde a su origen. Esta pantalla es la lista de esos tipos. Normalmente se configura una sola vez y casi no se toca.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID</td><td>Número interno.</td></tr>
+    <tr><td>Código</td><td>Código corto del tipo.</td></tr>
+    <tr><td>Tipo de Asiento</td><td>Nombre del tipo.</td></tr>
+    <tr><td>Descripción</td><td>Explicación opcional.</td></tr>
+    <tr><td>Origen</td><td><span class="badge badge-secondary">manual</span> o <span class="badge badge-info">automatico</span>.</td></tr>
+    <tr><td>Módulo Origen</td><td>Texto libre que indica el área de donde proviene (Ventas, Compras, etc.).</td></tr>
+    <tr><td>Estado</td><td>Activo (fila verde) o Inactivo (fila roja).</td></tr>
+    <tr><td>Acciones</td><td>Botones según el estado.</td></tr>
+</table>
+<p>Debajo de cada título de columna hay una cajita <strong>"Filtrar..."</strong> para filtrar por esa columna. Arriba tenés el selector de cantidad de registros, el buscador general, el botón <span class="boton-ejemplo boton-outline">↻</span> de recarga y los botones para exportar a Excel, PDF, CSV o imprimir.</p>
+
+<h2 id="agregar">Agregar o editar un tipo</h2>
+<p>El botón <span class="boton-ejemplo boton-exito">+ Agregar</span> abre la ventana <strong>Nuevo Tipo de Asiento Contable</strong>; el lápiz de una fila abre la misma ventana para editar.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código *</td><td>Código corto (hasta 20 caracteres). No puede repetirse en la empresa.</td></tr>
+    <tr><td>Tipo de Asiento *</td><td>Nombre (hasta 100 caracteres).</td></tr>
+    <tr><td>Descripción</td><td>Opcional.</td></tr>
+    <tr><td>Origen</td><td>Manual o Automático.</td></tr>
+    <tr><td>Módulo Origen</td><td>Opcional, por ejemplo "Ventas" o "Compras".</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+</table>
+<p>Al tocar <span class="boton-ejemplo boton-primario">Guardar</span> aparece "Tipo de asiento guardado correctamente". Errores posibles: <em>"El código es obligatorio"</em>, <em>"El tipo de asiento es obligatorio"</em>, <em>"El código ya existe para esta empresa"</em>.</p>
+
+<h2 id="estados">Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div><div class="flujo-flecha">⇄</div><div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<p>Un tipo <strong>Activo</strong> está disponible para usarse. Uno <strong>Inactivo</strong> queda dado de baja pero no se borra: los asientos que ya lo usan no cambian. Se puede volver a activar cuando quieras.</p>
+
+<h2 id="botones">Botones disponibles</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td><span class="boton-ejemplo boton-exito">+ Agregar</span></td><td>Crea un tipo nuevo.</td><td>Siempre.</td></tr>
+    <tr><td>Editar (lápiz azul)</td><td>Modifica el tipo.</td><td>Activo.</td></tr>
+    <tr><td>Inhabilitar (círculo con cruz, rojo)</td><td>Pasa el tipo a Inactivo, previa confirmación.</td><td>Activo.</td></tr>
+    <tr><td>Habilitar (círculo con tilde, verde)</td><td>Lo vuelve a Activo, previa confirmación.</td><td>Inactivo.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>¿Puedo elegir el tipo cuando cargo un asiento manual?</td><td>No. Los asientos manuales se cargan siempre como "Asiento Manual".</td></tr>
+    <tr><td>¿Qué pasa si inactivo un tipo que usan asientos existentes?</td><td>Nada con esos asientos: conservan su tipo. Antes de inactivar un tipo automático, consultá con el equipo, porque puede usarlo el sistema al generar asientos.</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Contabilidad / Tipos de Asientos. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

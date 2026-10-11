@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Listas de Precios - Seteo</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .boton-aviso { background: var(--amarillo); border-color: var(--amarillo); color: #212529; }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1><i class="fas fa-tags"></i> Manual de usuario: Listas de Precios - Seteo</h1>
+<p class="subtitulo">Cómo crear las listas de precios (mayorista, minorista, contado, etc.), definir reglas de aumento o descuento, y recalcular automáticamente los precios de todos los productos.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es una Lista de Precios?</a></li>
+        <li><a href="#flujo">Cómo se calculan los precios</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados: Activo e Inactivo</a></li>
+        <li><a href="#agregar">Crear una lista (pestaña Datos)</a></li>
+        <li><a href="#reglas">Pestaña: Reglas</a></li>
+        <li><a href="#productos">Pestaña: Productos</a></li>
+        <li><a href="#recalcular">Recalcular Precios</a></li>
+        <li><a href="#precio-manual">Precio manual de un producto</a></li>
+        <li><a href="#botones">Botones de la lista</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es una Lista de Precios?</h2>
+<p>Una <strong>Lista de Precios</strong> es un conjunto de precios de venta para todos los productos. Podés tener varias (por ejemplo "Minorista", "Mayorista", "Talleres") y asignarle a cada cliente la que le corresponde en su ficha (ver <a href="entidades.html#condiciones-clientes">Entidades, Condiciones Clientes</a>). Al cargar un pedido o una factura, el sistema toma el precio de la lista del cliente.</p>
+
+<h2 id="flujo">Cómo se calculan los precios</h2>
+<div class="flujo">
+    <div class="flujo-caja">Costo del producto<br><small>o precio de la lista base</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Reglas activas<br><small>(aumentos / descuentos)</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Recalcular Precios</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Precio final de cada producto</div>
+</div>
+<ul>
+    <li>Si la lista <strong>no tiene lista base</strong>, el punto de partida es el <strong>costo</strong> de cada producto.</li>
+    <li>Si tiene <strong>lista base</strong>, parte del precio final de esa otra lista (por ejemplo, "Mayorista = Minorista − 10%").</li>
+    <li>Las <strong>reglas</strong> vigentes aplican los aumentos o descuentos, en orden de prioridad.</li>
+    <li>Los precios quedan calculados recién cuando usás <a href="#recalcular">Recalcular Precios</a>.</li>
+</ul>
+<p>También se pueden cargar precios uno por uno desde la ficha del producto (<a href="productos.html#precios">Productos, pestaña Precios</a>) o masivamente desde <a href="listas_precios_productos.html">Listas de Precios - Productos</a>.</p>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>ID / Código / Nombre</td><td>Identificación de la lista.</td></tr>
+    <tr><td>Origen</td><td>De dónde sale el precio de la lista.</td></tr>
+    <tr><td>Moneda</td><td>Moneda de los precios.</td></tr>
+    <tr><td>Lista Base</td><td>La lista de la que parte, si tiene.</td></tr>
+    <tr><td>Requiere Recalculo</td><td><span class="badge badge-warning">Requiere</span> si está marcada para recalcular; "No" si no.</td></tr>
+    <tr><td>F. Recalculo</td><td>Fecha del último recálculo.</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+    <tr><td>Acciones</td><td>Los botones disponibles según el estado.</td></tr>
+</table>
+<p>La tabla recuerda página, orden y búsqueda. Arriba a la derecha: <span class="boton-ejemplo boton-outline">↻</span> recarga y <span class="boton-ejemplo boton-outline">Exportar</span> ofrece Excel, PDF, CSV e Imprimir.</p>
+
+<h2 id="estados">Estados: Activo e Inactivo</h2>
+<div class="flujo">
+    <div class="flujo-caja">Activo</div>
+    <div class="flujo-flecha">⇄</div>
+    <div class="flujo-caja inactivo">Inactivo</div>
+</div>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>La lista se puede asignar a clientes y aparece como columna de precios en Productos y Consulta de Productos.</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>La lista ya no se usa. No se puede editar mientras esté inactiva.</td></tr>
+</table>
+
+<h2 id="agregar">Crear una lista (pestaña Datos)</h2>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">+ Agregar</span>. Se abre <strong>Nueva Lista de Precio</strong> (con ⤢ la ves en pantalla completa):</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código *</td><td>Código corto de la lista.</td></tr>
+    <tr><td>Nombre *</td><td>Por ejemplo "Mayorista".</td></tr>
+    <tr><td>Descripción</td><td>Texto libre.</td></tr>
+    <tr><td>Origen *</td><td>De dónde sale el precio.</td></tr>
+    <tr><td>Moneda</td><td>Viene propuesta la moneda principal de la empresa.</td></tr>
+    <tr><td>Lista Base</td><td>Otra lista de la que parte esta. Dejá "Sin lista base" para partir del costo.</td></tr>
+    <tr><td>Observaciones</td><td>Texto libre.</td></tr>
+    <tr><td>Requiere Recalculo</td><td>Marca de recordatorio para indicar que la lista tiene que recalcularse.</td></tr>
+    <tr><td>Fecha Último Recalculo</td><td>Fecha del último recálculo.</td></tr>
+</table>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">Guardar</span>. Ves "Lista creada correctamente".</p>
+<div class="alert alert-warning">Después de crear una lista nueva, <strong>recargá la página</strong> (tecla F5) y abrila con <strong>Editar</strong> para trabajar en las pestañas Reglas y Productos. En la ventana de alta esas pestañas aparecen vacías.</div>
+
+<h2 id="reglas">Pestaña: Reglas</h2>
+<p>Las reglas dicen cuánto aumentar o descontar sobre el precio de partida. Con <span class="boton-ejemplo boton-primario">+ Nueva Regla</span> se abre la ventana de la regla:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Nombre *</td><td>Por ejemplo "Recargo 30% general".</td></tr>
+    <tr><td>Descripción</td><td>Texto libre.</td></tr>
+    <tr><td>Tipo de Valor *</td><td>Si el ajuste es un porcentaje o un importe.</td></tr>
+    <tr><td>Valor Ajuste *</td><td>El número del ajuste (positivo aumenta, negativo descuenta).</td></tr>
+    <tr><td>Prioridad</td><td>Orden en que se aplican las reglas: menor número, se aplica antes. Por defecto 100.</td></tr>
+    <tr><td>Vigencia Desde * / Hasta</td><td>Período en que la regla vale. "Desde" viene con la fecha de hoy; "Hasta" vacío = sin fin.</td></tr>
+    <tr><td>Alcance de la Regla</td><td>A qué se aplica. Dejá todo vacío para que aplique a todos los productos. Podés limitar por Producto, Categoría o Entidad (cliente/proveedor).</td></tr>
+    <tr><td>Es Promoción</td><td>Marca la regla como promoción.</td></tr>
+    <tr><td>Permite Acumulación</td><td>Si se puede sumar a otras reglas.</td></tr>
+</table>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">Guardar Regla</span>. En la tabla de reglas, cada fila tiene el botón <strong>Editar Regla</strong> (lápiz amarillo) y los botones para inhabilitarla o habilitarla.</p>
+<div class="nota-lateral">En la ventana de la regla también aparecen Marca, Modelo, Submodelo y Tipo de Producto, pero por ahora esos cuatro filtros no se guardan con la regla. Para limitar el alcance, usá Producto, Categoría o Entidad.</div>
+<div class="nota-lateral">Las reglas solo actúan cuando se recalculan los precios. Cambiar una regla no cambia ningún precio hasta que uses "Recalcular Precios".</div>
+
+<h2 id="productos">Pestaña: Productos</h2>
+<p>Muestra el precio de cada producto en esta lista, con su detalle:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué es</th></tr>
+    <tr><td>Precio Origen</td><td>El precio de partida (costo o precio de la lista base).</td></tr>
+    <tr><td>% General / Importe General</td><td>Lo que se aplicó por reglas.</td></tr>
+    <tr><td>Precio Final</td><td>El precio que se usa al vender. Si se cargó a mano, aparece en amarillo con un ícono de mano.</td></tr>
+    <tr><td>Vigencia Desde / Hasta</td><td>Desde cuándo rige ese precio.</td></tr>
+    <tr><td>Acciones</td><td>Botón para cargar un <a href="#precio-manual">precio manual</a>.</td></tr>
+</table>
+
+<h2 id="recalcular">Recalcular Precios</h2>
+<p>En la pestaña Productos, el botón <span class="boton-ejemplo boton-aviso">↻ Recalcular Precios</span> pregunta "¿Recalcular precios? Esta acción recalculará todos los precios de la lista aplicando las reglas activas". Al confirmar, el sistema:</p>
+<ol>
+    <li>Guarda una copia de los precios actuales en el historial.</li>
+    <li>Toma todos los productos activos que tienen costo cargado.</li>
+    <li>Parte de su costo (o del precio en la lista base) y le aplica las reglas vigentes.</li>
+    <li>Deja los precios nuevos, vigentes desde hoy.</li>
+</ol>
+<div class="alert alert-danger"><strong>Atención:</strong> recalcular <strong>reemplaza todos los precios de la lista</strong>, incluidos los precios manuales y los cargados a mano o desde Excel. Los productos sin costo cargado quedan fuera de la lista. Antes de recalcular una lista que tiene precios cargados a mano, consultá con quien administra los precios.</div>
+<p>Si la lista tiene una lista base, recalculá primero la lista base.</p>
+
+<h2 id="precio-manual">Precio manual de un producto</h2>
+<p>En la pestaña Productos, el botón del lápiz de un producto abre <strong>Editar Precio Manual</strong>: ves el producto y su precio actual, cargás el <strong>Nuevo Precio Manual *</strong> (mayor a cero) y, si querés, observaciones. Hacé clic en <strong>Guardar Precio Manual</strong>; ves "Precio manual actualizado correctamente".</p>
+
+<h2 id="botones">Botones de la lista</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Qué hace</th><th>Cuándo aparece</th></tr>
+    <tr><td>Editar</td><td>Abre la lista con sus tres pestañas para modificarla.</td><td>Lista Activa</td></tr>
+    <tr><td><span class="boton-ejemplo boton-peligro">Inhabilitar</span></td><td>Pasa la lista a Inactivo. Pide confirmación: "¿Está seguro de inactivar la lista de precios …?".</td><td>Lista Activa</td></tr>
+    <tr><td><span class="boton-ejemplo boton-outline">Habilitar</span></td><td>La vuelve a Activo. Pide confirmación.</td><td>Lista Inactiva</td></tr>
+</table>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué hacer</th></tr>
+    <tr><td>Guarde la lista primero</td><td>Guardá la lista antes de agregar reglas o recalcular.</td></tr>
+    <tr><td>El código / nombre / origen es obligatorio</td><td>Completá el campo.</td></tr>
+    <tr><td>El tipo de valor / valor de ajuste / fecha desde es obligatorio</td><td>Completá los datos de la regla.</td></tr>
+    <tr><td>Ingrese un precio manual válido</td><td>El precio tiene que ser mayor a cero.</td></tr>
+    <tr><td>Recalculado</td><td>El recálculo terminó; la tabla de productos se actualiza.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Cambié una regla y los precios siguen iguales.</td><td>Las reglas se aplican al recalcular. Usá "Recalcular Precios".</td></tr>
+    <tr><td>Recalculé y un producto no aparece en la lista.</td><td>Ese producto no tiene costo cargado o está inactivo.</td></tr>
+    <tr><td>¿Cómo le asigno la lista a un cliente?</td><td>En la ficha del cliente, pestaña Condiciones Clientes (ver <a href="entidades.html#condiciones-clientes">Entidades</a>).</td></tr>
+    <tr><td>¿Cuál es la lista que se propone por defecto?</td><td>La que figura en <a href="empresas_parametros.html">Parámetros de Empresa</a> como "Lista de Precios Defecto".</td></tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión / Seteo Empresas / Listas de Precios - Seteo. Este documento describe la pantalla tal como funciona en el sistema; ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

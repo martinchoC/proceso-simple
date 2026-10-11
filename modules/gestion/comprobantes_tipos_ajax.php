@@ -1,4 +1,7 @@
 <?php
+// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['comprobantes_tipos.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -8,7 +11,7 @@ require_once "comprobantes_tipos_model.php";
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto (MULTIEMPRESA)
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 2);
+$empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 45);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -75,6 +78,7 @@ try {
                 'orden' => intval($_POST['orden'] ?? 1),
                 'comentario' => trim($_POST['comentario'] ?? ''),
                 'impacta_stock' => intval($_POST['impacta_stock'] ?? 0),
+                'stock_signo' => $_POST['stock_signo'] ?? null,
                 'impacta_contabilidad' => intval($_POST['impacta_contabilidad'] ?? 0),
                 'impacta_ctacte' => intval($_POST['impacta_ctacte'] ?? 0),
                 'empresa_idx' => $empresa_idx,
@@ -98,6 +102,7 @@ try {
                 'orden' => intval($_POST['orden'] ?? 1),
                 'comentario' => trim($_POST['comentario'] ?? ''),
                 'impacta_stock' => intval($_POST['impacta_stock'] ?? 0),
+                'stock_signo' => $_POST['stock_signo'] ?? null,
                 'impacta_contabilidad' => intval($_POST['impacta_contabilidad'] ?? 0),
                 'impacta_ctacte' => intval($_POST['impacta_ctacte'] ?? 0),
                 'empresa_idx' => $empresa_idx
