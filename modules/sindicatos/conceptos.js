@@ -39,10 +39,7 @@ $(document).ready(function () {
                 }
             },
             { data: 'acciones', className: 'text-end', orderable: false }
-        ],
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
-        }
+        ]
     });
 
     // Cargar botón agregar
@@ -70,14 +67,40 @@ $(document).ready(function () {
         }
     }
 
+    // Tipos de comprobante de deuda (signo +) y de reversión (signo -) de la empresa
+    function poblarTipos(tipos, deuda, reversion) {
+        var selD = $('#comprobante_tipo_id'), selR = $('#comprobante_tipo_reversion_id');
+        selD.find('option:not(:first)').remove();
+        selR.find('option:not(:first)').remove();
+        $.each(tipos || [], function (i, t) {
+            var sel = t.signo === '-' ? selR : selD;
+            sel.append($('<option>', { value: t.comprobante_tipo_id, text: t.codigo + ' - ' + t.comprobante_tipo }));
+        });
+        selD.val(deuda || '');
+        selR.val(reversion || '');
+    }
+
+    // La cuenta de recurso sigue al código mientras no se haya cambiado a mano
+    $('#codigo').on('input', function () {
+        var cta = $('#cuenta_concepto_codigo');
+        if (!cta.data('manual')) {
+            cta.val($(this).val() ? 'SINDI_APORTE_' + $(this).val().toUpperCase() : '');
+        }
+    });
+    $('#cuenta_concepto_codigo').on('input', function () {
+        $(this).data('manual', true);
+    });
+
     $(document).on('click', '#btnNuevoConcepto', function () {
         $('#formConcepto')[0].reset();
         $('#concepto_id').val('');
+        $('#cuenta_concepto_codigo').val('').data('manual', false);
         $('#modalConceptoTitle').html('<i class="fas fa-tag me-2 text-primary"></i>Nuevo Concepto');
         $.get('conceptos_ajax.php?accion=obtener&id=0', function (res) {
             if (res.data && res.data.convenios) {
                 poblarConvenios(res.data.convenios, null);
             }
+            poblarTipos(res.data ? res.data.tipos : [], null, null);
             $('#modalConcepto').modal('show');
         }, 'json');
     });
@@ -103,7 +126,8 @@ $(document).ready(function () {
                     $('#solo_afiliados').prop('checked', parseInt(c.solo_afiliados) === 1);
                     $('#aplica_piso_escala').prop('checked', parseInt(c.aplica_piso_escala) === 1);
                     $('#incluye_sac').prop('checked', parseInt(c.incluye_sac) === 1);
-                    $('#cuenta_concepto_codigo').val(c.cuenta_concepto_codigo);
+                    $('#cuenta_concepto_codigo').val(c.cuenta_concepto_codigo).data('manual', true);
+                    poblarTipos(res.data.tipos, c.comprobante_tipo_id, c.comprobante_tipo_reversion_id);
                     $('#f_desde').val(c.f_desde || '');
                     $('#f_hasta').val(c.f_hasta || '');
 

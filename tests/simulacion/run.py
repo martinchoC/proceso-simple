@@ -31,6 +31,7 @@ GRUPOS = {
     'circuitos': ['01_compras.py', '02_pagos.py', '03_ventas.py'],
     'notas': ['04_notas_credito_ventas.py', '05_notas_credito_proveedores.py'],
     'consumidor_final': ['06_consumidor_final.py'],
+    'sindicatos': ['16_sindicatos.py'],
 }
 
 

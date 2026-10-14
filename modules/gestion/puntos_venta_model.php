@@ -2,6 +2,71 @@
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 
+/**
+ * Catálogo oficial de Sistemas de Emisión de ARCA (ex AFIP)
+ * En Argentina, cada punto de venta queda estrictamente vinculado
+ * al sistema de emisión con el que fue dado de alta ("Administración de Puntos de Venta y Domicilios").
+ */
+function obtenerCatalogoSistemasEmision()
+{
+    return [
+        'WSFE' => [
+            'codigo' => 'WSFE',
+            'nombre' => 'Web Service (Factura Electrónica)',
+            'corto' => 'Web Service',
+            'badge_clase' => 'bg-primary text-white',
+            'icono' => 'fas fa-plug',
+            'descripcion' => 'ERPs y software de gestión. Emisión automática con CAE por API.',
+            'es_wsfe' => true
+        ],
+        'RCEL' => [
+            'codigo' => 'RCEL',
+            'nombre' => 'Comprobantes en Línea (RCEL)',
+            'corto' => 'En Línea (RCEL)',
+            'badge_clase' => 'bg-info text-dark',
+            'icono' => 'fas fa-globe',
+            'descripcion' => 'Facturación manual directa desde la web de ARCA con clave fiscal.',
+            'es_wsfe' => false
+        ],
+        'FISCAL' => [
+            'codigo' => 'FISCAL',
+            'nombre' => 'Controlador Fiscal',
+            'corto' => 'Controlador Fiscal',
+            'badge_clase' => 'bg-warning text-dark',
+            'icono' => 'fas fa-cash-register',
+            'descripcion' => 'Impresoras fiscales homologadas y equipos de Nueva Tecnología.',
+            'es_wsfe' => false
+        ],
+        'MOVIL' => [
+            'codigo' => 'MOVIL',
+            'nombre' => 'Facturador Móvil',
+            'corto' => 'Facturador Móvil',
+            'badge_clase' => 'bg-secondary text-white',
+            'icono' => 'fas fa-mobile-alt',
+            'descripcion' => 'App oficial de ARCA para teléfonos celulares y tablets.',
+            'es_wsfe' => false
+        ],
+        'TALONARIO' => [
+            'codigo' => 'TALONARIO',
+            'nombre' => 'Comprobantes Manuales (Talonario)',
+            'corto' => 'Talonario (CAI)',
+            'badge_clase' => 'bg-dark text-white',
+            'icono' => 'fas fa-book',
+            'descripcion' => 'Talonario preimpreso con CAI para respaldo / contingencia.',
+            'es_wsfe' => false
+        ],
+        'NO_FISCAL' => [
+            'codigo' => 'NO_FISCAL',
+            'nombre' => 'Comprobantes Internos (Sin valor fiscal)',
+            'corto' => 'Interno',
+            'badge_clase' => 'bg-light text-muted border',
+            'icono' => 'fas fa-file-alt',
+            'descripcion' => 'Remitos, presupuestos, recibos X y comprobantes sin valor fiscal.',
+            'es_wsfe' => false
+        ]
+    ];
+}
+
 function obtenerFuncionesPagina($conexion, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
@@ -272,6 +337,19 @@ function obtenerPuntosVenta($conexion, $empresa_idx, $pagina_id)
         $fila['sucursal_nombre'] = $fila['sucursal_nombre'] ?? 'Sin sucursal';
         $fila['es_web'] = intval($fila['es_web'] ?? 0);
 
+        $sistemas = obtenerCatalogoSistemasEmision();
+        $cod_emision = !empty($fila['sistema_emision']) ? $fila['sistema_emision'] : ($fila['es_web'] ? 'WSFE' : 'NO_FISCAL');
+        $fila['sistema_emision'] = $cod_emision;
+        $fila['sistema_emision_info'] = $sistemas[$cod_emision] ?? [
+            'codigo' => $cod_emision,
+            'nombre' => $cod_emision,
+            'corto' => $cod_emision,
+            'badge_clase' => 'bg-secondary text-white',
+            'icono' => 'fas fa-tag',
+            'descripcion' => '',
+            'es_wsfe' => false
+        ];
+
         $fila['estado_info'] = [
             'estado_registro' => $fila['estado_registro'] ?? 'Sin estado',
             'codigo_estandar' => $fila['codigo_estandar'] ?? 'DESCONOCIDO',
@@ -365,8 +443,8 @@ function agregarPuntoVenta($conexion, $data)
 
         // Insertar punto de venta
         $sql = "INSERT INTO gestion__puntos_venta
-                (empresa_id, sucursal_id, boca_id, nombre, descripcion, codigo_fiscal, es_web, tabla_estado_registro_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                (empresa_id, sucursal_id, boca_id, nombre, descripcion, codigo_fiscal, sistema_emision, es_web, tabla_estado_registro_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -378,16 +456,23 @@ function agregarPuntoVenta($conexion, $data)
         $nombre_val = trim($data['nombre']);
         $descripcion_val = isset($data['descripcion']) ? trim($data['descripcion']) : null;
         $codigo_fiscal_val = isset($data['codigo_fiscal']) && $data['codigo_fiscal'] !== '' ? intval($data['codigo_fiscal']) : null;
-        $es_web_val = !empty($data['es_web']) ? 1 : 0;
+        
+        $sistema_emision_val = !empty($data['sistema_emision']) ? trim($data['sistema_emision']) : 'WSFE';
+        $catalogo_sistemas = obtenerCatalogoSistemasEmision();
+        if (!isset($catalogo_sistemas[$sistema_emision_val])) {
+            $sistema_emision_val = 'WSFE';
+        }
+        $es_web_val = ($sistema_emision_val === 'WSFE') ? 1 : (!empty($data['es_web']) ? 1 : 0);
         $estado_val = $estado_inicial;
 
-        mysqli_stmt_bind_param($stmt, "iiissiii",
+        mysqli_stmt_bind_param($stmt, "iiisssiii",
             $empresa_id_val,
             $sucursal_id_val,
             $boca_id_val,
             $nombre_val,
             $descripcion_val,
             $codigo_fiscal_val,
+            $sistema_emision_val,
             $es_web_val,
             $estado_val
         );
@@ -480,6 +565,7 @@ function editarPuntoVenta($conexion, $id, $data)
                     nombre = ?,
                     descripcion = ?,
                     codigo_fiscal = ?,
+                    sistema_emision = ?,
                     es_web = ?
                 WHERE punto_venta_id = ? AND empresa_id = ?";
 
@@ -492,16 +578,23 @@ function editarPuntoVenta($conexion, $id, $data)
         $nombre_val = trim($data['nombre']);
         $descripcion_val = isset($data['descripcion']) ? trim($data['descripcion']) : null;
         $codigo_fiscal_val = isset($data['codigo_fiscal']) && $data['codigo_fiscal'] !== '' ? intval($data['codigo_fiscal']) : null;
-        $es_web_val = !empty($data['es_web']) ? 1 : 0;
+        
+        $sistema_emision_val = !empty($data['sistema_emision']) ? trim($data['sistema_emision']) : 'WSFE';
+        $catalogo_sistemas = obtenerCatalogoSistemasEmision();
+        if (!isset($catalogo_sistemas[$sistema_emision_val])) {
+            $sistema_emision_val = 'WSFE';
+        }
+        $es_web_val = ($sistema_emision_val === 'WSFE') ? 1 : (!empty($data['es_web']) ? 1 : 0);
         $id_val = $id;
         $empresa_idx_val = intval($data['empresa_idx']);
 
-        mysqli_stmt_bind_param($stmt, "iissiiii",
+        mysqli_stmt_bind_param($stmt, "iissisiii",
             $sucursal_id_val,
             $boca_id_val,
             $nombre_val,
             $descripcion_val,
             $codigo_fiscal_val,
+            $sistema_emision_val,
             $es_web_val,
             $id_val,
             $empresa_idx_val
@@ -749,6 +842,10 @@ function obtenerPuntoVentaPorId($conexion, $id, $empresa_idx)
     mysqli_stmt_close($stmt);
 
     if ($punto) {
+        $sistemas = obtenerCatalogoSistemasEmision();
+        $cod_emision = !empty($punto['sistema_emision']) ? $punto['sistema_emision'] : ($punto['es_web'] ? 'WSFE' : 'NO_FISCAL');
+        $punto['sistema_emision'] = $cod_emision;
+        $punto['sistema_emision_info'] = $sistemas[$cod_emision] ?? null;
         $punto['comprobantes_habilitados'] = obtenerComprobantesPorPuntoVenta($conexion, $id, $empresa_idx);
     }
 

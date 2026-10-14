@@ -129,7 +129,7 @@ $baseUrlPortal = "http://localhost/casalucho/modules/sindicatos/portal/registro_
 
 // Limpiar datos previos de prueba si existen
 mysqli_query($conexion, "DELETE FROM conf__usuarios WHERE usuario = '{$cuitPrueba}'");
-$resPrevEnt = mysqli_query($conexion, "SELECT entidad_id FROM gestion__entidades WHERE empresa_id = {$empresa_id} AND entidad_cuit = '{$cuitPrueba}'");
+$resPrevEnt = mysqli_query($conexion, "SELECT entidad_id FROM gestion__entidades WHERE empresa_id = {$empresa_id} AND cuit = '{$cuitPrueba}'");
 if ($rowPrevEnt = mysqli_fetch_assoc($resPrevEnt)) {
     $eIdPrev = (int)$rowPrevEnt['entidad_id'];
     mysqli_query($conexion, "DELETE FROM sindi__empleadores WHERE entidad_id = {$eIdPrev}");
@@ -157,7 +157,7 @@ $tokenSimulado = $resAlta['token_simulado'] ?? '';
 verificar("Token de activación generado", !empty($tokenSimulado));
 
 // Verificar entidad en BD
-$resEnt = mysqli_query($conexion, "SELECT * FROM gestion__entidades WHERE empresa_id = {$empresa_id} AND entidad_cuit = '{$cuitPrueba}'");
+$resEnt = mysqli_query($conexion, "SELECT * FROM gestion__entidades WHERE empresa_id = {$empresa_id} AND cuit = '{$cuitPrueba}'");
 $entidadCreada = mysqli_fetch_assoc($resEnt);
 verificar("Entidad creada en gestion__entidades", $entidadCreada !== null);
 
@@ -215,7 +215,7 @@ verificar("Filtro SQL del usuario nuevo restringe a su ID", strpos($filtroNuevo,
 // 6. Prueba de creación y vinculación de Estudio Contable (Página 1011)
 echo "\n6. Creación y Vinculación de Estudio Contable:\n";
 $cuitEstudio = "20222222223";
-$resEstudioPrev = mysqli_query($conexion, "SELECT entidad_id FROM gestion__entidades WHERE empresa_id = {$empresa_id} AND entidad_cuit = '{$cuitEstudio}'");
+$resEstudioPrev = mysqli_query($conexion, "SELECT entidad_id FROM gestion__entidades WHERE empresa_id = {$empresa_id} AND cuit = '{$cuitEstudio}'");
 if ($rEp = mysqli_fetch_assoc($resEstudioPrev)) {
     $eId = (int)$rEp['entidad_id'];
     mysqli_query($conexion, "DELETE FROM sindi__estudios WHERE entidad_id = {$eId}");
@@ -234,7 +234,7 @@ $dataEstudio = [
 $resGuardarEst = sindi_guardar_estudio($conexion, $empresa_id, $dataEstudio, $usuario_id);
 verificar("Estudio contable guardado exitosamente", $resGuardarEst['success'] === true);
 
-$resEstObj = mysqli_query($conexion, "SELECT est.estudio_id FROM sindi__estudios est INNER JOIN gestion__entidades ent ON ent.entidad_id = est.entidad_id WHERE ent.entidad_cuit = '{$cuitEstudio}'");
+$resEstObj = mysqli_query($conexion, "SELECT est.estudio_id FROM sindi__estudios est INNER JOIN gestion__entidades ent ON ent.entidad_id = est.entidad_id WHERE ent.cuit = '{$cuitEstudio}'");
 $rowEstObj = mysqli_fetch_assoc($resEstObj);
 $estudioId = (int)($rowEstObj['estudio_id'] ?? 0);
 verificar("ID de estudio contable recuperado", $estudioId > 0);

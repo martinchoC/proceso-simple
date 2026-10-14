@@ -135,7 +135,18 @@ $(function () {
         $.getJSON('ventas_facturas_ajax.php', { accion: 'puntos_venta', empresa_idx: EMPRESA_ID }, function (rows) {
             var html = '<option value="">Seleccionar punto de venta</option>';
             (rows || []).forEach(function (r) {
-                html += '<option value="' + r.punto_venta_id + '" data-sucursal-id="' + r.sucursal_id + '" data-sucursal="' + (r.sucursal_nombre || '') + '">' + r.nombre + (r.codigo_fiscal ? ' (' + r.codigo_fiscal + ')' : '') + '</option>';
+                var emisionLabel = {
+                    'WSFE': 'Web Service',
+                    'RCEL': 'En Línea (RCEL)',
+                    'FISCAL': 'Controlador Fiscal',
+                    'MOVIL': 'Móvil',
+                    'TALONARIO': 'Talonario',
+                    'NO_FISCAL': 'Interno'
+                }[r.sistema_emision] || r.sistema_emision || '';
+                var fiscalPad = r.codigo_fiscal ? 'PV ' + String(r.codigo_fiscal).padStart(4, '0') : '';
+                var subTxt = [fiscalPad, emisionLabel].filter(Boolean).join(' - ');
+                var label = r.nombre + (subTxt ? ' (' + subTxt + ')' : '');
+                html += '<option value="' + r.punto_venta_id + '" data-sucursal-id="' + r.sucursal_id + '" data-sucursal="' + (r.sucursal_nombre || '') + '" data-sistema-emision="' + (r.sistema_emision || 'WSFE') + '">' + label + '</option>';
             });
             $('#factura_punto_venta_id').html(html);
             if (typeof cb === 'function') cb();
@@ -1001,7 +1012,7 @@ $(function () {
 
     function agregarFilaCobro(importe) {
         var opciones = (cobroMaestros.medios_pago || []).map(function (m) {
-            return '<option value="' + m.medio_pago_id + '" data-tipo="' + esc(m.medio_pago_tipo) + '">' + esc(m.medio_pago) + '</option>';
+            return '<option value="' + m.medio_pago_id + '" data-tipo="' + esc(m.medio_pago_tipo) + '" data-impuesto="' + (parseInt(m.impuesto_tipo_id, 10) || '') + '">' + esc(m.medio_pago) + '</option>';
         }).join('');
         var tr = $('<tr>'
             + '<td><select class="form-select form-select-sm cobro-medio">' + opciones + '</select></td>'
@@ -1037,13 +1048,26 @@ $(function () {
                 + '<div class="col-sm-3"><input type="date" class="form-control form-control-sm cobro-cheque-fpago" title="Fecha de pago"></div>'
                 + '<div class="col-sm-3"><input type="text" class="form-control form-control-sm cobro-cheque-librador" placeholder="Librador"></div></div>';
         } else if (tipo === 'RETENCION') {
-            var imps = (cobroMaestros.impuestos_retencion || []).map(function (i) { return '<option value="' + i.impuesto_tipo_id + '">' + esc(i.impuesto_tipo) + '</option>'; }).join('');
-            html = '<div class="row g-1"><div class="col-sm-4"><select class="form-select form-select-sm cobro-ret-tipo"><option value="">-- Impuesto --</option>' + imps + '</select></div>'
-                + '<div class="col-sm-3"><input type="text" class="form-control form-control-sm cobro-ret-cert" placeholder="N° Certificado"></div>'
-                + '<div class="col-sm-3"><input type="number" step="0.01" class="form-control form-control-sm cobro-ret-base" placeholder="Base Imp."></div>'
+            // El impuesto lo fija el medio (Retención IVA / Ganancias / IIBB); IIBB pide la provincia
+            var impMedio = parseInt(tr.find('.cobro-medio option:selected').data('impuesto'), 10) || 0;
+            var imps = (cobroMaestros.impuestos_retencion || []).map(function (i) {
+                return '<option value="' + i.impuesto_tipo_id + '" data-iibb="' + (parseInt(i.es_iibb, 10) || 0) + '"' + (parseInt(i.impuesto_tipo_id, 10) === impMedio ? ' selected' : '') + '>' + esc(i.impuesto_tipo) + '</option>';
+            }).join('');
+            var jurs = (cobroMaestros.jurisdicciones || []).map(function (j) { return '<option value="' + j.jurisdiccion_id + '">' + esc(j.jurisdiccion_nombre) + '</option>'; }).join('');
+            html = '<div class="row g-1"><div class="col-sm-3"><select class="form-select form-select-sm cobro-ret-tipo"' + (impMedio ? ' disabled' : '') + '><option value="">-- Impuesto --</option>' + imps + '</select></div>'
+                + '<div class="col-sm-3 cobro-ret-jur-col d-none"><select class="form-select form-select-sm cobro-ret-jur"><option value="">-- Provincia --</option>' + jurs + '</select></div>'
+                + '<div class="col-sm-2"><input type="text" class="form-control form-control-sm cobro-ret-cert" placeholder="N° Certificado"></div>'
+                + '<div class="col-sm-2"><input type="number" step="0.01" class="form-control form-control-sm cobro-ret-base" placeholder="Base Imp."></div>'
                 + '<div class="col-sm-2"><input type="number" step="0.01" class="form-control form-control-sm cobro-ret-ali" placeholder="%"></div></div>';
         }
         tr.find('.cobro-campos').html(html);
+        if (tipo === 'RETENCION') mostrarJurisdiccionRetencion(tr);
+    }
+
+    function mostrarJurisdiccionRetencion(tr) {
+        var esIibb = parseInt(tr.find('.cobro-ret-tipo option:selected').data('iibb'), 10) === 1;
+        tr.find('.cobro-ret-jur-col').toggleClass('d-none', !esIibb);
+        if (!esIibb) tr.find('.cobro-ret-jur').val('');
     }
 
     function totalMediosCobro() {
@@ -1073,6 +1097,7 @@ $(function () {
         recalcularTotalCobro();
     });
     $(document).on('change', '#tablaCobroMedios .cobro-medio', function () { renderCamposMedioCobro($(this).closest('tr')); });
+    $(document).on('change', '#tablaCobroMedios .cobro-ret-tipo', function () { mostrarJurisdiccionRetencion($(this).closest('tr')); });
     $(document).on('input', '#tablaCobroMedios .cobro-importe', recalcularTotalCobro);
     $(document).on('click', '#tablaCobroMedios .cobro-quitar', function () { $(this).closest('tr').remove(); recalcularTotalCobro(); });
 
@@ -1096,6 +1121,10 @@ $(function () {
                 m.retencion_base_imponible = parseFloat(tr.find('.cobro-ret-base').val()) || 0;
                 m.retencion_alicuota = parseFloat(tr.find('.cobro-ret-ali').val()) || 0;
                 if (!m.impuesto_tipo_id || !m.retencion_certificado_nro) { error = fila + 'complete el impuesto y el número de certificado.'; return false; }
+                if (parseInt(tr.find('.cobro-ret-tipo option:selected').data('iibb'), 10) === 1) {
+                    m.jurisdiccion_id = parseInt(tr.find('.cobro-ret-jur').val(), 10) || 0;
+                    if (!m.jurisdiccion_id) { error = fila + 'seleccione la provincia de la retención de Ingresos Brutos.'; return false; }
+                }
             }
             medios.push(m);
         });

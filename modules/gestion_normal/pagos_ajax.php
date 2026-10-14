@@ -74,12 +74,12 @@ try {
 
         case 'maestros':
             $proveedores        = obtenerProveedoresPago($conexion, $empresa_idx);
-            $medios_pago        = $conexion->query("SELECT medio_pago_id, codigo, medio_pago, medio_pago_tipo, cont_cuenta_id FROM gestion__medios_pago WHERE empresa_id = " . intval($empresa_idx) . " AND tabla_estado_registro_id = 1 ORDER BY medio_pago_id ASC")->fetch_all(MYSQLI_ASSOC);
+            $medios_pago        = $conexion->query("SELECT medio_pago_id, codigo, medio_pago, medio_pago_tipo, cont_cuenta_id, impuesto_tipo_id FROM gestion__medios_pago WHERE empresa_id = " . intval($empresa_idx) . " AND tabla_estado_registro_id = 1 AND aplica_pago = 1 ORDER BY orden ASC, medio_pago_id ASC")->fetch_all(MYSQLI_ASSOC);
             $cuentas_tesoreria  = obtenerCuentasTesoreriaEmpresa($conexion, $empresa_idx);
             $bancos             = obtenerBancosDisponibles($conexion);
             $cheques_en_cartera = obtenerChequesTercerosEnCartera($conexion, $empresa_idx);
             $chequeras          = obtenerCuentasBancariasChequeras($conexion, $empresa_idx);
-            $impuestos_ret      = obtenerImpuestosRetencion($conexion);
+            $impuestos_ret      = obtenerImpuestosRetencion($conexion, 'PAGO');
             $sucursales         = obtenerSucursalesEmpresa($conexion, $empresa_idx);
 
             enviarRespuesta([

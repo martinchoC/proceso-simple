@@ -41,25 +41,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <!-- Saldos por cliente -->
             <div class="card card-outline card-primary shadow-sm mb-3">
                 <div class="card-header bg-light py-2">
-                    <form id="formFiltrosSaldos" class="row g-2 align-items-end" onsubmit="return false;">
+                    <form id="formFiltrosSaldos" class="row g-2 align-items-center" onsubmit="return false;">
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold mb-1">Cliente / CUIT</label>
                             <input type="text" class="form-control form-control-sm" id="filtroTexto" placeholder="Buscar por nombre o CUIT...">
                         </div>
                         <div class="col-auto">
-                            <div class="form-check mt-3">
+                            <div class="form-check mb-0">
                                 <input class="form-check-input" type="checkbox" id="filtroSoloSaldo" checked>
                                 <label class="form-check-label small" for="filtroSoloSaldo">Solo con saldo</label>
                             </div>
                         </div>
                         <div class="col-auto">
-                            <div class="form-check mt-3">
+                            <div class="form-check mb-0">
                                 <input class="form-check-input" type="checkbox" id="filtroSoloVencidos">
                                 <label class="form-check-label small" for="filtroSoloVencidos">Solo con deuda vencida</label>
                             </div>
-                        </div>
-                        <div class="col-auto">
-                            <button type="button" class="btn btn-sm btn-primary" id="btnFiltrarSaldos"><i class="fas fa-filter me-1"></i>Filtrar</button>
                         </div>
                         <div class="col text-end small" id="totalesSaldos"></div>
                     </form>

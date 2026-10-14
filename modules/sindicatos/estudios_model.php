@@ -12,14 +12,16 @@ require_once __DIR__ . '/sindi_base_model.php';
 
 function sindi_listar_estudios(mysqli $conexion, int $empresa_id, int $pagina_id): array
 {
-    $sql = "SELECT est.*, ent.entidad_razon_social, ent.entidad_cuit, ent.entidad_telefono, ent.entidad_email,
+    $sql = "SELECT est.*, ent.entidad_nombre AS entidad_razon_social, ent.cuit AS entidad_cuit,
+                   suc.sucursal_telefono AS entidad_telefono, suc.sucursal_email AS entidad_email,
                    (SELECT COUNT(*) FROM sindi__estudios_empleadores ee WHERE ee.estudio_id = est.estudio_id AND ee.tabla_estado_registro_id = 1) AS vinculaciones_activas,
                    er.estado_registro
             FROM sindi__estudios est
             INNER JOIN gestion__entidades ent ON ent.entidad_id = est.entidad_id
+            LEFT JOIN gestion__entidades_sucursales suc ON suc.entidad_id = ent.entidad_id AND suc.sucursal_numero = 1
             LEFT JOIN conf__estados_registros er ON er.estado_registro_id = est.tabla_estado_registro_id
             WHERE est.empresa_id = ?
-            ORDER BY ent.entidad_razon_social ASC";
+            ORDER BY ent.entidad_nombre ASC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
@@ -41,9 +43,12 @@ function sindi_listar_estudios(mysqli $conexion, int $empresa_id, int $pagina_id
 
 function sindi_obtener_estudio(mysqli $conexion, int $empresa_id, int $estudio_id): ?array
 {
-    $sql = "SELECT est.*, ent.entidad_razon_social, ent.entidad_cuit, ent.entidad_telefono, ent.entidad_email, ent.entidad_domicilio
+    $sql = "SELECT est.*, ent.entidad_nombre AS entidad_razon_social, ent.cuit AS entidad_cuit,
+                   suc.sucursal_telefono AS entidad_telefono, suc.sucursal_email AS entidad_email,
+                   ent.domicilio_legal AS entidad_domicilio
             FROM sindi__estudios est
             INNER JOIN gestion__entidades ent ON ent.entidad_id = est.entidad_id
+            LEFT JOIN gestion__entidades_sucursales suc ON suc.entidad_id = ent.entidad_id AND suc.sucursal_numero = 1
             WHERE est.estudio_id = ? AND est.empresa_id = ? LIMIT 1";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -73,7 +78,7 @@ function sindi_guardar_estudio(mysqli $conexion, int $empresa_id, array $data, i
     mysqli_begin_transaction($conexion);
     try {
         // 1. Entidad en gestion__entidades
-        $sqlEnt = "SELECT entidad_id FROM gestion__entidades WHERE empresa_id = ? AND entidad_cuit = ? LIMIT 1";
+        $sqlEnt = "SELECT entidad_id FROM gestion__entidades WHERE empresa_id = ? AND cuit = ? LIMIT 1";
         $stmtE = mysqli_prepare($conexion, $sqlEnt);
         mysqli_stmt_bind_param($stmtE, "is", $empresa_id, $cuit);
         mysqli_stmt_execute($stmtE);
@@ -84,26 +89,24 @@ function sindi_guardar_estudio(mysqli $conexion, int $empresa_id, array $data, i
         $entidad_id = 0;
         if ($entExistente) {
             $entidad_id = (int)$entExistente['entidad_id'];
-            $sqlUpdE = "UPDATE gestion__entidades SET entidad_razon_social = ?, entidad_telefono = ?, entidad_email = ?, entidad_domicilio = ? WHERE entidad_id = ?";
+            $sqlUpdE = "UPDATE gestion__entidades SET entidad_nombre = ?, domicilio_legal = ? WHERE entidad_id = ?";
             $stmtUpdE = mysqli_prepare($conexion, $sqlUpdE);
-            mysqli_stmt_bind_param($stmtUpdE, "ssssi", $razon_social, $telefono, $email, $domicilio, $entidad_id);
+            mysqli_stmt_bind_param($stmtUpdE, "ssi", $razon_social, $domicilio, $entidad_id);
             mysqli_stmt_execute($stmtUpdE);
             mysqli_stmt_close($stmtUpdE);
         } else {
-            $sqlInsE = "INSERT INTO gestion__entidades (empresa_id, entidad_cuit, entidad_razon_social, entidad_telefono, entidad_email, entidad_domicilio, tabla_estado_registro_id, fecha_alta)
-                        VALUES (?, ?, ?, ?, ?, ?, 1, NOW())";
+            $sqlInsE = "INSERT INTO gestion__entidades (empresa_id, cuit, entidad_nombre, domicilio_legal, tabla_estado_registro_id, fecha_alta)
+                        VALUES (?, ?, ?, ?, 1, NOW())";
             $stmtInsE = mysqli_prepare($conexion, $sqlInsE);
-            mysqli_stmt_bind_param($stmtInsE, "isssss", $empresa_id, $cuit, $razon_social, $telefono, $email, $domicilio);
+            mysqli_stmt_bind_param($stmtInsE, "isss", $empresa_id, $cuit, $razon_social, $domicilio);
             mysqli_stmt_execute($stmtInsE);
             $entidad_id = mysqli_insert_id($conexion);
             mysqli_stmt_close($stmtInsE);
         }
 
-        // Rol ESTUDIO (rol_entidad_id = 6)
-        $stmtRol = mysqli_prepare($conexion, "INSERT IGNORE INTO gestion__entidades_roles (entidad_id, rol_entidad_id, f_alta, tabla_estado_registro_id) VALUES (?, 6, NOW(), 1)");
-        mysqli_stmt_bind_param($stmtRol, "i", $entidad_id);
-        mysqli_stmt_execute($stmtRol);
-        mysqli_stmt_close($stmtRol);
+        // Sucursal N° 1 = Casa Central y rol ESTUDIO (por código)
+        sindi_guardar_sucursal_central($conexion, $empresa_id, $entidad_id, $domicilio, $telefono, $email);
+        sindi_asegurar_rol_entidad($conexion, $entidad_id, 'EST');
 
         if ($estudio_id > 0) {
             $sqlEst = "UPDATE sindi__estudios SET matricula = ?, contacto = ?, usuario_actualizacion_id = ?, fecha_actualizacion = NOW() WHERE estudio_id = ? AND empresa_id = ?";
@@ -131,7 +134,7 @@ function sindi_guardar_estudio(mysqli $conexion, int $empresa_id, array $data, i
 // Vinculaciones
 function sindi_listar_vinculaciones(mysqli $conexion, int $empresa_id, int $estudio_id): array
 {
-    $sql = "SELECT ee.*, ent.entidad_razon_social AS empleador_nombre, ent.entidad_cuit AS empleador_cuit,
+    $sql = "SELECT ee.*, ent.entidad_nombre AS empleador_nombre, ent.cuit AS empleador_cuit,
                    er.estado_registro
             FROM sindi__estudios_empleadores ee
             INNER JOIN sindi__empleadores emp ON emp.empleador_id = ee.empleador_id
@@ -193,7 +196,7 @@ function sindi_vincular_estudio_empleador(mysqli $conexion, int $empresa_id, int
             // Buscar usuario correspondiente al CUIT del estudio
             $sqlUid = "SELECT u.usuario_id FROM sindi__estudios est
                        INNER JOIN gestion__entidades ent ON ent.entidad_id = est.entidad_id
-                       INNER JOIN conf__usuarios u ON u.usuario = ent.entidad_cuit
+                       INNER JOIN conf__usuarios u ON u.usuario = ent.cuit
                        WHERE est.estudio_id = ? LIMIT 1";
             $stmtUid = mysqli_prepare($conexion, $sqlUid);
             mysqli_stmt_bind_param($stmtUid, "i", $estudio_id);

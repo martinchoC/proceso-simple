@@ -254,7 +254,7 @@ function vfClientes($conexion, $empresa_id) {
 }
 
 function vfPuntosVenta($conexion, $empresa_id) {
-    $sql = "SELECT pv.punto_venta_id, pv.sucursal_id, pv.nombre, pv.codigo_fiscal,
+    $sql = "SELECT pv.punto_venta_id, pv.sucursal_id, pv.nombre, pv.codigo_fiscal, pv.sistema_emision,
                    s.sucursal_nombre
             FROM gestion__puntos_venta pv
             LEFT JOIN gestion__sucursales s ON s.sucursal_id = pv.sucursal_id
@@ -2243,7 +2243,8 @@ function vfMaestrosCobro($conexion, $empresa_id) {
         'medios_pago'         => obtenerMediosPagoDisponibles($conexion, $empresa_id),
         'cuentas_tesoreria'   => obtenerCuentasTesoreriaEmpresa($conexion, $empresa_id),
         'bancos'              => obtenerBancosDisponibles($conexion),
-        'impuestos_retencion' => obtenerImpuestosRetencion($conexion),
+        'impuestos_retencion' => obtenerImpuestosRetencion($conexion, 'COBRO'),
+        'jurisdicciones'      => obtenerJurisdicciones($conexion),
         'puntos_venta'        => obtenerPuntosVentaCobranza($conexion, $empresa_id, VF_PAGINA_COBRANZAS)
     ];
 }
@@ -2443,7 +2444,7 @@ function vfArcaDatosFactura($conexion, $factura, $fiscal, $empresa_id) {
     }
     if (intval($factura['moneda_id']) !== emp_moneda_por_codigo($conexion, $empresa_id, 'ARS')) return $error('ARCA: por ahora solo se autorizan comprobantes en pesos.');
 
-    $stmt = mysqli_prepare($conexion, "SELECT nombre, codigo_fiscal FROM gestion__puntos_venta WHERE punto_venta_id = ? AND empresa_id = ?");
+    $stmt = mysqli_prepare($conexion, "SELECT nombre, codigo_fiscal, sistema_emision FROM gestion__puntos_venta WHERE punto_venta_id = ? AND empresa_id = ?");
     $pv_id = intval($factura['punto_venta_id']);
     mysqli_stmt_bind_param($stmt, 'ii', $pv_id, $empresa_id);
     mysqli_stmt_execute($stmt);
@@ -2451,6 +2452,19 @@ function vfArcaDatosFactura($conexion, $factura, $fiscal, $empresa_id) {
     mysqli_stmt_close($stmt);
     $pto_vta = intval($pv['codigo_fiscal'] ?? 0);
     if ($pto_vta <= 0) return $error('El punto de venta ' . ($pv['nombre'] ?? $pv_id) . ' no tiene código fiscal de ARCA.');
+
+    $sistema_emision = !empty($pv['sistema_emision']) ? $pv['sistema_emision'] : 'WSFE';
+    if ($sistema_emision !== 'WSFE') {
+        $nombres_sistemas = [
+            'RCEL' => 'Comprobantes en Línea (RCEL)',
+            'FISCAL' => 'Controlador Fiscal',
+            'MOVIL' => 'Facturador Móvil',
+            'TALONARIO' => 'Comprobantes Manuales (Talonario)',
+            'NO_FISCAL' => 'Comprobantes Internos (Sin valor fiscal)'
+        ];
+        $modalidad = $nombres_sistemas[$sistema_emision] ?? $sistema_emision;
+        return $error('El punto de venta "' . ($pv['nombre'] ?? $pv_id) . '" (PV ' . str_pad($pto_vta, 4, '0', STR_PAD_LEFT) . ') tiene asignado el sistema de emisión "' . $modalidad . '". En ARCA, la emisión automática vía Web Service requiere exclusivamente un punto de venta dado de alta bajo la modalidad "Web Service (Factura Electrónica)". No es posible autorizar vía API con puntos de venta asignados a ' . $modalidad . '.');
+    }
 
     // Receptor: condición IVA vigente y documento
     $entidad_id = intval($factura['entidad_id'] ?? 0);

@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/ajax_guard.php';
 $ctx = ajax_guard(['pagina_idx' => 1003]);
+require_once __DIR__ . '/sindi_base_model.php';
+sindi_contexto($ctx);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -52,7 +54,8 @@ try {
                 'success' => (bool)$conc,
                 'data' => [
                     'concepto' => $conc,
-                    'convenios' => $convenios
+                    'convenios' => $convenios,
+                    'tipos' => sindi_tipos_comprobante_conceptos($conexion, $empresa_id)
                 ]
             ], JSON_UNESCAPED_UNICODE);
             break;

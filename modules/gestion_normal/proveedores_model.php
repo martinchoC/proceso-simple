@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/entidades_roles_helper.php';
 $conexion = $conn;
 
 /**
@@ -277,6 +278,85 @@ function obtenerLocalidades($conexion)
     mysqli_stmt_close($stmt);
     return $localidades;
 }
+
+// ✅ Obtener todas las provincias activas
+function obtenerProvincias($conexion)
+{
+    $sql = "SELECT provincia_id, pais_id, provincia 
+            FROM conf__provincias 
+            WHERE tabla_estado_registro_id = 1 
+            ORDER BY provincia ASC";
+    $result = mysqli_query($conexion, $sql);
+    $data = [];
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $data[] = $row;
+        }
+    }
+    return $data;
+}
+
+// ✅ Buscar localidades filtradas por provincia y término de búsqueda
+function buscarLocalidades($conexion, $provincia_id, $texto = '')
+{
+    $provincia_id = intval($provincia_id);
+    if ($provincia_id <= 0) {
+        return [];
+    }
+    $texto = trim($texto);
+    if ($texto === '') {
+        $sql = "SELECT l.localidad_id, l.localidad, l.cp, l.provincia_id, p.provincia 
+                FROM conf__localidades l
+                LEFT JOIN conf__provincias p ON l.provincia_id = p.provincia_id
+                WHERE l.provincia_id = ? 
+                AND (l.tabla_estado_registro_id = 1 OR l.tabla_estado_registro_id IS NULL)
+                ORDER BY l.localidad ASC LIMIT 50";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) return [];
+        mysqli_stmt_bind_param($stmt, "i", $provincia_id);
+    } else {
+        $like = '%' . $texto . '%';
+        $cp = ctype_digit($texto) ? (int)$texto : -1;
+        $sql = "SELECT l.localidad_id, l.localidad, l.cp, l.provincia_id, p.provincia 
+                FROM conf__localidades l
+                LEFT JOIN conf__provincias p ON l.provincia_id = p.provincia_id
+                WHERE l.provincia_id = ? 
+                AND (l.localidad LIKE ? OR l.cp = ?)
+                AND (l.tabla_estado_registro_id = 1 OR l.tabla_estado_registro_id IS NULL)
+                ORDER BY l.localidad ASC LIMIT 50";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) return [];
+        mysqli_stmt_bind_param($stmt, "isi", $provincia_id, $like, $cp);
+    }
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $data = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $data[] = $row;
+    }
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+// ✅ Obtener localidad por ID con su provincia
+function obtenerLocalidadPorId($conexion, $localidad_id)
+{
+    $localidad_id = intval($localidad_id);
+    if ($localidad_id <= 0) return null;
+    $sql = "SELECT l.localidad_id, l.localidad, l.cp, l.provincia_id, p.provincia 
+            FROM conf__localidades l
+            LEFT JOIN conf__provincias p ON l.provincia_id = p.provincia_id
+            WHERE l.localidad_id = ? LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    mysqli_stmt_bind_param($stmt, "i", $localidad_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($res);
+    mysqli_stmt_close($stmt);
+    return $row;
+}
+
 
 // ✅ Obtener todas las entidades
 function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
@@ -639,13 +719,14 @@ function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    ec.color_clase, ec.bg_clase, ec.text_clase,
-                   l.localidad
+                   l.localidad, l.cp, l.provincia_id, p.provincia
             FROM gestion__entidades_sucursales es
             LEFT JOIN conf__estados_registros er ON es.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
             LEFT JOIN conf__localidades l ON es.localidad_id = l.localidad_id
+            LEFT JOIN conf__provincias p ON l.provincia_id = p.provincia_id
             WHERE es.empresa_id = ? AND es.entidad_id = ?
-            ORDER BY es.sucursal_nombre";
+            ORDER BY COALESCE(es.sucursal_numero, 9999), es.sucursal_nombre";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -671,7 +752,10 @@ function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_
 
         $fila['localidad_info'] = [
             'localidad' => $fila['localidad'] ?? null,
-            'localidad_id' => $fila['localidad_id'] ?? null
+            'localidad_id' => $fila['localidad_id'] ?? null,
+            'cp' => $fila['cp'] ?? null,
+            'provincia' => $fila['provincia'] ?? null,
+            'provincia_id' => $fila['provincia_id'] ?? null
         ];
 
         // Las sucursales usan las mismas acciones que las entidades
@@ -772,6 +856,7 @@ function agregarEntidad($conexion, $data)
         $sucursal_data = [
             'empresa_id' => $empresa_id,
             'entidad_id' => $entidad_id,
+            'sucursal_numero' => 1,
             'sucursal_nombre' => 'Casa Central',
             'sucursal_direccion' => !empty($domicilio_legal) ? $domicilio_legal : 'Casa Central',
             'localidad_id' => $localidad_id,
@@ -780,6 +865,9 @@ function agregarEntidad($conexion, $data)
             'sucursal_contacto' => ''
         ];
         agregarSucursal($conexion, $sucursal_data);
+
+        // Sincronizar rol de proveedor y su cuenta contable
+        actualizarRolIndividualEntidad($conexion, $entidad_id, 'PRO', 1, $cont_cuenta_id_proveedor, $empresa_id);
 
         return ['resultado' => true, 'entidad_id' => $entidad_id];
     } else {
@@ -896,6 +984,33 @@ function editarEntidad($conexion, $id, $data)
     mysqli_stmt_close($stmt);
 
     if ($success) {
+        // Asegurar que la entidad tenga al menos sucursal 1 "Casa Central"
+        $sql_check_suc = "SELECT COUNT(*) as cant FROM gestion__entidades_sucursales WHERE entidad_id = ?";
+        $stmt_suc = mysqli_prepare($conexion, $sql_check_suc);
+        if ($stmt_suc) {
+            mysqli_stmt_bind_param($stmt_suc, "i", $id);
+            mysqli_stmt_execute($stmt_suc);
+            $res_suc = mysqli_stmt_get_result($stmt_suc);
+            $row_suc = mysqli_fetch_assoc($res_suc);
+            mysqli_stmt_close($stmt_suc);
+            if ($row_suc && intval($row_suc['cant']) === 0) {
+                $sucursal_data = [
+                    'empresa_id' => $empresa_idx,
+                    'entidad_id' => $id,
+                    'sucursal_numero' => 1,
+                    'sucursal_nombre' => 'Casa Central',
+                    'sucursal_direccion' => !empty($domicilio_legal) ? $domicilio_legal : 'Casa Central',
+                    'localidad_id' => $localidad_id,
+                    'sucursal_telefono' => '',
+                    'sucursal_email' => '',
+                    'sucursal_contacto' => ''
+                ];
+                agregarSucursal($conexion, $sucursal_data);
+            }
+        }
+        // Sincronizar rol de proveedor y su cuenta contable
+        actualizarRolIndividualEntidad($conexion, $id, 'PRO', $es_proveedor, $cont_cuenta_id_proveedor, $empresa_idx);
+
         return ['resultado' => true];
     } else {
         return ['resultado' => false, 'error' => 'Error al actualizar la entidad'];
@@ -952,19 +1067,38 @@ function agregarSucursal($conexion, $data)
         return ['resultado' => false, 'error' => 'Ya existe una sucursal con este nombre para esta entidad'];
     }
 
+    $sucursal_numero = isset($data['sucursal_numero']) && $data['sucursal_numero'] !== '' ? intval($data['sucursal_numero']) : null;
+    if ($sucursal_numero === null) {
+        $sql_max = "SELECT COALESCE(MAX(sucursal_numero), 0) + 1 AS proximo FROM gestion__entidades_sucursales WHERE entidad_id = ?";
+        $stmt_max = mysqli_prepare($conexion, $sql_max);
+        if ($stmt_max) {
+            mysqli_stmt_bind_param($stmt_max, "i", $entidad_id);
+            mysqli_stmt_execute($stmt_max);
+            $res_max = mysqli_stmt_get_result($stmt_max);
+            if ($row_max = mysqli_fetch_assoc($res_max)) {
+                $sucursal_numero = intval($row_max['proximo']);
+            }
+            mysqli_stmt_close($stmt_max);
+        }
+        if ($sucursal_numero === null || $sucursal_numero < 1) {
+            $sucursal_numero = 1;
+        }
+    }
+
     // Insertar nueva sucursal
     $sql = "INSERT INTO gestion__entidades_sucursales 
-            (empresa_id, entidad_id, sucursal_nombre, sucursal_direccion, localidad_id, 
+            (empresa_id, entidad_id, sucursal_numero, sucursal_nombre, sucursal_direccion, localidad_id, 
              sucursal_telefono, sucursal_email, sucursal_contacto, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "iississsi", 
+    mysqli_stmt_bind_param($stmt, "iiississsi", 
         $empresa_id, 
         $entidad_id,
+        $sucursal_numero,
         $sucursal_nombre,
         $sucursal_direccion,
         $localidad_id,
@@ -1048,9 +1182,12 @@ function editarSucursal($conexion, $id, $data)
         return ['resultado' => false, 'error' => 'Ya existe otra sucursal con este nombre para esta entidad'];
     }
 
+    $sucursal_numero = isset($data['sucursal_numero']) && $data['sucursal_numero'] !== '' ? intval($data['sucursal_numero']) : null;
+
     // Actualizar sucursal
     $sql = "UPDATE gestion__entidades_sucursales 
-            SET sucursal_nombre = ?, 
+            SET sucursal_numero = COALESCE(?, sucursal_numero),
+                sucursal_nombre = ?, 
                 sucursal_direccion = ?, 
                 localidad_id = ?, 
                 sucursal_telefono = ?, 
@@ -1062,7 +1199,8 @@ function editarSucursal($conexion, $id, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssisssi", 
+    mysqli_stmt_bind_param($stmt, "ississsi", 
+        $sucursal_numero,
         $sucursal_nombre,
         $sucursal_direccion,
         $localidad_id,
@@ -1104,11 +1242,12 @@ function obtenerEntidadPorId($conexion, $id, $empresa_idx)
     }
 
     $sql = "SELECT e.*, er.$estado_column as estado_registro, er.codigo_estandar,
-                   et.entidad_tipo, l.localidad
+                   et.entidad_tipo, l.localidad, l.cp, l.provincia_id, p.provincia
             FROM gestion__entidades e
             LEFT JOIN conf__estados_registros er ON e.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN gestion__entidades_tipos et ON e.entidad_tipo_id = et.entidad_tipo_id
             LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
+            LEFT JOIN conf__provincias p ON l.provincia_id = p.provincia_id
             WHERE e.entidad_id = ? AND e.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -1121,6 +1260,18 @@ function obtenerEntidadPorId($conexion, $id, $empresa_idx)
     $entidad = mysqli_fetch_assoc($result);
 
     mysqli_stmt_close($stmt);
+
+    if ($entidad) {
+        $roles = obtenerRolesEntidad($conexion, $id);
+        $entidad['roles'] = $roles;
+        $entidad['roles_codigos'] = array_column($roles, 'rol_entidad_codigo');
+        $entidad['roles_cuentas'] = [];
+        foreach ($roles as $r) {
+            $entidad['roles_cuentas'][$r['rol_entidad_codigo']] = $r['cont_cuenta_id'];
+        }
+        $entidad['cuentas_defecto_roles'] = obtenerCuentasDefectoRolesEmpresa($conexion, $empresa_idx);
+    }
+
     return $entidad;
 }
 
@@ -1146,10 +1297,11 @@ function obtenerSucursalPorId($conexion, $id, $empresa_idx)
     }
 
     $sql = "SELECT es.*, er.$estado_column as estado_registro, er.codigo_estandar,
-                   l.localidad, e.entidad_nombre
+                   l.localidad, l.cp, l.provincia_id, p.provincia, e.entidad_nombre
             FROM gestion__entidades_sucursales es
             LEFT JOIN conf__estados_registros er ON es.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__localidades l ON es.localidad_id = l.localidad_id
+            LEFT JOIN conf__provincias p ON l.provincia_id = p.provincia_id
             LEFT JOIN gestion__entidades e ON es.entidad_id = e.entidad_id
             WHERE es.sucursal_id = ? AND es.empresa_id = ?";
 

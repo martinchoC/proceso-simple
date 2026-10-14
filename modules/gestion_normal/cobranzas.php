@@ -321,21 +321,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <!-- MODAL DE VISUALIZACIÓN DE RECIBO -->
 <div class="modal fade" id="modalVerRecibo" tabindex="-1" aria-labelledby="modalVerReciboLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white py-2">
                 <h5 class="modal-title fs-6 fw-bold" id="modalVerReciboLabel">
-                    <i class="fas fa-file-invoice me-2"></i>Detalle de Recibo de Cobro
+                    <i class="fas fa-receipt me-2 text-warning"></i>Detalle de Recibo de Cobro
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4" id="cuerpoReciboImpresion">
-                <!-- Se llena vía JS con formato formal de recibo -->
+                <!-- Se llena vía JS con formato formal de recibo y asiento contable automático -->
             </div>
             <div class="modal-footer bg-light py-2">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-outline-dark btn-sm" id="btnImprimirRecibo">
-                    <i class="fas fa-print me-1"></i> Imprimir
+                <button type="button" class="btn btn-primary btn-sm" id="btnImprimirRecibo">
+                    <i class="fas fa-print me-1"></i> Imprimir Recibo
                 </button>
             </div>
         </div>

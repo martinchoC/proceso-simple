@@ -566,13 +566,28 @@ function agregarFacturaProveedor($conexion, $data)
         $exento_val = floatval($data['exento'] ?? 0);
         $descuentos_val = floatval($data['descuentos'] ?? 0);
         $impuestos_val = floatval($data['impuestos'] ?? 0);
-        $total_val = floatval($data['total'] ?? 0);
+        $otros_impuestos_val = floatval($data['otros_impuestos'] ?? 0);
+        $total_val = round($subtotal_val + $no_gravado_val + $exento_val + $impuestos_val + $otros_impuestos_val, 2);
         $descuento_general_pct_val = $descuento_general_pct;
         $observaciones_val = $observaciones;
         $estado_inicial_val = intval($estado_inicial);
 
-        // Cadena de tipos: 23 parámetros
-        $types = "iiiiiiiissssiidsdddddddsi";
+        // Insertar factura con otros_impuestos
+        $sql = "INSERT INTO gestion__facturas_proveedores 
+                (empresa_id, sucursal_id, deposito_id, comprobante_tipo_id, comprobante_pv, comprobante_nro, 
+                 entidad_id, entidad_sucursal_id, f_emision, f_contabilidad, f_vencimiento, f_entrega_estimada,
+                 condicion_pago_id, moneda_id, tipo_cambio, direccion_entrega, 
+                 subtotal, no_gravado, exento, descuentos, impuestos, otros_impuestos, total, 
+                 descuento_general_pct, observaciones, tabla_estado_registro_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception("Error preparando insert: " . mysqli_error($conexion));
+        }
+
+        // Cadena de tipos: 26 parámetros
+        $types = "iiiiiiiissssiidsddddddddsi";
         mysqli_stmt_bind_param($stmt, $types,
             $empresa_id_val,
             $sucursal_id_val,
@@ -595,13 +610,12 @@ function agregarFacturaProveedor($conexion, $data)
             $exento_val,
             $descuentos_val,
             $impuestos_val,
+            $otros_impuestos_val,
             $total_val,
             $descuento_general_pct_val,
             $observaciones_val,
             $estado_inicial_val
         );
-
-        
 
         if (!mysqli_stmt_execute($stmt)) {
             throw new Exception("Error ejecutando insert: " . mysqli_stmt_error($stmt));
@@ -636,13 +650,13 @@ function agregarFacturaProveedor($conexion, $data)
             'usuario_id' => $_SESSION['usuario_id'] ?? 0,
             'observaciones' => $observaciones_val,
             // Mapeo de campos financieros
-            'importe_neto' => floatval($data['subtotal'] ?? 0),
-            'descuento_general' => floatval($data['descuentos'] ?? 0),
-            'importe_no_gravado' => floatval($data['no_gravado'] ?? 0),
-            'importe_exento' => floatval($data['exento'] ?? 0),
-            'importe_iva' => floatval($data['impuestos'] ?? 0),
-            'importe_otros_impuestos' => floatval($data['otros_impuestos'] ?? 0),
-            'importe_total' => floatval($data['total'] ?? 0)
+            'importe_neto' => $subtotal_val,
+            'descuento_general' => $descuentos_val,
+            'importe_no_gravado' => $no_gravado_val,
+            'importe_exento' => $exento_val,
+            'importe_iva' => $impuestos_val,
+            'importe_otros_impuestos' => $otros_impuestos_val,
+            'importe_total' => $total_val
         ];
 
         $comprobante_id = syncComprobante($conexion, $comprobante_data, $tabla_origen_id);
@@ -684,7 +698,16 @@ function agregarFacturaProveedor($conexion, $data)
             }
             guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $empresa_id_val, true);
         }
+
+        // Generar asiento contable en borrador
+        $asiento_res = generarAsientoContableFactura($conexion, $factura_proveedor_id, $empresa_id_val, true);
+        if (!$asiento_res['success']) {
+            error_log("Aviso asiento borrador: " . ($asiento_res['message'] ?? ''));
+        }
+
         mysqli_commit($conexion);
+        error_log("=== FIN agregarFacturaProveedor - ÉXITO ===");
+        return ['resultado' => true, 'factura_proveedor_id' => $factura_proveedor_id];
         error_log("=== FIN agregarFacturaProveedor - ÉXITO ===");
         return ['resultado' => true, 'factura_proveedor_id' => $factura_proveedor_id];
 
@@ -757,6 +780,7 @@ function editarFacturaProveedor($conexion, $id, $data)
                 exento = ?,
                 descuentos = ?, 
                 impuestos = ?, 
+                otros_impuestos = ?,
                 total = ?,
                 descuento_general_pct = ?,
                 observaciones = ?
@@ -788,15 +812,15 @@ function editarFacturaProveedor($conexion, $id, $data)
         $no_gravado_val = floatval($data['no_gravado'] ?? 0);
         $exento_val = floatval($data['exento'] ?? 0);
         $impuestos_val = floatval($data['impuestos'] ?? 0);
-        $total_val = floatval($data['total'] ?? 0);
+        $otros_impuestos_val = floatval($data['otros_impuestos'] ?? 0);
+        $total_val = round($subtotal_val + $no_gravado_val + $exento_val + $impuestos_val + $otros_impuestos_val, 2);
         $descuento_general_pct_val = $descuento_general_pct;
         $observaciones_val = $observaciones;
         $id_val = $id;
         $empresa_idx_val = intval($data['empresa_idx']);
 
-        // Cadena de tipos: 23 parámetros (21 SET + 2 WHERE)
-        $types = "iiiiiiissssiidsdddddddsii";
-         //1, 34, 1, 90, 2, 2, '2026-03-09', '2026-03-19', NULL, 1, 1, 1.0, '', 667555.3, 36711.7, 0.0, 0.0, 140186.61, 807741.91, 0.0, '', 8, 2
+        // Cadena de tipos: 26 parámetros (24 SET + 2 WHERE)
+        $types = "iiiiiiissssiidsddddddddsii";
         mysqli_stmt_bind_param($stmt, $types,
             $sucursal_id_val,
             $deposito_id_val,
@@ -814,10 +838,11 @@ function editarFacturaProveedor($conexion, $id, $data)
             $tipo_cambio_val,
             $direccion_val,
             $subtotal_val,
-            $descuentos_val,
             $no_gravado_val,
             $exento_val,
+            $descuentos_val,
             $impuestos_val,
+            $otros_impuestos_val,
             $total_val,
             $descuento_general_pct_val,
             $observaciones_val,
@@ -867,13 +892,13 @@ function editarFacturaProveedor($conexion, $id, $data)
             'tabla_estado_registro_id' => $estado_actual_id,
             'usuario_id' => $_SESSION['usuario_id'] ?? 0,
             'observaciones' => $observaciones_val,
-            'importe_neto' => floatval($data['subtotal'] ?? 0),
-            'descuento_general' => floatval($data['descuentos'] ?? 0),
-            'importe_no_gravado' => floatval($data['no_gravado'] ?? 0),
-            'importe_exento' => floatval($data['exento'] ?? 0),
-            'importe_iva' => floatval($data['impuestos'] ?? 0),
-            'importe_otros_impuestos' => floatval($data['otros_impuestos'] ?? 0),
-            'importe_total' => floatval($data['total'] ?? 0)
+            'importe_neto' => $subtotal_val,
+            'descuento_general' => $descuentos_val,
+            'importe_no_gravado' => $no_gravado_val,
+            'importe_exento' => $exento_val,
+            'importe_iva' => $impuestos_val,
+            'importe_otros_impuestos' => $otros_impuestos_val,
+            'importe_total' => $total_val
         ];
 
         $nuevo_comprobante_id = syncComprobante($conexion, $comprobante_data, $tabla_origen_id);
@@ -889,8 +914,6 @@ function editarFacturaProveedor($conexion, $id, $data)
             mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
         }
-
-
 
         // ===== PROCESAR DETALLES =====
         // Primero, eliminar todos los detalles existentes
@@ -934,6 +957,12 @@ function editarFacturaProveedor($conexion, $id, $data)
                 throw new Exception('Impuestos adicionales con formato inválido');
             }
             guardarImpuestosFactura($conexion, $id, $impuestos, $empresa_idx_val, true);
+        }
+
+        // Generar o actualizar asiento contable en borrador
+        $asiento_res = generarAsientoContableFactura($conexion, $id, $empresa_idx_val, true);
+        if (!$asiento_res['success']) {
+            error_log("Aviso asiento borrador: " . ($asiento_res['message'] ?? ''));
         }
 
         mysqli_commit($conexion);
@@ -2383,16 +2412,17 @@ function guardarImpuestosFactura($conexion, $factura_proveedor_id, $impuestos, $
         mysqli_stmt_close($stmt_ins);
         $total = round($total, 2);
 
-        $stmt = mysqli_prepare($conexion, "UPDATE gestion__facturas_proveedores SET otros_impuestos = ? WHERE factura_proveedor_id = ?");
-        mysqli_stmt_bind_param($stmt, "di", $total, $factura_proveedor_id);
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__facturas_proveedores SET otros_impuestos = ?, total = ROUND(subtotal + no_gravado + exento + impuestos + ?, 2) WHERE factura_proveedor_id = ?");
+        mysqli_stmt_bind_param($stmt, "ddi", $total, $total, $factura_proveedor_id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
-        $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes SET importe_otros_impuestos = ? WHERE comprobante_id = ?");
-        mysqli_stmt_bind_param($stmt, "di", $total, $comprobante_id);
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes SET importe_otros_impuestos = ?, importe_total = ROUND(importe_neto + importe_no_gravado + importe_exento + importe_iva + ?, 2) WHERE comprobante_id = ?");
+        mysqli_stmt_bind_param($stmt, "ddi", $total, $total, $comprobante_id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
 
         if (!$en_transaccion) {
+            generarAsientoContableFactura($conexion, $factura_proveedor_id, $empresa_idx, true);
             mysqli_commit($conexion);
         }
         error_log("=== FIN guardarImpuestosFactura: $cantidad impuestos, total $total ===");
@@ -2730,7 +2760,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
                                               COALESCE(NULLIF(p.cont_cuenta_compra_id, 0), NULLIF(p.cont_cuenta_id, 0),
                                                        NULLIF(pt.cont_cuenta_compra_default_id, 0)) AS cuenta_compra_id,
                                               NULLIF(iva.cont_cuenta_compra_id, 0) AS cuenta_iva_id,
-                                              p.producto_codigo
+                                              p.producto_codigo, p.producto_nombre, iva.porcentaje AS iva_porcentaje
                                        FROM gestion__facturas_proveedores_detalle d
                                        LEFT JOIN gestion__productos p ON d.producto_id = p.producto_id
                                        LEFT JOIN gestion__productos_tipos pt ON pt.producto_tipo_id = p.producto_tipo_id AND pt.empresa_id = p.empresa_id
@@ -2740,6 +2770,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $renglones = [];      // cuenta|producto => importe
+    $renglones_meta = [];
     $faltantes = [];
     $hay_lineas = false;
     while ($d = mysqli_fetch_assoc($result)) {
@@ -2752,6 +2783,12 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
             } else {
                 $clave = $d['cuenta_compra_id'] . '|' . intval($d['producto_id']);
                 $renglones[$clave] = ($renglones[$clave] ?? 0) + $importe_compra;
+                $nomProd = $d['producto_nombre'] ?: ($d['producto_codigo'] ?: ('Producto ID ' . $d['producto_id']));
+                $renglones_meta[$clave] = [
+                    'cuenta_id' => intval($d['cuenta_compra_id']),
+                    'producto_id' => intval($d['producto_id']),
+                    'descripcion' => 'Compra - ' . $nomProd
+                ];
             }
         }
         $iva = floatval($d['iva_importe']);
@@ -2761,6 +2798,12 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
             } else {
                 $clave = $d['cuenta_iva_id'] . '|0';
                 $renglones[$clave] = ($renglones[$clave] ?? 0) + $iva;
+                $ivaPct = floatval($d['iva_porcentaje'] ?? 0);
+                $renglones_meta[$clave] = [
+                    'cuenta_id' => intval($d['cuenta_iva_id']),
+                    'producto_id' => null,
+                    'descripcion' => 'IVA Crédito Fiscal' . ($ivaPct > 0 ? " $ivaPct%" : '')
+                ];
             }
         }
     }
@@ -2770,10 +2813,11 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
     }
 
     // Impuestos adicionales (percepciones, etc.) del comprobante
-    $stmt = mysqli_prepare($conexion, "SELECT ci.importe, cfg.cont_cuenta_id, it.impuesto_tipo
+    $stmt = mysqli_prepare($conexion, "SELECT ci.importe, cfg.cont_cuenta_id, it.impuesto_tipo, j.jurisdiccion_nombre
                                        FROM gestion__comprobantes_impuestos ci
                                        LEFT JOIN gestion__empresas_impuestos_config cfg ON cfg.empresa_impuesto_config_id = ci.empresa_impuesto_config_id
                                        LEFT JOIN gestion__impuestos_tipos it ON it.impuesto_tipo_id = cfg.impuesto_tipo_id
+                                       LEFT JOIN gestion__jurisdicciones j ON j.jurisdiccion_id = cfg.jurisdiccion_id
                                        WHERE ci.comprobante_id = ? AND ci.tabla_estado_registro_id = 1");
     mysqli_stmt_bind_param($stmt, "i", $comprobante_id);
     mysqli_stmt_execute($stmt);
@@ -2788,6 +2832,12 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
         $clave = $imp['cont_cuenta_id'] . '|0';
         $renglones[$clave] = ($renglones[$clave] ?? 0) + floatval($imp['importe']);
         $total_impuestos_ci += floatval($imp['importe']);
+        $descImp = trim(($imp['impuesto_tipo'] ?? 'Impuesto adicional') . (!empty($imp['jurisdiccion_nombre']) ? ' - ' . $imp['jurisdiccion_nombre'] : ''));
+        $renglones_meta[$clave] = [
+            'cuenta_id' => intval($imp['cont_cuenta_id']),
+            'producto_id' => null,
+            'descripcion' => $descImp
+        ];
     }
     mysqli_stmt_close($stmt);
 
@@ -2808,6 +2858,11 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
         if ($cuenta_imp_id > 0) {
             $clave = $cuenta_imp_id . '|0';
             $renglones[$clave] = ($renglones[$clave] ?? 0) + $dif_imp;
+            $renglones_meta[$clave] = [
+                'cuenta_id' => $cuenta_imp_id,
+                'producto_id' => null,
+                'descripcion' => 'Otros Impuestos'
+            ];
         }
     }
 
@@ -2817,18 +2872,34 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
 
     $total_factura = round(floatval($factura['total']), 2);
     $total_debe = round(array_sum($renglones), 2);
+
+    // Si el total almacenado en la factura no coincide con la suma del Debe (compras + IVA + percepciones)
+    // porque se guardó sin incluir otros_impuestos o por percepciones agregadas después:
+    if (abs($total_debe - $total_factura) > 0.01) {
+        $neto_mas_iva = round(floatval($factura['subtotal'] ?? 0) - floatval($factura['descuentos'] ?? 0)
+                            + floatval($factura['no_gravado'] ?? 0) + floatval($factura['exento'] ?? 0)
+                            + floatval($factura['impuestos'] ?? 0), 2);
+        if (abs($total_debe - ($total_factura + $total_impuestos_ci)) <= 0.02 || abs($total_debe - ($neto_mas_iva + $otros_imp_factura)) <= 0.02) {
+            $total_factura = $total_debe;
+            $tot_imp_sincronizar = $total_impuestos_ci > 0.0001 ? $total_impuestos_ci : $otros_imp_factura;
+            mysqli_query($conexion, "UPDATE gestion__facturas_proveedores SET total = $total_debe, otros_impuestos = $tot_imp_sincronizar WHERE factura_proveedor_id = $factura_proveedor_id");
+            mysqli_query($conexion, "UPDATE gestion__comprobantes SET importe_total = $total_debe, importe_otros_impuestos = $tot_imp_sincronizar WHERE comprobante_id = $comprobante_id");
+        }
+    }
+
     if (abs($total_debe - $total_factura) > 0.01) {
         return ['success' => false, 'message' => "Asiento no balanceado: compras + IVA + impuestos = $total_debe, total de la factura = $total_factura"];
     }
 
     $detalles_asiento = [];
     foreach ($renglones as $clave => $importe) {
-        list($cuenta_id, $producto_id) = array_map('intval', explode('|', $clave));
+        $meta = $renglones_meta[$clave] ?? null;
+        list($cuenta_id_fallback, $producto_id_fallback) = array_map('intval', explode('|', $clave));
         $detalles_asiento[] = [
-            'cuenta_id' => $cuenta_id,
-            'producto_id' => $producto_id ?: null,
+            'cuenta_id' => $meta ? $meta['cuenta_id'] : $cuenta_id_fallback,
+            'producto_id' => $meta ? $meta['producto_id'] : ($producto_id_fallback ?: null),
             'importe' => round($signo * $importe, 2),
-            'descripcion' => $producto_id ? 'Compra - Producto ID: ' . $producto_id : 'Impuestos'
+            'descripcion' => $meta ? $meta['descripcion'] : ($producto_id_fallback ? 'Compra - Producto ID: ' . $producto_id_fallback : 'Impuestos')
         ];
     }
     // Proveedor: en facturas ('+') va al Haber (importe negativo); en NC ('-') va al Debe (importe positivo)
@@ -2856,7 +2927,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
         $timestamp = strtotime($f_asiento);
         $anio = intval(date('Y', $timestamp));
         $mes = intval(date('m', $timestamp));
-        $estado_asiento = 3;
+        $estado_asiento = in_array(intval($factura['tabla_estado_registro_id'] ?? 3), [1, 5], true) ? 1 : 3;
         $sucursal_id = intval($factura['sucursal_id'] ?? 0);
         $deposito_id = intval($factura['deposito_id'] ?? 0);
         $entidad_id = intval($factura['entidad_id'] ?? 0);

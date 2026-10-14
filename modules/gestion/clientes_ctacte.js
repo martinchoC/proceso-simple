@@ -42,6 +42,7 @@ $(function () {
             }
             tabla = $('#tablaSaldos').DataTable(UI.opcionesTabla({
                 data: filas,
+                searching: false,
                 order: [[2, 'desc']],
                 columns: [
                     { data: 'entidad_nombre', render: function (v, t, r) {
@@ -75,11 +76,22 @@ $(function () {
         document.getElementById('detalleCtacte').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
-    $('#btnFiltrarSaldos, #filtroSoloSaldo, #filtroSoloVencidos').on('click change', function (e) {
-        if (e.type === 'click' && this.type === 'checkbox') return;
+    let filtroTimeout = null;
+    $('#filtroTexto').on('input', function () {
+        clearTimeout(filtroTimeout);
+        filtroTimeout = setTimeout(function () {
+            cargarSaldos();
+        }, 300);
+    }).on('keydown', function (e) {
+        if (e.key === 'Enter') {
+            clearTimeout(filtroTimeout);
+            cargarSaldos();
+        }
+    });
+
+    $('#filtroSoloSaldo, #filtroSoloVencidos').on('change', function () {
         cargarSaldos();
     });
-    $('#filtroTexto').on('keyup', function (e) { if (e.key === 'Enter') cargarSaldos(); });
 
     // Acceso directo desde otra pantalla: clientes_ctacte.php?entidad_id=N
     const entidadUrl = parseInt(new URLSearchParams(window.location.search).get('entidad_id'), 10);

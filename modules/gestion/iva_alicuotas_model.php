@@ -7,7 +7,7 @@ $conexion = $conn;
  * Toda la configuración se obtiene de conf__paginas_funciones
  */
 
-// Obtener cuentas contables de la empresa
+// Obtener cuentas contables de la empresa (solo imputables y activas)
 function obtenerCuentasContables($conexion, $empresa_idx) {
     $empresa_idx = intval($empresa_idx);
     
@@ -15,6 +15,7 @@ function obtenerCuentasContables($conexion, $empresa_idx) {
             FROM gestion__cont_cuentas 
             WHERE empresa_id = ? 
             AND tabla_estado_registro_id = 1  -- Solo cuentas activas
+            AND es_imputable = 1              -- Solo cuentas imputables
             ORDER BY codigo";
     
     $stmt = mysqli_prepare($conexion, $sql);
@@ -248,7 +249,7 @@ function ejecutarTransicionEstado($conexion, $iva_alicuota_id, $accion_js, $empr
     }
 }
 
-// ✅ Obtener todas las alícuotas IVA (con información de cuenta contable)
+// ✅ Obtener todas las alícuotas IVA (con información de cuentas contables)
 function obtenerIvaAlicuotas($conexion, $empresa_idx, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
@@ -274,12 +275,15 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx, $pagina_id)
                    er.$estado_column as estado_registro, 
                    er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,
-                   cc.codigo as cuenta_codigo,
-                   cc.nombre as cuenta_nombre
+                   cc_compra.codigo as cuenta_compra_codigo,
+                   cc_compra.nombre as cuenta_compra_nombre,
+                   cc_venta.codigo as cuenta_venta_codigo,
+                   cc_venta.nombre as cuenta_venta_nombre
             FROM gestion__impuestos__iva_alicuotas ia
             LEFT JOIN conf__estados_registros er ON ia.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN conf__colores c ON er.color_id = c.color_id
-            LEFT JOIN gestion__cont_cuentas cc ON ia.cont_cuenta_id = cc.cont_cuenta_id
+            LEFT JOIN gestion__cont_cuentas cc_compra ON ia.cont_cuenta_compra_id = cc_compra.cont_cuenta_id
+            LEFT JOIN gestion__cont_cuentas cc_venta ON ia.cont_cuenta_venta_id = cc_venta.cont_cuenta_id
             WHERE ia.empresa_id = ?
             ORDER BY ia.codigo";
 
@@ -316,8 +320,9 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx, $pagina_id)
             'text_clase' => $text_clase
         ];
         
-        // Agregar información de la cuenta contable
-        $fila['cuenta_contable'] = $fila['cuenta_codigo'] ? $fila['cuenta_codigo'] . ' - ' . $fila['cuenta_nombre'] : 'Sin cuenta';
+        // Agregar información de las cuentas contables
+        $fila['cuenta_compra'] = !empty($fila['cuenta_compra_codigo']) ? $fila['cuenta_compra_codigo'] . ' - ' . $fila['cuenta_compra_nombre'] : 'Sin asignar';
+        $fila['cuenta_venta'] = !empty($fila['cuenta_venta_codigo']) ? $fila['cuenta_venta_codigo'] . ' - ' . $fila['cuenta_venta_nombre'] : 'Sin asignar';
 
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $data[] = $fila;
@@ -327,14 +332,15 @@ function obtenerIvaAlicuotas($conexion, $empresa_idx, $pagina_id)
     return $data;
 }
 
-// ✅ Agregar nueva alícuota IVA (con cuenta contable)
+// ✅ Agregar nueva alícuota IVA (con cuentas contables)
 function agregarIvaAlicuota($conexion, $data)
 {
     $empresa_id = mysqli_real_escape_string($conexion, $data['empresa_id'] ?? '');
     $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
     $iva_alicuota = mysqli_real_escape_string($conexion, trim($data['iva_alicuota'] ?? ''));
     $porcentaje = floatval($data['porcentaje'] ?? 0);
-    $cont_cuenta_id = intval($data['cont_cuenta_id'] ?? 0);
+    $cont_cuenta_compra_id = intval($data['cont_cuenta_compra_id'] ?? 0);
+    $cont_cuenta_venta_id = intval($data['cont_cuenta_venta_id'] ?? 0);
     $es_gravado = intval($data['es_gravado'] ?? 1);
     $es_exento = intval($data['es_exento'] ?? 0);
     $es_no_gravado = intval($data['es_no_gravado'] ?? 0);
@@ -345,10 +351,6 @@ function agregarIvaAlicuota($conexion, $data)
 
     if (empty($iva_alicuota)) {
         return ['resultado' => false, 'error' => 'La descripción es obligatoria'];
-    }
-
-    if ($cont_cuenta_id <= 0) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar una cuenta contable válida'];
     }
 
     if (strlen($codigo) > 10) {
@@ -390,15 +392,15 @@ function agregarIvaAlicuota($conexion, $data)
 
     // Insertar nueva alícuota IVA
     $sql = "INSERT INTO gestion__impuestos__iva_alicuotas 
-            (empresa_id, codigo, iva_alicuota, porcentaje, cont_cuenta_id, es_gravado, es_exento, es_no_gravado, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            (empresa_id, codigo, iva_alicuota, porcentaje, cont_cuenta_compra_id, cont_cuenta_venta_id, es_gravado, es_exento, es_no_gravado, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+        return ['resultado' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
 
-    mysqli_stmt_bind_param($stmt, "sssdiidii", $empresa_id, $codigo, $iva_alicuota, $porcentaje, 
-                          $cont_cuenta_id, $es_gravado, $es_exento, $es_no_gravado, $estado_inicial);
+    mysqli_stmt_bind_param($stmt, "sssdiidiii", $empresa_id, $codigo, $iva_alicuota, $porcentaje, 
+                          $cont_cuenta_compra_id, $cont_cuenta_venta_id, $es_gravado, $es_exento, $es_no_gravado, $estado_inicial);
     $success = mysqli_stmt_execute($stmt);
 
     if ($success) {
@@ -406,12 +408,13 @@ function agregarIvaAlicuota($conexion, $data)
         mysqli_stmt_close($stmt);
         return ['resultado' => true, 'iva_alicuota_id' => $iva_alicuota_id];
     } else {
+        $err = mysqli_stmt_error($stmt);
         mysqli_stmt_close($stmt);
-        return ['resultado' => false, 'error' => 'Error al crear la alícuota IVA'];
+        return ['resultado' => false, 'error' => 'Error al crear la alícuota IVA: ' . $err];
     }
 }
 
-// ✅ Editar alícuota IVA existente (con cuenta contable)
+// ✅ Editar alícuota IVA existente (con cuentas contables)
 function editarIvaAlicuota($conexion, $id, $data)
 {
     $id = intval($id);
@@ -419,7 +422,8 @@ function editarIvaAlicuota($conexion, $id, $data)
     $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
     $iva_alicuota = mysqli_real_escape_string($conexion, trim($data['iva_alicuota'] ?? ''));
     $porcentaje = floatval($data['porcentaje'] ?? 0);
-    $cont_cuenta_id = intval($data['cont_cuenta_id'] ?? 0);
+    $cont_cuenta_compra_id = intval($data['cont_cuenta_compra_id'] ?? 0);
+    $cont_cuenta_venta_id = intval($data['cont_cuenta_venta_id'] ?? 0);
     $es_gravado = intval($data['es_gravado'] ?? 1);
     $es_exento = intval($data['es_exento'] ?? 0);
     $es_no_gravado = intval($data['es_no_gravado'] ?? 0);
@@ -430,10 +434,6 @@ function editarIvaAlicuota($conexion, $id, $data)
 
     if (empty($iva_alicuota)) {
         return ['resultado' => false, 'error' => 'La descripción es obligatoria'];
-    }
-
-    if ($cont_cuenta_id <= 0) {
-        return ['resultado' => false, 'error' => 'Debe seleccionar una cuenta contable válida'];
     }
 
     if (strlen($codigo) > 10) {
@@ -489,27 +489,28 @@ function editarIvaAlicuota($conexion, $id, $data)
 
     // Actualizar alícuota IVA
     $sql = "UPDATE gestion__impuestos__iva_alicuotas 
-            SET codigo = ?, iva_alicuota = ?, porcentaje = ?, cont_cuenta_id = ?,
+            SET codigo = ?, iva_alicuota = ?, porcentaje = ?, cont_cuenta_compra_id = ?, cont_cuenta_venta_id = ?,
                 es_gravado = ?, es_exento = ?, es_no_gravado = ? 
             WHERE iva_alicuota_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
+        return ['resultado' => false, 'error' => 'Error en la consulta: ' . mysqli_error($conexion)];
 
-    mysqli_stmt_bind_param($stmt, "ssdiidii", $codigo, $iva_alicuota, $porcentaje, 
-                          $cont_cuenta_id, $es_gravado, $es_exento, $es_no_gravado, $id);
+    mysqli_stmt_bind_param($stmt, "ssdiidiii", $codigo, $iva_alicuota, $porcentaje, 
+                          $cont_cuenta_compra_id, $cont_cuenta_venta_id, $es_gravado, $es_exento, $es_no_gravado, $id);
     $success = mysqli_stmt_execute($stmt);
+    $err = mysqli_stmt_error($stmt);
     mysqli_stmt_close($stmt);
 
     if ($success) {
         return ['resultado' => true];
     } else {
-        return ['resultado' => false, 'error' => 'Error al actualizar la alícuota IVA'];
+        return ['resultado' => false, 'error' => 'Error al actualizar la alícuota IVA: ' . $err];
     }
 }
 
-// ✅ Obtener alícuota IVA específica (con cuenta contable)
+// ✅ Obtener alícuota IVA específica (con cuentas contables)
 function obtenerIvaAlicuotaPorId($conexion, $id, $empresa_idx)
 {
     $id = intval($id);
@@ -532,10 +533,12 @@ function obtenerIvaAlicuotaPorId($conexion, $id, $empresa_idx)
     }
 
     $sql = "SELECT ia.*, er.$estado_column as estado_registro, er.codigo_estandar,
-                   cc.codigo as cuenta_codigo, cc.nombre as cuenta_nombre
+                   cc_compra.codigo as cuenta_compra_codigo, cc_compra.nombre as cuenta_compra_nombre,
+                   cc_venta.codigo as cuenta_venta_codigo, cc_venta.nombre as cuenta_venta_nombre
             FROM gestion__impuestos__iva_alicuotas ia
             LEFT JOIN conf__estados_registros er ON ia.tabla_estado_registro_id = er.estado_registro_id
-            LEFT JOIN gestion__cont_cuentas cc ON ia.cont_cuenta_id = cc.cont_cuenta_id
+            LEFT JOIN gestion__cont_cuentas cc_compra ON ia.cont_cuenta_compra_id = cc_compra.cont_cuenta_id
+            LEFT JOIN gestion__cont_cuentas cc_venta ON ia.cont_cuenta_venta_id = cc_venta.cont_cuenta_id
             WHERE ia.iva_alicuota_id = ? AND ia.empresa_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);

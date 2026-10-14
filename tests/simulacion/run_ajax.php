@@ -21,7 +21,16 @@ $method = $params['_method'] ?? 'POST';
 $usuario_id = intval($params['_usuario_id'] ?? 1);
 $modulo = preg_replace('/[^a-z_]/', '', $params['_modulo'] ?? 'gestion') ?: 'gestion';
 $empresa_id = intval($params['_empresa_id'] ?? 2);
-unset($params['_method'], $params['_usuario_id'], $params['_modulo'], $params['_empresa_id']);
+// Archivos subidos: {"_files": {"campo": {"name": "x.txt", "content": "..."}}} -> $_FILES como lo arma PHP
+$archivos = is_array($params['_files'] ?? null) ? $params['_files'] : [];
+unset($params['_method'], $params['_usuario_id'], $params['_modulo'], $params['_empresa_id'], $params['_files']);
+$_FILES = [];
+foreach ($archivos as $campo => $a) {
+    $tmp = tempnam(sys_get_temp_dir(), 'sim');
+    file_put_contents($tmp, (string)($a['content'] ?? ''));
+    $_FILES[$campo] = ['name' => (string)($a['name'] ?? 'archivo'), 'type' => 'application/octet-stream',
+                       'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => filesize($tmp)];
+}
 
 session_start();
 $_SESSION['logueado'] = true;

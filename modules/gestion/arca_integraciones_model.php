@@ -147,7 +147,7 @@ function obtenerAmbientesActivos($conexion)
 // ✅ Puntos de venta de la empresa con código fiscal (sugerencias en las pruebas)
 function obtenerPuntosVentaFiscales($conexion, $empresa_idx)
 {
-    $sql = "SELECT punto_venta_id, nombre, codigo_fiscal
+    $sql = "SELECT punto_venta_id, nombre, codigo_fiscal, sistema_emision
             FROM gestion__puntos_venta
             WHERE empresa_id = ? AND codigo_fiscal IS NOT NULL AND tabla_estado_registro_id = 1
             ORDER BY codigo_fiscal";

@@ -30,6 +30,148 @@ const TIPO_COMPROBANTE_RCX_ID    = 24; // Recibo de Cobro
 const TABLA_COBRANZAS_ID         = 275; // gestion__cobranzas en conf__tablas
 
 /**
+ * Retenciones sufridas (medios de tipo RETENCION): IVA, Ganancias o Ingresos Brutos que nos retiene el cliente.
+ * El impuesto es un gestion__impuestos_tipos con es_retencion = 1 y aplica_venta = 1; IIBB lleva jurisdicción provincial.
+ */
+function cobImpuestoEsIibb($impuesto_tipo)
+{
+    $n = mb_strtoupper((string)$impuesto_tipo, 'UTF-8');
+    return strpos($n, 'IIBB') !== false || strpos($n, 'INGRESOS BRUTOS') !== false;
+}
+
+/**
+ * Valida las líneas de retención de una cobranza y completa sus datos: impuesto del medio si no vino,
+ * jurisdicción solo para IIBB. Certificado obligatorio y sin repetir para el mismo cliente, impuesto y jurisdicción.
+ */
+function cobValidarRetenciones($conexion, $empresa_id, $entidad_id, $cobranza_id, array &$medios)
+{
+    $stmt_mp = mysqli_prepare($conexion, "SELECT medio_pago, medio_pago_tipo, impuesto_tipo_id FROM gestion__medios_pago WHERE medio_pago_id = ? AND empresa_id = ? LIMIT 1");
+    $stmt_it = mysqli_prepare($conexion, "SELECT impuesto_tipo FROM gestion__impuestos_tipos WHERE impuesto_tipo_id = ? AND es_retencion = 1 AND aplica_venta = 1 AND tabla_estado_registro_id = 1 LIMIT 1");
+    $stmt_jur = mysqli_prepare($conexion, "SELECT jurisdiccion_nombre FROM gestion__jurisdicciones WHERE jurisdiccion_id = ? AND jurisdiccion_tipo_id = 2 AND tabla_estado_registro_id = 1 LIMIT 1");
+    $stmt_dup = mysqli_prepare($conexion, "SELECT c.cobranza_id, c.comprobante_nro
+                                           FROM gestion__cobranzas_medios cm
+                                           JOIN gestion__cobranzas c ON c.cobranza_id = cm.cobranza_id
+                                           WHERE c.empresa_id = ? AND c.entidad_id = ? AND c.cobranza_id <> ?
+                                             AND c.tabla_estado_registro_id NOT IN (?, ?)
+                                             AND cm.impuesto_tipo_id = ? AND COALESCE(cm.jurisdiccion_id, 0) = ?
+                                             AND cm.retencion_certificado_nro = ?
+                                           LIMIT 1");
+    $est_anulado = ESTADO_COBRANZA_ANULADO;
+    $est_eliminado = ESTADO_COBRANZA_ELIMINADO;
+    $vistos = [];
+
+    foreach ($medios as $i => &$m) {
+        $fila = 'Medio ' . ($i + 1) . ': ';
+        $medio_pago_id = intval($m['medio_pago_id'] ?? 0);
+        mysqli_stmt_bind_param($stmt_mp, "ii", $medio_pago_id, $empresa_id);
+        mysqli_stmt_execute($stmt_mp);
+        $mp = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_mp));
+        if (!$mp) {
+            throw new Exception($fila . 'el medio de cobro no existe en la empresa.');
+        }
+        if ($mp['medio_pago_tipo'] !== 'RETENCION') {
+            continue;
+        }
+
+        if ($entidad_id <= 0) {
+            throw new Exception($fila . 'las retenciones requieren un cliente identificado (un consumidor final no retiene).');
+        }
+
+        $imp_medio = intval($mp['impuesto_tipo_id'] ?? 0);
+        $imp_id = intval($m['impuesto_tipo_id'] ?? 0) ?: $imp_medio;
+        if ($imp_medio > 0 && $imp_id !== $imp_medio) {
+            throw new Exception($fila . "el medio \"{$mp['medio_pago']}\" corresponde a otro impuesto.");
+        }
+        mysqli_stmt_bind_param($stmt_it, "i", $imp_id);
+        mysqli_stmt_execute($stmt_it);
+        $it = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_it));
+        if (!$it) {
+            throw new Exception($fila . 'seleccione el impuesto retenido (IVA, Ganancias o Ingresos Brutos).');
+        }
+
+        $cert = trim((string)($m['retencion_certificado_nro'] ?? ''));
+        if ($cert === '') {
+            throw new Exception($fila . "ingrese el número de certificado de la {$it['impuesto_tipo']}.");
+        }
+
+        $jur_id = 0;
+        if (cobImpuestoEsIibb($it['impuesto_tipo'])) {
+            $jur_id = intval($m['jurisdiccion_id'] ?? 0);
+            mysqli_stmt_bind_param($stmt_jur, "i", $jur_id);
+            mysqli_stmt_execute($stmt_jur);
+            if ($jur_id <= 0 || !mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jur))) {
+                throw new Exception($fila . 'seleccione la jurisdicción (provincia) de la retención de Ingresos Brutos.');
+            }
+        }
+
+        $clave = $imp_id . '|' . $jur_id . '|' . mb_strtoupper($cert, 'UTF-8');
+        if (isset($vistos[$clave])) {
+            throw new Exception($fila . "el certificado $cert está cargado dos veces.");
+        }
+        $vistos[$clave] = true;
+
+        mysqli_stmt_bind_param($stmt_dup, "iiiiiiis", $empresa_id, $entidad_id, $cobranza_id, $est_anulado, $est_eliminado, $imp_id, $jur_id, $cert);
+        mysqli_stmt_execute($stmt_dup);
+        $dup = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_dup));
+        if ($dup) {
+            $ref = intval($dup['comprobante_nro']) > 0 ? 'recibo N° ' . intval($dup['comprobante_nro']) : 'borrador de cobranza #' . intval($dup['cobranza_id']);
+            throw new Exception($fila . "el certificado $cert de {$it['impuesto_tipo']} ya está registrado para este cliente ($ref).");
+        }
+
+        $m['impuesto_tipo_id'] = $imp_id;
+        $m['jurisdiccion_id'] = $jur_id > 0 ? $jur_id : null;
+        $m['retencion_certificado_nro'] = $cert;
+    }
+    unset($m);
+
+    mysqli_stmt_close($stmt_mp);
+    mysqli_stmt_close($stmt_it);
+    mysqli_stmt_close($stmt_jur);
+    mysqli_stmt_close($stmt_dup);
+}
+
+/**
+ * Cuenta contable (activo) de una retención sufrida, para el asiento del recibo.
+ * - IIBB: la de la configuración de impuestos de la empresa para ese impuesto y jurisdicción, vigente a la fecha
+ *   (gestion__empresas_impuestos_config, igual que las percepciones recibidas). Sin configuración, error: no se
+ *   imputa una retención de una provincia en la cuenta de otra.
+ * - IVA / Ganancias: la del medio de cobro (la Posición Mensual de IVA acredita esa misma cuenta).
+ */
+function cobCuentaRetencion($conexion, $empresa_id, array $m, $fecha)
+{
+    $imp_id = intval($m['impuesto_tipo_id'] ?? 0);
+    $jur_id = intval($m['jurisdiccion_id'] ?? 0);
+    $impuesto = trim(($m['impuesto_tipo'] ?? 'Retención') . ' ' . ($m['jurisdiccion_nombre'] ?? ''));
+
+    if ($jur_id > 0) {
+        $stmt = mysqli_prepare($conexion, "SELECT cont_cuenta_id FROM gestion__empresas_impuestos_config
+                                           WHERE empresa_id = ? AND impuesto_tipo_id = ? AND jurisdiccion_id = ?
+                                             AND cont_cuenta_id > 0 AND tabla_estado_registro_id = 1
+                                             AND f_desde <= ? AND (f_hasta IS NULL OR f_hasta >= ?)
+                                           ORDER BY prioridad ASC, empresa_impuesto_config_id ASC LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "iiiss", $empresa_id, $imp_id, $jur_id, $fecha, $fecha);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$row) {
+            throw new Exception("Falta la cuenta contable de la $impuesto: configurarla en los impuestos de la empresa (Configuración de Impuestos, por jurisdicción).");
+        }
+        return intval($row['cont_cuenta_id']);
+    }
+
+    $medio_pago_id = intval($m['medio_pago_id'] ?? 0);
+    $stmt = mysqli_prepare($conexion, "SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = ? AND empresa_id = ? LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "ii", $medio_pago_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $cta = intval(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['cont_cuenta_id'] ?? 0);
+    mysqli_stmt_close($stmt);
+    if ($cta <= 0) {
+        throw new Exception("Falta la cuenta contable de la $impuesto: cargarla en el medio de cobro \"" . ($m['medio_pago'] ?? '') . "\" (Tesorería > Medios de Pago).");
+    }
+    return $cta;
+}
+
+/**
  * Obtiene el estado inicial de la cobranza consultando el estado_registro_id inicial en conf__tablas_estados_registros
  * Mismo patrón que vfEstadoInicial() en ventas_facturas_model.php
  */
@@ -284,6 +426,7 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
         // Botones de acción según estado
         $botones = '<div class="btn-group btn-group-sm" role="group">';
         $botones .= '<button type="button" class="btn btn-outline-info btn-accion" data-id="' . $id . '" data-accion="visualizar" title="Ver Recibo Completo"><i class="fas fa-eye"></i></button>';
+        $botones .= '<button type="button" class="btn btn-outline-secondary btn-accion" data-id="' . $id . '" data-accion="imprimir" title="Imprimir Recibo (Formato Factura)"><i class="fas fa-print"></i></button>';
 
         if ($estado_id === ESTADO_COBRANZA_BORRADOR) {
             $botones .= '<button type="button" class="btn btn-outline-primary btn-accion" data-id="' . $id . '" data-accion="editar" title="Editar Borrador"><i class="fas fa-edit"></i></button>';
@@ -392,7 +535,194 @@ function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id)
     return [
         'cabecera'     => $cabecera,
         'medios'       => $medios,
-        'imputaciones' => $imputaciones
+        'imputaciones' => $imputaciones,
+        'asiento'      => cobranzaObtenerAsiento($conexion, $cobranza_id, $empresa_id)
+    ];
+}
+
+/**
+ * Obtiene el asiento contable automático vinculado a la cobranza
+ */
+function cobranzaObtenerAsiento($conexion, $cobranza_id, $empresa_id)
+{
+    $cobranza_id = intval($cobranza_id);
+    $empresa_id  = intval($empresa_id);
+
+    $stmt_c = mysqli_prepare($conexion, "SELECT comprobante_id, tabla_estado_registro_id, importe_total FROM gestion__cobranzas WHERE cobranza_id = ? AND empresa_id = ? LIMIT 1");
+    if (!$stmt_c) return null;
+    mysqli_stmt_bind_param($stmt_c, "ii", $cobranza_id, $empresa_id);
+    mysqli_stmt_execute($stmt_c);
+    $cob = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_c));
+    mysqli_stmt_close($stmt_c);
+
+    if (!$cob) return null;
+    $comp_id = intval($cob['comprobante_id'] ?? 0);
+
+    // Si está confirmada y con importe mayor a 0 pero no tiene asiento generado, generarlo automáticamente
+    if ($comp_id > 0 && intval($cob['tabla_estado_registro_id']) === ESTADO_COBRANZA_CONFIRMADO && floatval($cob['importe_total']) > 0) {
+        $check = mysqli_prepare($conexion, "SELECT cont_asiento_id FROM gestion__cont_asientos WHERE comprobante_id = ? AND empresa_id = ? LIMIT 1");
+        if ($check) {
+            mysqli_stmt_bind_param($check, "ii", $comp_id, $empresa_id);
+            mysqli_stmt_execute($check);
+            $has_asiento = mysqli_fetch_assoc(mysqli_stmt_get_result($check));
+            mysqli_stmt_close($check);
+            if (!$has_asiento) {
+                cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id);
+            }
+        }
+    }
+
+    if ($comp_id <= 0) return null;
+
+    $sql = "SELECT a.cont_asiento_id, a.empresa_id, a.sucursal_id, a.deposito_id,
+                   a.comprobante_id, a.entidad_id, a.cont_tipo_asiento_id, a.f_asiento,
+                   a.anio, a.mes, a.descripcion, a.moneda_id, a.tipo_cambio,
+                   ta.cont_tipo_asiento, er.estado_registro
+            FROM gestion__cont_asientos a
+            LEFT JOIN gestion__cont_tipos_asientos ta ON ta.cont_tipo_asiento_id = a.cont_tipo_asiento_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = a.tabla_estado_registro_id
+            WHERE a.comprobante_id = ? AND a.empresa_id = ?
+            LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return null;
+    mysqli_stmt_bind_param($stmt, "ii", $comp_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $asiento = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+
+    if (!$asiento) return null;
+
+    $sql_det = "SELECT d.cont_asiento_id, d.cuenta_id, d.importe_local, d.descripcion,
+                       d.tipo, d.estado,
+                       c.codigo AS cuenta_codigo, c.nombre AS cuenta_nombre,
+                       IF(d.importe_local > 0, d.importe_local, 0) AS debe,
+                       IF(d.importe_local < 0, ABS(d.importe_local), 0) AS haber
+                FROM gestion__cont_asientos_detalles d
+                LEFT JOIN gestion__cont_cuentas c ON c.cont_cuenta_id = d.cuenta_id
+                WHERE d.cont_asiento_id = ?
+                ORDER BY d.importe_local DESC, d.cuenta_id ASC";
+    $stmt_det = mysqli_prepare($conexion, $sql_det);
+    if (!$stmt_det) return $asiento;
+    mysqli_stmt_bind_param($stmt_det, "i", $asiento['cont_asiento_id']);
+    mysqli_stmt_execute($stmt_det);
+    $res_det = mysqli_stmt_get_result($stmt_det);
+    $detalles = [];
+    $total_debe = 0;
+    $total_haber = 0;
+    while ($r = mysqli_fetch_assoc($res_det)) {
+        $total_debe += floatval($r['debe']);
+        $total_haber += floatval($r['haber']);
+        $detalles[] = $r;
+    }
+    mysqli_stmt_close($stmt_det);
+
+    $asiento['detalles'] = $detalles;
+    $asiento['total_debe'] = $total_debe;
+    $asiento['total_haber'] = $total_haber;
+    return $asiento;
+}
+
+/**
+ * Genera el asiento contable para una cobranza confirmada (D27 / D36 / Anexo D)
+ */
+function cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id, $usuario_id = 1)
+{
+    $cob_info = obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id);
+    if (!$cob_info) {
+        return ['success' => false, 'error' => 'Cobranza no encontrada'];
+    }
+
+    $cab = $cob_info['cabecera'];
+    if (intval($cab['tabla_estado_registro_id']) !== ESTADO_COBRANZA_CONFIRMADO) {
+        return ['success' => false, 'error' => 'Solo se pueden generar asientos para cobranzas confirmadas'];
+    }
+
+    $medios = $cob_info['medios'];
+    $comp_origen_id = intval($cab['comprobante_id']);
+    if ($comp_origen_id <= 0) {
+        return ['success' => false, 'error' => 'Comprobante origen no asignado a la cobranza'];
+    }
+
+    $lineas_asiento = [];
+    $total_debe = 0.0;
+
+    foreach ($medios as $m) {
+        $cta_contable_id = 0;
+        $monto_linea = floatval($m['importe_comprobante']);
+        if ($monto_linea <= 0) continue;
+
+        if (!empty($m['tesoreria_cuenta_id'])) {
+            $res_cta = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = " . intval($m['tesoreria_cuenta_id']) . " AND empresa_id = $empresa_id");
+            $cta_contable_id = intval($res_cta->fetch_assoc()['cont_cuenta_id'] ?? 0);
+        } elseif ($m['medio_pago_tipo'] === 'CHEQUE_TERCERO') {
+            $res_val = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND cuenta_tipo = 'VALORES' LIMIT 1");
+            $cta_contable_id = intval($res_val->fetch_assoc()['cont_cuenta_id'] ?? 0);
+            if ($cta_contable_id <= 0) {
+                $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']) . " AND empresa_id = $empresa_id");
+                $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
+            }
+        } elseif ($m['medio_pago_tipo'] === 'RETENCION') {
+            $cta_contable_id = cobCuentaRetencion($conexion, $empresa_id, $m, $cab['f_contabilidad'] ?: $cab['f_emision']);
+        }
+
+        $cuenta_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, $m['medio_pago'], $cta_contable_id);
+
+        $desc_medio = $m['medio_pago'];
+        if ($m['medio_pago_tipo'] === 'RETENCION') {
+            $desc_medio = trim(($m['impuesto_tipo'] ?: $m['medio_pago']) . ' ' . ($m['jurisdiccion_nombre'] ?? '')) . ' Cert. ' . ($m['retencion_certificado_nro'] ?? 'S/N');
+        }
+        $lineas_asiento[] = [
+            'cuenta_id'   => $cuenta_valida['cont_cuenta_id'],
+            'debe'        => $monto_linea,
+            'haber'       => 0.0,
+            'descripcion' => "Cobranza Recibo: " . $desc_medio . " - " . ($cab['entidad_nombre'] ?? '')
+        ];
+        $total_debe += $monto_linea;
+    }
+
+    if ($total_debe <= 0.0001) {
+        return ['success' => false, 'error' => 'Recibo en $0 o sin medios: no requiere asiento contable'];
+    }
+
+    $es_devolucion_proveedor = intval($cab['es_proveedor'] ?? 0) === 1 && intval($cab['es_cliente'] ?? 0) !== 1;
+    if ($es_devolucion_proveedor) {
+        $cta_cliente_id = intval($cab['cont_cuenta_id_proveedor'] ?? 0);
+        if ($cta_cliente_id <= 0) {
+            $cta_cliente_id = emp_cuenta_id($conexion, $empresa_id, 'PROVEEDORES', 'cuenta_proveedores_id');
+        }
+        $cta_cli_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Locales', $cta_cliente_id);
+    } else {
+        $cta_cliente_id = intval($cab['cont_cuenta_id_cliente'] ?? 0);
+        if ($cta_cliente_id <= 0) {
+            $cta_cliente_id = emp_cuenta_id($conexion, $empresa_id, 'DEUDORES_VENTAS', 'cuenta_deudores_ventas_id');
+        }
+        $cta_cli_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Deudores por Ventas', $cta_cliente_id);
+    }
+
+    $lineas_asiento[] = [
+        'cuenta_id'   => $cta_cli_valida['cont_cuenta_id'],
+        'debe'        => 0.0,
+        'haber'       => $total_debe,
+        'descripcion' => "Cancelación cuenta corriente cliente " . ($cab['entidad_nombre'] ?? '')
+    ];
+
+    $nro_rec = emp_numero_comprobante($conexion, $empresa_id, intval($cab['comprobante_pv']), intval($cab['comprobante_nro']));
+    $descripcion_asiento = "Recibo Cobranza " . $nro_rec . " - " . ($cab['entidad_nombre'] ?? '');
+
+    $asiento_id = tesoreriaGenerarAsiento($conexion, [
+        'empresa_id'           => $empresa_id,
+        'sucursal_id'          => intval($cab['sucursal_id']),
+        'comprobante_id'       => $comp_origen_id,
+        'entidad_id'           => intval($cab['entidad_id']),
+        'f_asiento'            => $cab['f_emision'],
+        'descripcion'          => $descripcion_asiento,
+        'usuario_id'           => $usuario_id,
+    ], $lineas_asiento);
+
+    return [
+        'success'    => true,
+        'asiento_id' => $asiento_id,
+        'message'    => "Asiento contable #$asiento_id generado correctamente."
     ];
 }
 
@@ -432,6 +762,9 @@ function guardarCobranzaBorrador($conexion, $data)
         require_once __DIR__ . '/../../core/accesos_sucursales.php';
         AccesosSucursalesHelper::exigirAccesoSucursal($conexion, $empresa_id, $sucursal_id, $usuario_id);
     }
+
+    // Retenciones sufridas (IVA, Ganancias, IIBB): impuesto, jurisdicción y certificado
+    cobValidarRetenciones($conexion, $empresa_id, $entidad_id, $cobranza_id, $medios);
 
     // Calcular total de medios
     $importe_total = 0.0;
@@ -908,90 +1241,8 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $e
         unset($m);
 
         // 6. Generar Asiento Contable Automático (D27 / D36 / Anexo D)
-        // DEBE: Cuentas de los medios de cobro recibidos
-        // HABER: Cuenta del Cliente (Deudores por Ventas)
-        $lineas_asiento = [];
-        $total_debe = 0.0;
-
-        foreach ($medios as $m) {
-            $cta_contable_id = 0;
-            $monto_linea = floatval($m['importe_comprobante']);
-
-            // Resolver cuenta contable del medio
-            if (!empty($m['tesoreria_cuenta_id'])) {
-                $res_cta = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = " . intval($m['tesoreria_cuenta_id']) . " AND empresa_id = $empresa_id");
-                $cta_contable_id = intval($res_cta->fetch_assoc()['cont_cuenta_id'] ?? 0);
-            } elseif ($m['medio_pago_tipo'] === 'CHEQUE_TERCERO') {
-                $res_val = $conexion->query("SELECT cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND cuenta_tipo = 'VALORES' LIMIT 1");
-                $cta_contable_id = intval($res_val->fetch_assoc()['cont_cuenta_id'] ?? 0);
-                if ($cta_contable_id <= 0) {
-                    $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']) . " AND empresa_id = $empresa_id");
-                    $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
-                }
-            } elseif ($m['medio_pago_tipo'] === 'RETENCION') {
-                // En cobranzas (retenciones sufridas por el cliente), la cuenta es un activo (Retenciones IVA/Gan/IIBB)
-                $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']) . " AND empresa_id = $empresa_id");
-                $cta_contable_id = intval($res_mp->fetch_assoc()['cont_cuenta_id'] ?? 0);
-
-                if ($cta_contable_id <= 0 && !empty($m['impuesto_tipo_id'])) {
-                    $res_it = $conexion->query("SELECT it.cuenta_contable_id, cc.es_imputable FROM gestion__impuestos_tipos it LEFT JOIN gestion__cont_cuentas cc ON cc.cont_cuenta_id = it.cuenta_contable_id WHERE it.impuesto_tipo_id = " . intval($m['impuesto_tipo_id']));
-                    $row_it = $res_it ? $res_it->fetch_assoc() : null;
-                    if (!empty($row_it['es_imputable'])) {
-                        $cta_contable_id = intval($row_it['cuenta_contable_id']);
-                    }
-                }
-            }
-
-            // Validar cuenta con el resolver central (D36)
-            $cuenta_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, $m['medio_pago'], $cta_contable_id);
-
-            $lineas_asiento[] = [
-                'cuenta_id'   => $cuenta_valida['cont_cuenta_id'],
-                'debe'        => $monto_linea,
-                'haber'       => 0.0,
-                'descripcion' => "Cobranza Recibo: " . $m['medio_pago'] . " - " . ($cab['entidad_nombre'] ?? '')
-            ];
-            $total_debe += $monto_linea;
-        }
-
-        // Cuenta de la entidad (HABER). Un proveedor que devuelve dinero (cobro de su nota de crédito) cancela
-        // la cuenta de Proveedores; un cliente o consumidor final, Deudores por Ventas.
-        $es_devolucion_proveedor = intval($cab['es_proveedor'] ?? 0) === 1 && intval($cab['es_cliente'] ?? 0) !== 1;
-        if ($es_devolucion_proveedor) {
-            $cta_cliente_id = intval($cab['cont_cuenta_id_proveedor'] ?? 0);
-            if ($cta_cliente_id <= 0) {
-                $cta_cliente_id = emp_cuenta_id($conexion, $empresa_id, 'PROVEEDORES', 'cuenta_proveedores_id');
-            }
-            $cta_cli_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Locales', $cta_cliente_id);
-        } else {
-            $cta_cliente_id = intval($cab['cont_cuenta_id_cliente'] ?? 0);
-            if ($cta_cliente_id <= 0) {
-                // Deudores por Ventas de la empresa (concepto DEUDORES_VENTAS o parámetros contables)
-                $cta_cliente_id = emp_cuenta_id($conexion, $empresa_id, 'DEUDORES_VENTAS', 'cuenta_deudores_ventas_id');
-            }
-            $cta_cli_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Deudores por Ventas', $cta_cliente_id);
-        }
-
-        $lineas_asiento[] = [
-            'cuenta_id'   => $cta_cli_valida['cont_cuenta_id'],
-            'debe'        => 0.0,
-            'haber'       => $total_debe,
-            'descripcion' => "Cancelación cuenta corriente cliente " . ($cab['entidad_nombre'] ?? '')
-        ];
-
-        $descripcion_asiento = "Recibo Cobranza " . emp_numero_comprobante($conexion, $empresa_id, $punto_venta_id, $proximo_nro) . " - " . ($cab['entidad_nombre'] ?? '');
-
-        // Recibo en $0 (aplicación de notas de crédito): no mueve fondos ni genera asiento
         if ($total_debe > 0.0001) {
-            tesoreriaGenerarAsiento($conexion, [
-                'empresa_id'           => $empresa_id,
-                'sucursal_id'          => intval($cab['sucursal_id']),
-                'comprobante_id'       => $comp_origen_id,
-                'entidad_id'           => intval($cab['entidad_id']),
-                'f_asiento'            => $cab['f_emision'],
-                'descripcion'          => $descripcion_asiento,
-                'usuario_id'           => $usuario_id,
-            ], $lineas_asiento);
+            cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id, $usuario_id);
         }
 
         if (!$en_transaccion) {
@@ -1195,10 +1446,11 @@ function obtenerClientesCobranza($conexion, $empresa_id)
 function obtenerMediosPagoDisponibles($conexion, $empresa_id = null)
 {
     $empresa_id = intval($empresa_id ?? ($_SESSION['empresa_id'] ?? 0));
-    $sql = "SELECT medio_pago_id, codigo, medio_pago, medio_pago_tipo, cont_cuenta_id
+    $sql = "SELECT medio_pago_id, codigo, medio_pago, medio_pago_tipo, cont_cuenta_id, impuesto_tipo_id
             FROM gestion__medios_pago
             WHERE empresa_id = $empresa_id
               AND tabla_estado_registro_id = 1
+              AND aplica_cobro = 1
               AND medio_pago_tipo != 'CHEQUE_PROPIO'
             ORDER BY medio_pago_id ASC";
     $res = $conexion->query($sql);
@@ -1253,18 +1505,26 @@ function obtenerBancosDisponibles($conexion)
 }
 
 /**
- * Obtiene tipos de impuestos para retenciones sufridas
+ * Obtiene tipos de impuestos de retención.
+ * $sentido: 'COBRO' = sufridas (aplica_venta), 'PAGO' = practicadas (aplica_compra), null = todas.
  */
-function obtenerImpuestosRetencion($conexion)
+function obtenerImpuestosRetencion($conexion, $sentido = null)
 {
-    $sql = "SELECT impuesto_tipo_id, codigo_afip, impuesto_tipo, cuenta_contable_id
+    $filtro = '';
+    if ($sentido === 'COBRO') {
+        $filtro = ' AND aplica_venta = 1';
+    } elseif ($sentido === 'PAGO') {
+        $filtro = ' AND aplica_compra = 1';
+    }
+    $sql = "SELECT impuesto_tipo_id, codigo_afip, impuesto_tipo
             FROM gestion__impuestos_tipos
-            WHERE tabla_estado_registro_id = 1 AND es_retencion = 1
+            WHERE tabla_estado_registro_id = 1 AND es_retencion = 1 $filtro
             ORDER BY impuesto_tipo ASC";
     $res = $conexion->query($sql);
     $rows = [];
     if ($res) {
         while ($r = $res->fetch_assoc()) {
+            $r['es_iibb'] = cobImpuestoEsIibb($r['impuesto_tipo']) ? 1 : 0;
             $rows[] = $r;
         }
     }
@@ -1272,13 +1532,13 @@ function obtenerImpuestosRetencion($conexion)
 }
 
 /**
- * Obtiene las jurisdicciones de Ingresos Brutos (IIBB) para retenciones sufridas
+ * Obtiene las jurisdicciones provinciales de Ingresos Brutos (IIBB) para retenciones sufridas
  */
 function obtenerJurisdicciones($conexion)
 {
     $sql = "SELECT jurisdiccion_id, jurisdiccion_codigo, jurisdiccion_nombre, organismo_recaudador
             FROM gestion__jurisdicciones
-            WHERE tabla_estado_registro_id = 1 AND jurisdiccion_codigo != 'AFIP'
+            WHERE tabla_estado_registro_id = 1 AND jurisdiccion_tipo_id = 2
             ORDER BY orden ASC, jurisdiccion_nombre ASC";
     $res = $conexion->query($sql);
     $rows = [];

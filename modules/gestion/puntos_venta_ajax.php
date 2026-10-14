@@ -84,6 +84,10 @@ try {
             echo json_encode($resultado);
             break;
 
+        case 'obtener_sistemas_emision':
+            echo json_encode(array_values(obtenerCatalogoSistemasEmision()), JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'agregar':
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
@@ -91,7 +95,8 @@ try {
                 'nombre' => trim($_POST['nombre'] ?? ''),
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'codigo_fiscal' => trim($_POST['codigo_fiscal'] ?? ''),
-                'es_web' => intval($_POST['es_web'] ?? 0),
+                'sistema_emision' => trim($_POST['sistema_emision'] ?? 'WSFE'),
+                'es_web' => (!empty($_POST['sistema_emision']) && $_POST['sistema_emision'] === 'WSFE') ? 1 : intval($_POST['es_web'] ?? 0),
                 'comprobantes' => json_decode($_POST['comprobantes'] ?? '[]', true) ?: [],
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
@@ -113,7 +118,8 @@ try {
                 'nombre' => trim($_POST['nombre'] ?? ''),
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
                 'codigo_fiscal' => trim($_POST['codigo_fiscal'] ?? ''),
-                'es_web' => intval($_POST['es_web'] ?? 0),
+                'sistema_emision' => trim($_POST['sistema_emision'] ?? 'WSFE'),
+                'es_web' => (!empty($_POST['sistema_emision']) && $_POST['sistema_emision'] === 'WSFE') ? 1 : intval($_POST['es_web'] ?? 0),
                 'comprobantes' => json_decode($_POST['comprobantes'] ?? '[]', true) ?: [],
                 'empresa_idx' => $empresa_idx
             ];

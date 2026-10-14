@@ -806,6 +806,7 @@ $(document).ready(function () {
             clienteSucursalActualId = null;
             clienteCondicionComercial = null;
             $('#cliente_actual_nombre').text('No seleccionado');
+            $('#descuento_general_pct').val('0');
         }
 
         // El filtro de búsqueda (tags + resultados) corresponde a la lista de precios

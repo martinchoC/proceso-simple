@@ -12,7 +12,7 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
-$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 81);
+$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 65);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -46,7 +46,8 @@ try {
                 'codigo' => trim($_POST['codigo'] ?? ''),
                 'iva_alicuota' => trim($_POST['iva_alicuota'] ?? ''),
                 'porcentaje' => floatval($_POST['porcentaje'] ?? 0),
-                'cont_cuenta_id' => intval($_POST['cont_cuenta_id'] ?? 0),
+                'cont_cuenta_compra_id' => intval($_POST['cont_cuenta_compra_id'] ?? 0),
+                'cont_cuenta_venta_id' => intval($_POST['cont_cuenta_venta_id'] ?? 0),
                 'es_gravado' => intval($_POST['es_gravado'] ?? 1),
                 'es_exento' => intval($_POST['es_exento'] ?? 0),
                 'es_no_gravado' => intval($_POST['es_no_gravado'] ?? 0),
@@ -64,7 +65,8 @@ try {
                 'codigo' => trim($_POST['codigo'] ?? ''),
                 'iva_alicuota' => trim($_POST['iva_alicuota'] ?? ''),
                 'porcentaje' => floatval($_POST['porcentaje'] ?? 0),
-                'cont_cuenta_id' => intval($_POST['cont_cuenta_id'] ?? 0),
+                'cont_cuenta_compra_id' => intval($_POST['cont_cuenta_compra_id'] ?? 0),
+                'cont_cuenta_venta_id' => intval($_POST['cont_cuenta_venta_id'] ?? 0),
                 'es_gravado' => intval($_POST['es_gravado'] ?? 1),
                 'es_exento' => intval($_POST['es_exento'] ?? 0),
                 'es_no_gravado' => intval($_POST['es_no_gravado'] ?? 0)

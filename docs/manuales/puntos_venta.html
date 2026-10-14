@@ -81,8 +81,8 @@
     <tr><td>Sucursal / Boca</td><td>Dónde está el punto de venta.</td></tr>
     <tr><td>Nombre</td><td>Nombre del punto de venta.</td></tr>
     <tr><td>Descripción</td><td>Texto libre.</td></tr>
-    <tr><td>Código Fiscal</td><td>Número del punto de venta ante ARCA (el que sale en los comprobantes).</td></tr>
-    <tr><td>Web</td><td><span class="badge badge-info">Web</span> si es el punto de venta de la venta web.</td></tr>
+    <tr><td>Código Fiscal</td><td>Número oficial del punto de venta ante ARCA (el que sale en los comprobantes, ej. 0001).</td></tr>
+    <tr><td>Sistema de Emisión</td><td>Modalidad con la que fue dado de alta en ARCA: <strong>Web Service</strong> (Factura Electrónica API), <strong>En Línea (RCEL)</strong>, <strong>Controlador Fiscal</strong>, <strong>Facturador Móvil</strong>, <strong>Talonario Manual</strong> o <strong>Interno</strong>.</td></tr>
     <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
     <tr><td>Acciones</td><td>Los botones disponibles según el estado.</td></tr>
 </table>
@@ -109,8 +109,8 @@
     <tr><td>Sucursal *</td><td>Obligatoria.</td></tr>
     <tr><td>Boca *</td><td>Se habilita al elegir la sucursal. Muestra las bocas de esa sucursal, indicando si son "(depósito)" o "(comercial)". Obligatoria.</td></tr>
     <tr><td>Nombre *</td><td>Obligatorio, hasta 100 caracteres. No se puede repetir dentro de la misma sucursal.</td></tr>
-    <tr><td>Código Fiscal</td><td>El número de punto de venta habilitado en ARCA (por ejemplo 3). No puede repetirse en la empresa.</td></tr>
-    <tr><td>Es el punto de venta web</td><td>Marcalo en el punto de venta que corresponde a la venta web.</td></tr>
+    <tr><td>Código Fiscal</td><td>El número de punto de venta habilitado en ARCA (de 4 o 5 dígitos, por ejemplo 1 o 2). No puede repetirse en la empresa.</td></tr>
+    <tr><td>Sistema de Emisión *</td><td>Modalidad con la que el punto de venta fue dado de alta en ARCA. <strong>Regla de Exclusividad:</strong> Para que el sistema emita facturas electrónicas automáticas con CAE vía API, el punto de venta debe estar dado de alta como <em>Web Service (Factura Electrónica)</em>. Puntos dados de alta para Comprobantes en Línea (RCEL), Controladores Fiscales o Talonarios tienen numeración independiente y no pueden emitirse por Web Service.</td></tr>
     <tr><td>Descripción</td><td>Texto libre.</td></tr>
 </table>
 <div class="nota-lateral">Si al guardar falta un dato obligatorio, el sistema te lleva solo a la pestaña Datos y marca en rojo lo que falta.</div>
@@ -160,7 +160,8 @@
     <tr><th>Pregunta</th><th>Respuesta</th></tr>
     <tr><td>Al cargar una factura no me aparece el tipo de comprobante que necesito.</td><td>Ese tipo no está habilitado en el punto de venta elegido. Agregalo en la pestaña Comprobantes.</td></tr>
     <tr><td>Al cargar un comprobante no aparece este punto de venta.</td><td>Revisá que esté Activo y que tu perfil tenga acceso en <a href="accesos_perfiles.html">Accesos por Perfil</a>.</td></tr>
-    <tr><td>¿Qué pongo en Código Fiscal?</td><td>El número de punto de venta que diste de alta en ARCA para facturar. Tiene que coincidir para que la facturación electrónica funcione (ver <a href="arca_integraciones.html">Integraciones - ARCA</a>).</td></tr>
+    <tr><td>¿Qué pongo en Código Fiscal?</td><td>El número de 4 o 5 dígitos de punto de venta que diste de alta en ARCA para facturar. Tiene que coincidir con el sistema de emisión asignado (ver <a href="arca_integraciones.html">Integraciones - ARCA</a>).</td></tr>
+    <tr><td>¿Puedo usar el mismo punto de venta que uso en la web de ARCA (Comprobantes en Línea)?</td><td><strong>No.</strong> Por normativa de ARCA, cada punto de venta queda fijado al sistema de emisión con el que se creó. Para facturar desde el ERP tenés que dar de alta un punto nuevo en ARCA bajo la opción "Factura Electrónica - Web Service". Cada punto tiene numeración independiente.</td></tr>
     <tr><td>¿Cómo elijo el punto de venta que se propone por defecto?</td><td>En <a href="empresas_parametros.html">Parámetros de Empresa</a>, campo "Punto de Venta Defecto".</td></tr>
 </table>
 

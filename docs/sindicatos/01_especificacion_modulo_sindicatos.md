@@ -1,6 +1,6 @@
 # Módulo 6 — Sindicatos: especificación técnica de integración
 
-**Versión 0.2, 2026-10-11. Borrador para discusión.**
+**Versión 0.6, 2026-10-12. Borrador para discusión.**
 Origen: relevamiento del sistema legacy `aecbb1/` (DDJJ de la AECBB y gestión de afiliados) y de sus bases `develops_aecbb1` / `develops_comun` (volcados `.sql` e importación en el MariaDB local, que además trae `sindi__intereses_tipos` y `sindi__obras_sociales`).
 
 | Versión | Cambios |
@@ -8,6 +8,9 @@ Origen: relevamiento del sistema legacy `aecbb1/` (DDJJ de la AECBB y gestión d
 | 0.1 | Primer borrador. |
 | 0.2 | Decisiones de Pablo (§14): la rectificativa **revierte la DDJJ anterior completa** (como el legacy); los **intereses se calculan al emitir el volante** (como el legacy); la regla de media jornada pasa a **parámetros generales del sindicato** y se elimina la lógica duplicada. **Ninguna credencial ni dato de conexión en el código**: todo va en los parámetros del sindicato o en los medios de pago (§7.3.1). Se documentan las tablas de tasas y de obras sociales. |
 | 0.3 | D1 resuelta (un comprobante por concepto). D6 resuelta: para la AECBB, solo afiliaciones, con sus distintos tipos y el grupo familiar (§2.6, §5.6); beneficios, salones y personal propio, a pedido. |
+| 0.4 | Sucursales de empleadores (§5.2): numeradas, la N° 1 es la Casa Central y se crea con el alta del empleador. Sucursal del empleado en la nómina de la DDJJ (§5.3). Revisión de lo desarrollado en `02_revision_implementacion_2026-10-12.md`. |
+| 0.5 | Correcciones de la revisión: funciones del módulo en el bloque **16001–16999** (el 9001–9999 choca con el módulo 5); permiso "Ver todos los empleadores" (§8.2); tipo de reversión por concepto; crédito RPL para la refinanciación por plan; emisión única de comprobantes (`sindi_comprobantes_core.php`). |
+| 0.6 | Fase 5 implementada (§5.6): la regla de vigencia y su excepción por documento quedan en una sola tabla; cuotas directas registradas en `sindi__afiliaciones_cuotas` con comprobante CAF; número de afiliado de la persona (lo comparten sus afiliaciones titulares). |
 
 Este documento tiene tres partes:
 
@@ -190,7 +193,7 @@ Convenciones: `utf8mb4_unicode_ci`, `empresa_id` en todas las tablas, `tabla_est
 |---|---|---|
 | `sindi__parametros` | vigencia (una abierta) | **Parámetros generales del sindicato**: convenio por defecto, `portal_slug`, días de gracia, si exige aprobación del sindicato para las autoaltas, mails de aviso, **regla de media jornada** (abajo), datos del servidor de correo saliente y de la **casilla de ingreso de DDJJ por mail** (servidor, puerto, protocolo, usuario y clave cifrada, §7.3.1), carpeta de Google Drive si se usa. Se edita en la página 1001. |
 | `sindi__convenios` | diccionario | CCT (p. ej. 130/75). Un sindicato puede tener varios. |
-| `sindi__conceptos` | diccionario con vigencia | Reemplaza `ddjj_items_tipos`: `codigo`, descripción, `convenio_id`, `base` (REM_TOTAL / REMUNERATIVO / FIJO), `porcentaje`, `valor_fijo`, `solo_afiliados`, `aplica_piso_escala`, `incluye_sac`, **`comprobante_tipo_id`** (el tipo de comprobante que genera) y **`cuenta_concepto_codigo`** (concepto contable, nunca un id de cuenta). Desaparecen los campos `media_jornada_escala` y `media_jornada` del legacy. |
+| `sindi__conceptos` | diccionario con vigencia | Reemplaza `ddjj_items_tipos`: `codigo`, descripción, `convenio_id`, `base` (REM_TOTAL / REMUNERATIVO / FIJO), `porcentaje`, `valor_fijo`, `solo_afiliados`, `aplica_piso_escala`, `incluye_sac`, **`comprobante_tipo_id`** (el tipo de comprobante de la deuda), **`comprobante_tipo_reversion_id`** (el de su reversión por rectificativa, signo −) y **`cuenta_concepto_codigo`** (concepto contable, nunca un id de cuenta). Desaparecen los campos `media_jornada_escala` y `media_jornada` del legacy. |
 | `sindi__categorias` + `sindi__categorias_escalas` | diccionario + período | Categorías del CCT y escala salarial por período (básico, rem1, rem2), para el piso. |
 | `sindi__vencimientos` | período | Período × último dígito del CUIT → `f_vto`, por tipo (DDJJ, aporte). |
 | `sindi__tasas_interes` | vigencia | Tramos de tasa resarcitoria. Reemplaza `intereses_tipos`: `clase` (1 = resarcitorio), `tasa_mensual`, `f_desde`, `f_hasta`, sin superposición entre tramos de la misma clase. Al confirmar, se valida que no haya huecos. |
@@ -213,10 +216,11 @@ Si cambia, rige desde la vigencia nueva: las DDJJ ya presentadas no se recalcula
 | Tabla | Contenido |
 |---|---|
 | `sindi__empleadores` | `entidad_id` (UNIQUE por empresa), rubro, `convenio_id`, `categoria_mora_id` (caché que recalcula un cron), `f_alta_padron`, origen (AUTOALTA / SINDICATO / OFICIO / MIGRACION). |
+| Sucursales del empleador (`gestion__entidades_sucursales`) | Se reutiliza la tabla de sucursales de entidades del ERP, con `sucursal_numero` (1..n por entidad, UNIQUE `(entidad_id, sucursal_numero)`; NULL en las de clientes y proveedores). **La N° 1 es la Casa Central**: se crea automáticamente en todo alta de empleador (página 1010, autoalta del portal, migración) con el domicilio, teléfono y correo del alta, y no se puede inhabilitar. Las demás se agregan desde la ficha del empleador con el número siguiente y se inhabilitan, no se borran. Datos: nombre, domicilio, localidad (`conf__localidades`), teléfono, correo y contacto. Un único punto de alta de la central: `sindi_guardar_sucursal_central()`. |
 | `sindi__estudios` | `entidad_id`, matrícula, contacto. |
 | `sindi__estudios_empleadores` | Vinculación con workflow: `estudio_id`, `empleador_id`, `iniciado_por` (ESTUDIO / EMPLEADOR / SINDICATO), `f_solicitud`, `f_resolucion`, `f_baja`, estado (§6). |
 | `sindi__personas` | CUIL (UNIQUE por empresa), apellido, nombre, documento, sexo, fecha de nacimiento, contacto, localidad, `entidad_id` opcional. |
-| `sindi__relaciones_laborales` | Empleador × persona, `f_alta`, `f_baja`, `ddjj_alta_id`, `ddjj_baja_id`. |
+| `sindi__relaciones_laborales` | Empleador × persona, `sucursal_id` (la última declarada en la DDJJ), `f_alta`, `f_baja`, `ddjj_alta_id`, `ddjj_baja_id`. |
 | `sindi__afiliaciones` | Ver §5.6. |
 | `sindi__empleadores_periodos` | Reemplaza `sociedades_cat_ddjjs`: empleador × período → `f_vto`, `ddjj_vigente_id`, situación (PENDIENTE / PRESENTADA / FUERA_DE_TERMINO / OFICIO / NO_COMPUTA), días de atraso. La **mantiene el núcleo de DDJJ** al confirmar o anular, y la abre un cron al inicio de cada período. |
 
@@ -225,7 +229,7 @@ Si cambia, rige desde la vigencia nueva: las DDJJ ya presentadas no se recalcula
 | Tabla | Contenido |
 |---|---|
 | `sindi__ddjj` | Cabecera: `empleador_id`, `periodo` (AAAAMM), `secuencia`, `ddjj_rectificada_id`, `media_jornada_piso` aplicada (copia del parámetro, para reproducir el cálculo), tipo (EMPLEADOR / OFICIO), `origen_ingreso` (MANUAL / F931 / PLANILLA / LOTE / EMAIL / MIGRACION), `f_vto`, `total`, `codigo_verificacion` (≥ 8 caracteres, con `random_bytes`), `usuario_presenta_id`, `estudio_id` si presentó un estudio, `f_presentacion`, estado. UNIQUE (`empresa_id`, `empleador_id`, `periodo`, `secuencia`). |
-| `sindi__ddjj_empleados` | Renglón: persona, categoría, `rem_1`, `rem_2`, `rem_3`, media jornada, jubilado, afiliado declarado, obra social, novedad, baja (motivo y fecha), localidad, observaciones. UNIQUE (`ddjj_id`, `persona_id`). |
+| `sindi__ddjj_empleados` | Renglón: persona, **`sucursal_id`** (establecimiento donde trabaja; por defecto la N° 1 o la de la relación laboral), categoría, `rem_1`, `rem_2`, `rem_3`, media jornada, jubilado, afiliado declarado, obra social, novedad, baja (motivo y fecha), localidad, observaciones. UNIQUE (`ddjj_id`, `persona_id`). |
 | `sindi__ddjj_calculos` | Renglón × concepto: base declarada, piso por escala, base aplicada, porcentaje, valor fijo, importe. Se recalcula entero en cada cambio. |
 | `sindi__ddjj_conceptos` | Totales por concepto (base, cantidad, importe) y **`comprobante_id`** del comprobante que generó al confirmarse. |
 | `sindi__ddjj_importaciones` | Archivo (en `uploads/sindicatos/`), formato, filas leídas, aceptadas y rechazadas, y un log de errores por fila. |
@@ -252,8 +256,8 @@ Si cambia, rige desde la vigencia nueva: las DDJJ ya presentadas no se recalcula
 |---|---|---|
 | `sindi__afiliaciones_tipos` | diccionario | `codigo` (ACTIVIDAD, VOLUNTARIA, JUBILADO, FAMILIAR…, configurable por sindicato), `grupo` (TITULAR / FAMILIAR), `alta` (AUTOMATICA / SOLICITUD), `requiere_empleador`, `paga_cuota_directa` (genera volantes de afiliado), `concepto_cuota_id` y `importe_cuota` si paga directo, `requiere_titular` (familiar). |
 | `sindi__parentescos` | diccionario | Cónyuge, Hijo, Padre, Madre, Suegro/a, Otros, con `parentesco_inverso_id`. |
-| `sindi__afiliaciones_vigencias` | regla con vigencia | Tipo × parentesco → edad mínima y máxima (p. ej. hijo hasta 21; de 21 a 25, solo con excepción). |
-| `sindi__afiliaciones_vigencias_excepciones` | regla | Vigencia → tipo de documento que la habilita (p. ej. certificado de alumno regular) y meses de validez del documento. |
+| `sindi__afiliaciones_vigencias` | regla | Parentesco → edad máxima de cobertura y, si admite excepción, edad máxima con excepción, documento que la habilita (p. ej. certificado de alumno regular) y meses de validez del documento. Una regla por parentesco; sin regla, sin límite. |
+| `sindi__afiliaciones_cuotas` | detalle | Cuota directa generada por afiliación y período (UNIQUE), con su comprobante CAF. |
 | `sindi__afiliaciones` | proceso | `persona_id`, `afiliacion_tipo_id`, `titular_afiliacion_id` (para familiares, la afiliación del titular), `parentesco_id`, `empleador_id` (si el tipo lo requiere), `f_alta`, `f_baja`, `f_vigencia` (calculada: edad límite, vencimiento del documento de excepción o el fin de la del titular), `baja_motivo_id`, origen (DDJJ / SOLICITUD / MIGRACION) + `origen_id` (la `ddjj_id` o la `solicitud_id`), `numero_afiliado`, estado. Unifica `re_sindicales` y `afiliados` del legacy. |
 | `sindi__afiliaciones_documentos` | detalle | Documentos presentados para una excepción (tipo, archivo en `uploads_privados/`, fecha de presentación y de vencimiento). |
 | `sindi__afiliaciones_solicitudes` | proceso | Solicitud con los datos personales (o la persona si ya existe), el tipo pedido, el empleador, el titular y el parentesco si es familiar, el canal (INTERNO / PORTAL) y las fechas de envío y resolución. Al aprobarse crea la afiliación y, si corresponde, las de los familiares cargados en la misma solicitud. |
@@ -286,7 +290,7 @@ Con ids genéricos de `conf__estados_registros`; no hace falta crear estados nue
 | `sindi__afiliaciones` | 1 Activo → 2 Inactivo (baja con motivo), 20 Vencido (por edad o documento, automático). |
 | Diccionarios | 1 / 2. |
 
-Las transiciones van en `conf__paginas_funciones` (bloque **9001–9999**, libre) y las etiquetas propias en `conf__tablas_estados_registros` (bloque **3001–3300**, libre). Todo en `sql/mantenimiento/AAAAMMDD_sindicatos_NN_*.sql`.
+Las transiciones van en `conf__paginas_funciones` (bloque **16001–16999**; el 9001–9999 choca con el módulo 5, que numera "id del módulo 2 + 5000") y las etiquetas propias en `conf__tablas_estados_registros` (bloque **3001–3300**, libre). Todo en `sql/mantenimiento/AAAAMMDD_sindicatos_NN_*.sql`.
 
 ## 7. Integración con el núcleo del ERP
 
@@ -297,10 +301,11 @@ Grupo nuevo "Sindical" en `gestion__comprobantes_grupos`, con subgrupos y tipos 
 | Subgrupo / tipo | Signo | Ctacte | Contab. | Origen |
 |---|---|---|---|---|
 | DDJJ – un tipo por concepto (DFS Fondo Social, DCS Cuota Sindical…) | +1 | sí | sí | `sindi__ddjj_conceptos` |
-| Reversión de DDJJ rectificada – un tipo por concepto | −1 | sí | sí | `sindi__ddjj_conceptos` de la DDJJ anterior |
+| Reversión de DDJJ rectificada – un tipo por concepto | −1 | sí | sí | `sindi__ddjj_conceptos` de la DDJJ anterior, con `registro_origen_id` en negativo (el positivo es su deuda) |
 | ND Intereses resarcitorios | +1 | sí | sí | cobro del volante (§7.3) |
 | Acta determinada | +1 | sí | sí | `sindi__actas_items` |
-| Cuota de plan | +1 | sí | no (reclasifica) | `sindi__planes_cuotas` |
+| RPL Refinanciación por plan | −1 | sí | no | `sindi__planes`: cancela las deudas refinanciadas |
+| Cuota de plan (PLC, la 0 es el anticipo) | +1 | sí | solo el interés de financiación | `sindi__planes_cuotas` |
 | Volante de pago | 0 | **no** | no | `sindi__volantes` (solo numeración) |
 
 - **Un comprobante por concepto** de la DDJJ, como en el legacy: cada concepto tiene su cuenta y su destino (el Fondo Social y la Cuota Sindical pueden ser fondos distintos) y la cobranza se imputa por concepto. `(tabla_origen_id, registro_origen_id) = (tabla de sindi__ddjj_conceptos, ddjj_concepto_id)` respeta el UNIQUE.
@@ -309,7 +314,8 @@ Grupo nuevo "Sindical" en `gestion__comprobantes_grupos`, con subgrupos y tipos 
   2. la reversión se imputa contra el comprobante anterior hasta cubrir su saldo pendiente. Si el anterior ya tenía pagos, el remanente queda como **saldo a favor** del empleador en ese concepto;
   3. se emite el comprobante de la rectificativa por el **importe total**, con el vencimiento del período (`sindi__vencimientos`, el mismo que tenía la original), y se le imputa el saldo a favor del paso 2 si lo hay.
   Los pagos ya hechos no se tocan: siguen imputados a la DDJJ original, y la cuenta corriente muestra original, reversión y rectificativa. La anterior pasa a "Rectificada". Si la anterior estaba incluida en un volante vigente, ese volante se **anula y se despublica** de los canales antes de confirmar.
-- La **cuota de plan** refinancia: el plan cancela los comprobantes de origen con una imputación (como en tesorería) y genera las cuotas. `gestion__comprobantes_tipos_cancelaciones` define qué tipo cancela a cuál.
+- El **plan de pagos** refinancia: un crédito RPL por el capital (que tiene que coincidir con el saldo de las deudas elegidas) se imputa contra cada deuda de origen, y las cuotas PLC son deudas nuevas. El interés de financiación va a `SINDI_INTERESES_GANADOS`. Anular el plan (sin cobros en sus cuotas) anula esas imputaciones y las deudas de origen recuperan su saldo.
+- Todo comprobante del módulo se emite con `sindi_emitir_comprobante()`: sucursal y punto de venta de la empresa, numeración con `gestion__comprobantes_numeradores` bloqueado, un comprobante por origen y estado 5 con saldo, para que tesorería lo cancele.
 
 ### 7.2 Contabilidad
 
@@ -475,7 +481,7 @@ Scripts de consola, sin sesión: fijan `empresa_id` por argumento y recorren las
 Herramienta versionada `tools/migracion_aecbb1/` (PHP CLI, no `scratch/`). Es idempotente por `legacy_id`, toma una empresa destino como parámetro y tiene un modo `--simular` que corre sobre `gestion_multipyme_sim`.
 
 1. **Catálogos**: conceptos (con sus cuentas mapeadas a conceptos contables), categorías y escalas (incluido `develops_comun`), vencimientos, tasas (`sindi__intereses_tipos`, desde la base local), obras sociales (`sindi__obras_sociales`, desde la base local), categorías de mora y bancos. Los **medios de pago** se migran solo con su configuración no secreta (nombre, driver, ente, layout de `sindi__pagos_tipos`, prefijo de barras); los datos de acceso **se cargan a mano** en la página 1006 y se prueban con "Probar conexión" antes del corte. La regla de media jornada arranca en `COMPLETO`, que reproduce el cálculo actual.
-2. **Padrón**: sociedades → `gestion__entidades` (rol EMPLEADOR) + `sindi__empleadores`; sucursales; estudios y vinculaciones (estado 10 → 1, 5 → 4, 100 → 2/25); personas, relaciones laborales y afiliaciones: `re_sindicales` → tipo ACTIVIDAD (origen DDJJ), `afiliados` + `re_sindicales_solicitudes` → VOLUNTARIA / JUBILADO / FAMILIAR (origen SOLICITUD) con su titular, `re_familiares` → parentesco del familiar, `afiliaciones_vigencias` y sus excepciones → reglas por edad. Se convierte `latin1` → `utf8mb4` y `'0000-00-00'` → `NULL`, y el CUIT `double` → `VARCHAR(11)` validado.
+2. **Padrón**: sociedades → `gestion__entidades` (rol EMPLEADOR) + `sindi__empleadores`; `sindi__sociedades_sucursales` (557) → sucursales N° 2..n, y la Casa Central N° 1 con el domicilio comercial de la sociedad; estudios y vinculaciones (estado 10 → 1, 5 → 4, 100 → 2/25); personas, relaciones laborales y afiliaciones: `re_sindicales` → tipo ACTIVIDAD (origen DDJJ), `afiliados` + `re_sindicales_solicitudes` → VOLUNTARIA / JUBILADO / FAMILIAR (origen SOLICITUD) con su titular, `re_familiares` → parentesco del familiar, `afiliaciones_vigencias` y sus excepciones → reglas por edad. Se convierte `latin1` → `utf8mb4` y `'0000-00-00'` → `NULL`, y el CUIT `double` → `VARCHAR(11)` validado.
 3. **Usuarios**: los 751 `conf__usuarios` se recrean con perfil y fila de acceso por empleador, y con **clave inutilizable + mail de activación**: los hashes DES no se migran.
 4. **DDJJ completas** (cabecera, empleados, cálculos, conceptos) en su estado final, para conservar el historial de rectificativas y la fiscalización.
 5. **Saldos**: por cada `sindi__trans` con `trans_pend <> 0`, un comprobante con `importe_pendiente` = saldo y el vencimiento original; un **asiento de apertura** a la fecha de corte contra `SINDI_DEUDORES_APORTES`. Los recibos, volantes y la contabilidad anteriores al corte se conservan solo como consulta histórica (tablas `sindi__hist_*` de solo lectura); no se regeneran sus asientos.

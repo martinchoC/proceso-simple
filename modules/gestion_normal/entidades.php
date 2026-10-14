@@ -19,12 +19,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <h3 class="mb-0">
                         <i class="fas fa-building me-2"></i>Gestión de Entidades
                     </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
+                    <small class="text-muted">Gestión Normal Multiempresa</small>
                 </div>
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-end">
                         <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
+                        <li class="breadcrumb-item"><a href="#">Gestión Normal</a></li>
                         <li class="breadcrumb-item active" aria-current="page">Entidades</li>
                     </ol>
                 </div>
@@ -43,7 +43,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card">
                                     <div class="card-header">
                                         <div id="contenedor-boton-agregar" class="d-inline"></div>
-                                        <div class="float-end">
+                                        <div class="float-end d-flex align-items-center gap-2">
+                                            <div class="input-group input-group-sm" style="width: auto;">
+                                                <span class="input-group-text bg-light text-muted"><i class="fas fa-filter"></i></span>
+                                                <select id="filtroRol" class="form-select form-select-sm" style="min-width: 175px;">
+                                                    <option value="">Todos los roles</option>
+                                                </select>
+                                            </div>
                                             <div class="btn-group" role="group">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary"
                                                     id="btnRecargar" title="Recargar tabla">
@@ -80,16 +86,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="80">ID</th>
-                                                    <th width="150">Nombre</th>
-                                                    <th width="150">Fantasia</th>
-                                                    <th width="100">Tipo</th>
-                                                    <th width="120">CUIT</th>
-                                                    <th width="160">Condición Fiscal</th>
-                                                    <th width="80">Proveedor</th>
-                                                    <th width="80">Cliente</th>
-                                                    <th width="120">Estado</th>
-                                                    <th width="200" class="text-center">Acciones</th>
+                                                    <th width="70">ID</th>
+                                                    <th width="170">Nombre Legal</th>
+                                                    <th width="140">Fantasía</th>
+                                                    <th width="90">Tipo</th>
+                                                    <th width="110">CUIT</th>
+                                                    <th width="140">Condición Fiscal</th>
+                                                    <th width="180">Roles</th>
+                                                    <th width="100">Estado</th>
+                                                    <th width="160" class="text-center">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -160,226 +165,442 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <div class="tab-content p-3 border border-top-0 rounded-bottom" id="entidadTabsContent">
                                 <!-- Pestaña Datos Principales -->
                                 <div class="tab-pane fade show active" id="datos" role="tabpanel" aria-labelledby="datos-tab">
+                                <div class="tab-pane fade show active" id="datos" role="tabpanel" aria-labelledby="datos-tab">
                                     <form id="formEntidad" class="needs-validation" novalidate>
                                         <input type="hidden" id="entidad_id" name="entidad_id" />
                                         
+                                        <!-- Barra de utilidades: Ocultar / Mostrar todo -->
+                                        <div class="d-flex justify-content-end mb-2 gap-1">
+                                            <button type="button" class="btn btn-xs btn-outline-secondary btn-secciones-toggle-all" data-accion="colapsar" title="Ocultar todas las secciones">
+                                                <i class="fas fa-compress-alt me-1"></i>Ocultar todo
+                                            </button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary btn-secciones-toggle-all" data-accion="expandir" title="Mostrar todas las secciones">
+                                                <i class="fas fa-expand-alt me-1"></i>Mostrar todo
+                                            </button>
+                                        </div>
+
                                         <!-- SECCIÓN 1: IDENTIFICACIÓN -->
-                                        <div class="card card-outline card-primary mb-3 shadow-sm">
-                                            <div class="card-header py-2 bg-light">
+                                        <div class="card card-outline card-primary mb-3 shadow-sm seccion-card">
+                                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center card-header-toggle" data-bs-toggle="collapse" data-bs-target="#seccion_body_identificacion" aria-expanded="true">
                                                 <h6 class="card-title mb-0 fs-6 fw-bold text-primary">
                                                     <i class="fas fa-id-card me-2"></i>1. Identificación de la Entidad
                                                 </h6>
-                                            </div>
-                                            <div class="card-body py-3">
-                                                <div class="row">
-                                                    <div class="col-md-6 mb-3">
-                                                        <label for="entidad_nombre" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-building text-primary me-1"></i>Nombre Legal / Razón Social <span class="text-danger">*</span>
-                                                        </label>
-                                                        <input type="text" class="form-control" id="entidad_nombre"
-                                                            name="entidad_nombre" maxlength="255" placeholder="Ej: Razón Social S.A." required>
-                                                        <div class="invalid-feedback">El nombre legal es requerido.</div>
-                                                    </div>
-                                                    
-                                                    <div class="col-md-6 mb-3">
-                                                        <label for="entidad_fantasia" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-tag text-info me-1"></i>Nombre Fantasía
-                                                        </label>
-                                                        <input type="text" class="form-control" id="entidad_fantasia"
-                                                            name="entidad_fantasia" maxlength="255" placeholder="Nombre comercial o de fantasía">
-                                                    </div>
+                                                <div class="card-tools d-flex align-items-center gap-1">
+                                                    <button type="button" class="btn btn-xs btn-outline-secondary btn-toggle-seccion" data-bs-toggle="collapse" data-bs-target="#seccion_body_identificacion" aria-expanded="true" title="Ocultar / Mostrar">
+                                                        <i class="fas fa-chevron-up"></i>
+                                                    </button>
                                                 </div>
-                                                
-                                                <div class="row">
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="entidad_tipo_id" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-users-cog text-secondary me-1"></i>Tipo de Entidad
-                                                        </label>
-                                                        <select class="form-select" id="entidad_tipo_id" name="entidad_tipo_id">                                                    
-                                                        </select>
+                                            </div>
+                                            <div class="collapse show seccion-collapse" id="seccion_body_identificacion">
+                                                <div class="card-body py-3">
+                                                    <div class="row">
+                                                        <div class="col-md-6 mb-3">
+                                                            <label for="entidad_nombre" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-building text-primary me-1"></i>Nombre Legal / Razón Social <span class="text-danger">*</span>
+                                                            </label>
+                                                            <input type="text" class="form-control" id="entidad_nombre"
+                                                                name="entidad_nombre" maxlength="255" placeholder="Ej: Razón Social S.A." required>
+                                                            <div class="invalid-feedback">El nombre legal es requerido.</div>
+                                                        </div>
+                                                        
+                                                        <div class="col-md-6 mb-3">
+                                                            <label for="entidad_fantasia" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-tag text-info me-1"></i>Nombre Fantasía
+                                                            </label>
+                                                            <input type="text" class="form-control" id="entidad_fantasia"
+                                                                name="entidad_fantasia" maxlength="255" placeholder="Nombre comercial o de fantasía">
+                                                        </div>
                                                     </div>
                                                     
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="cuit" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-fingerprint text-secondary me-1"></i>CUIT <small class="text-muted fw-normal">(11 dígitos sin guiones)</small>
-                                                        </label>
-                                                        <input type="number" class="form-control" id="cuit"
-                                                            name="cuit" min="0" max="99999999999" placeholder="20123456789">
-                                                    </div>
-                                                    
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="sitio_web" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-globe text-secondary me-1"></i>Sitio Web
-                                                        </label>
-                                                        <input type="url" class="form-control" id="sitio_web"
-                                                            name="sitio_web" maxlength="150" placeholder="https://empresa.com">
+                                                    <div class="row">
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="entidad_tipo_id" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-users-cog text-secondary me-1"></i>Tipo de Entidad
+                                                            </label>
+                                                            <select class="form-select" id="entidad_tipo_id" name="entidad_tipo_id">                                                    
+                                                            </select>
+                                                        </div>
+                                                        
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="cuit" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-fingerprint text-secondary me-1"></i>CUIT <small class="text-muted fw-normal">(11 dígitos sin guiones)</small>
+                                                            </label>
+                                                            <input type="number" class="form-control" id="cuit"
+                                                                name="cuit" min="0" max="99999999999" placeholder="20123456789">
+                                                        </div>
+                                                        
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="sitio_web" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-globe text-secondary me-1"></i>Sitio Web
+                                                            </label>
+                                                            <input type="url" class="form-control" id="sitio_web"
+                                                                name="sitio_web" maxlength="150" placeholder="https://empresa.com">
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <!-- SECCIÓN 2: SITUACIÓN FISCAL. Se guarda junto con la entidad: si algún dato
-                                             difiere de la condición vigente, se cierra la vigente y se abre una nueva
-                                             (gestion__entidades_condiciones_fiscales / _iibb), así queda el historial. -->
-                                        <div class="card card-outline card-warning mb-3 shadow-sm">
-                                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center">
+                                        <!-- SECCIÓN 2: SITUACIÓN FISCAL -->
+                                        <div class="card card-outline card-warning mb-3 shadow-sm seccion-card">
+                                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center card-header-toggle" data-bs-toggle="collapse" data-bs-target="#seccion_body_fiscal" aria-expanded="true">
                                                 <h6 class="card-title mb-0 fs-6 fw-bold text-warning-emphasis">
                                                     <i class="fas fa-file-invoice-dollar me-2"></i>2. Situación Fiscal (IVA / Ingresos Brutos)
                                                 </h6>
-                                                <button type="button" class="btn btn-sm btn-outline-info ms-auto" id="btnHistorialFiscal" disabled>
-                                                    <i class="fas fa-history me-1"></i>Historial
-                                                </button>
-                                            </div>
-                                            <div class="card-body py-3">
-                                                <div class="row">
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="condicion_fiscal_id" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-percent text-warning me-1"></i>Condición IVA
-                                                        </label>
-                                                        <select class="form-select" id="condicion_fiscal_id" name="condicion_fiscal_id">
-                                                            <option value="">Seleccione condición fiscal...</option>
-                                                        </select>
-                                                        <div class="form-text small" id="vigencia-iva"></div>
-                                                    </div>
-
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="regimen_iibb_id" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-landmark text-warning me-1"></i>Régimen IIBB
-                                                        </label>
-                                                        <select class="form-select" id="regimen_iibb_id" name="regimen_iibb_id">
-                                                            <option value="">Seleccione régimen de IIBB...</option>
-                                                        </select>
-                                                        <div class="form-text small" id="vigencia-iibb"></div>
-                                                    </div>
-
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="numero_inscripcion_iibb" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-hashtag text-warning me-1"></i>N° Inscripción IIBB
-                                                        </label>
-                                                        <input type="text" class="form-control" id="numero_inscripcion_iibb"
-                                                            name="numero_inscripcion_iibb" maxlength="50" placeholder="N° local, CM o CUIT">
-                                                    </div>
+                                                <div class="card-tools d-flex align-items-center gap-2" onclick="event.stopPropagation();">
+                                                    <button type="button" class="btn btn-sm btn-outline-info" id="btnHistorialFiscal" disabled>
+                                                        <i class="fas fa-history me-1"></i>Historial
+                                                    </button>
+                                                    <button type="button" class="btn btn-xs btn-outline-secondary btn-toggle-seccion" data-bs-toggle="collapse" data-bs-target="#seccion_body_fiscal" aria-expanded="true" title="Ocultar / Mostrar">
+                                                        <i class="fas fa-chevron-up"></i>
+                                                    </button>
                                                 </div>
+                                            </div>
+                                            <div class="collapse show seccion-collapse" id="seccion_body_fiscal">
+                                                <div class="card-body py-3">
+                                                    <div class="row">
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="condicion_fiscal_id" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-percent text-warning me-1"></i>Condición IVA
+                                                            </label>
+                                                            <select class="form-select" id="condicion_fiscal_id" name="condicion_fiscal_id">
+                                                                <option value="">Seleccione condición fiscal...</option>
+                                                            </select>
+                                                            <div class="form-text small" id="vigencia-iva"></div>
+                                                        </div>
 
-                                                <div class="row">
-                                                    <div class="col-md-8 mb-2">
-                                                        <label for="jurisdiccion_sede_id" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-map-pin text-warning me-1"></i>Jurisdicción Sede IIBB
-                                                        </label>
-                                                        <select class="form-select" id="jurisdiccion_sede_id" name="jurisdiccion_sede_id">
-                                                            <option value="">Seleccione jurisdicción sede (código ARCA/COMARB)...</option>
-                                                        </select>
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="regimen_iibb_id" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-landmark text-warning me-1"></i>Régimen IIBB
+                                                            </label>
+                                                            <select class="form-select" id="regimen_iibb_id" name="regimen_iibb_id">
+                                                                <option value="">Seleccione régimen de IIBB...</option>
+                                                            </select>
+                                                            <div class="form-text small" id="vigencia-iibb"></div>
+                                                        </div>
+
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="numero_inscripcion_iibb" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-hashtag text-warning me-1"></i>N° Inscripción IIBB
+                                                            </label>
+                                                            <input type="text" class="form-control" id="numero_inscripcion_iibb"
+                                                                name="numero_inscripcion_iibb" maxlength="50" placeholder="N° local, CM o CUIT">
+                                                        </div>
                                                     </div>
 
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="fiscal_f_desde" class="form-label fw-bold text-dark">
-                                                            <i class="far fa-calendar-alt text-warning me-1"></i>Cambios vigentes desde
-                                                        </label>
-                                                        <input type="date" class="form-control" id="fiscal_f_desde" name="fiscal_f_desde">
-                                                        <div class="form-text small">Solo se usa si cambia algún dato fiscal.</div>
+                                                    <div class="row">
+                                                        <div class="col-md-8 mb-2">
+                                                            <label for="jurisdiccion_sede_id" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-map-pin text-warning me-1"></i>Jurisdicción Sede IIBB
+                                                            </label>
+                                                            <select class="form-select" id="jurisdiccion_sede_id" name="jurisdiccion_sede_id">
+                                                                <option value="">Seleccione jurisdicción sede (código ARCA/COMARB)...</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="fiscal_f_desde" class="form-label fw-bold text-dark">
+                                                                <i class="far fa-calendar-alt text-warning me-1"></i>Cambios vigentes desde
+                                                            </label>
+                                                            <input type="date" class="form-control" id="fiscal_f_desde" name="fiscal_f_desde">
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <!-- SECCIÓN 3: UBICACIÓN Y DOMICILIO LEGAL -->
-                                        <div class="card card-outline card-success mb-3 shadow-sm">
-                                            <div class="card-header py-2 bg-light">
+                                        <div class="card card-outline card-success mb-3 shadow-sm seccion-card">
+                                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center card-header-toggle" data-bs-toggle="collapse" data-bs-target="#seccion_body_domicilio" aria-expanded="true">
                                                 <h6 class="card-title mb-0 fs-6 fw-bold text-success">
                                                     <i class="fas fa-map-marked-alt me-2"></i>3. Domicilio Legal y Ubicación
                                                 </h6>
+                                                <div class="card-tools d-flex align-items-center gap-1">
+                                                    <button type="button" class="btn btn-xs btn-outline-secondary btn-toggle-seccion" data-bs-toggle="collapse" data-bs-target="#seccion_body_domicilio" aria-expanded="true" title="Ocultar / Mostrar">
+                                                        <i class="fas fa-chevron-up"></i>
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="card-body py-3">
-                                                <div class="row">
-                                                    <div class="col-md-8 mb-2">
-                                                        <label for="domicilio_legal" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-home text-success me-1"></i>Domicilio Legal
-                                                        </label>
-                                                        <input type="text" class="form-control" id="domicilio_legal"
-                                                            name="domicilio_legal" maxlength="150" placeholder="Calle, número, piso, dpto.">
-                                                    </div>
-                                                    
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="localidad_id" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-city text-success me-1"></i>Localidad
-                                                        </label>
-                                                        <select class="form-select" id="localidad_id" name="localidad_id">
-                                                            <option value="">Seleccionar localidad...</option>
-                                                        </select>
+                                            <div class="collapse show seccion-collapse" id="seccion_body_domicilio">
+                                                <div class="card-body py-3">
+                                                    <div class="row">
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="domicilio_legal" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-home text-success me-1"></i>Domicilio Legal
+                                                            </label>
+                                                            <input type="text" class="form-control" id="domicilio_legal"
+                                                                name="domicilio_legal" maxlength="150" placeholder="Calle, número, piso, dpto.">
+                                                        </div>
+                                                        
+                                                        <div class="col-md-4 mb-2">
+                                                            <label for="provincia_id" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-map text-success me-1"></i>Provincia
+                                                            </label>
+                                                            <select class="form-select" id="provincia_id" name="provincia_id">
+                                                                <option value="">Seleccionar provincia...</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="col-md-4 mb-2 position-relative">
+                                                            <label for="localidad_texto" class="form-label fw-bold text-dark">
+                                                                <i class="fas fa-city text-success me-1"></i>Localidad
+                                                            </label>
+                                                            <input type="hidden" id="localidad_id" name="localidad_id">
+                                                            <div class="input-group">
+                                                                <input type="text" class="form-control" id="localidad_texto" autocomplete="off" placeholder="Primero seleccione una provincia" disabled>
+                                                                <button class="btn btn-outline-secondary" type="button" id="btnLimpiarLocalidad" title="Limpiar"><i class="fas fa-times"></i></button>
+                                                            </div>
+                                                            <div id="dropdown_localidades" class="dropdown-menu w-100 shadow-sm p-0" style="max-height: 250px; overflow-y: auto; z-index: 1060; display: none;"></div>
+                                                            <small class="text-muted" id="localidad_help">Primero seleccione una provincia</small>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <!-- SECCIÓN 4: ROLES Y CONTABILIDAD -->
-                                        <div class="card card-outline card-info mb-3 shadow-sm">
-                                            <div class="card-header py-2 bg-light">
+                                        <!-- SECCIÓN 4: ROLES Y CUENTAS CONTABLES -->
+                                        <div class="card card-outline card-info mb-3 shadow-sm seccion-card">
+                                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center card-header-toggle" data-bs-toggle="collapse" data-bs-target="#seccion_body_roles" aria-expanded="true">
                                                 <h6 class="card-title mb-0 fs-6 fw-bold text-info">
-                                                    <i class="fas fa-balance-scale me-2"></i>4. Roles Comerciales y Cuentas Contables
+                                                    <i class="fas fa-tags me-2"></i>4. Roles de la Entidad y Cuentas Contables
                                                 </h6>
+                                                <div class="card-tools d-flex align-items-center gap-2">
+                                                    <small class="text-muted d-none d-md-inline">Active los roles de la entidad y asigne su cuenta contable</small>
+                                                    <button type="button" class="btn btn-xs btn-outline-secondary btn-toggle-seccion" data-bs-toggle="collapse" data-bs-target="#seccion_body_roles" aria-expanded="true" title="Ocultar / Mostrar">
+                                                        <i class="fas fa-chevron-up"></i>
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="card-body py-3">
-                                                <div class="row align-items-center mb-2">
-                                                    <div class="col-md-2 mb-3 mb-md-0">
-                                                        <div class="form-check form-switch p-2 bg-light rounded border">
-                                                            <input class="form-check-input ms-0 me-2" type="checkbox" id="es_proveedor" name="es_proveedor" value="1">
-                                                            <label class="form-check-label fw-bold text-dark" for="es_proveedor">
-                                                                <i class="fas fa-truck text-primary me-1"></i>Proveedor
-                                                            </label>
+                                            <div class="collapse show seccion-collapse" id="seccion_body_roles">
+                                                <div class="card-body py-3">
+                                                    <!-- Alerta si la empresa no tiene roles configurados -->
+                                                    <div id="alerta_sin_roles_empresa" class="alert alert-warning py-2 mb-3" style="display:none;">
+                                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                                        Esta empresa no tiene roles configurados. Para habilitar roles y cuentas, ingrese a <a href="empresas_roles_cuentas.php" class="alert-link">Roles y Cuentas Contables</a>.
+                                                    </div>
+
+                                                    <div class="row g-3" id="contenedor_roles_cards">
+                                                        <!-- Rol Cliente -->
+                                                        <div class="col-md-6 rol-card-col" data-rol="CLI" id="col_rol_CLI">
+                                                            <div class="p-3 bg-light rounded border h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <div class="form-check form-switch mb-0">
+                                                                        <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_CLI" value="CLI" data-rol="CLI">
+                                                                        <label class="form-check-label fw-bold text-dark" for="rol_CLI">
+                                                                            <i class="fas fa-user-tie text-success me-1"></i>Cliente
+                                                                        </label>
+                                                                    </div>
+                                                                    <span class="badge bg-success-subtle text-success border border-success-subtle small badge-rol-defecto" id="badge_defecto_CLI" style="display:none;">Por defecto</span>
+                                                                </div>
+                                                                <div class="contenedor-cuenta-rol" id="contenedor_cuenta_CLI" style="display:none;">
+                                                                    <label for="cont_cuenta_rol_CLI" class="form-label small text-muted mb-1">
+                                                                        <i class="fas fa-book me-1"></i>Cuenta Contable (Deudor / Ventas)
+                                                                    </label>
+                                                                    <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_CLI" name="cont_cuenta_rol_CLI" data-rol="CLI">
+                                                                        <option value="">Seleccionar cuenta...</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Rol Proveedor -->
+                                                        <div class="col-md-6 rol-card-col" data-rol="PRO" id="col_rol_PRO">
+                                                            <div class="p-3 bg-light rounded border h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <div class="form-check form-switch mb-0">
+                                                                        <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_PRO" value="PRO" data-rol="PRO">
+                                                                        <label class="form-check-label fw-bold text-dark" for="rol_PRO">
+                                                                            <i class="fas fa-truck text-primary me-1"></i>Proveedor
+                                                                        </label>
+                                                                    </div>
+                                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle small badge-rol-defecto" id="badge_defecto_PRO" style="display:none;">Por defecto</span>
+                                                                </div>
+                                                                <div class="contenedor-cuenta-rol" id="contenedor_cuenta_PRO" style="display:none;">
+                                                                    <label for="cont_cuenta_rol_PRO" class="form-label small text-muted mb-1">
+                                                                        <i class="fas fa-book me-1"></i>Cuenta Contable (Acreedor / Compras)
+                                                                    </label>
+                                                                    <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_PRO" name="cont_cuenta_rol_PRO" data-rol="PRO">
+                                                                        <option value="">Seleccionar cuenta...</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Rol Organismo Público / Fiscal -->
+                                                        <div class="col-md-6 rol-card-col" data-rol="ORG" id="col_rol_ORG">
+                                                            <div class="p-3 bg-light rounded border h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <div class="form-check form-switch mb-0">
+                                                                        <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_ORG" value="ORG" data-rol="ORG">
+                                                                        <label class="form-check-label fw-bold text-dark" for="rol_ORG">
+                                                                            <i class="fas fa-landmark text-warning me-1"></i>Organismo Público / Fiscal
+                                                                        </label>
+                                                                    </div>
+                                                                    <span class="badge bg-warning-subtle text-dark border small badge-rol-defecto" id="badge_defecto_ORG" style="display:none;">Por defecto</span>
+                                                                </div>
+                                                                <div class="contenedor-cuenta-rol" id="contenedor_cuenta_ORG" style="display:none;">
+                                                                    <label for="cont_cuenta_rol_ORG" class="form-label small text-muted mb-1">
+                                                                        <i class="fas fa-book me-1"></i>Cuenta Contable (Impuestos / Obligaciones)
+                                                                    </label>
+                                                                    <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_ORG" name="cont_cuenta_rol_ORG" data-rol="ORG">
+                                                                        <option value="">Seleccionar cuenta...</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Rol Empleado / Beneficiario -->
+                                                        <div class="col-md-6 rol-card-col" data-rol="EMP" id="col_rol_EMP">
+                                                            <div class="p-3 bg-light rounded border h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <div class="form-check form-switch mb-0">
+                                                                        <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_EMP" value="EMP" data-rol="EMP">
+                                                                        <label class="form-check-label fw-bold text-dark" for="rol_EMP">
+                                                                            <i class="fas fa-id-badge text-info me-1"></i>Empleado / Beneficiario
+                                                                        </label>
+                                                                    </div>
+                                                                    <span class="badge bg-info-subtle text-dark border small badge-rol-defecto" id="badge_defecto_EMP" style="display:none;">Por defecto</span>
+                                                                </div>
+                                                                <div class="contenedor-cuenta-rol" id="contenedor_cuenta_EMP" style="display:none;">
+                                                                    <label for="cont_cuenta_rol_EMP" class="form-label small text-muted mb-1">
+                                                                        <i class="fas fa-book me-1"></i>Cuenta Contable (Anticipos / Rendiciones)
+                                                                    </label>
+                                                                    <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_EMP" name="cont_cuenta_rol_EMP" data-rol="EMP">
+                                                                        <option value="">Seleccionar cuenta...</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Rol Banco / Financiera -->
+                                                        <div class="col-md-6 rol-card-col" data-rol="BAN" id="col_rol_BAN">
+                                                            <div class="p-3 bg-light rounded border h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <div class="form-check form-switch mb-0">
+                                                                        <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_BAN" value="BAN" data-rol="BAN">
+                                                                        <label class="form-check-label fw-bold text-dark" for="rol_BAN">
+                                                                            <i class="fas fa-university text-secondary me-1"></i>Banco / Entidad Financiera
+                                                                        </label>
+                                                                    </div>
+                                                                    <span class="badge bg-secondary-subtle text-dark border small badge-rol-defecto" id="badge_defecto_BAN" style="display:none;">Por defecto</span>
+                                                                </div>
+                                                                <div class="contenedor-cuenta-rol" id="contenedor_cuenta_BAN" style="display:none;">
+                                                                    <label for="cont_cuenta_rol_BAN" class="form-label small text-muted mb-1">
+                                                                        <i class="fas fa-book me-1"></i>Cuenta Contable (Valores / Créditos)
+                                                                    </label>
+                                                                    <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_BAN" name="cont_cuenta_rol_BAN" data-rol="BAN">
+                                                                        <option value="">Seleccionar cuenta...</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Rol Empleador -->
+                                                        <div class="col-md-6 rol-card-col" data-rol="EMPL" id="col_rol_EMPL">
+                                                            <div class="p-3 bg-light rounded border h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <div class="form-check form-switch mb-0">
+                                                                        <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_EMPL" value="EMPL" data-rol="EMPL">
+                                                                        <label class="form-check-label fw-bold text-dark" for="rol_EMPL">
+                                                                            <i class="fas fa-briefcase text-dark me-1"></i>Empleador (Sindicato)
+                                                                        </label>
+                                                                    </div>
+                                                                    <span class="badge bg-dark-subtle text-dark border small badge-rol-defecto" id="badge_defecto_EMPL" style="display:none;">Por defecto</span>
+                                                                </div>
+                                                                <div class="contenedor-cuenta-rol" id="contenedor_cuenta_EMPL" style="display:none;">
+                                                                    <label for="cont_cuenta_rol_EMPL" class="form-label small text-muted mb-1">
+                                                                        <i class="fas fa-book me-1"></i>Cuenta Contable (Aportes / DDJJ)
+                                                                    </label>
+                                                                    <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_EMPL" name="cont_cuenta_rol_EMPL" data-rol="EMPL">
+                                                                        <option value="">Seleccionar cuenta...</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Rol Estudio Contable -->
+                                                        <div class="col-md-6 rol-card-col" data-rol="EST" id="col_rol_EST">
+                                                            <div class="p-3 bg-light rounded border h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <div class="form-check form-switch mb-0">
+                                                                        <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_EST" value="EST" data-rol="EST">
+                                                                        <label class="form-check-label fw-bold text-dark" for="rol_EST">
+                                                                            <i class="fas fa-calculator text-secondary me-1"></i>Estudio Contable
+                                                                        </label>
+                                                                    </div>
+                                                                    <span class="badge bg-secondary-subtle text-dark border small badge-rol-defecto" id="badge_defecto_EST" style="display:none;">Por defecto</span>
+                                                                </div>
+                                                                <div class="contenedor-cuenta-rol" id="contenedor_cuenta_EST" style="display:none;">
+                                                                    <label for="cont_cuenta_rol_EST" class="form-label small text-muted mb-1">
+                                                                        <i class="fas fa-book me-1"></i>Cuenta Contable
+                                                                    </label>
+                                                                    <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_EST" name="cont_cuenta_rol_EST" data-rol="EST">
+                                                                        <option value="">Seleccionar cuenta...</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Rol Afiliado -->
+                                                        <div class="col-md-6 rol-card-col" data-rol="AFIL" id="col_rol_AFIL">
+                                                            <div class="p-3 bg-light rounded border h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                    <div class="form-check form-switch mb-0">
+                                                                        <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_AFIL" value="AFIL" data-rol="AFIL">
+                                                                        <label class="form-check-label fw-bold text-dark" for="rol_AFIL">
+                                                                            <i class="fas fa-user text-muted me-1"></i>Afiliado
+                                                                        </label>
+                                                                    </div>
+                                                                    <span class="badge bg-light text-dark border small badge-rol-defecto" id="badge_defecto_AFIL" style="display:none;">Por defecto</span>
+                                                                </div>
+                                                                <div class="contenedor-cuenta-rol" id="contenedor_cuenta_AFIL" style="display:none;">
+                                                                    <label for="cont_cuenta_rol_AFIL" class="form-label small text-muted mb-1">
+                                                                        <i class="fas fa-book me-1"></i>Cuenta Contable (Cuota Directa)
+                                                                    </label>
+                                                                    <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_AFIL" name="cont_cuenta_rol_AFIL" data-rol="AFIL">
+                                                                        <option value="">Seleccionar cuenta...</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    
-                                                    <div class="col-md-2 mb-3 mb-md-0">
-                                                        <div class="form-check form-switch p-2 bg-light rounded border">
-                                                            <input class="form-check-input ms-0 me-2" type="checkbox" id="es_cliente" name="es_cliente" value="1">
-                                                            <label class="form-check-label fw-bold text-dark" for="es_cliente">
-                                                                <i class="fas fa-user-tie text-success me-1"></i>Cliente
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="cont_cuenta_id_proveedor" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-book text-secondary me-1"></i>Cuenta Contable (Proveedor)
-                                                        </label>
-                                                        <select class="form-select" id="cont_cuenta_id_proveedor" name="cont_cuenta_id_proveedor">
-                                                            <option value="">Seleccionar cuenta...</option>
-                                                        </select>                                                
-                                                    </div>
-                                                    
-                                                    <div class="col-md-4 mb-2">
-                                                        <label for="cont_cuenta_id_cliente" class="form-label fw-bold text-dark">
-                                                            <i class="fas fa-book text-secondary me-1"></i>Cuenta Contable (Cliente)
-                                                        </label>
-                                                        <select class="form-select" id="cont_cuenta_id_cliente" name="cont_cuenta_id_cliente">
-                                                            <option value="">Seleccionar cuenta...</option>
-                                                        </select>                                                
-                                                    </div>
+
+                                                    <!-- Campos ocultos compatibles con endpoints tradicionales -->
+                                                    <input type="hidden" id="es_proveedor" name="es_proveedor" value="0">
+                                                    <input type="hidden" id="es_cliente" name="es_cliente" value="0">
+                                                    <input type="hidden" id="cont_cuenta_id_proveedor" name="cont_cuenta_id_proveedor" value="">
+                                                    <input type="hidden" id="cont_cuenta_id_cliente" name="cont_cuenta_id_cliente" value="">
                                                 </div>
                                             </div>
                                         </div>
 
                                         <!-- SECCIÓN 5: OBSERVACIONES -->
-                                        <div class="card card-outline card-secondary mb-2 shadow-sm">
-                                            <div class="card-header py-2 bg-light">
+                                        <div class="card card-outline card-secondary mb-2 shadow-sm seccion-card">
+                                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center card-header-toggle" data-bs-toggle="collapse" data-bs-target="#seccion_body_observaciones" aria-expanded="true">
                                                 <h6 class="card-title mb-0 fs-6 fw-bold text-secondary">
                                                     <i class="fas fa-comment-alt me-2"></i>5. Observaciones Generales
                                                 </h6>
+                                                <div class="card-tools d-flex align-items-center gap-1">
+                                                    <button type="button" class="btn btn-xs btn-outline-secondary btn-toggle-seccion" data-bs-toggle="collapse" data-bs-target="#seccion_body_observaciones" aria-expanded="true" title="Ocultar / Mostrar">
+                                                        <i class="fas fa-chevron-up"></i>
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="card-body py-2">
-                                                <div class="row">
-                                                    <div class="col-md-12">
-                                                        <textarea class="form-control" id="observaciones" name="observaciones"
-                                                            rows="3" maxlength="1000" placeholder="Comentarios o notas adicionales sobre la entidad..."></textarea>
-                                                        <div class="form-text text-end small">Máximo 1000 caracteres</div>
+                                            <div class="collapse show seccion-collapse" id="seccion_body_observaciones">
+                                                <div class="card-body py-2">
+                                                    <div class="row">
+                                                        <div class="col-md-12">
+                                                            <textarea class="form-control" id="observaciones" name="observaciones"
+                                                                rows="3" maxlength="1000" placeholder="Comentarios o notas adicionales sobre la entidad..."></textarea>
+                                                            <div class="form-text text-end small">Máximo 1000 caracteres</div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>                                        
                                     </form>
                                 </div>
-                                
-                                
+
                                 <!-- Pestaña Sucursales -->
                                 <div class="tab-pane fade" id="sucursales" role="tabpanel" aria-labelledby="sucursales-tab">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -420,6 +641,128 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <!-- Historial de situación fiscal (IVA + IIBB). Cada cambio guardado desde
                                      "Datos Principales" cierra la condición vigente y abre una nueva; desde acá se
                                      corrigen fechas o se inhabilita una fila cargada por error. -->
+
+                                <!-- Pestaña Condiciones Clientes -->
+                                <div class="tab-pane fade" id="condiciones-clientes" role="tabpanel" aria-labelledby="condiciones-clientes-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-user-tie me-1"></i>Condición Comercial Vigente - Cliente
+                                        </h6>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-info me-2" id="btnHistorialCliente">
+                                                <i class="fas fa-history me-1"></i>Ver Historial
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevaCondicionCliente">
+                                                <i class="fas fa-plus me-1"></i>Nueva Condición
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Tarjeta con condición vigente -->
+                                    <div class="card card-outline card-primary">
+                                        
+                                        <div class="card-body">
+                                            <div id="condicion-cliente-vigente" class="row">
+                                                <div class="col-12 text-center text-muted py-4">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>Cargando condición vigente...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Acceso web (carrito de pedidos) -->
+                                    <div class="card card-outline card-secondary mt-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-key me-1"></i>Acceso Web - Carrito de Pedidos
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="usuario-web-entidad">
+                                                <div class="text-center text-muted py-2">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>Verificando usuario...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Modal para historial de clientes -->
+                                </div>
+
+                                <!-- Pestaña Condiciones Proveedores -->
+                                <div class="tab-pane fade" id="condiciones-proveedores" role="tabpanel" aria-labelledby="condiciones-proveedores-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-truck me-1"></i>Condición Comercial Vigente - Proveedor
+                                        </h6>
+                                        <div>
+                                            <button type="button" class="btn btn-sm btn-info me-2" id="btnHistorialProveedor">
+                                                <i class="fas fa-history me-1"></i>Ver Historial
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevaCondicionProveedor">
+                                                <i class="fas fa-plus me-1"></i>Nueva Condición
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Tarjeta con condición vigente -->
+                                    <div class="card card-outline card-primary">
+                                        
+                                        <div class="card-body">
+                                            <div id="condicion-proveedor-vigente" class="row">
+                                                <div class="col-12 text-center text-muted py-4">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>Cargando condición vigente...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Modal para historial de proveedores -->
+                                </div>
+
+                                <!-- Pestaña Sucursales de Compra -->
+                                <div class="tab-pane fade" id="sucursales-compra" role="tabpanel" aria-labelledby="sucursales-compra-tab">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-shopping-cart me-1"></i>Sucursales donde compra
+                                        </h6>
+                                        <button type="button" class="btn btn-sm btn-primary" id="btnNuevaVinculacionCompra">
+                                            <i class="fas fa-plus me-1"></i>Vincular Sucursal
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="table-responsive">
+                                        <table id="tablaSucursalesCompra" class="table table-sm table-hover" style="width:100%">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th width="80">ID</th>
+                                                    <th>Sucursal</th>
+                                                    <th>Dirección</th>
+                                                    <th>Principal</th>
+                                                    <th>Fecha Desde</th>
+                                                    <th>Fecha Hasta</th>
+                                                    <th>Estado</th>
+                                                    <th width="100" class="text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" id="btnGuardar">
+                                <i class="fas fa-save me-1"></i>Guardar Entidad
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal para historial fiscal (IVA + IIBB) -->
                                 <div class="modal fade" id="modalHistorialFiscal" tabindex="-1" aria-labelledby="modalHistorialFiscalLabel" aria-hidden="true">
                                     <div class="modal-dialog modal-xl modal-ancho modal-dialog-centered modal-dialog-scrollable">
                                         <div class="modal-content">
@@ -483,51 +826,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                 </div>
 
-                               <!-- Pestaña Condiciones Clientes -->
-                                <div class="tab-pane fade" id="condiciones-clientes" role="tabpanel" aria-labelledby="condiciones-clientes-tab">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h6 class="mb-0">
-                                            <i class="fas fa-user-tie me-1"></i>Condición Comercial Vigente - Cliente
-                                        </h6>
-                                        <div>
-                                            <button type="button" class="btn btn-sm btn-info me-2" id="btnHistorialCliente">
-                                                <i class="fas fa-history me-1"></i>Ver Historial
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevaCondicionCliente">
-                                                <i class="fas fa-plus me-1"></i>Nueva Condición
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Tarjeta con condición vigente -->
-                                    <div class="card card-outline card-primary">
-                                        
-                                        <div class="card-body">
-                                            <div id="condicion-cliente-vigente" class="row">
-                                                <div class="col-12 text-center text-muted py-4">
-                                                    <i class="fas fa-spinner fa-spin me-2"></i>Cargando condición vigente...
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    <!-- Acceso web (carrito de pedidos) -->
-                                    <div class="card card-outline card-secondary mt-3">
-                                        <div class="card-header">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-key me-1"></i>Acceso Web - Carrito de Pedidos
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div id="usuario-web-entidad">
-                                                <div class="text-center text-muted py-2">
-                                                    <i class="fas fa-spinner fa-spin me-2"></i>Verificando usuario...
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Modal para historial de clientes -->
+            <!-- Modal para historial de clientes -->
                                     <div class="modal fade" id="modalHistorialCliente" tabindex="-1" aria-hidden="true">
                                         <div class="modal-dialog modal-xl modal-ancho">
                                             <div class="modal-content">
@@ -559,37 +859,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <!-- Pestaña Condiciones Proveedores -->
-                                <div class="tab-pane fade" id="condiciones-proveedores" role="tabpanel" aria-labelledby="condiciones-proveedores-tab">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h6 class="mb-0">
-                                            <i class="fas fa-truck me-1"></i>Condición Comercial Vigente - Proveedor
-                                        </h6>
-                                        <div>
-                                            <button type="button" class="btn btn-sm btn-info me-2" id="btnHistorialProveedor">
-                                                <i class="fas fa-history me-1"></i>Ver Historial
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevaCondicionProveedor">
-                                                <i class="fas fa-plus me-1"></i>Nueva Condición
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Tarjeta con condición vigente -->
-                                    <div class="card card-outline card-primary">
-                                        
-                                        <div class="card-body">
-                                            <div id="condicion-proveedor-vigente" class="row">
-                                                <div class="col-12 text-center text-muted py-4">
-                                                    <i class="fas fa-spinner fa-spin me-2"></i>Cargando condición vigente...
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Modal para historial de proveedores -->
+
+            <!-- Modal para historial de proveedores -->
                                     <div class="modal fade" id="modalHistorialProveedor" tabindex="-1" aria-hidden="true">
                                         <div class="modal-dialog modal-xl modal-ancho">
                                             <div class="modal-content">
@@ -618,47 +890,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                <!-- Pestaña Sucursales de Compra -->
-                                <div class="tab-pane fade" id="sucursales-compra" role="tabpanel" aria-labelledby="sucursales-compra-tab">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h6 class="mb-0">
-                                            <i class="fas fa-shopping-cart me-1"></i>Sucursales donde compra
-                                        </h6>
-                                        <button type="button" class="btn btn-sm btn-primary" id="btnNuevaVinculacionCompra">
-                                            <i class="fas fa-plus me-1"></i>Vincular Sucursal
-                                        </button>
-                                    </div>
-                                    
-                                    <div class="table-responsive">
-                                        <table id="tablaSucursalesCompra" class="table table-sm table-hover" style="width:100%">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th width="80">ID</th>
-                                                    <th>Sucursal</th>
-                                                    <th>Dirección</th>
-                                                    <th>Principal</th>
-                                                    <th>Fecha Desde</th>
-                                                    <th>Fecha Hasta</th>
-                                                    <th>Estado</th>
-                                                    <th width="100" class="text-center">Acciones</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-primary" id="btnGuardar">
-                                <i class="fas fa-save me-1"></i>Guardar Entidad
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
 
             <!-- Modal para crear/editar sucursal -->
             <div class="modal fade" id="modalSucursal" tabindex="-1" aria-labelledby="modalSucursalLabel"
@@ -676,7 +908,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <input type="hidden" id="entidad_id_sucursal" name="entidad_id" />
                                 
                                 <div class="row">
-                                    <div class="col-md-12 mb-3">
+                                    <div class="col-md-3 mb-3">
+                                        <label for="sucursal_numero" class="form-label">N° Sucursal</label>
+                                        <input type="number" class="form-control" id="sucursal_numero"
+                                            name="sucursal_numero" min="1" max="65535" placeholder="Auto (1, 2...)">
+                                        <div class="form-text">1 para Casa Central</div>
+                                    </div>
+                                    <div class="col-md-9 mb-3">
                                         <label for="sucursal_nombre" class="form-label">Nombre de la Sucursal *</label>
                                         <input type="text" class="form-control" id="sucursal_nombre"
                                             name="sucursal_nombre" maxlength="150" required>
@@ -685,7 +923,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </div>
                                 
                                 <div class="row">
-                                    <div class="col-md-8 mb-3">
+                                    <div class="col-md-4 mb-3">
                                         <label for="sucursal_direccion" class="form-label">Dirección</label>
                                         <input type="text" class="form-control" id="sucursal_direccion"
                                             name="sucursal_direccion" maxlength="255">
@@ -693,10 +931,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-4 mb-3">
-                                        <label for="localidad_id_sucursal" class="form-label">Localidad</label>
-                                        <select class="form-select" id="localidad_id_sucursal" name="localidad_id">
-                                            <option value="">Seleccionar localidad...</option>
+                                        <label for="provincia_id_sucursal" class="form-label">Provincia</label>
+                                        <select class="form-select" id="provincia_id_sucursal" name="provincia_id_sucursal">
+                                            <option value="">Seleccionar provincia...</option>
                                         </select>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3 position-relative">
+                                        <label for="localidad_id_sucursal_texto" class="form-label">Localidad</label>
+                                        <input type="hidden" id="localidad_id_sucursal" name="localidad_id">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="localidad_id_sucursal_texto" autocomplete="off" placeholder="Primero seleccione una provincia" disabled>
+                                            <button class="btn btn-outline-secondary" type="button" id="btnLimpiarLocalidadSucursal" title="Limpiar"><i class="fas fa-times"></i></button>
+                                        </div>
+                                        <div id="dropdown_localidades_sucursal" class="dropdown-menu w-100 shadow-sm p-0" style="max-height: 250px; overflow-y: auto; z-index: 1060; display: none;"></div>
+                                        <small class="text-muted" id="localidad_sucursal_help">Primero seleccione una provincia</small>
                                     </div>
                                 </div>
                                 
@@ -1434,7 +1683,36 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         display: inline-block;
         min-width: 20px;
     }
-</style>
+
+    /* Secciones colapsables del formulario */
+    .card-header-toggle {
+        cursor: pointer;
+        user-select: none;
+        transition: background-color 0.15s ease-in-out;
+    }
+    .card-header-toggle:hover {
+        background-color: #e9ecef !important;
+    }
+    .btn-toggle-seccion {
+        padding: 0.15rem 0.45rem;
+        font-size: 0.75rem;
+        line-height: 1.2;
+    }
+
+        /* Modales secundarios sobre modalEntidad */
+        #modalHistorialFiscal,
+        #modalHistorialCliente,
+        #modalHistorialProveedor,
+        #modalCondicionFiscal,
+        #modalCondicionIIBB,
+        #modalCondicionCliente,
+        #modalCondicionProveedor,
+        #modalSucursal,
+        #modalVinculacionCompra {
+            z-index: 1060 !important;
+        }
+        
+    </style>
 
 <!-- Añadir meta viewport si no existe -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
@@ -1443,6 +1721,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
    <script>
 $(document).ready(function () {
+    // Garantizar que el scroll regrese a modalEntidad cuando se cierra un modal secundario
+    $(document).on('hidden.bs.modal', '.modal', function () {
+        if ($('#modalEntidad').hasClass('show')) {
+            $('body').addClass('modal-open');
+        }
+    });
+
+    // Sincronizar iconos en apertura/cierre de secciones colapsables
+    $(document).on('show.bs.collapse', '.seccion-collapse', function () {
+        $('[data-bs-target="#' + this.id + '"]').find('i.fa-chevron-down').removeClass('fa-chevron-down').addClass('fa-chevron-up');
+    });
+    $(document).on('hide.bs.collapse', '.seccion-collapse', function () {
+        $('[data-bs-target="#' + this.id + '"]').find('i.fa-chevron-up').removeClass('fa-chevron-up').addClass('fa-chevron-down');
+    });
+
+    // Botones para colapsar o expandir todas las secciones
+    $(document).on('click', '.btn-secciones-toggle-all', function () {
+        var accion = $(this).data('accion');
+        if (accion === 'colapsar') {
+            $('.seccion-collapse').collapse('hide');
+        } else {
+            $('.seccion-collapse').collapse('show');
+        }
+    });
     // ============================================
     // VARIABLES DE CONTEXTO MULTIEMPRESA
     // ============================================
@@ -1464,6 +1766,8 @@ $(document).ready(function () {
     var catalogoJurisdiccionesSedesIIBB = [];
     var tablaHistorialClientes;
     var tablaHistorialProveedores;
+    var catalogoCuentasContables = [];
+    var cuentasDefectoRoles = {};
     var currentPage = 0;
     var currentOrder = [[1, 'asc']];
     var currentSearch = '';
@@ -2069,31 +2373,199 @@ $(document).ready(function () {
         });
     });
 
-    // Cargar cuentas contables para proveedores y clientes
-    function cargarCuentasContables() {
-        $.get('entidades_ajax.php', {
-            accion: 'obtener_cuentas_contables',
-            empresa_idx: empresa_idx
-        }, function(cuentas) {
-            var selectProv = $('#cont_cuenta_id_proveedor');
-            var selectCli = $('#cont_cuenta_id_cliente');
-            
-            selectProv.empty().append('<option value="">Seleccionar cuenta...</option>');
-            selectCli.empty().append('<option value="">Seleccionar cuenta...</option>');
-            
-            if (cuentas && cuentas.length > 0) {
-                cuentas.forEach(function(cuenta) {
+    // Ajustar y mostrar únicamente los roles que la empresa_id tiene configurados
+    function actualizarRolesVisiblesEmpresa(rolesExtraAceptados) {
+        rolesExtraAceptados = Array.isArray(rolesExtraAceptados) ? rolesExtraAceptados : [];
+        var rolesEmpresaCodigos = Object.keys(cuentasDefectoRoles || {});
+
+        // 1. Actualizar selector de filtro rápido por rol en la tabla principal
+        var filtroActual = $('#filtroRol').val();
+        var opcionesFiltroHtml = '<option value="">Todos los roles</option>';
+        rolesEmpresaCodigos.forEach(function(cod) {
+            var rolInfo = cuentasDefectoRoles[cod];
+            var nombre = (rolInfo && rolInfo.rol_entidad_nombre) ? rolInfo.rol_entidad_nombre : cod;
+            opcionesFiltroHtml += '<option value="' + cod + '">' + nombre + '</option>';
+        });
+        $('#filtroRol').html(opcionesFiltroHtml);
+        if (filtroActual && rolesEmpresaCodigos.includes(filtroActual)) {
+            $('#filtroRol').val(filtroActual);
+        }
+
+        // 2. Si hay roles configurados en la empresa que no existan en el HTML estático, agregarlos dinámicamente
+        rolesEmpresaCodigos.forEach(function(cod) {
+            if ($('#col_rol_' + cod).length === 0) {
+                var rolInfo = cuentasDefectoRoles[cod];
+                var nombre = (rolInfo && rolInfo.rol_entidad_nombre) ? rolInfo.rol_entidad_nombre : cod;
+                var nuevoCardHtml = `
+                    <div class="col-md-6 rol-card-col" data-rol="${cod}" id="col_rol_${cod}">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input check-rol-entidad ms-0 me-2" type="checkbox" id="rol_${cod}" value="${cod}" data-rol="${cod}">
+                                    <label class="form-check-label fw-bold text-dark" for="rol_${cod}">
+                                        <i class="fas fa-tag text-secondary me-1"></i>${nombre}
+                                    </label>
+                                </div>
+                                <span class="badge bg-secondary-subtle text-dark border small badge-rol-defecto" id="badge_defecto_${cod}" style="display:none;">Por defecto</span>
+                            </div>
+                            <div class="contenedor-cuenta-rol" id="contenedor_cuenta_${cod}" style="display:none;">
+                                <label for="cont_cuenta_rol_${cod}" class="form-label small text-muted mb-1">
+                                    <i class="fas fa-book me-1"></i>Cuenta Contable
+                                </label>
+                                <select class="form-select form-select-sm select-cuenta-rol" id="cont_cuenta_rol_${cod}" name="cont_cuenta_rol_${cod}" data-rol="${cod}">
+                                    <option value="">Seleccionar cuenta...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $('#contenedor_roles_cards').append(nuevoCardHtml);
+            }
+        });
+
+        // 3. Mostrar únicamente los roles habilitados para la empresa (o ya asignados a la entidad al editar)
+        var rolesVisibles = 0;
+        $('.rol-card-col').each(function() {
+            var rol = $(this).data('rol');
+            if (rolesEmpresaCodigos.includes(rol) || rolesExtraAceptados.includes(rol)) {
+                $(this).show();
+                rolesVisibles++;
+            } else {
+                $(this).hide();
+                $('#rol_' + rol).prop('checked', false);
+                $('#contenedor_cuenta_' + rol).hide();
+                $('#cont_cuenta_rol_' + rol).val('');
+                $('#badge_defecto_' + rol).hide();
+            }
+        });
+
+        // 4. Mostrar alerta si la empresa no tiene roles configurados
+        if (rolesVisibles === 0 && rolesEmpresaCodigos.length === 0) {
+            $('#alerta_sin_roles_empresa').show();
+        } else {
+            $('#alerta_sin_roles_empresa').hide();
+        }
+    }
+
+    // Cargar cuentas contables generales y cuentas por defecto por rol para la empresa
+    function cargarCuentasContables(callback) {
+        return $.when(
+            $.get('entidades_ajax.php', { accion: 'obtener_cuentas_contables', empresa_idx: empresa_idx }),
+            $.get('entidades_ajax.php', { accion: 'obtener_roles_cuentas_defecto', empresa_idx: empresa_idx })
+        ).done(function(respCuentas, respDefectos) {
+            var cuentas = respCuentas[0];
+            if (typeof cuentas === 'string') {
+                try { cuentas = JSON.parse(cuentas); } catch(e) { cuentas = []; }
+            }
+            catalogoCuentasContables = Array.isArray(cuentas) ? cuentas : [];
+
+            var defectos = respDefectos[0];
+            if (typeof defectos === 'string') {
+                try { defectos = JSON.parse(defectos); } catch(e) { defectos = {}; }
+            }
+            if (defectos && defectos.cuentas_defecto) {
+                cuentasDefectoRoles = defectos.cuentas_defecto;
+            } else if (defectos && typeof defectos === 'object') {
+                cuentasDefectoRoles = defectos;
+            } else {
+                cuentasDefectoRoles = {};
+            }
+
+            // Aplicar visibilidad de roles filtrados según la empresa
+            actualizarRolesVisiblesEmpresa();
+
+            var opcionesHtml = '<option value="">Seleccionar cuenta...</option>';
+            if (catalogoCuentasContables && catalogoCuentasContables.length > 0) {
+                catalogoCuentasContables.forEach(function(cuenta) {
                     var prefix = '';
                     for (var i = 1; i < cuenta.nivel; i++) {
                         prefix += '&nbsp;&nbsp;';
                     }
                     var texto = prefix + cuenta.codigo + ' - ' + cuenta.nombre;
-                    selectProv.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
-                    selectCli.append(`<option value="${cuenta.cont_cuenta_id}">${texto}</option>`);
+                    opcionesHtml += `<option value="${cuenta.cont_cuenta_id}">${texto}</option>`;
                 });
             }
-        }, 'json');
+
+            // Popular todos los selectores de cuenta de rol
+            $('.select-cuenta-rol').each(function() {
+                var select = $(this);
+                var valActual = select.val();
+                select.html(opcionesHtml);
+                if (valActual) {
+                    select.val(valActual);
+                }
+            });
+
+            // Si hay checkboxes marcados sin cuenta asignada, aplicar la cuenta por defecto
+            $('.check-rol-entidad:checked').each(function() {
+                var rol = $(this).data('rol');
+                var select = $('#cont_cuenta_rol_' + rol);
+                var badge = $('#badge_defecto_' + rol);
+                if (!select.val() && cuentasDefectoRoles[rol] && cuentasDefectoRoles[rol].cont_cuenta_id) {
+                    select.val(cuentasDefectoRoles[rol].cont_cuenta_id);
+                    badge.show();
+                }
+            });
+
+            // Selectores legados de compatibilidad
+            var valProv = $('#cont_cuenta_id_proveedor').val();
+            var valCli = $('#cont_cuenta_id_cliente').val();
+            $('#cont_cuenta_id_proveedor').html(opcionesHtml);
+            $('#cont_cuenta_id_cliente').html(opcionesHtml);
+            if (valProv) $('#cont_cuenta_id_proveedor').val(valProv);
+            if (valCli) $('#cont_cuenta_id_cliente').val(valCli);
+
+            if (typeof callback === 'function') {
+                callback();
+            }
+        });
     }
+    // Precargar de inmediato al inicializar la pantalla
+    cargarCuentasContables();
+
+    // Listener para activar/desactivar rol y sugerir cuenta contable por defecto
+    $(document).on('change', '.check-rol-entidad', function () {
+        var rol = $(this).data('rol');
+        var contenedor = $('#contenedor_cuenta_' + rol);
+        var select = $('#cont_cuenta_rol_' + rol);
+        var badge = $('#badge_defecto_' + rol);
+
+        if ($(this).is(':checked')) {
+            contenedor.slideDown(150);
+            if (!select.val() && cuentasDefectoRoles[rol] && cuentasDefectoRoles[rol].cont_cuenta_id) {
+                select.val(cuentasDefectoRoles[rol].cont_cuenta_id);
+                badge.show();
+            }
+        } else {
+            contenedor.slideUp(150);
+            badge.hide();
+        }
+
+        // Sincronizar compatibilidad legada
+        if (rol === 'CLI') {
+            $('#es_cliente').val($(this).is(':checked') ? '1' : '0');
+            $('#cont_cuenta_id_cliente').val($('#cont_cuenta_rol_CLI').val() || '');
+        }
+        if (rol === 'PRO') {
+            $('#es_proveedor').val($(this).is(':checked') ? '1' : '0');
+            $('#cont_cuenta_id_proveedor').val($('#cont_cuenta_rol_PRO').val() || '');
+        }
+    });
+
+    // Listener al cambiar cuenta contable en un rol
+    $(document).on('change', '.select-cuenta-rol', function () {
+        var rol = $(this).data('rol');
+        var val = $(this).val();
+        var badge = $('#badge_defecto_' + rol);
+        if (cuentasDefectoRoles[rol] && String(cuentasDefectoRoles[rol].cont_cuenta_id) === String(val)) {
+            badge.show();
+        } else {
+            badge.hide();
+        }
+
+        if (rol === 'CLI') $('#cont_cuenta_id_cliente').val(val);
+        if (rol === 'PRO') $('#cont_cuenta_id_proveedor').val(val);
+    });
 
     // Función para cargar condición vigente de proveedor
     function cargarCondicionProveedorVigente() {
@@ -2580,32 +3052,160 @@ $(document).ready(function () {
         }, 'json');
     }
 
-    // Función para cargar localidades
-    function cargarLocalidades() {
-        $.get('entidades_ajax.php', {
-            accion: 'obtener_localidades',
-            empresa_idx: empresa_idx
-        }, function (localidades) {
-            var selectEntidad = $('#localidad_id');
-            var selectSucursal = $('#localidad_id_sucursal');
-            
-            selectEntidad.empty();
-            selectEntidad.append('<option value="">Seleccionar localidad...</option>');
-            
-            if (selectSucursal.length) {
-                selectSucursal.empty();
-                selectSucursal.append('<option value="">Seleccionar localidad...</option>');
-            }
-            
-            if (localidades && localidades.length > 0) {
-                $.each(localidades, function (index, localidad) {
-                    selectEntidad.append('<option value="' + localidad.localidad_id + '">' + localidad.localidad + '</option>');
-                    if (selectSucursal.length) {
-                        selectSucursal.append('<option value="' + localidad.localidad_id + '">' + localidad.localidad + '</option>');
-                    }
-                });
-            }
+    // Variables y funciones para Provincia y Búsqueda en vivo de Localidades
+    var listaProvinciasCache = null;
+
+    function cargarProvincias(callback) {
+        if (listaProvinciasCache) {
+            if (callback) callback(listaProvinciasCache);
+            return;
+        }
+        $.get('entidades_ajax.php', { accion: 'obtener_provincias' }, function (provincias) {
+            listaProvinciasCache = provincias || [];
+            if (callback) callback(listaProvinciasCache);
         }, 'json');
+    }
+
+    function poblarSelectProvincias($select, valorSeleccionado) {
+        cargarProvincias(function (provincias) {
+            $select.empty().append('<option value="">Seleccionar provincia...</option>');
+            $.each(provincias, function (i, prov) {
+                $select.append($('<option>', {
+                    value: prov.provincia_id,
+                    text: prov.provincia
+                }));
+            });
+            if (valorSeleccionado) {
+                $select.val(valorSeleccionado);
+            }
+        });
+    }
+
+    function inicializarBuscadorLocalidad(config) {
+        var $selectProv = $(config.selectProvincia);
+        var $inputTexto = $(config.inputTexto);
+        var $inputHidden = $(config.inputHidden);
+        var $dropdown = $(config.dropdown);
+        var $help = $(config.help);
+        var $btnLimpiar = $(config.btnLimpiar);
+        var ajaxUrl = config.ajaxUrl;
+        var timerBusqueda = null;
+
+        $selectProv.on('change', function () {
+            var provId = $(this).val();
+            $dropdown.hide().empty();
+            $inputHidden.val('');
+            $inputTexto.val('');
+            if (provId) {
+                var provNombre = $(this).find('option:selected').text();
+                $inputTexto.prop('disabled', false).attr('placeholder', 'Escriba para buscar localidad o CP...');
+                $help.text('Buscando en ' + provNombre);
+            } else {
+                $inputTexto.prop('disabled', true).attr('placeholder', 'Primero seleccione una provincia');
+                $help.text('Primero seleccione una provincia');
+            }
+        });
+
+        $inputTexto.on('input', function () {
+            var texto = $(this).val().trim();
+            var provId = $selectProv.val();
+            $inputHidden.val('');
+
+            if (!provId) {
+                $dropdown.hide();
+                return;
+            }
+
+            clearTimeout(timerBusqueda);
+            if (texto.length === 0) {
+                $dropdown.hide().empty();
+                $help.text('Escriba para buscar');
+                return;
+            }
+
+            $dropdown.html('<div class="p-2 text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Buscando localidades...</div>').show();
+
+            timerBusqueda = setTimeout(function () {
+                $.get(ajaxUrl, {
+                    accion: 'buscar_localidades',
+                    provincia_id: provId,
+                    q: texto
+                }, function (res) {
+                    var items = res && res.data ? res.data : [];
+                    $dropdown.empty();
+                    if (items.length > 0) {
+                        $.each(items, function (i, loc) {
+                            var cpStr = loc.cp ? ' (CP ' + loc.cp + ')' : '';
+                            var etiqueta = loc.localidad + cpStr;
+                            var $item = $('<a href="#" class="dropdown-item py-1 px-2 border-bottom text-truncate"></a>')
+                                .html('<i class="fas fa-map-marker-alt text-primary me-2"></i><strong>' + loc.localidad + '</strong>' +
+                                    (loc.cp ? ' <span class="badge bg-light text-dark border ms-1">CP ' + loc.cp + '</span>' : ''))
+                                .data('id', loc.localidad_id)
+                                .data('texto', etiqueta);
+                            $dropdown.append($item);
+                        });
+                        $dropdown.show();
+                    } else {
+                        $dropdown.html('<div class="p-2 text-muted small text-center">No se encontraron localidades</div>').show();
+                    }
+                }, 'json').fail(function () {
+                    $dropdown.html('<div class="p-2 text-danger small text-center">Error al buscar localidades</div>').show();
+                });
+            }, 250);
+        });
+
+        $dropdown.on('click', '.dropdown-item', function (e) {
+            e.preventDefault();
+            var id = $(this).data('id');
+            var txt = $(this).data('texto');
+            if (id) {
+                $inputHidden.val(id);
+                $inputTexto.val(txt);
+                $dropdown.hide();
+                $help.empty();
+            }
+        });
+
+        $btnLimpiar.on('click', function () {
+            $inputHidden.val('');
+            $inputTexto.val('');
+            $dropdown.hide().empty();
+            if ($selectProv.val()) {
+                $inputTexto.focus();
+                $help.text('Escriba para buscar');
+            }
+        });
+
+        $(document).on('click', function (e) {
+            if (!$(e.target).closest($inputTexto.parent()).length) {
+                $dropdown.hide();
+            }
+        });
+    }
+
+    function inicializarBuscadoresLocalidades() {
+        poblarSelectProvincias($('#provincia_id'));
+        poblarSelectProvincias($('#provincia_id_sucursal'));
+
+        inicializarBuscadorLocalidad({
+            selectProvincia: '#provincia_id',
+            inputTexto: '#localidad_texto',
+            inputHidden: '#localidad_id',
+            dropdown: '#dropdown_localidades',
+            help: '#localidad_help',
+            btnLimpiar: '#btnLimpiarLocalidad',
+            ajaxUrl: 'entidades_ajax.php'
+        });
+
+        inicializarBuscadorLocalidad({
+            selectProvincia: '#provincia_id_sucursal',
+            inputTexto: '#localidad_id_sucursal_texto',
+            inputHidden: '#localidad_id_sucursal',
+            dropdown: '#dropdown_localidades_sucursal',
+            help: '#localidad_sucursal_help',
+            btnLimpiar: '#btnLimpiarLocalidadSucursal',
+            ajaxUrl: 'entidades_ajax.php'
+        });
     }
 
     // Función para inicializar DataTable de entidades
@@ -2691,7 +3291,7 @@ $(document).ready(function () {
                     className: 'btn btn-success btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
                         orthogonal: 'export'
                     }
                 },
@@ -2703,7 +3303,7 @@ $(document).ready(function () {
                     orientation: 'portrait',
                     pageSize: 'A4',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
                         orthogonal: 'export'
                     }
                 },
@@ -2713,7 +3313,7 @@ $(document).ready(function () {
                     className: 'btn btn-primary btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7]
                     }
                 },
                 {
@@ -2722,7 +3322,7 @@ $(document).ready(function () {
                     className: 'btn btn-secondary btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7],
                         stripHtml: false
                     }
                 }
@@ -2801,33 +3401,41 @@ $(document).ready(function () {
                     }
                 },
                 {
-                    data: 'es_proveedor',
+                    data: 'roles_info',
                     className: 'text-center',
                     render: function (data, type, row) {
-                        if (type === 'export') {
-                            return data == 1 ? 'Sí' : 'No';
+                        var codigos = (data && data.codigos && Array.isArray(data.codigos)) ? data.codigos : [];
+                        if (codigos.length === 0) {
+                            if (parseInt(row.es_cliente) === 1) codigos.push('CLI');
+                            if (parseInt(row.es_proveedor) === 1) codigos.push('PRO');
                         }
-                        
-                        if (data == 1) {
-                            return '<i class="fas fa-check-circle text-success"></i>';
-                        } else {
-                            return '<i class="fas fa-times-circle text-secondary"></i>';
+
+                        if (type === 'export' || type === 'filter') {
+                            return codigos.join(', ');
                         }
-                    }
-                },
-                {
-                    data: 'es_cliente',
-                    className: 'text-center',
-                    render: function (data, type, row) {
-                        if (type === 'export') {
-                            return data == 1 ? 'Sí' : 'No';
+
+                        if (codigos.length === 0) {
+                            return '<span class="text-muted fst-italic small">Sin rol</span>';
                         }
-                        
-                        if (data == 1) {
-                            return '<i class="fas fa-check-circle text-success"></i>';
-                        } else {
-                            return '<i class="fas fa-times-circle text-secondary"></i>';
-                        }
+
+                        var badgeMap = {
+                            'CLI':  { label: 'Cliente', class: 'bg-success text-white', icon: 'fa-user-tie' },
+                            'PRO':  { label: 'Proveedor', class: 'bg-primary text-white', icon: 'fa-truck' },
+                            'ORG':  { label: 'Organismo', class: 'bg-warning text-dark', icon: 'fa-landmark' },
+                            'EMP':  { label: 'Empleado', class: 'bg-info text-dark', icon: 'fa-id-badge' },
+                            'BAN':  { label: 'Banco', class: 'bg-secondary text-white', icon: 'fa-university' },
+                            'EMPL': { label: 'Empleador', class: 'bg-dark text-white', icon: 'fa-briefcase' },
+                            'EST':  { label: 'Estudio', class: 'bg-secondary text-white', icon: 'fa-calculator' },
+                            'AFIL': { label: 'Afiliado', class: 'bg-light text-dark border', icon: 'fa-user' }
+                        };
+
+                        var html = '<div class="d-flex flex-wrap gap-1 justify-content-center">';
+                        codigos.forEach(function (c) {
+                            var cfg = badgeMap[c] || { label: c, class: 'bg-secondary text-white', icon: 'fa-tag' };
+                            html += `<span class="badge ${cfg.class}" title="${cfg.label}"><i class="fas ${cfg.icon} me-1"></i>${cfg.label}</span>`;
+                        });
+                        html += '</div>';
+                        return html;
                     }
                 },
                 {
@@ -2990,7 +3598,8 @@ $(document).ready(function () {
                 data: {
                     accion: 'listar_sucursales',
                     empresa_idx: empresa_idx,
-                    entidad_id: entidadId
+                    entidad_id: entidadId,
+                    pagina_idx: pagina_idx
                 },
                 dataSrc: ''
             },
@@ -3009,7 +3618,8 @@ $(document).ready(function () {
                         if (type === 'export') {
                             return data;
                         }
-                        return `<div class="fw-medium">${data}</div>`;
+                        var nro = row.sucursal_numero ? `<span class="badge bg-secondary me-1">#${row.sucursal_numero}</span>` : '';
+                        return `<div class="fw-medium">${nro}${data}</div>`;
                     }
                 },
                 {
@@ -3032,7 +3642,11 @@ $(document).ready(function () {
                             return '<span class="text-muted fst-italic">No especificada</span>';
                         }
                         
-                        return data.localidad;
+                        var locStr = data.localidad;
+                        if (data.provincia) {
+                            locStr += ' <small class="text-muted">(' + data.provincia + ')</small>';
+                        }
+                        return locStr;
                     }
                 },
                 {
@@ -3166,6 +3780,15 @@ $(document).ready(function () {
                 btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i>');
             }, false);
         });
+
+        // Filtro rápido por Rol de Entidad
+        $('#filtroRol').off('change').on('change', function () {
+            var rol = $(this).val();
+            if (tablaEntidades) {
+                // Filtramos en la columna 6 (Roles)
+                tablaEntidades.column(6).search(rol ? rol : '', false, false).draw();
+            }
+        });
     }
 
     // Cargar botón Agregar dinámicamente
@@ -3241,7 +3864,7 @@ $(document).ready(function () {
         $('#modalLabel').text('Nueva Entidad');
         $('#sucursales-tab').addClass('disabled');
         cargarCuentasContables();
-        var modal = new bootstrap.Modal(document.getElementById('modalEntidad'));
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEntidad'));
         modal.show();
         $('#entidad_nombre').focus();
     });
@@ -3836,7 +4459,6 @@ $(document).ready(function () {
         }, function (res) {
             if (res && res.entidad_id) {
                 resetModal();
-                cargarCuentasContables();
                 
                 $('#entidad_id').val(res.entidad_id);
                 $('#entidad_nombre').val(res.entidad_nombre);
@@ -3853,20 +4475,48 @@ $(document).ready(function () {
                     }, 100);
                 }
 
-                setTimeout(function() {
+                if (res.provincia_id) {
+                    $('#provincia_id').val(res.provincia_id);
+                    $('#localidad_texto').prop('disabled', false).attr('placeholder', 'Escriba para buscar localidad o CP...');
+                }
+                if (res.localidad_id) {
+                    $('#localidad_id').val(res.localidad_id);
+                    var locTexto = res.localidad + (res.cp ? ' (CP ' + res.cp + ')' : '');
+                    $('#localidad_texto').val(locTexto);
+                    $('#localidad_help').empty();
+                }
+
+                cargarCuentasContables(function() {
+                    // Set checkboxes de roles y cuentas asignadas
+                    $('.check-rol-entidad').prop('checked', false);
+                    $('.contenedor-cuenta-rol').hide();
+                    $('.badge-rol-defecto').hide();
+                    
+                    var rolesAsignados = (res.roles_codigos && Array.isArray(res.roles_codigos)) ? res.roles_codigos : [];
+                    if (rolesAsignados.length === 0) {
+                        if (parseInt(res.es_cliente) === 1) rolesAsignados.push('CLI');
+                        if (parseInt(res.es_proveedor) === 1) rolesAsignados.push('PRO');
+                    }
+                    actualizarRolesVisiblesEmpresa(rolesAsignados);
+                    rolesAsignados.forEach(function (rol) {
+                        $('#rol_' + rol).prop('checked', true);
+                        $('#contenedor_cuenta_' + rol).show();
+                        var cuentaId = (res.roles_cuentas && res.roles_cuentas[rol]) ? res.roles_cuentas[rol] : null;
+                        if (!cuentaId && rol === 'CLI') cuentaId = res.cont_cuenta_id_cliente;
+                        if (!cuentaId && rol === 'PRO') cuentaId = res.cont_cuenta_id_proveedor;
+                        if (!cuentaId && cuentasDefectoRoles[rol]) cuentaId = cuentasDefectoRoles[rol].cont_cuenta_id;
+                        if (cuentaId) {
+                            $('#cont_cuenta_rol_' + rol).val(cuentaId);
+                            if (cuentasDefectoRoles[rol] && String(cuentasDefectoRoles[rol].cont_cuenta_id) === String(cuentaId)) {
+                                $('#badge_defecto_' + rol).show();
+                            }
+                        }
+                    });
+                    $('#es_proveedor').val(rolesAsignados.includes('PRO') ? '1' : '0');
+                    $('#es_cliente').val(rolesAsignados.includes('CLI') ? '1' : '0');
                     $('#cont_cuenta_id_proveedor').val(res.cont_cuenta_id_proveedor || '');
                     $('#cont_cuenta_id_cliente').val(res.cont_cuenta_id_cliente || '');
-                }, 100);
-
-                if (res.localidad_id) {
-                    setTimeout(function() {
-                        $('#localidad_id').val(res.localidad_id);
-                    }, 100);
-                }
-                
-                // Set checkboxes
-                $('#es_proveedor').prop('checked', parseInt(res.es_proveedor) === 1);
-                $('#es_cliente').prop('checked', parseInt(res.es_cliente) === 1);
+                });
                 
                 $('#modalLabel').text('Editar Entidad');
                 entidadActualId = res.entidad_id;
@@ -3886,7 +4536,7 @@ $(document).ready(function () {
                 inicializarDataTableSucursalesCompra(entidadActualId);
                 cargarTiposCliente();
                 
-                var modal = new bootstrap.Modal(document.getElementById('modalEntidad'));
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEntidad'));
                 modal.show();
 
             } else {
@@ -3912,17 +4562,22 @@ $(document).ready(function () {
                 
                 $('#sucursal_id').val(res.sucursal_id);
                 $('#entidad_id_sucursal').val(res.entidad_id);
+                $('#sucursal_numero').val(res.sucursal_numero || '');
                 $('#sucursal_nombre').val(res.sucursal_nombre);
                 $('#sucursal_direccion').val(res.sucursal_direccion || '');
                 $('#sucursal_telefono').val(res.sucursal_telefono || '');
                 $('#sucursal_email').val(res.sucursal_email || '');
                 $('#sucursal_contacto').val(res.sucursal_contacto || '');
                 
-                // Set select
+                if (res.provincia_id) {
+                    $('#provincia_id_sucursal').val(res.provincia_id);
+                    $('#localidad_id_sucursal_texto').prop('disabled', false).attr('placeholder', 'Escriba para buscar localidad o CP...');
+                }
                 if (res.localidad_id) {
-                    setTimeout(function() {
-                        $('#localidad_id_sucursal').val(res.localidad_id);
-                    }, 100);
+                    $('#localidad_id_sucursal').val(res.localidad_id);
+                    var locSucTexto = res.localidad + (res.cp ? ' (CP ' + res.cp + ')' : '');
+                    $('#localidad_id_sucursal_texto').val(locSucTexto);
+                    $('#localidad_sucursal_help').html('<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + locSucTexto + '</span>');
                 }
                 
                 $('#modalSucursalLabel').text('Editar Sucursal');
@@ -3943,9 +4598,24 @@ $(document).ready(function () {
     // Función para resetear el modal de entidad
     function resetModal() {
         $('#formEntidad')[0].reset();
+        $('#datos-tab').tab('show');
+        $('#sucursales-tab, #condiciones-clientes-tab, #condiciones-proveedores-tab, #sucursales-compra-tab').addClass('disabled');
+        $('.seccion-collapse').collapse('show');
+        actualizarRolesVisiblesEmpresa();
+        $('.check-rol-entidad').prop('checked', false);
+        $('.contenedor-cuenta-rol').hide();
+        $('.select-cuenta-rol').val('');
+        $('.badge-rol-defecto').hide();
+        $('#es_proveedor').val('0');
+        $('#es_cliente').val('0');
         $('#entidad_id').val('');
         $('#cont_cuenta_id_proveedor').val('');
         $('#cont_cuenta_id_cliente').val('');
+        $('#provincia_id').val('');
+        $('#localidad_id').val('');
+        $('#localidad_texto').val('').prop('disabled', true).attr('placeholder', 'Primero seleccione una provincia');
+        $('#dropdown_localidades').hide().empty();
+        $('#localidad_help').text('Primero seleccione una provincia');
         $('#formEntidad').removeClass('was-validated');
         entidadActualId = 0;
         $('#sucursales-tab').addClass('disabled');
@@ -3985,6 +4655,12 @@ $(document).ready(function () {
     function resetModalSucursal() {
         $('#formSucursal')[0].reset();
         $('#sucursal_id').val('');
+        $('#sucursal_numero').val('');
+        $('#provincia_id_sucursal').val('');
+        $('#localidad_id_sucursal').val('');
+        $('#localidad_id_sucursal_texto').val('').prop('disabled', true).attr('placeholder', 'Primero seleccione una provincia');
+        $('#dropdown_localidades_sucursal').hide().empty();
+        $('#localidad_sucursal_help').text('Primero seleccione una provincia');
         $('#formSucursal').removeClass('was-validated');
     }
 
@@ -4005,8 +4681,22 @@ $(document).ready(function () {
         var cuit = $('#cuit').val();
         var sitioWeb = $('#sitio_web').val();
         
-        var esProveedor = $('#es_proveedor').is(':checked') ? 1 : 0;
-        var esCliente = $('#es_cliente').is(':checked') ? 1 : 0;
+        // Roles de entidad seleccionados y sus cuentas contables asociadas
+        var rolesSeleccionados = [];
+        var rolesCuentas = {};
+        $('.check-rol-entidad:checked').each(function () {
+            var rol = $(this).val();
+            rolesSeleccionados.push(rol);
+            rolesCuentas[rol] = $('#cont_cuenta_rol_' + rol).val() || null;
+        });
+        var esProveedor = rolesSeleccionados.includes('PRO') ? 1 : 0;
+        var esCliente = rolesSeleccionados.includes('CLI') ? 1 : 0;
+        var cuentaCli = rolesCuentas['CLI'] || $('#cont_cuenta_id_cliente').val() || null;
+        var cuentaProv = rolesCuentas['PRO'] || $('#cont_cuenta_id_proveedor').val() || null;
+        $('#es_proveedor').val(esProveedor);
+        $('#es_cliente').val(esCliente);
+        $('#cont_cuenta_id_proveedor').val(cuentaProv || '');
+        $('#cont_cuenta_id_cliente').val(cuentaCli || '');
         
         if (cuit && (cuit < 0 || cuit > 99999999999)) {
             $('#cuit').addClass('is-invalid');
@@ -4051,12 +4741,14 @@ $(document).ready(function () {
                 entidad_nombre: entidadNombre,
                 entidad_fantasia: $('#entidad_fantasia').val().trim(),
                 entidad_tipo_id: $('#entidad_tipo_id').val(),
-                cont_cuenta_id_proveedor: $('#cont_cuenta_id_proveedor').val() || null,
-                cont_cuenta_id_cliente: $('#cont_cuenta_id_cliente').val() || null,
+                cont_cuenta_id_proveedor: cuentaProv,
+                cont_cuenta_id_cliente: cuentaCli,
                 cuit: cuit,
                 sitio_web: sitioWeb,
                 domicilio_legal: $('#domicilio_legal').val().trim(),
                 localidad_id: $('#localidad_id').val(),
+                roles: rolesSeleccionados,
+                roles_cuentas: rolesCuentas,
                 es_proveedor: esProveedor,
                 es_cliente: esCliente,
                 observaciones: $('#observaciones').val().trim(),
@@ -4298,7 +4990,7 @@ $(document).ready(function () {
     inicializarDataTableEntidades();
     cargarBotonAgregar();
     cargarTiposEntidad();
-    cargarLocalidades();
+    inicializarBuscadoresLocalidades();
     cargarCondicionesPago();
     cargarListasPrecios();
     cargarCategoriasProveedores();

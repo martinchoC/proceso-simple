@@ -13,8 +13,7 @@ define('ROOT_PATH', dirname(dirname(__DIR__)));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
-<main class="app-main">
-    <div class="app-content-header">
+<div class="app-content-header">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-sm-6">
@@ -148,8 +147,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Concepto Contable (ERP)</label>
-                                <input type="text" class="form-control" id="cuenta_concepto_codigo" name="cuenta_concepto_codigo" value="SINDI_DEUDORES_APORTES" placeholder="SINDI_DEUDORES_APORTES">
+                                <label class="form-label fw-semibold">Comprobante de la deuda <span class="text-danger">*</span></label>
+                                <select class="form-select" id="comprobante_tipo_id" name="comprobante_tipo_id" required>
+                                    <option value="">(Seleccionar)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Comprobante de reversión (rectificativa) <span class="text-danger">*</span></label>
+                                <select class="form-select" id="comprobante_tipo_reversion_id" name="comprobante_tipo_reversion_id" required>
+                                    <option value="">(Seleccionar)</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Concepto Contable del Recurso (ERP)</label>
+                                <input type="text" class="form-control" id="cuenta_concepto_codigo" name="cuenta_concepto_codigo" placeholder="SINDI_APORTE_ART100">
+                                <small class="text-muted">Concepto de Tesorería &gt; Conceptos Contables con la cuenta de ingreso de este aporte.</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold">Vigencia Desde</label>
@@ -169,8 +182,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
         </div>
     </div>
-</main>
-
 <script src="conceptos.js"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

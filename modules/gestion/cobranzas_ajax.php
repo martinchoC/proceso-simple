@@ -1,7 +1,7 @@
 <?php
 // Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
 require_once __DIR__ . '/../../core/ajax_guard.php';
-$ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => ['cobranzas.php']]);
+$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['cobranzas.php']]);
 /**
  * cobranzas_ajax.php
  *
@@ -81,12 +81,35 @@ try {
             enviarRespuesta(['success' => true, 'data' => $datos]);
             break;
 
+        case 'obtener_asiento':
+            $id = intval($_GET['id'] ?? $_POST['id'] ?? 0);
+            if ($id <= 0) manejarError('ID de cobranza inválido', 400);
+            $asiento = cobranzaObtenerAsiento($conexion, $id, $empresa_idx);
+            if ($asiento) {
+                enviarRespuesta(['success' => true, 'data' => $asiento]);
+            } else {
+                enviarRespuesta(['success' => false, 'error' => 'No se encontró asiento contable para esta cobranza.']);
+            }
+            break;
+
+        case 'generar_asiento':
+            $id = intval($_POST['id'] ?? $_GET['id'] ?? 0);
+            if ($id <= 0) {
+                $input_raw = file_get_contents('php://input');
+                $data_json = json_decode($input_raw, true);
+                $id = intval($data_json['id'] ?? 0);
+            }
+            if ($id <= 0) manejarError('ID de cobranza inválido', 400);
+            $res_gen = cobranzaGenerarAsientoContable($conexion, $id, $empresa_idx, $usuario_id);
+            enviarRespuesta($res_gen);
+            break;
+
         case 'maestros':
             $clientes = obtenerClientesCobranza($conexion, $empresa_idx);
             $medios_pago = obtenerMediosPagoDisponibles($conexion, $empresa_idx);
             $cuentas_tesoreria = obtenerCuentasTesoreriaEmpresa($conexion, $empresa_idx);
             $bancos = obtenerBancosDisponibles($conexion);
-            $impuestos_retencion = obtenerImpuestosRetencion($conexion);
+            $impuestos_retencion = obtenerImpuestosRetencion($conexion, 'COBRO');
             $jurisdicciones = obtenerJurisdicciones($conexion);
             $sucursales = obtenerSucursalesEmpresa($conexion, $empresa_idx);
             $puntos_venta = obtenerPuntosVentaCobranza($conexion, $empresa_idx, $pagina_idx);

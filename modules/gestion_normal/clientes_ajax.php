@@ -59,7 +59,8 @@ try {
                 break;
             }
             
-            $sucursales = obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_idx);
+            $p_idx = $pagina_idx > 0 ? $pagina_idx : pagina_id_por_url($conexion, $ctx['modulo_id'], 'clientes.php', 500);
+            $sucursales = obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $p_idx);
             echo json_encode($sucursales, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -78,9 +79,37 @@ try {
             echo json_encode($cuentas, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_roles_catalogo':
+            $roles = obtenerCatalogoRolesEntidad($conexion);
+            echo json_encode($roles, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_roles_cuentas_defecto':
+            $cuentas_defecto = obtenerCuentasDefectoRolesEmpresa($conexion, $empresa_idx);
+            echo json_encode($cuentas_defecto, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'obtener_localidades':
             $localidades = obtenerLocalidades($conexion);
             echo json_encode($localidades, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_provincias':
+            $provincias = obtenerProvincias($conexion);
+            echo json_encode($provincias, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'buscar_localidades':
+            $provincia_id = intval($_GET['provincia_id'] ?? $_POST['provincia_id'] ?? 0);
+            $q = trim($_GET['q'] ?? $_POST['q'] ?? '');
+            $localidades = buscarLocalidades($conexion, $provincia_id, $q);
+            echo json_encode(['success' => true, 'data' => $localidades], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_localidad':
+            $localidad_id = intval($_GET['localidad_id'] ?? $_POST['localidad_id'] ?? 0);
+            $loc = obtenerLocalidadPorId($conexion, $localidad_id);
+            echo json_encode($loc, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'agregar_entidad':
@@ -147,6 +176,7 @@ try {
             $data = [
                 'empresa_id' => $empresa_idx,
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+                'sucursal_numero' => isset($_POST['sucursal_numero']) && $_POST['sucursal_numero'] !== '' ? intval($_POST['sucursal_numero']) : null,
                 'sucursal_nombre' => trim($_POST['sucursal_nombre'] ?? ''),
                 'sucursal_direccion' => trim($_POST['sucursal_direccion'] ?? ''),
                 'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
@@ -163,6 +193,7 @@ try {
         case 'editar_sucursal':
             $id = intval($_POST['sucursal_id'] ?? 0);
             $data = [
+                'sucursal_numero' => isset($_POST['sucursal_numero']) && $_POST['sucursal_numero'] !== '' ? intval($_POST['sucursal_numero']) : null,
                 'sucursal_nombre' => trim($_POST['sucursal_nombre'] ?? ''),
                 'sucursal_direccion' => trim($_POST['sucursal_direccion'] ?? ''),
                 'localidad_id' => $_POST['localidad_id'] ? intval($_POST['localidad_id']) : null,
@@ -198,7 +229,8 @@ try {
                 break;
             }
 
-            $resultado = ejecutarTransicionEstado($conexion, $sucursal_id, $accion_js, $empresa_idx, $pagina_idx, 'sucursal');
+            $p_idx = $pagina_idx > 0 ? $pagina_idx : pagina_id_por_url($conexion, $ctx['modulo_id'], 'clientes.php', 500);
+            $resultado = ejecutarTransicionEstado($conexion, $sucursal_id, $accion_js, $empresa_idx, $p_idx, 'sucursal');
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

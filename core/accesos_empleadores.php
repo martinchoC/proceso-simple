@@ -7,7 +7,8 @@ declare(strict_types=1);
  *
  * Determina a qué empleadores tiene acceso un usuario dentro de la empresa sindical:
  * - Superadmin (USUARIOS_ACCESO_TOTAL) -> acceso total a todos los empleadores.
- * - Perfiles internos del sindicato (Admin, Operador, Inspector) -> acceso total.
+ * - Usuarios con la función "Ver todos los empleadores" (página 1010) -> acceso total.
+ *   Se asigna a los perfiles internos (Admin, Operador, Inspector) desde la administración de perfiles.
  * - Perfiles externos (Empleador titular, Estudio contable, Delegado) -> restringidos
  *   estrictamente a los empleadores asignados en `sindi__usuarios_empleadores`.
  */
@@ -17,6 +18,40 @@ require_once __DIR__ . '/permisos.php';
 class AccesosEmpleadoresHelper
 {
     private static array $cache = [];
+
+    /** Página de Empleadores, donde vive la función de permiso "Ver todos los empleadores". */
+    private const PAGINA_EMPLEADORES = 1010;
+    private const ACCION_VER_TODOS = 'ver_todos_empleadores';
+
+    private static function tieneFuncionVerTodos(mysqli $conexion, int $usuario_id, int $empresa_id): bool
+    {
+        $sql = "SELECT 1
+                FROM conf__usuarios_perfiles up
+                INNER JOIN conf__empresas_perfiles ep ON ep.empresa_perfil_id = up.empresa_perfil_id
+                INNER JOIN conf__empresas_perfiles_funciones epf ON epf.empresa_perfil_id = ep.empresa_perfil_id
+                INNER JOIN conf__paginas_funciones pf ON pf.pagina_funcion_id = epf.pagina_funcion_id
+                WHERE up.usuario_id = ?
+                  AND ep.empresa_id = ?
+                  AND up.tabla_estado_registro_id = 1
+                  AND ep.tabla_estado_registro_id = 1
+                  AND CURDATE() BETWEEN up.fecha_inicio AND up.fecha_fin
+                  AND epf.asignado = 1
+                  AND pf.pagina_id = ?
+                  AND pf.accion_js = ?
+                  AND pf.tabla_estado_registro_id = 1
+                LIMIT 1";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            return false;
+        }
+        $pagina = self::PAGINA_EMPLEADORES;
+        $accion = self::ACCION_VER_TODOS;
+        mysqli_stmt_bind_param($stmt, "iiis", $usuario_id, $empresa_id, $pagina, $accion);
+        mysqli_stmt_execute($stmt);
+        $tiene = (bool)mysqli_fetch_row(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        return $tiene;
+    }
 
     /**
      * Resuelve los empleadores permitidos para el usuario en la empresa.
@@ -45,19 +80,13 @@ class AccesosEmpleadoresHelper
             return $resultado;
         }
 
-        // 2. Verificar si el usuario tiene un perfil interno de sindicato en esta empresa
-        $perfiles = usuario_obtener_perfiles_empresa($conexion, $usuario_id, $empresa_id);
-        if (!empty($perfiles)) {
-            // Perfiles internos del módulo 6:
-            // 1 (Superadmin), 2 (Admin parcial), 601 (Admin sindicato), 602 (Operador sindicato), 603 (Inspector)
-            $perfilesInternos = [1, 2, 601, 602, 603];
-            foreach ($perfiles as $p) {
-                if (in_array($p['perfil_id_base'], $perfilesInternos, true)) {
-                    $resultado['tiene_acceso_total'] = true;
-                    self::$cache[$cacheKey] = $resultado;
-                    return $resultado;
-                }
-            }
+        // 2. Usuarios internos del sindicato: los que tienen, por alguno de sus perfiles vigentes en
+        //    la empresa, la función "Ver todos los empleadores" (accion_js ver_todos_empleadores,
+        //    página 1010). Se asigna desde la administración de perfiles, no por id de perfil.
+        if (self::tieneFuncionVerTodos($conexion, $usuario_id, $empresa_id)) {
+            $resultado['tiene_acceso_total'] = true;
+            self::$cache[$cacheKey] = $resultado;
+            return $resultado;
         }
 
         // 3. Buscar en sindi__usuarios_empleadores los empleadores autorizados y vigentes

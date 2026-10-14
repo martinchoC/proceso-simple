@@ -85,7 +85,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <th width="200">Nombre</th>
                                                         <th width="250">Descripción</th>
                                                         <th width="120">Código Fiscal</th>
-                                                        <th width="80">Web</th>
+                                                        <th width="170">Sistema de Emisión</th>
                                                         <th width="120">Estado</th>
                                                         <th width="150" class="text-center">Acciones</th>
                                                     </tr>
@@ -160,14 +160,28 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                         <div class="row mb-2">
                                             <div class="col-md-6 mb-2">
-                                                <label for="codigo_fiscal" class="form-label small mb-1">Código Fiscal</label>
-                                                <input type="number" class="form-control form-control-sm no-spinner" id="codigo_fiscal" name="codigo_fiscal" min="0" step="1">
+                                                <label for="codigo_fiscal" class="form-label small mb-1">Código Fiscal (N° PV)</label>
+                                                <input type="number" class="form-control form-control-sm no-spinner" id="codigo_fiscal" name="codigo_fiscal" min="0" step="1" placeholder="Ej: 1, 2, 0001...">
+                                                <div class="form-text small text-muted">Número oficial registrado en ARCA (4 o 5 dígitos)</div>
                                             </div>
-                                            <div class="col-md-6 mb-2 d-flex align-items-center">
-                                                <div class="form-check form-switch mt-4">
-                                                    <input class="form-check-input" type="checkbox" id="es_web" name="es_web">
-                                                    <label class="form-check-label small" for="es_web">Es el punto de venta web</label>
-                                                </div>
+                                            <div class="col-md-6 mb-2">
+                                                <label for="sistema_emision" class="form-label small mb-1">Sistema de Emisión (ARCA) *</label>
+                                                <select class="form-select form-select-sm" id="sistema_emision" name="sistema_emision" required>
+                                                    <option value="WSFE">Web Service (Factura Electrónica) — ERP / API</option>
+                                                    <option value="RCEL">Comprobantes en Línea (RCEL) — Web ARCA</option>
+                                                    <option value="FISCAL">Controlador Fiscal — Equipo homologado</option>
+                                                    <option value="MOVIL">Facturador Móvil — App ARCA</option>
+                                                    <option value="TALONARIO">Comprobantes Manuales — Talonario CAI</option>
+                                                    <option value="NO_FISCAL">Comprobantes Internos — Sin valor fiscal</option>
+                                                </select>
+                                                <div class="form-text small text-muted" id="ayuda_sistema_emision">Modalidad oficial con la que fue dado de alta en ARCA.</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="alert alert-info py-2 px-3 small mb-2 d-flex align-items-start">
+                                            <i class="fas fa-info-circle me-2 mt-1 fs-6"></i>
+                                            <div>
+                                                <strong>Regla de Exclusividad ARCA:</strong> Cada punto de venta queda estrictamente vinculado al sistema de emisión con el que fue dado de alta en ARCA. Para que el ERP solicite CAE automáticamente vía Web Service, el punto de venta <strong>debe ser de tipo "Web Service (Factura Electrónica)"</strong>. Los puntos creados en ARCA para Comprobantes en Línea (RCEL), Controladores Fiscales o Talonarios tienen numeración independiente y no pueden emitirse por Web Service.
                                             </div>
                                         </div>
 

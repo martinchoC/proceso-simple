@@ -59,7 +59,12 @@ function sindi_guardar_concepto(mysqli $conexion, int $empresa_id, array $data, 
     $solo_afiliados = !empty($data['solo_afiliados']) ? 1 : 0;
     $aplica_piso_escala = !empty($data['aplica_piso_escala']) ? 1 : 0;
     $incluye_sac = !empty($data['incluye_sac']) ? 1 : 0;
-    $cuenta_concepto_codigo = trim($data['cuenta_concepto_codigo'] ?? 'SINDI_DEUDORES_APORTES');
+    $cuenta_concepto_codigo = strtoupper(trim($data['cuenta_concepto_codigo'] ?? ''));
+    if ($cuenta_concepto_codigo === '') {
+        $cuenta_concepto_codigo = 'SINDI_APORTE_' . $codigo;
+    }
+    $tipo_id = (int)($data['comprobante_tipo_id'] ?? 0);
+    $tipo_rev_id = (int)($data['comprobante_tipo_reversion_id'] ?? 0);
     $f_desde = !empty($data['f_desde']) ? $data['f_desde'] : date('Y-m-d');
     $f_hasta = !empty($data['f_hasta']) ? $data['f_hasta'] : null;
 
@@ -67,10 +72,20 @@ function sindi_guardar_concepto(mysqli $conexion, int $empresa_id, array $data, 
         return ['success' => false, 'message' => 'Convenio, código y descripción son obligatorios.'];
     }
 
+    // Los dos tipos tienen que ser de la empresa: deuda con signo + y reversión con signo -
+    $tiposValidos = [];
+    foreach (sindi_tipos_comprobante_conceptos($conexion, $empresa_id) as $t) {
+        $tiposValidos[(int)$t['comprobante_tipo_id']] = $t['signo'];
+    }
+    if (($tiposValidos[$tipo_id] ?? '') !== '+' || ($tiposValidos[$tipo_rev_id] ?? '') !== '-') {
+        return ['success' => false, 'message' => 'Elija el comprobante de la deuda y el de la reversión entre los tipos sindicales de la empresa.'];
+    }
+
     if ($id > 0) {
         $sql = "UPDATE sindi__conceptos SET
                 convenio_id = ?, codigo = ?, descripcion = ?, base_calculo = ?, porcentaje = ?,
                 valor_fijo = ?, solo_afiliados = ?, aplica_piso_escala = ?, incluye_sac = ?,
+                comprobante_tipo_id = ?, comprobante_tipo_reversion_id = ?,
                 cuenta_concepto_codigo = ?, f_desde = ?, f_hasta = ?,
                 usuario_actualizacion_id = ?, fecha_actualizacion = NOW()
                 WHERE concepto_id = ? AND empresa_id = ?";
@@ -80,9 +95,10 @@ function sindi_guardar_concepto(mysqli $conexion, int $empresa_id, array $data, 
 
         mysqli_stmt_bind_param(
             $stmt,
-            "isssddiiisssiii",
+            "isssddiiiiisssiii",
             $convenio_id, $codigo, $descripcion, $base_calculo, $porcentaje,
             $valor_fijo, $solo_afiliados, $aplica_piso_escala, $incluye_sac,
+            $tipo_id, $tipo_rev_id,
             $cuenta_concepto_codigo, $f_desde, $f_hasta,
             $usuario_id, $id, $empresa_id
         );
@@ -94,10 +110,11 @@ function sindi_guardar_concepto(mysqli $conexion, int $empresa_id, array $data, 
         $sql = "INSERT INTO sindi__conceptos (
                 empresa_id, convenio_id, codigo, descripcion, base_calculo, porcentaje,
                 valor_fijo, solo_afiliados, aplica_piso_escala, incluye_sac,
+                comprobante_tipo_id, comprobante_tipo_reversion_id,
                 cuenta_concepto_codigo, f_desde, f_hasta,
                 tabla_estado_registro_id, usuario_creacion_id, fecha_creacion
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW()
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW()
             )";
 
         $stmt = mysqli_prepare($conexion, $sql);
@@ -105,9 +122,10 @@ function sindi_guardar_concepto(mysqli $conexion, int $empresa_id, array $data, 
 
         mysqli_stmt_bind_param(
             $stmt,
-            "iisssddiiisssi",
+            "iisssddiiiiisssi",
             $empresa_id, $convenio_id, $codigo, $descripcion, $base_calculo, $porcentaje,
             $valor_fijo, $solo_afiliados, $aplica_piso_escala, $incluye_sac,
+            $tipo_id, $tipo_rev_id,
             $cuenta_concepto_codigo, $f_desde, $f_hasta, $usuario_id
         );
 
@@ -115,4 +133,25 @@ function sindi_guardar_concepto(mysqli $conexion, int $empresa_id, array $data, 
         mysqli_stmt_close($stmt);
         return ['success' => $ok, 'message' => $ok ? 'Concepto de aporte registrado.' : 'Error al registrar concepto.'];
     }
+}
+
+/** Tipos de comprobante sindicales de la empresa (subgrupo de la tabla de conceptos de DDJJ, 524). */
+function sindi_tipos_comprobante_conceptos(mysqli $conexion, int $empresa_id): array
+{
+    $sql = "SELECT t.comprobante_tipo_id, t.codigo, t.comprobante_tipo, t.signo
+            FROM gestion__comprobantes_tipos t
+            INNER JOIN gestion__comprobantes_subgrupos s ON s.comprobante_subgrupo_id = t.comprobante_subgrupo_id
+            WHERE t.empresa_id = ? AND s.tabla_id = 524 AND t.signo IN ('+', '-') AND t.impacta_ctacte = 1
+              AND t.tabla_estado_registro_id = 1
+            ORDER BY t.signo DESC, t.codigo";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $lista = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $lista[] = $row;
+    }
+    mysqli_stmt_close($stmt);
+    return $lista;
 }

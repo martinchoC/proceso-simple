@@ -13,8 +13,7 @@ define('ROOT_PATH', dirname(dirname(__DIR__)));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
-<main class="app-main">
-    <div class="app-content-header">
+<div class="app-content-header">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-sm-6">
@@ -114,8 +113,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
         </div>
     </div>
-</main>
-
 <script src="tasas_interes.js"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

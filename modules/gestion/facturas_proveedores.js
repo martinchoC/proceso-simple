@@ -76,11 +76,16 @@ function cargarImpuestosConfig() {
 // Reemplazar la función cargarImpuestosPorDefecto
 
 function cargarImpuestosPorDefecto() {
-    // Crear impuestos sugeridos desde la configuración
+    // Crear impuestos sugeridos desde la configuración (solo los configurados con aplica_siempre = 1)
     if (window.impuestosConfig && window.impuestosConfig.length > 0) {
         impuestosFactura = [];
         
         window.impuestosConfig.forEach(function(config) {
+            // Solo cargar automáticamente por defecto si está configurado con aplica_siempre = 1
+            if (parseInt(config.aplica_siempre || 0) !== 1) {
+                return;
+            }
+
             // Verificar si ya existe un impuesto de este tipo
             var existe = impuestosFactura.some(function(imp) {
                 return imp.impuesto_tipo_id === config.impuesto_tipo_id;
@@ -94,7 +99,6 @@ function cargarImpuestosPorDefecto() {
                 }
                 
                 impuestosFactura.push({
-                    
                     empresa_impuesto_config_id: config.empresa_impuesto_config_id,
                     impuesto_tipo_id: config.impuesto_tipo_id,
                     impuesto_tipo: config.impuesto_tipo,
@@ -112,7 +116,7 @@ function cargarImpuestosPorDefecto() {
                     minimo_imponible: parseFloat(config.minimo_imponible || 0),
                     monto_fijo: parseFloat(config.monto_fijo || 0),
                     importe: 0,
-                    aplica_siempre: config.aplica_siempre || 1,
+                    aplica_siempre: parseInt(config.aplica_siempre || 0),
                     prioridad: config.prioridad || 1,
                     tipo_calculo: config.tipo_calculo || 'manual',
                     f_desde: config.f_desde,
@@ -400,7 +404,6 @@ function actualizarTotales() {
     });
     
     var totalDescuentos = totalDescuentoItem + totalDescuentoGeneral;
-    var totalGeneral = totalNeto + totalImpuestos + totalNoGravado + totalExento;
     
     // Guardar valores originales en los inputs hidden
     $('#subtotal').val(totalNeto.toFixed(2));
@@ -408,7 +411,6 @@ function actualizarTotales() {
     $('#no_gravado').val(totalNoGravado.toFixed(2));
     $('#exento').val(totalExento.toFixed(2));
     $('#impuestos').val(totalImpuestos.toFixed(2));
-    $('#total').val(totalGeneral.toFixed(2));
     
     // Mostrar valores formateados
     $('#total_neto_display').text(formatNumber(totalNeto, 2));
@@ -416,10 +418,10 @@ function actualizarTotales() {
     $('#no_gravado_display').text(formatNumber(totalNoGravado, 2));
     $('#exento_display').text(formatNumber(totalExento, 2));
     $('#impuestos_display').text(formatNumber(totalImpuestos, 2));
-    $('#total_display').text(formatNumber(totalGeneral, 2));
     
     // Recalcular impuestos adicionales basados en los nuevos totales
     recalcularImpuestosPorTotal();
+    actualizarTotalConImpuestos();
 }
     function calcularTotalOtrosImpuestos() {
     var total = 0;
@@ -437,13 +439,12 @@ function actualizarTotales() {
         $('#otros_impuestos').val(otrosImpuestos.toFixed(2));
         $('#otros_impuestos_display').text(formatNumber(otrosImpuestos, 2));
         
-        // Recalcular total general
+        // Recalcular total general: subtotal ya tiene los descuentos aplicados
         var subtotal = parseFloat($('#subtotal').val()) || 0;
-        var descuentos = parseFloat($('#descuentos').val()) || 0;
         var noGravado = parseFloat($('#no_gravado').val()) || 0;
         var exento = parseFloat($('#exento').val()) || 0;
         var impuestos = parseFloat($('#impuestos').val()) || 0;
-        var totalGeneral = subtotal - descuentos + noGravado + exento + impuestos + otrosImpuestos;
+        var totalGeneral = subtotal + noGravado + exento + impuestos + otrosImpuestos;
         
         $('#total').val(totalGeneral.toFixed(2));
         $('#total_display').text(formatNumber(totalGeneral, 2));
@@ -453,6 +454,22 @@ function actualizarTotales() {
 
 function mostrarModalImpuesto(impuestoData, idx) {
     if ($('#modalImpuesto').length) $('#modalImpuesto').remove();
+    
+    // Obtener el neto gravado actual de la factura
+    var netoFactura = parseFloat($('#subtotal').val()) || 0;
+    if (netoFactura <= 0 && typeof detalles !== 'undefined' && Array.isArray(detalles)) {
+        detalles.forEach(function(d) {
+            netoFactura += parseFloat(d.neto_gravado || 0);
+        });
+    }
+    
+    // Si es edición usamos el valor previo; si es alta precargamos el neto de la factura
+    var baseInicial = 0;
+    if (impuestoData && impuestoData.base_imponible !== undefined) {
+        baseInicial = parseFloat(impuestoData.base_imponible || 0);
+    } else if (idx === undefined) {
+        baseInicial = netoFactura;
+    }
     
     var modalHtml = `
     <div class="modal fade" id="modalImpuesto" tabindex="-1" aria-hidden="true">
@@ -475,7 +492,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Base Imponible</label>
-                            <input type="number" step="0.01" class="form-control" id="base_imponible" value="0">
+                            <input type="number" step="0.01" class="form-control" id="base_imponible" value="${baseInicial.toFixed(2)}">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Alícuota %</label>
@@ -533,6 +550,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
                                         data-jurisdiccion-nombre="${config.jurisdiccion_nombre || ''}"
                                         data-alicuota="${config.alicuota || 0}"
                                         data-minimo="${config.minimo_imponible || 0}"
+                                        data-es-percepcion="${config.es_percepcion || 0}"
                                         data-base-calculo="${config.base_calculo || 'NETO_GRAVADO'}">
                                         ${escapeHtml(descripcion)} - Alícuota: ${config.alicuota || 0}%
                                     </option>`);
@@ -543,10 +561,12 @@ function mostrarModalImpuesto(impuestoData, idx) {
             
             if (impuestoData) {
                 $('#config_impuesto_id').val(impuestoData.empresa_impuesto_config_id);
-                $('#base_imponible').val(impuestoData.base_imponible || 0);
-                $('#alicuota').val(impuestoData.alicuota || 0);
-                $('#importe').val(impuestoData.importe || 0);
+                $('#base_imponible').val(parseFloat(impuestoData.base_imponible || 0).toFixed(2));
+                $('#alicuota').val(parseFloat(impuestoData.alicuota || 0).toFixed(2));
+                $('#importe').val(parseFloat(impuestoData.importe || 0).toFixed(2));
                 $('#detalle_origen').val(impuestoData.detalle_origen || '');
+            } else if (netoFactura > 0) {
+                $('#base_imponible').val(netoFactura.toFixed(2));
             }
         },
         error: function(xhr, status, error) {
@@ -556,19 +576,44 @@ function mostrarModalImpuesto(impuestoData, idx) {
     });
     
     // Cuando se selecciona una configuración, cargar sus valores por defecto
-    $(document).on('change', '#config_impuesto_id', function() {
+    $(document).off('change', '#config_impuesto_id').on('change', '#config_impuesto_id', function() {
         var selected = $(this).find('option:selected');
-        var alicuota = selected.data('alicuota') || 0;
-        var minimo = selected.data('minimo') || 0;
-        $('#alicuota').val(alicuota);
-        if (minimo > 0 && parseFloat($('#base_imponible').val()) < minimo) {
-            $('#base_imponible').val(minimo);
+        if (!selected.val()) {
+            return;
         }
+        var alicuota = parseFloat(selected.data('alicuota')) || 0;
+        var minimo = parseFloat(selected.data('minimo')) || 0;
+        var esPercepcion = parseInt(selected.data('es-percepcion') || 0) === 1 || 
+                           (selected.data('impuesto-tipo') && /percepci[oó]n/i.test(selected.data('impuesto-tipo'))) ||
+                           /percepci[oó]n/i.test(selected.text());
+        var baseCalculo = selected.data('base-calculo') || 'NETO_GRAVADO';
+
+        $('#alicuota').val(alicuota.toFixed(2));
+
+        var esAlta = ($('#impuesto_idx').val() === '');
+        // Cuando se da de alta un nuevo impuesto de percepción, precargar el neto de la factura
+        if (esAlta || parseFloat($('#base_imponible').val()) === 0) {
+            if (esPercepcion || baseCalculo === 'NETO_GRAVADO') {
+                var neto = parseFloat($('#subtotal').val()) || 0;
+                if (neto <= 0 && typeof detalles !== 'undefined' && Array.isArray(detalles)) {
+                    detalles.forEach(function(d) {
+                        neto += parseFloat(d.neto_gravado || 0);
+                    });
+                }
+                var baseFinal = (minimo > 0 && neto < minimo) ? minimo : neto;
+                $('#base_imponible').val(baseFinal.toFixed(2));
+            } else if (minimo > 0) {
+                $('#base_imponible').val(minimo.toFixed(2));
+            }
+        } else if (minimo > 0 && parseFloat($('#base_imponible').val()) < minimo) {
+            $('#base_imponible').val(minimo.toFixed(2));
+        }
+
         calcularImporteImpuesto();
     });
     
     // Calcular importe automáticamente
-    $('#base_imponible, #alicuota').on('input', function() {
+    $('#base_imponible, #alicuota').off('input').on('input', function() {
         calcularImporteImpuesto();
     });
     
@@ -578,6 +623,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
         var importe = base * (alicuota / 100);
         $('#importe').val(importe.toFixed(2));
     }
+
     function calcularAlicuotaDesdeImporte() {
         var base = parseFloat($('#base_imponible').val()) || 0;
         var importe = parseFloat($('#importe').val()) || 0;
@@ -585,20 +631,12 @@ function mostrarModalImpuesto(impuestoData, idx) {
             var alicuota = (importe / base) * 100;
             $('#alicuota').val(alicuota.toFixed(2));
         }
-        }
+    }
 
-        // Modificar la función calcularImporteImpuesto para que también pueda calcular desde importe:
-        function calcularImporteImpuesto() {
-        var base = parseFloat($('#base_imponible').val()) || 0;
-        var alicuota = parseFloat($('#alicuota').val()) || 0;
-        var importe = base * (alicuota / 100);
-        $('#importe').val(importe.toFixed(2));
-        }
-
-        // Agregar evento para cuando cambia el importe
-        $('#importe').on('input', function() {
+    // Agregar evento para cuando cambia el importe
+    $('#importe').off('input').on('input', function() {
         calcularAlicuotaDesdeImporte();
-        });
+    });
     var modal = new bootstrap.Modal(document.getElementById('modalImpuesto'));
     modal.show();
     
@@ -884,18 +922,17 @@ function mostrarModalImpuesto(impuestoData, idx) {
                     render: function(data, type, row) {
                         if (type === 'export') return '';
                         
-                        // Solo mostrar botón de generar asiento si la factura está confirmada
-                        var estadoConfirmado = row.estado_info && row.estado_info.codigo_estandar === 'CONFIRMADO';
-                        var tieneAsiento = row.comprobante_id ? true : false;
+                        // Permitir generar/actualizar asiento si tiene comprobante
+                        var tieneComprobante = row.comprobante_id ? true : false;
                         
-                        if (estadoConfirmado) {
+                        if (tieneComprobante) {
                             return `<button type="button" class="btn btn-sm btn-info btn-generar-asiento" 
                                             title="Generar/Actualizar Asiento Contable" 
                                             data-id="${row.factura_proveedor_id}">
                                         <i class="fas fa-book"></i> Asiento
                                     </button>`;
                         } else {
-                            return `<span class="badge bg-secondary" title="La factura debe estar confirmada para generar el asiento">
+                            return `<span class="badge bg-secondary" title="Sin comprobante asociado">
                                         <i class="fas fa-clock"></i> Pendiente
                                     </span>`;
                         }
@@ -1034,8 +1071,44 @@ function mostrarModalImpuesto(impuestoData, idx) {
         }, 'json');
     }
 
+    // ========== FUNCIÓN PARA SELECCIONAR PROVEEDOR EN COMBO UNIFICADO CON FALLBACKS ==========
+    function seleccionarProveedorEnCombo(entidadId, entidadSucursalId) {
+        if (!entidadId) return;
+
+        proveedorActualId = parseInt(entidadId);
+        var targetVal = (entidadSucursalId && parseInt(entidadSucursalId) > 0)
+            ? 'S-' + entidadSucursalId
+            : 'P-' + entidadId;
+
+        $('#entidad_combo').val(targetVal);
+
+        // Fallback 1: Si no coincidió S-sucursal, intentar con P-entidad
+        if (!$('#entidad_combo').val()) {
+            $('#entidad_combo').val('P-' + entidadId);
+        }
+
+        // Fallback 2: Si el proveedor tiene sucursales y no hay opción P-, seleccionar la primera sucursal del proveedor
+        if (!$('#entidad_combo').val()) {
+            var matchedOpt = $('#entidad_combo option').filter(function () {
+                return String($(this).data('entidad-id')) === String(entidadId);
+            }).first();
+            if (matchedOpt.length) {
+                $('#entidad_combo').val(matchedOpt.val());
+            }
+        }
+
+        var optSeleccionada = $('#entidad_combo option:selected');
+        var sucId = optSeleccionada.data('sucursal-id');
+        proveedorSucursalActualId = (sucId && parseInt(sucId) > 0) ? parseInt(sucId) : null;
+        $('#entidad_id').val(entidadId);
+        $('#entidad_sucursal_id').val(proveedorSucursalActualId || '');
+
+        var textoSeleccionado = optSeleccionada.text();
+        $('#proveedor_actual_nombre').text(textoSeleccionado || 'No seleccionado');
+    }
+
     // ========== FUNCIÓN PARA CARGAR PROVEEDORES Y SUCURSALES EN COMBO UNIFICADO ==========
-    function cargarProveedoresYSucursales() {
+    function cargarProveedoresYSucursales(callback) {
         $.ajax({
             url: 'facturas_proveedores_ajax.php',
             type: 'GET',
@@ -1065,10 +1138,12 @@ function mostrarModalImpuesto(impuestoData, idx) {
                 
                 $('#entidad_combo').html(options);
                 console.log("Proveedores y sucursales cargados:", data);
+                if (typeof callback === 'function') callback();
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.error("Error cargando proveedores y sucursales:", textStatus, errorThrown);
                 $('#entidad_combo').html('<option value="">Error al cargar</option>');
+                if (typeof callback === 'function') callback();
             }
         });
     }
@@ -1585,7 +1660,11 @@ function cargarFacturaParaVisualizar(facturaId) {
             var sucursalIdParaEditar = res.sucursal_id || null;
             
             cargarCombosFormulario();
-            cargarProveedoresYSucursales(); // Cargar combo unificado
+            cargarProveedoresYSucursales(function() {
+                if (res.entidad_id) {
+                    seleccionarProveedorEnCombo(res.entidad_id, res.entidad_sucursal_id);
+                }
+            });
             
             $('#factura_proveedor_id').val(res.factura_proveedor_id);
             $('#comprobante_nro').val(res.comprobante_nro);
@@ -1638,23 +1717,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 
                 // Seleccionar el valor correcto en el combo unificado
                 if (res.entidad_id) {
-                    proveedorActualId = res.entidad_id;
-                    
-                    if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
-                        // Tiene sucursal específica
-                        $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
-                        proveedorSucursalActualId = parseInt(res.entidad_sucursal_id);
-                    } else {
-                        // Solo proveedor principal
-                        $('#entidad_combo').val('P-' + res.entidad_id);
-                        proveedorSucursalActualId = null;
-                    }
-                    
-                    // Obtener el texto de la opción seleccionada para mostrarlo
-                    var textoSeleccionado = $('#entidad_combo option:selected').text();
-                    $('#proveedor_actual_nombre').text(textoSeleccionado || 'No seleccionado');
-                    
-                    console.log("Proveedor cargado para edición:", proveedorActualId, "Sucursal:", proveedorSucursalActualId);
+                    seleccionarProveedorEnCombo(res.entidad_id, res.entidad_sucursal_id);
                 }
                 if (res.deposito_id) {
                     $('#deposito_id').val(res.deposito_id);
@@ -2428,43 +2491,6 @@ function cargarFacturaParaVisualizar(facturaId) {
         $('#contenedor-detalles').html(html);
     }
 
-    // ========== FUNCIÓN ACTUALIZAR TOTALES ==========
-   function actualizarTotales() {
-    var totalNeto = 0;
-    var totalDescuentoItem = 0;
-    var totalDescuentoGeneral = 0;
-    var totalNoGravado = 0;
-    var totalExento = 0;
-    var totalImpuestos = 0;
-    
-    detalles.forEach(function(detalle) {
-        totalNeto += detalle.neto_gravado || 0;
-        totalDescuentoItem += detalle.descuento_item || 0;
-        totalDescuentoGeneral += detalle.descuento_general || 0;
-        totalImpuestos += detalle.iva_importe || 0;
-        totalNoGravado += detalle.no_gravado || 0;
-        totalExento += detalle.exento || 0;
-    });
-    
-    var totalDescuentos = totalDescuentoItem + totalDescuentoGeneral;
-    var totalGeneral = totalNeto + totalImpuestos + totalNoGravado + totalExento;
-    
-    // Guardar valores originales en los inputs hidden
-    $('#subtotal').val(totalNeto.toFixed(2));
-    $('#descuentos').val(totalDescuentos.toFixed(2));
-    $('#no_gravado').val(totalNoGravado.toFixed(2));
-    $('#exento').val(totalExento.toFixed(2));
-    $('#impuestos').val(totalImpuestos.toFixed(2));
-    $('#total').val(totalGeneral.toFixed(2));
-    
-    // Mostrar valores formateados
-    $('#total_neto_display').text(formatNumber(totalNeto, 2));
-    $('#descuentos_display').text(formatNumber(totalDescuentos, 2));
-    $('#no_gravado_display').text(formatNumber(totalNoGravado, 2));
-    $('#exento_display').text(formatNumber(totalExento, 2));
-    $('#impuestos_display').text(formatNumber(totalImpuestos, 2));
-    $('#total_display').text(formatNumber(totalGeneral, 2));
-}
     // ========== FUNCIONES DE PANTALLA COMPLETA ==========
     $('#btnToggleFullscreen').click(function() {
         var modalDialog = $('#modalFacturaProveedor .modal-dialog');
@@ -2685,7 +2711,9 @@ function cargarFacturaParaVisualizar(facturaId) {
         $('#no_gravado').val('0');
         $('#exento').val('0');
         $('#impuestos').val('0');
+        $('#otros_impuestos').val('0');
         $('#total').val('0');
+        $('#otros_impuestos_display').text('0.00');
         $('#formFacturaProveedor').removeClass('was-validated');
         $('#deposito_id').val('');
         
@@ -2750,7 +2778,11 @@ function cargarFacturaParaVisualizar(facturaId) {
                 var sucursalIdParaEditar = res.sucursal_id || null;
                 
                 cargarCombosFormulario();
-                cargarProveedoresYSucursales();
+                cargarProveedoresYSucursales(function() {
+                    if (res.entidad_id) {
+                        seleccionarProveedorEnCombo(res.entidad_id, res.entidad_sucursal_id);
+                    }
+                });
                 
                 $('#factura_proveedor_id').val(res.factura_proveedor_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
@@ -2767,6 +2799,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#no_gravado').val(res.no_gravado || 0);
                 $('#exento').val(res.exento || 0);
                 $('#impuestos').val(res.impuestos || 0);
+                $('#otros_impuestos').val(res.otros_impuestos || 0);
                 $('#total').val(res.total || 0);
                 
                 $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
@@ -2774,9 +2807,11 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
                 $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
                 $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
+                $('#otros_impuestos_display').text(parseFloat(res.otros_impuestos || 0).toFixed(2));
                 $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
                 $('#modalLabel').text('Editar Factura de Proveedor');
                 setOrdenCompraVinculada(res.orden_compra_id, res.orden_compra_nro, res.entidad_id);
+                cargarImpuestosFactura(res.factura_proveedor_id);
                 cargarAsientoProveedor(res.factura_proveedor_id);
 
                 setTimeout(function() {
@@ -2803,18 +2838,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                         $('#deposito_id').val(res.deposito_id);
                     }
                     if (res.entidad_id) {
-                        proveedorActualId = res.entidad_id;
-                        
-                        if (res.entidad_sucursal_id && res.entidad_sucursal_id > 0) {
-                            $('#entidad_combo').val('S-' + res.entidad_sucursal_id);
-                            proveedorSucursalActualId = parseInt(res.entidad_sucursal_id);
-                        } else {
-                            $('#entidad_combo').val('P-' + res.entidad_id);
-                            proveedorSucursalActualId = null;
-                        }
-                        
-                        var textoSeleccionado = $('#entidad_combo option:selected').text();
-                        $('#proveedor_actual_nombre').text(textoSeleccionado || 'No seleccionado');
+                        seleccionarProveedorEnCombo(res.entidad_id, res.entidad_sucursal_id);
                     }
                     
                     // Después de cargar la condición de pago, recalcular vencimiento
@@ -2943,6 +2967,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         formData.append('no_gravado', $('#no_gravado').val() || '0');
         formData.append('exento', $('#exento').val() || '0');
         formData.append('impuestos', $('#impuestos').val() || '0');
+        formData.append('otros_impuestos', $('#otros_impuestos').val() || '0');
         formData.append('total', $('#total').val() || '0');
         formData.append('detalles', JSON.stringify(detalles));
         formData.append('orden_compra_id', $('#orden_compra_id').val() || '');

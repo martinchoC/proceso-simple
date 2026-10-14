@@ -10,6 +10,7 @@ session_start();
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../../../db.php';
+require_once __DIR__ . '/../sindi_base_model.php';
 $conexion = $conn;
 
 function validar_cuit_arg(string $cuit): bool
@@ -125,20 +126,9 @@ try {
             mysqli_stmt_close($stmtIns);
         }
 
-        // Sucursal Casa Central (contacto, email, telefono)
-        $sqlSuc = "INSERT INTO gestion__entidades_sucursales (entidad_id, empresa_id, sucursal_nombre, sucursal_direccion, sucursal_telefono, sucursal_email, tabla_estado_registro_id)
-                   VALUES (?, ?, 'Casa Central', ?, ?, ?, 1)
-                   ON DUPLICATE KEY UPDATE sucursal_direccion = VALUES(sucursal_direccion), sucursal_telefono = VALUES(sucursal_telefono), sucursal_email = VALUES(sucursal_email)";
-        $stmtSuc = mysqli_prepare($conexion, $sqlSuc);
-        mysqli_stmt_bind_param($stmtSuc, "iisss", $entidad_id, $empresa_id, $domicilio, $telefono, $email);
-        mysqli_stmt_execute($stmtSuc);
-        mysqli_stmt_close($stmtSuc);
-
-        // Rol EMPLEADOR
-        $stmtRol = mysqli_prepare($conexion, "INSERT IGNORE INTO gestion__entidades_roles (entidad_id, rol_entidad_id, f_alta, tabla_estado_registro_id) VALUES (?, 5, NOW(), 1)");
-        mysqli_stmt_bind_param($stmtRol, "i", $entidad_id);
-        mysqli_stmt_execute($stmtRol);
-        mysqli_stmt_close($stmtRol);
+        // Rol EMPLEADOR y sucursal N° 1 = Casa Central (contacto, email, teléfono)
+        sindi_asegurar_rol_entidad($conexion, $entidad_id, 'EMPL');
+        sindi_guardar_sucursal_central($conexion, $empresa_id, $entidad_id, $domicilio, $telefono, $email);
 
         // 2. Empleador en padrón sindical
         $estadoEmpleador = !empty($paramSindicato['aprobacion_autoalta']) ? 4 : 1; // 4=Pendiente si exige aprobación, 1=Activo

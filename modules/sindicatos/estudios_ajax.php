@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/ajax_guard.php';
 $ctx = ajax_guard(['pagina_idx' => 1011]);
+require_once __DIR__ . '/sindi_base_model.php';
+sindi_contexto($ctx);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -54,11 +56,11 @@ try {
             $estudio_id = intval($_GET['estudio_id'] ?? 0);
             $vincs = sindi_listar_vinculaciones($conexion, $empresa_id, $estudio_id);
             // Empleadores activos para combo de vinculación
-            $stmtEmp = mysqli_prepare($conexion, "SELECT emp.empleador_id, ent.entidad_razon_social, ent.entidad_cuit
+            $stmtEmp = mysqli_prepare($conexion, "SELECT emp.empleador_id, ent.entidad_nombre AS entidad_razon_social, ent.cuit AS entidad_cuit
                                                   FROM sindi__empleadores emp
                                                   INNER JOIN gestion__entidades ent ON ent.entidad_id = emp.entidad_id
                                                   WHERE emp.empresa_id = ? AND emp.tabla_estado_registro_id = 1
-                                                  ORDER BY ent.entidad_razon_social ASC");
+                                                  ORDER BY ent.entidad_nombre ASC");
             $empleadores = [];
             if ($stmtEmp) {
                 mysqli_stmt_bind_param($stmtEmp, "i", $empresa_id);

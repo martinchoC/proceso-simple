@@ -1,4 +1,14 @@
 $(document).ready(function () {
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
     const pagina_idx = 70;
 
@@ -133,26 +143,31 @@ $(document).ready(function () {
                     data: 'codigo_fiscal',
                     className: 'text-center',
                     render: function (data, type, row) {
+                        if (!data) return type === 'export' ? '' : '<span class="text-muted small">-</span>';
+                        var padded = String(data).padStart(4, '0');
                         if (type === 'export') {
-                            return data || '';
+                            return padded;
                         }
-                        return `<span class="fw-medium">${data || ''}</span>`;
+                        return `<span class="fw-semibold font-monospace text-primary">${padded}</span>`;
                     }
                 },
                 {
-                    data: 'es_web',
+                    data: 'sistema_emision_info',
                     className: 'text-center',
                     render: function (data, type, row) {
-                        var esWeb = parseInt(data) === 1;
-
+                        var info = data || row.sistema_emision_info;
+                        if (!info || typeof info !== 'object') {
+                            var cod = row.sistema_emision || (parseInt(row.es_web) === 1 ? 'WSFE' : 'NO_FISCAL');
+                            return `<span class="badge bg-secondary">${escapeHtml(cod)}</span>`;
+                        }
                         if (type === 'export') {
-                            return esWeb ? 'Sí' : 'No';
+                            return info.nombre || info.codigo || '';
                         }
-
-                        if (esWeb) {
-                            return '<span class="badge bg-info text-white"><i class="fas fa-globe"></i> Web</span>';
-                        }
-                        return '<span class="text-muted small">-</span>';
+                        var icono = info.icono ? `<i class="${info.icono} me-1"></i>` : '';
+                        var badge = info.badge_clase || 'bg-secondary';
+                        var desc = escapeHtml(info.descripcion || '');
+                        var label = escapeHtml(info.corto || info.nombre || info.codigo || '');
+                        return `<span class="badge ${badge}" title="${desc}">${icono}${label}</span>`;
                     }
                 },
                 {
@@ -737,11 +752,28 @@ $(document).ready(function () {
         cargarBocasPorSucursal($(this).val(), null);
     });
 
+    function actualizarAyudaSistemaEmision(val) {
+        var textos = {
+            'WSFE': 'Web Service: Facturación electrónica automática con CAE desde este sistema.',
+            'RCEL': 'Comprobantes en Línea: Emisión manual desde la página web de ARCA con clave fiscal.',
+            'FISCAL': 'Controlador Fiscal: Impresoras fiscales y equipos de Nueva Tecnología homologados.',
+            'MOVIL': 'Facturador Móvil: App oficial de ARCA para celulares y tablets.',
+            'TALONARIO': 'Comprobantes Manuales: Talonario preimpreso con CAI (contingencia sin conexión).',
+            'NO_FISCAL': 'Comprobantes Internos: Remitos, presupuestos, recibos X, sin valor fiscal.'
+        };
+        $('#ayuda_sistema_emision').text(textos[val] || 'Modalidad oficial con la que fue dado de alta en ARCA.');
+    }
+
+    $(document).on('change', '#sistema_emision', function () {
+        actualizarAyudaSistemaEmision($(this).val());
+    });
+
     // ========== FUNCIONES DEL MODAL ==========
     function resetModal() {
         $('#formPuntoVenta')[0].reset();
         $('#punto_venta_id').val('');
-        $('#es_web').prop('checked', false);
+        $('#sistema_emision').val('WSFE');
+        actualizarAyudaSistemaEmision('WSFE');
         $('#formPuntoVenta').removeClass('was-validated');
         $('#boca_id').html('<option value="">Seleccione una sucursal primero</option>').prop('disabled', true);
         $('#busqueda_comprobante_tipo').val('');
@@ -788,7 +820,10 @@ $(document).ready(function () {
                 $('#nombre').val(res.nombre || '');
                 $('#descripcion').val(res.descripcion || '');
                 $('#codigo_fiscal').val(res.codigo_fiscal || '');
-                $('#es_web').prop('checked', parseInt(res.es_web) === 1);
+                
+                var sistemaVal = res.sistema_emision || (parseInt(res.es_web) === 1 ? 'WSFE' : 'NO_FISCAL');
+                $('#sistema_emision').val(sistemaVal);
+                actualizarAyudaSistemaEmision(sistemaVal);
 
                 $('#modalLabel').text('Editar Punto de Venta');
 
@@ -848,7 +883,10 @@ $(document).ready(function () {
         formData.append('nombre', $('#nombre').val() || '');
         formData.append('descripcion', $('#descripcion').val() || '');
         formData.append('codigo_fiscal', $('#codigo_fiscal').val() || '');
-        formData.append('es_web', $('#es_web').is(':checked') ? 1 : 0);
+        
+        var sisEmision = $('#sistema_emision').val() || 'WSFE';
+        formData.append('sistema_emision', sisEmision);
+        formData.append('es_web', sisEmision === 'WSFE' ? 1 : 0);
         formData.append('comprobantes', JSON.stringify(obtenerComprobantesSeleccionados()));
 
         // Log para depuración

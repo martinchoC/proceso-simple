@@ -13,8 +13,7 @@ define('ROOT_PATH', dirname(dirname(__DIR__)));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
-<main class="app-main">
-    <div class="app-content-header">
+<div class="app-content-header">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-sm-6">
@@ -55,6 +54,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <th>Rubro</th>
                                             <th>Convenio</th>
                                             <th>Contacto</th>
+                                            <th>Sucursales</th>
                                             <th>Categoría Mora</th>
                                             <th>Estado</th>
                                             <th class="text-end">Acciones</th>
@@ -123,6 +123,35 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <input type="date" class="form-control" id="f_alta_padron" name="f_alta_padron">
                             </div>
                         </div>
+                        <div class="form-text mt-2" id="ayudaCasaCentral">
+                            <i class="fas fa-info-circle me-1"></i>Correo, teléfono y domicilio son los de la Casa Central (sucursal N° 1), que se crea con el alta del empleador.
+                        </div>
+
+                        <!-- Sucursales: solo con el empleador ya guardado -->
+                        <div id="seccionSucursales" class="mt-4 d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="fw-bold mb-0"><i class="fas fa-store me-2 text-primary"></i>Sucursales</h6>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btnNuevaSucursal">
+                                    <i class="fas fa-plus me-1"></i>Nueva sucursal
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0" id="tablaSucursales">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:60px">N°</th>
+                                            <th>Nombre</th>
+                                            <th>Domicilio</th>
+                                            <th>Localidad</th>
+                                            <th>Contacto</th>
+                                            <th>Estado</th>
+                                            <th class="text-end">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -132,8 +161,57 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
         </div>
     </div>
-</main>
-
+    <!-- Modal Sucursal -->
+    <div class="modal fade" id="modalSucursal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="modalSucursalTitle">
+                        <i class="fas fa-store me-2 text-primary"></i>Sucursal
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="formSucursal">
+                    <div class="modal-body">
+                        <input type="hidden" name="empleador_id" id="suc_empleador_id" value="">
+                        <input type="hidden" name="sucursal_id" id="sucursal_id" value="">
+                        <input type="hidden" name="localidad_id" id="suc_localidad_id" value="">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Nombre <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="sucursal_nombre" name="sucursal_nombre" required maxlength="150">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Domicilio</label>
+                                <input type="text" class="form-control" id="sucursal_direccion" name="sucursal_direccion" maxlength="255">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Localidad</label>
+                                <input type="text" class="form-control" id="suc_localidad_texto" list="listaLocalidades" autocomplete="off" placeholder="Escriba al menos 3 letras o el código postal">
+                                <datalist id="listaLocalidades"></datalist>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Teléfono</label>
+                                <input type="text" class="form-control" id="sucursal_telefono" name="sucursal_telefono" maxlength="50">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Correo Electrónico</label>
+                                <input type="email" class="form-control" id="sucursal_email" name="sucursal_email" maxlength="150">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Persona de contacto</label>
+                                <input type="text" class="form-control" id="sucursal_contacto" name="sucursal_contacto" maxlength="100">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4" id="btnGuardarSucursal">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 <script src="empleadores.js"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

@@ -78,9 +78,9 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <script src="<?= asset_local('js/vfs_fonts.js') ?>"></script>
 
   <?php
-  // En modules/gestion y modules/gestion_normal las tablas con el dom por defecto van sin
+  // En modules/gestion, modules/gestion_normal y modules/sindicatos las tablas con el dom por defecto van sin
   // los botones Copy/Excel/CSV/PDF (sin estilo) y con el "Buscar:" al lado del Agregar.
-  $dtSinBotonesDefault = (bool) preg_match('#/modules/gestion(_normal)?/#', str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? ''));
+  $dtSinBotonesDefault = (bool) preg_match('#/modules/(gestion(_normal)?|sindicatos)/#', str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? ''));
   ?>
   <script>
     if (window.jQuery && $.fn && $.fn.dataTable) {
@@ -127,7 +127,10 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
       if (dtSinBotonesDefault) {
         $(document).on('init.dt', function (e, settings) {
           if (!settings || !settings.oInit || settings.oInit.dom || settings.oInit.sDom) return;
-          var $agregar = $(settings.nTable).closest('.card').find('#contenedor-boton-agregar, #btnNuevo').first();
+          var $agregar = $(settings.nTable).closest('.card').find('#contenedor-boton-agregar, #btnNuevo, [id^="btnNuevo"], [id^="btnNueva"], [id^="btnSubir"]').first();
+          if (!$agregar.length) {
+            $agregar = $('#contenedor-boton-agregar, #btnNuevo, [id^="btnNuevo"], [id^="btnNueva"], [id^="btnSubir"]').first();
+          }
           var $filtro = $(settings.nTableWrapper).find('.dataTables_filter').first();
           if (!$agregar.length || !$filtro.length) return;
           var $fila = $filtro.closest('.row');
@@ -184,17 +187,32 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             $current_modulo_id = 2;
         } elseif (strpos($uri_actual, '/modules/estudio_contable/') !== false || strpos($uri_actual, 'estudio_contable/') !== false) {
             $current_modulo_id = 4;
+        } elseif (strpos($uri_actual, '/modules/sindicatos/') !== false || strpos($uri_actual, 'sindicatos/') !== false) {
+            $current_modulo_id = 6;
         }
     }
 
     $empresas_modulos = usuario_obtener_empresas_modulos($conexion, $usuario_logueado_id);
 
-    // Fallback de Empresa si no viene fijada: empresa 2 (Casa Lucho) o la primera disponible
+    // Fallback de Empresa si no viene fijada
     if ($current_empresa_id <= 0) {
-        if (isset($empresas_modulos[2])) {
-            $current_empresa_id = 2;
-        } elseif (!empty($empresas_modulos)) {
-            $current_empresa_id = array_key_first($empresas_modulos);
+        if ($current_modulo_id == 6) {
+            // Si navegamos en Sindicatos, priorizar una empresa con Módulo 6 activo
+            foreach ($empresas_modulos as $eid => $edata) {
+                foreach ($edata['modulos'] as $emod) {
+                    if ($emod['id'] == 6) {
+                        $current_empresa_id = $eid;
+                        break 2;
+                    }
+                }
+            }
+        }
+        if ($current_empresa_id <= 0) {
+            if (isset($empresas_modulos[2])) {
+                $current_empresa_id = 2;
+            } elseif (!empty($empresas_modulos)) {
+                $current_empresa_id = array_key_first($empresas_modulos);
+            }
         }
     }
 
@@ -572,6 +590,21 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
         </a>
       </div>
 
+      <!-- Buscador / Filtro del menú lateral -->
+      <div class="sidebar-filter-wrapper">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text" id="sidebar-filter-icon">
+            <i class="bi bi-search"></i>
+          </span>
+          <input type="text" id="sidebar-menu-filter" class="form-control"
+            placeholder="Filtrar menú..." aria-label="Filtrar menú" autocomplete="off" spellcheck="false">
+          <button class="btn btn-clear" type="button" id="sidebar-menu-filter-clear"
+            title="Limpiar filtro" style="display: none;">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+
       <div class="sidebar-wrapper">
         <nav class="mt-2">
           <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation"
@@ -682,8 +715,166 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
               <?php }
             }
             ?>
+            <li id="sidebar-menu-empty" class="nav-item text-center text-secondary py-3" style="display: none;">
+              <small><i class="bi bi-search me-1"></i> No se encontraron páginas</small>
+            </li>
           </ul>
         </nav>
       </div>
     </aside>
+
+    <script>
+      (function() {
+        document.addEventListener('DOMContentLoaded', function() {
+          const filterInput = document.getElementById('sidebar-menu-filter');
+          const clearBtn = document.getElementById('sidebar-menu-filter-clear');
+          const navMenu = document.getElementById('navigation');
+          const emptyMsg = document.getElementById('sidebar-menu-empty');
+
+          if (!filterInput || !navMenu) return;
+
+          function normalize(text) {
+            return (text || '')
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .trim();
+          }
+
+          const parentItems = Array.from(navMenu.querySelectorAll(':scope > li.nav-item:not(#sidebar-menu-empty)'));
+          parentItems.forEach(function(li) {
+            li.dataset.originallyOpen = li.classList.contains('menu-open') ? '1' : '0';
+          });
+
+          function doFilter() {
+            const rawVal = filterInput.value;
+            const val = normalize(rawVal);
+            const tokens = val.split(/\s+/).filter(Boolean);
+
+            if (clearBtn) {
+              clearBtn.style.display = rawVal.length > 0 ? '' : 'none';
+            }
+
+            if (tokens.length === 0) {
+              parentItems.forEach(function(li) {
+                li.style.display = '';
+                const treeview = li.querySelector('.nav-treeview');
+                if (treeview) {
+                  const childItems = treeview.querySelectorAll(':scope > li.nav-item');
+                  childItems.forEach(function(childLi) {
+                    childLi.style.display = '';
+                  });
+                  if (li.dataset.originallyOpen === '1') {
+                    li.classList.add('menu-open');
+                    treeview.style.removeProperty('display');
+                  } else {
+                    li.classList.remove('menu-open');
+                    treeview.style.display = 'none';
+                  }
+                }
+              });
+
+              if (emptyMsg) emptyMsg.style.display = 'none';
+              return;
+            }
+
+            let totalVisible = 0;
+
+            parentItems.forEach(function(li) {
+              const treeview = li.querySelector('.nav-treeview');
+              const parentLink = li.querySelector(':scope > a.nav-link');
+              const parentTitle = parentLink ? parentLink.innerText : '';
+              const normParentTitle = normalize(parentTitle);
+
+              if (treeview) {
+                const childItems = Array.from(treeview.querySelectorAll(':scope > li.nav-item'));
+                let matchingChildrenCount = 0;
+
+                const parentMatches = tokens.every(function(t) {
+                  return normParentTitle.includes(t);
+                });
+
+                childItems.forEach(function(childLi) {
+                  const childLink = childLi.querySelector('a.nav-link');
+                  const childTitle = childLink ? childLink.innerText : '';
+                  const normChildTitle = normalize(childTitle);
+                  const combined = normParentTitle + ' ' + normChildTitle;
+
+                  const childMatches = parentMatches || tokens.every(function(t) {
+                    return combined.includes(t);
+                  });
+
+                  if (childMatches) {
+                    childLi.style.display = '';
+                    matchingChildrenCount++;
+                  } else {
+                    childLi.style.display = 'none';
+                  }
+                });
+
+                if (matchingChildrenCount > 0) {
+                  li.style.display = '';
+                  li.classList.add('menu-open');
+                  treeview.style.display = 'block';
+                  totalVisible += matchingChildrenCount;
+                } else {
+                  li.style.display = 'none';
+                  li.classList.remove('menu-open');
+                  treeview.style.display = 'none';
+                }
+              } else {
+                const itemMatches = tokens.every(function(t) {
+                  return normParentTitle.includes(t);
+                });
+
+                if (itemMatches) {
+                  li.style.display = '';
+                  totalVisible++;
+                } else {
+                  li.style.display = 'none';
+                }
+              }
+            });
+
+            if (emptyMsg) {
+              emptyMsg.style.display = totalVisible === 0 ? '' : 'none';
+            }
+          }
+
+          filterInput.addEventListener('input', doFilter);
+
+          if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+              filterInput.value = '';
+              doFilter();
+              filterInput.focus();
+            });
+          }
+
+          filterInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+              filterInput.value = '';
+              doFilter();
+              filterInput.blur();
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              const firstLink = navMenu.querySelector('li.nav-item:not([style*="display: none"]):not(#sidebar-menu-empty) a.nav-link');
+              if (firstLink) firstLink.focus();
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              const visibleLinks = Array.from(navMenu.querySelectorAll('li.nav-item:not([style*="display: none"]):not(#sidebar-menu-empty) a.nav-link'))
+                .filter(function(a) {
+                  const href = (a.getAttribute('href') || '').trim();
+                  return href !== '' && href !== '#';
+                });
+              if (visibleLinks.length === 1) {
+                visibleLinks[0].click();
+              } else if (visibleLinks.length > 1) {
+                visibleLinks[0].focus();
+              }
+            }
+          });
+        });
+      })();
+    </script>
     <main class="app-main">

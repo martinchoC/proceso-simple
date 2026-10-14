@@ -426,7 +426,7 @@ function agregarFilaMedioPago(tipoDefecto = null) {
     let optionsMedios = '';
     maestrosPago.medios_pago.forEach(m => {
         const selected = (tipoDefecto && m.codigo === tipoDefecto) ? 'selected' : '';
-        optionsMedios += `<option value="${m.medio_pago_id}" data-tipo="${m.medio_pago_tipo}" data-codigo="${m.codigo}" ${selected}>${escapeHtml(m.medio_pago)}</option>`;
+        optionsMedios += `<option value="${m.medio_pago_id}" data-tipo="${m.medio_pago_tipo}" data-codigo="${m.codigo}" data-impuesto="${m.impuesto_tipo_id || ''}" ${selected}>${escapeHtml(m.medio_pago)}</option>`;
     });
 
     tr.innerHTML = `
@@ -565,10 +565,31 @@ function renderizarCamposEspecificosMedioPago(tr, datosPrevios = null) {
             }
         });
     } else if (tipo === 'RETENCION') {
+        let impuestoMedio = parseInt(opt?.dataset.impuesto) || 0;
+        // Mapeo por familia si el medio de pago proviene de cobros o tiene código estándar
+        if (impuestoMedio === 5 || codigo === 'RET_IVA' || codigo === 'RET_IVA_P') {
+            const itIva = maestrosPago.impuestos_ret.find(it => parseInt(it.impuesto_tipo_id) === 15 || it.impuesto_tipo.toLowerCase().includes('iva'));
+            if (itIva) impuestoMedio = parseInt(itIva.impuesto_tipo_id);
+        } else if (impuestoMedio === 21 || codigo === 'RET_GAN' || codigo === 'RET_GAN_P') {
+            const itGan = maestrosPago.impuestos_ret.find(it => parseInt(it.impuesto_tipo_id) === 14 || it.impuesto_tipo.toLowerCase().includes('ganancia'));
+            if (itGan) impuestoMedio = parseInt(itGan.impuesto_tipo_id);
+        } else if (impuestoMedio === 4 || codigo === 'RET_IIBB' || codigo === 'RET_IIBB_P') {
+            const itIibb = maestrosPago.impuestos_ret.find(it => parseInt(it.impuesto_tipo_id) === 16 || it.impuesto_tipo.toLowerCase().includes('iibb'));
+            if (itIibb) impuestoMedio = parseInt(itIibb.impuesto_tipo_id);
+        } else if (codigo === 'RET_SUSS' || codigo === 'RET_SUSS_P') {
+            const itSuss = maestrosPago.impuestos_ret.find(it => parseInt(it.impuesto_tipo_id) === 17 || it.impuesto_tipo.toLowerCase().includes('suss'));
+            if (itSuss) impuestoMedio = parseInt(itSuss.impuesto_tipo_id);
+        }
+
+        let defaultImpTipoId = impuestoMedio || (datosPrevios ? parseInt(datosPrevios.impuesto_tipo_id) || 0 : 0);
+
         let optionsImp = '<option value="">-- Retención Practicada --</option>';
         maestrosPago.impuestos_ret.forEach(it => {
-            const sel = (datosPrevios && parseInt(datosPrevios.impuesto_tipo_id) === parseInt(it.impuesto_tipo_id)) ? 'selected' : '';
-            optionsImp += `<option value="${it.impuesto_tipo_id}" ${sel}>${escapeHtml(it.impuesto_tipo)}</option>`;
+            const itId = parseInt(it.impuesto_tipo_id);
+            const sel = (defaultImpTipoId && defaultImpTipoId === itId) ? 'selected' : '';
+            if (!impuestoMedio || impuestoMedio === itId) {
+                optionsImp += `<option value="${it.impuesto_tipo_id}" ${sel}>${escapeHtml(it.impuesto_tipo)}</option>`;
+            }
         });
 
         const nroCert = datosPrevios ? escapeHtml(datosPrevios.retencion_certificado_nro || '') : '';
@@ -578,7 +599,7 @@ function renderizarCamposEspecificosMedioPago(tr, datosPrevios = null) {
         contenedor.innerHTML = `
             <div class="row g-1">
                 <div class="col-sm-4">
-                    <select class="form-select form-select-sm input-retencion-tipo" required>
+                    <select class="form-select form-select-sm input-retencion-tipo" required ${impuestoMedio ? 'disabled' : ''}>
                         ${optionsImp}
                     </select>
                 </div>
@@ -593,6 +614,21 @@ function renderizarCamposEspecificosMedioPago(tr, datosPrevios = null) {
                 </div>
             </div>
         `;
+
+        const inpBase = contenedor.querySelector('.input-retencion-base');
+        const inpAli = contenedor.querySelector('.input-retencion-ali');
+        const recalcularMontoRet = () => {
+            const b = parseFloat(inpBase?.value) || 0;
+            const a = parseFloat(inpAli?.value) || 0;
+            if (b > 0 && a > 0) {
+                if (inputImporte && (!inputImporte.value || parseFloat(inputImporte.value) === 0)) {
+                    inputImporte.value = (Math.round((b * a / 100) * 100) / 100).toFixed(2);
+                    recalcularBalancePago();
+                }
+            }
+        };
+        if (inpBase) inpBase.addEventListener('input', recalcularMontoRet);
+        if (inpAli) inpAli.addEventListener('input', recalcularMontoRet);
     }
 }
 
@@ -787,12 +823,15 @@ function recopilarDatosPago() {
             const inpBase = tr.querySelector('.input-retencion-base');
             const inpAli = tr.querySelector('.input-retencion-ali');
 
-            if (!selImp.value || !inpCert.value) {
+            const optSel = selectTipo.options[selectTipo.selectedIndex];
+            const impId = parseInt(selImp?.value) || parseInt(optSel?.dataset.impuesto) || 0;
+
+            if (!impId || !inpCert.value) {
                 Swal.fire('Atención', 'Complete el tipo y número de certificado de la retención.', 'warning');
                 return null;
             }
 
-            medioObj.impuesto_tipo_id = parseInt(selImp.value);
+            medioObj.impuesto_tipo_id = impId;
             medioObj.retencion_certificado_nro = inpCert.value.trim();
             medioObj.retencion_base_imponible = parseFloat(inpBase.value) || 0;
             medioObj.retencion_alicuota = parseFloat(inpAli.value) || 0;

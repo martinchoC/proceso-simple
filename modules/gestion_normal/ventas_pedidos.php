@@ -212,12 +212,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                 </select>
                                                                 <div class="invalid-feedback small">Seleccione punto de venta</div>
                                                             </div>
-                                                            <div class="col-md-12">
+                                                            <div class="col-md-8">
                                                                 <label for="entidad_combo" class="form-label fw-bold small">Cliente / Sucursal *</label>
                                                                 <select class="form-select form-select-sm" id="entidad_combo" name="entidad_combo" required>
                                                                     <option value="">Seleccionar cliente o sucursal</option>
                                                                 </select>
                                                                 <div class="invalid-feedback small">Seleccione cliente o sucursal</div>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label for="descuento_general_pct" class="form-label fw-bold small">Descuento Cliente</label>
+                                                                <div class="input-group input-group-sm">
+                                                                    <input type="number" class="form-control form-control-sm text-end" id="descuento_general_pct" name="descuento_general_pct" value="0" step="0.01" min="0" max="100" readonly>
+                                                                    <span class="input-group-text bg-light">%</span>
+                                                                </div>
                                                             </div>
                                                             <div class="col-md-6">
                                                                 <label for="comprobante_tipo_id" class="form-label fw-bold small">Tipo Comprobante *</label>
@@ -232,7 +239,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                     <input type="number" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" value="0" min="1" readonly>
                                                                     <span class="input-group-text bg-light"><i class="fas fa-hashtag"></i></span>
                                                                 </div>
-                                                                <small class="text-muted">Se asigna al confirmar</small>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -351,7 +357,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                                 <!-- Campos ocultos para enviar (antes vivían en la solapa Totales, ya eliminada) -->
                                                 <input type="hidden" id="total_neto" name="total_neto" value="0">
-                                                <input type="hidden" id="descuento_general_pct" name="descuento_general_pct" value="0">
                                                 <input type="hidden" id="descuentos" name="descuentos" value="0">
                                                 <input type="hidden" id="no_gravado" name="no_gravado" value="0">
                                                 <input type="hidden" id="exento" name="exento" value="0">

@@ -19,6 +19,7 @@ let maestros = {
 let tablaDT = null;
 let indiceMedio = 0;
 let comprobantesCliente = [];
+let reciboActualId = 0;
 
 
 function mostrarModal(id) {
@@ -353,6 +354,8 @@ function configurarEventos() {
 
         if (accion === 'visualizar') {
             verRecibo(id);
+        } else if (accion === 'imprimir') {
+            imprimirRecibo(id);
         } else if (accion === 'editar') {
             editarBorrador(id);
         } else if (accion === 'confirmar') {
@@ -367,8 +370,60 @@ function configurarEventos() {
     // Formulario de anulación
     document.getElementById('formAnular')?.addEventListener('submit', ejecutarAnulacion);
 
-    // Imprimir recibo
-    document.getElementById('btnImprimirRecibo')?.addEventListener('click', () => window.print());
+    // Imprimir recibo con formato de factura a clientes
+    document.getElementById('btnImprimirRecibo')?.addEventListener('click', () => {
+        if (reciboActualId) {
+            imprimirRecibo(reciboActualId);
+        }
+    });
+
+    // Regenerar asiento contable desde el modal de visualización
+    $(document).on('click', '#btnRegenerarAsientoRecibo', async function () {
+        const id = $(this).data('id');
+        if (!id) return;
+        const btn = $(this);
+        btn.prop('disabled', true);
+        try {
+            const resp = await fetch('cobranzas_ajax.php?accion=generar_asiento&empresa_idx=' + window.EMPRESA_ID, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
+            const res = await resp.json();
+            if (res && res.success) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Asiento Contable',
+                        text: res.message || 'Asiento contable generado correctamente.',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2500
+                    });
+                }
+                verRecibo(id);
+            } else {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Error', (res && res.error) || 'No se pudo generar el asiento contable.', 'error');
+                } else {
+                    alert((res && res.error) || 'No se pudo generar el asiento contable.');
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            btn.prop('disabled', false);
+        }
+    });
+}
+
+/**
+ * Abre la impresión formal de recibo en formato A4
+ */
+function imprimirRecibo(id) {
+    if (!id) return;
+    window.open('cobranzas_print.php?cobranza_id=' + encodeURIComponent(id) + '&empresa_idx=' + window.EMPRESA_ID, '_blank');
 }
 
 /**
@@ -543,7 +598,7 @@ function agregarFilaMedio(tipoDefecto = null) {
     let optionsMedios = '';
     maestros.medios_pago.forEach(m => {
         const selected = (tipoDefecto && m.codigo === tipoDefecto) ? 'selected' : '';
-        optionsMedios += `<option value="${m.medio_pago_id}" data-tipo="${m.medio_pago_tipo}" data-codigo="${m.codigo}" ${selected}>${escapeHtml(m.medio_pago)}</option>`;
+        optionsMedios += `<option value="${m.medio_pago_id}" data-tipo="${m.medio_pago_tipo}" data-codigo="${m.codigo}" data-impuesto="${m.impuesto_tipo_id || ''}" ${selected}>${escapeHtml(m.medio_pago)}</option>`;
     });
 
     tr.innerHTML = `
@@ -591,7 +646,6 @@ function renderizarCamposEspecificosMedio(tr, datosPrevios = null) {
     if (!select || !contenedor) return;
     const opt = select.options && select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null;
     const tipo = opt ? (opt.dataset.tipo || 'EFECTIVO') : 'EFECTIVO';
-    const codigo = opt ? (opt.dataset.codigo || '') : '';
 
     contenedor.innerHTML = '';
 
@@ -687,20 +741,10 @@ function renderizarCamposEspecificosMedio(tr, datosPrevios = null) {
             </div>
         `;
     } else if (tipo === 'RETENCION') {
-        // Retenciones impositivas sufridas (IVA, Ganancias, Ingresos Brutos)
-        let defaultImpTipoId = datosPrevios ? parseInt(datosPrevios.impuesto_tipo_id) : 0;
-        if (!defaultImpTipoId && codigo) {
-            if (codigo === 'RET_IVA') {
-                const match = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === 5 || it.impuesto_tipo.toUpperCase().includes('IVA'));
-                if (match) defaultImpTipoId = parseInt(match.impuesto_tipo_id);
-            } else if (codigo === 'RET_GAN') {
-                const match = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === 21 || it.impuesto_tipo.toUpperCase().includes('GANANCIA'));
-                if (match) defaultImpTipoId = parseInt(match.impuesto_tipo_id);
-            } else if (codigo === 'RET_IIBB') {
-                const match = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === 4 || it.impuesto_tipo.toUpperCase().includes('IIBB') || it.impuesto_tipo.toUpperCase().includes('INGRESOS BRUTOS'));
-                if (match) defaultImpTipoId = parseInt(match.impuesto_tipo_id);
-            }
-        }
+        // Retenciones impositivas sufridas (IVA, Ganancias, Ingresos Brutos). El impuesto lo fija el medio de cobro
+        // (gestion__medios_pago.impuesto_tipo_id); solo un medio de retención genérico deja elegirlo.
+        const impuestoMedio = parseInt(opt?.dataset.impuesto) || 0;
+        let defaultImpTipoId = impuestoMedio || (datosPrevios ? parseInt(datosPrevios.impuesto_tipo_id) || 0 : 0);
 
         let optionsImp = '<option value="">-- Tipo Impuesto --</option>';
         (maestros.impuestos_retencion || []).forEach(it => {
@@ -720,12 +764,12 @@ function renderizarCamposEspecificosMedio(tr, datosPrevios = null) {
         const ali = datosPrevios ? (datosPrevios.retencion_alicuota || '') : '';
 
         const impObj = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === parseInt(defaultImpTipoId));
-        const esIIBBInicial = (codigo === 'RET_IIBB') || (impObj && (impObj.impuesto_tipo.toUpperCase().includes('IIBB') || impObj.impuesto_tipo.toUpperCase().includes('INGRESOS BRUTOS')));
+        const esIIBBInicial = !!impObj && parseInt(impObj.es_iibb) === 1;
 
         contenedor.innerHTML = `
             <div class="row g-1 align-items-center">
                 <div class="col-sm-3">
-                    <select class="form-select form-select-sm input-retencion-tipo" required title="Tipo de Retención">
+                    <select class="form-select form-select-sm input-retencion-tipo" required title="Tipo de Retención" ${impuestoMedio ? 'disabled' : ''}>
                         ${optionsImp}
                     </select>
                 </div>
@@ -772,7 +816,7 @@ function renderizarCamposEspecificosMedio(tr, datosPrevios = null) {
             selTipoRet.addEventListener('change', function() {
                 const selectedId = parseInt(this.value);
                 const selectedObj = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === selectedId);
-                const esIIBB = selectedObj && (selectedObj.impuesto_tipo.toUpperCase().includes('IIBB') || selectedObj.impuesto_tipo.toUpperCase().includes('INGRESOS BRUTOS'));
+                const esIIBB = selectedObj && parseInt(selectedObj.es_iibb) === 1;
 
                 if (esIIBB) {
                     colJur?.classList.remove('d-none');
@@ -1054,15 +1098,15 @@ function recopilarDatosCobranza() {
 
             const impId = parseInt(selImp.value);
             const impObj = (maestros.impuestos_retencion || []).find(it => parseInt(it.impuesto_tipo_id) === impId);
-            const esIIBB = impObj && (impObj.impuesto_tipo.toUpperCase().includes('IIBB') || impObj.impuesto_tipo.toUpperCase().includes('INGRESOS BRUTOS'));
+            const esIIBB = impObj && parseInt(impObj.es_iibb) === 1;
 
             if (esIIBB && (!selJur || !selJur.value)) {
-                Swal.fire('Atención', 'Para la retención de Ingresos Brutos (IIBB), debe seleccionar la Jurisdicción (ARBA, AGIP, etc.).', 'warning');
+                Swal.fire('Atención', 'Para la retención de Ingresos Brutos (IIBB), debe seleccionar la jurisdicción (provincia).', 'warning');
                 return null;
             }
 
             medioObj.impuesto_tipo_id = impId;
-            medioObj.jurisdiccion_id = selJur && selJur.value ? parseInt(selJur.value) : null;
+            medioObj.jurisdiccion_id = esIIBB && selJur.value ? parseInt(selJur.value) : null;
             medioObj.retencion_certificado_nro = inpCert.value.trim();
             medioObj.retencion_base_imponible = parseFloat(inpBase?.value) || 0;
             medioObj.retencion_alicuota = parseFloat(inpAli?.value) || 0;
@@ -1242,7 +1286,7 @@ async function editarBorrador(id) {
             let optionsMedios = '';
             maestros.medios_pago.forEach(mp => {
                 const sel = (parseInt(mp.medio_pago_id) === parseInt(m.medio_pago_id)) ? 'selected' : '';
-                optionsMedios += `<option value="${mp.medio_pago_id}" data-tipo="${mp.medio_pago_tipo}" data-codigo="${mp.codigo}" ${sel}>${escapeHtml(mp.medio_pago)}</option>`;
+                optionsMedios += `<option value="${mp.medio_pago_id}" data-tipo="${mp.medio_pago_tipo}" data-codigo="${mp.codigo}" data-impuesto="${mp.impuesto_tipo_id || ''}" ${sel}>${escapeHtml(mp.medio_pago)}</option>`;
             });
 
             tr.innerHTML = `
@@ -1354,7 +1398,8 @@ async function verRecibo(id) {
             return;
         }
 
-        const { cabecera, medios, imputaciones } = res.data;
+        const { cabecera, medios, imputaciones, asiento } = res.data;
+        reciboActualId = id;
         const cuerpo = document.getElementById('cuerpoReciboImpresion');
 
         const tituloComprobante = cabecera.comprobante_tipo ? cabecera.comprobante_tipo.toUpperCase() : 'RECIBO DE COBRO';
@@ -1501,6 +1546,106 @@ async function verRecibo(id) {
                         <strong>Observaciones:</strong> ${escapeHtml(cabecera.observaciones)}
                     </div>
                 ` : ''}
+
+                <!-- Detalle del Asiento Contable Automático -->
+                ${(() => {
+                    if (asiento && asiento.detalles && asiento.detalles.length > 0) {
+                        let filasAsiento = '';
+                        asiento.detalles.forEach(d => {
+                            const debe = parseFloat(d.debe) || 0;
+                            const haber = parseFloat(d.haber) || 0;
+                            filasAsiento += `
+                                <tr>
+                                    <td class="font-monospace text-muted">${escapeHtml(d.cuenta_codigo || '-')}</td>
+                                    <td class="fw-semibold">${escapeHtml(d.cuenta_nombre || ('Cuenta ' + d.cuenta_id))}</td>
+                                    <td class="text-end font-monospace ${debe > 0 ? 'fw-bold text-success' : 'text-muted'}">${debe > 0 ? '$ ' + formatearMoneda(debe) : '-'}</td>
+                                    <td class="text-end font-monospace ${haber > 0 ? 'fw-bold text-danger' : 'text-muted'}">${haber > 0 ? '$ ' + formatearMoneda(haber) : '-'}</td>
+                                    <td class="small text-muted">${escapeHtml(d.descripcion || '')}</td>
+                                </tr>
+                            `;
+                        });
+
+                        const totDebe = parseFloat(asiento.total_debe) || 0;
+                        const totHaber = parseFloat(asiento.total_haber) || 0;
+                        const diff = Math.abs(totDebe - totHaber);
+                        const badgeBalance = diff < 0.01 
+                            ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Balanceado</span>'
+                            : `<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>Desbalanceado: $ ${formatearMoneda(diff)}</span>`;
+
+                        return `
+                            <div class="mt-4 border rounded p-3 bg-light shadow-none">
+                                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom flex-wrap gap-2">
+                                    <div>
+                                        <h6 class="fw-bold text-uppercase small text-primary mb-0">
+                                            <i class="fas fa-book me-1"></i> Asiento Contable Automático #${asiento.cont_asiento_id}
+                                        </h6>
+                                        <small class="text-muted">Tipo: <strong>${escapeHtml(asiento.cont_tipo_asiento || 'Automático')}</strong> · Fecha: <strong>${asiento.f_asiento ? asiento.f_asiento.split('-').reverse().join('/') : '-'}</strong></small>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-success">${escapeHtml(asiento.estado_registro || 'Registrado')}</span>
+                                        ${badgeBalance}
+                                        <button type="button" class="btn btn-xs btn-outline-secondary ms-2" id="btnRegenerarAsientoRecibo" data-id="${cabecera.cobranza_id}" title="Regenerar Asiento Contable">
+                                            <i class="fas fa-sync-alt me-1"></i> Regenerar
+                                        </button>
+                                    </div>
+                                </div>
+                                ${asiento.descripcion ? `<div class="small text-muted mb-2 fst-italic">${escapeHtml(asiento.descripcion)}</div>` : ''}
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white mb-0" style="font-size: 0.82rem;">
+                                        <thead class="table-light">
+                                            <tr class="small">
+                                                <th style="width: 14%;">Cuenta</th>
+                                                <th style="width: 30%;">Nombre de Cuenta</th>
+                                                <th style="width: 15%;" class="text-end">DEBE</th>
+                                                <th style="width: 15%;" class="text-end">HABER</th>
+                                                <th>Descripción / Movimiento</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${filasAsiento}
+                                        </tbody>
+                                        <tfoot class="table-light fw-bold">
+                                            <tr>
+                                                <td colspan="2" class="text-end">TOTALES:</td>
+                                                <td class="text-end text-success font-monospace">$ ${formatearMoneda(totDebe)}</td>
+                                                <td class="text-end text-danger font-monospace">$ ${formatearMoneda(totHaber)}</td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    } else if (parseInt(cabecera.tabla_estado_registro_id) === 5) {
+                        if (parseFloat(cabecera.importe_total) <= 0.0001) {
+                            return `
+                                <div class="mt-4 alert alert-info small py-2 mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <strong>Recibo en $0:</strong> Este recibo corresponde a una compensación / aplicación de notas de crédito sin movimiento de fondos, por lo que no genera asiento contable de tesorería.
+                                </div>
+                            `;
+                        } else {
+                            return `
+                                <div class="mt-4 alert alert-warning small d-flex justify-content-between align-items-center py-2 mb-0">
+                                    <div>
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        <strong>Asiento Contable:</strong> La cobranza está confirmada pero aún no tiene asiento contable registrado.
+                                    </div>
+                                    <button type="button" class="btn btn-xs btn-primary" id="btnRegenerarAsientoRecibo" data-id="${cabecera.cobranza_id}">
+                                        <i class="fas fa-sync-alt me-1"></i> Generar Asiento Ahora
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        return `
+                            <div class="mt-4 alert alert-secondary small text-center py-2 mb-0">
+                                <i class="fas fa-clock me-1"></i>
+                                <strong>Asiento Contable Pendiente:</strong> El asiento se genera automáticamente al confirmar y emitir el recibo de cobro.
+                            </div>
+                        `;
+                    }
+                })()}
             </div>
         `;
 

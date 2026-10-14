@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../core/ajax_guard.php';
 $ctx = ajax_guard(['pagina_idx' => 1010]);
+require_once __DIR__ . '/sindi_base_model.php';
+sindi_contexto($ctx);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -61,6 +63,34 @@ try {
         case 'guardar':
             $res = sindi_guardar_empleador($conexion, $empresa_id, $_POST, $usuario_id);
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'listar_sucursales':
+            $empleador_id = intval($_GET['empleador_id'] ?? 0);
+            $lista = sindi_listar_sucursales_empleador($conexion, $empresa_id, $usuario_id, $empleador_id);
+            echo json_encode(['success' => true, 'data' => $lista], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'guardar_sucursal':
+            $res = sindi_guardar_sucursal_empleador($conexion, $empresa_id, $usuario_id, $_POST);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'estado_sucursal':
+            $res = sindi_cambiar_estado_sucursal_empleador(
+                $conexion,
+                $empresa_id,
+                $usuario_id,
+                intval($_POST['empleador_id'] ?? 0),
+                intval($_POST['sucursal_id'] ?? 0),
+                intval($_POST['estado'] ?? 0)
+            );
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'buscar_localidades':
+            $lista = sindi_buscar_localidades($conexion, (string)($_GET['q'] ?? ''));
+            echo json_encode(['success' => true, 'data' => $lista], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'ejecutar_accion':

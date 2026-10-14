@@ -84,7 +84,8 @@ $(document).ready(function () {
             $('#listaCertificados').html(combos.archivos.certificados.map(function (r) { return '<option value="' + escapeHtml(r) + '">'; }).join(''));
             $('#listaClaves').html(combos.archivos.claves.map(function (r) { return '<option value="' + escapeHtml(r) + '">'; }).join(''));
             $('#listaPuntosVenta').html(combos.puntos_venta.map(function (p) {
-                return '<option value="' + p.codigo_fiscal + '">' + escapeHtml(p.nombre) + '</option>';
+                var sis = p.sistema_emision ? ' [' + p.sistema_emision + ']' : '';
+                return '<option value="' + p.codigo_fiscal + '">' + escapeHtml(p.nombre + sis) + '</option>';
             }).join(''));
 
             var $tipo = $('#prueba_cbte_tipo').empty();
@@ -415,12 +416,13 @@ $(document).ready(function () {
         var resultado = data.resultado !== undefined ? data.resultado : data;
         if (resultado && typeof resultado === 'object') {
             if (resultado.puntos_venta) {
+                html += '<div class="alert alert-info py-1 px-2 small mb-2"><i class="fas fa-info-circle me-1"></i><strong>Puntos de Venta Web Service:</strong> ARCA solo lista aquí los puntos de venta habilitados para Factura Electrónica (Web Service). Puntos de venta creados para Comprobantes en Línea (RCEL), Controladores Fiscales o Talonarios tienen numeración independiente y no figuran para Web Service.</div>';
                 html += resultado.puntos_venta.length
                     ? '<table class="table table-sm table-bordered mb-2"><tr><th>Nro</th><th>Emisión</th><th>Bloqueado</th><th>Baja</th></tr>' +
                     resultado.puntos_venta.map(function (p) {
                         return '<tr><td>' + escapeHtml(p.Nro) + '</td><td>' + escapeHtml(p.EmisionTipo) + '</td><td>' + escapeHtml(p.Bloqueado) + '</td><td>' + escapeHtml(p.FchBaja || '-') + '</td></tr>';
                     }).join('') + '</table>'
-                    : '<div class="text-muted mb-2">Sin puntos de venta informados.</div>';
+                    : '<div class="text-muted mb-2">Sin puntos de venta informados en ARCA para Web Service.</div>';
             } else {
                 html += tablaClaveValor(resultado);
             }

@@ -94,13 +94,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             style="width:100%">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="80">ID</th>
-                                                    <th width="100">Código</th>
-                                                    <th width="200">Alicuota</th>
-                                                    <th width="100">Porcentaje</th>
-                                                    <th width="150">Tipo</th>
-                                                    <th width="120">Estado</th>
-                                                    <th width="200" class="text-center">Acciones</th>
+                                                    <th width="70">ID</th>
+                                                    <th width="90">Código</th>
+                                                    <th width="180">Alicuota</th>
+                                                    <th width="90">Porcentaje</th>
+                                                    <th width="110">Tipo</th>
+                                                    <th width="180">Cta. Compras (Crédito)</th>
+                                                    <th width="180">Cta. Ventas (Débito)</th>
+                                                    <th width="100">Estado</th>
+                                                    <th width="160" class="text-center">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -142,16 +144,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 placeholder="21.00" required>
                                             <span class="input-group-text">%</span>
                                         </div>
-                                        
-                                    </div>
-                                    <!-- NUEVO: Campo Cuenta Contable -->
-                                    <div class="col-md-6 mb-3">
-                                        <label for="cont_cuenta_id" class="form-label">Cuenta Contable *</label>
-                                        <select class="form-select select2-cuenta" id="cont_cuenta_id" name="cont_cuenta_id" required>
-                                            <option value="">Seleccione una cuenta contable...</option>
-                                        </select>
-                                        <div class="invalid-feedback">La cuenta contable es obligatoria</div>
-                                        <div class="form-text">Cuenta contable para registrar este IVA</div>
                                     </div>
                                 </div>
 
@@ -162,6 +154,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             name="iva_alicuota" maxlength="100" required>
                                         <div class="invalid-feedback">La descripción es obligatoria</div>
                                         <div class="form-text">Máximo 100 caracteres</div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <!-- Campos Cuentas Contables (Compras y Ventas) -->
+                                    <div class="col-md-6 mb-3">
+                                        <label for="cont_cuenta_compra_id" class="form-label">Cta. Contable Compras (Crédito Fiscal)</label>
+                                        <select class="form-select select2-cuenta" id="cont_cuenta_compra_id" name="cont_cuenta_compra_id">
+                                            <option value="">Seleccione cuenta contable...</option>
+                                        </select>
+                                        <div class="form-text">Cuenta de Crédito Fiscal IVA para compras</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="cont_cuenta_venta_id" class="form-label">Cta. Contable Ventas (Débito Fiscal)</label>
+                                        <select class="form-select select2-cuenta" id="cont_cuenta_venta_id" name="cont_cuenta_venta_id">
+                                            <option value="">Seleccione cuenta contable...</option>
+                                        </select>
+                                        <div class="form-text">Cuenta de Débito Fiscal IVA para ventas</div>
                                     </div>
                                 </div>
 
@@ -283,7 +293,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var currentSearch = '';
             
             function cargarCuentasContables() {
-                console.log("Cargando cuentas contables..."); // Para debug
                 $.ajax({
                     url: 'iva_alicuotas_ajax.php',
                     type: 'GET',
@@ -293,30 +302,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     },
                     dataType: 'json',
                     success: function(response) {
-                        console.log("Respuesta recibida:", response); // Para debug
-                        var select = $('#cont_cuenta_id');
-                        select.empty();
-                        select.append('<option value="">Seleccione una cuenta contable...</option>');
+                        var selectCompra = $('#cont_cuenta_compra_id');
+                        var selectVenta = $('#cont_cuenta_venta_id');
+                        selectCompra.empty().append('<option value="">Seleccione cuenta contable...</option>');
+                        selectVenta.empty().append('<option value="">Seleccione cuenta contable...</option>');
                         
                         if (response && response.length > 0) {
                             $.each(response, function(index, cuenta) {
                                 var optionText = cuenta.codigo + ' - ' + cuenta.nombre;
-                                select.append('<option value="' + cuenta.cont_cuenta_id + '">' + optionText + '</option>');
+                                selectCompra.append('<option value="' + cuenta.cont_cuenta_id + '">' + optionText + '</option>');
+                                selectVenta.append('<option value="' + cuenta.cont_cuenta_id + '">' + optionText + '</option>');
                             });
                         } else {
-                            select.append('<option value="" disabled>No hay cuentas contables disponibles</option>');
+                            selectCompra.append('<option value="" disabled>No hay cuentas contables disponibles</option>');
+                            selectVenta.append('<option value="" disabled>No hay cuentas contables disponibles</option>');
                         }
                         
-                        // Refrescar Select2 después de cargar los datos
-                        if ($('#cont_cuenta_id').data('select2')) {
-                            $('#cont_cuenta_id').select2('destroy');
-                        }
                         inicializarSelect2();
                     },
                     error: function(xhr, status, error) {
                         console.error('Error al cargar cuentas contables:', error);
-                        console.error('Respuesta:', xhr.responseText);
-                        $('#cont_cuenta_id').append('<option value="" disabled>Error al cargar cuentas</option>');
                     }
                 });
             }
@@ -342,7 +347,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Inicializar Select2 en el modal
             function inicializarSelect2() {
                 if (typeof $.fn.select2 === 'function') {
-                    $('#cont_cuenta_id').select2({
+                    $('#cont_cuenta_compra_id, #cont_cuenta_venta_id').each(function() {
+                        if ($(this).data('select2')) {
+                            $(this).select2('destroy');
+                        }
+                    });
+
+                    $('#cont_cuenta_compra_id, #cont_cuenta_venta_id').select2({
                         theme: 'bootstrap-5',
                         placeholder: 'Buscar cuenta contable...',
                         allowClear: true,
@@ -442,7 +453,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             className: 'btn btn-success btn-sm',
                             title: 'IVA Alícuotas',
                             exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5],
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7],
                                 orthogonal: 'export'
                             }
                         },
@@ -451,10 +462,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             text: '<i class="fas fa-file-pdf"></i> PDF',
                             className: 'btn btn-danger btn-sm',
                             title: 'IVA Alícuotas',
-                            orientation: 'portrait',
+                            orientation: 'landscape',
                             pageSize: 'A4',
                             exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5],
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7],
                                 orthogonal: 'export'
                             }
                         },
@@ -464,7 +475,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             className: 'btn btn-primary btn-sm',
                             title: 'IVA_Alicuotas',
                             exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5]
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7]
                             }
                         },
                         {
@@ -473,7 +484,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             className: 'btn btn-secondary btn-sm',
                             title: 'IVA Alícuotas',
                             exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5],
+                                columns: [0, 1, 2, 3, 4, 5, 6, 7],
                                 stripHtml: false
                             }
                         }
@@ -535,6 +546,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 }
                                 
                                 return `<span class="badge bg-${badgeClass} badge-tipo">${icon}${data}</span>`;
+                            }
+                        },
+                        {
+                            data: 'cuenta_compra',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data;
+                                }
+                                if (!data || data === 'Sin asignar') {
+                                    return '<span class="text-muted small">Sin asignar</span>';
+                                }
+                                return `<span class="badge bg-light text-dark border"><i class="fas fa-shopping-cart text-info me-1"></i>${data}</span>`;
+                            }
+                        },
+                        {
+                            data: 'cuenta_venta',
+                            render: function (data, type, row) {
+                                if (type === 'export') {
+                                    return data;
+                                }
+                                if (!data || data === 'Sin asignar') {
+                                    return '<span class="text-muted small">Sin asignar</span>';
+                                }
+                                return `<span class="badge bg-light text-dark border"><i class="fas fa-cash-register text-success me-1"></i>${data}</span>`;
                             }
                         },
                         {
@@ -846,9 +881,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#iva_alicuota').val(res.iva_alicuota);
                         $('#porcentaje').val(res.porcentaje);
                         
-                        // Cargar la cuenta contable seleccionada
-                        if (res.cont_cuenta_id) {
-                            $('#cont_cuenta_id').val(res.cont_cuenta_id).trigger('change');
+                        // Cargar las cuentas contables seleccionadas
+                        if (res.cont_cuenta_compra_id && parseInt(res.cont_cuenta_compra_id) > 0) {
+                            $('#cont_cuenta_compra_id').val(res.cont_cuenta_compra_id).trigger('change');
+                        } else {
+                            $('#cont_cuenta_compra_id').val('').trigger('change');
+                        }
+
+                        if (res.cont_cuenta_venta_id && parseInt(res.cont_cuenta_venta_id) > 0) {
+                            $('#cont_cuenta_venta_id').val(res.cont_cuenta_venta_id).trigger('change');
+                        } else {
+                            $('#cont_cuenta_venta_id').val('').trigger('change');
                         }
                         
                         // Determinar el tipo de IVA basado en los booleanos
@@ -884,7 +927,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#formIvaAlicuota').removeClass('was-validated');
                 
                 // Limpiar select2
-                $('#cont_cuenta_id').val('').trigger('change');
+                $('#cont_cuenta_compra_id').val('').trigger('change');
+                $('#cont_cuenta_venta_id').val('').trigger('change');
                 
                 // Restablecer valores por defecto
                 $('#es_gravado').prop('checked', true);
@@ -906,7 +950,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 var codigo = $('#codigo').val().trim();
                 var ivaAlicuota = $('#iva_alicuota').val().trim();
                 var porcentaje = parseFloat($('#porcentaje').val());
-                var contCuentaId = $('#cont_cuenta_id').val();
+                var contCuentaCompraId = $('#cont_cuenta_compra_id').val() || 0;
+                var contCuentaVentaId = $('#cont_cuenta_venta_id').val() || 0;
                 var tipoIva = $('input[name="tipo_iva"]:checked').val();
 
                 // Validaciones adicionales
@@ -949,19 +994,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#porcentaje').removeClass('is-invalid');
                 }
 
-                if (!contCuentaId || contCuentaId === '') {
-                    $('#cont_cuenta_id').addClass('is-invalid');
-                    Swal.fire({
-                        icon: "warning",
-                        title: "Campo requerido",
-                        text: "Debe seleccionar una cuenta contable",
-                        confirmButtonText: "Entendido"
-                    });
-                    return false;
-                } else {
-                    $('#cont_cuenta_id').removeClass('is-invalid');
-                }
-
                 // Determinar valores booleanos
                 var es_gravado = (tipoIva === 'gravado') ? 1 : 0;
                 var es_exento = (tipoIva === 'exento') ? 1 : 0;
@@ -986,7 +1018,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         codigo: codigo,
                         iva_alicuota: ivaAlicuota,
                         porcentaje: porcentaje,
-                        cont_cuenta_id: contCuentaId,
+                        cont_cuenta_compra_id: contCuentaCompraId,
+                        cont_cuenta_venta_id: contCuentaVentaId,
                         es_gravado: es_gravado,
                         es_exento: es_exento,
                         es_no_gravado: es_no_gravado,
