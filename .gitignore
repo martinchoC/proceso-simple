@@ -37,3 +37,6 @@ _local/concilia/
 _local/docs/*.pdf
 _local/docs/mis_comprobantes_prueba/
 _local/tests/*.pdf
+
+# Salidas de la prueba de comparación de listas de precios
+_local/tests/listas_precios/salidas/
