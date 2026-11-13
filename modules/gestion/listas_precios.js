@@ -541,9 +541,12 @@ $(document).ready(function () {
                 return;
             }
 
+            // Primero se simula: el diálogo muestra qué cambiaría antes de confirmar.
+            simularRecalculo(lista_precio_id, function (htmlSimulacion) {
             Swal.fire({
                 title: '¿Recalcular precios?',
-                text: "Esta acción recalculará todos los precios de la lista aplicando las reglas activas",
+                html: htmlSimulacion,
+                width: 760,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
@@ -589,7 +592,68 @@ $(document).ready(function () {
                     });
                 }
             });
+            });
         });
+    }
+
+    // Simula el recálculo (no escribe nada) y devuelve al callback el HTML con el resumen de cambios.
+    function simularRecalculo(lista_precio_id, alTerminar) {
+        var btn = $('#btnRecalcularPrecios');
+        btn.prop('disabled', true);
+        $.post('listas_precios_ajax.php', {
+            accion: 'simular_recalculo',
+            lista_precio_id: lista_precio_id
+        }, null, 'json').done(function (sim) {
+            if (!sim || !sim.success) {
+                Swal.fire({
+                    icon: "error",
+                    title: "No se pudo simular el recálculo",
+                    text: (sim && sim.error) || "Error al simular el recálculo",
+                    confirmButtonText: "Entendido"
+                });
+                return;
+            }
+            alTerminar(htmlSimulacion(sim));
+        }).fail(function () {
+            Swal.fire({
+                icon: "error",
+                title: "Error de conexión",
+                text: "No se pudo conectar con el servidor",
+                confirmButtonText: "Entendido"
+            });
+        }).always(function () {
+            btn.prop('disabled', false);
+        });
+    }
+
+    function htmlSimulacion(sim) {
+        var r = sim.resumen || {};
+        var fmt = function (v) {
+            return (v === null || v === undefined) ? '—'
+                : Number(v).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+        var html = '<p class="mb-2">Si se recalcula ahora:</p>' +
+            '<ul class="text-start mb-2">' +
+            '<li>Cambian de precio: <b>' + (r.cambian || 0) + '</b></li>' +
+            '<li>Entran a la lista: <b>' + (r.nuevos || 0) + '</b></li>' +
+            '<li>Salen de la lista: <b>' + (r.quitados || 0) + '</b></li>' +
+            '<li>Quedan igual: <b>' + (r.iguales || 0) + '</b></li>' +
+            '<li>Precios manuales o importados que no se tocan: <b>' + (r.manuales || 0) + '</b></li>' +
+            '</ul>';
+        var cambios = sim.cambios || [];
+        if (cambios.length) {
+            html += '<div style="max-height:260px;overflow:auto"><table class="table table-sm text-start mb-0">' +
+                '<thead><tr><th>Producto</th><th class="text-end">Hoy</th><th class="text-end">Quedaría</th></tr></thead><tbody>';
+            cambios.forEach(function (c) {
+                html += '<tr><td>' + escapeHtml(((c.producto_codigo || '') + ' ' + (c.producto_nombre || '')).trim()) + '</td>' +
+                    '<td class="text-end">' + fmt(c.antes) + '</td><td class="text-end">' + fmt(c.despues) + '</td></tr>';
+            });
+            html += '</tbody></table></div>';
+            if ((r.cambian || 0) + (r.nuevos || 0) + (r.quitados || 0) > cambios.length) {
+                html += '<small class="text-muted">Se muestran los primeros ' + cambios.length + '.</small>';
+            }
+        }
+        return html;
     }
 
     function cargarBotonAgregar() {

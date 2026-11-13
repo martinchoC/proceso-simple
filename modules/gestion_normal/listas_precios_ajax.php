@@ -314,6 +314,21 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'simular_recalculo':
+            // Muestra qué cambiaría el recálculo sin escribir nada (mismo cálculo, se revierte al final)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'editar', true);
+            $lista_precio_id = intval($_POST['lista_precio_id'] ?? 0);
+            if (empty($lista_precio_id)) {
+                echo json_encode(['success' => false, 'error' => 'ID de lista no proporcionado'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            if (listaPrecioOrigenCodigo($conexion, $lista_precio_id, $empresa_idx) === 'MANUAL') {
+                echo json_encode(['success' => false, 'error' => LISTA_PRECIO_MANUAL_NO_RECALCULA], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            echo json_encode(recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx, true), JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'actualizar_precio_manual':
             $lista_precio_producto_id = intval($_POST['lista_precio_producto_id'] ?? 0);
             $precio_manual = floatval($_POST['precio_manual'] ?? 0);

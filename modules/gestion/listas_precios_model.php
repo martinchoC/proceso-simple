@@ -1287,7 +1287,75 @@ function listaPrecioOrigenCodigo($conexion, $lista_precio_id, $empresa_idx)
     return $fila ? ($fila['lista_precio_origen_codigo'] ?? null) : null;
 }
 
-function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
+/** Precios vigentes (estado 1) de la lista: [producto_id => ['precio' => float, 'es_manual' => int]]. */
+function lppPreciosVigentesLista($conexion, $lista_precio_id, $empresa_idx)
+{
+    $lista_precio_id = intval($lista_precio_id);
+    $empresa_idx = intval($empresa_idx);
+    $precios = [];
+    $res = mysqli_query($conexion, "SELECT producto_id, precio_final, es_manual FROM gestion__listas_precios_productos
+                                    WHERE lista_precio_id = $lista_precio_id AND empresa_id = $empresa_idx
+                                    AND tabla_estado_registro_id = 1
+                                    ORDER BY f_desde, lista_precio_producto_id");
+    while ($res && ($row = mysqli_fetch_assoc($res))) {
+        $precios[(int) $row['producto_id']] = ['precio' => round((float) $row['precio_final'], 2), 'es_manual' => (int) $row['es_manual']];
+    }
+    return $precios;
+}
+
+/**
+ * Compara los precios vigentes antes y después de un recálculo simulado. Devuelve el resumen (cambian, nuevos,
+ * quitados, iguales) y las primeras $max diferencias con código y nombre del producto.
+ */
+function lppResumenSimulacion($conexion, $empresa_idx, array $antes, array $despues, $max = 50)
+{
+    $resumen = ['cambian' => 0, 'nuevos' => 0, 'quitados' => 0, 'iguales' => 0];
+    $grupos = ['cambian' => [], 'nuevos' => [], 'quitados' => []];
+    foreach ($despues as $pid => $d) {
+        if (!isset($antes[$pid])) {
+            $grupos['nuevos'][] = ['producto_id' => $pid, 'antes' => null, 'despues' => $d['precio']];
+        } elseif (abs($antes[$pid]['precio'] - $d['precio']) >= 0.005) {
+            $grupos['cambian'][] = ['producto_id' => $pid, 'antes' => $antes[$pid]['precio'], 'despues' => $d['precio']];
+        } else {
+            $resumen['iguales']++;
+        }
+    }
+    foreach ($antes as $pid => $a) {
+        if (!isset($despues[$pid])) {
+            $grupos['quitados'][] = ['producto_id' => $pid, 'antes' => $a['precio'], 'despues' => null];
+        }
+    }
+    $cambios = [];
+    foreach ($grupos as $tipo => $filas) {
+        $resumen[$tipo] = count($filas);
+        foreach ($filas as $f) {
+            if (count($cambios) < $max) {
+                $cambios[] = $f + ['tipo' => $tipo];
+            }
+        }
+    }
+    if ($cambios) {
+        $ids = implode(',', array_map('intval', array_column($cambios, 'producto_id')));
+        $nombres = [];
+        $res = mysqli_query($conexion, "SELECT producto_id, producto_codigo, producto_nombre FROM gestion__productos
+                                        WHERE empresa_id = " . intval($empresa_idx) . " AND producto_id IN ($ids)");
+        while ($res && ($row = mysqli_fetch_assoc($res))) {
+            $nombres[(int) $row['producto_id']] = $row;
+        }
+        foreach ($cambios as &$c) {
+            $c['producto_codigo'] = $nombres[$c['producto_id']]['producto_codigo'] ?? '';
+            $c['producto_nombre'] = $nombres[$c['producto_id']]['producto_nombre'] ?? '';
+        }
+        unset($c);
+    }
+    return ['resumen' => $resumen, 'cambios' => $cambios];
+}
+
+/**
+ * Recalcula los precios de la lista. Con $simular = true hace exactamente el mismo cálculo dentro de la
+ * transacción, compara los precios vigentes de antes y de después, y revierte (no escribe nada).
+ */
+function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx, $simular = false)
 {
     $lista_precio_id = intval($lista_precio_id);
     $empresa_idx = intval($empresa_idx);
@@ -1378,6 +1446,7 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
             $manuales[(int) $row['producto_id']] = true;
         }
         $no_manual_vigente = "AND NOT (es_manual = 1 AND tabla_estado_registro_id = 1)";
+        $precios_antes = $simular ? lppPreciosVigentesLista($conexion, $lista_precio_id, $empresa_idx) : [];
 
         // 4. Guardar historial
         $query_historial = "INSERT INTO gestion__listas_precios_productos_historial 
@@ -1572,7 +1641,15 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
                            requiere_recalculo = 0 
                        WHERE lista_precio_id = $lista_precio_id AND empresa_id = $empresa_idx";
         mysqli_query($conexion, $update_sql);
-        
+
+        if ($simular) {
+            $simulacion = lppResumenSimulacion($conexion, $empresa_idx, $precios_antes,
+                lppPreciosVigentesLista($conexion, $lista_precio_id, $empresa_idx));
+            mysqli_rollback($conexion);
+            $simulacion['resumen']['manuales'] = count($manuales);
+            return ['success' => true, 'simulacion' => true, 'message' => 'Simulación: no se guardó ningún cambio.'] + $simulacion;
+        }
+
         mysqli_commit($conexion);
         
         $mensaje = "Precios recalculados correctamente. {$insertados} productos procesados.";
