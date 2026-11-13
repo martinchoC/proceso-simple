@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Módulo 2: Gestión Integral de Empresas (ERP)</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+        --teal: #20c997;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.6;
+        max-width: 980px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.85rem; margin-bottom: 6px; color: #111827; }
+    h2 { font-size: 1.35rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 8px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.1rem; margin-top: 1.6rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.92rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.6rem; }
+    
+    .badge-modulo {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #dbeafe;
+        color: #1e40af;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 22px;
+        margin: 20px 0 30px;
+    }
+    .toc strong { display: block; margin-bottom: 8px; font-size: 1rem; }
+    .toc ul { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 4px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 16px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 5px solid var(--azul); }
+    .card-outline-green { border-left: 5px solid var(--verde); }
+
+    .alert {
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin: 16px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #e7f1ff; border-left: 4px solid var(--azul); color: #084298; }
+    .alert-warning { background: #fff8e6; border-left: 4px solid var(--amarillo); color: #664d03; }
+    .alert-success { background: #e8f5ee; border-left: 4px solid var(--verde); color: #0f5132; }
+
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th {
+        background: var(--gris-fondo);
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 18px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eff6ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+        color: #1e3a8a;
+    }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); font-size: 0.8rem; margin-top: 2px; }
+    .flujo-caja.final { border-color: var(--verde); background: #f0fdf4; color: #166534; }
+    .flujo-flecha { font-size: 1.4rem; color: var(--texto-muted); font-weight: bold; }
+
+    .btn-enlace {
+        display: inline-block;
+        padding: 3px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: var(--azul);
+        color: #fff;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-left: 6px;
+    }
+    .btn-enlace:hover { background: var(--azul-oscuro); color: #fff; text-decoration: none; }
+
+    footer {
+        margin-top: 3.5rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+    @media print {
+        .volver, .toc { display: none; }
+        body { max-width: none; padding: 0; }
+        h2 { page-break-after: avoid; }
+    }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al portal de manuales</a>
+
+<span class="badge-modulo">Módulo 2</span>
+<h1>Manual de usuario: Gestión Integral de Empresas (ERP)</h1>
+<p class="subtitulo">El sistema central de operaciones para compras, ventas, stock por depósito, tesorería, contabilidad automática, facturación electrónica ARCA, conciliación bancaria e inteligencia artificial integrada.</p>
+
+<div class="toc">
+    <strong>Contenido del manual</strong>
+    <ul>
+        <li><a href="#vision-general">1. Visión general y circuitos integrados</a></li>
+        <li><a href="#stock">2. Área Stock y Depósitos</a></li>
+        <li><a href="#ventas">3. Área Ventas y Facturación Electrónica</a></li>
+        <li><a href="#tesoreria">4. Área Tesorería y Finanzas</a></li>
+        <li><a href="#bancos">5. Conciliación Bancaria y Extractos</a></li>
+        <li><a href="#compras">6. Área Compras y Proveedores</a></li>
+        <li><a href="#fiscal">7. Control Fiscal, Liquidaciones e Impuestos</a></li>
+        <li><a href="#contabilidad">8. Contabilidad y Libros Societarios</a></li>
+        <li><a href="#automatizacion">9. Innovación: Bandeja Inteligente y Asistente IA</a></li>
+        <li><a href="#seteo">10. Seteo de Empresa e Inicio Rápido</a></li>
+        <li><a href="#pantallas-detalle">11. Catálogo completo de manuales por pantalla</a></li>
+    </ul>
+</div>
+
+<h2 id="vision-general">1. Visión general y circuitos integrados</h2>
+<p>El Módulo 2 (<code>modules/gestion/</code>) administra todas las transacciones operativas diarias de la empresa mediante el concepto de <strong>Comprobante Universal</strong>: cada documento (pedido, remito, factura, recibo de cobro, orden de pago) se vincula de manera sincronizada y mantiene el saldo de cuenta corriente, el stock físico y los asientos contables de forma automática.</p>
+
+<h3>Circuito de Ventas</h3>
+<div class="flujo">
+    <div class="flujo-caja">1. Pedido de Cliente<small>ventas_pedidos.php</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">2. Remito de Entrega<small>Resta Stock físico</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">3. Factura de Venta<small>Fiscal ARCA / Cta Cte</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">4. Cobranza (Recibo)<small>Cancela factura / Caja</small></div>
+</div>
+
+<h3>Circuito de Compras</h3>
+<div class="flujo">
+    <div class="flujo-caja">1. Orden de Compra<small>ordenes_compra.php</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">2. Factura de Proveedor<small>Suma Stock / Deuda</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">3. Orden de Pago (OP)<small>Cancela deuda / Medios</small></div>
+</div>
+
+<h2 id="stock">2. Área Stock y Depósitos</h2>
+<p>El inventario se gestiona por <strong>Bocas de Expendio</strong> (depósitos físicos o mostradores de venta de cada sucursal):</p>
+<ul>
+    <li><strong>Dashboard de Stock:</strong> Vista general de existencias en tiempo real, movimientos y kardex histórico por producto. <a class="btn-enlace" href="stock_dashboard.html">Manual detallado</a></li>
+    <li><strong>Ajustes de Stock:</strong> Carga de inventarios iniciales, mermas, roturas y sobrantes con impacto directo en el saldo físico. <a class="btn-enlace" href="stock_ajustes.html">Manual detallado</a></li>
+    <li><strong>Mínimos y Máximos & Alertas:</strong> Configuración de puntos de reposición. El sistema dispara alertas automáticas cuando el saldo desciende del mínimo. <a class="btn-enlace" href="stock_alertas.html">Manual alertas</a></li>
+</ul>
+
+<h2 id="ventas">3. Área Ventas y Facturación Electrónica</h2>
+<ul>
+    <li><strong>Nuevos Pedidos de Clientes:</strong> Tablero ágil para preparar y despachar pedidos pendientes, generando remitos de entrega totales o parciales. <a class="btn-enlace" href="ventas_pedidos_gestion.html">Manual detallado</a></li>
+    <li><strong>Remitos Pendientes de Facturación:</strong> Cola de entregas cumplidas listas para facturar en un solo clic. <a class="btn-enlace" href="ventas_remitos_pendientes_facturacion.html">Manual detallado</a></li>
+    <li><strong>Facturación Electrónica:</strong> Emisión de Facturas, Notas de Débito y Crédito (A, B, C, M, E) con conexión directa a los servicios web de ARCA (ex AFIP) para obtención de CAE automático. <a class="btn-enlace" href="ventas_facturas.html">Manual detallado</a></li>
+    <li><strong>Clientes y Cuenta Corriente:</strong> Padrón comercial, límites de crédito, plazos de pago y seguimiento de saldos y vencimientos. <a class="btn-enlace" href="clientes_ctacte.html">Manual cuenta corriente</a></li>
+</ul>
+
+<h2 id="tesoreria">4. Área Tesorería y Finanzas</h2>
+<p>Control integral del dinero en efectivo, cheques, cuentas bancarias y obligaciones:</p>
+<ul>
+    <li><strong>Dashboard Financiero:</strong> Saldos consolidados de cajas y bancos, cheques en cartera y proyección de flujo de fondos. <a class="btn-enlace" href="tesoreria_dashboard.html">Manual dashboard</a></li>
+    <li><strong>Cobranzas:</strong> Emisión de recibos oficiales afectando facturas pendientes, registrando efectivo, cheques de terceros, transferencias bancarias o retenciones sufridas. <a class="btn-enlace" href="cobranzas.html">Manual cobranzas</a></li>
+    <li><strong>Órdenes de Pago:</strong> Cancelación de facturas de proveedores y obligaciones impositivas/laborales con firma y control de medios de pago. <a class="btn-enlace" href="pagos.html">Manual pagos</a></li>
+    <li><strong>Cartera de Cheques:</strong> Cheques recibidos y propios con seguimiento de estados (En Cartera, Depositado, Entregado, Rechazado). <a class="btn-enlace" href="cheques_cartera.html">Manual cheques</a></li>
+    <li><strong>Movimientos Internos:</strong> Transferencias de dinero entre cajas y bancos con contra-asiento contable automático. <a class="btn-enlace" href="tesoreria_movimientos.html">Manual movimientos</a></li>
+</ul>
+
+<h2 id="bancos">5. Conciliación Bancaria y Extractos</h2>
+<p>Módulo de precisión para conciliar los movimientos del banco contra el libro mayor de tesorería:</p>
+<ul>
+    <li><strong>Importación de Extractos:</strong> Subida de archivos Excel o CSV de cualquier banco. El sistema almacena cada movimiento de forma inmutable. <a class="btn-enlace" href="bancos_importar.html">Manual extractos</a></li>
+    <li><strong>Motor de Reglas y Clasificación Aprendida:</strong> Al clasificar manualmente una descripción de banco, el sistema aprende el concepto para futuras importaciones automáticas. <a class="btn-enlace" href="bancos_reglas.html">Manual reglas</a></li>
+    <li><strong>Gastos Bancarios:</strong> Emisión automática de comprobantes de resumen bancario (C_RB) con discriminación de IVA, percepciones y generación de la orden de pago por débito en cuenta. <a class="btn-enlace" href="bancos_gastos.html">Manual gastos bancarios</a></li>
+    <li><strong>Recibos directos desde el Extracto:</strong> Cuando un crédito bancario coincide con el CUIT de un cliente, permite generar la cobranza y conciliar en una sola acción.</li>
+</ul>
+
+<h2 id="compras">6. Área Compras y Proveedores</h2>
+<ul>
+    <li><strong>Órdenes de Compra:</strong> Emisión y control de recepciones contra pedidos a proveedores. <a class="btn-enlace" href="ordenes_compra.html">Manual órdenes de compra</a></li>
+    <li><strong>Facturas de Proveedores:</strong> Registro de comprobantes de compra, control de números duplicados, imputación contable, carga de ítems y actualización de costos de reposición. <a class="btn-enlace" href="facturas_proveedores.html">Manual facturas compra</a></li>
+    <li><strong>Listas de Precios de Proveedores:</strong> Historial de cotizaciones y comparación de precios de insumos. <a class="btn-enlace" href="proveedor_precios.html">Manual precios proveedor</a></li>
+</ul>
+
+<h2 id="fiscal">7. Control Fiscal, Liquidaciones e Impuestos</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Circuito</th>
+        <th>Descripción y Alcance</th>
+    </tr>
+    <tr>
+        <td><strong>Posición Mensual de IVA</strong></td>
+        <td>Cálculo mensual automático de Débito Fiscal vs. Crédito Fiscal computable, cómputo de retenciones y percepciones sufridas, y generación de la obligación fiscal (I_LIQ).</td>
+    </tr>
+    <tr>
+        <td><strong>Control Fiscal & Cierres</strong></td>
+        <td>Cierre inmutable de períodos fiscales por obligación y jurisdicción. Impide confirmar o anular comprobantes que afecten un período cerrado.</td>
+    </tr>
+    <tr>
+        <td><strong>Percepciones y Retenciones IIBB</strong></td>
+        <td>Motor para empresas agentes de recaudación (Río Negro, ARBA, etc.): cálculo automático en ventas y órdenes de pago, con padrones vigentes y emisión de certificados.</td>
+    </tr>
+    <tr>
+        <td><strong>Liquidación Mensual de IIBB</strong></td>
+        <td>Determinación mensual de Ingresos Brutos por jurisdicción inscripta, cálculo sobre base imponible de ventas, coeficientes de Convenio Multilateral y alícuotas por actividad NAES.</td>
+    </tr>
+</table>
+
+<h2 id="contabilidad">8. Contabilidad y Libros Societarios</h2>
+<ul>
+    <li><strong>Plan de Cuentas:</strong> Estructura jerárquica de cuentas contables (Activo, Pasivo, Patrimonio Neto, Ingresos, Egresos) con naturaleza y tipo de imputación. <a class="btn-enlace" href="plan_cuentas.html">Manual plan de cuentas</a></li>
+    <li><strong>Asientos Automáticos y Manuales:</strong> Toda compra, venta, cobro y pago genera su asiento contable balanceado. Soporta además carga de minutas manuales de ajuste. <a class="btn-enlace" href="cont_asientos.html">Manual asientos</a></li>
+    <li><strong>Libros Societarios Digitales:</strong> Administración de actas de asamblea, directorio y reuniones de socios, con control de correlatividad de folios, estados (Borrador / Transcripta) y registro de autoridades.</li>
+</ul>
+
+<h2 id="automatizacion">9. Innovación: Bandeja Inteligente y Asistente IA</h2>
+<div class="card card-outline-green">
+    <strong>Bandeja de Documentos y Captura OCR/IA:</strong>
+    <p>Permite subir facturas de proveedores y extractos bancarios en formato PDF, imagen o mediante un enlace público sin login. El motor de Inteligencia Artificial extrae automáticamente el CUIT del emisor, fecha, número de comprobante, importes netos, alícuotas de IVA y percepciones, dejando la factura lista en Borrador.</p>
+</div>
+
+<div class="card card-outline-primary">
+    <strong>Asistente Comercial con IA:</strong>
+    <p>Chat interactivo integrado en el sistema capaz de consultar el catálogo de productos, sugerir precios de lista, dar de alta clientes a partir de la constancia de CUIT y preparar borradores de presupuestos, remitos y facturas a pedido del operador.</p>
+</div>
+
+<h2 id="seteo">10. Seteo de Empresa e Inicio Rápido</h2>
+<p>El sistema cuenta con un <strong>Asistente de Inicio de Empresa</strong> (<code>empresa_inicio.php</code>) que diagnostica en segundos qué catálogos le faltan a una empresa nueva (sucursales, bocas, puntos de venta, plan de cuentas, tipos de comprobante) y permite clonar la configuración completa desde otra empresa autorizada.</p>
+
+<h2 id="pantallas-detalle">11. Catálogo completo de manuales por pantalla</h2>
+<p>Para consultar el detalle de cada pantalla operativa particular del Módulo Gestión, visitá el <a href="index.html#stock">Índice por Pantalla</a> que contiene las 68 guías paso a paso del módulo.</p>
+
+<footer>
+    Manual de referencia funcional — Sistema Integral Casalucho / ProcesoSimple — Módulo Gestión.
+</footer>
+
+</body>
+</html>
+

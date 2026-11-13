@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Sindicatos: Rendiciones y Cuenta Corriente</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --marron: #795548; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #efebe9; color: #4e342e; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-brown { border-left: 4px solid var(--marron); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_sindicatos.html">← Volver al manual de Sindicatos</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Sindicatos · Conciliación Bancaria</span>
+<h1>Manual de usuario: Rendiciones y Cuenta Corriente</h1>
+<p class="subtitulo">Procesamiento de archivos de rendición bancaria (Red Link, Interbanking, Banco Nación) y estado de cuenta corriente de empleadores.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#rendiciones">Procesamiento de Rendiciones Bancarias</a></li>
+        <li><a href="#imputacion">Imputación Automática de Pagos</a></li>
+        <li><a href="#ctacte">Cuenta Corriente de Empleadores</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="rendiciones">Procesamiento de Rendiciones Bancarias</h2>
+<p>En <code>modules/sindicatos/rendiciones.php</code> la administración del sindicato procesa los archivos diarios enviados por las entidades recaudadoras. El sistema lee los lotes, valida totales y comisiones bancarias retenidas.</p>
+
+<h2 id="imputacion">Imputación Automática de Pagos</h2>
+<p>Cada registro de cobranza cancela automáticamente el volante de pago correspondiente y las DDJJ que lo componían, actualizando la fecha real de acreditación y registrando el asiento de ingreso de fondos en la tesorería gremial.</p>
+
+<h2 id="ctacte">Cuenta Corriente de Empleadores</h2>
+<p>En <code>ctacte_empleadores.php</code> se consulta la ficha financiera de cada sociedad aportante:</p>
+<ul>
+    <li>Total devengado por DDJJ (originales y rectificativas).</li>
+    <li>Volantes emitidos y pagados.</li>
+    <li>Deuda vencida exigible y cálculo de intereses a la fecha de consulta.</li>
+    <li>Certificado de Libre Deuda gremial emitible en PDF para trámites bancarios o licitaciones públicas.</li>
+</ul>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Qué ocurre si un empleador pagó con un importe diferente al volante?</td>
+        <td>Los canales electrónicos cobran el monto exacto del código de barras. Si hubo un pago por transferencia directa, se registra manualmente en la cuenta corriente mediante un recibo oficial.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Sindicatos — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

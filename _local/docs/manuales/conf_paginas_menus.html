@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Configuración: Páginas, Menús y Accesos</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --morado: #6f42c1; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #e0e7ff; color: #3730a3; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-purple { border-left: 4px solid var(--morado); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_conf.html">← Volver al manual de Configuración</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Configuración · Interfaz y Navegación</span>
+<h1>Manual de usuario: Páginas, Menús y Accesos</h1>
+<p class="subtitulo">Administración del árbol jerárquico de navegación, visibilidad de opciones, íconos y accesos directos superiores.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#arbol">Estructura del Menú Lateral (Árbol con padre_id)</a></li>
+        <li><a href="#paginas">Atributos de una Página</a></li>
+        <li><a href="#accesos">Accesos Directos Superiores</a></li>
+        <li><a href="#iconos">Catálogo de Íconos</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="arbol">Estructura del Menú Lateral (Árbol con padre_id)</h2>
+<p>En <code>paginas.php</code> se gestionan todas las pantallas que integran el sistema:</p>
+<ul>
+    <li><strong>Nivel 1 (Secciones o Carpetas):</strong> Páginas con <code>padre_id = 0</code> (por ejemplo: <em>Ventas</em>, <em>Compras</em>, <em>Tesorería</em>, <em>Stock</em>). Agrupan opciones pero no abren pantallas directamente.</li>
+    <li><strong>Nivel 2 (Pantallas Operativas):</strong> Páginas cuyo <code>padre_id</code> apunta a una sección de nivel 1. Contienen la URL física del archivo PHP ejecutable.</li>
+</ul>
+
+<h2 id="paginas">Atributos de una Página</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Atributo</th>
+        <th>Función</th>
+    </tr>
+    <tr>
+        <td><strong>Nombre</strong></td>
+        <td>Etiqueta visible en el menú lateral.</td>
+    </tr>
+    <tr>
+        <td><strong>URL</strong></td>
+        <td>Ruta relativa del archivo (ejemplo: <code>ventas_facturas.php</code>).</td>
+    </tr>
+    <tr>
+        <td><strong>Orden</strong></td>
+        <td>Número que define la posición de aparición de arriba hacia abajo.</td>
+    </tr>
+    <tr>
+        <td><strong>Requiere Bienes</strong></td>
+        <td>Si vale 1, la opción se oculta automáticamente si la empresa activa es de tipo <em>Servicios</em>.</td>
+    </tr>
+</table>
+
+<h2 id="accesos">Accesos Directos Superiores</h2>
+<p>Marcando una página como <code>es_acceso_directo = 1</code> y asignándole un ícono en <code>orden_acceso_directo</code>, el sistema proyecta un botón rápido con tooltip en la barra superior de la aplicación para navegación inmediata.</p>
+
+<h2 id="iconos">Catálogo de Íconos</h2>
+<p>En <code>iconos.php</code> se mantiene la librería de clases Bootstrap Icons (<code>bi bi-cart</code>, <code>bi bi-cash-stack</code>, <code>bi bi-boxes</code>) disponibles para asignar a cada menú y botón.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Por qué una carpeta del menú aparece vacía para un usuario?</td>
+        <td>Si el perfil del usuario no tiene permisos en ninguna de las páginas hijas de una sección, el sistema oculta la carpeta completa automáticamente.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Configuración — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

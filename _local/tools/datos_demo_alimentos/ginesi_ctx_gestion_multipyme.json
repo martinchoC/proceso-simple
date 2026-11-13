@@ -1,0 +1,230 @@
+{
+ "categorias": {
+  "INF": 70,
+  "HAR": 71,
+  "ARR": 72,
+  "ACE": 73,
+  "CON": 74,
+  "GAL": 75,
+  "BEB": 76,
+  "GOL": 77,
+  "LAC": 78,
+  "CNG": 79
+ },
+ "proveedores": {
+  "MOL": 5775,
+  "INF": 5776,
+  "LIT": 5777,
+  "BEB": 5778,
+  "FRI": 5779
+ },
+ "clientes": {
+  "ESQ": 5780,
+  "FAR": 5781,
+  "SMA": 5782,
+  "DJO": 5783,
+  "KIO": 5784
+ },
+ "productos": {
+  "INF-001": 6281,
+  "INF-002": 6282,
+  "INF-003": 6283,
+  "INF-004": 6284,
+  "INF-005": 6285,
+  "INF-006": 6286,
+  "INF-007": 6287,
+  "INF-008": 6288,
+  "INF-009": 6289,
+  "INF-010": 6290,
+  "HAR-001": 6291,
+  "HAR-002": 6292,
+  "HAR-003": 6293,
+  "HAR-004": 6294,
+  "HAR-005": 6295,
+  "HAR-006": 6296,
+  "HAR-007": 6297,
+  "HAR-008": 6298,
+  "HAR-009": 6299,
+  "HAR-010": 6300,
+  "ARR-001": 6301,
+  "ARR-002": 6302,
+  "ARR-003": 6303,
+  "ARR-004": 6304,
+  "ARR-005": 6305,
+  "ARR-006": 6306,
+  "ARR-007": 6307,
+  "ARR-008": 6308,
+  "ARR-009": 6309,
+  "ARR-010": 6310,
+  "ACE-001": 6311,
+  "ACE-002": 6312,
+  "ACE-003": 6313,
+  "ACE-004": 6314,
+  "ACE-005": 6315,
+  "ACE-006": 6316,
+  "ACE-007": 6317,
+  "ACE-008": 6318,
+  "ACE-009": 6319,
+  "ACE-010": 6320,
+  "CON-001": 6321,
+  "CON-002": 6322,
+  "CON-003": 6323,
+  "CON-004": 6324,
+  "CON-005": 6325,
+  "CON-006": 6326,
+  "CON-007": 6327,
+  "CON-008": 6328,
+  "CON-009": 6329,
+  "CON-010": 6330,
+  "GAL-001": 6331,
+  "GAL-002": 6332,
+  "GAL-003": 6333,
+  "GAL-004": 6334,
+  "GAL-005": 6335,
+  "GAL-006": 6336,
+  "GAL-007": 6337,
+  "GAL-008": 6338,
+  "GAL-009": 6339,
+  "GAL-010": 6340,
+  "BEB-001": 6341,
+  "BEB-002": 6342,
+  "BEB-003": 6343,
+  "BEB-004": 6344,
+  "BEB-005": 6345,
+  "BEB-006": 6346,
+  "BEB-007": 6347,
+  "BEB-008": 6348,
+  "BEB-009": 6349,
+  "BEB-010": 6350,
+  "GOL-001": 6351,
+  "GOL-002": 6352,
+  "GOL-003": 6353,
+  "GOL-004": 6354,
+  "GOL-005": 6355,
+  "GOL-006": 6356,
+  "GOL-007": 6357,
+  "GOL-008": 6358,
+  "GOL-009": 6359,
+  "GOL-010": 6360,
+  "LAC-001": 6361,
+  "LAC-002": 6362,
+  "LAC-003": 6363,
+  "LAC-004": 6364,
+  "LAC-005": 6365,
+  "LAC-006": 6366,
+  "LAC-007": 6367,
+  "LAC-008": 6368,
+  "LAC-009": 6369,
+  "LAC-010": 6370,
+  "CNG-001": 6371,
+  "CNG-002": 6372,
+  "CNG-003": 6373,
+  "CNG-004": 6374,
+  "CNG-005": 6375,
+  "CNG-006": 6376,
+  "CNG-007": 6377,
+  "CNG-008": 6378,
+  "CNG-009": 6379,
+  "CNG-010": 6380
+ },
+ "compras": [
+  {
+   "cat": "HAR",
+   "orden_compra_id": 6,
+   "factura_proveedor_id": 241,
+   "total": 3593122.0
+  },
+  {
+   "cat": "ARR",
+   "orden_compra_id": 7,
+   "factura_proveedor_id": 242,
+   "total": 5453470.0
+  },
+  {
+   "cat": "INF",
+   "orden_compra_id": 8,
+   "factura_proveedor_id": 243,
+   "total": 11040524.0
+  },
+  {
+   "cat": "GAL",
+   "orden_compra_id": 9,
+   "factura_proveedor_id": 244,
+   "total": 5542526.0
+  },
+  {
+   "cat": "ACE",
+   "orden_compra_id": 10,
+   "factura_proveedor_id": 245,
+   "total": 6327574.0
+  },
+  {
+   "cat": "CON",
+   "orden_compra_id": 11,
+   "factura_proveedor_id": 246,
+   "total": 8584224.0
+  },
+  {
+   "cat": "BEB",
+   "orden_compra_id": 12,
+   "factura_proveedor_id": 247,
+   "total": 2069342.0
+  },
+  {
+   "cat": "GOL",
+   "orden_compra_id": 13,
+   "factura_proveedor_id": 248,
+   "total": 5214422.4
+  },
+  {
+   "cat": "LAC",
+   "orden_compra_id": 14,
+   "factura_proveedor_id": 249,
+   "total": 6148736.0
+  },
+  {
+   "cat": "CNG",
+   "orden_compra_id": 15,
+   "factura_proveedor_id": 250,
+   "total": 8046500.0
+  }
+ ],
+ "lista_precio_id": 19,
+ "ventas": [
+  {
+   "cliente": "ESQ",
+   "venta_pedido_id": 6,
+   "venta_remito_id": 17,
+   "venta_factura_id": 145,
+   "total": 654401.88
+  },
+  {
+   "cliente": "FAR",
+   "venta_pedido_id": 7,
+   "venta_remito_id": 18,
+   "venta_factura_id": 146,
+   "total": 1090781.12
+  },
+  {
+   "cliente": "SMA",
+   "venta_pedido_id": 8,
+   "venta_remito_id": 19,
+   "venta_factura_id": 147,
+   "total": 606834.36
+  },
+  {
+   "cliente": "DJO",
+   "venta_pedido_id": 9,
+   "venta_remito_id": 20,
+   "venta_factura_id": 148,
+   "total": 1206391.78
+  },
+  {
+   "cliente": "KIO",
+   "venta_pedido_id": 10,
+   "venta_remito_id": 21,
+   "venta_factura_id": 149,
+   "total": 971859.9
+  }
+ ]
+}

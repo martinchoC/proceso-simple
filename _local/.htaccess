@@ -1,0 +1,2 @@
+# Scripts, volcados y documentos de desarrollo: no se sirven por HTTP (la carpeta no va a producción).
+Require all denied

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Matriz Legal: Normas Legales</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+        --indigo: #6610f2;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 920px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #ede9fe; color: #5b21b6; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-indigo { border-left: 4px solid var(--indigo); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #e7f1ff; border-left: 4px solid var(--azul); color: #084298; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_ml.html">← Volver al manual de Matriz Legal</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Matriz Legal · Maestro Normativo</span>
+<h1>Manual de usuario: Normas Legales</h1>
+<p class="subtitulo">Registro, clasificación y control de vigencia del acervo legal (leyes, decretos, resoluciones ministeriales y ordenanzas municipales).</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#proposito">¿Qué se gestiona en esta pantalla?</a></li>
+        <li><a href="#campos">Campos de una Norma Legal</a></li>
+        <li><a href="#relaciones">Relaciones entre normas (Modificaciones y Derogaciones)</a></li>
+        <li><a href="#procedimiento">Cómo dar de alta una nueva norma</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">¿Qué se gestiona en esta pantalla?</h2>
+<p>La pantalla <code>normas.php</code> centraliza el catálogo jurídico de la empresa. Cada norma define un marco general que posteriormente dará origen a una o más <strong>Obligaciones puntuales</strong>.</p>
+
+<h2 id="campos">Campos de una Norma Legal</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Campo</th>
+        <th>Descripción</th>
+    </tr>
+    <tr>
+        <td><strong>Tipo de Norma</strong></td>
+        <td>Ley, Decreto, Resolución, Disposición, Ordenanza, Convenio o Estándar Corporativo.</td>
+    </tr>
+    <tr>
+        <td><strong>Número y Año</strong></td>
+        <td>Identificación oficial (ejemplo: <em>Ley 19.587</em>, <em>Decreto 351/79</em>, <em>Resolución 905/15</em>).</td>
+    </tr>
+    <tr>
+        <td><strong>Organismo Emisor</strong></td>
+        <td>Entidad oficial (Congreso de la Nación, SRT, Secretaría de Ambiente, ADA, Municipio).</td>
+    </tr>
+    <tr>
+        <td><strong>Territorio</strong></td>
+        <td>Ámbito geográfico de validez (Nacional, Provincial o Municipal).</td>
+    </tr>
+    <tr>
+        <td><strong>Vigencia</strong></td>
+        <td>Fecha de publicación en boletín oficial y estado (<em>Vigente</em>, <em>Derogada</em>, <em>Suspendida</em>).</td>
+    </tr>
+    <tr>
+        <td><strong>Texto Completo y Archivo</strong></td>
+        <td>Texto original y archivo digital oficial (PDF del Boletín Oficial).</td>
+    </tr>
+</table>
+
+<h2 id="relaciones">Relaciones entre normas (Modificaciones y Derogaciones)</h2>
+<p>El sistema permite encadenar normas para mantener el árbol normativo siempre actualizado:</p>
+<ul>
+    <li><strong>Modifica a:</strong> La norma actual altera artículos de una norma previa sin derogarla en su totalidad.</li>
+    <li><strong>Deroga a:</strong> La norma actual sustituye y deja sin efecto a una norma anterior. Al registrar la derogación, el sistema suspende los ciclos futuros de las obligaciones asociadas.</li>
+</ul>
+
+<h2 id="procedimiento">Cómo dar de alta una nueva norma</h2>
+<ol>
+    <li>Hacer clic en el botón <strong>Nuevo</strong> en la esquina superior derecha.</li>
+    <li>Completar tipo, número, organismo, territorio y fecha de vigencia.</li>
+    <li>Adjuntar el texto o PDF oficial.</li>
+    <li>Guardar en <em>Borrador</em> y, tras la revisión legal, pulsar <strong>Confirmar</strong>.</li>
+    <li>A continuación, acceder a la solapa u opción <strong>Obligaciones</strong> para definir los requisitos operativos exigibles.</li>
+</ol>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Una norma genera tareas directamente a las plantas?</td>
+        <td><strong>No.</strong> La norma origina <em>Obligaciones</em>; y son las obligaciones las que, mediante el motor de herencia, generan las tareas periódicas a cada sede.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Matriz Legal — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>
+

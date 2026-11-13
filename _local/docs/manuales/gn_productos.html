@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Gestión Normal: Catálogo de Productos y Servicios</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --naranja: #fd7e14; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #ffedd5; color: #9a3412; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-orange { border-left: 4px solid var(--naranja); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_gestion_normal.html">← Volver al manual de Gestión Normal</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Gestión Normal · Artículos y Servicios</span>
+<h1>Manual de usuario: Productos y Servicios</h1>
+<p class="subtitulo">Alta y administración ágil del catálogo de artículos y servicios comerciales, sin requerimientos de compatibilidad por marcas o modelos.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#proposito">Propósito de la pantalla</a></li>
+        <li><a href="#bien-servicio">Distinción Bien vs. Servicio</a></li>
+        <li><a href="#campos">Campos de Producto</a></li>
+        <li><a href="#stock">Control de Stock e Inventario</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">Propósito de la pantalla</h2>
+<p>En <code>modules/gestion_normal/productos.php</code> se gestiona el catálogo de artículos comercializados. A diferencia del Módulo 2 (que exige vincular marcas y modelos para autopartes), esta pantalla es directa y optimizada para comercios generales, ferreterías, distribuidoras y empresas de servicios.</p>
+
+<h2 id="bien-servicio">Distinción Bien vs. Servicio</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Tipo</th>
+        <th>Comportamiento en el sistema</th>
+    </tr>
+    <tr>
+        <td><strong>Producto (Bien Físico)</strong></td>
+        <td>Controla stock en bocas de expendio, se remite físicamente, descuenta inventario al confirmar remito o factura y permite ajustes de stock.</td>
+    </tr>
+    <tr>
+        <td><strong>Servicio</strong></td>
+        <td>No controla stock físico ni requiere remito. Puede facturarse directamente y no genera alertas de reposición.</td>
+    </tr>
+</table>
+
+<h2 id="campos">Campos de Producto</h2>
+<ul>
+    <li><strong>Código:</strong> Código único interno del artículo en la empresa.</li>
+    <li><strong>Descripción:</strong> Nombre comercial para presupuestos y facturas.</li>
+    <li><strong>Categoría:</strong> Rubro comercial para filtros y listas de precios.</li>
+    <li><strong>Alícuota de IVA:</strong> 21%, 10.5%, 27%, Exento o No Gravado.</li>
+    <li><strong>Unidad de Medida:</strong> Unidades, Metros, Kilos, Litros, Horas, etc.</li>
+</ul>
+
+<h2 id="stock">Control de Stock e Inventario</h2>
+<p>Si el artículo es un bien físico, el botón <em>"Consultar Stock"</em> muestra en tiempo real las cantidades existentes en cada sucursal y depósito.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Puedo cambiar un ítem de Servicio a Producto?</td>
+        <td>Se recomienda definir el tipo al momento del alta. Si ya tiene movimientos contables y facturas emitidas, es preferible crear un nuevo código para mantener la coherencia del kardex de stock.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión Normal — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

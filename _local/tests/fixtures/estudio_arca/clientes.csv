@@ -1,0 +1,6 @@
+﻿carpeta;razon_social;cuit;condicion_iva;categoria_monotributo;ingresos_brutos;jurisdicciones;mes_cierre;empleados;domicilio;actividad
+01_ferreteria_del_valle;Ferretería del Valle SRL;30-71844214-8;RI;;LOCAL;DGR_RN;6;6;Viedma, Río Negro;Venta minorista y mayorista de ferretería y materiales eléctricos
+02_transportes_patagonicos;Transportes Patagónicos SA;30-70992381-8;RI;;CONVENIO_MULTILATERAL;DGR_RN, ARBA;12;14;San Antonio Oeste, Río Negro;Transporte de cargas por carretera
+03_agro_insumos_carmen;Agro Insumos Carmen SAS;30-71633057-1;RI;;LOCAL;ARBA;3;3;Carmen de Patagones, Buenos Aires;Venta de semillas, agroquímicos y alimento balanceado
+04_lucia_fernandez;Fernández, Lucía Belén;27-31455820-6;MT;D;LOCAL;DGR_RN;12;0;Viedma, Río Negro;Servicios de psicología (consultorio)
+05_martin_gomez;Gómez, Martín Alejandro;20-28761934-1;MT;H;LOCAL;ARBA;12;0;Carmen de Patagones, Buenos Aires;"Almacén y despensa (""Despensa Don Martín"")"

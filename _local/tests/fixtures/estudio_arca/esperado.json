@@ -1,0 +1,329 @@
+{
+  "generado": "2026-11-04",
+  "periodos": [
+    "2026-08",
+    "2026-09",
+    "2026-10"
+  ],
+  "clientes": [
+    {
+      "clave": "01_ferreteria_del_valle",
+      "razon_social": "Ferretería del Valle SRL",
+      "cuit": "30718442148",
+      "condicion": "RI",
+      "meses": {
+        "2026-08": {
+          "emitidos": 27,
+          "recibidos": 10,
+          "ventas_total_pesos": 12139431.36,
+          "ventas_neto_gravado": 10072720.67,
+          "debito_fiscal": 2066710.69,
+          "compras_total": 9785572.88,
+          "credito_fiscal": 1615391.44,
+          "otros_tributos_sufridos": 180589.92,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-09": {
+          "emitidos": 31,
+          "recibidos": 11,
+          "ventas_total_pesos": 12025973.5,
+          "ventas_neto_gravado": 9974767.59,
+          "debito_fiscal": 2051205.91,
+          "compras_total": 14901746.3,
+          "credito_fiscal": 2468779.58,
+          "otros_tributos_sufridos": 299917.5,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-10": {
+          "emitidos": 27,
+          "recibidos": 10,
+          "ventas_total_pesos": 10981245.9,
+          "ventas_neto_gravado": 9130394.66,
+          "debito_fiscal": 1850851.24,
+          "compras_total": 11691664.38,
+          "credito_fiscal": 1951822.61,
+          "otros_tributos_sufridos": 225789.84,
+          "ventas_moneda_extranjera": []
+        }
+      },
+      "casos_borde": [
+        "Emitido Nota de Crédito A 00002-00000938: NC A por devolución parcial de la 00002-00001707",
+        "Recibido Factura A 00004-00000203 de Mayorista Ferretero Patagonia SA: percepción IIBB Río Negro 3 % en Otros Tributos",
+        "Recibido Factura A 00009-00000235 de Telecomunicaciones Australes SA: IVA 27 % (telefonía)",
+        "Recibido Factura A 00031-00000163 de Electro Servicios del Sur SA: energía: IVA 27 %, no gravado (tasas) y otros tributos",
+        "Recibido Factura C 00002-00000232 de Paredes, Hugo Daniel: Factura C de un monotributista: sin crédito fiscal",
+        "Emitido Nota de Crédito A 00002-00000939: NC A por devolución parcial de la 00002-00001708",
+        "Emitido Factura B 00003-00000951: rango de 12 comprobantes a consumidor final en una sola fila (Número Desde ≠ Número Hasta)",
+        "Recibido Nota de Crédito A 00004-00000492 de Mayorista Ferretero Patagonia SA: NC A del proveedor por bonificación comercial",
+        "Emitido Nota de Crédito A 00002-00000940: NC A por devolución parcial de la 00002-00001723"
+      ]
+    },
+    {
+      "clave": "02_transportes_patagonicos",
+      "razon_social": "Transportes Patagónicos SA",
+      "cuit": "30709923818",
+      "condicion": "RI",
+      "meses": {
+        "2026-08": {
+          "emitidos": 9,
+          "recibidos": 11,
+          "ventas_total_pesos": 21634635.28,
+          "ventas_neto_gravado": 17879863.87,
+          "debito_fiscal": 3754771.41,
+          "compras_total": 22063593.6,
+          "credito_fiscal": 3374317.91,
+          "otros_tributos_sufridos": 287489.37,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-09": {
+          "emitidos": 12,
+          "recibidos": 12,
+          "ventas_total_pesos": 17804769.87,
+          "ventas_neto_gravado": 14714685.84,
+          "debito_fiscal": 3090084.03,
+          "compras_total": 19729017.06,
+          "credito_fiscal": 3022574.47,
+          "otros_tributos_sufridos": 258824.22,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-10": {
+          "emitidos": 14,
+          "recibidos": 14,
+          "ventas_total_pesos": 17573814.12,
+          "ventas_neto_gravado": 14523813.33,
+          "debito_fiscal": 3050000.79,
+          "compras_total": 23827814.44,
+          "credito_fiscal": 3780579.22,
+          "otros_tributos_sufridos": 231231.65,
+          "ventas_moneda_extranjera": [
+            {
+              "numero": "00003-00001068",
+              "moneda": "DOL",
+              "importe": 4800.0,
+              "tipo_cambio": 1412.5
+            }
+          ]
+        }
+      },
+      "casos_borde": [
+        "Recibido Factura A 00007-00000947 de Combustibles del Comahue SA: combustible: no gravado (impuesto a los combustibles) y percepción IIBB",
+        "Recibido Factura A 00002-00002323 de Aseguradora del Atlántico Sur SA: seguro de flota: exento y otros tributos",
+        "Emitido Nota de Débito A 00001-00000187: ND A por estadía del camión",
+        "Emitido Factura E 00003-00001068: Factura E de exportación de servicios en dólares (los importadores solo toman pesos)",
+        "Recibido Factura A 00005-00001040 de Neumáticos Ruta 3 SA: compra grande de neumáticos (bien de uso o gasto: lo decide el contador)"
+      ]
+    },
+    {
+      "clave": "03_agro_insumos_carmen",
+      "razon_social": "Agro Insumos Carmen SAS",
+      "cuit": "30716330571",
+      "condicion": "RI",
+      "meses": {
+        "2026-08": {
+          "emitidos": 21,
+          "recibidos": 10,
+          "ventas_total_pesos": 22013297.99,
+          "ventas_neto_gravado": 19786201.12,
+          "debito_fiscal": 2227096.87,
+          "compras_total": 19949102.88,
+          "credito_fiscal": 2191450.58,
+          "otros_tributos_sufridos": 609226.28,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-09": {
+          "emitidos": 20,
+          "recibidos": 7,
+          "ventas_total_pesos": 19660270.25,
+          "ventas_neto_gravado": 17687530.04,
+          "debito_fiscal": 1972740.21,
+          "compras_total": 15165582.9,
+          "credito_fiscal": 1825568.15,
+          "otros_tributos_sufridos": 389350.79,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-10": {
+          "emitidos": 24,
+          "recibidos": 10,
+          "ventas_total_pesos": 25304069.39,
+          "ventas_neto_gravado": 22196758.31,
+          "debito_fiscal": 2421061.08,
+          "compras_total": 23421873.22,
+          "credito_fiscal": 2510297.69,
+          "otros_tributos_sufridos": 745749.25,
+          "ventas_moneda_extranjera": []
+        }
+      },
+      "casos_borde": [
+        "Recibido Factura A 00015-00000216 de Semillera Pampeana SA: percepciones de IVA e IIBB sumadas en Otros Tributos (ARCA no las separa)",
+        "Emitido Factura A 00001-00002396: venta con percepción IIBB ARBA practicada en Otros Tributos (el importador de ventas no toma Otros Tributos)",
+        "Emitido Factura A 00001-00002397: venta exenta (semilla fiscalizada): solo Op. Exentas"
+      ]
+    },
+    {
+      "clave": "04_lucia_fernandez",
+      "razon_social": "Fernández, Lucía Belén",
+      "cuit": "27314558206",
+      "condicion": "MT",
+      "meses": {
+        "2026-08": {
+          "emitidos": 14,
+          "recibidos": 4,
+          "ventas_total_pesos": 828506.45,
+          "ventas_neto_gravado": 0.0,
+          "debito_fiscal": 0.0,
+          "compras_total": 524235.7,
+          "credito_fiscal": 0,
+          "otros_tributos_sufridos": 0,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-09": {
+          "emitidos": 15,
+          "recibidos": 3,
+          "ventas_total_pesos": 908485.58,
+          "ventas_neto_gravado": 0.0,
+          "debito_fiscal": 0.0,
+          "compras_total": 478991.93,
+          "credito_fiscal": 0,
+          "otros_tributos_sufridos": 0,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-10": {
+          "emitidos": 13,
+          "recibidos": 4,
+          "ventas_total_pesos": 891567.44,
+          "ventas_neto_gravado": 0.0,
+          "debito_fiscal": 0.0,
+          "compras_total": 539057.34,
+          "credito_fiscal": 0,
+          "otros_tributos_sufridos": 0,
+          "ventas_moneda_extranjera": []
+        }
+      },
+      "casos_borde": [
+        "Emitido Factura C 00001-00002393: Factura C a obra social (exenta en IVA, con CUIT)",
+        "Emitido Factura C 00001-00002394: Factura C a obra social (exenta en IVA, con CUIT)",
+        "Recibido Factura C 00001-00000344 de Mansilla, Roberto (alquiler): alquiler del consultorio a un monotributista (Factura C)",
+        "Recibido Factura B 00009-00000732 de Telecomunicaciones Australes SA: Factura B de un RI: ARCA informa neto e IVA aunque el comprador no los computa",
+        "Emitido Nota de Crédito C 00001-00001981: NC C a la obra social por sesiones no autorizadas"
+      ]
+    },
+    {
+      "clave": "05_martin_gomez",
+      "razon_social": "Gómez, Martín Alejandro",
+      "cuit": "20287619341",
+      "condicion": "MT",
+      "meses": {
+        "2026-08": {
+          "emitidos": 22,
+          "recibidos": 12,
+          "ventas_total_pesos": 1131558.24,
+          "ventas_neto_gravado": 0.0,
+          "debito_fiscal": 0.0,
+          "compras_total": 3948073.44,
+          "credito_fiscal": 0,
+          "otros_tributos_sufridos": 0,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-09": {
+          "emitidos": 30,
+          "recibidos": 15,
+          "ventas_total_pesos": 1647333.88,
+          "ventas_neto_gravado": 0.0,
+          "debito_fiscal": 0.0,
+          "compras_total": 5855794.4,
+          "credito_fiscal": 0,
+          "otros_tributos_sufridos": 0,
+          "ventas_moneda_extranjera": []
+        },
+        "2026-10": {
+          "emitidos": 28,
+          "recibidos": 15,
+          "ventas_total_pesos": 1299138.37,
+          "ventas_neto_gravado": 0.0,
+          "debito_fiscal": 0.0,
+          "compras_total": 4428894.33,
+          "credito_fiscal": 0,
+          "otros_tributos_sufridos": 0,
+          "ventas_moneda_extranjera": []
+        }
+      },
+      "casos_borde": [
+        "Recibido Factura A 00004-00001643 de Lácteos del Valle SA: Factura A a un monotributista (RG 5003): el monotributista igual no computa el IVA"
+      ]
+    }
+  ],
+  "cruces": [
+    {
+      "emisor": "01_ferreteria_del_valle",
+      "receptor": "02_transportes_patagonicos",
+      "tipo": 1,
+      "pv": 2,
+      "numero": 1715,
+      "cae": "76506159584832",
+      "total": 267215.58
+    },
+    {
+      "emisor": "01_ferreteria_del_valle",
+      "receptor": "04_lucia_fernandez",
+      "tipo": 6,
+      "pv": 3,
+      "numero": 931,
+      "cae": "76009582600378",
+      "total": 61657.76
+    },
+    {
+      "emisor": "02_transportes_patagonicos",
+      "receptor": "03_agro_insumos_carmen",
+      "tipo": 1,
+      "pv": 1,
+      "numero": 1979,
+      "cae": "76261882320768",
+      "total": 1141381.21
+    },
+    {
+      "emisor": "01_ferreteria_del_valle",
+      "receptor": "02_transportes_patagonicos",
+      "tipo": 1,
+      "pv": 2,
+      "numero": 1725,
+      "cae": "76222637337923",
+      "total": 427576.59
+    },
+    {
+      "emisor": "02_transportes_patagonicos",
+      "receptor": "03_agro_insumos_carmen",
+      "tipo": 1,
+      "pv": 1,
+      "numero": 1990,
+      "cae": "76223807284773",
+      "total": 1028626.38
+    },
+    {
+      "emisor": "01_ferreteria_del_valle",
+      "receptor": "02_transportes_patagonicos",
+      "tipo": 1,
+      "pv": 2,
+      "numero": 1733,
+      "cae": "76293378292794",
+      "total": 188221.43
+    },
+    {
+      "emisor": "01_ferreteria_del_valle",
+      "receptor": "04_lucia_fernandez",
+      "tipo": 6,
+      "pv": 3,
+      "numero": 980,
+      "cae": "76942420639200",
+      "total": 72463.61
+    },
+    {
+      "emisor": "02_transportes_patagonicos",
+      "receptor": "03_agro_insumos_carmen",
+      "tipo": 1,
+      "pv": 1,
+      "numero": 2003,
+      "cae": "76354321641901",
+      "total": 787130.98
+    }
+  ]
+}

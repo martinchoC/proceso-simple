@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Módulo 6: Sindicatos y DDJJ</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+        --marron: #795548;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.6;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.85rem; margin-bottom: 6px; color: #111827; }
+    h2 { font-size: 1.35rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 8px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.1rem; margin-top: 1.6rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.92rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.6rem; }
+    
+    .badge-modulo {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #efebe9;
+        color: #4e342e;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 22px;
+        margin: 20px 0 30px;
+    }
+    .toc strong { display: block; margin-bottom: 8px; font-size: 1rem; }
+    .toc ul { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 4px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 16px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 5px solid var(--azul); }
+    .card-outline-brown { border-left: 5px solid var(--marron); }
+
+    .alert {
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin: 16px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #e7f1ff; border-left: 4px solid var(--azul); color: #084298; }
+    .alert-warning { background: #fff8e6; border-left: 4px solid var(--amarillo); color: #664d03; }
+
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th {
+        background: var(--gris-fondo);
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 18px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--marron);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #fbe9e7;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+        color: #4e342e;
+    }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); font-size: 0.8rem; margin-top: 2px; }
+    .flujo-caja.final { border-color: var(--verde); background: #f0fdf4; color: #166534; }
+    .flujo-flecha { font-size: 1.4rem; color: var(--texto-muted); font-weight: bold; }
+
+    .btn-enlace {
+        display: inline-block;
+        padding: 3px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: #795548;
+        color: #fff;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-left: 6px;
+    }
+    .btn-enlace:hover { background: #5d4037; color: #fff; text-decoration: none; }
+
+    footer {
+        margin-top: 3.5rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+    @media print {
+        .volver, .toc { display: none; }
+        body { max-width: none; padding: 0; }
+        h2 { page-break-after: avoid; }
+    }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al portal de manuales</a>
+
+<span class="badge-modulo">Módulo 6</span>
+<h1>Manual de usuario: Sindicatos y Declaraciones Juradas</h1>
+<p class="subtitulo">Gestión integral para entidades gremiales: padrón de empleadores, afiliaciones de trabajadores, declaraciones juradas (DDJJ) con F.931, emisión de volantes con intereses automáticos y conciliación bancaria.</p>
+
+<div class="toc">
+    <strong>Contenido del manual</strong>
+    <ul>
+        <li><a href="#proposito">1. Propósito y actores del sistema</a></li>
+        <li><a href="#circuito">2. Circuito Operativo y Financiero</a></li>
+        <li><a href="#empleadores">3. Empleadores, Sucursales y Estudios Delegados</a></li>
+        <li><a href="#afiliados">4. Padrón de Personas, Afiliados y Beneficios</a></li>
+        <li><a href="#ddjj">5. Declaraciones Juradas Mensuales (DDJJ)</a></li>
+        <li><a href="#volantes">6. Volantes de Pago e Intereses Resarcitorios</a></li>
+        <li><a href="#cobranzas">7. Rendiciones Bancarias y Cuenta Corriente</a></li>
+        <li><a href="#fiscalizacion">8. Fiscalización, Actas y Planes de Pago</a></li>
+        <li><a href="#preguntas-frecuentes">9. Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">1. Propósito y actores del sistema</h2>
+<p>El Módulo 6 <strong>Sindicatos</strong> (<code>modules/sindicatos/</code>) informatiza la relación entre el sindicato, las empresas empleadoras obligadas a aportar según el Convenio Colectivo de Trabajo (CCT) y los afiliados gremiales.</p>
+
+<table class="tabla-referencia">
+    <tr>
+        <th>Actor</th>
+        <th>Rol y Alcance</th>
+    </tr>
+    <tr>
+        <td><strong>Administración del Sindicato</strong></td>
+        <td>Control de recaudación, fiscalización de deudas, emisión de carnet de afiliados y configuración de convenios y tasas.</td>
+    </tr>
+    <tr>
+        <td><strong>Empleadores (Sociedades)</strong></td>
+        <td>Empresas comerciales o industriales que presentan mensualmente la nómina de empleados y pagan los aportes.</td>
+    </tr>
+    <tr>
+        <td><strong>Estudios Contables</strong></td>
+        <td>Estudios profesionales autorizados que liquidan y presentan las DDJJ en representación de múltiples empleadores.</td>
+    </tr>
+    <tr>
+        <td><strong>Inspectores</strong></td>
+        <td>Agentes gremiales de fiscalización que labran actas de inspección por deuda o personal no declarado.</td>
+    </tr>
+</table>
+
+<h2 id="circuito">2. Circuito Operativo y Financiero</h2>
+<div class="flujo">
+    <div class="flujo-caja">1. Declaración Jurada<small>F.931 / Nómina mensual</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">2. Cálculo Aportes<small>Fondo Social + Cuota</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">3. Volante de Pago<small>Intereses a 2 fechas</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">4. Rendición Bancaria<small>Link / Interbanking / Banco</small></div>
+</div>
+
+<h2 id="empleadores">3. Empleadores, Sucursales y Estudios Delegados</h2>
+<ul>
+    <li><strong>Registro de Empleadores:</strong> Padrón oficial de empresas aportantes por CUIT, razón social, domicilio legal y actividad. Cada empleador tiene su sucursal N° 1 (Casa Central) y puede añadir bocas o sucursales adicionales. <a class="btn-enlace" href="sindi_empleadores.html">Manual empleadores</a></li>
+    <li><strong>Delegación a Estudios Contables:</strong> Los estudios solicitan vinculación con el CUIT del empleador; el empleador la aprueba y el estudio puede presentar DDJJ sin compartir credenciales personales.</li>
+</ul>
+
+<h2 id="afiliados">4. Padrón de Personas, Afiliados y Beneficios</h2>
+<p>En <code>personas.php</code> y <code>afiliados.php</code> se gestiona la vida gremial del trabajador: <a class="btn-enlace" href="sindi_afiliados.html">Manual afiliados y carnet</a></p>
+<ul>
+    <li><strong>Titulares y Grupo Familiar:</strong> Registro del empleado y sus familiares a cargo (cónyuge, hijos) para acceso a beneficios de salud, subsidios y turismo.</li>
+    <li><strong>Afiliación Sindical:</strong> Número de afiliado único, fecha de ingreso gremial y categoría profesional según el CCT.</li>
+    <li><strong>Carnet Digital:</strong> Generación e impresión de credenciales oficiales de afiliado.</li>
+</ul>
+
+<h2 id="ddjj">5. Declaraciones Juradas Mensuales (DDJJ)</h2>
+<p>La presentación periódica (período fiscal AAAAMM) en <code>ddjj.php</code> determina la deuda con el gremio: <a class="btn-enlace" href="sindi_ddjj.html">Manual DDJJ y F.931</a></p>
+<ol>
+    <li><strong>Vías de Carga:</strong>
+        <ul>
+            <li><strong>Importación del F.931 de ARCA:</strong> Lee directamente el archivo de texto generado para el SICOSS, extrayendo CUIL, sueldo bruto y conceptos no remunerativos.</li>
+            <li><strong>Planilla Excel / CSV:</strong> Carga masiva con formato estándar.</li>
+            <li><strong>Carga manual:</strong> Edición empleado por empleado para correcciones puntuales.</li>
+        </ul>
+    </li>
+    <li><strong>Cálculo Automático por Concepto:</strong> <a class="btn-enlace" href="sindi_conceptos_escalas.html">Manual conceptos y escalas</a>
+        <ul>
+            <li><strong>Art. 100 - Fondo Social (ej. 2 %):</strong> Aplica sobre toda la nómina de la empresa.</li>
+            <li><strong>Art. 101 - Cuota Sindical (ej. 2 %):</strong> Aplica exclusivamente sobre los trabajadores afiliados.</li>
+            <li><strong>Control de Piso Salarial:</strong> El sistema compara la remuneración declarada contra la escala salarial mínima del CCT y aplica automáticamente el piso correspondiente más el SAC proporcional en junio y diciembre.</li>
+        </ul>
+    </li>
+    <li><strong>Rectificativas:</strong> Si un empleador debe corregir una presentación, la nueva rectificativa (secuencia 1 a 9) revierte integralmente la DDJJ anterior para no duplicar deuda.</li>
+    <li><strong>DDJJ de Oficio:</strong> Ante incumplimiento de presentación, el sindicato puede emitir una determinación de oficio basada en la última nómina conocida o en la escala de convenio.</li>
+</ol>
+
+<h2 id="volantes">6. Volantes de Pago e Intereses Resarcitorios</h2>
+<p>En <code>volantes.php</code> el empleador agrupa sus períodos pendientes y emite el documento de cobro: <a class="btn-enlace" href="sindi_volantes_intereses.html">Manual volantes de pago</a></p>
+<div class="card card-outline-brown">
+    <strong>Cálculo Dinámico de Intereses a Dos Vencimientos:</strong>
+    <p>El volante calcula en el acto los intereses resarcitorios por día de mora según la tabla de tasas vigente (<code>tasas_interes.php</code>). Presenta dos fechas de vencimiento con sus respectivos importes.</p>
+</div>
+<ul>
+    <li><strong>Código de Barras Banco Nación:</strong> Impresión en PDF con código estándar Code128 para cobro en ventanilla bancaria o mutuales.</li>
+    <li><strong>Publicación Electrónica:</strong> Envío de la deuda a <strong>Red Link</strong> (vía web service SOAP) y a <strong>Interbanking</strong> para pago por Home Banking.</li>
+</ul>
+
+<h2 id="cobranzas">7. Rendiciones Bancarias y Cuenta Corriente</h2>
+<ul>
+    <li><strong>Procesamiento de Archivos de Recaudación:</strong> En <code>rendiciones.php</code> se procesan los archivos diarios que envían los bancos y redes de cobro, conciliando cada volante pagado. <a class="btn-enlace" href="sindi_rendiciones_ctacte.html">Manual rendiciones y cta cte</a></li>
+    <li><strong>Cuenta Corriente de Empleadores:</strong> Historial completo de deudas devengadas, volantes emitidos, pagos registrados y saldos a favor o pendientes.</li>
+</ul>
+
+<h2 id="fiscalizacion">8. Fiscalización, Actas y Planes de Pago</h2>
+<ul>
+    <li><strong>Fiscalización e Inspecciones:</strong> Generación de actas de inspección física o deudas detectadas por cruce con ARCA. <a class="btn-enlace" href="sindi_fiscalizacion_planes.html">Manual fiscalización y planes</a></li>
+    <li><strong>Planes de Facilidades de Pago:</strong> Refinanciación de deuda atrasada en cuotas mensuales fijas o con interés de financiación, con emisión de volantes individuales por cuota.</li>
+</ul>
+
+<h2 id="preguntas-frecuentes">9. Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Pregunta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Qué vencimiento tiene la DDJJ de cada empleador?</td>
+        <td>El calendario de vencimientos se define por el último dígito del CUIT de la sociedad, de acuerdo con el cronograma oficial configurado en <code>vencimientos.php</code>.</td>
+    </tr>
+    <tr>
+        <td>¿Cómo se desafilia a un empleado que renunció?</td>
+        <td>Al procesar la DDJJ del mes con la novedad de baja laboral, el sistema registra el cese de aportes de la relación sindical automáticamente.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de referencia funcional — Sistema Integral Casalucho / ProcesoSimple — Módulo Sindicatos.
+</footer>
+
+</body>
+</html>
+

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Matriz Legal: Tablero de Cumplimiento</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+        --indigo: #6610f2;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.55;
+        max-width: 920px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    
+    .badge-pantalla {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: #ede9fe;
+        color: #5b21b6;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-primary { border-left: 4px solid var(--azul); }
+    .card-outline-indigo { border-left: 4px solid var(--indigo); }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #e7f1ff; border-left: 4px solid var(--azul); color: #084298; }
+    .alert-warning { background: #fff8e6; border-left: 4px solid var(--amarillo); color: #664d03; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--indigo); border-radius: 8px; padding: 10px 16px; background: #f5f3ff; font-weight: 600; font-size: 0.9rem; text-align: center; color: #4c1d95; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-caja.final { border-color: var(--verde); background: #f0fdf4; color: #166534; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+    @media print { .volver, .toc { display: none; } body { max-width: none; padding: 0; } h2 { page-break-after: avoid; } }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_ml.html">← Volver al manual de Matriz Legal</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Matriz Legal · Pantalla de Control</span>
+<h1>Manual de usuario: Tablero de Cumplimiento</h1>
+<p class="subtitulo">Pantalla gerencial tipo semáforo que consolida en tiempo real el porcentaje de cumplimiento normativo por territorio, empresa, planta y materia (Seguridad, Ambiente, Laboral).</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#proposito">¿Para qué sirve esta pantalla?</a></li>
+        <li><a href="#kpis">Indicadores superiores (KPIs)</a></li>
+        <li><a href="#filtros">Filtros de visualización</a></li>
+        <li><a href="#semaforo">El semáforo de cumplimiento</a></li>
+        <li><a href="#acciones">Acciones desde el tablero</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">¿Para qué sirve esta pantalla?</h2>
+<p>El <strong>Tablero de Cumplimiento</strong> (<code>tablero_cumplimiento.php</code>) es la pantalla principal para auditores, gerentes de planta y responsables legales. Muestra el estado global de todas las obligaciones exigibles sin necesidad de revisar tarea por tarea.</p>
+
+<h2 id="kpis">Indicadores superiores (KPIs)</h2>
+<p>En la parte superior de la pantalla se exponen las métricas esenciales del período:</p>
+<table class="tabla-referencia">
+    <tr>
+        <th>Indicador</th>
+        <th>Significado</th>
+    </tr>
+    <tr>
+        <td><strong>% Cumplimiento Global</strong></td>
+        <td>Porcentaje de obligaciones exigibles que cuentan con evidencia aprobada y vigente en el período.</td>
+    </tr>
+    <tr>
+        <td><strong>Tareas Al Día</strong></td>
+        <td>Cantidad de ciclos cerrados satisfactoriamente dentro del plazo legal.</td>
+    </tr>
+    <tr>
+        <td><strong>Vencimientos Próximos</strong></td>
+        <td>Obligaciones cuyo ciclo vence en los próximos 15 a 30 días y requieren acción inmediata.</td>
+    </tr>
+    <tr>
+        <td><strong>Desvíos / Vencidas</strong></td>
+        <td>Obligaciones con fecha límite superada sin evidencia aprobada. Generan alerta y requieren plan de acción.</td>
+    </tr>
+</table>
+
+<h2 id="filtros">Filtros de visualización</h2>
+<ul>
+    <li><strong>Empresa / Sede:</strong> Permite ver una planta específica o la vista consolidada de todo el grupo empresarial.</li>
+    <li><strong>Territorio:</strong> Filtrar por jurisdicción Nacional, Provincial (ej. Buenos Aires, Río Negro) o Municipal.</li>
+    <li><strong>Materia / Tema:</strong> Seguridad e Higiene, Medio Ambiente, Trámites Municipales o Asuntos Laborales.</li>
+    <li><strong>Período Fiscal / Anual:</strong> Ver el cumplimiento actual o auditar ejercicios anteriores.</li>
+</ul>
+
+<h2 id="semaforo">El semáforo de cumplimiento</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Color</th>
+        <th>Estado</th>
+        <th>Acción requerida</th>
+    </tr>
+    <tr>
+        <td><strong style="color:var(--verde);">VERDE</strong></td>
+        <td>Cumplido / Vigente</td>
+        <td>Evidencia cargada, validada y dentro del plazo de vigencia.</td>
+    </tr>
+    <tr>
+        <td><strong style="color:var(--amarillo);">AMARILLO</strong></td>
+        <td>Por Vencer / En Proceso</td>
+        <td>Tarea en ejecución o evidencia pendiente de revisión por el aprobador.</td>
+    </tr>
+    <tr>
+        <td><strong style="color:var(--rojo);">ROJO</strong></td>
+        <td>No Cumplido / Vencido</td>
+        <td>Plazo expirado sin evidencia. Riesgo de sanción o no conformidad en auditoría.</td>
+    </tr>
+</table>
+
+<h2 id="acciones">Acciones desde el tablero</h2>
+<ul>
+    <li><strong>Ver detalle ▸:</strong> Despliega la lista de obligaciones de la planta seleccionada.</li>
+    <li><strong>Cargar Evidencia:</strong> Acceso directo para subir el comprobante probatorio.</li>
+    <li><strong>Exportar Informe:</strong> Descarga la matriz completa con enlaces a las evidencias para presentar ante inspectores o auditores de certificación ISO.</li>
+</ul>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Por qué una sede tiene menor porcentaje si no tuvo inspecciones?</td>
+        <td>El porcentaje mide el cumplimiento de las obligaciones que le aplican (análisis periódicos, capacitaciones, renovación de pólizas). Si venció una medición periódica, el indicador baja automáticamente.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Matriz Legal — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>
+

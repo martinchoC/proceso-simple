@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Configuración: Inicio, Diagnóstico y Auditoría</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --morado: #6f42c1; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #e0e7ff; color: #3730a3; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-purple { border-left: 4px solid var(--morado); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_conf.html">← Volver al manual de Configuración</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Configuración · Control y Auditoría</span>
+<h1>Manual de usuario: Diagnóstico y Auditoría</h1>
+<p class="subtitulo">Panel de salud de la configuración del sistema, detección de inconsistencias y registro inmutable de auditoría de seguridad.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#inicio">Inicio de Configuración y KPIs</a></li>
+        <li><a href="#para-revisar">Sección "Para revisar" (Detección de Brechas)</a></li>
+        <li><a href="#auditoria">Pantalla de Auditoría del Sistema</a></li>
+        <li><a href="#eventos">Eventos auditados y trazabilidad</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="inicio">Inicio de Configuración y KPIs</h2>
+<p>Al acceder al módulo de Configuración (<code>conf/index.php</code>), el sistema presenta un resumen de la infraestructura: total de empresas activas, usuarios registrados, módulos desplegados y perfiles activos.</p>
+
+<h2 id="para-revisar">Sección "Para revisar" (Detección de Brechas)</h2>
+<p>Este motor de diagnóstico en tiempo real analiza la integridad de la plataforma e identifica de inmediato:</p>
+<table class="tabla-referencia">
+    <tr>
+        <th>Inconsistencia detectada</th>
+        <th>Impacto y Acción Correctiva</th>
+    </tr>
+    <tr>
+        <td><strong>Perfiles sin funciones</strong></td>
+        <td>Un perfil creado que no tiene ninguna función asignada. Los usuarios con este perfil verán un menú vacío.</td>
+    </tr>
+    <tr>
+        <td><strong>Usuarios sin perfil</strong></td>
+        <td>Cuentas de usuario que no han sido asignadas a ninguna empresa. No pueden ingresar a operar.</td>
+    </tr>
+    <tr>
+        <td><strong>Empresas sin módulos</strong></td>
+        <td>Empresas registradas que no tienen contratado ningún módulo.</td>
+    </tr>
+    <tr>
+        <td><strong>Páginas huérfanas</strong></td>
+        <td>Pantallas dadas de alta en el menú sin archivo PHP existente en el disco o sin funciones configuradas.</td>
+    </tr>
+</table>
+
+<h2 id="auditoria">Pantalla de Auditoría del Sistema</h2>
+<p>En <code>auditoria.php</code> se consulta la bitácora inmutable de eventos:</p>
+<ul>
+    <li>Quién ejecutó la acción (ID y nombre de usuario).</li>
+    <li>Fecha, hora exacta y dirección IP de origen.</li>
+    <li>Módulo, pantalla y registro afectado.</li>
+    <li>Valores anteriores vs. valores nuevos en cambios sensibles de permisos.</li>
+</ul>
+
+<h2 id="eventos">Eventos auditados y trazabilidad</h2>
+<p>Quedan registrados de manera indeleble: inicios y cierres de sesión, altas de perfiles, modificaciones de permisos, cambios en datos fiscales de empresas y transiciones de anulación de comprobantes.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Se puede borrar el registro de auditoría?</td>
+        <td>No. La tabla de auditoría es inmutable por diseño para cumplir con normativas de compliance y seguridad de la información.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Configuración — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

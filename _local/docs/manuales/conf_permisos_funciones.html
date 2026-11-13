@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Configuración: Matriz de Permisos y Funciones</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --morado: #6f42c1; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #e0e7ff; color: #3730a3; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-purple { border-left: 4px solid var(--morado); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_conf.html">← Volver al manual de Configuración</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Configuración · Control Granular</span>
+<h1>Manual de usuario: Permisos y Funciones</h1>
+<p class="subtitulo">Asignación precisa de botones y acciones operativas (Agregar, Modificar, Confirmar, Anular) por perfil y empresa.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#concepto">Control por Función (no solo por pantalla)</a></li>
+        <li><a href="#matriz-base">Matriz Base (Perfiles - Funciones)</a></li>
+        <li><a href="#override">Personalización por Empresa (Empresas - Perfiles - Funciones)</a></li>
+        <li><a href="#como-habilitar">Paso a paso para habilitar un botón</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="concepto">Control por Función (no solo por pantalla)</h2>
+<p>En el sistema, tener acceso a una pantalla no significa poder hacer todo en ella. Las acciones se desglosan en <strong>Funciones de Pantalla</strong> (ej. <em>Agregar</em>, <em>Editar</em>, <em>Confirmar</em>, <em>Anular</em>, <em>Exportar a Excel</em>, <em>Autorizar CAE</em>). Si un usuario tiene asignada la función <em>Ver</em> pero no <em>Agregar</em>, el botón de nuevo registro ni siquiera se dibuja en su navegador.</p>
+
+<h2 id="matriz-base">Matriz Base (Perfiles - Funciones)</h2>
+<p>En <code>perfiles_funciones.php</code> se define el estándar global para cada rol (qué puede hacer el perfil Ventas estándar en todo el sistema).</p>
+
+<h2 id="override">Personalización por Empresa (Empresas - Perfiles - Funciones)</h2>
+<p>En <code>empresas_perfiles_funciones.php</code> se permite hacer excepciones puntuales para una empresa sin alterar al resto de los clientes:</p>
+<ul>
+    <li>Permite que en la Empresa A el perfil <em>Ventas</em> pueda anular facturas, mientras que en la Empresa B solo el <em>Administrador</em> conserve esa potestad.</li>
+</ul>
+
+<h2 id="como-habilitar">Paso a paso para habilitar un botón</h2>
+<ol>
+    <li>Ir a <em>Configuración → Empresas - Perfiles</em> y elegir la empresa y el perfil a configurar.</li>
+    <li>Navegar a la pantalla de interés (ejemplo: <em>Facturación de Ventas</em>).</li>
+    <li>Marcar la casilla correspondiente a la función (ejemplo: <em>Confirmar Comprobante</em>).</li>
+    <li>Guardar los cambios. El cambio tiene efecto inmediato en el siguiente clic del usuario.</li>
+</ol>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>Un operador puede ver un comprobante pero el botón "Anular" no le aparece.</td>
+        <td>Debe habilitarse la función de transición a Anulado para su perfil en <em>Empresas - Perfiles - Funciones</em>.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Configuración — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

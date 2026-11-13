@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Conceptos Bancarios</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --naranja: #fd7e14; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #212529; }
+    .badge-info { background: #0dcaf0; color: #212529; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja a { color: inherit; text-decoration: none; }
+    .flujo-caja.actual { border-color: var(--naranja); background: #fff4e6; box-shadow: 0 0 0 3px #ffe0c2; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    code { background: var(--gris-fondo); padding: 1px 5px; border-radius: 4px; font-size: 0.88rem; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html#tesoreria">← Volver al índice</a>
+
+<h1><i class="bi bi-list-check"></i> Manual de usuario: Conceptos Bancarios</h1>
+<p class="subtitulo">La lista de "qué es" cada línea del extracto del banco: un gasto que cobra el banco o un movimiento propio que ya está registrado en tesorería.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#circuito">El circuito de la conciliación bancaria</a></li>
+        <li><a href="#dos-tipos">Los dos tipos de concepto</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados de un concepto</a></li>
+        <li><a href="#nuevo">Crear o editar un concepto</a></li>
+        <li><a href="#como-va">"Cómo va en el comprobante" (solo gastos del banco)</a></li>
+        <li><a href="#pendientes-contador">Lo que todavía no se registra desde acá</a></li>
+        <li><a href="#acciones">Visualizar, Editar, Inactivar y Habilitar</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p>Cuando importás un extracto, cada línea del banco recibe un <strong>concepto</strong>: "Comisiones", "Impuesto ley 25.413", "Transferencias", "Cheques", etc. El concepto decide qué se hace después con esa línea:</p>
+<ul>
+    <li>si es algo que hizo la empresa (una cobranza, un pago, un depósito), se <strong>concilia</strong> contra lo que ya cargó tesorería;</li>
+    <li>si es algo que cobró el banco (comisiones, impuestos), se registra con un <strong>resumen bancario</strong> desde Gastos Bancarios.</li>
+</ul>
+<p>El sistema ya trae cargados los conceptos más comunes. Esta pantalla sirve para revisarlos, completarlos y agregar los que falten.</p>
+
+<h2 id="circuito">El circuito de la conciliación bancaria</h2>
+<p>Esta pantalla es el paso 2. Los pasos 1 a 3 se configuran una vez; los pasos 4 a 6 se hacen todos los meses.</p>
+<div class="flujo">
+    <div class="flujo-caja"><a href="bancos_formatos.html">1. Formatos<small>cómo viene el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja actual">2. Conceptos<small>qué es cada línea</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_reglas.html">3. Reglas<small>cómo reconocerla</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_importar.html">4. Extractos<small>importar el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conciliacion.html">5. Conciliación<small>banco contra tesorería</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final"><a href="bancos_gastos.html">6. Gastos Bancarios<small>comisiones e impuestos</small></a></div>
+</div>
+
+<h2 id="dos-tipos">Los dos tipos de concepto</h2>
+<table class="tabla-referencia">
+    <tr><th>Tipo</th><th>Qué es</th><th>Qué pasa con sus líneas</th></tr>
+    <tr>
+        <td><span class="badge badge-warning">Gasto del banco</span></td>
+        <td>Lo que el banco cobra por su cuenta: comisiones, mantenimiento, impuesto a los débitos y créditos (ley 25.413), IVA del gasto, percepciones.</td>
+        <td>No se concilian a mano. Una vez por mes, en <a href="bancos_gastos.html">Gastos Bancarios</a>, el botón <strong>Generar comprobante</strong> los junta en un resumen bancario que entra al Libro IVA Compras y a la contabilidad.</td>
+    </tr>
+    <tr>
+        <td><span class="badge badge-info">Movimiento propio</span></td>
+        <td>Lo que hizo la empresa y ya está cargado en el sistema: cobranzas por transferencia, pagos, depósitos de cheques, pagos de servicios, débitos DEBIN.</td>
+        <td>Se concilian en <a href="bancos_conciliacion.html">Conciliación Bancaria</a> contra el movimiento de tesorería correspondiente. Nunca generan comprobantes.</td>
+    </tr>
+</table>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Se abre desde <strong>Tesorería &gt; Conceptos Bancarios</strong>. Arriba está <span class="boton-ejemplo boton-primario">+ Agregar</span> y, a la derecha, el botón de recargar.</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Código</td><td>Un código corto en mayúsculas (COMISION, LEY25413, TRANSFERENCIA...).</td></tr>
+    <tr><td>Concepto</td><td>El nombre que se ve en el resto de las pantallas.</td></tr>
+    <tr><td>Tipo</td><td>Gasto del banco (amarillo) o Movimiento propio (celeste).</td></tr>
+    <tr><td>En el comprobante</td><td>Para los gastos: cómo entran al resumen bancario y con qué producto o impuesto. Si dice <span style="color:#dc3545">sin producto</span> hay que completarlo. Para los movimientos propios: "Se concilia contra tesorería".</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+</table>
+<p>En el detalle de la fila (▸) se ve además cuántas <strong>reglas</strong> activas usan el concepto.</p>
+
+<h2 id="estados">Estados de un concepto</h2>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>Se puede asignar a las líneas del extracto y usar en las reglas.</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>Ya no se ofrece. Las líneas que ya lo tenían no cambian.</td></tr>
+</table>
+
+<h2 id="nuevo">Crear o editar un concepto</h2>
+<p>Con <span class="boton-ejemplo boton-primario">+ Agregar</span> se abre <strong>Nuevo concepto</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Código <em>(obligatorio)</em></td><td>Hasta 30 caracteres: letras, números y guion bajo, sin espacios (por ejemplo <code>SELLADOS</code>). No se puede repetir.</td></tr>
+    <tr><td>Nombre <em>(obligatorio)</em></td><td>Cómo lo vas a ver en las pantallas.</td></tr>
+    <tr><td>Orden</td><td>Posición en las listas (menor número, más arriba).</td></tr>
+    <tr><td>Tipo <em>(obligatorio)</em></td><td><strong>Gasto del banco</strong> o <strong>Movimiento propio</strong> (ver <a href="#dos-tipos">arriba</a>).</td></tr>
+    <tr><td>Cómo va en el comprobante <em>(solo gastos)</em></td><td>Ver <a href="#como-va">la sección siguiente</a>.</td></tr>
+    <tr><td>Producto <em>(solo "Línea con producto")</em></td><td>El servicio (sin stock) con el que se registra el gasto. Del producto salen la <strong>cuenta contable</strong> y la <strong>alícuota de IVA</strong>. En la lista se ve el IVA de cada uno, por ejemplo "BCO_COMISION - Comisiones bancarias (IVA 21%)".</td></tr>
+    <tr><td>Provincia <em>(solo percepción de IIBB y SIRCREB)</em></td><td>A qué provincia corresponde. Se ofrecen las provincias donde la empresa tiene configurada la percepción de IIBB recibida. El impuesto lo fija el tipo de línea (IIBB, IVA o Ganancias).</td></tr>
+</table>
+<p>Apretá <span class="boton-ejemplo boton-primario">Guardar</span>: "Concepto creado." o "Concepto actualizado."</p>
+
+<h2 id="como-va">"Cómo va en el comprobante" (solo gastos del banco)</h2>
+<table class="tabla-referencia">
+    <tr><th>Opción</th><th>Cuándo usarla</th></tr>
+    <tr><td>Línea con producto</td><td>Comisiones, mantenimiento de cuenta, impuesto ley 25.413, intereses cobrados. Cada producto es una línea del resumen bancario.</td></tr>
+    <tr><td>IVA del gasto</td><td>Cuando el banco debita el IVA de la comisión en una línea aparte.</td></tr>
+    <tr><td>Percepción de IVA / de IIBB / de Ganancias</td><td>Cuando el banco debita una percepción en una línea aparte. La de IIBB lleva la provincia.</td></tr>
+    <tr><td>IIBB sobre créditos (SIRCREB)</td><td>Va al resumen bancario como percepción de IIBB de la provincia que elijas.</td></tr>
+</table>
+
+<h2 id="iva">El IVA de los gastos</h2>
+<p>El resumen bancario lleva solo el IVA que el banco declara en una línea aparte (concepto "IVA del gasto"). Si el extracto no trae líneas de IVA, el gasto entra como no gravado.</p>
+
+<h2 id="pendientes-contador">Lo que todavía no se registra desde acá</h2>
+<div class="alert alert-info">
+    <ul style="margin:0; padding-left:20px">
+        <li><strong>Créditos del banco</strong> (intereses a favor, reintegros): tampoco entran al resumen bancario todavía; lo define el contador.</li>
+    </ul>
+    En Gastos Bancarios esas líneas aparecen desmarcadas con la explicación en amarillo.
+</div>
+
+<h2 id="acciones">Visualizar, Editar, Inactivar y Habilitar</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Cuándo aparece</th><th>Qué hace</th></tr>
+    <tr><td>Visualizar</td><td>Concepto activo</td><td>Abre el concepto solo para mirarlo.</td></tr>
+    <tr><td>Editar</td><td>Concepto activo</td><td>Permite cambiarlo. Si ya tiene líneas conciliadas, no se puede cambiar entre "Gasto del banco" y "Movimiento propio".</td></tr>
+    <tr><td>Inactivar</td><td>Concepto activo</td><td>Pide confirmación. No deja si alguna regla activa lo usa.</td></tr>
+    <tr><td>Habilitar</td><td>Concepto inactivo</td><td>Lo vuelve a activar.</td></tr>
+</table>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>El código va en mayúsculas, números y guión bajo (hasta 30).</td><td>Sacá espacios, acentos o símbolos del código.</td></tr>
+    <tr><td>Ya existe el concepto ...</td><td>Ese código ya está usado. Elegí otro.</td></tr>
+    <tr><td>Elegí el producto (servicio sin stock) del gasto: de él sale la cuenta contable y el IVA.</td><td>Falta el producto. Si no está en la lista, tiene que darse de alta como servicio sin stock que se compra.</td></tr>
+    <tr><td>Elegí el impuesto de la percepción.</td><td>Las percepciones necesitan el impuesto.</td></tr>
+    <tr><td>El concepto tiene líneas conciliadas: no se cambia entre gasto y movimiento propio.</td><td>Creá un concepto nuevo en lugar de cambiar el tipo de este.</td></tr>
+    <tr><td>Lo usan N reglas activas: inactivalas o cambiales el concepto antes.</td><td>Andá a <a href="bancos_reglas.html">Reglas Bancarias</a> y resolvé esas reglas primero.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>¿Por qué los gastos del banco no se concilian a mano?</td><td>Porque nadie los cargó antes en tesorería: no hay contra qué conciliarlos. El resumen bancario de Gastos Bancarios los registra (con su IVA y su asiento) y, al mismo tiempo, los concilia con el débito del banco.</td></tr>
+    <tr><td>En la lista de productos no aparece el que necesito.</td><td>Solo se ofrecen servicios sin stock, activos, que se usan en compras. Pedí que lo den de alta así.</td></tr>
+    <tr><td>Asigné mal un concepto a una línea.</td><td>Mientras la línea no esté conciliada, se cambia en <a href="bancos_conciliacion.html#clasificar">Conciliación Bancaria</a> con "Líneas marcadas &gt; Asignar concepto".</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="bancos_reglas.html">Reglas Bancarias</a> (paso 3)</li>
+        <li><a href="bancos_gastos.html">Gastos Bancarios</a></li>
+        <li><a href="productos_tipos.html">Productos - Tipos</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulos Gestión y Gestión Normal / Tesorería / Conceptos Bancarios. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

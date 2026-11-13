@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Sindicatos: Padrón de Empleadores</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --marron: #795548; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #efebe9; color: #4e342e; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-brown { border-left: 4px solid var(--marron); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_sindicatos.html">← Volver al manual de Sindicatos</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Sindicatos · Padrón Empresarial</span>
+<h1>Manual de usuario: Padrón de Empleadores</h1>
+<p class="subtitulo">Alta de empresas aportantes, administración de sucursales y autorización de delegación para estudios contables.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#proposito">Padrón Oficial de Empleadores</a></li>
+        <li><a href="#sucursales">Sucursales y Casa Central</a></li>
+        <li><a href="#estudios">Delegación a Estudios Contables</a></li>
+        <li><a href="#autoalta">Autoalta y Recupero de Clave</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">Padrón Oficial de Empleadores</h2>
+<p>En <code>modules/sindicatos/empleadores.php</code> se gestionan todas las razones sociales comerciales que emplean trabajadores bajo el Convenio Colectivo de Trabajo (CCT). El CUIT de la empresa opera como su usuario de acceso al sistema.</p>
+
+<h2 id="sucursales">Sucursales y Casa Central</h2>
+<p>Cada empleador cuenta obligatoriamente con su <strong>Sucursal N° 1 (Casa Central)</strong> generada automáticamente con el alta. Puede añadir bocas o sucursales adicionales indicando domicilio y localidad para asignar a qué dependencia pertenece cada trabajador en la nómina.</p>
+
+<h2 id="estudios">Delegación a Estudios Contables</h2>
+<p>En <code>estudios.php</code> se administra la vinculación con estudios externos:</p>
+<ul>
+    <li>El estudio contable solicita vinculación ingresando el CUIT de la empresa.</li>
+    <li>El empleador ingresa a su panel y <strong>Acepta</strong> o <strong>Rechaza</strong> la solicitud.</li>
+    <li>Una vez aceptada, el estudio puede presentar las DDJJ mensuales de la empresa sin conocer su clave personal.</li>
+</ul>
+
+<h2 id="autoalta">Autoalta y Recupero de Clave</h2>
+<p>El sistema cuenta con un portal público para que un empleador nuevo se registre por primera vez, recibiendo sus credenciales iniciales por correo electrónico.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Puede un estudio contable liquidar para varios empleadores?</td>
+        <td>Sí. Un mismo usuario de estudio contable puede tener vinculadas decenas de sociedades y seleccionar cuál liquidar desde el menú.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Sindicatos — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

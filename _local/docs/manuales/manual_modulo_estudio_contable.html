@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Módulo 4: Estudio Contable</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+        --cian: #0dcaf0;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.6;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.85rem; margin-bottom: 6px; color: #111827; }
+    h2 { font-size: 1.35rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 8px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.1rem; margin-top: 1.6rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.92rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.6rem; }
+    
+    .badge-modulo {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #cff4fc;
+        color: #055160;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 22px;
+        margin: 20px 0 30px;
+    }
+    .toc strong { display: block; margin-bottom: 8px; font-size: 1rem; }
+    .toc ul { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 4px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 16px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 5px solid var(--azul); }
+    .card-outline-cyan { border-left: 5px solid #0aa2c0; }
+
+    .alert {
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin: 16px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #e7f1ff; border-left: 4px solid var(--azul); color: #084298; }
+    .alert-warning { background: #fff8e6; border-left: 4px solid var(--amarillo); color: #664d03; }
+
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th {
+        background: var(--gris-fondo);
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 18px 0;
+    }
+    .flujo-caja {
+        border: 2px solid #0aa2c0;
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #f0fbff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+        color: #065466;
+    }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); font-size: 0.8rem; margin-top: 2px; }
+    .flujo-caja.final { border-color: var(--verde); background: #f0fdf4; color: #166534; }
+    .flujo-flecha { font-size: 1.4rem; color: var(--texto-muted); font-weight: bold; }
+
+    .btn-enlace {
+        display: inline-block;
+        padding: 3px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: #0aa2c0;
+        color: #fff;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-left: 6px;
+    }
+    .btn-enlace:hover { background: #055160; color: #fff; text-decoration: none; }
+
+    footer {
+        margin-top: 3.5rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+    @media print {
+        .volver, .toc { display: none; }
+        body { max-width: none; padding: 0; }
+        h2 { page-break-after: avoid; }
+    }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al portal de manuales</a>
+
+<span class="badge-modulo">Módulo 4</span>
+<h1>Manual de usuario: Estudio Contable</h1>
+<p class="subtitulo">Plataforma integral para estudios y profesionales en ciencias económicas: administración de cartera de clientes, contratos y honorarios, tablero de vencimientos fiscales, sincronización con ERP remoto e importación ARCA.</p>
+
+<div class="toc">
+    <strong>Contenido del manual</strong>
+    <ul>
+        <li><a href="#proposito">1. Propósito y alcance del módulo</a></li>
+        <li><a href="#clientes">2. Cartera de Clientes y Modalidades Operativas</a></li>
+        <li><a href="#contratos-honorarios">3. Contratos de Honorarios y Facturación Recurrente</a></li>
+        <li><a href="#vencimientos">4. Tablero de Vencimientos y Calendario Fiscal</a></li>
+        <li><a href="#inspecciones">5. Gestión de Inspecciones y Requerimientos</a></li>
+        <li><a href="#contabilidad-cliente">6. Contabilidad, Balances y Libros Societarios</a></li>
+        <li><a href="#importacion-arca">7. Auditoría e Importación "Mis Comprobantes" ARCA</a></li>
+        <li><a href="#preguntas-frecuentes">8. Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">1. Propósito y alcance del módulo</h2>
+<p>El módulo <strong>Estudio Contable</strong> (<code>modules/estudio_contable/</code>) está diseñado para cubrir las necesidades operativas de estudios tributarios, auditorías y asesorías legales. Centraliza en una sola vista a todos los clientes del estudio, sus obligaciones periódicas y la cobranza de honorarios profesionales.</p>
+
+<h2 id="clientes">2. Cartera de Clientes y Modalidades Operativas</h2>
+<p>En <code>estudio_clientes.php</code> se gestiona el padrón de clientes del estudio: <a class="btn-enlace" href="estudio_clientes.html">Manual de pantalla</a>. El sistema permite operar bajo dos modelos complementarios:</p>
+
+<table class="tabla-referencia">
+    <tr>
+        <th>Modalidad</th>
+        <th>Cómo opera en el sistema</th>
+    </tr>
+    <tr>
+        <td><strong>Cliente con Mini-Gestión</strong></td>
+        <td>Para clientes pequeños que no cuentan con ERP propio: el personal del estudio registra sus comprobantes de venta, compras y pagos dentro de la solapa Mini-Gestión del módulo para confeccionar los libros de IVA. <a class="btn-enlace" href="estudio_minigestion.html">Manual Mini-Gestión</a></td>
+    </tr>
+    <tr>
+        <td><strong>Cliente con ERP Vinculado (Remoto)</strong></td>
+        <td>El cliente opera su propia empresa en el Módulo Gestión (o Gestión Normal). El estudio se vincula mediante <code>conf__empresas_vinculaciones</code> y puede auditar en vivo facturación, libros contables y libros societarios sin duplicar datos. <a class="btn-enlace" href="estudio_cliente_erp_remoto.html">Manual ERP Remoto</a></td>
+    </tr>
+</table>
+
+<h2 id="contratos-honorarios">3. Contratos de Honorarios y Facturación Recurrente</h2>
+<p>Administración transparente de la facturación de servicios profesionales: <a class="btn-enlace" href="estudio_contratos_honorarios.html">Manual de contratos</a></p>
+<div class="flujo">
+    <div class="flujo-caja">1. Conceptos y Tarifarios<small>Abono / Módulos / Horas</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">2. Contrato de Honorarios<small>Líneas fijas y eventuales</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">3. Liquidación Mensual<small>Borrador con revisión</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">4. Facturación Automática<small>Factura ARCA de servicio</small></div>
+</div>
+
+<ul>
+    <li><strong>Modalidades de cobro:</strong> Abono mensual fijo, liquidación por horas trabajadas por categoría profesional (Socio, Senior, Junior) o valor por módulo según CPCE/FACPCE.</li>
+    <li><strong>Novedades Eventuales:</strong> Carga de trabajos extraordinarios (balances, liquidaciones especiales, asesoramiento pericial) en un único período.</li>
+    <li><strong>Emisión de Servicios ARCA:</strong> Cumple con las exigencias fiscales de comprobantes de servicio (Concepto 2 con fechas de período facturado y vencimiento para el pago).</li>
+</ul>
+
+<h2 id="vencimientos">4. Tablero de Vencimientos y Calendario Fiscal</h2>
+<ul>
+    <li><strong>Tablero de Vencimientos (<code>vencimientos_tablero.php</code>):</strong> Panel semaforizado que expone los vencimientos del mes clasificados por tipo (IVA, Ganancias, Ingresos Brutos, Cargas Sociales F.931, Tasas Municipales, presentación de Estados Contables). <a class="btn-enlace" href="estudio_vencimientos.html">Manual de vencimientos</a></li>
+    <li><strong>Generador de Vencimientos:</strong> Proyecta los vencimientos automáticos del año para cada cliente basándose en el último dígito del CUIT de la empresa y la condición impositiva.</li>
+</ul>
+
+<h2 id="inspecciones">5. Gestión de Inspecciones y Requerimientos</h2>
+<p>Permite registrar y monitorear fiscalizaciones de organismos recaudadores (ARCA, Rentas Provinciales, Municipios, Ministerio de Trabajo): <a class="btn-enlace" href="estudio_inspecciones.html">Manual de inspecciones</a></p>
+<ul>
+    <li>Número de expediente o requerimiento oficial y fecha de notificación.</li>
+    <li>Vencimiento perentorio del plazo y solicitud de prórrogas.</li>
+    <li>Checklist de documentación solicitada y registro de escritos presentados.</li>
+</ul>
+
+<h2 id="contabilidad-cliente">6. Contabilidad, Balances y Libros Societarios</h2>
+<ul>
+    <li><strong>Contabilidad del Cliente:</strong> Plan contable particularizado para cada cliente, carga de asientos de cierre y refundición, balance de sumas y saldos, y estado de situación patrimonial. <a class="btn-enlace" href="estudio_contabilidad_balances.html">Manual de balances</a></li>
+    <li><strong>Libros Societarios Digitales:</strong> Redacción de actas de asamblea y directorio. Si el cliente tiene empresa vinculada con autorización concedida, el estudio puede redactar las actas directamente sobre los libros de la empresa del cliente en tiempo real.</li>
+</ul>
+
+<h2 id="importacion-arca">7. Auditoría e Importación "Mis Comprobantes" ARCA</h2>
+<p>La herramienta <code>importar_arca.php</code> permite subir las planillas oficiales descargadas de ARCA ("Mis Comprobantes Emitidos" y "Mis Comprobantes Recibidos"): <a class="btn-enlace" href="estudio_importar_arca.html">Manual importar ARCA</a></p>
+<ul>
+    <li>Detecta comprobantes no contabilizados o faltantes en el sistema.</li>
+    <li>Verifica consistencia de IVA débito y crédito fiscal.</li>
+    <li>Permite importar masivamente ventas y compras con generación de entidades automáticas.</li>
+</ul>
+
+<h2 id="preguntas-frecuentes">8. Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Cómo visualiza el estudio a los clientes con ERP propio?</td>
+        <td>Desde la pantalla <em>Clientes</em>, se selecciona el cliente y se hace clic en "Consola ERP" o "Auditoría Remota", accediendo a los libros del cliente con permiso de lectura o edición según corresponda.</td>
+    </tr>
+    <tr>
+        <td>¿Qué sucede si un cliente suspende temporalmente el abono?</td>
+        <td>En el Contrato de Honorarios se marca el estado como "Suspendido"; el generador mensual omitirá al cliente en la próxima propuesta de facturación.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de referencia funcional — Sistema Integral Casalucho / ProcesoSimple — Módulo Estudio Contable.
+</footer>
+
+</body>
+</html>
+

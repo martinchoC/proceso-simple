@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Extractos Bancarios</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --naranja: #fd7e14; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-danger { background: var(--rojo); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #212529; }
+    .badge-info { background: #0dcaf0; color: #212529; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja a { color: inherit; text-decoration: none; }
+    .flujo-caja.actual { border-color: var(--naranja); background: #fff4e6; box-shadow: 0 0 0 3px #ffe0c2; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    code { background: var(--gris-fondo); padding: 1px 5px; border-radius: 4px; font-size: 0.88rem; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html#tesoreria">← Volver al índice</a>
+
+<h1><i class="bi bi-upload"></i> Manual de usuario: Extractos Bancarios</h1>
+<p class="subtitulo">Cómo subir al sistema el extracto que descargás del banco (Excel o CSV) y cómo consultar o anular los extractos ya importados.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#circuito">El circuito de la conciliación bancaria</a></li>
+        <li><a href="#antes">Antes de empezar</a></li>
+        <li><a href="#importar">Importar un extracto (dos pasos)</a></li>
+        <li><a href="#paso1">Paso 1: Ver cómo se lee</a></li>
+        <li><a href="#paso2">Paso 2: Importar los movimientos</a></li>
+        <li><a href="#lotes">Lotes importados</a></li>
+        <li><a href="#estados">Estados de un lote y de sus líneas</a></li>
+        <li><a href="#visualizar">Ver las líneas de un lote</a></li>
+        <li><a href="#anular">Anular un lote</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Extractos Bancarios</strong> (menú Tesorería) trae al sistema los movimientos que informa el banco. Cada archivo importado queda como un <strong>lote</strong>. Al importar, el sistema le pone a cada línea su concepto según las <a href="bancos_reglas.html">reglas</a> del banco.</p>
+<div class="nota-lateral">Importar el extracto <strong>no cambia los saldos de tesorería ni crea movimientos</strong>. Solo deja las líneas del banco listas para conciliarlas contra lo que ya registraste.</div>
+
+<h2 id="circuito">El circuito de la conciliación bancaria</h2>
+<p>Esta pantalla es el paso 4, el primero de los que se hacen todos los meses.</p>
+<div class="flujo">
+    <div class="flujo-caja"><a href="bancos_formatos.html">1. Formatos<small>cómo viene el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conceptos.html">2. Conceptos<small>qué es cada línea</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_reglas.html">3. Reglas<small>cómo reconocerla</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja actual">4. Extractos<small>importar el archivo</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conciliacion.html">5. Conciliación<small>banco contra tesorería</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final"><a href="bancos_gastos.html">6. Gastos Bancarios<small>comisiones e impuestos</small></a></div>
+</div>
+
+<h2 id="antes">Antes de empezar</h2>
+<ul>
+    <li>La cuenta bancaria tiene que existir en Tesorería (cuentas de tipo Banco, activas).</li>
+    <li>El banco de esa cuenta tiene que tener un <a href="bancos_formatos.html">formato</a> activo y vigente.</li>
+    <li>Descargá del home banking los movimientos en Excel (.xls o .xlsx) o CSV. Hasta 5 MB.</li>
+</ul>
+<div class="alert alert-info">Si no ves el recuadro <strong>Importar extracto</strong>, tu perfil no tiene permiso para importar: solo podés consultar los lotes.</div>
+
+<h2 id="importar">Importar un extracto (dos pasos)</h2>
+<div class="flujo">
+    <div class="flujo-caja">Elegir cuenta, formato y archivo</div>
+    <div class="flujo-flecha">→ Ver cómo se lee →</div>
+    <div class="flujo-caja">Revisar el resultado</div>
+    <div class="flujo-flecha">→ Importar N movimientos →</div>
+    <div class="flujo-caja final">Lote importado</div>
+</div>
+<p>El primer paso <strong>no guarda nada</strong>: solo te muestra cómo quedaría. Recién el segundo paso guarda los movimientos.</p>
+
+<h2 id="paso1">Paso 1: Ver cómo se lee</h2>
+<p>En el recuadro <strong>Importar extracto</strong>:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Cuenta bancaria <em>(obligatorio)</em></td><td>La cuenta del banco a la que pertenece el extracto. Entre paréntesis se ve el número de cuenta, si está cargado.</td></tr>
+    <tr><td>Formato <em>(obligatorio)</em></td><td>Se llena al elegir la cuenta, con los formatos de su banco. Si dice "Sin formatos para el banco de la cuenta", hay que cargar uno en <a href="bancos_formatos.html">Formatos Bancarios</a>.</td></tr>
+    <tr><td>Archivo <em>(obligatorio)</em></td><td>El extracto descargado del banco.</td></tr>
+</table>
+<p>Apretá <span class="boton-ejemplo boton-outline">Ver cómo se lee</span>. Debajo aparece el resultado:</p>
+<table class="tabla-referencia">
+    <tr><th>Indicador</th><th>Qué significa</th></tr>
+    <tr><td>Movimientos nuevos</td><td>Cuántas líneas se van a importar y entre qué fechas. Si el archivo se superpone con otro ya importado, dice cuántos "ya importados" se van a saltear.</td></tr>
+    <tr><td>Saldo inicial → final</td><td>Los saldos del archivo, y el total de débitos y de créditos. Compará con el extracto.</td></tr>
+    <tr><td>Cadena de saldos</td><td>En <strong style="color:#198754">verde</strong> "No falta ningún movimiento" si cada saldo cierra con el anterior. En <strong style="color:#dc3545">rojo</strong> "Falta o sobra algún movimiento".</td></tr>
+    <tr><td>Sin concepto</td><td>Cuántas líneas ninguna regla reconoció. Debajo se ve el número de cuenta leído del archivo.</td></tr>
+</table>
+<p>Más abajo hay dos tablas: a la izquierda, un resumen por concepto (cantidad e importe; en amarillo las "Sin concepto"); a la derecha, todas las líneas nuevas con su fecha, descripción, concepto, importe y saldo.</p>
+<p>Si hay algún problema que impide importar, aparece en un recuadro <strong style="color:#842029">rojo</strong> y no se muestra el botón de importar. Los avisos que no impiden importar aparecen en <strong style="color:#664d03">amarillo</strong>.</p>
+
+<h2 id="paso2">Paso 2: Importar los movimientos</h2>
+<p>Si está todo bien, al pie aparece <span class="boton-ejemplo boton-primario">Importar N movimientos</span>. Al apretarlo, el sistema guarda el lote y muestra <strong>Extracto importado</strong> con un texto como "Se importaron 49 movimientos (2 sin concepto: asignalo en Conciliación Bancaria)."</p>
+<p>El lote aparece arriba de todo en <a href="#lotes">Lotes importados</a>. El siguiente paso es <a href="bancos_conciliacion.html">Conciliación Bancaria</a>.</p>
+<div class="nota-lateral">Si la cuenta de tesorería no tenía cargado el número de cuenta y el archivo lo trae, al importar el sistema se lo completa (te lo avisa antes, en amarillo).</div>
+
+<h2 id="lotes">Lotes importados</h2>
+<p>Debajo del recuadro de importación está la lista de lotes, del más nuevo al más viejo. Se puede filtrar por cuenta con la lista de la barra ("Todas las cuentas").</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Lote</td><td>Número del lote.</td></tr>
+    <tr><td>Cuenta</td><td>La cuenta bancaria.</td></tr>
+    <tr><td>Período</td><td>Primera y última fecha del extracto.</td></tr>
+    <tr><td>Movimientos</td><td>Cuántas líneas se importaron.</td></tr>
+    <tr><td>Sin concepto</td><td>Cuántas siguen sin concepto (en amarillo si hay alguna).</td></tr>
+    <tr><td>Conciliados</td><td>Cuántas ya se conciliaron.</td></tr>
+    <tr><td>Estado</td><td>Ver <a href="#estados">más abajo</a>.</td></tr>
+</table>
+<p>En el detalle de la fila (▸): saldo final, nombre del archivo y formato usado.</p>
+
+<h2 id="estados">Estados de un lote y de sus líneas</h2>
+<h3>El lote</h3>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Confirmado</span></td><td>El extracto está importado y sus líneas se pueden conciliar.</td></tr>
+    <tr><td><span class="badge badge-danger">Anulado</span></td><td>Se anuló: sus líneas se quitaron y el mismo archivo se puede volver a importar. El lote queda en la lista como registro.</td></tr>
+</table>
+<h3>Cada línea del extracto</h3>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td>Sin concepto</td><td>Ninguna regla la reconoció. Hay que asignarle un concepto en Conciliación Bancaria antes de hacer cualquier otra cosa con ella.</td></tr>
+    <tr><td>Clasificada</td><td>Tiene concepto y está pendiente: si es un movimiento propio, falta conciliarla; si es un gasto del banco, falta generar el resumen bancario del mes.</td></tr>
+    <tr><td>Conciliada</td><td>Ya está unida a su movimiento de tesorería o al resumen bancario. Terminada.</td></tr>
+    <tr><td>Ignorada</td><td>Alguien decidió dejarla afuera de la conciliación.</td></tr>
+</table>
+<div class="flujo">
+    <div class="flujo-caja inactivo">Sin concepto</div>
+    <div class="flujo-flecha">→ regla o asignación a mano →</div>
+    <div class="flujo-caja">Clasificada</div>
+    <div class="flujo-flecha">→ Conciliar / Generar comprobante →</div>
+    <div class="flujo-caja final">Conciliada</div>
+</div>
+
+<h2 id="visualizar">Ver las líneas de un lote</h2>
+<p>El botón <strong>Visualizar</strong> (ojo) de la fila abre una ventana con todas las líneas del lote: fila del archivo, fecha, descripción, referencia, concepto, importe, saldo y estado. Está disponible en lotes confirmados y anulados.</p>
+
+<h2 id="anular">Anular un lote</h2>
+<p>En los lotes confirmados aparece el botón rojo <strong>Anular</strong>. Sirve cuando importaste un archivo en la cuenta equivocada o con el formato mal configurado.</p>
+<p>El sistema pregunta "¿Anular el lote?" y avisa que se quitan sus movimientos. Al aceptar: "Lote anulado: sus movimientos se quitaron y el archivo se puede volver a importar."</p>
+<div class="alert alert-warning">No se puede anular un lote que tiene líneas conciliadas. Primero hay que deshacer esas conciliaciones (en <a href="bancos_conciliacion.html#deshacer">Conciliación Bancaria</a> o, si son gastos, en <a href="bancos_gastos.html#deshacer">Gastos Bancarios</a>).</div>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Este archivo ya se importó en esta cuenta.</td><td>Ese mismo archivo ya está en un lote. No hace falta importarlo de nuevo.</td></tr>
+    <tr><td>Todos los movimientos del archivo ya están importados.</td><td>El archivo es distinto pero todos sus movimientos ya entraron con extractos anteriores.</td></tr>
+    <tr><td>N movimientos ya estaban importados (se superpone con otro extracto): se omiten.</td><td>Es un aviso: podés importar tranquilo, los repetidos no entran dos veces.</td></tr>
+    <tr><td>El archivo es de la cuenta ... y elegiste ...</td><td>El número de cuenta del archivo no coincide con la cuenta elegida. Revisá la cuenta.</td></tr>
+    <tr><td>El formato es de [banco] y la cuenta es de [banco].</td><td>Elegiste un formato de otro banco.</td></tr>
+    <tr><td>Fila N: el saldo es ... y debería ser ... (falta o sobra un movimiento cerca de esa fila).</td><td>La cadena de saldos no cierra. Puede faltar un movimiento en el archivo o el formato puede estar mal configurado: probalo en <a href="bancos_formatos.html#probar">Formatos Bancarios</a>.</td></tr>
+    <tr><td>No se encontró el número de cuenta en el encabezado del archivo.</td><td>Aviso: no se pudo controlar la cuenta. Fijate vos que sea la correcta.</td></tr>
+    <tr><td>Las fechas no vienen en orden...</td><td>Aviso: revisá el orden en el formato.</td></tr>
+    <tr><td>El archivo tiene que ser .xls, .xlsx o .csv. · El archivo supera los 5 MB.</td><td>Revisá el archivo descargado.</td></tr>
+    <tr><td>Otro usuario importó este extracto al mismo tiempo: recargá la página.</td><td>Dos personas importaron lo mismo a la vez. Recargá y fijate en los lotes.</td></tr>
+    <tr><td>El lote tiene N líneas conciliadas: deshacé esas conciliaciones antes de anularlo.</td><td>Ver <a href="#anular">Anular un lote</a>.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>¿Cada cuánto importo?</td><td>Como te resulte cómodo: semanal o mensual. Los movimientos repetidos entre archivos se omiten solos. Para los gastos del banco conviene tener el mes completo importado antes de generar su comprobante.</td></tr>
+    <tr><td>¿Puede haber dos movimientos iguales el mismo día?</td><td>Sí, y no se pierden: el sistema distingue dos líneas idénticas del mismo archivo.</td></tr>
+    <tr><td>Importé y quedaron muchas líneas "Sin concepto".</td><td>Agregá reglas en <a href="bancos_reglas.html">Reglas Bancarias</a> y usá "Aplicar reglas", o asignalas a mano en <a href="bancos_conciliacion.html#clasificar">Conciliación Bancaria</a>.</td></tr>
+    <tr><td>¿Importar cambia el saldo de la cuenta en tesorería?</td><td>No. El saldo de tesorería solo lo mueven las cobranzas, pagos, transferencias, etc.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="bancos_formatos.html">Formatos Bancarios</a> (paso 1)</li>
+        <li><a href="bancos_conciliacion.html">Conciliación Bancaria</a> (paso 5)</li>
+        <li><a href="bancos_gastos.html">Gastos Bancarios</a> (paso 6)</li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulos Gestión y Gestión Normal / Tesorería / Extractos Bancarios. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,4 @@
+﻿Fecha;Tipo;Punto de Venta;Número Desde;Número Hasta;Cód. Autorización;Tipo Doc. Emisor;Nro. Doc. Emisor;Denominación Emisor;Tipo Doc. Receptor;Nro. Doc. Receptor;Tipo Cambio;Moneda;Neto Grav. IVA 0%;IVA 2,5%;Neto Grav. IVA 2,5%;IVA 5%;Neto Grav. IVA 5%;IVA 10,5%;Neto Grav. IVA 10,5%;IVA 21%;Neto Grav. IVA 21%;IVA 27%;Neto Grav. IVA 27%;Neto Gravado Total;Neto No Gravado;Op. Exentas;Otros Tributos;Total IVA;Imp. Total
+01/09/2026;11 - Factura C;1;345;345;76938713017412;CUIT;20145228736;Mansilla, Roberto (alquiler);CUIT;27314558206;1,00;$;;;;;;;;;;;;0,00;0,00;0,00;0,00;0,00;420000,00
+04/09/2026;6 - Factura B;9;733;733;76748736055739;CUIT;30701109348;Telecomunicaciones Australes SA;CUIT;27314558206;1,00;$;;;;;;;;;;5899,50;21850,00;21850,00;0,00;0,00;0,00;5899,50;27749,50
+07/09/2026;6 - Factura B;3;846;846;76147334184103;CUIT;30712993479;Librería y Papelería Centro SRL;CUIT;27314558206;1,00;$;;;;;;;;5422,24;25820,19;;;25820,19;0,00;0,00;0,00;5422,24;31242,43

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Formatos Bancarios</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --naranja: #fd7e14; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja a { color: inherit; text-decoration: none; }
+    .flujo-caja.actual { border-color: var(--naranja); background: #fff4e6; box-shadow: 0 0 0 3px #ffe0c2; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    code { background: var(--gris-fondo); padding: 1px 5px; border-radius: 4px; font-size: 0.88rem; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html#tesoreria">← Volver al índice</a>
+
+<h1><i class="bi bi-file-earmark-spreadsheet"></i> Manual de usuario: Formatos Bancarios</h1>
+<p class="subtitulo">Le enseña al sistema cómo viene el extracto que descargás de cada banco, para poder importarlo sin copiar nada a mano. Es lo primero que se configura para conciliar los bancos.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#circuito">El circuito de la conciliación bancaria</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#estados">Estados de un formato</a></li>
+        <li><a href="#nuevo">Crear un formato nuevo</a></li>
+        <li><a href="#probar">Probar el formato con un archivo</a></li>
+        <li><a href="#acciones">Visualizar, Editar, Inactivar y Habilitar</a></li>
+        <li><a href="#ejemplo">Ejemplo: un extracto en Excel</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p>Cada banco arma su extracto a su manera: en una columna pone la fecha, en otra la descripción, en otra el importe; algunos escriben la fecha como <code>21/10/2026</code> y otros como <code>21-oct-2026</code>; algunos separan débitos y créditos en dos columnas. Un <strong>formato</strong> describe todo eso para un banco.</p>
+<p>Se carga una sola vez por banco (o una vez por cada tipo de archivo que te dé ese banco). Después, cada mes, en <a href="bancos_importar.html">Extractos Bancarios</a> solo elegís la cuenta, el formato y el archivo.</p>
+<div class="nota-lateral">Si el banco cambia el diseño de su archivo, no hace falta borrar nada: le ponés fecha de fin al formato viejo y cargás uno nuevo (ver <a href="#preguntas-frecuentes">Preguntas frecuentes</a>).</div>
+
+<h2 id="circuito">El circuito de la conciliación bancaria</h2>
+<p>Esta pantalla es el paso 1. Los pasos 1 a 3 se configuran una vez; los pasos 4 a 6 se hacen todos los meses.</p>
+<div class="flujo">
+    <div class="flujo-caja actual">1. Formatos<small>cómo viene el archivo</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conceptos.html">2. Conceptos<small>qué es cada línea</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_reglas.html">3. Reglas<small>cómo reconocerla</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_importar.html">4. Extractos<small>importar el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conciliacion.html">5. Conciliación<small>banco contra tesorería</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final"><a href="bancos_gastos.html">6. Gastos Bancarios<small>comisiones e impuestos</small></a></div>
+</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Se abre desde el menú <strong>Tesorería &gt; Formatos Bancarios</strong>. Arriba está el botón <span class="boton-ejemplo boton-primario">+ Agregar</span> y, a la derecha, el botón de recargar (flechas en círculo).</p>
+<p>El listado muestra un formato por fila:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Banco</td><td>El banco al que pertenece el formato.</td></tr>
+    <tr><td>Formato</td><td>El nombre que le pusiste (por ejemplo "Movimientos web (Excel)").</td></tr>
+    <tr><td>Archivo</td><td>XLS, XLSX o CSV.</td></tr>
+    <tr><td>Vigencia</td><td>Desde cuándo vale ("en adelante" si no tiene fecha de fin).</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+    <tr><td>Acciones</td><td>Los botones de la fila (ver <a href="#acciones">más abajo</a>).</td></tr>
+</table>
+<p>Tocando el triángulo (▸) de una fila ves datos extra: las <strong>columnas</strong> configuradas y cuántas <strong>importaciones</strong> se hicieron con ese formato.</p>
+
+<h2 id="estados">Estados de un formato</h2>
+<table class="tabla-referencia">
+    <tr><th>Estado</th><th>Qué significa para vos</th></tr>
+    <tr><td><span class="badge badge-success">Activo</span></td><td>Se puede elegir al importar un extracto (si además está dentro de su vigencia).</td></tr>
+    <tr><td><span class="badge badge-secondary">Inactivo</span></td><td>No aparece al importar. Los extractos que ya se importaron con él no cambian. La fila se ve en gris.</td></tr>
+</table>
+
+<h2 id="nuevo">Crear un formato nuevo</h2>
+<p>Con <span class="boton-ejemplo boton-primario">+ Agregar</span> se abre la ventana <strong>Nuevo formato</strong>. Tené a mano un extracto real del banco abierto en Excel: vas a necesitar mirar en qué columna y en qué fila está cada dato.</p>
+
+<h3 id="nuevo-archivo">Sección "Archivo"</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Banco <em>(obligatorio)</em></td><td>El banco que emite el extracto. Si tu banco no está en la lista, pedile al administrador que lo agregue.</td></tr>
+    <tr><td>Nombre <em>(obligatorio)</em></td><td>Un nombre para reconocerlo, por ejemplo "Movimientos web (Excel)".</td></tr>
+    <tr><td>Tipo <em>(obligatorio)</em></td><td><strong>Excel .xls</strong>, <strong>Excel .xlsx</strong> o <strong>CSV / texto</strong>. Fijate la extensión del archivo que descargás.</td></tr>
+    <tr><td>Hoja</td><td>Nombre de la hoja del Excel donde están los movimientos. Si lo dejás vacío, se usa la primera hoja.</td></tr>
+    <tr><td>Primera fila con movimientos <em>(obligatorio)</em></td><td>El número de fila (como lo ves en Excel, a la izquierda) donde aparece el primer movimiento. No la del título de las columnas: la del primer dato.</td></tr>
+    <tr><td>Separador de campos</td><td>Solo para CSV: punto y coma, coma o barra. "Detectar" lo averigua solo.</td></tr>
+    <tr><td>Codificación</td><td>Solo para CSV. Si al probar ves letras raras en lugar de acentos o eñes, cambiá a "Windows (ANSI)".</td></tr>
+</table>
+
+<h3 id="nuevo-columnas">Sección "Columnas"</h3>
+<p>En cada campo escribí la <strong>letra</strong> de la columna del Excel (A, B, C...). El sistema la pasa a mayúscula sola.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Fecha <em>(obligatorio)</em></td><td>Columna con la fecha del movimiento.</td></tr>
+    <tr><td>Descripción <em>(obligatorio)</em></td><td>Columna con el texto del banco ("COMISION DATANET", "TRANSF DE ...").</td></tr>
+    <tr><td>Importe <em>(obligatorio si los importes vienen con signo)</em></td><td>Una sola columna donde lo que sale de la cuenta viene en negativo.</td></tr>
+    <tr><td>Débito y Crédito <em>(obligatorios si vienen separados)</em></td><td>Aparecen en lugar de "Importe" cuando en "Importes" elegís "Débito y crédito separados".</td></tr>
+    <tr><td>Saldo</td><td>Columna del saldo. <strong>Muy recomendable</strong>: con el saldo el sistema controla que no falte ni sobre ningún movimiento.</td></tr>
+    <tr><td>Referencia</td><td>Si el banco trae una columna con número de comprobante, de cheque o de operación.</td></tr>
+    <tr><td>Fecha valor</td><td>Si el banco trae una segunda fecha (fecha valor).</td></tr>
+</table>
+
+<h3 id="nuevo-fechas">Sección "Fechas e importes"</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Formato de fecha <em>(obligatorio)</em></td><td>Cómo está escrita la fecha. Se usan estas letras: <code>d</code> = día, <code>m</code> = mes en número, <code>M</code> = mes en letras (oct), <code>Y</code> = año con 4 cifras. Ejemplos: <code>d/m/Y</code> para 21/10/2026; <code>d-M-Y</code> para 21-oct-2026.</td></tr>
+    <tr><td>Meses en letras</td><td>Español o Inglés, si el mes viene en letras ("oct" o "Oct").</td></tr>
+    <tr><td>Orden de los movimientos</td><td>"Del más viejo al más nuevo" o "Del más nuevo al más viejo", según cómo aparezcan en el archivo.</td></tr>
+    <tr><td>Importes</td><td>"Una columna con signo (− = débito)" o "Débito y crédito separados".</td></tr>
+    <tr><td>Separador decimal / de miles</td><td>Lo habitual en Argentina: decimal con coma y miles con punto (1.234,56).</td></tr>
+    <tr><td>El saldo de cada fila es el anterior al movimiento</td><td>Dejalo apagado salvo que tu banco muestre el saldo que había <em>antes</em> del movimiento (lo común es el saldo que queda después).</td></tr>
+</table>
+
+<h3 id="nuevo-mas">"Número de cuenta, referencia y vigencia" (opciones avanzadas)</h3>
+<p>Está plegado; tocá el título para abrirlo.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Fila del n° de cuenta / Columna / Expresión del n° de cuenta</td><td>Si el encabezado del extracto dice el número de cuenta, el sistema lo lee y te avisa si estás por importar el archivo en la cuenta equivocada. La "expresión" es un patrón de búsqueda; pedile ayuda al administrador para completarla la primera vez (hay un ejemplo en el "?").</td></tr>
+    <tr><td>Referencia en la descripción</td><td>Patrón para sacar de la descripción un CUIT o un número de cheque. Ayuda a que la conciliación encuentre sola el movimiento de tesorería correspondiente.</td></tr>
+    <tr><td>Vale desde <em>(obligatorio)</em> / Hasta</td><td>Período en que vale el formato. Por defecto, desde hoy y sin fecha de fin.</td></tr>
+</table>
+<p>Cuando está todo, apretá <span class="boton-ejemplo boton-primario">Guardar</span>. Vas a ver "Formato creado."</p>
+<div class="alert alert-info">Antes de guardar, conviene <a href="#probar">probarlo</a> con un archivo real: la prueba no guarda nada y te muestra cómo se leyó.</div>
+
+<h2 id="probar">Probar el formato con un archivo</h2>
+<p>Al pie de la ventana del formato está la sección <strong>Probar con un archivo</strong>. Elegí un extracto descargado del banco y apretá <span class="boton-ejemplo boton-outline">Probar</span>. El sistema lee el archivo con lo que cargaste en la ventana (aunque todavía no lo hayas guardado) y muestra:</p>
+<table class="tabla-referencia">
+    <tr><th>Indicador</th><th>Qué mirar</th></tr>
+    <tr><td>Movimientos</td><td>Cuántos movimientos encontró y entre qué fechas. Compará con el extracto.</td></tr>
+    <tr><td>Saldo inicial / final</td><td>Tienen que coincidir con los del extracto.</td></tr>
+    <tr><td>Cadena de saldos</td><td>Cuántos pares de filas "cierran" (saldo anterior + importe = saldo siguiente). En <strong style="color:#198754">verde</strong> si cierran todos; en <strong style="color:#dc3545">rojo</strong> si alguno no.</td></tr>
+    <tr><td>N° de cuenta</td><td>El número de cuenta que leyó del encabezado (o "—" si no está configurado).</td></tr>
+</table>
+<p>Debajo aparecen los primeros 15 movimientos ya ordenados del más viejo al más nuevo, con su fecha, descripción, referencia, importe (en rojo los débitos) y saldo. Si algo se ve mal, corregí el campo correspondiente y volvé a apretar Probar.</p>
+<p>También se puede probar un formato ya guardado con el botón <strong>Probar con un archivo</strong> de su fila.</p>
+
+<h2 id="acciones">Visualizar, Editar, Inactivar y Habilitar</h2>
+<p>Los botones de cada fila dependen del estado del formato y de los permisos de tu perfil.</p>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Cuándo aparece</th><th>Qué hace</th></tr>
+    <tr><td>Visualizar</td><td>Formato activo</td><td>Abre el formato para mirarlo, sin poder cambiarlo. Igual podés usar "Probar".</td></tr>
+    <tr><td>Editar</td><td>Formato activo</td><td>Abre el formato para corregirlo. Al guardar: "Formato actualizado."</td></tr>
+    <tr><td>Probar con un archivo</td><td>Formato activo</td><td>Abre el formato y te lleva directo al campo para elegir el archivo de prueba.</td></tr>
+    <tr><td>Inactivar</td><td>Formato activo</td><td>Pregunta "¿Inactivar?" y, al aceptar, el formato deja de ofrecerse al importar.</td></tr>
+    <tr><td>Habilitar</td><td>Formato inactivo</td><td>Lo vuelve a activar.</td></tr>
+</table>
+
+<h2 id="ejemplo">Ejemplo: un extracto en Excel</h2>
+<p>Un banco entrega un archivo <code>.xls</code> con la hoja "report". El título de las columnas está en la fila 6 y los movimientos empiezan en la fila 8, en las columnas B (fecha), C (descripción), D (importe con signo) y E (saldo). La fecha viene como <code>21-oct-2026</code> y lo más nuevo está arriba. El formato queda así:</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Valor</th></tr>
+    <tr><td>Tipo / Hoja / Primera fila</td><td>Excel .xls / report / 8</td></tr>
+    <tr><td>Columnas</td><td>Fecha B, Descripción C, Importe D, Saldo E</td></tr>
+    <tr><td>Formato de fecha / Meses en letras</td><td><code>d-M-Y</code> / Español</td></tr>
+    <tr><td>Orden / Importes</td><td>Del más nuevo al más viejo / Una columna con signo</td></tr>
+</table>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>No se encontraron movimientos: revisá la fila de inicio y la columna de fecha del formato.</td><td>En la fila indicada no hay una fecha que el sistema entienda. Revisá "Primera fila con movimientos", la columna Fecha y el "Formato de fecha".</td></tr>
+    <tr><td>Fila N: el saldo es ... y debería ser ... (falta o sobra un movimiento cerca de esa fila).</td><td>La cadena de saldos no cierra. Suele ser una columna mal elegida, el orden de los movimientos al revés, o la opción "el saldo es el anterior al movimiento" mal puesta.</td></tr>
+    <tr><td>Saldo inicial + movimientos (...) no da el saldo final (...).</td><td>Igual que el anterior, para el total del archivo.</td></tr>
+    <tr><td>Las fechas no vienen en orden: revisá el orden del archivo en el formato.</td><td>Cambiá "Orden de los movimientos".</td></tr>
+    <tr><td>El formato no tiene columna de saldo: no se puede controlar que no falten movimientos.</td><td>Es un aviso. Si el banco trae saldo, cargá su columna.</td></tr>
+    <tr><td>Fila N: no se pudo leer el importe.</td><td>Revisá la columna del importe y los separadores decimal y de miles.</td></tr>
+    <tr><td>El archivo no tiene la hoja "..." (tiene: ...).</td><td>Corregí el nombre de la hoja o dejalo vacío.</td></tr>
+    <tr><td>El archivo no es una planilla de Excel (.xls) / (.xlsx) · El formato espera un CSV y el archivo es una planilla de Excel.</td><td>El "Tipo" del formato no coincide con el archivo.</td></tr>
+    <tr><td>El archivo tiene macros: guardalo como .xlsx sin macros o como CSV.</td><td>Por seguridad no se leen planillas con macros.</td></tr>
+    <tr><td>El archivo supera los 5 MB.</td><td>Descargá un período más corto.</td></tr>
+    <tr><td>Formato de fecha no válido: usá d, m, M (mes en letras), Y y separadores...</td><td>El campo "Formato de fecha" tiene letras que no se usan.</td></tr>
+    <tr><td>Indicá las columnas de Fecha y Descripción / del importe / de débito y crédito.</td><td>Falta alguna columna obligatoria.</td></tr>
+    <tr><td>La vigencia termina antes de empezar.</td><td>La fecha "Hasta" es anterior a "Vale desde".</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Tengo dos cuentas en el mismo banco, ¿necesito dos formatos?</td><td>No. El formato es del banco; sirve para todas sus cuentas.</td></tr>
+    <tr><td>El banco cambió el diseño del archivo.</td><td>Editá el formato viejo y ponele fecha "Hasta" (el último día que valía). Después creá uno nuevo con "Vale desde" a partir del cambio. Así queda registro de con qué formato se importó cada extracto.</td></tr>
+    <tr><td>Al importar no me aparece el formato.</td><td>Al importar solo se ofrecen formatos activos, vigentes a hoy y del mismo banco que la cuenta elegida.</td></tr>
+    <tr><td>¿Puedo importar un PDF?</td><td>No. Solo Excel (.xls, .xlsx) o CSV. La mayoría de los bancos permite descargar los movimientos en Excel desde el home banking.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="bancos_conceptos.html">Conceptos Bancarios</a> (paso 2)</li>
+        <li><a href="bancos_importar.html">Extractos Bancarios</a> (paso 4)</li>
+        <li><a href="tesoreria_dashboard.html">Dashboard Financiero</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulos Gestión y Gestión Normal / Tesorería / Formatos Bancarios. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

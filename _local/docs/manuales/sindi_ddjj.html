@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Sindicatos: Declaraciones Juradas Mensuales (DDJJ)</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --marron: #795548; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #efebe9; color: #4e342e; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-brown { border-left: 4px solid var(--marron); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_sindicatos.html">← Volver al manual de Sindicatos</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Sindicatos · Liquidación Mensual</span>
+<h1>Manual de usuario: Declaraciones Juradas (DDJJ)</h1>
+<p class="subtitulo">Presentación mensual de la nómina de personal, importación del F.931 SICOSS de ARCA, cálculo automático por concepto y presentación de rectificativas.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#proceso">El Proceso de Presentación Mensual</a></li>
+        <li><a href="#vias-carga">Vías de Carga: F.931 de ARCA vs. Excel vs. Manual</a></li>
+        <li><a href="#calculo">Cálculo de Aportes y Piso Salarial</a></li>
+        <li><a href="#rectificativas">Rectificativas (Secuencias 1 a 9)</a></li>
+        <li><a href="#oficio">Declaraciones Juradas de Oficio</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proceso">El Proceso de Presentación Mensual</h2>
+<p>En <code>modules/sindicatos/ddjj.php</code> el empleador o estudio liquida las obligaciones sindicales del período fiscal (AAAAMM):</p>
+<ol>
+    <li>Crear la DDJJ para el mes (ej. 202610). Solo puede haber una DDJJ en Borrador por empresa.</li>
+    <li>Cargar o importar la nómina de empleados.</li>
+    <li>Verificar el cálculo automático de los conceptos.</li>
+    <li><strong>Confirmar la DDJJ:</strong> El sistema genera el código de verificación oficial y devenga la deuda en la cuenta corriente.</li>
+</ol>
+
+<h2 id="vias-carga">Vías de Carga: F.931 de ARCA vs. Excel vs. Manual</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Vía</th>
+        <th>Cómo opera</th>
+    </tr>
+    <tr>
+        <td><strong>Importación F.931 SICOSS</strong></td>
+        <td>Sube el archivo de texto generado para ARCA. El sistema lee CUIL, remuneraciones brutas y no remunerativas al instante sin errores de tipeo.</td>
+    </tr>
+    <tr>
+        <td><strong>Planilla Excel / CSV</strong></td>
+        <td>Carga masiva basada en la plantilla estándar del sindicato.</td>
+    </tr>
+    <tr>
+        <td><strong>Edición Manual</strong></td>
+        <td>Permite ajustar sueldos, marcar licencias sin goce de sueldo o registrar altas y bajas de empleados.</td>
+    </tr>
+</table>
+
+<h2 id="calculo">Cálculo de Aportes y Piso Salarial</h2>
+<ul>
+    <li><strong>Fondo Social (Art. 100 - 2%):</strong> Se calcula sobre el total de haberes remunerativos y no remunerativos de toda la plantilla.</li>
+    <li><strong>Cuota Sindical (Art. 101 - 2%):</strong> Aplica únicamente a los trabajadores que poseen relación sindical activa.</li>
+    <li><strong>Control de Escala Mínima y SAC:</strong> Si un empleado percibe menos que el sueldo básico de convenio para su categoría, el sistema ajusta la base imponible al piso legal, computando el SAC proporcional en junio y diciembre.</li>
+</ul>
+
+<h2 id="rectificativas">Rectificativas (Secuencias 1 a 9)</h2>
+<p>Si la empresa omitió empleados o corrigió sueldos, genera una nueva secuencia rectificativa. Por regla estricta del gremio, <strong>la rectificativa revierte íntegramente la DDJJ anterior</strong> y deja vigente el nuevo total para evitar superposiciones.</p>
+
+<h2 id="oficio">Declaraciones Juradas de Oficio</h2>
+<p>En <code>ddjj_oficio.php</code> el gremio puede determinar la deuda estimada de un empleador moroso tomando como base la última nómina presentada o la dotación promedio de la actividad comercial.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Cómo se desafilia un empleado que ya no trabaja?</td>
+        <td>Al cargar la baja laboral en la nómina del F.931, el sistema cierra automáticamente la relación sindical del trabajador.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Sindicatos — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

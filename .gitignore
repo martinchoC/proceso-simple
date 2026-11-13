@@ -7,5 +7,33 @@ arca/**/cert/
 arca/**/respuesta/
 
 # Simulador de circuitos: salidas de cada corrida
-tests/simulacion/salidas/
-tests/simulacion/**/__pycache__/
+_local/tests/simulacion/salidas/
+_local/tests/simulacion/**/__pycache__/
+# Extractos bancarios reales (CUIT y nombres de terceros)
+_local/tests/fixtures/extracto_*.xls
+
+# Archivos reales de ARCA (datos de terceros): los de prueba se generan con _local/tools/mis_comprobantes_prueba.py
+_local/docs/Mis Comprobantes *.xlsx
+
+# Perfil de navegador de pruebas y cachés de Python
+_local/scratch/chrome-profile/
+__pycache__/
+*.pyc
+
+# Dumps y respaldos de bases (datos reales)
+_local/sql/develop*.sql
+_local/salidas_locales/
+
+# Archivos subidos por los usuarios (extractos, facturas, evidencias): datos reales
+uploads/**
+!uploads/**/
+!uploads/**/.htaccess
+
+# Exportaciones generadas por la aplicación
+modules/*/exports/
+
+# Documentos reales de terceros usados para probar
+_local/concilia/
+_local/docs/*.pdf
+_local/docs/mis_comprobantes_prueba/
+_local/tests/*.pdf

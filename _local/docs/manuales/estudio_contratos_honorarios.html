@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Estudio Contable: Contratos y Honorarios</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --cian: #055160; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #cff4fc; color: #055160; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-cyan { border-left: 4px solid var(--cian); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_estudio_contable.html">← Volver al manual de Estudio Contable</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Estudio Contable · Facturación Recurrente</span>
+<h1>Manual de usuario: Contratos y Honorarios</h1>
+<p class="subtitulo">Definición de tarifarios de servicios, contratos con abono mensual, cómputo de horas por categoría o valor modular y liquidación periódica.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#proposito">Circuito de Honorarios</a></li>
+        <li><a href="#tarifarios">Conceptos y Tarifarios</a></li>
+        <li><a href="#contratos">Contratos de Honorarios y Líneas</a></li>
+        <li><a href="#liquidacion">Liquidación Mensual Masiva</a></li>
+        <li><a href="#factura-arca">Emisión de Facturas Electrónicas de Servicio</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">Circuito de Honorarios</h2>
+<p>En <code>honorarios_conceptos.php</code> y <code>honorarios_facturacion.php</code> se administra el cobro de los servicios profesionales del estudio mediante un flujo transparente de 4 pasos:</p>
+<ol>
+    <li><strong>Definición de Tarifario:</strong> Catálogo de servicios y valores de referencia.</li>
+    <li><strong>Contrato por Cliente:</strong> Abono acordado, horas o módulos pactados.</li>
+    <li><strong>Liquidación en Borrador:</strong> Propuesta mensual que permite agregar novedades extraordinarias.</li>
+    <li><strong>Facturación con ARCA:</strong> Generación automática de comprobantes electrónicos con CAE.</li>
+</ol>
+
+<h2 id="tarifarios">Conceptos y Tarifarios</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Modalidad de Cobro</th>
+        <th>Cómo se calcula</th>
+    </tr>
+    <tr>
+        <td><strong>Abono Fijo</strong></td>
+        <td>Importe fijo mensual (ej. $150.000 / mes) por asesoramiento fiscal y contable continuo.</td>
+    </tr>
+    <tr>
+        <td><strong>Por Horas de Profesional</strong></td>
+        <td>Horas insumidas multiplicadas por la tarifa horaria según categoría (Socio, Senior, Semi-Senior, Junior).</td>
+    </tr>
+    <tr>
+        <td><strong>Por Módulos CPCE / FACPCE</strong></td>
+        <td>Cantidad de módulos fijados multiplicados por el valor oficial vigente del módulo profesional.</td>
+    </tr>
+</table>
+
+<h2 id="contratos">Contratos de Honorarios y Líneas</h2>
+<p>Cada contrato establece la vigencia del acuerdo y sus líneas activas. Soporta además líneas <strong>Eventuales</strong> (trabajos especiales como confección de Balance Anual, peritaje o constitución societaria que se liquidan en un período específico).</p>
+
+<h2 id="liquidacion">Liquidación Mensual Masiva</h2>
+<p>Al iniciar el mes, el asistente genera la propuesta de liquidación para toda la cartera activa. El contador puede revisar, ajustar importes o agregar conceptos antes de confirmar.</p>
+
+<h2 id="factura-arca">Emisión de Facturas Electrónicas de Servicio</h2>
+<p>Al confirmar la liquidación, el sistema emite las Facturas A o B correspondientes con conexión directa a ARCA cumpliendo con los requisitos de <em>Concepto 2 (Servicios)</em>, incluyendo fechas de período facturado y fecha de vencimiento para el pago.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Qué pasa si cambia el valor de la tarifa horaria en el tarifario general?</td>
+        <td>Los contratos vigentes mantienen sus valores pactados. Para aplicar los nuevos valores se genera una actualización o adenda al contrato.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Estudio Contable — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>
