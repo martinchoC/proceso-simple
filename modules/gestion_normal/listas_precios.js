@@ -530,7 +530,17 @@ $(document).ready(function () {
                 });
                 return;
             }
-            
+
+            if ($('#lista_precio_origen_id option:selected').data('codigo') === 'MANUAL') {
+                Swal.fire({
+                    icon: "info",
+                    title: "Lista de precios manuales",
+                    text: "Esta lista no se recalcula: sus precios se cargan a mano o se importan.",
+                    confirmButtonText: "Entendido"
+                });
+                return;
+            }
+
             Swal.fire({
                 title: '¿Recalcular precios?',
                 text: "Esta acción recalculará todos los precios de la lista aplicando las reglas activas",
@@ -648,7 +658,7 @@ $(document).ready(function () {
             var options = '<option value="">Seleccionar origen</option>';
             if (data && data.length > 0) {
                 data.forEach(function(item) {
-                    options += `<option value="${item.lista_precio_origen_id}">${escapeHtml(item.lista_precio_origen_nombre)}</option>`;
+                    options += `<option value="${item.lista_precio_origen_id}" data-codigo="${escapeHtml(item.lista_precio_origen_codigo || '')}">${escapeHtml(item.lista_precio_origen_nombre)}</option>`;
                 });
             }
             $('#lista_precio_origen_id').html(options);

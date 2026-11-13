@@ -304,6 +304,10 @@ try {
                 echo json_encode(['success' => false, 'error' => 'ID de lista no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
+            if (listaPrecioOrigenCodigo($conexion, $lista_precio_id, $empresa_idx) === 'MANUAL') {
+                echo json_encode(['success' => false, 'error' => LISTA_PRECIO_MANUAL_NO_RECALCULA], JSON_UNESCAPED_UNICODE);
+                break;
+            }
             $resultado = recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;

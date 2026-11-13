@@ -914,8 +914,8 @@ function obtenerReglaPorId($conexion, $id, $empresa_idx)
 
 function obtenerOrigenesLista($conexion)
 {
-    $sql = "SELECT lista_precio_origen_id, lista_precio_origen_nombre 
-            FROM gestion__listas_precios_origenes 
+    $sql = "SELECT lista_precio_origen_id, lista_precio_origen_nombre, lista_precio_origen_codigo
+            FROM gestion__listas_precios_origenes
             WHERE tabla_estado_registro_id = 1 
             ORDER BY orden, lista_precio_origen_nombre";
     
@@ -1264,6 +1264,29 @@ function obtenerProductosLista($conexion, $lista_precio_id, $empresa_idx)
     return $data;
 }
 
+if (!defined('LISTA_PRECIO_MANUAL_NO_RECALCULA')) {
+    define('LISTA_PRECIO_MANUAL_NO_RECALCULA', 'La lista es de precios manuales: no se recalcula. Sus precios se cargan a mano o se importan.');
+}
+
+/** Código del origen de la lista (COSTO / OTRA_LISTA / MANUAL), o null si la lista no es de la empresa. */
+function listaPrecioOrigenCodigo($conexion, $lista_precio_id, $empresa_idx)
+{
+    $stmt = mysqli_prepare($conexion, "SELECT o.lista_precio_origen_codigo
+                                       FROM gestion__listas_precios lp
+                                       LEFT JOIN gestion__listas_precios_origenes o ON o.lista_precio_origen_id = lp.lista_precio_origen_id
+                                       WHERE lp.lista_precio_id = ? AND lp.empresa_id = ?");
+    if (!$stmt) {
+        return null;
+    }
+    $lista_precio_id = intval($lista_precio_id);
+    $empresa_idx = intval($empresa_idx);
+    mysqli_stmt_bind_param($stmt, "ii", $lista_precio_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $fila = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    return $fila ? ($fila['lista_precio_origen_codigo'] ?? null) : null;
+}
+
 function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
 {
     $lista_precio_id = intval($lista_precio_id);
@@ -1282,7 +1305,12 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
         if (!$lista) {
             throw new Exception('Lista de precios no encontrada');
         }
-        
+
+        // Una lista de origen MANUAL no tiene fórmula: recalcularla la rellenaba desde el costo y borraba sus precios.
+        if (listaPrecioOrigenCodigo($conexion, $lista_precio_id, $empresa_idx) === 'MANUAL') {
+            throw new Exception(LISTA_PRECIO_MANUAL_NO_RECALCULA);
+        }
+
         // 2. Obtener reglas activas
         $query_reglas = "SELECT * FROM gestion__listas_precios_reglas 
                         WHERE lista_precio_id = $lista_precio_id 
