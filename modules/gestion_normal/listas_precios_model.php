@@ -1312,13 +1312,16 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
         }
 
         // 2. Obtener reglas activas
-        $query_reglas = "SELECT * FROM gestion__listas_precios_reglas 
-                        WHERE lista_precio_id = $lista_precio_id 
-                        AND empresa_id = $empresa_idx 
-                        AND tabla_estado_registro_id = 1
-                        AND (f_desde <= CURDATE() OR f_desde IS NULL)
-                        AND (f_hasta IS NULL OR f_hasta >= CURDATE())
-                        ORDER BY prioridad ASC";
+        $query_reglas = "SELECT r.*, vt.lista_precio_regla_valor_tipo_codigo AS valor_tipo_codigo
+                        FROM gestion__listas_precios_reglas r
+                        LEFT JOIN gestion__listas_precios_reglas_valores_tipos vt
+                               ON vt.lista_precio_regla_valor_tipo_id = r.lista_precio_regla_valor_tipo_id
+                        WHERE r.lista_precio_id = $lista_precio_id
+                        AND r.empresa_id = $empresa_idx
+                        AND r.tabla_estado_registro_id = 1
+                        AND (r.f_desde <= CURDATE() OR r.f_desde IS NULL)
+                        AND (r.f_hasta IS NULL OR r.f_hasta >= CURDATE())
+                        ORDER BY r.prioridad ASC";
         $result_reglas = mysqli_query($conexion, $query_reglas);
         $reglas = [];
         while ($row = mysqli_fetch_assoc($result_reglas)) {
@@ -1497,7 +1500,11 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
                         $precio_actual += $importe_regla;
                         $porcentaje_total += $valor_ajuste;
                         $importe_total += $importe_regla;
-                    } else { // Monto fijo
+                    } elseif (($regla['valor_tipo_codigo'] ?? null) === 'PRECIO_FIJO') { // Reemplaza el precio
+                        $importe_regla = $valor_ajuste - $precio_actual;
+                        $precio_actual = $valor_ajuste;
+                        $importe_total += $importe_regla;
+                    } else { // Importe fijo: se suma
                         $importe_regla = $valor_ajuste;
                         $precio_actual += $importe_regla;
                         $importe_total += $importe_regla;
