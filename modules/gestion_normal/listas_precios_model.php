@@ -1416,11 +1416,17 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
 
             // Determinar precio base
             if ($lista['lista_base_id']) {
-                $query_base = "SELECT precio_final 
-                              FROM gestion__listas_precios_productos 
-                              WHERE lista_precio_id = {$lista['lista_base_id']} 
-                              AND producto_id = {$producto['producto_id']} 
+                // Precio vigente de la lista base: la importación y la actualización por costo dejan la fila anterior
+                // en estado 2, así que sin estado, vigencia y orden el LIMIT 1 podía tomar un precio viejo.
+                $query_base = "SELECT precio_final
+                              FROM gestion__listas_precios_productos
+                              WHERE lista_precio_id = {$lista['lista_base_id']}
+                              AND producto_id = {$producto['producto_id']}
                               AND empresa_id = $empresa_idx
+                              AND tabla_estado_registro_id = 1
+                              AND (f_desde <= CURDATE() OR f_desde IS NULL)
+                              AND (f_hasta IS NULL OR f_hasta >= CURDATE())
+                              ORDER BY f_desde DESC, lista_precio_producto_id DESC
                               LIMIT 1";
                 $result_base = mysqli_query($conexion, $query_base);
                 $base_row = mysqli_fetch_assoc($result_base);
